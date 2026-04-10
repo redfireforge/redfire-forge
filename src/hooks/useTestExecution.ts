@@ -1,0 +1,97 @@
+import { useState, useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../types';
+import { runTest } from '../engine/executor';
+import { computeMetrics } from '../engine/metrics';
+import { saveTestRun } from '../utils/storage';
+
+interface TestExecutionState {
+  isRunning: boolean;
+  completed: number;
+  total: number;
+  liveResults: RequestResult[];
+  liveSummary: TestSummary | null;
+  finalRun: TestRun | null;
+  error: string | null;
+}
+
+export function useTestExecution() {
+  const [state, setState] = useState<TestExecutionState>({
+    isRunning: false,
+    completed: 0,
+    total: 0,
+    liveResults: [],
+    liveSummary: null,
+    finalRun: null,
+    error: null,
+  });
+
+  const abortRef = useRef<AbortController | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[]) => {
+    abortRef.current = new AbortController();
+    startTimeRef.current = performance.now();
+
+    setState({
+      isRunning: true,
+      completed: 0,
+      total: config.totalTransactions,
+      liveResults: [],
+      liveSummary: null,
+      finalRun: null,
+      error: null,
+    });
+
+    try {
+      const results = await runTest(
+        config,
+        scenarios,
+        (completed, total, allResults) => {
+          const elapsed = performance.now() - startTimeRef.current;
+          const summary = computeMetrics(allResults, elapsed);
+          setState((prev) => ({
+            ...prev,
+            completed,
+            total,
+            liveResults: allResults,
+            liveSummary: summary,
+          }));
+        },
+        abortRef.current.signal
+      );
+
+      const totalDuration = performance.now() - startTimeRef.current;
+      const summary = computeMetrics(results, totalDuration);
+      const testRun: TestRun = {
+        id: uuidv4(),
+        timestamp: Date.now(),
+        config,
+        summary,
+        results,
+      };
+
+      saveTestRun(testRun);
+
+      setState((prev) => ({
+        ...prev,
+        isRunning: false,
+        finalRun: testRun,
+        liveSummary: summary,
+        liveResults: results,
+      }));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        isRunning: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }, []);
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  return { ...state, execute, abort };
+}
