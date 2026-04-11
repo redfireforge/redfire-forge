@@ -1,33 +1,61 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { TestRun, RequestResult } from '../types';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
 import { exportJson, exportCsv } from '../utils/export';
 
-export default function ResultsDashboard() {
-  const [runs, setRuns] = useState<TestRun[]>(() => loadTestRuns());
+interface Props {
+  envName?: string;
+  svcName?: string;
+}
+
+export default function ResultsDashboard({ envName, svcName }: Props) {
+  const [allRuns, setAllRuns] = useState<TestRun[]>(() => loadTestRuns());
+
+  // Filter runs by selected environment and microservice
+  const runs = useMemo(() => {
+    return allRuns.filter((r) => {
+      if (envName && r.envName !== envName) return false;
+      if (svcName && r.svcName !== svcName) return false;
+      return true;
+    });
+  }, [allRuns, envName, svcName]);
+
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
   const [filterScenario, setFilterScenario] = useState<string>('all');
   const [filterPassed, setFilterPassed] = useState<string>('all');
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
+
+  // Reset selection when filtered runs change (env/svc switch)
+  useEffect(() => {
+    if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
+      setSelectedRunId(runs[0].id);
+    } else if (runs.length === 0) {
+      setSelectedRunId('');
+    }
+  }, [runs, selectedRunId]);
 
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const summary = selectedRun?.summary ?? null;
 
   const handleDelete = (runId: string) => {
     deleteTestRun(runId);
-    const updated = runs.filter((r) => r.id !== runId);
-    setRuns(updated);
+    const updated = allRuns.filter((r) => r.id !== runId);
+    setAllRuns(updated);
     if (selectedRunId === runId) {
-      setSelectedRunId(updated[0]?.id ?? '');
+      const filteredUpdated = updated.filter((r) => {
+        if (envName && r.envName && r.envName !== envName) return false;
+        if (svcName && r.svcName && r.svcName !== svcName) return false;
+        return true;
+      });
+      setSelectedRunId(filteredUpdated[0]?.id ?? '');
     }
   };
 
   const refreshRuns = () => {
     const fresh = loadTestRuns();
-    setRuns(fresh);
-    if (fresh.length > 0 && !fresh.find((r) => r.id === selectedRunId)) {
-      setSelectedRunId(fresh[0].id);
-    }
+    setAllRuns(fresh);
   };
 
   // Distribution chart data — bucket response times into 10 bins
@@ -81,14 +109,32 @@ export default function ResultsDashboard() {
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Results</h2>
+        <div className="page-title-block">
+          <h2>Results</h2>
+          {selectedRun && (selectedRun.svcName || selectedRun.envName) && (
+            <div className="context-tags">
+              {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
+              {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
+              {selectedRun.baseUrl
+                ? <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
+                : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
+              }
+              <span className="context-tag exec-mode-tag">{selectedRun.config.executionMode === 'pool' ? 'Pool' : 'Batch'}</span>
+            </div>
+          )}
+        </div>
         <div className="header-actions">
           <select value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                {new Date(r.timestamp).toLocaleString()} — {r.summary.totalRequests} req, {r.summary.tps} TPS
-              </option>
-            ))}
+            {runs.map((r) => {
+              const label = [
+                new Date(r.timestamp).toLocaleString(),
+                r.svcName,
+                r.envName,
+                `${r.summary.totalRequests} req`,
+                `${r.summary.tps} TPS`,
+              ].filter(Boolean).join(' — ');
+              return <option key={r.id} value={r.id}>{label}</option>;
+            })}
           </select>
           <button className="btn" onClick={refreshRuns}>Refresh</button>
           {selectedRun && (
@@ -103,48 +149,68 @@ export default function ResultsDashboard() {
 
       {/* Summary Metrics */}
       {summary && (
-        <div className="metrics-grid">
-          <div className="metric-card accent">
-            <div className="metric-value">{summary.tps}</div>
-            <div className="metric-label">TPS</div>
+        <>
+          <div className="metrics-row">
+            <div className="metric-card accent throughput-card">
+              <div className="throughput-grid">
+                <div className="throughput-item">
+                  <div className="metric-value">{summary.tps}</div>
+                  <div className="metric-label">TPS</div>
+                </div>
+                <div className="throughput-item">
+                  <div className="metric-value">{(summary.tps * 60).toFixed(1)}</div>
+                  <div className="metric-label">TPM</div>
+                </div>
+                <div className="throughput-item">
+                  <div className="metric-value">{(summary.tps * 3600).toFixed(0)}</div>
+                  <div className="metric-label">TPH</div>
+                </div>
+                <div className="throughput-item">
+                  <div className="metric-value">{(summary.tps * 86400).toFixed(0)}</div>
+                  <div className="metric-label">TPD</div>
+                </div>
+              </div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.avgResponseTime} ms</div>
+              <div className="metric-label">Avg Response</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.minResponseTime} ms</div>
+              <div className="metric-label">Min</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.maxResponseTime} ms</div>
+              <div className="metric-label">Max</div>
+            </div>
           </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.avgResponseTime} ms</div>
-            <div className="metric-label">Avg Response</div>
+          <div className="metrics-row">
+            <div className="metric-card">
+              <div className="metric-value">{summary.p95ResponseTime} ms</div>
+              <div className="metric-label">P95</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.p99ResponseTime} ms</div>
+              <div className="metric-label">P99</div>
+            </div>
+            <div className={`metric-card ${summary.errorRate > 0 ? 'error' : 'success'}`}>
+              <div className="metric-value">{summary.errorRate}%</div>
+              <div className="metric-label">Error Rate</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{(summary.totalDurationMs / 1000).toFixed(2)}s</div>
+              <div className="metric-label">Total Duration</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.totalRequests}</div>
+              <div className="metric-label">Total Requests</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.failedValidations}</div>
+              <div className="metric-label">Validation Failures</div>
+            </div>
           </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.minResponseTime} ms</div>
-            <div className="metric-label">Min</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.maxResponseTime} ms</div>
-            <div className="metric-label">Max</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.p95ResponseTime} ms</div>
-            <div className="metric-label">P95</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.p99ResponseTime} ms</div>
-            <div className="metric-label">P99</div>
-          </div>
-          <div className={`metric-card ${summary.errorRate > 0 ? 'error' : 'success'}`}>
-            <div className="metric-value">{summary.errorRate}%</div>
-            <div className="metric-label">Error Rate</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{(summary.totalDurationMs / 1000).toFixed(2)}s</div>
-            <div className="metric-label">Total Duration</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.totalRequests}</div>
-            <div className="metric-label">Total Requests</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-value">{summary.failedValidations}</div>
-            <div className="metric-label">Validation Failures</div>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Error breakdown */}
@@ -187,13 +253,13 @@ export default function ResultsDashboard() {
       <div className="section">
         <h3>Request Details</h3>
         <div className="filter-row">
-          <select value={filterScenario} onChange={(e) => setFilterScenario(e.target.value)}>
+          <select value={filterScenario} onChange={(e) => { setFilterScenario(e.target.value); setPage(0); }}>
             <option value="all">All Scenarios</option>
             {scenarioNames.map(([id, name]) => (
               <option key={id} value={id}>{name}</option>
             ))}
           </select>
-          <select value={filterPassed} onChange={(e) => setFilterPassed(e.target.value)}>
+          <select value={filterPassed} onChange={(e) => { setFilterPassed(e.target.value); setPage(0); }}>
             <option value="all">All Results</option>
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
@@ -215,7 +281,7 @@ export default function ResultsDashboard() {
               </tr>
             </thead>
             <tbody>
-              {filteredResults.slice(0, 500).map((r) => (
+              {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
                 <tr key={r.id} className={r.passed ? '' : 'row-failed'}>
                   <td>{r.scenarioName}</td>
                   <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
@@ -236,8 +302,16 @@ export default function ResultsDashboard() {
               ))}
             </tbody>
           </table>
-          {filteredResults.length > 500 && (
-            <div className="table-truncated">Showing first 500 of {filteredResults.length} results. Export for full data.</div>
+          {filteredResults.length > pageSize && (
+            <div className="pagination">
+              <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(0)}>First</button>
+              <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Prev</button>
+              <span className="pagination-info">
+                {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredResults.length)} of {filteredResults.length}
+              </span>
+              <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage((p) => p + 1)}>Next</button>
+              <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage(Math.ceil(filteredResults.length / pageSize) - 1)}>Last</button>
+            </div>
           )}
         </div>
       </div>

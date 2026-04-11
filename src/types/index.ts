@@ -1,14 +1,34 @@
+export interface Environment {
+  id: string;
+  name: string;
+}
+
+export interface Microservice {
+  id: string;
+  name: string;
+  baseUrls: Record<string, string>; // environmentId -> base URL
+}
+
 export interface KeyValue {
   key: string;
   value: string;
 }
 
-export type AuthType = 'none' | 'basic' | 'oauth2';
+export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2';
 
 export interface AuthConfig {
   type: AuthType;
+  // Basic & Digest
   username?: string;
   password?: string;
+  // Bearer
+  token?: string;
+  prefix?: string;
+  // API Key
+  apiKeyName?: string;
+  apiKeyValue?: string;
+  apiKeyIn?: 'header' | 'query';
+  // OAuth2 Client Credentials
   tokenUrl?: string;
   clientId?: string;
   clientSecret?: string;
@@ -54,6 +74,8 @@ export interface TestScenario {
 export interface FeatureGroup {
   id: string;
   name: string;
+  microserviceId?: string;
+  environmentId?: string;
   scenarios: TestScenario[];
 }
 
@@ -62,10 +84,13 @@ export interface ScenarioWeight {
   weight: number;
 }
 
+export type ExecutionMode = 'batch' | 'pool';
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
   scenarioWeights: ScenarioWeight[];
+  executionMode: ExecutionMode;
 }
 
 export interface FailureDetail {
@@ -112,4 +137,7 @@ export interface TestRun {
   config: TestConfig;
   summary: TestSummary;
   results: RequestResult[];
+  envName?: string;
+  svcName?: string;
+  baseUrl?: string;
 }

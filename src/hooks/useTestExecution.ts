@@ -29,7 +29,7 @@ export function useTestExecution() {
   const abortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[]) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { envName?: string; svcName?: string; baseUrl?: string }) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
 
@@ -69,6 +69,9 @@ export function useTestExecution() {
         config,
         summary,
         results,
+        envName: meta?.envName,
+        svcName: meta?.svcName,
+        baseUrl: meta?.baseUrl,
       };
 
       saveTestRun(testRun);
