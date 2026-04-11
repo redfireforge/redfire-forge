@@ -224,10 +224,32 @@ export async function runTest(
 
   const mode = config.executionMode ?? 'batch';
 
+  if (mode === 'sequential') {
+    return runSequential(queue, tokenMap, onProgress, abortSignal);
+  }
   if (mode === 'pool') {
     return runPool(queue, config.concurrency, tokenMap, onProgress, abortSignal);
   }
   return runBatch(queue, config.concurrency, tokenMap, onProgress, abortSignal);
+}
+
+async function runSequential(
+  queue: Scenario[],
+  tokenMap: Map<string, string>,
+  onProgress: ProgressCallback,
+  abortSignal?: AbortSignal
+): Promise<RequestResult[]> {
+  const allResults: RequestResult[] = [];
+
+  for (const scenario of queue) {
+    if (abortSignal?.aborted) break;
+    const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
+    const result = await executeRequest(scenario, headers);
+    allResults.push(result);
+    onProgress(allResults.length, queue.length, allResults);
+  }
+
+  return allResults;
 }
 
 async function runBatch(

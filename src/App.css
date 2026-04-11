@@ -1016,6 +1016,17 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 /* Progress */
 .progress-section { margin-top: 24px; }
+.progress-mode-tag {
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
 .progress-bar-container {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1107,6 +1118,25 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   padding: 12px 20px;
   border-radius: var(--radius);
   margin-top: 16px;
+}
+.storage-quota-banner {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: rgba(243, 156, 18, 0.12);
+  border: 1px solid rgba(243, 156, 18, 0.5);
+  border-radius: var(--radius);
+}
+.storage-quota-msg {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.storage-quota-msg strong {
+  color: #f39c12;
+}
+.storage-quota-actions {
+  display: flex;
+  gap: 10px;
 }
 
 /* Sections */
@@ -1240,13 +1270,17 @@ tr:hover td { background: var(--surface-hover); }
 .scenario-group-actions { margin-left: auto; display: flex; gap: 6px; }
 .scenario-group-body { padding: 4px 14px 10px; }
 
-/* Scenario auth panel */
+/* Auth panels (feature & scenario) */
 .scenario-auth-panel {
   padding: 14px;
   margin: 0 14px 8px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+.feature-auth-panel {
+  margin: 0 0 4px;
+  border-left: 3px solid var(--primary);
 }
 .scenario-auth-header {
   display: flex;
@@ -1258,6 +1292,12 @@ tr:hover td { background: var(--surface-hover); }
 .auth-hint, .field-hint {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+.field-hint-inline {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
 }
 .auth-type-select {
   display: flex;
@@ -1289,8 +1329,112 @@ tr:hover td { background: var(--surface-hover); }
   color: var(--text-muted);
   margin-top: 4px;
 }
-.auth-badge { background: var(--primary); color: #fff; }
+.auth-badge { color: #fff; font-weight: 600; }
+.auth-badge-feature { background: #8e44ad; }
+.auth-badge-scenario { background: #2980b9; }
+.auth-badge-scenario-inherit { background: transparent; border: 1px solid #8e44ad; color: #8e44ad; }
+.auth-badge-test-own { background: #27ae60; }
+.auth-badge-test-scenario { background: transparent; border: 1px solid #2980b9; color: #2980b9; }
+.auth-badge-test-feature { background: transparent; border: 1px solid #8e44ad; color: #8e44ad; }
+.auth-badge-test-none { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); }
 .btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Secret toggle */
+.secret-input-wrap {
+  position: relative;
+  display: flex;
+}
+.secret-input-wrap input {
+  flex: 1;
+  padding-right: 36px;
+}
+.secret-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.secret-toggle:hover {
+  opacity: 1;
+}
+
+/* Auth verify */
+.auth-verify-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.btn-verify {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-verify:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-verify:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.auth-verify-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.auth-verify-ok {
+  background: rgba(46, 204, 113, 0.1);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+.auth-verify-fail {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.4);
+}
+.auth-verify-icon {
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.auth-verify-ok .auth-verify-icon { color: #2ecc71; }
+.auth-verify-fail .auth-verify-icon { color: #e74c3c; }
+.auth-verify-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.auth-verify-msg {
+  font-weight: 600;
+}
+.auth-verify-detail {
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-muted);
+}
 
 /* Test cards inside scenario groups */
 .test-card {

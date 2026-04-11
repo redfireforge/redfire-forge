@@ -60,7 +60,7 @@ src/
 │   ├── TestRunner.tsx       # Configure & execute performance runs
 │   └── ResultsDashboard.tsx # View & analyze historical test results
 ├── engine/
-│   ├── executor.ts          # HTTP execution engine (batch & pool modes)
+│   ├── executor.ts          # HTTP execution engine (sequential, batch & pool modes)
 │   ├── validator.ts         # Response validation (full, selective, unordered)
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
@@ -157,10 +157,14 @@ Feature Group (e.g., "Vehicle Onboarding")
 1. Type a name in the "New Feature Group" input and click **+ New Feature Group**.
 2. The group is automatically associated with the currently selected environment and microservice from the sidebar.
 
+**Feature Group Authentication:**
+
+Click the **Auth** button on a Feature Group to configure authentication that all scenarios and tests in the group can inherit. This is the lowest priority in the inheritance chain.
+
 **Creating a Scenario:**
 
 1. Inside a Feature Group, type a name and click **+ Scenario**.
-2. Optionally set **Scenario-level authentication**. Tests within the scenario can inherit this auth.
+2. Optionally set **Scenario-level authentication** — it can inherit from the Feature Group or define its own. Tests within the scenario can inherit this auth.
 
 **Import / Export:**
 
@@ -188,13 +192,48 @@ Select from a dropdown menu (similar to Insomnia):
 
 | Type | Fields | Description |
 |---|---|---|
-| **Inherit from Scenario** | — | Uses the parent scenario's auth config |
+| **Inherit from Scenario** | — | Uses the parent scenario's auth; if the scenario also inherits, walks up to the Feature Group |
 | **No Auth** | — | No authentication |
 | **Basic Auth** | Username, Password | Sends `Authorization: Basic <base64>` header |
 | **Bearer Token** | Token, Prefix | Sends `Authorization: Bearer <token>` with customizable prefix |
 | **API Key** | Key Name, Key Value, Location | Sends as a custom header or query parameter |
 | **Digest Auth** | Username, Password | HTTP Digest authentication |
 | **OAuth2 Client Credentials** | Token URL, Client ID, Client Secret | Acquires a real token at runtime via client credentials flow |
+
+**Auth Inheritance Chain** (lowest → highest priority):
+
+```
+Feature Group Auth  →  Scenario Auth  →  Test Auth
+  (lowest)                                (highest)
+```
+
+- A **Test** set to "Inherit" resolves auth from its Scenario; if the Scenario also inherits, it walks up to the Feature Group.
+- A **Scenario** set to "Inherit from Feature" uses the Feature Group's auth config.
+- Each level can override by selecting its own auth type (Basic, Bearer, OAuth2, etc.).
+
+**Auth Verification:**
+
+Click the **Verify Auth** button (available at Feature, Scenario, and Test levels) to validate credentials:
+- **OAuth2**: Actually calls the Token URL to acquire a token. On success, shows a token preview with expiration and scope.
+- **Other types**: Confirms required fields are filled and shows a config summary.
+
+**Secret Visibility Toggle:**
+
+OAuth2 Client Secret fields include an eye icon toggle to show/hide the value.
+
+**Color-Coded Auth Badges:**
+
+Auth badges are color-coded by level for quick visual identification:
+
+| Color | Meaning |
+|---|---|
+| **Purple (solid)** | Auth configured at Feature Group level |
+| **Blue (solid)** | Auth configured at Scenario level |
+| **Purple (outline)** | Scenario inheriting from Feature |
+| **Green (solid)** | Test using its own auth |
+| **Blue (outline)** | Test inheriting from Scenario |
+| **Purple (outline)** | Test inheriting from Feature |
+| **Gray (outline)** | No auth |
 
 **Input Modes:**
 
@@ -235,16 +274,17 @@ Choose which hostname is used at runtime:
 - **Skip Validation**: Disables all response validation for the run. Useful for pure throughput testing.
 - **Execution Mode**:
 
-| Mode | How It Works |
-|---|---|
-| **Batch** | Fires N requests simultaneously, waits for **all N** to complete, then fires the next N. Simple and predictable, but idle slots wait for the slowest request. |
-| **Continuous Pool** | Maintains exactly N requests in-flight at all times. When **any single** request completes, a new one starts immediately. Maximizes throughput with zero idle time. |
+| Mode | Concurrency | How It Works |
+|---|---|---|
+| **Sequential** | Fixed to 1 | Executes one request at a time, in order. No parallelism — useful for testing exact request sequences or when the target service cannot handle concurrent load. |
+| **Batch** | N | Fires N requests simultaneously, waits for **all N** to complete, then fires the next N. Simple and predictable, but idle slots wait for the slowest request. |
+| **Continuous Pool** | N | Maintains exactly N requests in-flight at all times. When **any single** request completes, a new one starts immediately. Maximizes throughput with zero idle time. |
 
 **Configuration:**
 
 | Field | Description |
 |---|---|
-| **Concurrency** | Number of parallel requests (1–100). |
+| **Concurrency** | Number of parallel requests (1–100). Automatically disabled and fixed to 1 when Sequential mode is selected. |
 | **Total Transactions** | Total number of requests to execute. Automatically adjusts upward if less than the number of selected tests (each runs at least once). |
 | **Test Distribution (Weights)** | Set relative weights per test. A test with weight `2` runs roughly twice as often as one with weight `1`. Set to `0` to skip a test without deselecting it. |
 
@@ -253,7 +293,7 @@ Choose which hostname is used at runtime:
 1. Select one or more Scenarios using the checkboxes.
 2. Adjust concurrency, total transactions, and weights.
 3. Click **▶ Run Test**.
-4. A live progress bar shows completion percentage, current TPS, average response time, and error rate.
+4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`).
 5. Click **■ Stop** to abort early.
 6. When complete, results auto-navigate to the Results tab.
 
@@ -267,7 +307,7 @@ Navigate to the **Results** tab (third tab).
 
 - A dropdown lists historical runs filtered by the selected environment/microservice.
 - Each run shows its timestamp and basic stats.
-- Context tags show: environment, microservice, host used (purple = configured URL, orange = hardcoded), and execution mode (Batch/Pool).
+- Context tags show: environment, microservice, host used (purple = configured URL, orange = hardcoded), and execution mode with concurrency and total transactions (e.g., `Batch · C:2 · T:160`).
 
 **Summary Metrics (Row 1):**
 
@@ -315,10 +355,12 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Visual test builder | Point-and-click editor for URL, headers, body, auth, validation |
 | cURL import/export | Paste cURL to create tests; generate cURL with live OAuth2 tokens |
 | Multiple auth schemes | None, Inherit, Basic, Bearer Token, API Key, Digest, OAuth2 Client Credentials |
+| Auth inheritance chain | Feature → Scenario → Test with visual color-coded badges (purple/blue/green) |
+| Auth verification | Verify credentials at any level; OAuth2 acquires a real token |
 | Full & selective validation | Deep JSON compare, specific path checks, unordered arrays |
 | Visual JSON path builder | Click fields in a sample JSON tree to build validation rules |
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
-| Batch & pool execution | Two concurrency models for different load profiles |
+| Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
@@ -328,7 +370,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
 | Export Center | Selectively export any combination of environments, microservices, features, and runs |
-| Storage management | Monitor usage, configure max runs, auto-prune old data |
+| Storage management | Monitor usage, configure max runs, auto-prune old data, graceful quota-exceeded recovery |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Reassign Feature Groups to different environments |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
@@ -352,4 +394,4 @@ All data is stored in the browser's **localStorage**:
 | `perf-test-selected-svc` | Currently selected microservice ID |
 | `perf-test-theme` | Theme preference (`dark` or `light`) |
 
-**Storage limits:** localStorage is typically capped at ~5 MB per origin. The Storage section in Settings shows current usage and per-key breakdown. To reset all data, clear localStorage for the site in your browser's DevTools (Application → Storage → Clear site data).
+**Storage limits:** localStorage is typically capped at ~5 MB per origin. The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear localStorage for the site in your browser's DevTools (Application → Storage → Clear site data).

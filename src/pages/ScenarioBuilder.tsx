@@ -83,6 +83,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [editingScenarioName, setEditingScenarioName] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
+  // Feature auth editing
+  const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
+
   // Scenario auth editing
   const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
 
@@ -163,6 +166,26 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setEditName('');
   };
 
+  // Feature auth
+  const updateFeatureAuth = (featureId: string, auth: AuthConfig) => {
+    setFeatureGroups((prev) => prev.map((fg) =>
+      fg.id === featureId ? { ...fg, auth } : fg
+    ));
+  };
+
+  const toggleFeatureAuth = (featureId: string) => {
+    setAuthVerifyResult(null);
+    if (editingFeatureAuth === featureId) {
+      setEditingFeatureAuth(null);
+    } else {
+      setEditingFeatureAuth(featureId);
+      const fg = featureGroups.find((f) => f.id === featureId);
+      if (fg && !fg.auth) {
+        updateFeatureAuth(featureId, { type: 'none' });
+      }
+    }
+  };
+
   // Scenario auth
   const updateScenarioAuth = (featureId: string, scenarioId: string, auth: AuthConfig) => {
     setFeatureGroups((prev) => prev.map((fg) =>
@@ -173,11 +196,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   const toggleScenarioAuth = (featureId: string, scenarioId: string) => {
+    setAuthVerifyResult(null);
+    setEditingFeatureAuth(null);
     if (editingScenarioAuth === scenarioId) {
       setEditingScenarioAuth(null);
     } else {
       setEditingScenarioAuth(scenarioId);
-      // Ensure auth config exists
       const fg = featureGroups.find((f) => f.id === featureId);
       const sc = fg?.scenarios.find((s) => s.id === scenarioId);
       if (sc && !sc.auth) {
@@ -195,6 +219,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setActiveTab('params');
     setCurlText('');
     setQueryParams([{ key: '', value: '' }]);
+    setAuthVerifyResult(null);
   };
 
   const startEditTest = (featureId: string, scenarioId: string, test: Scenario) => {
@@ -329,18 +354,78 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Resolve effective auth:
-  // 'inherit' = use scenario-level auth
-  // 'none' = explicitly no auth
-  // 'basic'/'oauth2' = test-level auth (highest priority)
+  const [authVerifying, setAuthVerifying] = useState(false);
+  const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
+  const [showSecret, setShowSecret] = useState(false);
+
+  const verifyAuth = useCallback(async (auth: AuthConfig) => {
+    setAuthVerifying(true);
+    setAuthVerifyResult(null);
+    try {
+      if (auth.type === 'oauth2') {
+        if (!auth.tokenUrl || !auth.clientId || !auth.clientSecret) {
+          const missing = [!auth.tokenUrl && 'Token URL', !auth.clientId && 'Client ID', !auth.clientSecret && 'Client Secret'].filter(Boolean).join(', ');
+          setAuthVerifyResult({ ok: false, message: `Missing: ${missing}` });
+          return;
+        }
+        const token = await acquireOAuth2Token(auth);
+        const parts = token.split('.');
+        let detail = `Token: ${token.slice(0, 20)}...${token.slice(-10)}`;
+        if (parts.length === 3) {
+          try {
+            const payload = JSON.parse(atob(parts[1]));
+            if (payload.exp) {
+              const expDate = new Date(payload.exp * 1000);
+              detail += `\nExpires: ${expDate.toLocaleString()}`;
+            }
+            if (payload.scope) detail += `\nScope: ${payload.scope}`;
+          } catch { /* not a JWT */ }
+        }
+        setAuthVerifyResult({ ok: true, message: 'Token acquired successfully', detail });
+      } else if (auth.type === 'basic') {
+        if (!auth.username) { setAuthVerifyResult({ ok: false, message: 'Username is required' }); return; }
+        setAuthVerifyResult({ ok: true, message: 'Basic Auth configured', detail: `Username: ${auth.username}` });
+      } else if (auth.type === 'bearer') {
+        if (!auth.token) { setAuthVerifyResult({ ok: false, message: 'Token is required' }); return; }
+        const prefix = auth.prefix?.trim() || 'Bearer';
+        setAuthVerifyResult({ ok: true, message: 'Bearer Token configured', detail: `${prefix} ${auth.token.slice(0, 20)}...` });
+      } else if (auth.type === 'apikey') {
+        if (!auth.apiKeyName || !auth.apiKeyValue) { setAuthVerifyResult({ ok: false, message: 'Key Name and Key Value are required' }); return; }
+        setAuthVerifyResult({ ok: true, message: 'API Key configured', detail: `${auth.apiKeyName} → ${auth.apiKeyIn === 'query' ? 'Query Param' : 'Header'}` });
+      } else if (auth.type === 'digest') {
+        if (!auth.username) { setAuthVerifyResult({ ok: false, message: 'Username is required' }); return; }
+        setAuthVerifyResult({ ok: true, message: 'Digest Auth configured', detail: `Username: ${auth.username}` });
+      } else {
+        setAuthVerifyResult({ ok: false, message: 'No auth type selected' });
+      }
+    } catch (err) {
+      setAuthVerifyResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setAuthVerifying(false);
+    }
+  }, []);
+
+  // Resolve effective auth with priority chain: Test → Scenario → Feature
+  // Test auth: if not 'inherit' and not 'none', use test's own auth
+  // Scenario auth: if not 'inherit' and not 'none', use scenario's auth
+  // Feature auth: fallback to feature-level auth
   const resolveEffectiveAuth = useCallback((): { auth: AuthConfig; source: string } => {
-    if (draft.auth.type === 'basic' || draft.auth.type === 'oauth2') {
+    if (draft.auth.type !== 'inherit' && draft.auth.type !== 'none') {
       return { auth: draft.auth, source: 'test' };
     }
-    if (draft.auth.type === 'inherit' && editingTest) {
+    if (editingTest) {
       const fg = featureGroups.find((f) => f.id === editingTest.featureId);
       const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
-      if (sc?.auth && sc.auth.type !== 'none') return { auth: sc.auth, source: 'scenario' };
+      if (draft.auth.type === 'inherit' || draft.auth.type === 'none') {
+        // Check scenario auth
+        if (sc?.auth && sc.auth.type !== 'none' && sc.auth.type !== 'inherit') {
+          return { auth: sc.auth, source: 'scenario' };
+        }
+        // Check feature auth (scenario inherit or scenario none → fall through)
+        if (fg?.auth && fg.auth.type !== 'none') {
+          return { auth: fg.auth, source: 'feature' };
+        }
+      }
     }
     return { auth: { type: 'none' }, source: 'none' };
   }, [draft.auth, editingTest, featureGroups]);
@@ -369,6 +454,16 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
         const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
         reqHeaders['Authorization'] = `Basic ${encoded}`;
+      } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
+        const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
+        reqHeaders['Authorization'] = `${prefix} ${effectiveAuth.token}`;
+      } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
+        if (effectiveAuth.apiKeyIn === 'header') {
+          reqHeaders[effectiveAuth.apiKeyName] = effectiveAuth.apiKeyValue;
+        }
+      } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
+        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
+        reqHeaders['Authorization'] = `Basic ${encoded}`;
       } else if (effectiveAuth.type === 'oauth2') {
         if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
           const missing = [
@@ -382,19 +477,28 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         }
         const token = await acquireOAuth2Token(effectiveAuth);
         reqHeaders['Authorization'] = `Bearer ${token}`;
-      } else if (effectiveAuth.type === 'none' && authSource === 'none') {
-        // No auth configured anywhere — check if there's a manual Authorization header
-        if (!reqHeaders['Authorization']) {
-          // Proceed without auth (API might not require it)
-        }
+      }
+
+      let fetchUrl = draft.url;
+      if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
+        try {
+          const u = new URL(fetchUrl);
+          u.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
+          fetchUrl = u.toString();
+        } catch { /* keep original */ }
       }
 
       const reqBody = (draft.body && draft.method !== 'GET') ? draft.body : undefined;
-      const result = await proxyFetch(draft.url, draft.method, reqHeaders, reqBody);
+      const result = await proxyFetch(fetchUrl, draft.method, reqHeaders, reqBody);
       if (result.error) {
         setFetchError(result.error);
       } else if (result.status >= 400) {
         setFetchError(`HTTP ${result.status}: ${result.statusText}`);
+        if (result.body) {
+          let pretty: string;
+          try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
+          setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: pretty } }));
+        }
       } else {
         let pretty: string;
         try {
@@ -689,14 +793,150 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
               )}
               <span className="count-badge">{fg.scenarios.length} scenario{fg.scenarios.length !== 1 ? 's' : ''}</span>
               <span className="count-badge">{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0)} test{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) !== 1 ? 's' : ''}</span>
+              {fg.auth && fg.auth.type !== 'none' && <span className="count-badge auth-badge auth-badge-feature">Auth: {fg.auth.type}</span>}
               <div className="feature-group-actions" onClick={(e) => e.stopPropagation()}>
                 <button className="btn btn-sm" onClick={() => { setEditingFeatureName(fg.id); setEditName(fg.name); }}>Rename</button>
+                <button
+                  className={`btn btn-sm ${editingFeatureAuth === fg.id ? 'btn-active' : ''}`}
+                  onClick={() => toggleFeatureAuth(fg.id)}
+                >Auth</button>
                 <button className="btn btn-sm" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
                 <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
                 <button className="btn btn-sm" onClick={() => exportFeatureGroup(fg)} title="Export this feature group">Export</button>
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
               </div>
             </div>
+
+            {/* Feature-level auth config panel */}
+            {editingFeatureAuth === fg.id && (() => {
+              const fgAuth = fg.auth || { type: 'none' as AuthType };
+              return (
+                <div className="scenario-auth-panel feature-auth-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="scenario-auth-header">
+                    <strong>Feature Auth</strong>
+                    <span className="auth-hint">Inherited by all scenarios in this feature (unless overridden)</span>
+                  </div>
+                  <div className="auth-type-select">
+                    <label>Type</label>
+                    <select
+                      value={fgAuth.type}
+                      onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, type: e.target.value as AuthType })}
+                    >
+                      <option value="none">No Auth</option>
+                      <option value="basic">Basic Auth</option>
+                      <option value="bearer">Bearer Token</option>
+                      <option value="apikey">API Key</option>
+                      <option value="digest">Digest Auth</option>
+                      <option value="oauth2">OAuth2 Client Credentials</option>
+                    </select>
+                  </div>
+                  {fgAuth.type === 'basic' && (
+                    <div className="form-row two-col">
+                      <div>
+                        <label>Username</label>
+                        <input value={fgAuth.username || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, username: e.target.value })} />
+                      </div>
+                      <div>
+                        <label>Password</label>
+                        <input type="password" value={fgAuth.password || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, password: e.target.value })} />
+                      </div>
+                    </div>
+                  )}
+                  {fgAuth.type === 'bearer' && (
+                    <div className="form-row two-col">
+                      <div>
+                        <label>Token</label>
+                        <input value={fgAuth.token || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, token: e.target.value })} placeholder="eyJhbGciOi..." />
+                      </div>
+                      <div>
+                        <label>Prefix</label>
+                        <input value={fgAuth.prefix ?? 'Bearer'} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, prefix: e.target.value })} placeholder="Bearer" />
+                      </div>
+                    </div>
+                  )}
+                  {fgAuth.type === 'apikey' && (
+                    <>
+                      <div className="form-row two-col">
+                        <div>
+                          <label>Key Name</label>
+                          <input value={fgAuth.apiKeyName || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyName: e.target.value })} placeholder="X-API-Key" />
+                        </div>
+                        <div>
+                          <label>Key Value</label>
+                          <input value={fgAuth.apiKeyValue || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyValue: e.target.value })} placeholder="your-api-key" />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <label>Add to</label>
+                        <div className="radio-group">
+                          <label className="radio-label">
+                            <input type="radio" checked={fgAuth.apiKeyIn !== 'query'} onChange={() => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyIn: 'header' })} />
+                            Header
+                          </label>
+                          <label className="radio-label">
+                            <input type="radio" checked={fgAuth.apiKeyIn === 'query'} onChange={() => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyIn: 'query' })} />
+                            Query Parameter
+                          </label>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {fgAuth.type === 'digest' && (
+                    <div className="form-row two-col">
+                      <div>
+                        <label>Username</label>
+                        <input value={fgAuth.username || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, username: e.target.value })} />
+                      </div>
+                      <div>
+                        <label>Password</label>
+                        <input type="password" value={fgAuth.password || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, password: e.target.value })} />
+                      </div>
+                    </div>
+                  )}
+                  {fgAuth.type === 'oauth2' && (
+                    <>
+                      <div className="form-row">
+                        <label>Token URL</label>
+                        <input value={fgAuth.tokenUrl || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
+                      </div>
+                      <div className="form-row two-col">
+                        <div>
+                          <label>Client ID</label>
+                          <input value={fgAuth.clientId || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, clientId: e.target.value })} />
+                        </div>
+                        <div>
+                          <label>Client Secret</label>
+                          <div className="secret-input-wrap">
+                            <input type={showSecret ? 'text' : 'password'} value={fgAuth.clientSecret || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, clientSecret: e.target.value })} />
+                            <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {fgAuth.type !== 'none' && (
+                    <div className="auth-verify-section">
+                      <button
+                        className="btn btn-sm btn-verify"
+                        onClick={() => { setAuthVerifyResult(null); verifyAuth(fgAuth); }}
+                        disabled={authVerifying}
+                      >
+                        {authVerifying ? 'Verifying...' : 'Verify Auth'}
+                      </button>
+                      {authVerifyResult && (
+                        <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                          <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                          <div className="auth-verify-body">
+                            <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                            {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {expandedFeatures.has(fg.id) && (
               <div className="feature-group-body">
@@ -727,7 +967,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                         <span className="scenario-group-name">{sc.name}</span>
                       )}
                       <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
-                      {scAuth.type !== 'none' && <span className="count-badge auth-badge">Auth: {scAuth.type}</span>}
+                      {scAuth.type !== 'none' && scAuth.type !== 'inherit' && <span className="count-badge auth-badge auth-badge-scenario">Auth: {scAuth.type}</span>}
+                      {scAuth.type === 'inherit' && <span className="count-badge auth-badge auth-badge-scenario-inherit">Auth: inherit</span>}
                       <div className="scenario-group-actions" onClick={(e) => e.stopPropagation()}>
                         <button className="btn btn-sm" onClick={() => { setEditingScenarioName(sc.id); setEditName(sc.name); }}>Rename</button>
                         <button
@@ -754,6 +995,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             value={scAuth.type}
                             onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, type: e.target.value as AuthType })}
                           >
+                            <option value="inherit">Inherit from Feature</option>
                             <option value="none">No Auth</option>
                             <option value="basic">Basic Auth</option>
                             <option value="bearer">Bearer Token</option>
@@ -762,6 +1004,20 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             <option value="oauth2">OAuth2 Client Credentials</option>
                           </select>
                         </div>
+                        {scAuth.type === 'inherit' && (() => {
+                          const fgAuth = fg.auth;
+                          const authLabel: Record<string, string> = {
+                            basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
+                            digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
+                          };
+                          return (
+                            <div className="auth-inherit-hint">
+                              {fgAuth && fgAuth.type !== 'none'
+                                ? `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`
+                                : 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.'}
+                            </div>
+                          );
+                        })()}
                         {scAuth.type === 'basic' && (
                           <div className="form-row two-col">
                             <div>
@@ -838,11 +1094,58 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               </div>
                               <div>
                                 <label>Client Secret</label>
-                                <input type="password" value={scAuth.clientSecret || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, clientSecret: e.target.value })} />
+                                <div className="secret-input-wrap">
+                                  <input type={showSecret ? 'text' : 'password'} value={scAuth.clientSecret || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, clientSecret: e.target.value })} />
+                                  <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                                </div>
                               </div>
                             </div>
                           </>
                         )}
+                        {scAuth.type !== 'none' && scAuth.type !== 'inherit' && (
+                          <div className="auth-verify-section">
+                            <button
+                              className="btn btn-sm btn-verify"
+                              onClick={() => { setAuthVerifyResult(null); verifyAuth(scAuth); }}
+                              disabled={authVerifying}
+                            >
+                              {authVerifying ? 'Verifying...' : 'Verify Auth'}
+                            </button>
+                            {authVerifyResult && (
+                              <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                                <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                                <div className="auth-verify-body">
+                                  <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                                  {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {scAuth.type === 'inherit' && (() => {
+                          const fgAuth = fg.auth;
+                          if (!fgAuth || fgAuth.type === 'none') return null;
+                          return (
+                            <div className="auth-verify-section">
+                              <button
+                                className="btn btn-sm btn-verify"
+                                onClick={() => { setAuthVerifyResult(null); verifyAuth(fgAuth); }}
+                                disabled={authVerifying}
+                              >
+                                {authVerifying ? 'Verifying...' : 'Verify Inherited Auth (feature)'}
+                              </button>
+                              {authVerifyResult && (
+                                <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                                  <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                                  <div className="auth-verify-body">
+                                    <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                                    {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -857,11 +1160,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <strong>{t.name}</strong>
                             </div>
                             <div className="test-card-meta">
-                              {t.auth.type !== 'none'
-                                ? <span className="tag">Auth: {t.auth.type} (own)</span>
-                                : scAuth.type !== 'none'
-                                  ? <span className="tag">Auth: {scAuth.type} (scenario)</span>
-                                  : <span className="tag">Auth: none</span>
+                              {t.auth.type !== 'none' && t.auth.type !== 'inherit'
+                                ? <span className="tag auth-badge auth-badge-test-own">Auth: {t.auth.type} (own)</span>
+                                : scAuth.type !== 'none' && scAuth.type !== 'inherit'
+                                  ? <span className="tag auth-badge auth-badge-test-scenario">Auth: {scAuth.type} (scenario)</span>
+                                  : fg.auth && fg.auth.type !== 'none'
+                                    ? <span className="tag auth-badge auth-badge-test-feature">Auth: {fg.auth.type} (feature)</span>
+                                    : <span className="tag auth-badge auth-badge-test-none">Auth: none</span>
                               }
                               <span className="tag">Validation: {t.validation.mode}</span>
                             </div>
@@ -1174,21 +1479,24 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                         </select>
                       </div>
                       {draft.auth.type === 'inherit' && (() => {
-                        const parentScAuth = editingTest
-                          ? featureGroups.find((f) => f.id === editingTest.featureId)
-                              ?.scenarios.find((s) => s.id === editingTest.scenarioId)?.auth
-                          : undefined;
+                        const fg = editingTest ? featureGroups.find((f) => f.id === editingTest.featureId) : undefined;
+                        const sc = fg?.scenarios.find((s) => s.id === editingTest?.scenarioId);
+                        const scAuth = sc?.auth;
+                        const fgAuth = fg?.auth;
                         const authLabel: Record<string, string> = {
                           basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
                           digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
                         };
-                        return (
-                          <div className="auth-inherit-hint">
-                            {parentScAuth && parentScAuth.type !== 'none'
-                              ? `Will use scenario-level ${authLabel[parentScAuth.type] ?? parentScAuth.type}`
-                              : 'No auth configured at scenario level. Configure it via the "Auth" button on the scenario.'}
-                          </div>
-                        );
+                        let hint: string;
+                        if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') {
+                          hint = `Will use scenario-level ${authLabel[scAuth.type] ?? scAuth.type}`;
+                        } else if (fgAuth && fgAuth.type !== 'none') {
+                          hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
+                          if (scAuth?.type === 'inherit') hint += ' (scenario inherits from feature)';
+                        } else {
+                          hint = 'No auth configured at scenario or feature level.';
+                        }
+                        return <div className="auth-inherit-hint">{hint}</div>;
                       })()}
                       {draft.auth.type === 'basic' && (
                         <div className="form-row two-col">
@@ -1266,11 +1574,58 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             </div>
                             <div>
                               <label>Client Secret</label>
-                              <input type="password" value={draft.auth.clientSecret || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, clientSecret: e.target.value } })} />
+                              <div className="secret-input-wrap">
+                                <input type={showSecret ? 'text' : 'password'} value={draft.auth.clientSecret || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, clientSecret: e.target.value } })} />
+                                <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                              </div>
                             </div>
                           </div>
                         </>
                       )}
+                      {draft.auth.type !== 'none' && draft.auth.type !== 'inherit' && (
+                        <div className="auth-verify-section">
+                          <button
+                            className="btn btn-sm btn-verify"
+                            onClick={() => { setAuthVerifyResult(null); verifyAuth(draft.auth); }}
+                            disabled={authVerifying}
+                          >
+                            {authVerifying ? 'Verifying...' : 'Verify Auth'}
+                          </button>
+                          {authVerifyResult && (
+                            <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                              <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                              <div className="auth-verify-body">
+                                <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                                {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {draft.auth.type === 'inherit' && (() => {
+                        const { auth: resolved, source } = resolveEffectiveAuth();
+                        if (resolved.type === 'none') return null;
+                        return (
+                          <div className="auth-verify-section">
+                            <button
+                              className="btn btn-sm btn-verify"
+                              onClick={() => { setAuthVerifyResult(null); verifyAuth(resolved); }}
+                              disabled={authVerifying}
+                            >
+                              {authVerifying ? 'Verifying...' : `Verify Inherited Auth (${source})`}
+                            </button>
+                            {authVerifyResult && (
+                              <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                                <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                                <div className="auth-verify-body">
+                                  <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                                  {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
