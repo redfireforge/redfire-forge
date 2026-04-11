@@ -62,12 +62,44 @@ export function getStorageUsage(): { usedBytes: number; entries: Record<string, 
   return { usedBytes: total, entries };
 }
 
-export function saveTestRun(run: TestRun): void {
+export function saveTestRun(run: TestRun): { ok: boolean; quotaError?: boolean } {
+  const truncated = truncateResponseBodies(run);
   const runs = loadTestRuns();
-  runs.unshift(truncateResponseBodies(run));
+  runs.unshift(truncated);
   const max = getMaxRuns();
   if (runs.length > max) runs.length = max;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+    return { ok: true };
+  } catch {
+    return { ok: false, quotaError: true };
+  }
+}
+
+export function forceSaveTestRun(run: TestRun): { ok: boolean } {
+  const truncated = truncateResponseBodies(run);
+  let runs = loadTestRuns();
+  runs.unshift(truncated);
+
+  // Aggressively halve the stored runs until it fits
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const keep = Math.max(1, Math.floor(runs.length / 2));
+    runs = runs.slice(0, keep);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+      setMaxRuns(keep);
+      return { ok: true };
+    } catch { /* keep shrinking */ }
+  }
+
+  // Last resort: only keep the new run
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([truncated]));
+    setMaxRuns(1);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export function loadTestRuns(): TestRun[] {

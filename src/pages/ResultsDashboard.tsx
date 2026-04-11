@@ -119,7 +119,10 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
                 ? <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
                 : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
               }
-              <span className="context-tag exec-mode-tag">{selectedRun.config.executionMode === 'pool' ? 'Pool' : 'Batch'}</span>
+              <span className="context-tag exec-mode-tag">
+                {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : 'Batch'}
+                {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
+              </span>
             </div>
           )}
         </div>

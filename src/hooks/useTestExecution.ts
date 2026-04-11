@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../types';
 import { runTest } from '../engine/executor';
 import { computeMetrics } from '../engine/metrics';
-import { saveTestRun } from '../utils/storage';
+import { saveTestRun, forceSaveTestRun } from '../utils/storage';
 
 interface TestExecutionState {
   isRunning: boolean;
@@ -13,6 +13,7 @@ interface TestExecutionState {
   liveSummary: TestSummary | null;
   finalRun: TestRun | null;
   error: string | null;
+  pendingRun: TestRun | null;
 }
 
 export function useTestExecution() {
@@ -24,6 +25,7 @@ export function useTestExecution() {
     liveSummary: null,
     finalRun: null,
     error: null,
+    pendingRun: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
@@ -41,6 +43,7 @@ export function useTestExecution() {
       liveSummary: null,
       finalRun: null,
       error: null,
+      pendingRun: null,
     });
 
     try {
@@ -74,15 +77,26 @@ export function useTestExecution() {
         baseUrl: meta?.baseUrl,
       };
 
-      saveTestRun(testRun);
+      const saveResult = saveTestRun(testRun);
 
-      setState((prev) => ({
-        ...prev,
-        isRunning: false,
-        finalRun: testRun,
-        liveSummary: summary,
-        liveResults: results,
-      }));
+      if (saveResult.quotaError) {
+        setState((prev) => ({
+          ...prev,
+          isRunning: false,
+          pendingRun: testRun,
+          liveSummary: summary,
+          liveResults: results,
+        }));
+      } else {
+        setState((prev) => ({
+          ...prev,
+          isRunning: false,
+          finalRun: testRun,
+          liveSummary: summary,
+          liveResults: results,
+          pendingRun: null,
+        }));
+      }
     } catch (err) {
       setState((prev) => ({
         ...prev,
@@ -92,9 +106,24 @@ export function useTestExecution() {
     }
   }, []);
 
+  const confirmSavePendingRun = useCallback(() => {
+    setState((prev) => {
+      if (!prev.pendingRun) return prev;
+      const result = forceSaveTestRun(prev.pendingRun);
+      if (result.ok) {
+        return { ...prev, finalRun: prev.pendingRun, pendingRun: null };
+      }
+      return { ...prev, error: 'Storage is full. Please clear data manually in Settings → Storage.', pendingRun: null };
+    });
+  }, []);
+
+  const dismissPendingRun = useCallback(() => {
+    setState((prev) => ({ ...prev, pendingRun: null }));
+  }, []);
+
   const abort = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
-  return { ...state, execute, abort };
+  return { ...state, execute, abort, confirmSavePendingRun, dismissPendingRun };
 }

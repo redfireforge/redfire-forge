@@ -76,6 +76,7 @@ export interface FeatureGroup {
   name: string;
   microserviceId?: string;
   environmentId?: string;
+  auth?: AuthConfig;
   scenarios: TestScenario[];
 }
 
@@ -84,7 +85,7 @@ export interface ScenarioWeight {
   weight: number;
 }
 
-export type ExecutionMode = 'batch' | 'pool';
+export type ExecutionMode = 'sequential' | 'batch' | 'pool';
 
 export interface TestConfig {
   concurrency: number;

@@ -52,7 +52,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [executionMode, setExecutionMode] = useState<ExecutionMode>(saved.executionMode || 'batch');
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
 
-  const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun } = useTestExecution();
+  const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   // Persist config to localStorage
   useEffect(() => {
@@ -68,11 +68,17 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     }));
   }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
-  // Collect all tests from selected scenarios, resolving auth:
-  // 'inherit' = use scenario-level auth
-  // 'none' = no auth
-  // 'basic'/'oauth2' = test-level auth (highest priority)
+  // Collect all tests from selected scenarios, resolving auth chain:
+  // Priority: Test → Scenario → Feature (highest to lowest)
   const selectedTests: Scenario[] = useMemo(() => {
+    const resolveAuth = (test: Scenario, sc: { auth?: { type: string } & Record<string, unknown> }, fg: { auth?: { type: string } & Record<string, unknown> }): AuthConfig => {
+      if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
+      const scAuth = sc.auth;
+      if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') return scAuth as AuthConfig;
+      const fgAuth = fg.auth;
+      if (fgAuth && fgAuth.type !== 'none') return fgAuth as AuthConfig;
+      return { type: 'none' };
+    };
     const tests: Scenario[] = [];
     for (const fg of featureGroups) {
       for (const sc of fg.scenarios) {
@@ -81,12 +87,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             const effectiveBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '';
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             const validation = skipValidation ? { mode: 'none' as const } : test.validation;
-            if (test.auth.type === 'inherit') {
-              const scenarioAuth = sc.auth && sc.auth.type !== 'none' ? sc.auth : { type: 'none' as const };
-              tests.push({ ...test, url, auth: scenarioAuth, validation });
-            } else {
-              tests.push({ ...test, url, validation });
-            }
+            const auth = resolveAuth(test, sc, fg);
+            tests.push({ ...test, url, auth, validation });
           }
         }
       }
@@ -212,6 +214,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
 
         <div className="runner-option-box" style={{ flex: 1 }}>
           <span className="runner-exec-label">Execution Mode:</span>
+          <label className="radio-label" title="Executes requests one by one in sequence. No parallelism.">
+            <input type="radio" name="execMode" checked={executionMode === 'sequential'} onChange={() => setExecutionMode('sequential')} disabled={isRunning} />
+            Sequential
+          </label>
           <label className="radio-label" title="Fires N requests, waits for ALL to finish, then fires the next N. Idle slots wait for the slowest request in the batch.">
             <input type="radio" name="execMode" checked={executionMode === 'batch'} onChange={() => setExecutionMode('batch')} disabled={isRunning} />
             Batch
@@ -221,9 +227,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             Continuous Pool
           </label>
           <span className="exec-mode-hint">
-            {executionMode === 'batch'
-              ? 'Fires N requests, waits for all to complete, then fires next N'
-              : 'Keeps N requests in-flight at all times — a new request starts as soon as one finishes'}
+            {executionMode === 'sequential'
+              ? 'Executes one request at a time in order — no parallelism'
+              : executionMode === 'batch'
+                ? 'Fires N requests, waits for all to complete, then fires next N'
+                : 'Keeps N requests in-flight at all times — a new request starts as soon as one finishes'}
           </span>
         </div>
       </div>
@@ -300,8 +308,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             <div className="config-form" style={{ marginTop: 16 }}>
               <div className="form-row" style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
                 <div style={{ flex: 1 }}>
-                  <label>Concurrency (parallel requests)</label>
-                  <input type="number" min={1} max={100} value={concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
+                  <label>Concurrency (parallel requests) {executionMode === 'sequential' && <span className="field-hint-inline">— fixed to 1 in sequential mode</span>}</label>
+                  <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential'} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Total Transactions</label>
@@ -351,7 +359,16 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {/* Live Progress */}
           {(isRunning || liveSummary) && (
             <div className="progress-section">
-              <h3>Progress</h3>
+              <h3>Progress <span className="progress-mode-tag">
+                {executionMode === 'pool' ? 'Continuous Pool' : executionMode === 'sequential' ? 'Sequential' : 'Batch'}
+                {' · '}C:{executionMode === 'sequential' ? 1 : concurrency}
+                {' · '}T:{total}
+                {' · '}{executionMode === 'sequential'
+                  ? 'One request at a time'
+                  : executionMode === 'batch'
+                    ? `${concurrency} parallel, wait for all, repeat`
+                    : `${concurrency} always in-flight`}
+              </span></h3>
               <div className="progress-bar-container">
                 <div className="progress-bar" style={{ width: `${progressPct}%` }}></div>
                 <span className="progress-text">{completed} / {total} ({progressPct}%)</span>
@@ -393,6 +410,19 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           )}
 
           {error && <div className="error-banner">{error}</div>}
+
+          {pendingRun && (
+            <div className="storage-quota-banner">
+              <div className="storage-quota-msg">
+                <strong>Storage full</strong> — the test completed successfully but could not be saved because localStorage is out of space.
+                Would you like to remove old runs to make room?
+              </div>
+              <div className="storage-quota-actions">
+                <button className="btn btn-primary btn-sm" onClick={confirmSavePendingRun}>Yes, remove old runs &amp; save</button>
+                <button className="btn btn-sm" onClick={dismissPendingRun}>Discard this run</button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
