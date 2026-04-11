@@ -215,6 +215,11 @@ const TreeNode = memo(function TreeNode({ node, selectedPaths, onToggle, depth, 
   );
 });
 
+function stripQuotes(v: string): string {
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) return v.slice(1, -1);
+  return v;
+}
+
 function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
   const { columns, rows } = useMemo(() => {
     // Split each path into row prefix + field name
@@ -260,7 +265,7 @@ function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
                 return (
                   <td key={col}>
                     {val !== undefined ? (
-                      <code className="jpb-table-val">{val.length > 40 ? val.slice(0, 40) + '...' : val}</code>
+                      <code className="jpb-table-val">{stripQuotes(val)}</code>
                     ) : (
                       <span className="jpb-table-empty">—</span>
                     )}
@@ -587,7 +592,7 @@ export default function JsonPathBuilder({
                   <div key={i} className="jpb-field-row">
                     <code className="jpb-field-path">{f.jsonPath}</code>
                     <span className="jpb-field-eq">=</span>
-                    <code className="jpb-field-value">{f.expectedValue.length > 80 ? f.expectedValue.slice(0, 80) + '...' : f.expectedValue}</code>
+                    <code className="jpb-field-value">{(() => { const s = stripQuotes(f.expectedValue); return s.length > 80 ? s.slice(0, 80) + '...' : s; })()}</code>
                     {selectiveMode === 'include' && (
                       <button className="btn btn-sm btn-danger" onClick={() => {
                         onUpdate({ expectedFields: expectedFields.filter((_, j) => j !== i) });

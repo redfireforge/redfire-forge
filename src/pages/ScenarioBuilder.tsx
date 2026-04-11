@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField } from '../types';
-import { saveFeatureGroups, loadFeatureGroups } from '../utils/storage';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token, buildHeaders } from '../engine/executor';
+import { saveJsonFile } from '../utils/fileSaver';
 import JsonPathBuilder from '../components/JsonPathBuilder';
 
 const emptyTest = (): Scenario => ({
@@ -13,12 +13,12 @@ const emptyTest = (): Scenario => ({
   method: 'GET',
   headers: [{ key: '', value: '' }],
   body: '',
-  auth: { type: 'none' },
+  auth: { type: 'inherit' },
   validation: { mode: 'none', expectedFields: [] },
 });
 
 type BuilderTab = 'params' | 'body' | 'auth' | 'headers' | 'validation';
-type InputMode = 'builder' | 'curl';
+type InputMode = 'builder' | 'curl' | 'curl-export';
 
 // Parse query params from a URL string
 function parseQueryParams(url: string): KeyValue[] {
@@ -61,9 +61,17 @@ function getBaseUrl(url: string): string {
 interface Props {
   featureGroups: FeatureGroup[];
   setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
+  resolvedBaseUrl?: string;
+  selectedSvcId?: string;
+  selectedSvcName?: string;
+  selectedEnvId?: string;
+  selectedEnvName?: string;
+  unassociatedFeatureGroups?: FeatureGroup[];
+  microservices?: Microservice[];
+  environments?: { id: string; name: string }[];
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [] }: Props) {
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -85,20 +93,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
   const [inputMode, setInputMode] = useState<InputMode>('builder');
   const [activeTab, setActiveTab] = useState<BuilderTab>('params');
   const [curlText, setCurlText] = useState('');
+  const [generatedCurl, setGeneratedCurl] = useState('');
+  const [curlGenerating, setCurlGenerating] = useState(false);
   const [queryParams, setQueryParams] = useState<KeyValue[]>([{ key: '', value: '' }]);
 
-  useEffect(() => {
-    const saved = loadFeatureGroups();
-    if (saved.length > 0) {
-      setFeatureGroups(saved);
-    }
-  }, [setFeatureGroups]);
-
-  useEffect(() => {
-    if (featureGroups.length > 0) {
-      saveFeatureGroups(featureGroups);
-    }
-  }, [featureGroups]);
+  // load/save is handled by App.tsx to avoid overwriting unfiltered groups
 
   // Sync query params when URL changes externally (e.g., from cURL parse)
   const syncParamsFromUrl = useCallback((url: string) => {
@@ -107,16 +106,26 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
 
   // Feature Group CRUD
   const addFeatureGroup = () => {
-    if (!newName.trim()) return;
-    const fg: FeatureGroup = { id: uuidv4(), name: newName.trim(), scenarios: [] };
+    if (!newName.trim() || !selectedSvcId || !selectedEnvId) return;
+    const fg: FeatureGroup = { id: uuidv4(), name: newName.trim(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: [] };
     setFeatureGroups((prev) => [...prev, fg]);
     setExpandedFeatures((prev) => new Set(prev).add(fg.id));
     setNamingFeature(false);
     setNewName('');
   };
 
+  const assignFeatureGroup = (fgId: string, svcId: string, envId: string) => {
+    setFeatureGroups((prev) => prev.map((fg) =>
+      fg.id === fgId ? { ...fg, microserviceId: svcId, environmentId: envId } : fg
+    ));
+  };
+
   const removeFeatureGroup = (id: string) => {
-    setFeatureGroups((prev) => prev.filter((fg) => fg.id !== id));
+    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === id);
+    const testCount = fg ? fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) : 0;
+    const detail = testCount > 0 ? ` It contains ${fg!.scenarios.length} scenario(s) and ${testCount} test(s).` : '';
+    if (!window.confirm(`Delete feature group "${fg?.name}"?${detail} This cannot be undone.`)) return;
+    setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
   };
 
   const renameFeatureGroup = (id: string) => {
@@ -231,24 +240,37 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
     }));
   };
 
-  const duplicateTest = (featureId: string, scenarioId: string, test: Scenario) => {
+  // Copy test — shows destination picker
+  const [copyingTest, setCopyingTest] = useState<{ test: Scenario; sourceFeatureId: string; sourceScenarioId: string } | null>(null);
+  const [copyTargetFeature, setCopyTargetFeature] = useState('');
+  const [copyTargetScenario, setCopyTargetScenario] = useState('');
+
+  const startCopyTest = (featureId: string, scenarioId: string, test: Scenario) => {
+    setCopyingTest({ test, sourceFeatureId: featureId, sourceScenarioId: scenarioId });
+    setCopyTargetFeature(featureId);
+    setCopyTargetScenario(scenarioId);
+  };
+
+  const confirmCopyTest = () => {
+    if (!copyingTest || !copyTargetFeature || !copyTargetScenario) return;
     const copy: Scenario = {
-      ...test,
+      ...copyingTest.test,
       id: uuidv4(),
-      name: `${test.name} (copy)`,
-      headers: test.headers.map((h) => ({ ...h })),
-      validation: { ...test.validation, expectedFields: test.validation.expectedFields?.map((f) => ({ ...f })) },
+      name: `${copyingTest.test.name} (copy)`,
+      headers: copyingTest.test.headers.map((h) => ({ ...h })),
+      validation: { ...copyingTest.test.validation, expectedFields: copyingTest.test.validation.expectedFields?.map((f) => ({ ...f })) },
     };
     setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== featureId) return fg;
+      if (fg.id !== copyTargetFeature) return fg;
       return {
         ...fg,
         scenarios: fg.scenarios.map((sc) => {
-          if (sc.id !== scenarioId) return sc;
+          if (sc.id !== copyTargetScenario) return sc;
           return { ...sc, tests: [...sc.tests, copy] };
         }),
       };
     }));
+    setCopyingTest(null);
   };
 
   // Query param helpers
@@ -307,15 +329,20 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Resolve effective auth: test-level > scenario-level > header-level
+  // Resolve effective auth:
+  // 'inherit' = use scenario-level auth
+  // 'none' = explicitly no auth
+  // 'basic'/'oauth2' = test-level auth (highest priority)
   const resolveEffectiveAuth = useCallback((): { auth: AuthConfig; source: string } => {
-    if (draft.auth.type !== 'none') return { auth: draft.auth, source: 'test' };
-    if (editingTest) {
+    if (draft.auth.type === 'basic' || draft.auth.type === 'oauth2') {
+      return { auth: draft.auth, source: 'test' };
+    }
+    if (draft.auth.type === 'inherit' && editingTest) {
       const fg = featureGroups.find((f) => f.id === editingTest.featureId);
       const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
       if (sc?.auth && sc.auth.type !== 'none') return { auth: sc.auth, source: 'scenario' };
     }
-    return { auth: draft.auth, source: 'none' };
+    return { auth: { type: 'none' }, source: 'none' };
   }, [draft.auth, editingTest, featureGroups]);
 
   const handleFetchSampleResponse = useCallback(async () => {
@@ -328,10 +355,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
     try {
       const { auth: effectiveAuth, source: authSource } = resolveEffectiveAuth();
 
-      // Build headers manually to handle all auth types inline
+      // Build headers — skip manual Authorization when auth is configured (same as executor)
       const reqHeaders: Record<string, string> = {};
       for (const h of draft.headers) {
-        if (h.key.trim()) reqHeaders[h.key.trim()] = h.value;
+        if (!h.key.trim()) continue;
+        if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
+        reqHeaders[h.key.trim()] = h.value;
       }
       if (draft.body && !reqHeaders['Content-Type']) {
         reqHeaders['Content-Type'] = 'application/json';
@@ -417,18 +446,87 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
     setCurlText('');
   };
 
+  // Generate cURL command from the current draft configuration (async to acquire real token)
+  const generateCurl = useCallback(async (): Promise<string> => {
+    const parts: string[] = ['curl'];
+
+    if (draft.method !== 'GET') {
+      parts.push(`-X ${draft.method}`);
+    }
+
+    parts.push(`'${draft.url}'`);
+
+    const headerEntries: { key: string; value: string }[] = [];
+    const { auth: effectiveAuth } = resolveEffectiveAuth();
+
+    for (const h of draft.headers) {
+      if (!h.key.trim()) continue;
+      if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
+      headerEntries.push({ key: h.key.trim(), value: h.value });
+    }
+
+    if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
+      const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
+      headerEntries.push({ key: 'Authorization', value: `Basic ${encoded}` });
+    } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
+      const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
+      headerEntries.push({ key: 'Authorization', value: `${prefix} ${effectiveAuth.token}` });
+    } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
+      if (effectiveAuth.apiKeyIn === 'query') {
+        try {
+          const url = new URL(draft.url);
+          url.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
+          parts[parts.indexOf(`'${draft.url}'`)] = `'${url.toString()}'`;
+        } catch { /* keep original URL */ }
+      } else {
+        headerEntries.push({ key: effectiveAuth.apiKeyName, value: effectiveAuth.apiKeyValue });
+      }
+    } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
+      parts.push('--digest');
+      parts.push(`-u '${effectiveAuth.username}:${effectiveAuth.password ?? ''}'`);
+    } else if (effectiveAuth.type === 'oauth2') {
+      try {
+        const token = await acquireOAuth2Token(effectiveAuth);
+        headerEntries.push({ key: 'Authorization', value: `Bearer ${token}` });
+      } catch {
+        headerEntries.push({ key: 'Authorization', value: 'Bearer <TOKEN_ERROR: check OAuth2 config>' });
+      }
+    }
+
+    if (draft.body && !headerEntries.some((h) => h.key.toLowerCase() === 'content-type')) {
+      headerEntries.push({ key: 'Content-Type', value: 'application/json' });
+    }
+
+    for (const h of headerEntries) {
+      parts.push(`\\\n  -H '${h.key}: ${h.value}'`);
+    }
+
+    if (draft.body) {
+      const escaped = draft.body.replace(/'/g, "'\\''");
+      parts.push(`\\\n  -d '${escaped}'`);
+    }
+
+    return parts.join(' ');
+  }, [draft, resolveEffectiveAuth]);
+
+  const triggerCurlGeneration = useCallback(async () => {
+    if (!draft.url.trim()) {
+      setGeneratedCurl('');
+      return;
+    }
+    setCurlGenerating(true);
+    try {
+      const cmd = await generateCurl();
+      setGeneratedCurl(cmd);
+    } catch (err) {
+      setGeneratedCurl(`# Error generating cURL: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCurlGenerating(false);
+    }
+  }, [draft, generateCurl]);
+
   // ── Export / Import helpers ──
-  const downloadJson = (data: unknown, filename: string) => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const downloadJson = (data: unknown, filename: string) => saveJsonFile(data, filename);
 
   const pickJsonFile = (onLoad: (data: unknown) => void) => {
     const input = document.createElement('input');
@@ -453,23 +551,45 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
   const reIdScenarios = (scenarios: TestScenario[]) =>
     scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })) }));
 
-  // All feature groups
-  const exportAll = () => downloadJson(featureGroups, `features-all-${stamp()}.json`);
-
-  const importAll = () => pickJsonFile((data) => {
-    const items = Array.isArray(data) ? data as FeatureGroup[] : [data as FeatureGroup];
-    if (!items.every((fg) => fg.name && Array.isArray(fg.scenarios))) {
-      alert('Invalid file: expected feature group(s).'); return;
-    }
-    const imported = items.map((fg) => ({ ...fg, id: uuidv4(), scenarios: reIdScenarios(fg.scenarios) }));
-    setFeatureGroups((prev) => [...prev, ...imported]);
+  const wrapExport = (data: unknown, level: string) => ({
+    _exportMeta: {
+      microservice: selectedSvcName || undefined,
+      environment: selectedEnvName || undefined,
+      exportedAt: new Date().toISOString(),
+      level,
+    },
+    data,
   });
+
+  const unwrapImport = (raw: unknown): unknown => {
+    if (raw && typeof raw === 'object' && '_exportMeta' in raw && 'data' in raw) {
+      return (raw as { data: unknown }).data;
+    }
+    return raw;
+  };
+
+  // All feature groups
+  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups'), `features-all-${stamp()}.json`);
+
+  const importAll = () => {
+    if (!selectedSvcId || !selectedEnvId) { alert('Select a microservice and environment first.'); return; }
+    pickJsonFile((raw) => {
+      const data = unwrapImport(raw);
+      const items = Array.isArray(data) ? data as FeatureGroup[] : [data as FeatureGroup];
+      if (!items.every((fg) => fg.name && Array.isArray(fg.scenarios))) {
+        alert('Invalid file: expected feature group(s).'); return;
+      }
+      const imported = items.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
+      setFeatureGroups((prev) => [...prev, ...imported]);
+    });
+  };
 
   // Single feature group
   const exportFeatureGroup = (fg: FeatureGroup) =>
-    downloadJson(fg, `feature-${fg.name}-${stamp()}.json`);
+    downloadJson(wrapExport(fg, 'feature-group'), `feature-${fg.name}-${stamp()}.json`);
 
-  const importScenariosInto = (featureId: string) => pickJsonFile((data) => {
+  const importScenariosInto = (featureId: string) => pickJsonFile((raw) => {
+    const data = unwrapImport(raw);
     const items = Array.isArray(data) ? data as TestScenario[] : [data as TestScenario];
     if (!items.every((sc) => sc.name && Array.isArray(sc.tests))) {
       alert('Invalid file: expected scenario(s) with a name and tests array.'); return;
@@ -482,9 +602,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
 
   // Single scenario
   const exportScenario = (sc: TestScenario) =>
-    downloadJson(sc, `scenario-${sc.name}-${stamp()}.json`);
+    downloadJson(wrapExport(sc, 'scenario'), `scenario-${sc.name}-${stamp()}.json`);
 
-  const importTestsInto = (featureId: string, scenarioId: string) => pickJsonFile((data) => {
+  const importTestsInto = (featureId: string, scenarioId: string) => pickJsonFile((raw) => {
+    const data = unwrapImport(raw);
     const items = Array.isArray(data) ? data as Scenario[] : [data as Scenario];
     if (!items.every((t) => t.name && t.url && t.method)) {
       alert('Invalid file: expected test(s) with name, url, and method.'); return;
@@ -500,7 +621,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
 
   // Single test
   const exportTest = (t: Scenario) =>
-    downloadJson(t, `test-${t.name}-${stamp()}.json`);
+    downloadJson(wrapExport(t, 'test'), `test-${t.name}-${stamp()}.json`);
 
   const toggleFeature = (id: string) => {
     setExpandedFeatures((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -519,15 +640,27 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Feature Groups</h2>
+        <div className="page-title-block">
+          <h2>Feature Groups</h2>
+          {(selectedSvcName || selectedEnvName) && (
+            <div className="context-tags">
+              {selectedSvcName && <span className="context-tag svc-tag">{selectedSvcName}</span>}
+              {selectedEnvName && <span className="context-tag env-tag">{selectedEnvName}</span>}
+            </div>
+          )}
+        </div>
         <div className="header-actions">
-          <button className="btn" onClick={importAll}>Import</button>
+          <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
           <button className="btn" onClick={exportAll} disabled={featureGroups.length === 0}>Export</button>
-          <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }}>+ Add Feature Group</button>
+          <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
       </div>
 
-      {namingFeature && (
+      {(!selectedSvcId || !selectedEnvId) && (
+        <div className="empty-state">Select both a microservice and an environment from the sidebar to view and manage feature groups.</div>
+      )}
+
+      {selectedSvcId && selectedEnvId && namingFeature && (
         <div className="inline-name-form">
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addFeatureGroup(); if (e.key === 'Escape') setNamingFeature(false); }}
@@ -537,8 +670,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
         </div>
       )}
 
-      {featureGroups.length === 0 && !namingFeature && (
-        <div className="empty-state">No feature groups yet. Click "+ Add Feature Group" to organize your tests.</div>
+      {selectedSvcId && selectedEnvId && featureGroups.length === 0 && !namingFeature && (
+        <div className="empty-state">No feature groups for this microservice + environment. Click "+ Add Feature Group" to get started.</div>
       )}
 
       <div className="feature-tree">
@@ -615,16 +748,72 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                           <strong>Scenario Auth</strong>
                           <span className="auth-hint">Applied to all tests in this scenario (unless overridden at test level)</span>
                         </div>
-                        <div className="radio-group">
-                          {(['none', 'basic', 'oauth2'] as AuthType[]).map((t) => (
-                            <label key={t} className="radio-label">
-                              <input type="radio" name={`scenarioAuth-${sc.id}`} checked={scAuth.type === t}
-                                onChange={() => updateScenarioAuth(fg.id, sc.id, { ...scAuth, type: t })} />
-                              {t === 'none' ? 'None' : t === 'basic' ? 'Basic Auth' : 'OAuth2 Client Credentials'}
-                            </label>
-                          ))}
+                        <div className="auth-type-select">
+                          <label>Type</label>
+                          <select
+                            value={scAuth.type}
+                            onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, type: e.target.value as AuthType })}
+                          >
+                            <option value="none">No Auth</option>
+                            <option value="basic">Basic Auth</option>
+                            <option value="bearer">Bearer Token</option>
+                            <option value="apikey">API Key</option>
+                            <option value="digest">Digest Auth</option>
+                            <option value="oauth2">OAuth2 Client Credentials</option>
+                          </select>
                         </div>
                         {scAuth.type === 'basic' && (
+                          <div className="form-row two-col">
+                            <div>
+                              <label>Username</label>
+                              <input value={scAuth.username || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, username: e.target.value })} />
+                            </div>
+                            <div>
+                              <label>Password</label>
+                              <input type="password" value={scAuth.password || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, password: e.target.value })} />
+                            </div>
+                          </div>
+                        )}
+                        {scAuth.type === 'bearer' && (
+                          <div className="form-row two-col">
+                            <div>
+                              <label>Token</label>
+                              <input value={scAuth.token || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, token: e.target.value })} placeholder="eyJhbGciOi..." />
+                            </div>
+                            <div>
+                              <label>Prefix</label>
+                              <input value={scAuth.prefix ?? 'Bearer'} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, prefix: e.target.value })} placeholder="Bearer" />
+                            </div>
+                          </div>
+                        )}
+                        {scAuth.type === 'apikey' && (
+                          <>
+                            <div className="form-row two-col">
+                              <div>
+                                <label>Key Name</label>
+                                <input value={scAuth.apiKeyName || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyName: e.target.value })} placeholder="X-API-Key" />
+                              </div>
+                              <div>
+                                <label>Key Value</label>
+                                <input value={scAuth.apiKeyValue || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyValue: e.target.value })} placeholder="your-api-key" />
+                              </div>
+                            </div>
+                            <div className="form-row">
+                              <label>Add to</label>
+                              <div className="radio-group">
+                                <label className="radio-label">
+                                  <input type="radio" checked={scAuth.apiKeyIn !== 'query'} onChange={() => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyIn: 'header' })} />
+                                  Header
+                                </label>
+                                <label className="radio-label">
+                                  <input type="radio" checked={scAuth.apiKeyIn === 'query'} onChange={() => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyIn: 'query' })} />
+                                  Query Parameter
+                                </label>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {scAuth.type === 'digest' && (
                           <div className="form-row two-col">
                             <div>
                               <label>Username</label>
@@ -660,12 +849,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                     {expandedScenarios.has(sc.id) && (
                       <div className="scenario-group-body">
                         {sc.tests.length === 0 && <div className="empty-hint">No tests. Click "+ Test" to add an HTTP request.</div>}
-                        {sc.tests.map((t) => (
+                        {sc.tests.map((t, tIdx) => (
                           <div key={t.id} className="test-card">
                             <div className="test-card-info">
+                              <span className="test-number">{tIdx + 1}</span>
                               <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
                               <strong>{t.name}</strong>
-                              <span className="scenario-url">{t.url}</span>
                             </div>
                             <div className="test-card-meta">
                               {t.auth.type !== 'none'
@@ -678,7 +867,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                             </div>
                             <div className="test-card-actions">
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
-                              <button className="btn btn-sm" onClick={() => duplicateTest(fg.id, sc.id, t)} title="Duplicate this test">Copy</button>
+                              <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
                               <button className="btn btn-sm" onClick={() => exportTest(t)} title="Export this test">Export</button>
                               <button className="btn btn-sm btn-danger" onClick={() => removeTest(fg.id, sc.id, t.id)}>Delete</button>
                             </div>
@@ -701,6 +890,90 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
         </div>
       )}
 
+      {unassociatedFeatureGroups.length > 0 && (
+        <div className="unassociated-section">
+          <h3>Unassigned Feature Groups ({unassociatedFeatureGroups.length})</h3>
+          <p className="unassociated-hint">These feature groups need a microservice and environment assignment. {selectedSvcId && selectedEnvId ? 'Click "Assign here" to assign to the current selection.' : 'Select both from the sidebar, or use the dropdowns below.'}</p>
+          {unassociatedFeatureGroups.map((fg) => (
+            <div key={fg.id} className="unassociated-card">
+              <div className="unassociated-info">
+                <strong>{fg.name}</strong>
+                <span className="count-badge">{fg.scenarios.length} scenario{fg.scenarios.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="unassociated-actions">
+                {selectedSvcId && selectedEnvId ? (
+                  <button className="btn btn-sm btn-primary" onClick={() => assignFeatureGroup(fg.id, selectedSvcId, selectedEnvId)}>
+                    Assign here
+                  </button>
+                ) : (
+                  <>
+                    <select id={`svc-${fg.id}`} defaultValue="">
+                      <option value="" disabled>Microservice…</option>
+                      {microservices.map((svc) => (
+                        <option key={svc.id} value={svc.id}>{svc.name}</option>
+                      ))}
+                    </select>
+                    <select id={`env-${fg.id}`} defaultValue="">
+                      <option value="" disabled>Environment…</option>
+                      {environments.map((env) => (
+                        <option key={env.id} value={env.id}>{env.name}</option>
+                      ))}
+                    </select>
+                    <button className="btn btn-sm btn-primary" onClick={() => {
+                      const svcEl = document.getElementById(`svc-${fg.id}`) as HTMLSelectElement;
+                      const envEl = document.getElementById(`env-${fg.id}`) as HTMLSelectElement;
+                      if (svcEl?.value && envEl?.value) assignFeatureGroup(fg.id, svcEl.value, envEl.value);
+                      else alert('Select both a microservice and an environment.');
+                    }}>Assign</button>
+                  </>
+                )}
+                <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ===== Copy Test Destination Picker ===== */}
+      {copyingTest && (
+        <div className="modal-overlay" onClick={() => setCopyingTest(null)}>
+          <div className="modal copy-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Copy Test To...</h3>
+            <p className="copy-test-name">Copying: <strong>{copyingTest.test.name}</strong></p>
+
+            <div className="form-row">
+              <label>Feature Group</label>
+              <select value={copyTargetFeature} onChange={(e) => {
+                setCopyTargetFeature(e.target.value);
+                const fg = featureGroups.find((f) => f.id === e.target.value);
+                setCopyTargetScenario(fg?.scenarios[0]?.id || '');
+              }}>
+                {featureGroups.map((fg) => (
+                  <option key={fg.id} value={fg.id}>{fg.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-row">
+              <label>Scenario</label>
+              <select value={copyTargetScenario} onChange={(e) => setCopyTargetScenario(e.target.value)}>
+                {featureGroups.find((f) => f.id === copyTargetFeature)?.scenarios.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {sc.name}
+                    {sc.id === copyingTest.sourceScenarioId && copyTargetFeature === copyingTest.sourceFeatureId ? ' (current)' : ''}
+                  </option>
+                )) || <option value="">No scenarios</option>}
+              </select>
+            </div>
+
+            <div className="copy-modal-actions">
+              <button className="btn" onClick={() => setCopyingTest(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmCopyTest} disabled={!copyTargetScenario}>Copy Here</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== Full-screen Test Editor Modal ===== */}
       {editingTest && (
         <div className="modal-overlay">
@@ -710,14 +983,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
               <h3>{editingTest.testId === 'new' ? 'New Test' : 'Edit Test'}</h3>
               <div className="mode-toggle">
                 <button className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => setInputMode('builder')}>Builder</button>
-                <button className={`mode-btn ${inputMode === 'curl' ? 'active' : ''}`} onClick={() => setInputMode('curl')}>cURL</button>
-                <button className="mode-btn" onClick={() => pickJsonFile((data) => {
+                <button className={`mode-btn ${inputMode === 'curl' ? 'active' : ''}`} onClick={() => setInputMode('curl')}>cURL Import</button>
+                <button className={`mode-btn ${inputMode === 'curl-export' ? 'active' : ''}`} onClick={() => { setInputMode('curl-export'); triggerCurlGeneration(); }}>cURL Export</button>
+                <button className="mode-btn" onClick={() => pickJsonFile((raw) => {
+                  const data = unwrapImport(raw);
                   const t = data as Scenario;
                   if (!t.name || !t.url || !t.method) { alert('Invalid file: expected a test with name, url, and method.'); return; }
                   setDraft({ ...t, id: draft.id });
                   syncParamsFromUrl(t.url || '');
                   setInputMode('builder');
                 })}>Import</button>
+                <button className="mode-btn" onClick={() => exportTest(draft)}>Export</button>
               </div>
               <div className="insomnia-top-actions">
                 <button className="btn" onClick={() => setEditingTest(null)}>Cancel</button>
@@ -752,6 +1028,39 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
               </div>
             )}
 
+            {/* cURL export mode */}
+            {inputMode === 'curl-export' && (
+              <div className="curl-mode-panel">
+                <label>Generated cURL command</label>
+                {draft.url.trim() ? (
+                  <>
+                    <textarea
+                      rows={12}
+                      readOnly
+                      value={curlGenerating ? 'Generating cURL (acquiring token)...' : generatedCurl}
+                      className="curl-export-textarea"
+                      onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                    />
+                    <div className="curl-actions">
+                      <button className="btn btn-primary" disabled={curlGenerating || !generatedCurl} onClick={() => {
+                        navigator.clipboard.writeText(generatedCurl);
+                      }}>Copy to Clipboard</button>
+                      <button className="btn" disabled={curlGenerating} onClick={triggerCurlGeneration}>
+                        {curlGenerating ? 'Generating...' : 'Refresh'}
+                      </button>
+                    </div>
+                    {resolveEffectiveAuth().auth.type === 'oauth2' && !curlGenerating && (
+                      <div className="curl-preview">
+                        <strong>Note:</strong> The OAuth2 token above is a real token acquired from the token endpoint. It may expire — click <strong>Refresh</strong> to get a new one.
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="empty-state">Configure the test URL in the Builder first to generate a cURL command.</div>
+                )}
+              </div>
+            )}
+
             {/* Builder mode */}
             {inputMode === 'builder' && (
               <div className="builder-panel">
@@ -778,8 +1087,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                     className="url-input"
                     value={baseUrl}
                     onChange={(e) => handleBaseUrlChange(e.target.value)}
-                    placeholder="https://api.example.com/endpoint"
+                    placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
                   />
+                  {resolvedBaseUrl && !draft.url && (
+                    <button className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
+                  )}
                 </div>
 
                 {/* URL preview when params exist */}
@@ -846,15 +1158,90 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                   {/* Auth tab */}
                   {activeTab === 'auth' && (
                     <div>
-                      <div className="radio-group">
-                        {(['none', 'basic', 'oauth2'] as AuthType[]).map((t) => (
-                          <label key={t} className="radio-label">
-                            <input type="radio" name="authType" checked={draft.auth.type === t} onChange={() => setDraft({ ...draft, auth: { ...draft.auth, type: t } })} />
-                            {t === 'none' ? 'None' : t === 'basic' ? 'Basic Auth' : 'OAuth2 Client Credentials'}
-                          </label>
-                        ))}
+                      <div className="auth-type-select">
+                        <label>Type</label>
+                        <select
+                          value={draft.auth.type}
+                          onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, type: e.target.value as AuthType } })}
+                        >
+                          <option value="inherit">Inherit from Scenario</option>
+                          <option value="none">No Auth</option>
+                          <option value="basic">Basic Auth</option>
+                          <option value="bearer">Bearer Token</option>
+                          <option value="apikey">API Key</option>
+                          <option value="digest">Digest Auth</option>
+                          <option value="oauth2">OAuth2 Client Credentials</option>
+                        </select>
                       </div>
+                      {draft.auth.type === 'inherit' && (() => {
+                        const parentScAuth = editingTest
+                          ? featureGroups.find((f) => f.id === editingTest.featureId)
+                              ?.scenarios.find((s) => s.id === editingTest.scenarioId)?.auth
+                          : undefined;
+                        const authLabel: Record<string, string> = {
+                          basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
+                          digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
+                        };
+                        return (
+                          <div className="auth-inherit-hint">
+                            {parentScAuth && parentScAuth.type !== 'none'
+                              ? `Will use scenario-level ${authLabel[parentScAuth.type] ?? parentScAuth.type}`
+                              : 'No auth configured at scenario level. Configure it via the "Auth" button on the scenario.'}
+                          </div>
+                        );
+                      })()}
                       {draft.auth.type === 'basic' && (
+                        <div className="form-row two-col">
+                          <div>
+                            <label>Username</label>
+                            <input value={draft.auth.username || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, username: e.target.value } })} />
+                          </div>
+                          <div>
+                            <label>Password</label>
+                            <input type="password" value={draft.auth.password || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, password: e.target.value } })} />
+                          </div>
+                        </div>
+                      )}
+                      {draft.auth.type === 'bearer' && (
+                        <div className="form-row two-col">
+                          <div>
+                            <label>Token</label>
+                            <input value={draft.auth.token || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, token: e.target.value } })} placeholder="eyJhbGciOi..." />
+                          </div>
+                          <div>
+                            <label>Prefix</label>
+                            <input value={draft.auth.prefix ?? 'Bearer'} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, prefix: e.target.value } })} placeholder="Bearer" />
+                          </div>
+                        </div>
+                      )}
+                      {draft.auth.type === 'apikey' && (
+                        <>
+                          <div className="form-row two-col">
+                            <div>
+                              <label>Key Name</label>
+                              <input value={draft.auth.apiKeyName || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, apiKeyName: e.target.value } })} placeholder="X-API-Key" />
+                            </div>
+                            <div>
+                              <label>Key Value</label>
+                              <input value={draft.auth.apiKeyValue || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, apiKeyValue: e.target.value } })} placeholder="your-api-key" />
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <label>Add to</label>
+                            <div className="radio-group">
+                              <label className="radio-label">
+                                <input type="radio" checked={draft.auth.apiKeyIn !== 'query'} onChange={() => setDraft({ ...draft, auth: { ...draft.auth, apiKeyIn: 'header' } })} />
+                                Header
+                              </label>
+                              <label className="radio-label">
+                                <input type="radio" checked={draft.auth.apiKeyIn === 'query'} onChange={() => setDraft({ ...draft, auth: { ...draft.auth, apiKeyIn: 'query' } })} />
+                                Query Parameter
+                              </label>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {draft.auth.type === 'digest' && (
                         <div className="form-row two-col">
                           <div>
                             <label>Username</label>
@@ -927,17 +1314,30 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups }: Pro
                         </div>
                       )}
                       {draft.validation.mode === 'selective' && (
-                        <JsonPathBuilder
-                          sampleJson={draft.validation.sampleJson || ''}
-                          onSampleJsonChange={(json) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: json } }))}
-                          selectiveMode={draft.validation.selectiveMode || 'include'}
-                          expectedFields={draft.validation.expectedFields || []}
-                          excludedPaths={draft.validation.excludedPaths || []}
-                          onUpdate={(patch) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, ...patch } }))}
-                          onFetchSample={handleFetchSampleResponse}
-                          fetchingResponse={fetchingResponse}
-                          fetchError={fetchError}
-                        />
+                        <>
+                          <div className="validation-options">
+                            <label className="checkbox-label">
+                              <input
+                                type="checkbox"
+                                checked={draft.validation.unorderedArrays || false}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, unorderedArrays: e.target.checked } }))}
+                              />
+                              Unordered array matching
+                              <span className="option-hint">— ignore array item positions, match by value instead</span>
+                            </label>
+                          </div>
+                          <JsonPathBuilder
+                            sampleJson={draft.validation.sampleJson || ''}
+                            onSampleJsonChange={(json) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: json } }))}
+                            selectiveMode={draft.validation.selectiveMode || 'include'}
+                            expectedFields={draft.validation.expectedFields || []}
+                            excludedPaths={draft.validation.excludedPaths || []}
+                            onUpdate={(patch) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, ...patch } }))}
+                            onFetchSample={handleFetchSampleResponse}
+                            fetchingResponse={fetchingResponse}
+                            fetchError={fetchError}
+                          />
+                        </>
                       )}
                     </div>
                   )}

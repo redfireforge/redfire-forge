@@ -55,24 +55,47 @@ export function buildHeaders(scenario: Scenario, token?: string): Record<string,
   const headers: Record<string, string> = {};
   for (const h of scenario.headers) {
     if (h.key.trim()) {
-      // Skip manual Authorization header when OAuth2 is active (token will be set automatically)
       if (h.key.trim().toLowerCase() === 'authorization' && scenario.auth.type !== 'none') {
         continue;
       }
       headers[h.key.trim()] = h.value;
     }
   }
-  if (scenario.auth.type === 'basic' && scenario.auth.username) {
-    const encoded = btoa(`${scenario.auth.username}:${scenario.auth.password ?? ''}`);
+  const auth = scenario.auth;
+  if (auth.type === 'basic' && auth.username) {
+    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
     headers['Authorization'] = `Basic ${encoded}`;
   }
-  if (scenario.auth.type === 'oauth2' && token) {
+  if (auth.type === 'bearer' && auth.token) {
+    const prefix = auth.prefix?.trim() || 'Bearer';
+    headers['Authorization'] = `${prefix} ${auth.token}`;
+  }
+  if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue) {
+    if (auth.apiKeyIn === 'header') {
+      headers[auth.apiKeyName] = auth.apiKeyValue;
+    }
+  }
+  if (auth.type === 'digest' && auth.username) {
+    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
+    headers['Authorization'] = `Basic ${encoded}`;
+  }
+  if (auth.type === 'oauth2' && token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   if (scenario.body && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
   return headers;
+}
+
+export function buildUrl(scenario: Scenario): string {
+  const auth = scenario.auth;
+  if (auth.type === 'apikey' && auth.apiKeyIn === 'query' && auth.apiKeyName && auth.apiKeyValue) {
+    const url = new URL(scenario.url);
+    url.searchParams.set(auth.apiKeyName, auth.apiKeyValue);
+    return url.toString();
+  }
+  return scenario.url;
 }
 
 async function executeRequest(
@@ -88,7 +111,8 @@ async function executeRequest(
 
   try {
     const reqBody = (scenario.body && scenario.method !== 'GET') ? scenario.body : undefined;
-    const result = await proxyFetch(scenario.url, scenario.method, headers, reqBody);
+    const url = buildUrl(scenario);
+    const result = await proxyFetch(url, scenario.method, headers, reqBody);
 
     if (result.error) {
       httpStatus = 0;
@@ -198,14 +222,28 @@ export async function runTest(
     [queue[i], queue[j]] = [queue[j], queue[i]];
   }
 
-  // Execute in batches
+  const mode = config.executionMode ?? 'batch';
+
+  if (mode === 'pool') {
+    return runPool(queue, config.concurrency, tokenMap, onProgress, abortSignal);
+  }
+  return runBatch(queue, config.concurrency, tokenMap, onProgress, abortSignal);
+}
+
+async function runBatch(
+  queue: Scenario[],
+  concurrency: number,
+  tokenMap: Map<string, string>,
+  onProgress: ProgressCallback,
+  abortSignal?: AbortSignal
+): Promise<RequestResult[]> {
   const allResults: RequestResult[] = [];
   let completed = 0;
 
-  for (let i = 0; i < queue.length; i += config.concurrency) {
+  for (let i = 0; i < queue.length; i += concurrency) {
     if (abortSignal?.aborted) break;
 
-    const batch = queue.slice(i, i + config.concurrency);
+    const batch = queue.slice(i, i + concurrency);
     const batchPromises = batch.map((scenario) => {
       const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
       return executeRequest(scenario, headers);
@@ -214,8 +252,46 @@ export async function runTest(
     const batchResults = await Promise.all(batchPromises);
     allResults.push(...batchResults);
     completed += batchResults.length;
-    onProgress(completed, config.totalTransactions, allResults);
+    onProgress(completed, queue.length, allResults);
   }
 
   return allResults;
+}
+
+async function runPool(
+  queue: Scenario[],
+  concurrency: number,
+  tokenMap: Map<string, string>,
+  onProgress: ProgressCallback,
+  abortSignal?: AbortSignal
+): Promise<RequestResult[]> {
+  const allResults: RequestResult[] = [];
+  let nextIdx = 0;
+  let inFlight = 0;
+  const total = queue.length;
+
+  return new Promise((resolve) => {
+    function launch() {
+      while (inFlight < concurrency && nextIdx < total) {
+        if (abortSignal?.aborted) break;
+        const scenario = queue[nextIdx++];
+        inFlight++;
+        const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
+        executeRequest(scenario, headers).then((result) => {
+          allResults.push(result);
+          inFlight--;
+          onProgress(allResults.length, total, allResults);
+          if (allResults.length >= total || abortSignal?.aborted) {
+            resolve(allResults);
+          } else {
+            launch();
+          }
+        });
+      }
+      if (nextIdx >= total && inFlight === 0) {
+        resolve(allResults);
+      }
+    }
+    launch();
+  });
 }

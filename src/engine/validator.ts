@@ -216,8 +216,9 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
  * 2. Add a prefix (e.g., "[0].x" → "data[0].x" if response has wrapper key)
  * 3. Unwrap nested key (e.g., "x" → "data.x" or "result.x")
  */
-function tryRemapPaths(fields: ExpectedField[], responseBody: unknown): FailureDetail[] | null {
+function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered: boolean): FailureDetail[] | null {
   if (responseBody == null || typeof responseBody !== 'object') return null;
+  const doValidate = unordered ? validateFieldsUnordered : validateFields;
 
   // Strategy 1: paths have a wrapper key like "offers[0].x" but response is an array
   // → strip the first path segment
@@ -229,7 +230,7 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown): FailureD
         ...f,
         jsonPath: f.jsonPath.slice(firstSegment.length).replace(/^\./, ''),
       }));
-      const result = validateFields(stripped, responseBody);
+      const result = doValidate(stripped, responseBody);
       if (!result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
         return result;
       }
@@ -247,13 +248,13 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown): FailureD
           ...f,
           jsonPath: `${key}.${f.jsonPath}`.replace(/\.\[/g, '['),
         }));
-        const result = validateFields(prefixed, responseBody);
+        const result = doValidate(prefixed, responseBody);
         if (!result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
           return result;
         }
 
         // Also try resolving directly against the nested value
-        const direct = validateFields(fields, val);
+        const direct = doValidate(fields, val);
         if (!direct.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
           return direct;
         }
@@ -297,7 +298,7 @@ export function validate(
 
   // If ALL fields resolved to undefined, try smart path remapping
   if (failures.length > 0 && failures.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
-    const remapped = tryRemapPaths(fields, responseBody);
+    const remapped = tryRemapPaths(fields, responseBody, !!config.unorderedArrays);
     if (remapped) {
       failures = remapped;
     }

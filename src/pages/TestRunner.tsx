@@ -1,54 +1,98 @@
-import { useState, useMemo } from 'react';
-import type { AuthConfig, FeatureGroup, Scenario, TestConfig, ScenarioWeight } from '../types';
+import { useState, useMemo, useEffect } from 'react';
+import type { AuthConfig, ExecutionMode, FeatureGroup, Scenario, TestConfig, ScenarioWeight } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
+
+const STORAGE_KEY = 'perf-test-runner-config';
+
+type HostMode = 'hardcoded' | 'settings' | 'custom';
+
+function loadRunnerConfig(): { concurrency: number; totalTransactions: number; selectedScenarios: string[]; weights: Record<string, number>; skipValidation: boolean; hostMode: HostMode; customBaseUrl: string; executionMode: ExecutionMode } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {}, skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch' };
+}
 
 interface Props {
   featureGroups: FeatureGroup[];
   onComplete: () => void;
+  envName?: string;
+  svcName?: string;
+  resolvedBaseUrl?: string;
 }
 
-export default function TestRunner({ featureGroups, onComplete }: Props) {
-  const [concurrency, setConcurrency] = useState(1);
-  const [totalTransactions, setTotalTransactions] = useState(1);
+function replaceHost(testUrl: string, baseUrl: string): string {
+  if (!baseUrl) return testUrl;
+  try {
+    const original = new URL(testUrl);
+    const base = new URL(baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
+    original.protocol = base.protocol;
+    original.host = base.host;
+    const basePath = base.pathname.replace(/\/+$/, '');
+    if (basePath && !original.pathname.startsWith(basePath)) {
+      original.pathname = basePath + original.pathname;
+    }
+    return original.toString();
+  } catch {
+    return testUrl;
+  }
+}
 
-  // Track selected scenarios by id
-  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
-  const [weights, setWeights] = useState<Record<string, number>>({});
-  // Track expanded feature groups
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl }: Props) {
+  const saved = useMemo(() => loadRunnerConfig(), []);
+  const [concurrency, setConcurrency] = useState(saved.concurrency);
+  const [totalTransactions, setTotalTransactions] = useState(saved.totalTransactions);
+
+  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(() => new Set(saved.selectedScenarios));
+  const [weights, setWeights] = useState<Record<string, number>>(saved.weights);
+  const [skipValidation, setSkipValidation] = useState(saved.skipValidation);
+  const [hostMode, setHostMode] = useState<HostMode>(saved.hostMode || 'settings');
+  const [customBaseUrl, setCustomBaseUrl] = useState(saved.customBaseUrl || '');
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>(saved.executionMode || 'batch');
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
 
   const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun } = useTestExecution();
 
-  // Collect all tests from selected scenarios, resolving auth priority:
-  // 1. Test-level auth (highest) — only if test has a complete auth config
-  // 2. Scenario-level auth (middle) — if scenario has auth configured
-  // 3. Header-level auth (lowest) — manual Authorization header, handled by executor
-  const selectedTests: Scenario[] = useMemo(() => {
-    const isAuthComplete = (auth: AuthConfig): boolean => {
-      switch (auth.type) {
-        case 'none': return false;
-        case 'basic': return !!auth.username;
-        case 'oauth2': return !!auth.tokenUrl && !!auth.clientId && !!auth.clientSecret;
-        default: return false;
-      }
-    };
+  // Persist config to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      concurrency,
+      totalTransactions,
+      selectedScenarios: Array.from(selectedScenarios),
+      weights,
+      skipValidation,
+      hostMode,
+      customBaseUrl,
+      executionMode,
+    }));
+  }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
+  // Collect all tests from selected scenarios, resolving auth:
+  // 'inherit' = use scenario-level auth
+  // 'none' = no auth
+  // 'basic'/'oauth2' = test-level auth (highest priority)
+  const selectedTests: Scenario[] = useMemo(() => {
     const tests: Scenario[] = [];
     for (const fg of featureGroups) {
       for (const sc of fg.scenarios) {
         if (selectedScenarios.has(sc.id)) {
           for (const test of sc.tests) {
-            if (isAuthComplete(test.auth) || !sc.auth || !isAuthComplete(sc.auth)) {
-              tests.push(test);
+            const effectiveBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '';
+            const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
+            const validation = skipValidation ? { mode: 'none' as const } : test.validation;
+            if (test.auth.type === 'inherit') {
+              const scenarioAuth = sc.auth && sc.auth.type !== 'none' ? sc.auth : { type: 'none' as const };
+              tests.push({ ...test, url, auth: scenarioAuth, validation });
             } else {
-              tests.push({ ...test, auth: sc.auth });
+              tests.push({ ...test, url, validation });
             }
           }
         }
       }
     }
     return tests;
-  }, [featureGroups, selectedScenarios]);
+  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, hostMode, customBaseUrl]);
 
   // Sync weights when selection changes
   useMemo(() => {
@@ -104,8 +148,9 @@ export default function TestRunner({ featureGroups, onComplete }: Props) {
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
-    const config: TestConfig = { concurrency, totalTransactions: effectiveTransactions, scenarioWeights };
-    execute(config, selectedTests);
+    const config: TestConfig = { concurrency, totalTransactions: effectiveTransactions, scenarioWeights, executionMode };
+    const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
+    execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
   };
 
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -115,6 +160,72 @@ export default function TestRunner({ featureGroups, onComplete }: Props) {
     <div className="page">
       <div className="page-header">
         <h2>Test Runner</h2>
+        {(envName || svcName) && (
+          <div className="context-tags">
+            {envName && <span className="tag tag-info">Env: {envName}</span>}
+            {svcName && <span className="tag tag-info">Svc: {svcName}</span>}
+          </div>
+        )}
+      </div>
+      <div className="runner-host-selector">
+        <span className="runner-host-label">Host:</span>
+        <label className="radio-label">
+          <input type="radio" name="hostMode" checked={hostMode === 'hardcoded'} onChange={() => setHostMode('hardcoded')} disabled={isRunning} />
+          Original
+        </label>
+        <label className={`radio-label ${!resolvedBaseUrl ? 'disabled' : ''}`}>
+          <input type="radio" name="hostMode" checked={hostMode === 'settings'} onChange={() => setHostMode('settings')} disabled={isRunning || !resolvedBaseUrl} />
+          Settings
+          {resolvedBaseUrl
+            ? <code className="runner-host-url">{resolvedBaseUrl}</code>
+            : <span className="option-hint"> — configure base URL in Settings first</span>
+          }
+        </label>
+        <label className="radio-label">
+          <input type="radio" name="hostMode" checked={hostMode === 'custom'} onChange={() => setHostMode('custom')} disabled={isRunning} />
+          Custom
+        </label>
+        {hostMode === 'custom' && (
+          <input
+            className="runner-custom-url-input"
+            type="text"
+            value={customBaseUrl}
+            onChange={(e) => setCustomBaseUrl(e.target.value)}
+            placeholder="https://my-host.example.com:8080"
+            disabled={isRunning}
+          />
+        )}
+      </div>
+
+      <div className="runner-option-boxes">
+        <div className="runner-option-box">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={skipValidation}
+              onChange={(e) => setSkipValidation(e.target.checked)}
+              disabled={isRunning}
+            />
+            Skip validation
+          </label>
+        </div>
+
+        <div className="runner-option-box" style={{ flex: 1 }}>
+          <span className="runner-exec-label">Execution Mode:</span>
+          <label className="radio-label" title="Fires N requests, waits for ALL to finish, then fires the next N. Idle slots wait for the slowest request in the batch.">
+            <input type="radio" name="execMode" checked={executionMode === 'batch'} onChange={() => setExecutionMode('batch')} disabled={isRunning} />
+            Batch
+          </label>
+          <label className="radio-label" title="Maintains N concurrent requests at all times. When any single request completes, a new one starts immediately — no idle slots.">
+            <input type="radio" name="execMode" checked={executionMode === 'pool'} onChange={() => setExecutionMode('pool')} disabled={isRunning} />
+            Continuous Pool
+          </label>
+          <span className="exec-mode-hint">
+            {executionMode === 'batch'
+              ? 'Fires N requests, waits for all to complete, then fires next N'
+              : 'Keeps N requests in-flight at all times — a new request starts as soon as one finishes'}
+          </span>
+        </div>
       </div>
 
       {!hasAnyTests ? (
@@ -187,12 +298,12 @@ export default function TestRunner({ featureGroups, onComplete }: Props) {
           {/* Config */}
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-              <div className="form-row two-col">
-                <div>
+              <div className="form-row" style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+                <div style={{ flex: 1 }}>
                   <label>Concurrency (parallel requests)</label>
                   <input type="number" min={1} max={100} value={concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
                 </div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <label>Total Transactions</label>
                   <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => setTotalTransactions(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
                   {effectiveTransactions > totalTransactions && (
@@ -203,9 +314,10 @@ export default function TestRunner({ featureGroups, onComplete }: Props) {
 
               <fieldset>
                 <legend>Test Distribution (weights)</legend>
-                {selectedTests.map((t) => (
-                  <div key={t.id} className="form-row two-col">
+                {selectedTests.map((t, idx) => (
+                  <div key={t.id} className="weight-row">
                     <div className="weight-label">
+                      <span className="test-number">{idx + 1}</span>
                       <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
                       {t.name}
                     </div>
@@ -216,7 +328,7 @@ export default function TestRunner({ featureGroups, onComplete }: Props) {
                       value={weights[t.id] ?? 1}
                       onChange={(e) => setWeights({ ...weights, [t.id]: Math.max(0, parseInt(e.target.value) || 0) })}
                       disabled={isRunning}
-                      style={{ width: 80 }}
+                      className="weight-input"
                     />
                   </div>
                 ))}
