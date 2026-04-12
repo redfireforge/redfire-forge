@@ -7,9 +7,10 @@ import { exportJson, exportCsv } from '../utils/export';
 interface Props {
   envName?: string;
   svcName?: string;
+  projectName?: string;
 }
 
-export default function ResultsDashboard({ envName, svcName }: Props) {
+export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
 
   useEffect(() => {
@@ -115,8 +116,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       <div className="results-top">
         <div className="results-top-row">
           <h2>Results</h2>
-          {selectedRun && (selectedRun.svcName || selectedRun.envName) && (
+          {selectedRun && (
             <div className="context-tags">
+              {projectName && <span className="context-tag project-tag">{projectName}</span>}
               {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
               {selectedRun.baseUrl
@@ -144,6 +146,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
           {runs.map((r) => {
             const label = [
               new Date(r.timestamp).toLocaleString(),
+              r.projectName,
               r.svcName,
               r.envName,
               `${r.summary.totalRequests} req`,
