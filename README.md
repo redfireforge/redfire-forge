@@ -1,4 +1,6 @@
-# RedfireForge
+# RedfireForge — API Performance Studio
+
+> *Fire. Measure. Validate.*
 
 A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
 
@@ -16,6 +18,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
 - [Feature Reference](#feature-reference)
+- [Branching Strategy & Versioning](#branching-strategy--versioning)
 - [Development Workflow](#development-workflow)
 - [CI/CD & Multi-Platform Releases](#cicd--multi-platform-releases)
 - [Data Persistence](#data-persistence)
@@ -509,6 +512,60 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 ---
 
+## Branching Strategy & Versioning
+
+### Branch Model (Git Flow)
+
+```
+master          ← stable releases      (v1.0.0)
+  └─ release/*  ← release candidates   (v1.0.0-beta.1)
+  └─ develop    ← integration branch   (v1.0.0-alpha.1)
+       └─ feature/*  ← feature work    (v1.0.0-dev.1)
+```
+
+| Branch | Purpose | Version tag | Merge target |
+|---|---|---|---|
+| `master` | Production-ready releases | `1.0.0` | — |
+| `release/<ver>` | Stabilisation & QA before release | `1.0.0-beta.N` | `master` |
+| `develop` | Integration of completed features | `1.0.0-alpha.N` | `release/*` |
+| `feature/<name>` | Individual feature development | `1.0.0-dev.N` | `develop` |
+
+### Version Bump Script
+
+A single script updates the version across all three config files (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`) and applies the correct pre-release tag based on the current branch:
+
+```bash
+# On master — stable release
+./scripts/version.sh minor              # 0.1.0 → 0.2.0
+
+# On develop — alpha build
+./scripts/version.sh minor --pre 1      # 0.1.0 → 0.2.0-alpha.1
+
+# On release/0.2.0 — beta build
+./scripts/version.sh minor --pre 1      # 0.1.0 → 0.2.0-beta.1
+./scripts/version.sh minor --pre 2      # 0.1.0 → 0.2.0-beta.2
+
+# On feature/* — dev build
+./scripts/version.sh patch --pre 1      # 0.1.0 → 0.1.1-dev.1
+```
+
+### Typical Release Flow
+
+```
+1.  feature/xyz  →  develop             (merge feature)
+2.  develop: ./scripts/version.sh minor --pre 1    → 0.2.0-alpha.1
+3.  develop  →  release/0.2.0           (create release branch)
+4.  release/0.2.0: ./scripts/version.sh minor --pre 1  → 0.2.0-beta.1
+5.  (QA & bug fixes on release branch)
+6.  release/0.2.0  →  master            (merge to master)
+7.  master: ./scripts/version.sh minor  → 0.2.0
+8.  git tag v0.2.0
+```
+
+The version is displayed in the app header as a badge (e.g., `v0.1.0`, `v0.2.0-alpha.1`).
+
+---
+
 ## Development Workflow
 
 ### Day-to-Day Development
@@ -544,6 +601,7 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
 | `npm run lint` | Run ESLint |
+| `./scripts/version.sh` | Bump version across all config files |
 
 ---
 
