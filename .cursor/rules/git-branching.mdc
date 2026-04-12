@@ -19,6 +19,7 @@ alwaysApply: true
 3. **Always use `./scripts/version.sh`** to bump versions. Never edit version numbers manually.
 4. **After merging to `master`, always back-merge into `develop`.**
 5. **Before building, confirm the version matches the branch type** (alpha on develop, beta on release, stable on master).
+6. **Never merge a feature branch into `develop` without user approval.** After implementing on a feature branch, stop and ask the user to verify. Only merge after they confirm everything is OK.
 
 ## Version Bumping
 
@@ -39,9 +40,16 @@ git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 git commit -m "chore: bump version to <version>"
 ```
 
+## Feature Branch Workflow
+
+1. Create `feature/*` from `develop`
+2. Implement and commit on the feature branch
+3. **STOP — ask user to verify and test**
+4. Only after user confirms → merge into `develop`
+
 ## Release Checklist
 
-1. Merge feature into `develop`, bump alpha
+1. Merge feature into `develop` (after user approval), bump alpha
 2. Create `release/X.Y.Z` from `develop`, bump beta
 3. Test and fix on release branch, bump beta.N
 4. Merge release into `master`, set stable version, `git tag vX.Y.Z`
