@@ -1,0 +1,49 @@
+---
+description: Git branching strategy and version management for RedfireForge
+alwaysApply: true
+---
+
+# Git Branching & Versioning Rules
+
+## Branch Model (strict)
+
+- `master` — stable releases only (v1.0.0)
+- `release/*` — beta/RC builds (v1.0.0-beta.N)
+- `develop` — integration branch (v1.0.0-alpha.N)
+- `feature/*` — new features, always branch from `develop`
+
+## Rules
+
+1. **Never commit directly to `master`.** Only merge from `release/*`.
+2. **Never create feature branches from `master` or `release/*`.** Always from `develop`.
+3. **Always use `./scripts/version.sh`** to bump versions. Never edit version numbers manually.
+4. **After merging to `master`, always back-merge into `develop`.**
+5. **Before building, confirm the version matches the branch type** (alpha on develop, beta on release, stable on master).
+
+## Version Bumping
+
+```bash
+# On develop — alpha
+./scripts/version.sh minor --pre 1          # or set X.Y.Z --pre N
+
+# On release/* — beta
+./scripts/version.sh set X.Y.Z --pre N
+
+# On master — stable
+./scripts/version.sh set X.Y.Z
+```
+
+After bumping, always commit the 3 version files:
+```bash
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git commit -m "chore: bump version to <version>"
+```
+
+## Release Checklist
+
+1. Merge feature into `develop`, bump alpha
+2. Create `release/X.Y.Z` from `develop`, bump beta
+3. Test and fix on release branch, bump beta.N
+4. Merge release into `master`, set stable version, `git tag vX.Y.Z`
+5. Back-merge `master` into `develop`
+6. Update `CHANGELOG.md` — move [Unreleased] items into new version heading
