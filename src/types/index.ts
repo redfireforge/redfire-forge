@@ -71,12 +71,19 @@ export interface TestScenario {
   tests: Scenario[];
 }
 
+export interface GlobalAuthProfile {
+  id: string;
+  name: string;
+  auth: AuthConfig;
+}
+
 export interface FeatureGroup {
   id: string;
   name: string;
   microserviceId?: string;
   environmentId?: string;
   auth?: AuthConfig;
+  globalAuthProfileId?: string;
   scenarios: TestScenario[];
 }
 

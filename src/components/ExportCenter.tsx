@@ -1,23 +1,25 @@
 import { useState, useMemo } from 'react';
-import type { Environment, Microservice, FeatureGroup, TestRun } from '../types';
-import { saveJsonFile } from '../utils/fileSaver';
+import type { Environment, Microservice, FeatureGroup, TestRun, GlobalAuthProfile } from '../types';
+import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 
 interface Props {
   environments: Environment[];
   microservices: Microservice[];
   featureGroups: FeatureGroup[];
   testRuns: TestRun[];
+  globalAuthProfiles: GlobalAuthProfile[];
   onClose: () => void;
 }
 
-type Section = 'environments' | 'microservices' | 'features' | 'runs';
+type Section = 'environments' | 'microservices' | 'globalAuth' | 'features' | 'runs';
 
-export default function ExportCenter({ environments, microservices, featureGroups, testRuns, onClose }: Props) {
+export default function ExportCenter({ environments, microservices, featureGroups, testRuns, globalAuthProfiles, onClose }: Props) {
   const [selectedEnvs, setSelectedEnvs] = useState<Set<string>>(new Set());
   const [selectedSvcs, setSelectedSvcs] = useState<Set<string>>(new Set());
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
   const [selectedFGs, setSelectedFGs] = useState<Set<string>>(new Set());
   const [selectedRuns, setSelectedRuns] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<Section>>(new Set(['environments', 'microservices', 'features']));
+  const [expandedSections, setExpandedSections] = useState<Set<Section>>(new Set(['environments', 'microservices', 'globalAuth', 'features']));
 
   const toggleSection = (s: Section) => {
     setExpandedSections((prev) => {
@@ -39,7 +41,7 @@ export default function ExportCenter({ environments, microservices, featureGroup
   const envMap = useMemo(() => new Map(environments.map((e) => [e.id, e.name])), [environments]);
   const svcMap = useMemo(() => new Map(microservices.map((s) => [s.id, s.name])), [microservices]);
 
-  const totalSelected = selectedEnvs.size + selectedSvcs.size + selectedFGs.size + selectedRuns.size;
+  const totalSelected = selectedEnvs.size + selectedSvcs.size + selectedProfiles.size + selectedFGs.size + selectedRuns.size;
 
   const summaryLines = useMemo(() => {
     const lines: string[] = [];
@@ -53,6 +55,10 @@ export default function ExportCenter({ environments, microservices, featureGroup
       const names = svcs.map((s) => s.name);
       lines.push(`${selectedSvcs.size} microservice${selectedSvcs.size > 1 ? 's' : ''}: ${names.join(', ')} (${totalUrls} base URLs)`);
     }
+    if (selectedProfiles.size > 0) {
+      const names = globalAuthProfiles.filter((p) => selectedProfiles.has(p.id)).map((p) => p.name);
+      lines.push(`${selectedProfiles.size} auth profile${selectedProfiles.size > 1 ? 's' : ''}: ${names.join(', ')}`);
+    }
     if (selectedFGs.size > 0) {
       const fgs = featureGroups.filter((fg) => selectedFGs.has(fg.id));
       const totalScenarios = fgs.reduce((sum, fg) => sum + fg.scenarios.length, 0);
@@ -65,7 +71,7 @@ export default function ExportCenter({ environments, microservices, featureGroup
       lines.push(`${selectedRuns.size} test run${selectedRuns.size > 1 ? 's' : ''} (${totalReqs.toLocaleString()} total requests)`);
     }
     return lines;
-  }, [selectedEnvs, selectedSvcs, selectedFGs, selectedRuns, environments, microservices, featureGroups, testRuns]);
+  }, [selectedEnvs, selectedSvcs, selectedProfiles, selectedFGs, selectedRuns, environments, microservices, globalAuthProfiles, featureGroups, testRuns]);
 
   const handleExport = async () => {
     const data: Record<string, unknown> = {};
@@ -88,8 +94,24 @@ export default function ExportCenter({ environments, microservices, featureGroup
         ];
       }
     }
+    if (selectedProfiles.size > 0) {
+      data.globalAuthProfiles = globalAuthProfiles.filter((p) => selectedProfiles.has(p.id));
+    }
     if (selectedFGs.size > 0) {
-      data.featureGroups = featureGroups.filter((fg) => selectedFGs.has(fg.id));
+      const fgs = featureGroups.filter((fg) => selectedFGs.has(fg.id));
+      data.featureGroups = fgs;
+      // Auto-include referenced global auth profiles
+      const referencedProfileIds = new Set<string>();
+      for (const fg of fgs) {
+        if (fg.globalAuthProfileId) referencedProfileIds.add(fg.globalAuthProfileId);
+      }
+      const extraProfiles = globalAuthProfiles.filter((p) => referencedProfileIds.has(p.id) && !selectedProfiles.has(p.id));
+      if (extraProfiles.length > 0) {
+        data.globalAuthProfiles = [
+          ...((data.globalAuthProfiles as GlobalAuthProfile[]) ?? []),
+          ...extraProfiles,
+        ];
+      }
     }
     if (selectedRuns.size > 0) {
       data.testRuns = testRuns.filter((r) => selectedRuns.has(r.id));
@@ -101,9 +123,10 @@ export default function ExportCenter({ environments, microservices, featureGroup
     const parts: string[] = [];
     if (selectedEnvs.size > 0) parts.push('envs');
     if (selectedSvcs.size > 0) parts.push('svcs');
+    if (selectedProfiles.size > 0) parts.push('auth');
     if (selectedFGs.size > 0) parts.push('features');
     if (selectedRuns.size > 0) parts.push('runs');
-    const filename = `perf-test-export-${parts.join('-')}-${new Date().toISOString().slice(0, 10)}.json`;
+    const filename = buildExportFilename({ level: 'export', name: parts.join('-') });
 
     await saveJsonFile(data, filename);
   };
@@ -111,6 +134,7 @@ export default function ExportCenter({ environments, microservices, featureGroup
   const quickSelectAll = () => {
     selectAll(environments.map((e) => e.id), setSelectedEnvs);
     selectAll(microservices.map((s) => s.id), setSelectedSvcs);
+    selectAll(globalAuthProfiles.map((p) => p.id), setSelectedProfiles);
     selectAll(featureGroups.map((f) => f.id), setSelectedFGs);
     selectAll(testRuns.map((r) => r.id), setSelectedRuns);
   };
@@ -118,6 +142,7 @@ export default function ExportCenter({ environments, microservices, featureGroup
   const quickClearAll = () => {
     clearAll(setSelectedEnvs);
     clearAll(setSelectedSvcs);
+    clearAll(setSelectedProfiles);
     clearAll(setSelectedFGs);
     clearAll(setSelectedRuns);
   };
@@ -181,6 +206,36 @@ export default function ExportCenter({ environments, microservices, featureGroup
                       <input type="checkbox" checked={selectedSvcs.has(svc.id)} onChange={() => toggle(selectedSvcs, svc.id, setSelectedSvcs)} />
                       <span>{svc.name}</span>
                       <span className="export-item-meta">{envCount} envs · {fgCount} feature groups</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Global Auth Profiles */}
+          <div className="export-section">
+            <div className="export-section-header" onClick={() => toggleSection('globalAuth')}>
+              <span className={`expand-icon ${expandedSections.has('globalAuth') ? 'expanded' : ''}`}>▸</span>
+              <strong>Global Auth Profiles</strong>
+              <span className="export-count">{selectedProfiles.size}/{globalAuthProfiles.length}</span>
+              <div className="export-section-actions" onClick={(e) => e.stopPropagation()}>
+                <button className="btn btn-xs" onClick={() => selectAll(globalAuthProfiles.map((p) => p.id), setSelectedProfiles)}>All</button>
+                <button className="btn btn-xs" onClick={() => clearAll(setSelectedProfiles)}>None</button>
+              </div>
+            </div>
+            {expandedSections.has('globalAuth') && (
+              <div className="export-items">
+                {globalAuthProfiles.length === 0 && <span className="empty-hint">No global auth profiles configured</span>}
+                {globalAuthProfiles.map((profile) => {
+                  const linkedFGs = featureGroups.filter((fg) => fg.globalAuthProfileId === profile.id).length;
+                  return (
+                    <label key={profile.id} className="export-item">
+                      <input type="checkbox" checked={selectedProfiles.has(profile.id)} onChange={() => toggle(selectedProfiles, profile.id, setSelectedProfiles)} />
+                      <span>{profile.name}</span>
+                      <span className="export-item-meta">
+                        {profile.auth.type.toUpperCase()} · {linkedFGs} feature group{linkedFGs !== 1 ? 's' : ''}
+                      </span>
                     </label>
                   );
                 })}

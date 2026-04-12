@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField } from '../types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField, GlobalAuthProfile } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token, buildHeaders } from '../engine/executor';
-import { saveJsonFile } from '../utils/fileSaver';
+import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 import JsonPathBuilder from '../components/JsonPathBuilder';
 
 const emptyTest = (): Scenario => ({
@@ -69,9 +69,10 @@ interface Props {
   unassociatedFeatureGroups?: FeatureGroup[];
   microservices?: Microservice[];
   environments?: { id: string; name: string }[];
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [] }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [] }: Props) {
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -99,6 +100,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [generatedCurl, setGeneratedCurl] = useState('');
   const [curlGenerating, setCurlGenerating] = useState(false);
   const [queryParams, setQueryParams] = useState<KeyValue[]>([{ key: '', value: '' }]);
+
+  // Drag-and-drop state
+  const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
+  const [dragTest, setDragTest] = useState<{ testId: string; fromFeatureId: string; fromScenarioId: string } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ type: 'scenario' | 'test'; featureId: string; scenarioId?: string; position?: 'before' | 'after'; targetId?: string } | null>(null);
+  const dragHandleActive = useRef(false);
 
   // load/save is handled by App.tsx to avoid overwriting unfiltered groups
 
@@ -167,9 +174,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   // Feature auth
-  const updateFeatureAuth = (featureId: string, auth: AuthConfig) => {
+  const updateFeatureAuth = (featureId: string, auth: AuthConfig, globalAuthProfileId?: string) => {
     setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId ? { ...fg, auth } : fg
+      fg.id === featureId ? { ...fg, auth, globalAuthProfileId: globalAuthProfileId ?? (auth.type === 'inherit' ? fg.globalAuthProfileId : undefined) } : fg
     ));
   };
 
@@ -353,6 +360,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchHostOverride, setFetchHostOverride] = useState('');
+  const [fetchHostEnabled, setFetchHostEnabled] = useState(false);
 
   const [authVerifying, setAuthVerifying] = useState(false);
   const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
@@ -406,9 +415,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   }, []);
 
   // Resolve effective auth with priority chain: Test → Scenario → Feature
-  // Test auth: if not 'inherit' and not 'none', use test's own auth
-  // Scenario auth: if not 'inherit' and not 'none', use scenario's auth
-  // Feature auth: fallback to feature-level auth
+  // Auth resolution chain: Test → Scenario → Feature → Global Profile
   const resolveEffectiveAuth = useCallback((): { auth: AuthConfig; source: string } => {
     if (draft.auth.type !== 'inherit' && draft.auth.type !== 'none') {
       return { auth: draft.auth, source: 'test' };
@@ -417,18 +424,30 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       const fg = featureGroups.find((f) => f.id === editingTest.featureId);
       const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
       if (draft.auth.type === 'inherit' || draft.auth.type === 'none') {
-        // Check scenario auth
         if (sc?.auth && sc.auth.type !== 'none' && sc.auth.type !== 'inherit') {
           return { auth: sc.auth, source: 'scenario' };
         }
-        // Check feature auth (scenario inherit or scenario none → fall through)
-        if (fg?.auth && fg.auth.type !== 'none') {
+        if (fg?.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit') {
           return { auth: fg.auth, source: 'feature' };
+        }
+        // Feature inherits from global profile
+        if (fg?.auth?.type === 'inherit' && fg.globalAuthProfileId) {
+          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+          if (profile && profile.auth.type !== 'none') {
+            return { auth: profile.auth, source: `global:${profile.name}` };
+          }
+        }
+        // Feature has no auth but has a global profile linked
+        if ((!fg?.auth || fg.auth.type === 'none') && fg?.globalAuthProfileId) {
+          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+          if (profile && profile.auth.type !== 'none') {
+            return { auth: profile.auth, source: `global:${profile.name}` };
+          }
         }
       }
     }
     return { auth: { type: 'none' }, source: 'none' };
-  }, [draft.auth, editingTest, featureGroups]);
+  }, [draft.auth, editingTest, featureGroups, globalAuthProfiles]);
 
   const handleFetchSampleResponse = useCallback(async () => {
     if (!draft.url.trim()) {
@@ -480,6 +499,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       }
 
       let fetchUrl = draft.url;
+      if (fetchHostEnabled && fetchHostOverride.trim()) {
+        try {
+          const orig = new URL(fetchUrl);
+          const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : fetchHostOverride.trim() + '/');
+          orig.protocol = base.protocol;
+          orig.host = base.host;
+          fetchUrl = orig.toString();
+        } catch { /* keep original */ }
+      }
       if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
         try {
           const u = new URL(fetchUrl);
@@ -650,8 +678,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     input.click();
   };
 
-  const stamp = () => new Date().toISOString().slice(0, 10);
-
   const reIdScenarios = (scenarios: TestScenario[]) =>
     scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })) }));
 
@@ -665,6 +691,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     data,
   });
 
+  const fname = (level: string, name?: string) =>
+    buildExportFilename({ env: selectedEnvName, svc: selectedSvcName, level, name });
+
   const unwrapImport = (raw: unknown): unknown => {
     if (raw && typeof raw === 'object' && '_exportMeta' in raw && 'data' in raw) {
       return (raw as { data: unknown }).data;
@@ -673,7 +702,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   // All feature groups
-  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups'), `features-all-${stamp()}.json`);
+  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups'), fname('feature-groups'));
 
   const importAll = () => {
     if (!selectedSvcId || !selectedEnvId) { alert('Select a microservice and environment first.'); return; }
@@ -683,6 +712,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       if (!items.every((fg) => fg.name && Array.isArray(fg.scenarios))) {
         alert('Invalid file: expected feature group(s).'); return;
       }
+      const existingNames = new Set(featureGroups.map((fg) => fg.name.toLowerCase()));
+      const existingIds = new Set(featureGroups.map((fg) => fg.id));
+      const conflicts = items.filter((fg) => existingNames.has(fg.name.toLowerCase()) || existingIds.has(fg.id));
+      if (conflicts.length > 0) {
+        const names = conflicts.map((fg) => `  • "${fg.name}"`).join('\n');
+        if (!window.confirm(`The following feature groups already exist:\n${names}\n\nImport as new copies with fresh IDs?`)) return;
+      }
       const imported = items.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
       setFeatureGroups((prev) => [...prev, ...imported]);
     });
@@ -690,7 +726,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single feature group
   const exportFeatureGroup = (fg: FeatureGroup) =>
-    downloadJson(wrapExport(fg, 'feature-group'), `feature-${fg.name}-${stamp()}.json`);
+    downloadJson(wrapExport(fg, 'feature-group'), fname('feature', fg.name));
 
   const importScenariosInto = (featureId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -698,15 +734,24 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     if (!items.every((sc) => sc.name && Array.isArray(sc.tests))) {
       alert('Invalid file: expected scenario(s) with a name and tests array.'); return;
     }
+    const fg = featureGroups.find((f) => f.id === featureId);
+    if (fg) {
+      const existingNames = new Set(fg.scenarios.map((sc) => sc.name.toLowerCase()));
+      const dupes = items.filter((sc) => existingNames.has(sc.name.toLowerCase()));
+      if (dupes.length > 0) {
+        const names = dupes.map((sc) => `  • "${sc.name}"`).join('\n');
+        if (!window.confirm(`These scenarios already exist in "${fg.name}":\n${names}\n\nImport as new copies?`)) return;
+      }
+    }
     const imported = reIdScenarios(items);
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId ? { ...fg, scenarios: [...fg.scenarios, ...imported] } : fg
+    setFeatureGroups((prev) => prev.map((f) =>
+      f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
     ));
   });
 
   // Single scenario
   const exportScenario = (sc: TestScenario) =>
-    downloadJson(wrapExport(sc, 'scenario'), `scenario-${sc.name}-${stamp()}.json`);
+    downloadJson(wrapExport(sc, 'scenario'), fname('scenario', sc.name));
 
   const importTestsInto = (featureId: string, scenarioId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -714,18 +759,28 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     if (!items.every((t) => t.name && t.url && t.method)) {
       alert('Invalid file: expected test(s) with name, url, and method.'); return;
     }
+    const fg = featureGroups.find((f) => f.id === featureId);
+    const sc = fg?.scenarios.find((s) => s.id === scenarioId);
+    if (sc) {
+      const existingNames = new Set(sc.tests.map((t) => t.name.toLowerCase()));
+      const dupes = items.filter((t) => existingNames.has(t.name.toLowerCase()));
+      if (dupes.length > 0) {
+        const names = dupes.map((t) => `  • "${t.name}"`).join('\n');
+        if (!window.confirm(`These tests already exist in "${sc.name}":\n${names}\n\nImport as new copies?`)) return;
+      }
+    }
     const imported = items.map((t) => ({ ...t, id: uuidv4() }));
-    setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== featureId) return fg;
-      return { ...fg, scenarios: fg.scenarios.map((sc) =>
-        sc.id === scenarioId ? { ...sc, tests: [...sc.tests, ...imported] } : sc
+    setFeatureGroups((prev) => prev.map((f) => {
+      if (f.id !== featureId) return f;
+      return { ...f, scenarios: f.scenarios.map((s) =>
+        s.id === scenarioId ? { ...s, tests: [...s.tests, ...imported] } : s
       )};
     }));
   });
 
   // Single test
   const exportTest = (t: Scenario) =>
-    downloadJson(wrapExport(t, 'test'), `test-${t.name}-${stamp()}.json`);
+    downloadJson(wrapExport(t, 'test'), fname('test', t.name));
 
   const toggleFeature = (id: string) => {
     setExpandedFeatures((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -740,6 +795,77 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const totalTests = featureGroups.reduce((sum, fg) => sum + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);
 
   const baseUrl = useMemo(() => draft.url ? getBaseUrl(draft.url) : '', [draft.url]);
+
+  // ── Drag-and-drop handlers ──
+  const moveScenario = useCallback((scenarioId: string, fromFgId: string, toFgId: string, beforeScId?: string) => {
+    if (fromFgId === toFgId && !beforeScId) return;
+    setFeatureGroups((prev) => {
+      let scenario: TestScenario | undefined;
+      const without = prev.map((fg) => {
+        if (fg.id !== fromFgId) return fg;
+        scenario = fg.scenarios.find((sc) => sc.id === scenarioId);
+        return { ...fg, scenarios: fg.scenarios.filter((sc) => sc.id !== scenarioId) };
+      });
+      if (!scenario) return prev;
+      return without.map((fg) => {
+        if (fg.id !== toFgId) return fg;
+        const scenarios = fg.scenarios.filter((sc) => sc.id !== scenarioId);
+        if (beforeScId) {
+          const idx = scenarios.findIndex((sc) => sc.id === beforeScId);
+          if (idx >= 0) { scenarios.splice(idx, 0, scenario!); return { ...fg, scenarios }; }
+        }
+        scenarios.push(scenario!);
+        return { ...fg, scenarios };
+      });
+    });
+  }, [setFeatureGroups]);
+
+  const moveTest = useCallback((testId: string, fromFgId: string, fromScId: string, toFgId: string, toScId: string, beforeTestId?: string) => {
+    if (fromFgId === toFgId && fromScId === toScId && !beforeTestId) return;
+    setFeatureGroups((prev) => {
+      let test: Scenario | undefined;
+      const without = prev.map((fg) => {
+        if (fg.id !== fromFgId) return fg;
+        return {
+          ...fg,
+          scenarios: fg.scenarios.map((sc) => {
+            if (sc.id !== fromScId) return sc;
+            test = sc.tests.find((t) => t.id === testId);
+            return { ...sc, tests: sc.tests.filter((t) => t.id !== testId) };
+          }),
+        };
+      });
+      if (!test) return prev;
+      return without.map((fg) => {
+        if (fg.id !== toFgId) return fg;
+        return {
+          ...fg,
+          scenarios: fg.scenarios.map((sc) => {
+            if (sc.id !== toScId) return sc;
+            const tests = sc.tests.filter((t) => t.id !== testId);
+            if (beforeTestId) {
+              const idx = tests.findIndex((t) => t.id === beforeTestId);
+              if (idx >= 0) { tests.splice(idx, 0, test!); return { ...sc, tests }; }
+            }
+            tests.push(test!);
+            return { ...sc, tests };
+          }),
+        };
+      });
+    });
+  }, [setFeatureGroups]);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragScenario && dropTarget?.type === 'scenario') {
+      moveScenario(dragScenario.scenarioId, dragScenario.fromFeatureId, dropTarget.featureId, dropTarget.targetId);
+    }
+    if (dragTest && dropTarget?.type === 'test' && dropTarget.scenarioId) {
+      moveTest(dragTest.testId, dragTest.fromFeatureId, dragTest.fromScenarioId, dropTarget.featureId, dropTarget.scenarioId, dropTarget.targetId);
+    }
+    setDragScenario(null);
+    setDragTest(null);
+    setDropTarget(null);
+  }, [dragScenario, dragTest, dropTarget, moveScenario, moveTest]);
 
   return (
     <div className="page">
@@ -793,7 +919,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
               )}
               <span className="count-badge">{fg.scenarios.length} scenario{fg.scenarios.length !== 1 ? 's' : ''}</span>
               <span className="count-badge">{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0)} test{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) !== 1 ? 's' : ''}</span>
-              {fg.auth && fg.auth.type !== 'none' && <span className="count-badge auth-badge auth-badge-feature">Auth: {fg.auth.type}</span>}
+              {fg.auth && fg.auth.type === 'inherit' && fg.globalAuthProfileId && (() => {
+                const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                return profile
+                  ? <span className="count-badge auth-badge auth-badge-global">Auth: {profile.name}</span>
+                  : <span className="count-badge auth-badge auth-badge-feature">Auth: inherit (missing profile)</span>;
+              })()}
+              {fg.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit' && <span className="count-badge auth-badge auth-badge-feature">Auth: {fg.auth.type}</span>}
               <div className="feature-group-actions" onClick={(e) => e.stopPropagation()}>
                 <button className="btn btn-sm" onClick={() => { setEditingFeatureName(fg.id); setEditName(fg.name); }}>Rename</button>
                 <button
@@ -822,6 +954,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       value={fgAuth.type}
                       onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, type: e.target.value as AuthType })}
                     >
+                      {globalAuthProfiles.length > 0 && <option value="inherit">Inherit from Global Profile</option>}
                       <option value="none">No Auth</option>
                       <option value="basic">Basic Auth</option>
                       <option value="bearer">Bearer Token</option>
@@ -830,6 +963,33 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       <option value="oauth2">OAuth2 Client Credentials</option>
                     </select>
                   </div>
+                  {fgAuth.type === 'inherit' && globalAuthProfiles.length > 0 && (() => {
+                    const selectedProfile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                    return (
+                      <div className="global-profile-selector">
+                        <label>Global Profile</label>
+                        <select
+                          value={fg.globalAuthProfileId || ''}
+                          onChange={(e) => updateFeatureAuth(fg.id, fgAuth, e.target.value || undefined)}
+                        >
+                          <option value="">— Select a profile —</option>
+                          {globalAuthProfiles.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
+                          ))}
+                        </select>
+                        {selectedProfile && (
+                          <span className="auth-inherit-hint">
+                            Using <strong>{selectedProfile.name}</strong> — {selectedProfile.auth.type.toUpperCase()}
+                          </span>
+                        )}
+                        {!selectedProfile && fg.globalAuthProfileId && (
+                          <span className="auth-inherit-hint auth-inherit-warn">
+                            ⚠ Selected profile no longer exists
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {fgAuth.type === 'basic' && (
                     <div className="form-row two-col">
                       <div>
@@ -914,26 +1074,31 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       </div>
                     </>
                   )}
-                  {fgAuth.type !== 'none' && (
-                    <div className="auth-verify-section">
-                      <button
-                        className="btn btn-sm btn-verify"
-                        onClick={() => { setAuthVerifyResult(null); verifyAuth(fgAuth); }}
-                        disabled={authVerifying}
-                      >
-                        {authVerifying ? 'Verifying...' : 'Verify Auth'}
-                      </button>
-                      {authVerifyResult && (
-                        <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                          <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                          <div className="auth-verify-body">
-                            <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                            {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                  {fgAuth.type !== 'none' && (() => {
+                    const authToVerify = fgAuth.type === 'inherit' && fg.globalAuthProfileId
+                      ? globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId)?.auth
+                      : fgAuth;
+                    return (
+                      <div className="auth-verify-section">
+                        <button
+                          className="btn btn-sm btn-verify"
+                          onClick={() => { setAuthVerifyResult(null); if (authToVerify && authToVerify.type !== 'none') verifyAuth(authToVerify); }}
+                          disabled={authVerifying || !authToVerify || authToVerify.type === 'none'}
+                        >
+                          {authVerifying ? 'Verifying...' : 'Verify Auth'}
+                        </button>
+                        {authVerifyResult && (
+                          <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                            <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                            <div className="auth-verify-body">
+                              <span className="auth-verify-msg">{authVerifyResult.message}</span>
+                              {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -950,13 +1115,44 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   </div>
                 )}
                 {fg.scenarios.length === 0 && namingScenario !== fg.id && (
-                  <div className="empty-hint">No scenarios. Click "+ Scenario" to add one.</div>
+                  <div
+                    className={`empty-hint ${dragScenario && dragScenario.fromFeatureId !== fg.id ? 'drop-zone-active' : ''} ${dropTarget?.type === 'scenario' && dropTarget.featureId === fg.id && !dropTarget.targetId ? 'drop-zone-hover' : ''}`}
+                    onDragOver={(e) => { if (dragScenario) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'scenario', featureId: fg.id }); } }}
+                    onDragLeave={() => { if (dropTarget?.featureId === fg.id && !dropTarget.targetId) setDropTarget(null); }}
+                    onDrop={handleDragEnd}
+                  >
+                    {dragScenario ? 'Drop scenario here' : 'No scenarios. Click "+ Scenario" to add one.'}
+                  </div>
                 )}
                 {fg.scenarios.map((sc) => {
                   const scAuth = sc.auth || { type: 'none' as AuthType };
+                  const isScDragOver = dropTarget?.type === 'scenario' && dropTarget.featureId === fg.id && dropTarget.targetId === sc.id;
+                  const isSelfScDrag = dragScenario?.scenarioId === sc.id && dragScenario?.fromFeatureId === fg.id;
                   return (
-                  <div key={sc.id} className="scenario-group-card">
+                  <div
+                    key={`${fg.id}-${sc.id}`}
+                    className={`scenario-group-card ${isSelfScDrag ? 'dragging' : ''} ${isScDragOver ? 'drop-target-before' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      if (!dragHandleActive.current) { e.preventDefault(); return; }
+                      dragHandleActive.current = false;
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', `sc:${fg.id}:${sc.id}`);
+                      requestAnimationFrame(() => {
+                        setDragScenario({ scenarioId: sc.id, fromFeatureId: fg.id });
+                        setDragTest(null);
+                      });
+                    }}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => {
+                      if (!dragScenario || isSelfScDrag) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setDropTarget({ type: 'scenario', featureId: fg.id, targetId: sc.id });
+                    }}
+                  >
                     <div className="scenario-group-header" onClick={() => toggleScenario(sc.id)}>
+                      <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
                       <span className={`expand-icon small ${expandedScenarios.has(sc.id) ? 'expanded' : ''}`}>&#9654;</span>
                       {editingScenarioName === sc.id ? (
                         <input className="inline-edit-input" autoFocus value={editName}
@@ -1010,13 +1206,18 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
                             digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
                           };
-                          return (
-                            <div className="auth-inherit-hint">
-                              {fgAuth && fgAuth.type !== 'none'
-                                ? `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`
-                                : 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.'}
-                            </div>
-                          );
+                          let hint: string;
+                          if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
+                            hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
+                          } else if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
+                            const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                            hint = profile
+                              ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
+                              : 'Feature references a missing global profile.';
+                          } else {
+                            hint = 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.';
+                          }
+                          return <div className="auth-inherit-hint">{hint}</div>;
                         })()}
                         {scAuth.type === 'basic' && (
                           <div className="form-row two-col">
@@ -1150,11 +1351,40 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     )}
 
                     {expandedScenarios.has(sc.id) && (
-                      <div className="scenario-group-body">
-                        {sc.tests.length === 0 && <div className="empty-hint">No tests. Click "+ Test" to add an HTTP request.</div>}
-                        {sc.tests.map((t, tIdx) => (
-                          <div key={t.id} className="test-card">
+                      <div
+                        className="scenario-group-body"
+                        onDragOver={(e) => { if (dragTest && sc.tests.length === 0) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'test', featureId: fg.id, scenarioId: sc.id }); } }}
+                        onDrop={() => { if (dragTest && sc.tests.length === 0) handleDragEnd(); }}
+                      >
+                        {sc.tests.length === 0 && (
+                          <div className={`empty-hint ${dragTest ? 'drop-zone-active' : ''} ${dropTarget?.type === 'test' && dropTarget.scenarioId === sc.id && !dropTarget.targetId ? 'drop-zone-hover' : ''}`}>
+                            {dragTest ? 'Drop test here' : 'No tests. Click "+ Test" to add an HTTP request.'}
+                          </div>
+                        )}
+                        {sc.tests.map((t, tIdx) => {
+                          const isTestDragOver = dropTarget?.type === 'test' && dropTarget.scenarioId === sc.id && dropTarget.targetId === t.id;
+                          const isSelfTestDrag = dragTest?.testId === t.id && dragTest?.fromFeatureId === fg.id && dragTest?.fromScenarioId === sc.id;
+                          return (
+                          <div
+                            key={`${fg.id}-${sc.id}-${t.id}`}
+                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''}`}
+                            draggable
+                            onDragStart={(e) => {
+                              if (!dragHandleActive.current) { e.preventDefault(); return; }
+                              dragHandleActive.current = false;
+                              e.stopPropagation();
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', `t:${fg.id}:${sc.id}:${t.id}`);
+                              requestAnimationFrame(() => {
+                                setDragTest({ testId: t.id, fromFeatureId: fg.id, fromScenarioId: sc.id });
+                                setDragScenario(null);
+                              });
+                            }}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => { if (dragTest && !isSelfTestDrag) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'test', featureId: fg.id, scenarioId: sc.id, targetId: t.id }); } }}
+                          >
                             <div className="test-card-info">
+                              <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
                               <span className="test-number">{tIdx + 1}</span>
                               <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
                               <strong>{t.name}</strong>
@@ -1164,9 +1394,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                                 ? <span className="tag auth-badge auth-badge-test-own">Auth: {t.auth.type} (own)</span>
                                 : scAuth.type !== 'none' && scAuth.type !== 'inherit'
                                   ? <span className="tag auth-badge auth-badge-test-scenario">Auth: {scAuth.type} (scenario)</span>
-                                  : fg.auth && fg.auth.type !== 'none'
+                                  : fg.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit'
                                     ? <span className="tag auth-badge auth-badge-test-feature">Auth: {fg.auth.type} (feature)</span>
-                                    : <span className="tag auth-badge auth-badge-test-none">Auth: none</span>
+                                    : fg.auth?.type === 'inherit' && fg.globalAuthProfileId
+                                      ? <span className="tag auth-badge auth-badge-test-global">{(() => { const p = globalAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId); return p ? `Auth: ${p.auth.type} (${p.name})` : 'Auth: global (missing)'; })()}</span>
+                                      : <span className="tag auth-badge auth-badge-test-none">Auth: none</span>
                               }
                               <span className="tag">Validation: {t.validation.mode}</span>
                             </div>
@@ -1177,12 +1409,32 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <button className="btn btn-sm btn-danger" onClick={() => removeTest(fg.id, sc.id, t.id)}>Delete</button>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
+                        {dragTest && sc.tests.length > 0 && (
+                          <div
+                            className={`drop-zone-end drop-zone-end-sm ${dropTarget?.type === 'test' && dropTarget.scenarioId === sc.id && !dropTarget.targetId ? 'drop-zone-hover' : ''}`}
+                            onDragOver={(e) => { if (dragTest) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'test', featureId: fg.id, scenarioId: sc.id }); } }}
+                            onDrop={handleDragEnd}
+                          >
+                            Drop here
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                   );
                 })}
+                {dragScenario && fg.scenarios.length > 0 && (
+                  <div
+                    className={`drop-zone-end ${dropTarget?.type === 'scenario' && dropTarget.featureId === fg.id && !dropTarget.targetId ? 'drop-zone-hover' : ''}`}
+                    onDragOver={(e) => { if (dragScenario) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'scenario', featureId: fg.id }); } }}
+                    onDragLeave={() => { if (dropTarget?.featureId === fg.id && !dropTarget.targetId) setDropTarget(null); }}
+                    onDrop={handleDragEnd}
+                  >
+                    Drop here to add at end
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1490,9 +1742,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                         let hint: string;
                         if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') {
                           hint = `Will use scenario-level ${authLabel[scAuth.type] ?? scAuth.type}`;
-                        } else if (fgAuth && fgAuth.type !== 'none') {
+                        } else if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
                           hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
                           if (scAuth?.type === 'inherit') hint += ' (scenario inherits from feature)';
+                        } else if (fgAuth?.type === 'inherit' && fg?.globalAuthProfileId) {
+                          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                          hint = profile
+                            ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
+                            : 'Feature references a missing global profile.';
+                          if (scAuth?.type === 'inherit') hint += ' (via scenario → feature → global)';
                         } else {
                           hint = 'No auth configured at scenario or feature level.';
                         }
@@ -1681,6 +1939,33 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <span className="option-hint">— ignore array item positions, match by value instead</span>
                             </label>
                           </div>
+                          <div className="fetch-host-override-row">
+                            <button
+                              className="btn btn-sm btn-accent"
+                              onClick={handleFetchSampleResponse}
+                              disabled={fetchingResponse}
+                            >
+                              {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
+                            </button>
+                            <label className="checkbox-label fetch-host-toggle">
+                              <input
+                                type="checkbox"
+                                checked={fetchHostEnabled}
+                                onChange={(e) => setFetchHostEnabled(e.target.checked)}
+                              />
+                              Host Override
+                            </label>
+                            <input
+                              value={fetchHostOverride}
+                              onChange={(e) => setFetchHostOverride(e.target.value)}
+                              placeholder={resolvedBaseUrl || 'Enter base URL'}
+                              disabled={!fetchHostEnabled}
+                            />
+                            {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
+                              <button className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
+                            )}
+                          </div>
+                          {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
                           <JsonPathBuilder
                             sampleJson={draft.validation.sampleJson || ''}
                             onSampleJsonChange={(json) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: json } }))}
@@ -1688,9 +1973,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             expectedFields={draft.validation.expectedFields || []}
                             excludedPaths={draft.validation.excludedPaths || []}
                             onUpdate={(patch) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, ...patch } }))}
-                            onFetchSample={handleFetchSampleResponse}
-                            fetchingResponse={fetchingResponse}
-                            fetchError={fetchError}
                           />
                         </>
                       )}

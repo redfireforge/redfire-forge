@@ -108,8 +108,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div className="page-title-block">
+      <div className="results-top">
+        <div className="results-top-row">
           <h2>Results</h2>
           {selectedRun && (selectedRun.svcName || selectedRun.envName) && (
             <div className="context-tags">
@@ -125,29 +125,29 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               </span>
             </div>
           )}
+          <div className="results-top-actions">
+            <button className="btn" onClick={refreshRuns}>Refresh</button>
+            {selectedRun && (
+              <>
+                <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
+                <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
+                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selectedRun.id)}>Delete</button>
+              </>
+            )}
+          </div>
         </div>
-        <div className="header-actions">
-          <select value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
-            {runs.map((r) => {
-              const label = [
-                new Date(r.timestamp).toLocaleString(),
-                r.svcName,
-                r.envName,
-                `${r.summary.totalRequests} req`,
-                `${r.summary.tps} TPS`,
-              ].filter(Boolean).join(' — ');
-              return <option key={r.id} value={r.id}>{label}</option>;
-            })}
-          </select>
-          <button className="btn" onClick={refreshRuns}>Refresh</button>
-          {selectedRun && (
-            <>
-              <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
-              <button className="btn" onClick={() => exportCsv(selectedRun.results)}>Export CSV</button>
-              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selectedRun.id)}>Delete</button>
-            </>
-          )}
-        </div>
+        <select className="results-run-select" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
+          {runs.map((r) => {
+            const label = [
+              new Date(r.timestamp).toLocaleString(),
+              r.svcName,
+              r.envName,
+              `${r.summary.totalRequests} req`,
+              `${r.summary.tps} TPS`,
+            ].filter(Boolean).join(' — ');
+            return <option key={r.id} value={r.id}>{label}</option>;
+          })}
+        </select>
       </div>
 
       {/* Summary Metrics */}

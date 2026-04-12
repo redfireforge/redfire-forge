@@ -1,15 +1,13 @@
 import type { TestRun, RequestResult } from '../types';
-import { saveJsonFile, saveCsvFile } from './fileSaver';
-
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toISOString().replace(/[:.]/g, '-').slice(0, 19);
-}
+import { saveJsonFile, saveCsvFile, buildExportFilename } from './fileSaver';
 
 export function exportJson(run: TestRun): void {
-  saveJsonFile(run, `perf-test-${formatTimestamp(run.timestamp)}.json`);
+  const date = new Date(run.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = buildExportFilename({ env: run.envName, svc: run.svcName, level: 'results', date });
+  saveJsonFile(run, filename);
 }
 
-export function exportCsv(results: RequestResult[]): void {
+export function exportCsv(results: RequestResult[], envName?: string, svcName?: string): void {
   const headers = [
     'Scenario',
     'URL',
@@ -62,7 +60,8 @@ export function exportCsv(results: RequestResult[]): void {
     .map((row) => row.map(escapeCsv).join(','))
     .join('\n');
 
-  saveCsvFile(csvContent, `perf-test-failures-${formatTimestamp(Date.now())}.csv`);
+  const filename = buildExportFilename({ env: envName, svc: svcName, level: 'failures', ext: 'csv' });
+  saveCsvFile(csvContent, filename);
 }
 
 function escapeCsv(value: string): string {

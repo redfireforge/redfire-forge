@@ -293,9 +293,6 @@ interface Props {
   expectedFields: ExpectedField[];
   excludedPaths: string[];
   onUpdate: (patch: ValidationPatch) => void;
-  onFetchSample?: () => void;
-  fetchingResponse?: boolean;
-  fetchError?: string | null;
 }
 
 export default function JsonPathBuilder({
@@ -305,9 +302,6 @@ export default function JsonPathBuilder({
   expectedFields,
   excludedPaths,
   onUpdate,
-  onFetchSample,
-  fetchingResponse,
-  fetchError,
 }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 150);
@@ -486,15 +480,6 @@ export default function JsonPathBuilder({
           <div className="jpb-sample-header">
             <label>Paste a sample JSON response</label>
             <div className="jpb-sample-actions">
-              {onFetchSample && (
-                <button
-                  className="btn btn-sm btn-accent"
-                  onClick={onFetchSample}
-                  disabled={fetchingResponse}
-                >
-                  {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
-                </button>
-              )}
               {sampleJson.trim() && (
                 <button className="btn btn-sm" onClick={() => {
                   try { onSampleJsonChange(JSON.stringify(JSON.parse(sampleJson), null, 2)); } catch {}
@@ -506,10 +491,9 @@ export default function JsonPathBuilder({
             className="body-editor jpb-textarea"
             value={sampleJson}
             onChange={(e) => onSampleJsonChange(e.target.value)}
-            placeholder='Paste JSON here, or click "Fetch Response" to auto-populate from your API'
+            placeholder='Paste JSON here, or click "Fetch Response" above to auto-populate from your API'
           />
           {parseError && <div className="jpb-error">Parse error: {parseError}</div>}
-          {fetchError && <div className="jpb-error">Fetch error: {fetchError}</div>}
         </div>
 
         {/* Right column: Selection tree */}

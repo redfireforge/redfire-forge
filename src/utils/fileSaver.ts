@@ -1,3 +1,31 @@
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+/**
+ * Builds a consistent filename: {env}-{svc}-{level}-{name}-{date}.{ext}
+ * Segments that are empty/undefined are omitted.
+ */
+export function buildExportFilename(parts: {
+  env?: string;
+  svc?: string;
+  level: string;
+  name?: string;
+  date?: string;
+  ext?: string;
+}): string {
+  const date = parts.date || new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const ext = parts.ext || 'json';
+  const segments = [
+    parts.env && slugify(parts.env),
+    parts.svc && slugify(parts.svc),
+    slugify(parts.level),
+    parts.name && slugify(parts.name),
+    date,
+  ].filter(Boolean);
+  return `${segments.join('-')}.${ext}`;
+}
+
 interface SaveOptions {
   filename: string;
   mimeType: string;

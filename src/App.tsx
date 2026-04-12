@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, Environment, Microservice } from './types';
+import type { FeatureGroup, Environment, Microservice, GlobalAuthProfile, AuthConfig, AuthType, TestRun } from './types';
+import { acquireOAuth2Token } from './engine/executor';
 import {
   loadFeatureGroups, saveFeatureGroups,
   loadEnvironments, saveEnvironments,
@@ -8,12 +9,14 @@ import {
   loadSelectedEnv, saveSelectedEnv,
   loadSelectedService, saveSelectedService,
   getMaxRuns, setMaxRuns, getStorageUsage,
-  loadTestRuns,
+  loadTestRuns, saveTestRunsBulk,
+  loadGlobalAuthProfiles, saveGlobalAuthProfiles,
 } from './utils/storage';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
 import ExportCenter from './components/ExportCenter';
+import ImportCenter from './components/ImportCenter';
 import './App.css';
 
 type Tab = 'scenarios' | 'runner' | 'results';
@@ -35,6 +38,7 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showExportCenter, setShowExportCenter] = useState(false);
+  const [showImportCenter, setShowImportCenter] = useState(false);
   const [newEnvName, setNewEnvName] = useState('');
   const [newSvcName, setNewSvcName] = useState('');
   const [editingBaseUrls, setEditingBaseUrls] = useState<string | null>(null);
@@ -42,6 +46,10 @@ export default function App() {
   const [maxRuns, setMaxRunsLocal] = useState(() => getMaxRuns());
   const [storageUsage, setStorageUsage] = useState(() => getStorageUsage());
   const [storageExpanded, setStorageExpanded] = useState(false);
+  const [globalAuthProfiles, setGlobalAuthProfiles] = useState<GlobalAuthProfile[]>(() => loadGlobalAuthProfiles());
+  const [editingGlobalAuth, setEditingGlobalAuth] = useState<string | null>(null);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('perf-test-theme') as 'dark' | 'light') || 'dark';
   });
@@ -93,6 +101,7 @@ export default function App() {
   useEffect(() => { saveFeatureGroups(featureGroups); }, [featureGroups]);
   useEffect(() => { saveEnvironments(environments); }, [environments]);
   useEffect(() => { saveMicroservices(microservices); }, [microservices]);
+  useEffect(() => { saveGlobalAuthProfiles(globalAuthProfiles); }, [globalAuthProfiles]);
   useEffect(() => { saveSelectedEnv(selectedEnvId); }, [selectedEnvId]);
   useEffect(() => { saveSelectedService(selectedSvcId); }, [selectedSvcId]);
 
@@ -194,6 +203,132 @@ export default function App() {
       s.id === svcId ? { ...s, baseUrls: { ...s.baseUrls, [envId]: url } } : s
     ));
   };
+
+  // Global Auth Profile CRUD
+  const [authVerifying, setAuthVerifying] = useState(false);
+  const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const addGlobalAuthProfile = () => {
+    if (!newProfileName.trim()) return;
+    const profile: GlobalAuthProfile = {
+      id: uuidv4(),
+      name: newProfileName.trim(),
+      auth: { type: 'none' },
+    };
+    setGlobalAuthProfiles((prev) => [...prev, profile]);
+    setNewProfileName('');
+    setEditingGlobalAuth(profile.id);
+  };
+  const removeGlobalAuthProfile = (id: string) => {
+    const profile = globalAuthProfiles.find((p) => p.id === id);
+    const linkedFGs = featureGroups.filter((fg) => fg.globalAuthProfileId === id);
+    const detail = linkedFGs.length > 0 ? ` ${linkedFGs.length} feature group(s) reference this profile and will fall back to their own auth.` : '';
+    confirm(`Delete auth profile "${profile?.name}"?${detail}`, () => {
+      setGlobalAuthProfiles((prev) => prev.filter((p) => p.id !== id));
+      if (editingGlobalAuth === id) setEditingGlobalAuth(null);
+    });
+  };
+  const updateGlobalAuthProfile = (id: string, updates: Partial<GlobalAuthProfile>) => {
+    setGlobalAuthProfiles((prev) => prev.map((p) =>
+      p.id === id ? { ...p, ...updates } : p
+    ));
+  };
+  const updateProfileAuth = (id: string, auth: AuthConfig) => {
+    updateGlobalAuthProfile(id, { auth });
+  };
+  const verifyProfileAuth = useCallback(async (auth: AuthConfig) => {
+    setAuthVerifying(true);
+    setAuthVerifyResult(null);
+    try {
+      if (auth.type === 'oauth2') {
+        const token = await acquireOAuth2Token(auth);
+        setAuthVerifyResult({ ok: true, msg: `Token acquired (${token.substring(0, 20)}…)` });
+      } else if (auth.type === 'basic' || auth.type === 'digest') {
+        setAuthVerifyResult({ ok: !!(auth.username && auth.password), msg: auth.username && auth.password ? 'Credentials configured' : 'Missing username or password' });
+      } else if (auth.type === 'bearer') {
+        setAuthVerifyResult({ ok: !!auth.token, msg: auth.token ? 'Token configured' : 'Missing token' });
+      } else if (auth.type === 'apikey') {
+        setAuthVerifyResult({ ok: !!(auth.apiKeyName && auth.apiKeyValue), msg: auth.apiKeyName && auth.apiKeyValue ? 'API Key configured' : 'Missing key name or value' });
+      }
+    } catch (err: unknown) {
+      setAuthVerifyResult({ ok: false, msg: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setAuthVerifying(false);
+    }
+  }, []);
+
+  type ItemAction = 'add' | 'skip' | 'overwrite' | 'keepBoth';
+  const handleImport = useCallback((data: {
+    environments?: { item: Environment; action: ItemAction }[];
+    microservices?: { item: Microservice; action: ItemAction }[];
+    globalAuthProfiles?: { item: GlobalAuthProfile; action: ItemAction }[];
+    featureGroups?: { item: FeatureGroup; action: ItemAction }[];
+    testRuns?: { item: TestRun; action: ItemAction }[];
+  }) => {
+    const applyItems = <T extends { id: string }>(
+      entries: { item: T; action: ItemAction }[] | undefined,
+      existing: T[],
+      getName: (item: T) => string,
+    ): T[] => {
+      if (!entries?.length) return existing;
+      const existingById = new Map(existing.map((e) => [e.id, e]));
+      const existingByName = new Map(existing.map((e) => [getName(e).toLowerCase(), e]));
+      const result = [...existing];
+
+      for (const { item, action } of entries) {
+        if (action === 'skip') continue;
+        const byId = existingById.get(item.id);
+        const byName = !byId ? existingByName.get(getName(item).toLowerCase()) : undefined;
+
+        if (action === 'add' && !byId && !byName) {
+          result.push(item);
+        } else if (action === 'overwrite') {
+          if (byId) {
+            const idx = result.findIndex((e) => e.id === item.id);
+            if (idx !== -1) result[idx] = item;
+          } else if (byName) {
+            const idx = result.findIndex((e) => e.id === byName.id);
+            if (idx !== -1) result[idx] = { ...item, id: byName.id };
+          }
+        } else if (action === 'keepBoth') {
+          const clone = { ...item, id: uuidv4() } as T;
+          if ('scenarios' in clone && Array.isArray((clone as Record<string, unknown>).scenarios)) {
+            const fg = clone as unknown as FeatureGroup;
+            fg.scenarios = fg.scenarios.map((sc) => ({
+              ...sc,
+              id: uuidv4(),
+              tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })),
+            }));
+          }
+          result.push(clone);
+        }
+      }
+      return result;
+    };
+
+    if (data.environments) {
+      setEnvironments(applyItems(data.environments, environments, (e) => e.name));
+    }
+    if (data.microservices) {
+      setMicroservices(applyItems(data.microservices, microservices, (s) => s.name));
+    }
+    if (data.globalAuthProfiles) {
+      setGlobalAuthProfiles(applyItems(data.globalAuthProfiles, globalAuthProfiles, (p) => p.name));
+    }
+    if (data.featureGroups) {
+      setFeatureGroups((prev) => applyItems(data.featureGroups, prev, (fg) => fg.name));
+    }
+    if (data.testRuns) {
+      const existingRuns = loadTestRuns();
+      const merged = applyItems(data.testRuns, existingRuns, (r) => r.id);
+      merged.sort((a, b) => b.timestamp - a.timestamp);
+      saveTestRunsBulk(merged);
+    }
+
+    setShowImportCenter(false);
+    setShowSettings(true);
+    setStorageUsage(getStorageUsage());
+  }, [environments, microservices, globalAuthProfiles, featureGroups]);
 
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
@@ -386,8 +521,8 @@ export default function App() {
 
       <div className="app-body">
         <main className={`app-main ${sidebarCollapsed ? '' : 'sidebar-open'}`}>
-          {activeTab === 'scenarios' && <ScenarioBuilder featureGroups={filteredFeatureGroups} setFeatureGroups={setFeatureGroups} resolvedBaseUrl={resolvedBaseUrl} selectedSvcId={selectedSvcId} selectedSvcName={selectedSvc?.name} selectedEnvId={selectedEnvId} selectedEnvName={selectedEnv?.name} unassociatedFeatureGroups={unassociatedFeatureGroups} microservices={microservices} environments={environments} />}
-          {activeTab === 'runner' && <TestRunner featureGroups={filteredFeatureGroups} onComplete={() => setActiveTab('results')} envName={selectedEnv?.name} svcName={selectedSvc?.name} resolvedBaseUrl={resolvedBaseUrl} />}
+          {activeTab === 'scenarios' && <ScenarioBuilder featureGroups={filteredFeatureGroups} setFeatureGroups={setFeatureGroups} resolvedBaseUrl={resolvedBaseUrl} selectedSvcId={selectedSvcId} selectedSvcName={selectedSvc?.name} selectedEnvId={selectedEnvId} selectedEnvName={selectedEnv?.name} unassociatedFeatureGroups={unassociatedFeatureGroups} microservices={microservices} environments={environments} globalAuthProfiles={globalAuthProfiles} />}
+          {activeTab === 'runner' && <TestRunner featureGroups={filteredFeatureGroups} onComplete={() => setActiveTab('results')} envName={selectedEnv?.name} svcName={selectedSvc?.name} resolvedBaseUrl={resolvedBaseUrl} globalAuthProfiles={globalAuthProfiles} />}
           {activeTab === 'results' && <ResultsDashboard envName={selectedEnv?.name} svcName={selectedSvc?.name} />}
         </main>
       </div>
@@ -519,6 +654,174 @@ export default function App() {
 
             <div className="settings-divider" />
 
+            {/* Global Auth Profiles */}
+            <div className="settings-section">
+              <h4>Global Auth Profiles</h4>
+              <p className="settings-section-desc">
+                Reusable authentication configurations (e.g. dev, QA, prod). Feature Groups can inherit from these profiles.
+              </p>
+              <div className="settings-add-row">
+                <input
+                  placeholder="Profile name (e.g. dev-oauth2, qa-bearer)"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addGlobalAuthProfile()}
+                />
+                <button className="btn btn-sm btn-primary" onClick={addGlobalAuthProfile}>+ Add Profile</button>
+              </div>
+              <div className="settings-list">
+                {globalAuthProfiles.map((profile) => {
+                  const isEditing = editingGlobalAuth === profile.id;
+                  const pa = profile.auth;
+                  return (
+                    <div key={profile.id} className="global-auth-profile-card">
+                      <div className="global-auth-profile-header">
+                        <input
+                          className="global-auth-profile-name"
+                          value={profile.name}
+                          onChange={(e) => updateGlobalAuthProfile(profile.id, { name: e.target.value })}
+                        />
+                        <span className={`auth-badge auth-badge-${pa.type === 'none' ? 'none' : 'configured'}`}>
+                          {pa.type === 'none' ? 'No Auth' : pa.type.toUpperCase()}
+                        </span>
+                        <button className="btn btn-sm" onClick={() => { setEditingGlobalAuth(isEditing ? null : profile.id); setAuthVerifyResult(null); setShowSecret(false); }}>
+                          {isEditing ? 'Collapse' : 'Configure'}
+                        </button>
+                        <button className="btn btn-sm btn-danger-outline" onClick={() => removeGlobalAuthProfile(profile.id)}>Delete</button>
+                      </div>
+                      {isEditing && (
+                        <div className="global-auth-profile-body">
+                          <div className="auth-type-select">
+                            <label>Type</label>
+                            <select value={pa.type} onChange={(e) => updateProfileAuth(profile.id, { ...pa, type: e.target.value as AuthType })}>
+                              <option value="none">No Auth</option>
+                              <option value="basic">Basic Auth</option>
+                              <option value="bearer">Bearer Token</option>
+                              <option value="apikey">API Key</option>
+                              <option value="digest">Digest Auth</option>
+                              <option value="oauth2">OAuth2 Client Credentials</option>
+                            </select>
+                          </div>
+                          {pa.type === 'basic' && (
+                            <div className="form-row two-col">
+                              <div>
+                                <label>Username</label>
+                                <input value={pa.username || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, username: e.target.value })} />
+                              </div>
+                              <div>
+                                <label>Password</label>
+                                <div className="secret-input-wrap">
+                                  <input type={showSecret ? 'text' : 'password'} value={pa.password || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, password: e.target.value })} />
+                                  <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {pa.type === 'bearer' && (
+                            <div className="form-row two-col">
+                              <div>
+                                <label>Token</label>
+                                <input value={pa.token || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, token: e.target.value })} placeholder="eyJhbGciOi..." />
+                              </div>
+                              <div>
+                                <label>Prefix</label>
+                                <input value={pa.prefix ?? 'Bearer'} onChange={(e) => updateProfileAuth(profile.id, { ...pa, prefix: e.target.value })} placeholder="Bearer" />
+                              </div>
+                            </div>
+                          )}
+                          {pa.type === 'apikey' && (
+                            <>
+                              <div className="form-row two-col">
+                                <div>
+                                  <label>Key Name</label>
+                                  <input value={pa.apiKeyName || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, apiKeyName: e.target.value })} placeholder="X-API-Key" />
+                                </div>
+                                <div>
+                                  <label>Key Value</label>
+                                  <input value={pa.apiKeyValue || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, apiKeyValue: e.target.value })} placeholder="your-api-key" />
+                                </div>
+                              </div>
+                              <div className="form-row">
+                                <label>Add to</label>
+                                <div className="radio-group">
+                                  <label className="radio-label">
+                                    <input type="radio" checked={pa.apiKeyIn !== 'query'} onChange={() => updateProfileAuth(profile.id, { ...pa, apiKeyIn: 'header' })} />
+                                    Header
+                                  </label>
+                                  <label className="radio-label">
+                                    <input type="radio" checked={pa.apiKeyIn === 'query'} onChange={() => updateProfileAuth(profile.id, { ...pa, apiKeyIn: 'query' })} />
+                                    Query Parameter
+                                  </label>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          {pa.type === 'digest' && (
+                            <div className="form-row two-col">
+                              <div>
+                                <label>Username</label>
+                                <input value={pa.username || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, username: e.target.value })} />
+                              </div>
+                              <div>
+                                <label>Password</label>
+                                <div className="secret-input-wrap">
+                                  <input type={showSecret ? 'text' : 'password'} value={pa.password || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, password: e.target.value })} />
+                                  <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {pa.type === 'oauth2' && (
+                            <>
+                              <div className="form-row">
+                                <label>Token URL</label>
+                                <input value={pa.tokenUrl || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
+                              </div>
+                              <div className="form-row two-col">
+                                <div>
+                                  <label>Client ID</label>
+                                  <input value={pa.clientId || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, clientId: e.target.value })} />
+                                </div>
+                                <div>
+                                  <label>Client Secret</label>
+                                  <div className="secret-input-wrap">
+                                    <input type={showSecret ? 'text' : 'password'} value={pa.clientSecret || ''} onChange={(e) => updateProfileAuth(profile.id, { ...pa, clientSecret: e.target.value })} />
+                                    <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          {pa.type !== 'none' && (
+                            <div className="auth-verify-section">
+                              <button
+                                className="btn btn-sm btn-verify"
+                                onClick={() => verifyProfileAuth(pa)}
+                                disabled={authVerifying}
+                              >
+                                {authVerifying ? 'Verifying...' : 'Verify Auth'}
+                              </button>
+                              {authVerifyResult && (
+                                <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
+                                  <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                                  {authVerifyResult.msg}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {globalAuthProfiles.length === 0 && (
+                  <p className="settings-empty-hint">No global auth profiles yet. Add one to share auth configurations across feature groups.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="settings-divider" />
+
             {/* Storage */}
             <div className="settings-section">
               <h4>Storage</h4>
@@ -564,13 +867,18 @@ export default function App() {
 
             <div className="settings-divider" />
 
-            {/* Export */}
+            {/* Export & Import */}
             <div className="settings-section">
-              <h4>Export</h4>
-              <p className="settings-section-desc">Export environments, microservices, feature groups, and test runs as JSON.</p>
-              <button className="btn btn-primary btn-sm" onClick={() => { setShowSettings(false); setShowExportCenter(true); }}>
-                Open Export Center
-              </button>
+              <h4>Export & Import</h4>
+              <p className="settings-section-desc">Export or import environments, microservices, global auth profiles, feature groups, and test runs as JSON.</p>
+              <div className="settings-export-import-row">
+                <button className="btn btn-primary btn-sm" onClick={() => { setShowSettings(false); setShowExportCenter(true); }}>
+                  Export Data
+                </button>
+                <button className="btn btn-sm" onClick={() => { setShowSettings(false); setShowImportCenter(true); }}>
+                  Import Data
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -582,7 +890,20 @@ export default function App() {
           microservices={microservices}
           featureGroups={featureGroups}
           testRuns={loadTestRuns()}
+          globalAuthProfiles={globalAuthProfiles}
           onClose={() => { setShowExportCenter(false); setShowSettings(true); }}
+        />
+      )}
+
+      {showImportCenter && (
+        <ImportCenter
+          environments={environments}
+          microservices={microservices}
+          featureGroups={featureGroups}
+          testRuns={loadTestRuns()}
+          globalAuthProfiles={globalAuthProfiles}
+          onImport={handleImport}
+          onClose={() => { setShowImportCenter(false); setShowSettings(true); }}
         />
       )}
 
