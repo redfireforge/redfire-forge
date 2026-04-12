@@ -177,17 +177,19 @@ def generate(version, img_dir, output_path):
         "1. Introduction",
         "2. Installation",
         "3. App Overview",
-        "4. Sidebar — Environments & Microservices",
-        "5. Feature Groups — Organizing Tests",
-        "6. Creating & Editing Tests",
-        "7. Authentication Setup",
-        "8. Settings",
-        "9. Running Performance Tests",
-        "10. Analyzing Results",
-        "11. Export & Import",
-        "12. Desktop vs Web Comparison",
-        "13. Tips & Best Practices",
-        "14. Quick Reference",
+        "4. Settings — Add Environments & Microservices",
+        "5. Sidebar — Select Environment & Microservice",
+        "6. Create a Feature Group",
+        "7. Add a Scenario",
+        "8. Add a Test",
+        "9. Viewing Existing Tests",
+        "10. Authentication Setup",
+        "11. Running Performance Tests",
+        "12. Analyzing Results",
+        "13. Export & Import",
+        "14. Desktop vs Web Comparison",
+        "15. Tips & Best Practices",
+        "16. Quick Reference",
     ]
     for item in toc_items:
         elements.append(Paragraph(item, styles['Body']))
@@ -259,8 +261,8 @@ def generate(version, img_dir, output_path):
         "When you launch RedfireForge, you'll see the main interface with three primary areas: "
         "the header with navigation tabs, the sidebar for filtering, and the main content area.",
         styles['Body']))
-    add_image(elements, img('01-app-overview.png'),
-              "Figure 1: RedfireForge main interface — Feature Groups view", styles)
+    add_image(elements, img('01-app-launch.png'),
+              "Figure 1: RedfireForge main interface on first launch", styles)
 
     elements.append(Paragraph("The interface has three main navigation tabs:", styles['Body']))
     make_table(elements,
@@ -273,76 +275,179 @@ def generate(version, img_dir, output_path):
     elements.append(PageBreak())
 
     # ════════════════════════════════════════════
-    # 4. SIDEBAR
+    # 4. SETTINGS — Step-by-step
     # ════════════════════════════════════════════
-    elements.append(Paragraph("4. Sidebar — Environments & Microservices", styles['SectionHead']))
+    elements.append(Paragraph("4. Settings — Add Environments & Microservices", styles['SectionHead']))
     elements.append(Paragraph(
-        "The left sidebar lets you filter Feature Groups by Environment and Microservice. "
-        "This is how you switch between dev, test, staging, and production configurations.",
+        "Before creating tests, you need to set up at least one Environment and one Microservice. "
+        "Open Settings by clicking ⚙ Settings in the sidebar.",
         styles['Body']))
 
     add_step(elements, 1,
-        "Select an Environment",
-        "Click on an environment (e.g., d01, t01, p01) in the sidebar to filter Feature Groups "
-        "that belong to that environment.",
-        styles, img('02-sidebar-env-selected.png'),
-        "Figure 2: Sidebar with an environment selected")
+        "Open Settings",
+        "Click the ⚙ Settings button at the bottom of the sidebar.",
+        styles, img('02-settings-open.png'),
+        "Figure 2: Settings modal — Environments and Microservices")
 
     add_step(elements, 2,
-        "Switch to Microservices",
-        "Click the 'Microservices' tab in the sidebar to filter by microservice instead.",
-        styles, img('03-sidebar-microservices.png'),
-        "Figure 3: Sidebar showing the Microservices tab")
-    elements.append(PageBreak())
-
-    # ════════════════════════════════════════════
-    # 5. FEATURE GROUPS
-    # ════════════════════════════════════════════
-    elements.append(Paragraph("5. Feature Groups — Organizing Tests", styles['SectionHead']))
-    elements.append(Paragraph(
-        "Feature Groups are the top-level containers for organizing your tests. Each Feature Group "
-        "is tied to an Environment and Microservice, and contains one or more Scenarios.",
-        styles['Body']))
-
-    elements.append(Paragraph("Test Hierarchy", styles['SubHead']))
-    make_table(elements,
-        ["Level", "Description", "Example"],
-        [
-            ["Feature Group", "Top-level container", "\"Onboarding API Tests\""],
-            ["Scenario", "A test flow within a group", "\"Happy Path — New User\""],
-            ["Test", "A single HTTP request + assertions", "\"POST /api/users — 201\""],
-        ], styles)
-
-    add_image(elements, img('04-feature-groups-expanded.png'),
-              "Figure 4: Feature Groups with scenarios and tests expanded", styles)
-
-    elements.append(Paragraph(
-        "Use the <b>Expand All</b> button to see all scenarios and tests at once. "
-        "You can drag-and-drop scenarios and tests to reorder or move them between groups.",
-        styles['Body']))
-    elements.append(PageBreak())
-
-    # ════════════════════════════════════════════
-    # 6. CREATING TESTS
-    # ════════════════════════════════════════════
-    elements.append(Paragraph("6. Creating & Editing Tests", styles['SectionHead']))
-
-    add_step(elements, 1,
-        "Add a Feature Group",
-        "Click '+ Add Feature Group' in the Feature Groups tab. "
-        "Give it a name, select the Environment and Microservice.",
-        styles)
-
-    add_step(elements, 2,
-        "Add a Scenario",
-        "Inside a Feature Group, click '+ Add Scenario'. "
-        "Name it to describe the test flow (e.g., 'Login Flow').",
-        styles)
+        "Add an Environment",
+        "Type an environment name (e.g., 'demo-env', 't01', 'staging') in the input field "
+        "and click Add.",
+        styles, img('03-settings-env-type.png'),
+        "Figure 3: Typing a new environment name")
 
     add_step(elements, 3,
-        "Add a Test",
-        "Inside a Scenario, click '+ Add Test'. Configure the HTTP request:",
-        styles)
+        "Environment Added",
+        "The environment appears as a chip below the input. You can add multiple environments.",
+        styles, img('04-settings-env-added.png'),
+        "Figure 4: Environment successfully added")
+
+    add_step(elements, 4,
+        "Add a Microservice",
+        "Type a microservice name (e.g., 'demo-api-service') and click Add.",
+        styles, img('05-settings-svc-type.png'),
+        "Figure 5: Typing a new microservice name")
+
+    add_step(elements, 5,
+        "Microservice Added",
+        "The microservice appears in the list. You can configure base URLs per environment.",
+        styles, img('06-settings-svc-added.png'),
+        "Figure 6: Microservice added with configuration options")
+
+    elements.append(Paragraph("Global Auth Profiles", styles['SubHead']))
+    elements.append(Paragraph(
+        "Scroll down in Settings to see Global Authentication Profiles. "
+        "These let you define reusable auth configurations (OAuth2, Bearer, etc.) "
+        "that your tests can inherit.",
+        styles['Body']))
+    add_image(elements, img('07-settings-global-auth.png'),
+              "Figure 7: Global Auth Profiles section", styles)
+
+    elements.append(Paragraph("Storage & Export/Import", styles['SubHead']))
+    add_image(elements, img('08-settings-storage-export.png'),
+              "Figure 8: Storage usage and Export/Import buttons", styles)
+    elements.append(PageBreak())
+
+    # ════════════════════════════════════════════
+    # 5. SIDEBAR — Step-by-step
+    # ════════════════════════════════════════════
+    elements.append(Paragraph("5. Sidebar — Select Environment & Microservice", styles['SectionHead']))
+    elements.append(Paragraph(
+        "The left sidebar lets you filter Feature Groups by Environment and Microservice. "
+        "You must select both before you can create or view Feature Groups.",
+        styles['Body']))
+
+    add_step(elements, 1,
+        "Click an Environment",
+        "Click on an environment name (e.g., 'demo-env') to select it. "
+        "The tree expands to show microservices deployed to that environment.",
+        styles, img('09-sidebar-env-click.png'),
+        "Figure 9: Clicking an environment in the sidebar")
+
+    add_step(elements, 2,
+        "Select a Microservice",
+        "Click on a microservice in the expanded tree to filter Feature Groups.",
+        styles, img('10-sidebar-svc-selected.png'),
+        "Figure 10: Microservice selected — Feature Groups now filtered")
+
+    add_step(elements, 3,
+        "Microservices Tab",
+        "You can also switch to the Microservices tab to browse by service first.",
+        styles, img('11-sidebar-microservices-tab.png'),
+        "Figure 11: Sidebar Microservices tab view")
+    elements.append(PageBreak())
+
+    # ════════════════════════════════════════════
+    # 6. CREATE FEATURE GROUP — Step-by-step
+    # ════════════════════════════════════════════
+    elements.append(Paragraph("6. Create a Feature Group", styles['SectionHead']))
+    elements.append(Paragraph(
+        "Feature Groups are the top-level containers for organizing your tests. "
+        "You can also select the environment and microservice from the dropdowns in the header.",
+        styles['Body']))
+
+    add_image(elements, img('12-feature-groups-env-svc-selected.png'),
+              "Figure 12: Environment and Microservice selected via header dropdowns", styles)
+
+    add_step(elements, 1,
+        "Click '+ Add Feature Group'",
+        "An inline form appears where you can type the name.",
+        styles, img('13-feature-group-naming.png'),
+        "Figure 13: Feature Group naming form appears")
+
+    add_step(elements, 2,
+        "Type a Name and Click Create",
+        "Enter a descriptive name (e.g., 'Demo API Tests') and click Create.",
+        styles, img('14-feature-group-name-typed.png'),
+        "Figure 14: Typing the Feature Group name")
+
+    add_step(elements, 3,
+        "Feature Group Created",
+        "The new Feature Group appears in the list, expanded and ready for scenarios.",
+        styles, img('15-feature-group-created.png'),
+        "Figure 15: Feature Group created successfully")
+    elements.append(PageBreak())
+
+    # ════════════════════════════════════════════
+    # 7. ADD SCENARIO — Step-by-step
+    # ════════════════════════════════════════════
+    elements.append(Paragraph("7. Add a Scenario", styles['SectionHead']))
+    elements.append(Paragraph(
+        "Scenarios group related tests within a Feature Group (e.g., 'Health Check Flow').",
+        styles['Body']))
+
+    add_step(elements, 1,
+        "Click '+ Scenario'",
+        "Inside the Feature Group, click the '+ Scenario' button.",
+        styles, img('16-scenario-naming.png'),
+        "Figure 16: Scenario naming form")
+
+    add_step(elements, 2,
+        "Type a Name and Click Create",
+        "Enter a scenario name (e.g., 'Health Check Flow') and click Create.",
+        styles, img('17-scenario-name-typed.png'),
+        "Figure 17: Typing the Scenario name")
+
+    add_step(elements, 3,
+        "Scenario Created",
+        "The scenario appears inside the Feature Group, ready for tests.",
+        styles, img('18-scenario-created.png'),
+        "Figure 18: Scenario created with action buttons")
+    elements.append(PageBreak())
+
+    # ════════════════════════════════════════════
+    # 8. ADD TEST — Step-by-step
+    # ════════════════════════════════════════════
+    elements.append(Paragraph("8. Add a Test", styles['SectionHead']))
+    elements.append(Paragraph(
+        "Tests are individual HTTP requests with optional assertions.",
+        styles['Body']))
+
+    add_step(elements, 1,
+        "Click '+ Test'",
+        "Inside a Scenario, click '+ Test' to open the test editor.",
+        styles, img('19-test-editor-open.png'),
+        "Figure 19: Test editor opens in a split panel")
+
+    add_step(elements, 2,
+        "Fill in Name and URL",
+        "Enter a test name (e.g., 'GET Health Check') and the request URL "
+        "(e.g., 'https://httpbin.org/get'). Select the HTTP method.",
+        styles, img('20-test-name-url-filled.png'),
+        "Figure 20: Test name and URL configured")
+
+    add_step(elements, 3,
+        "Configure More Fields",
+        "Scroll down to add headers, request body, expected status code, "
+        "and response validation rules.",
+        styles, img('21-test-editor-more-fields.png'),
+        "Figure 21: Additional test configuration options")
+
+    add_step(elements, 4,
+        "Save the Test",
+        "Click Save to add the test to the scenario.",
+        styles, img('22-test-saved.png'),
+        "Figure 22: Test saved and visible in the scenario")
 
     elements.append(Paragraph("Test Configuration Fields", styles['SubHead']))
     make_table(elements,
@@ -360,9 +465,24 @@ def generate(version, img_dir, output_path):
     elements.append(PageBreak())
 
     # ════════════════════════════════════════════
-    # 7. AUTHENTICATION
+    # 9. EXISTING DATA VIEW
     # ════════════════════════════════════════════
-    elements.append(Paragraph("7. Authentication Setup", styles['SectionHead']))
+    elements.append(Paragraph("9. Viewing Existing Tests", styles['SectionHead']))
+    elements.append(Paragraph(
+        "Once you have Feature Groups with scenarios and tests, you can browse "
+        "and expand them to see all your test configurations.",
+        styles['Body']))
+
+    add_image(elements, img('23-existing-feature-groups.png'),
+              "Figure 23: Feature Groups with existing test data", styles)
+    add_image(elements, img('24-feature-groups-all-expanded.png'),
+              "Figure 24: All Feature Groups expanded showing scenarios and tests", styles)
+    elements.append(PageBreak())
+
+    # ════════════════════════════════════════════
+    # 10. AUTHENTICATION
+    # ════════════════════════════════════════════
+    elements.append(Paragraph("10. Authentication Setup", styles['SectionHead']))
     elements.append(Paragraph(
         "RedfireForge supports a 4-tier authentication inheritance model. "
         "Configure auth once at the top level and let it cascade down:",
@@ -393,32 +513,25 @@ def generate(version, img_dir, output_path):
     elements.append(PageBreak())
 
     # ════════════════════════════════════════════
-    # 8. SETTINGS
+    # 11. TEST RUNNER — Step-by-step
     # ════════════════════════════════════════════
-    elements.append(Paragraph("8. Settings", styles['SectionHead']))
-    elements.append(Paragraph(
-        "Access Settings by clicking the ⚙ Settings button in the sidebar. "
-        "Here you can manage Environments, Microservices, Global Auth Profiles, "
-        "and access Export/Import functionality.",
-        styles['Body']))
-
-    add_image(elements, img('05-settings-overview.png'),
-              "Figure 5: Settings modal — Environments and Microservices", styles)
-
-    add_image(elements, img('06-settings-auth-section.png'),
-              "Figure 6: Settings — Global Authentication Profiles", styles)
-    elements.append(PageBreak())
-
-    # ════════════════════════════════════════════
-    # 9. TEST RUNNER
-    # ════════════════════════════════════════════
-    elements.append(Paragraph("9. Running Performance Tests", styles['SectionHead']))
+    elements.append(Paragraph("11. Running Performance Tests", styles['SectionHead']))
     elements.append(Paragraph(
         "Switch to the Test Runner tab to configure and execute performance tests.",
         styles['Body']))
 
-    add_image(elements, img('08-test-runner-overview.png'),
-              "Figure 7: Test Runner — configuration and execution", styles)
+    add_step(elements, 1,
+        "Open Test Runner Tab",
+        "Click the 'Test Runner' tab in the header navigation.",
+        styles, img('25-test-runner-tab.png'),
+        "Figure 25: Test Runner tab — select tests to run")
+
+    add_step(elements, 2,
+        "Configure the Test Run",
+        "Select a Feature Group or Scenario to test. Set the number of iterations "
+        "and choose the execution mode.",
+        styles, img('26-test-runner-configured.png'),
+        "Figure 26: Test Runner configured and ready")
 
     elements.append(Paragraph("Execution Modes", styles['SubHead']))
     make_table(elements,
@@ -429,35 +542,34 @@ def generate(version, img_dir, output_path):
             ["Ramp-up", "Gradually increase concurrency", "Stress testing"],
         ], styles)
 
-    add_step(elements, 1,
-        "Select What to Test",
-        "Choose a Feature Group, Scenario, or individual Test from the dropdown.",
-        styles)
-    add_step(elements, 2,
-        "Configure Iterations",
-        "Set the number of runs (iterations) to execute.",
-        styles)
     add_step(elements, 3,
-        "Choose Execution Mode",
-        "Select Sequential, Parallel, or Ramp-up mode.",
-        styles)
-    add_step(elements, 4,
-        "Click Run",
-        "Press the Run button. Watch real-time progress as tests execute. "
+        "Click Run Test",
+        "Press the ▶ Run Test button. Watch real-time progress as tests execute. "
         "Results are automatically saved when complete.",
-        styles)
+        styles, img('27-test-runner-run-button.png'),
+        "Figure 27: Run Test button — click to start execution")
     elements.append(PageBreak())
 
     # ════════════════════════════════════════════
-    # 10. RESULTS
+    # 12. RESULTS — Step-by-step
     # ════════════════════════════════════════════
-    elements.append(Paragraph("10. Analyzing Results", styles['SectionHead']))
+    elements.append(Paragraph("12. Analyzing Results", styles['SectionHead']))
     elements.append(Paragraph(
-        "The Results tab shows all historical test runs with detailed metrics.",
+        "After tests complete, switch to the Results tab to view detailed metrics.",
         styles['Body']))
 
-    add_image(elements, img('10-results-dashboard.png'),
-              "Figure 8: Results Dashboard — historical test runs", styles)
+    add_step(elements, 1,
+        "Open Results Tab",
+        "Click the 'Results' tab to see all historical test runs.",
+        styles, img('28-results-dashboard.png'),
+        "Figure 28: Results Dashboard — historical test runs")
+
+    add_step(elements, 2,
+        "View Detailed Metrics",
+        "Click on a test run to see response time distributions, error rates, "
+        "and per-request details. Scroll down for more data.",
+        styles, img('29-results-metrics-scroll.png'),
+        "Figure 29: Detailed metrics and charts")
 
     elements.append(Paragraph("Available Metrics", styles['SubHead']))
     for metric in [
@@ -475,15 +587,17 @@ def generate(version, img_dir, output_path):
     elements.append(PageBreak())
 
     # ════════════════════════════════════════════
-    # 11. EXPORT & IMPORT
+    # 13. EXPORT & IMPORT — Step-by-step
     # ════════════════════════════════════════════
-    elements.append(Paragraph("11. Export & Import", styles['SectionHead']))
+    elements.append(Paragraph("13. Export & Import", styles['SectionHead']))
 
     elements.append(Paragraph("Export Center", styles['SubHead']))
     elements.append(Paragraph(
-        "Access via Settings → Export Center. Export your entire configuration or "
+        "Access via Settings → Export Data. Export your entire configuration or "
         "select specific items. Files are saved to <b>Documents/RedfireForge/</b> by default.",
         styles['Body']))
+    add_image(elements, img('30-export-center.png'),
+              "Figure 30: Export Center — select items to export", styles)
     elements.append(Paragraph(
         "Exported files use a standardized naming convention:<br/>"
         "<font face='Courier' size='10'>{environment}-{microservice}-{level}-{name}-{timestamp}.json</font>",
@@ -491,9 +605,11 @@ def generate(version, img_dir, output_path):
 
     elements.append(Paragraph("Import Center", styles['SubHead']))
     elements.append(Paragraph(
-        "Access via Settings → Import Center. Select a previously exported .json file. "
-        "RedfireForge will detect conflicts and let you resolve them per item:",
+        "Access via Settings → Import Data. Select a previously exported .json file. "
+        "RedfireForge will detect conflicts and let you resolve them per item.",
         styles['Body']))
+    add_image(elements, img('31-import-center.png'),
+              "Figure 31: Import Center — choose a file and resolve conflicts", styles)
     make_table(elements,
         ["Action", "Behavior"],
         [
@@ -506,7 +622,7 @@ def generate(version, img_dir, output_path):
     # ════════════════════════════════════════════
     # 12. DESKTOP VS WEB
     # ════════════════════════════════════════════
-    elements.append(Paragraph("12. Desktop vs Web Comparison", styles['SectionHead']))
+    elements.append(Paragraph("14. Desktop vs Web Comparison", styles['SectionHead']))
     make_table(elements,
         ["Feature", "Desktop (Tauri)", "Web (Browser)"],
         [
@@ -527,7 +643,7 @@ def generate(version, img_dir, output_path):
     # ════════════════════════════════════════════
     # 13. TIPS & BEST PRACTICES
     # ════════════════════════════════════════════
-    elements.append(Paragraph("13. Tips & Best Practices", styles['SectionHead']))
+    elements.append(Paragraph("15. Tips & Best Practices", styles['SectionHead']))
     tips = [
         ("Organize by Environment",
          "Create one Feature Group per environment/microservice combination for clarity."),
@@ -559,7 +675,7 @@ def generate(version, img_dir, output_path):
     # ════════════════════════════════════════════
     # 14. QUICK REFERENCE
     # ════════════════════════════════════════════
-    elements.append(Paragraph("14. Quick Reference", styles['SectionHead']))
+    elements.append(Paragraph("16. Quick Reference", styles['SectionHead']))
     make_table(elements,
         ["Action", "Where", "How"],
         [
