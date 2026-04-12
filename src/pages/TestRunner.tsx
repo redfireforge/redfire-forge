@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { AuthConfig, ExecutionMode, FeatureGroup, Scenario, TestConfig, ScenarioWeight } from '../types';
+import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 
 const STORAGE_KEY = 'perf-test-runner-config';
@@ -20,6 +20,7 @@ interface Props {
   envName?: string;
   svcName?: string;
   resolvedBaseUrl?: string;
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
 function replaceHost(testUrl: string, baseUrl: string): string {
@@ -39,7 +40,7 @@ function replaceHost(testUrl: string, baseUrl: string): string {
   }
 }
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl }: Props) {
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
   const saved = useMemo(() => loadRunnerConfig(), []);
   const [concurrency, setConcurrency] = useState(saved.concurrency);
   const [totalTransactions, setTotalTransactions] = useState(saved.totalTransactions);
@@ -69,14 +70,18 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
   // Collect all tests from selected scenarios, resolving auth chain:
-  // Priority: Test → Scenario → Feature (highest to lowest)
+  // Priority: Test → Scenario → Feature → Global Profile (highest to lowest)
   const selectedTests: Scenario[] = useMemo(() => {
-    const resolveAuth = (test: Scenario, sc: { auth?: { type: string } & Record<string, unknown> }, fg: { auth?: { type: string } & Record<string, unknown> }): AuthConfig => {
+    const resolveAuth = (test: Scenario, sc: { auth?: { type: string } & Record<string, unknown> }, fg: FeatureGroup): AuthConfig => {
       if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
       const scAuth = sc.auth;
       if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') return scAuth as AuthConfig;
       const fgAuth = fg.auth;
-      if (fgAuth && fgAuth.type !== 'none') return fgAuth as AuthConfig;
+      if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') return fgAuth as AuthConfig;
+      if (fg.globalAuthProfileId) {
+        const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+        if (profile && profile.auth.type !== 'none') return profile.auth;
+      }
       return { type: 'none' };
     };
     const tests: Scenario[] = [];
@@ -94,7 +99,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       }
     }
     return tests;
-  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, hostMode, customBaseUrl]);
+  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, hostMode, customBaseUrl, globalAuthProfiles]);
 
   // Sync weights when selection changes
   useMemo(() => {

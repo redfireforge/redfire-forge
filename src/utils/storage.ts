@@ -1,4 +1,4 @@
-import type { TestRun, FeatureGroup, Environment, Microservice } from '../types';
+import type { TestRun, FeatureGroup, Environment, Microservice, GlobalAuthProfile } from '../types';
 
 const STORAGE_KEY = 'perf-test-runs';
 const SCENARIOS_KEY = 'perf-test-scenarios';
@@ -8,6 +8,7 @@ const SERVICES_KEY = 'perf-test-microservices';
 const SELECTED_ENV_KEY = 'perf-test-selected-env';
 const SELECTED_SVC_KEY = 'perf-test-selected-svc';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
+const GLOBAL_AUTH_KEY = 'perf-test-global-auth';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -112,6 +113,10 @@ export function loadTestRuns(): TestRun[] {
   }
 }
 
+export function saveTestRunsBulk(runs: TestRun[]): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+}
+
 export function deleteTestRun(runId: string): void {
   const runs = loadTestRuns().filter((r) => r.id !== runId);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
@@ -181,4 +186,16 @@ export function saveSelectedService(svcId: string): void {
 }
 export function loadSelectedService(): string {
   return localStorage.getItem(SELECTED_SVC_KEY) ?? '';
+}
+
+// Global Auth Profiles
+export function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): void {
+  localStorage.setItem(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
+}
+export function loadGlobalAuthProfiles(): GlobalAuthProfile[] {
+  try {
+    const raw = localStorage.getItem(GLOBAL_AUTH_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as GlobalAuthProfile[];
+  } catch { return []; }
 }

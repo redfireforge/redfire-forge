@@ -67,7 +67,8 @@ src/
 │   └── useTestExecution.ts  # React hook wrapping the executor
 ├── components/
 │   ├── JsonPathBuilder.tsx  # Visual JSON path selector for validation
-│   └── ExportCenter.tsx     # Multi-select data export modal
+│   ├── ExportCenter.tsx     # Multi-select data export modal
+│   └── ImportCenter.tsx     # Import with per-item conflict resolution
 ├── utils/
 │   ├── storage.ts           # LocalStorage persistence helpers
 │   ├── curlParser.ts        # cURL command → test config parser
@@ -101,6 +102,18 @@ Open **Settings** (⚙ button in the sidebar) to configure your testing infrastr
 4. For each microservice, click **Configure** to expand the environment table. Mark environments as **Deployed** (checkbox), then click **Edit** next to each to enter the base URL. Press **Save** or hit Enter to confirm.
 5. Close the Settings modal when done.
 
+#### Global Auth Profiles
+
+Define reusable authentication configurations at the global level that Feature Groups can inherit from.
+
+1. Scroll to **Global Auth Profiles** in Settings.
+2. Enter a profile name (e.g., `prod-oauth`, `qa-basic`) and click **+ Add Profile**.
+3. Configure the auth type and credentials (OAuth2, Basic, Bearer, API Key, Digest).
+4. Click **Verify** to test the credentials (OAuth2 acquires a real token).
+5. In a Feature Group, set auth to **Inherit from Global Profile** and select the profile from the dropdown.
+
+Multiple profiles support different environments (dev, QA, prod) without duplicating auth configuration across Feature Groups.
+
 #### Storage
 
 The **Storage** section shows how much localStorage is being used.
@@ -116,14 +129,35 @@ The **Export** section in Settings opens the **Export Center** — a modal that 
 **How to use:**
 
 1. Open **Settings** → scroll to **Export** → click **Open Export Center**.
-2. Four collapsible sections appear: **Environments**, **Microservices**, **Feature Groups**, and **Test Runs**.
+2. Five collapsible sections appear: **Environments**, **Microservices**, **Global Auth Profiles**, **Feature Groups**, and **Test Runs**.
 3. Check individual items or use the **All / None** buttons per section.
 4. Use **Select All / Clear All** at the top for bulk operations.
 5. A live summary in the footer shows exactly what the export will contain (counts of environments, microservices, scenarios, tests, runs, and total requests).
 6. Click **Export JSON** to save the file. A native "Save As" dialog appears.
 7. Click **Close** to return to Settings.
 
-When exporting microservices, any referenced environments are automatically included even if not explicitly checked.
+When exporting microservices, any referenced environments are automatically included even if not explicitly checked. Global Auth Profiles referenced by selected Feature Groups are also auto-included.
+
+#### Import Center
+
+The **Import** button in Settings opens the **Import Center** for importing previously exported JSON files with full conflict resolution.
+
+**How to use:**
+
+1. Open **Settings** → scroll to **Export & Import** → click **Import Data**.
+2. Select a JSON file. The Import Center parses it and shows all items grouped by type.
+3. Each item is checked for conflicts by **ID** and **name**:
+   - **NEW** — no conflict; will be added directly.
+   - **ID MATCH** / **NAME MATCH** — a conflict was detected. Choose an action per item:
+     - **Skip** — don't import this item.
+     - **Overwrite** — replace the existing item with the incoming one.
+     - **Keep Both** — import as a new copy with fresh IDs (including all nested scenario/test IDs for Feature Groups).
+4. Expand any item to see a side-by-side comparison of incoming vs. existing data.
+5. Use bulk actions (**All**, **None**, **Skip all**, **Overwrite all**, **Keep both all**) per section.
+6. A live summary bar shows what will be added, overwritten, or skipped.
+7. Click **Import** to apply.
+
+The Import Center can be maximized for large imports using the ⊞ button.
 
 ### Theme (Dark / Light Mode)
 
@@ -166,11 +200,23 @@ Click the **Auth** button on a Feature Group to configure authentication that al
 1. Inside a Feature Group, type a name and click **+ Scenario**.
 2. Optionally set **Scenario-level authentication** — it can inherit from the Feature Group or define its own. Tests within the scenario can inherit this auth.
 
+**Drag-and-Drop:**
+
+Reorder and move scenarios and tests using the `⠿` drag handle:
+
+- **Move scenarios between Feature Groups** — drag a scenario's `⠿` handle and drop it onto another Feature Group's scenario list. A blue indicator line shows where it will be inserted.
+- **Reorder scenarios** — drag a scenario within the same Feature Group to change its order.
+- **Move tests between scenarios** — drag a test's `⠿` handle and drop it into a different scenario (even across Feature Groups).
+- **Reorder tests** — drag a test within the same scenario to change its order.
+- **Drop zones** — "Drop here" zones appear at the end of lists and in empty containers when dragging.
+
+Note: When moving a scenario or test to a different parent, its auth inheritance chain updates to follow the new parent.
+
 **Import / Export:**
 
-- **Import**: Click **Import** on a Feature Group to import from a JSON file.
+- **Import**: Click **Import** on a Feature Group to import scenarios from a JSON file. Conflict detection warns if scenarios or tests with the same name already exist, with an option to proceed or cancel.
 - **Export**: Click **Export** on a Feature Group, Scenario, or individual Test to save it as JSON using a native file dialog.
-- Feature Groups can be dragged between environments via drag-and-drop in the sidebar.
+- **Naming convention**: All exported files follow a consistent format: `{environment}-{microservice}-{level}-{name}-{timestamp}.json`.
 
 ### Test Editor
 
@@ -203,12 +249,13 @@ Select from a dropdown menu (similar to Insomnia):
 **Auth Inheritance Chain** (lowest → highest priority):
 
 ```
-Feature Group Auth  →  Scenario Auth  →  Test Auth
-  (lowest)                                (highest)
+Global Auth Profile  →  Feature Group Auth  →  Scenario Auth  →  Test Auth
+    (lowest)                                                       (highest)
 ```
 
-- A **Test** set to "Inherit" resolves auth from its Scenario; if the Scenario also inherits, it walks up to the Feature Group.
+- A **Test** set to "Inherit" resolves auth from its Scenario; if the Scenario also inherits, it walks up to the Feature Group, and then to the Global Auth Profile.
 - A **Scenario** set to "Inherit from Feature" uses the Feature Group's auth config.
+- A **Feature Group** set to "Inherit from Global Profile" uses a named Global Auth Profile defined in Settings.
 - Each level can override by selecting its own auth type (Basic, Bearer, OAuth2, etc.).
 
 **Auth Verification:**
@@ -254,6 +301,13 @@ Auth badges are color-coded by level for quick visual identification:
 - **Visual JSON Path Builder**: Paste a sample JSON response, and a visual tree appears. Check/uncheck fields to build validation paths.
 - **Unordered Array Matching**: Enable this to match array items regardless of their order (e.g., `offers[0]` can match `offers[3]` if field values match).
 - **Smart Path Remapping**: If paths don't resolve (e.g., response wraps data in a key), the validator automatically tries common remapping strategies.
+
+**Fetch Response & Host Override:**
+
+Above the sample JSON area, a single row provides:
+
+- **Fetch Response** button — sends the current test request and populates the sample JSON with the actual API response. Auth credentials are applied automatically based on the inheritance chain.
+- **Host Override** checkbox + input — when enabled, replaces the hostname in the test URL with a different base URL for the fetch only (does not modify the test). Click **Use Settings** to quickly fill in the configured base URL. The override value is preserved when toggling off/on.
 
 ### Test Runner
 
@@ -303,11 +357,10 @@ All runner settings (concurrency, transactions, selected scenarios, weights, hos
 
 Navigate to the **Results** tab (third tab).
 
-**Run Selection:**
+**Layout:**
 
-- A dropdown lists historical runs filtered by the selected environment/microservice.
-- Each run shows its timestamp and basic stats.
-- Context tags show: environment, microservice, host used (purple = configured URL, orange = hardcoded), and execution mode with concurrency and total transactions (e.g., `Batch · C:2 · T:160`).
+- **Row 1**: "Results" heading, context tags (environment, microservice, host, execution mode with `C:` and `T:`), and action buttons (Refresh, Export JSON, Export CSV, Delete) aligned to the far right.
+- **Row 2**: Full-width dropdown listing historical runs filtered by the selected environment/microservice. Each entry shows timestamp, service, environment, request count, and TPS.
 
 **Summary Metrics (Row 1):**
 
@@ -355,13 +408,15 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Visual test builder | Point-and-click editor for URL, headers, body, auth, validation |
 | cURL import/export | Paste cURL to create tests; generate cURL with live OAuth2 tokens |
 | Multiple auth schemes | None, Inherit, Basic, Bearer Token, API Key, Digest, OAuth2 Client Credentials |
-| Auth inheritance chain | Feature → Scenario → Test with visual color-coded badges (purple/blue/green) |
+| Global auth profiles | Named reusable auth configurations in Settings; Feature Groups can inherit from them |
+| Auth inheritance chain | Global Profile → Feature → Scenario → Test with visual color-coded badges (purple/blue/green) |
 | Auth verification | Verify credentials at any level; OAuth2 acquires a real token |
 | Full & selective validation | Deep JSON compare, specific path checks, unordered arrays |
 | Visual JSON path builder | Click fields in a sample JSON tree to build validation rules |
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
 | Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
+| Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
@@ -369,10 +424,13 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Results filtering | Filter runs by environment and microservice |
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
-| Export Center | Selectively export any combination of environments, microservices, features, and runs |
+| Export Center | Selectively export any combination of environments, microservices, global auth profiles, features, and runs |
+| Import Center | Import exported JSON files with per-item conflict detection (ID/name match), side-by-side comparison, and resolution (skip, overwrite, keep both) |
+| Import conflict detection | Feature Group, Scenario, and Test imports warn on duplicates with confirmation dialogs |
+| Consistent export naming | All exports follow `{env}-{svc}-{level}-{name}-{timestamp}.json` naming convention |
 | Storage management | Monitor usage, configure max runs, auto-prune old data, graceful quota-exceeded recovery |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
-| Drag-and-drop | Reassign Feature Groups to different environments |
+| Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
 | CORS proxy | Built-in Vite server proxy eliminates CORS issues |
 
@@ -387,6 +445,7 @@ All data is stored in the browser's **localStorage**:
 | `perf-test-feature-groups` | Feature Groups, Scenarios, and Tests |
 | `perf-test-environments` | Environment definitions |
 | `perf-test-microservices` | Microservice definitions and base URLs |
+| `perf-test-global-auth` | Global Auth Profile definitions |
 | `perf-test-runs` | Historical test run results (auto-pruned, response bodies truncated to 2 KB) |
 | `perf-test-runner-config` | Runner settings (concurrency, weights, host mode, execution mode, etc.) |
 | `perf-test-max-runs` | Maximum number of stored runs (default 50, configurable 1–500) |
