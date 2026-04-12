@@ -254,13 +254,15 @@ export async function migrateLegacyData(): Promise<Project | null> {
 
 // ---------- Runner config ----------
 
-export async function saveRunnerConfig(config: unknown): Promise<void> {
-  await writeKey(RUNNER_CONFIG_KEY, JSON.stringify(config));
+export async function saveRunnerConfig(config: unknown, contextKey?: string): Promise<void> {
+  const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
+  await writeKey(key, JSON.stringify(config));
 }
 
-export async function loadRunnerConfig(): Promise<unknown | null> {
+export async function loadRunnerConfig(contextKey?: string): Promise<unknown | null> {
   try {
-    const raw = await readKey(RUNNER_CONFIG_KEY);
+    const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
+    const raw = await readKey(key);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch { return null; }
