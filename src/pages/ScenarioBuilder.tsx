@@ -28,6 +28,25 @@ interface Props {
 
 export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], projectAuthProfiles = [], projects = [], currentProjectId = '', onMoveFeatureGroup, onMoveScenario, onMoveTest }: Props) {
   const allAuthProfiles = [...globalAuthProfiles, ...projectAuthProfiles];
+
+  const resolveEffectiveAuth = useCallback((t: Scenario, sc: TestScenario, fg: FeatureGroup): { label: string; source: string } | null => {
+    if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
+      return { label: t.auth.type, source: 'own' };
+    }
+    const scAuth = sc.auth || { type: 'none' as AuthType };
+    if (scAuth.type !== 'none' && scAuth.type !== 'inherit') {
+      return { label: scAuth.type, source: 'scenario' };
+    }
+    const fgAuth = fg.auth;
+    if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
+      return { label: fgAuth.type, source: 'feature' };
+    }
+    if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
+      const p = allAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId);
+      return p ? { label: `${p.auth.type} (${p.name})`, source: 'global' } : { label: 'global (missing)', source: 'global' };
+    }
+    return null;
+  }, [allAuthProfiles]);
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -1102,16 +1121,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <strong>{t.name}</strong>
                             </div>
                             <div className="test-card-meta">
-                              {t.auth.type !== 'none' && t.auth.type !== 'inherit'
-                                ? <span className="tag auth-badge auth-badge-test-own">Auth: {t.auth.type} (own)</span>
-                                : scAuth.type !== 'none' && scAuth.type !== 'inherit'
-                                  ? <span className="tag auth-badge auth-badge-test-scenario">Auth: {scAuth.type} (scenario)</span>
-                                  : fg.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit'
-                                    ? <span className="tag auth-badge auth-badge-test-feature">Auth: {fg.auth.type} (feature)</span>
-                                    : fg.auth?.type === 'inherit' && fg.globalAuthProfileId
-                                      ? <span className="tag auth-badge auth-badge-test-global">{(() => { const p = allAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId); return p ? `Auth: ${p.auth.type} (${p.name})` : 'Auth: global (missing)'; })()}</span>
-                                      : <span className="tag auth-badge auth-badge-test-none">Auth: none</span>
-                              }
+                              {(() => {
+                                const resolved = resolveEffectiveAuth(t, sc, fg);
+                                if (!resolved) return <span className="tag auth-badge auth-badge-test-none">Auth: none</span>;
+                                const cls = resolved.source === 'own' ? 'auth-badge-test-own'
+                                  : resolved.source === 'scenario' ? 'auth-badge-test-scenario'
+                                  : resolved.source === 'feature' ? 'auth-badge-test-feature'
+                                  : 'auth-badge-test-global';
+                                return <span className={`tag auth-badge ${cls}`}>Auth: {resolved.label} ({resolved.source})</span>;
+                              })()}
                               <span className="tag">Validation: {t.validation.mode}</span>
                             </div>
                             <div className="test-card-actions">
