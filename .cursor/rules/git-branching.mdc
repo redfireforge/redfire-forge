@@ -10,16 +10,19 @@ alwaysApply: true
 - `master` — stable releases only (v1.0.0)
 - `release/*` — beta/RC builds (v1.0.0-beta.N)
 - `develop` — integration branch (v1.0.0-alpha.N)
-- `feature/*` — new features, always branch from `develop`
+- `feature/*` — new features & fixes, always branch from `develop`
+- `hotfix/*` — urgent fixes for release branches, branch from `release/*`
 
 ## Rules
 
-1. **Never commit directly to `master`.** Only merge from `release/*`.
-2. **Never create feature branches from `master` or `release/*`.** Always from `develop`.
-3. **Always use `./scripts/version.sh`** to bump versions. Never edit version numbers manually.
-4. **After merging to `master`, always back-merge into `develop`.**
-5. **Before building, confirm the version matches the branch type** (alpha on develop, beta on release, stable on master).
-6. **Never merge a feature branch into `develop` without user approval.** After implementing on a feature branch, stop and ask the user to verify. Only merge after they confirm everything is OK.
+1. **NEVER commit directly to `master`, `release/*`, or `develop`.** All code changes (features, bug fixes, refactors — everything) MUST go through a `feature/*` or `hotfix/*` branch first.
+2. **The ONLY commits allowed directly on `develop`, `release/*`, or `master`** are version bumps (`chore: bump version`) and merge commits.
+3. **`feature/*` branches** are for ALL changes targeting `develop`. Always branch from `develop`.
+4. **`hotfix/*` branches** are for urgent fixes targeting a `release/*` branch. Branch from the relevant `release/*` branch, merge back into it, and cherry-pick into `develop`.
+5. **Always use `./scripts/version.sh`** to bump versions. Never edit version numbers manually.
+6. **After merging to `master`, always back-merge into `develop`.**
+7. **Before building, confirm the version matches the branch type** (alpha on develop, beta on release, stable on master).
+8. **Never merge a feature/hotfix branch without user approval.** After implementing on the branch, stop and ask the user to verify. Only merge after they confirm everything is OK.
 
 ## Version Bumping
 
@@ -48,11 +51,20 @@ git commit -m "chore: bump version to <version>"
 4. Only after user confirms → merge into `develop`
 5. **Delete the feature branch** after merge: `git branch -d feature/<name>`
 
+## Hotfix Branch Workflow
+
+1. Create `hotfix/*` from the target `release/*` branch
+2. Implement and commit the fix on the hotfix branch
+3. **STOP — ask user to verify and test**
+4. Only after user confirms → merge into the `release/*` branch
+5. Cherry-pick the fix commit into `develop` (or create a separate `feature/*` for develop)
+6. **Delete the hotfix branch** after merge: `git branch -d hotfix/<name>`
+
 ## Release Checklist
 
 1. Merge feature into `develop` (after user approval), bump alpha
 2. Create `release/X.Y.Z` from `develop`, bump beta
-3. Test and fix on release branch, bump beta.N
+3. Test and fix on release branch via `hotfix/*` branches, bump beta.N
 4. Merge release into `master`, set stable version, `git tag vX.Y.Z`
 5. Back-merge `master` into `develop`
 6. Update `CHANGELOG.md` — move [Unreleased] items into new version heading
