@@ -46,6 +46,7 @@ git commit -m "chore: bump version to <version>"
 2. Implement and commit on the feature branch
 3. **STOP — ask user to verify and test**
 4. Only after user confirms → merge into `develop`
+5. **Delete the feature branch** after merge: `git branch -d feature/<name>`
 
 ## Release Checklist
 
