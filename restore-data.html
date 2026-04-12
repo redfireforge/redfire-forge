@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head><title>Restore FlowForge Data</title></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 40px auto; background: #1a1a2e; color: #eee;">
+<h2>FlowForge Data Restore</h2>
+<p>This page restores your data from the exported backup file into localStorage.</p>
+<div id="status" style="padding: 12px; background: #16213e; border-radius: 8px; margin: 20px 0;"></div>
+<script>
+async function restore() {
+  const status = document.getElementById('status');
+  try {
+    const resp = await fetch('/restore-backup.json');
+    const data = await resp.json();
+
+    if (data.environments) {
+      localStorage.setItem('perf-test-environments', JSON.stringify(data.environments));
+      status.innerHTML += `<div>✅ Restored ${data.environments.length} environments</div>`;
+    }
+    if (data.microservices) {
+      localStorage.setItem('perf-test-microservices', JSON.stringify(data.microservices));
+      status.innerHTML += `<div>✅ Restored ${data.microservices.length} microservices</div>`;
+    }
+    if (data.globalAuthProfiles) {
+      localStorage.setItem('perf-test-global-auth', JSON.stringify(data.globalAuthProfiles));
+      status.innerHTML += `<div>✅ Restored ${data.globalAuthProfiles.length} global auth profiles</div>`;
+    }
+    if (data.featureGroups) {
+      localStorage.setItem('perf-test-features', JSON.stringify(data.featureGroups));
+      const tests = data.featureGroups.reduce((s, fg) => s + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);
+      status.innerHTML += `<div>✅ Restored ${data.featureGroups.length} feature groups (${tests} tests)</div>`;
+    }
+    if (data.testRuns && data.testRuns.length > 0) {
+      localStorage.setItem('perf-test-runs', JSON.stringify(data.testRuns));
+      status.innerHTML += `<div>✅ Restored ${data.testRuns.length} test runs</div>`;
+    }
+
+    status.innerHTML += `<div style="margin-top: 16px; font-weight: bold; color: #4ade80;">
+      ✅ Restore complete! <a href="/" style="color: #60a5fa;">Go to FlowForge →</a>
+    </div>`;
+  } catch (err) {
+    status.innerHTML = `<div style="color: #f87171;">❌ Error: ${err.message}</div>`;
+  }
+}
+restore();
+</script>
+</body>
+</html>

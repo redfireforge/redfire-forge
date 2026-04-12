@@ -11,6 +11,7 @@ import {
   getMaxRuns, setMaxRuns, getStorageUsage,
   loadTestRuns, saveTestRunsBulk,
   loadGlobalAuthProfiles, saveGlobalAuthProfiles,
+  saveTheme, loadTheme,
 } from './utils/storage';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
@@ -28,14 +29,16 @@ function formatBytes(bytes: number): string {
 }
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('scenarios');
-  const [featureGroups, setFeatureGroups] = useState<FeatureGroup[]>(() => loadFeatureGroups());
+  const [featureGroups, setFeatureGroups] = useState<FeatureGroup[]>([]);
 
-  const [environments, setEnvironments] = useState<Environment[]>(() => loadEnvironments());
-  const [microservices, setMicroservices] = useState<Microservice[]>(() => loadMicroservices());
-  const [selectedEnvId, setSelectedEnvId] = useState(() => loadSelectedEnv());
-  const [selectedSvcId, setSelectedSvcId] = useState(() => loadSelectedService());
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [microservices, setMicroservices] = useState<Microservice[]>([]);
+  const [selectedEnvId, setSelectedEnvId] = useState('');
+  const [selectedSvcId, setSelectedSvcId] = useState('');
 
+  const [testRunsCache, setTestRunsCache] = useState<TestRun[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [showImportCenter, setShowImportCenter] = useState(false);
@@ -43,21 +46,52 @@ export default function App() {
   const [newSvcName, setNewSvcName] = useState('');
   const [editingBaseUrls, setEditingBaseUrls] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState<{ svcId: string; envId: string; value: string } | null>(null);
-  const [maxRuns, setMaxRunsLocal] = useState(() => getMaxRuns());
-  const [storageUsage, setStorageUsage] = useState(() => getStorageUsage());
+  const [maxRuns, setMaxRunsLocal] = useState(50);
+  const [storageUsage, setStorageUsage] = useState<{ usedBytes: number; entries: Record<string, number> }>({ usedBytes: 0, entries: {} });
   const [storageExpanded, setStorageExpanded] = useState(false);
-  const [globalAuthProfiles, setGlobalAuthProfiles] = useState<GlobalAuthProfile[]>(() => loadGlobalAuthProfiles());
+  const [globalAuthProfiles, setGlobalAuthProfiles] = useState<GlobalAuthProfile[]>([]);
   const [editingGlobalAuth, setEditingGlobalAuth] = useState<string | null>(null);
   const [newProfileName, setNewProfileName] = useState('');
   const [showSecret, setShowSecret] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('perf-test-theme') as 'dark' | 'light') || 'dark';
-  });
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [dragEnvId, setDragEnvId] = useState<string | null>(null);
   const [expandedSidebarNodes, setExpandedSidebarNodes] = useState<Set<string>>(new Set());
+
+  // Load all persisted data on mount
+  const initDone = useRef(false);
+  useEffect(() => {
+    if (initDone.current) return;
+    initDone.current = true;
+    (async () => {
+      const [fgs, envs, svcs, envId, svcId, maxR, usage, profiles, savedTheme, runs] = await Promise.all([
+        loadFeatureGroups(),
+        loadEnvironments(),
+        loadMicroservices(),
+        loadSelectedEnv(),
+        loadSelectedService(),
+        getMaxRuns(),
+        getStorageUsage(),
+        loadGlobalAuthProfiles(),
+        loadTheme(),
+        loadTestRuns(),
+      ]);
+      setFeatureGroups(fgs);
+      setEnvironments(envs);
+      setMicroservices(svcs);
+      setSelectedEnvId(envId);
+      setSelectedSvcId(svcId);
+      setMaxRunsLocal(maxR);
+      setStorageUsage(usage);
+      setGlobalAuthProfiles(profiles);
+      setTheme(savedTheme as 'dark' | 'light');
+      setTestRunsCache(runs);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      setLoading(false);
+    })();
+  }, []);
 
   const headerRef = useRef<HTMLElement>(null);
   const syncHeaderHeight = useCallback(() => {
@@ -73,7 +107,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('perf-test-theme', theme);
+    saveTheme(theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
@@ -98,12 +132,12 @@ export default function App() {
     ? environments.length > 0 && environments.every((e) => expandedSidebarNodes.has(e.id))
     : microservices.length > 0 && microservices.every((s) => expandedSidebarNodes.has(s.id));
 
-  useEffect(() => { saveFeatureGroups(featureGroups); }, [featureGroups]);
-  useEffect(() => { saveEnvironments(environments); }, [environments]);
-  useEffect(() => { saveMicroservices(microservices); }, [microservices]);
-  useEffect(() => { saveGlobalAuthProfiles(globalAuthProfiles); }, [globalAuthProfiles]);
-  useEffect(() => { saveSelectedEnv(selectedEnvId); }, [selectedEnvId]);
-  useEffect(() => { saveSelectedService(selectedSvcId); }, [selectedSvcId]);
+  useEffect(() => { if (!loading) void saveFeatureGroups(featureGroups); }, [featureGroups, loading]);
+  useEffect(() => { if (!loading) void saveEnvironments(environments); }, [environments, loading]);
+  useEffect(() => { if (!loading) void saveMicroservices(microservices); }, [microservices, loading]);
+  useEffect(() => { if (!loading) void saveGlobalAuthProfiles(globalAuthProfiles); }, [globalAuthProfiles, loading]);
+  useEffect(() => { if (!loading) void saveSelectedEnv(selectedEnvId); }, [selectedEnvId, loading]);
+  useEffect(() => { if (!loading) void saveSelectedService(selectedSvcId); }, [selectedSvcId, loading]);
 
   const selectedEnv = environments.find((e) => e.id === selectedEnvId);
   const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
@@ -258,7 +292,7 @@ export default function App() {
   }, []);
 
   type ItemAction = 'add' | 'skip' | 'overwrite' | 'keepBoth';
-  const handleImport = useCallback((data: {
+  const handleImport = useCallback(async (data: {
     environments?: { item: Environment; action: ItemAction }[];
     microservices?: { item: Microservice; action: ItemAction }[];
     globalAuthProfiles?: { item: GlobalAuthProfile; action: ItemAction }[];
@@ -319,21 +353,32 @@ export default function App() {
       setFeatureGroups((prev) => applyItems(data.featureGroups, prev, (fg) => fg.name));
     }
     if (data.testRuns) {
-      const existingRuns = loadTestRuns();
+      const existingRuns = await loadTestRuns();
       const merged = applyItems(data.testRuns, existingRuns, (r) => r.id);
       merged.sort((a, b) => b.timestamp - a.timestamp);
-      saveTestRunsBulk(merged);
+      await saveTestRunsBulk(merged);
     }
 
     setShowImportCenter(false);
     setShowSettings(true);
-    setStorageUsage(getStorageUsage());
+    setStorageUsage(await getStorageUsage());
   }, [environments, microservices, globalAuthProfiles, featureGroups]);
+
+  if (loading) {
+    return (
+      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div style={{ textAlign: 'center', opacity: 0.7 }}>
+          <h2>FlowForge</h2>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <header ref={headerRef} className="app-header">
-        <h1>⚡ Performance Test</h1>
+        <h1>⚡ FlowForge</h1>
         <nav className="tab-nav">
           <button className={`tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>
             Feature Groups
@@ -515,7 +560,7 @@ export default function App() {
               </div>
             )}
 
-            <button className="btn btn-sm sidebar-settings-btn" onClick={() => { setStorageUsage(getStorageUsage()); setShowSettings(true); }}>⚙ Settings</button>
+            <button className="btn btn-sm sidebar-settings-btn" onClick={async () => { setStorageUsage(await getStorageUsage()); setShowSettings(true); }}>⚙ Settings</button>
         </aside>
       )}
 
@@ -854,11 +899,11 @@ export default function App() {
                   min={1}
                   max={500}
                   value={maxRuns}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const v = Math.max(1, Math.min(500, parseInt(e.target.value) || 1));
                     setMaxRunsLocal(v);
-                    setMaxRuns(v);
-                    setStorageUsage(getStorageUsage());
+                    await setMaxRuns(v);
+                    setStorageUsage(await getStorageUsage());
                   }}
                 />
                 <span className="storage-hint">Oldest runs are auto-deleted when limit is exceeded. Response bodies are truncated to 2 KB each.</span>
@@ -872,10 +917,10 @@ export default function App() {
               <h4>Export & Import</h4>
               <p className="settings-section-desc">Export or import environments, microservices, global auth profiles, feature groups, and test runs as JSON.</p>
               <div className="settings-export-import-row">
-                <button className="btn btn-primary btn-sm" onClick={() => { setShowSettings(false); setShowExportCenter(true); }}>
+                <button className="btn btn-primary btn-sm" onClick={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowExportCenter(true); }}>
                   Export Data
                 </button>
-                <button className="btn btn-sm" onClick={() => { setShowSettings(false); setShowImportCenter(true); }}>
+                <button className="btn btn-sm" onClick={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowImportCenter(true); }}>
                   Import Data
                 </button>
               </div>
@@ -889,7 +934,7 @@ export default function App() {
           environments={environments}
           microservices={microservices}
           featureGroups={featureGroups}
-          testRuns={loadTestRuns()}
+          testRuns={testRunsCache}
           globalAuthProfiles={globalAuthProfiles}
           onClose={() => { setShowExportCenter(false); setShowSettings(true); }}
         />
@@ -900,7 +945,7 @@ export default function App() {
           environments={environments}
           microservices={microservices}
           featureGroups={featureGroups}
-          testRuns={loadTestRuns()}
+          testRuns={testRunsCache}
           globalAuthProfiles={globalAuthProfiles}
           onImport={handleImport}
           onClose={() => { setShowImportCenter(false); setShowSettings(true); }}

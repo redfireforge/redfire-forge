@@ -10,7 +10,11 @@ interface Props {
 }
 
 export default function ResultsDashboard({ envName, svcName }: Props) {
-  const [allRuns, setAllRuns] = useState<TestRun[]>(() => loadTestRuns());
+  const [allRuns, setAllRuns] = useState<TestRun[]>([]);
+
+  useEffect(() => {
+    loadTestRuns().then(setAllRuns);
+  }, []);
 
   // Filter runs by selected environment and microservice
   const runs = useMemo(() => {
@@ -39,8 +43,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const summary = selectedRun?.summary ?? null;
 
-  const handleDelete = (runId: string) => {
-    deleteTestRun(runId);
+  const handleDelete = async (runId: string) => {
+    await deleteTestRun(runId);
     const updated = allRuns.filter((r) => r.id !== runId);
     setAllRuns(updated);
     if (selectedRunId === runId) {
@@ -53,8 +57,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     }
   };
 
-  const refreshRuns = () => {
-    const fresh = loadTestRuns();
+  const refreshRuns = async () => {
+    const fresh = await loadTestRuns();
     setAllRuns(fresh);
   };
 

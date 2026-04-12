@@ -77,7 +77,7 @@ export function useTestExecution() {
         baseUrl: meta?.baseUrl,
       };
 
-      const saveResult = saveTestRun(testRun);
+      const saveResult = await saveTestRun(testRun);
 
       if (saveResult.quotaError) {
         setState((prev) => ({
@@ -106,16 +106,16 @@ export function useTestExecution() {
     }
   }, []);
 
-  const confirmSavePendingRun = useCallback(() => {
-    setState((prev) => {
-      if (!prev.pendingRun) return prev;
-      const result = forceSaveTestRun(prev.pendingRun);
-      if (result.ok) {
-        return { ...prev, finalRun: prev.pendingRun, pendingRun: null };
-      }
-      return { ...prev, error: 'Storage is full. Please clear data manually in Settings → Storage.', pendingRun: null };
-    });
-  }, []);
+  const confirmSavePendingRun = useCallback(async () => {
+    const pending = state.pendingRun;
+    if (!pending) return;
+    const result = await forceSaveTestRun(pending);
+    if (result.ok) {
+      setState((prev) => ({ ...prev, finalRun: prev.pendingRun, pendingRun: null }));
+    } else {
+      setState((prev) => ({ ...prev, error: 'Storage is full. Please clear data manually in Settings → Storage.', pendingRun: null }));
+    }
+  }, [state.pendingRun]);
 
   const dismissPendingRun = useCallback(() => {
     setState((prev) => ({ ...prev, pendingRun: null }));

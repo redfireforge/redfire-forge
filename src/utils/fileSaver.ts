@@ -1,11 +1,9 @@
+import { isTauri } from './platform';
+
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-/**
- * Builds a consistent filename: {env}-{svc}-{level}-{name}-{date}.{ext}
- * Segments that are empty/undefined are omitted.
- */
 export function buildExportFilename(parts: {
   env?: string;
   svc?: string;
@@ -37,11 +35,27 @@ function getExtension(filename: string): string {
   return dot >= 0 ? filename.slice(dot) : '';
 }
 
-/**
- * Prompt the user to choose a save location via the File System Access API.
- * Falls back to a classic download if the browser doesn't support it.
- */
 export async function saveFile(blob: Blob, opts: SaveOptions): Promise<void> {
+  if (isTauri()) {
+    return tauriSaveFile(blob, opts);
+  }
+  return browserSaveFile(blob, opts);
+}
+
+async function tauriSaveFile(blob: Blob, opts: SaveOptions): Promise<void> {
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+  const ext = getExtension(opts.filename).replace('.', '') || 'json';
+  const path = await save({
+    defaultPath: opts.filename,
+    filters: [{ name: opts.description ?? 'File', extensions: [ext] }],
+  });
+  if (!path) return;
+  const text = await blob.text();
+  await writeTextFile(path, text);
+}
+
+async function browserSaveFile(blob: Blob, opts: SaveOptions): Promise<void> {
   if ('showSaveFilePicker' in window) {
     try {
       const ext = getExtension(opts.filename) || '.json';
@@ -62,7 +76,6 @@ export async function saveFile(blob: Blob, opts: SaveOptions): Promise<void> {
     }
   }
 
-  // Fallback: classic browser download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
