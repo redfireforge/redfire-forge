@@ -1,18 +1,20 @@
-import type { TestRun, FeatureGroup, Environment, Microservice, GlobalAuthProfile } from '../types';
+import type { TestRun, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project } from '../types';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
 const STORAGE_KEY = 'perf-test-runs';
-const SCENARIOS_KEY = 'perf-test-scenarios';
-const FEATURES_KEY = 'perf-test-features';
-const ENVS_KEY = 'perf-test-environments';
-const SERVICES_KEY = 'perf-test-microservices';
-const SELECTED_ENV_KEY = 'perf-test-selected-env';
-const SELECTED_SVC_KEY = 'perf-test-selected-svc';
+const PROJECTS_KEY = 'perf-test-projects';
+const SELECTED_PROJECT_KEY = 'perf-test-selected-project';
+const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
-const GLOBAL_AUTH_KEY = 'perf-test-global-auth';
 const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
+
+// Legacy keys (used only for migration)
+const LEGACY_FEATURES_KEY = 'perf-test-features';
+const LEGACY_ENVS_KEY = 'perf-test-environments';
+const LEGACY_SERVICES_KEY = 'perf-test-microservices';
+const LEGACY_GLOBAL_AUTH_KEY = 'perf-test-global-auth';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -32,6 +34,14 @@ async function writeKey(key: string, value: string): Promise<void> {
     return;
   }
   localStorage.setItem(key, value);
+}
+
+async function removeKey(key: string): Promise<void> {
+  if (isTauri()) {
+    await tauriStore.setItem(key, '');
+    return;
+  }
+  localStorage.removeItem(key);
 }
 
 // ---------- Max runs ----------
@@ -93,7 +103,7 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
   return { usedBytes: total, entries };
 }
 
-// ---------- Test runs ----------
+// ---------- Test runs (global, not per-project) ----------
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = truncateResponseBodies(run);
@@ -152,85 +162,29 @@ export async function deleteTestRun(runId: string): Promise<void> {
   await writeKey(STORAGE_KEY, JSON.stringify(runs));
 }
 
-// ---------- Scenarios ----------
+// ---------- Projects ----------
 
-export async function saveScenarios(scenarios: unknown): Promise<void> {
-  await writeKey(SCENARIOS_KEY, JSON.stringify(scenarios));
+export async function saveProjects(projects: Project[]): Promise<void> {
+  await writeKey(PROJECTS_KEY, JSON.stringify(projects));
 }
 
-export async function loadScenarios<T>(): Promise<T | null> {
+export async function loadProjects(): Promise<Project[]> {
   try {
-    const raw = await readKey(SCENARIOS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-// ---------- Feature groups ----------
-
-export async function saveFeatureGroups(groups: FeatureGroup[]): Promise<void> {
-  await writeKey(FEATURES_KEY, JSON.stringify(groups));
-}
-
-export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
-  try {
-    const raw = await readKey(FEATURES_KEY);
+    const raw = await readKey(PROJECTS_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as FeatureGroup[];
-  } catch {
-    return [];
-  }
-}
-
-// ---------- Environments ----------
-
-export async function saveEnvironments(envs: Environment[]): Promise<void> {
-  await writeKey(ENVS_KEY, JSON.stringify(envs));
-}
-
-export async function loadEnvironments(): Promise<Environment[]> {
-  try {
-    const raw = await readKey(ENVS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Environment[];
+    return JSON.parse(raw) as Project[];
   } catch { return []; }
 }
 
-// ---------- Microservices ----------
-
-export async function saveMicroservices(svcs: Microservice[]): Promise<void> {
-  await writeKey(SERVICES_KEY, JSON.stringify(svcs));
+export async function saveSelectedProject(projectId: string): Promise<void> {
+  await writeKey(SELECTED_PROJECT_KEY, projectId);
 }
 
-export async function loadMicroservices(): Promise<Microservice[]> {
-  try {
-    const raw = await readKey(SERVICES_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Microservice[];
-  } catch { return []; }
+export async function loadSelectedProject(): Promise<string> {
+  return (await readKey(SELECTED_PROJECT_KEY)) ?? '';
 }
 
-// ---------- Selections ----------
-
-export async function saveSelectedEnv(envId: string): Promise<void> {
-  await writeKey(SELECTED_ENV_KEY, envId);
-}
-
-export async function loadSelectedEnv(): Promise<string> {
-  return (await readKey(SELECTED_ENV_KEY)) ?? '';
-}
-
-export async function saveSelectedService(svcId: string): Promise<void> {
-  await writeKey(SELECTED_SVC_KEY, svcId);
-}
-
-export async function loadSelectedService(): Promise<string> {
-  return (await readKey(SELECTED_SVC_KEY)) ?? '';
-}
-
-// ---------- Global Auth Profiles ----------
+// ---------- Global Auth Profiles (app-level, shared across projects) ----------
 
 export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
   await writeKey(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
@@ -242,6 +196,60 @@ export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
     if (!raw) return [];
     return JSON.parse(raw) as GlobalAuthProfile[];
   } catch { return []; }
+}
+
+// ---------- Legacy migration ----------
+
+export async function migrateLegacyData(): Promise<Project | null> {
+  const [legacyEnvs, legacySvcs, legacyAuth, legacyFgs] = await Promise.all([
+    readKey(LEGACY_ENVS_KEY),
+    readKey(LEGACY_SERVICES_KEY),
+    readKey(LEGACY_GLOBAL_AUTH_KEY),
+    readKey(LEGACY_FEATURES_KEY),
+  ]);
+
+  const hasLegacy = legacyEnvs || legacySvcs || legacyAuth || legacyFgs;
+  if (!hasLegacy) return null;
+
+  const environments: Environment[] = legacyEnvs ? JSON.parse(legacyEnvs) : [];
+  const microservices: Microservice[] = legacySvcs ? JSON.parse(legacySvcs) : [];
+  const globalAuthProfiles: GlobalAuthProfile[] = legacyAuth ? JSON.parse(legacyAuth) : [];
+  let featureGroups: FeatureGroup[] = legacyFgs ? JSON.parse(legacyFgs) : [];
+
+  // Strip any projectId from legacy FGs
+  featureGroups = featureGroups.map((fg) => {
+    const { ...rest } = fg;
+    if ('projectId' in rest) delete (rest as Record<string, unknown>).projectId;
+    return rest;
+  });
+
+  if (environments.length === 0 && microservices.length === 0 && globalAuthProfiles.length === 0 && featureGroups.length === 0) {
+    return null;
+  }
+
+  const project: Project = {
+    id: crypto.randomUUID ? crypto.randomUUID() : `legacy-${Date.now()}`,
+    name: 'Default Project',
+    description: 'Migrated from previous version',
+    createdAt: Date.now(),
+    environments,
+    microservices,
+    globalAuthProfiles,
+    featureGroups,
+  };
+
+  // Clean up legacy keys
+  await Promise.all([
+    removeKey(LEGACY_ENVS_KEY),
+    removeKey(LEGACY_SERVICES_KEY),
+    removeKey(LEGACY_GLOBAL_AUTH_KEY),
+    removeKey(LEGACY_FEATURES_KEY),
+    removeKey('perf-test-selected-env'),
+    removeKey('perf-test-selected-svc'),
+    removeKey('perf-test-scenarios'),
+  ]);
+
+  return project;
 }
 
 // ---------- Runner config ----------

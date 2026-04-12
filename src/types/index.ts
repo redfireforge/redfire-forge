@@ -87,6 +87,19 @@ export interface FeatureGroup {
   scenarios: TestScenario[];
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: number;
+  environments: Environment[];
+  microservices: Microservice[];
+  globalAuthProfiles: GlobalAuthProfile[];
+  featureGroups: FeatureGroup[];
+  selectedEnvId?: string;
+  selectedSvcId?: string;
+}
+
 export interface ScenarioWeight {
   scenarioId: string;
   weight: number;
@@ -145,6 +158,7 @@ export interface TestRun {
   config: TestConfig;
   summary: TestSummary;
   results: RequestResult[];
+  projectName?: string;
   envName?: string;
   svcName?: string;
   baseUrl?: string;
