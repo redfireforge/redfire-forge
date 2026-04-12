@@ -27,6 +27,9 @@ interface Props {
   envName?: string;
   svcName?: string;
   projectName?: string;
+  projectId?: string;
+  envId?: string;
+  svcId?: string;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
@@ -48,7 +51,9 @@ function replaceHost(testUrl: string, baseUrl: string): string {
   }
 }
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, projectId, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
+  const configContextKey = [projectId, envId, svcId].filter(Boolean).join(':') || undefined;
+
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
   const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
@@ -62,9 +67,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
 
   const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
-  // Load runner config on mount
+  // Load runner config when context changes (project/env/svc)
   useEffect(() => {
-    loadRunnerConfigAsync().then((raw) => {
+    setConfigLoaded(false);
+    loadRunnerConfigAsync(configContextKey).then((raw) => {
       if (raw) {
         const saved = raw as RunnerConfig;
         setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
@@ -75,10 +81,19 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setHostMode(saved.hostMode ?? 'settings');
         setCustomBaseUrl(saved.customBaseUrl ?? '');
         setExecutionMode(saved.executionMode ?? 'batch');
+      } else {
+        setConcurrency(defaultConfig.concurrency);
+        setTotalTransactions(defaultConfig.totalTransactions);
+        setSelectedScenarios(new Set());
+        setWeights({});
+        setSkipValidation(defaultConfig.skipValidation);
+        setHostMode(defaultConfig.hostMode);
+        setCustomBaseUrl(defaultConfig.customBaseUrl);
+        setExecutionMode(defaultConfig.executionMode);
       }
       setConfigLoaded(true);
     });
-  }, []);
+  }, [configContextKey]);
 
   // Persist config only after initial load is complete
   useEffect(() => {
@@ -92,8 +107,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       hostMode,
       customBaseUrl,
       executionMode,
-    });
-  }, [configLoaded, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
+    }, configContextKey);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
   // Collect all tests from selected scenarios, resolving auth chain:
   // Priority: Test → Scenario → Feature → Global Profile (highest to lowest)
