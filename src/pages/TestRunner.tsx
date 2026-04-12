@@ -26,6 +26,7 @@ interface Props {
   onComplete: () => void;
   envName?: string;
   svcName?: string;
+  projectName?: string;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
@@ -47,7 +48,7 @@ function replaceHost(testUrl: string, baseUrl: string): string {
   }
 }
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
   const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
@@ -57,27 +58,31 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   // Load runner config on mount
   useEffect(() => {
     loadRunnerConfigAsync().then((raw) => {
-      if (!raw) return;
-      const saved = raw as RunnerConfig;
-      setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
-      setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
-      setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
-      setWeights(saved.weights ?? {});
-      setSkipValidation(saved.skipValidation ?? false);
-      setHostMode(saved.hostMode ?? 'settings');
-      setCustomBaseUrl(saved.customBaseUrl ?? '');
-      setExecutionMode(saved.executionMode ?? 'batch');
+      if (raw) {
+        const saved = raw as RunnerConfig;
+        setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
+        setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
+        setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
+        setWeights(saved.weights ?? {});
+        setSkipValidation(saved.skipValidation ?? false);
+        setHostMode(saved.hostMode ?? 'settings');
+        setCustomBaseUrl(saved.customBaseUrl ?? '');
+        setExecutionMode(saved.executionMode ?? 'batch');
+      }
+      setConfigLoaded(true);
     });
   }, []);
 
-  // Persist config
+  // Persist config only after initial load is complete
   useEffect(() => {
+    if (!configLoaded) return;
     void saveRunnerConfig({
       concurrency,
       totalTransactions,
@@ -88,7 +93,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       customBaseUrl,
       executionMode,
     });
-  }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
+  }, [configLoaded, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
   // Collect all tests from selected scenarios, resolving auth chain:
   // Priority: Test → Scenario → Feature → Global Profile (highest to lowest)
@@ -169,16 +174,15 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   };
 
   const activeTestCount = selectedTests.filter((t) => (weights[t.id] ?? 1) > 0).length;
-  const effectiveTransactions = Math.max(totalTransactions, activeTestCount);
 
   const handleRun = () => {
     const scenarioWeights: ScenarioWeight[] = selectedTests.map((t) => ({
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
-    const config: TestConfig = { concurrency, totalTransactions: effectiveTransactions, scenarioWeights, executionMode };
+    const config: TestConfig = { concurrency, totalTransactions, scenarioWeights, executionMode };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
-    execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
+    execute(config, selectedTests, { projectName, envName, svcName, baseUrl: usedBaseUrl });
   };
 
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -188,12 +192,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     <div className="page">
       <div className="page-header">
         <h2>Test Runner</h2>
-        {(envName || svcName) && (
-          <div className="context-tags">
-            {envName && <span className="tag tag-info">Env: {envName}</span>}
-            {svcName && <span className="tag tag-info">Svc: {svcName}</span>}
-          </div>
-        )}
+        <div className="context-tags">
+          {projectName && <span className="context-tag project-tag">{projectName}</span>}
+          {svcName && <span className="context-tag svc-tag">{svcName}</span>}
+          {envName && <span className="context-tag env-tag">{envName}</span>}
+        </div>
       </div>
       <div className="runner-host-selector">
         <span className="runner-host-label">Host:</span>
@@ -332,22 +335,27 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {/* Config */}
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-              <div className="form-row" style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+              <div className="form-row" style={{ display: 'flex', gap: 24 }}>
                 <div style={{ flex: 1 }}>
-                  <label>Concurrency (parallel requests) {executionMode === 'sequential' && <span className="field-hint-inline">— fixed to 1 in sequential mode</span>}</label>
+                  <label>Concurrency (parallel requests)</label>
                   <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential'} />
+                  {executionMode === 'sequential' && <span className="field-hint">Fixed to 1 in sequential mode</span>}
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Total Transactions</label>
                   <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => setTotalTransactions(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
-                  {effectiveTransactions > totalTransactions && (
-                    <span className="field-hint">Min {activeTestCount} to cover all tests (each runs at least once)</span>
+                  {totalTransactions < activeTestCount && (
+                    <span className="field-hint">{activeTestCount} tests active — top-weighted {totalTransactions} will be picked</span>
                   )}
                 </div>
               </div>
 
               <fieldset>
                 <legend>Test Distribution (weights)</legend>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
+                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
+                </div>
                 {selectedTests.map((t, idx) => (
                   <div key={t.id} className="weight-row">
                     <div className="weight-label">

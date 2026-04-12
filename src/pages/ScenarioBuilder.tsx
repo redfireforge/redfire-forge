@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField, GlobalAuthProfile } from '../types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField, GlobalAuthProfile, Project } from '../types';
+import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
@@ -70,9 +71,16 @@ interface Props {
   microservices?: Microservice[];
   environments?: { id: string; name: string }[];
   globalAuthProfiles?: GlobalAuthProfile[];
+  projectAuthProfiles?: GlobalAuthProfile[];
+  projects?: Project[];
+  currentProjectId?: string;
+  onMoveFeatureGroup?: (fgId: string, sourceProjectId: string, targetProjectId: string) => void;
+  onMoveScenario?: (scenarioId: string, sourceFgId: string, sourceProjectId: string, targetFgId: string, targetProjectId: string) => void;
+  onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, sourceProjectId: string, targetScenarioId: string, targetFgId: string, targetProjectId: string) => void;
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [] }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], projectAuthProfiles = [], projects = [], currentProjectId = '', onMoveFeatureGroup, onMoveScenario, onMoveTest }: Props) {
+  const allAuthProfiles = [...globalAuthProfiles, ...projectAuthProfiles];
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
@@ -100,6 +108,18 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [generatedCurl, setGeneratedCurl] = useState('');
   const [curlGenerating, setCurlGenerating] = useState(false);
   const [queryParams, setQueryParams] = useState<KeyValue[]>([{ key: '', value: '' }]);
+
+  // Move dialog state
+  const [moveDialog, setMoveDialog] = useState<{
+    type: MoveType;
+    itemName: string;
+    fgId: string;
+    scenarioId?: string;
+    testId?: string;
+    fgEnvironmentId?: string;
+    fgMicroserviceId?: string;
+    fgAuthProfileId?: string;
+  } | null>(null);
 
   // Drag-and-drop state
   const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
@@ -435,14 +455,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         }
         // Feature inherits from global profile
         if (fg?.auth?.type === 'inherit' && fg.globalAuthProfileId) {
-          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
           if (profile && profile.auth.type !== 'none') {
             return { auth: profile.auth, source: `global:${profile.name}` };
           }
         }
         // Feature has no auth but has a global profile linked
         if ((!fg?.auth || fg.auth.type === 'none') && fg?.globalAuthProfileId) {
-          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
           if (profile && profile.auth.type !== 'none') {
             return { auth: profile.auth, source: `global:${profile.name}` };
           }
@@ -450,7 +470,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       }
     }
     return { auth: { type: 'none' }, source: 'none' };
-  }, [draft.auth, editingTest, featureGroups, globalAuthProfiles]);
+  }, [draft.auth, editingTest, featureGroups, allAuthProfiles]);
 
   const handleFetchSampleResponse = useCallback(async () => {
     if (!draft.url.trim()) {
@@ -870,17 +890,39 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setDropTarget(null);
   }, [dragScenario, dragTest, dropTarget, moveScenario, moveTest]);
 
+  const handleMoveConfirm = useCallback((target: MoveTarget) => {
+    if (!moveDialog || !currentProjectId) return;
+    const { type, fgId, scenarioId, testId } = moveDialog;
+
+    if (type === 'featureGroup' && onMoveFeatureGroup) {
+      onMoveFeatureGroup(fgId, currentProjectId, target.projectId);
+    } else if (type === 'scenario' && scenarioId && target.fgId && onMoveScenario) {
+      if (target.projectId === currentProjectId) {
+        moveScenario(scenarioId, fgId, target.fgId);
+      } else {
+        onMoveScenario(scenarioId, fgId, currentProjectId, target.fgId, target.projectId);
+      }
+    } else if (type === 'test' && testId && scenarioId && target.fgId && target.scenarioId && onMoveTest) {
+      if (target.projectId === currentProjectId) {
+        moveTest(testId, fgId, scenarioId, target.fgId, target.scenarioId);
+      } else {
+        onMoveTest(testId, scenarioId, fgId, currentProjectId, target.scenarioId, target.fgId, target.projectId);
+      }
+    }
+
+    setMoveDialog(null);
+  }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
+
   return (
     <div className="page">
       <div className="page-header">
         <div className="page-title-block">
           <h2>Feature Groups</h2>
-          {(selectedSvcName || selectedEnvName) && (
-            <div className="context-tags">
-              {selectedSvcName && <span className="context-tag svc-tag">{selectedSvcName}</span>}
-              {selectedEnvName && <span className="context-tag env-tag">{selectedEnvName}</span>}
-            </div>
-          )}
+          <div className="context-tags">
+            {currentProjectId && projects.length > 0 && <span className="context-tag project-tag">{projects.find((p) => p.id === currentProjectId)?.name ?? 'Unknown'}</span>}
+            {selectedSvcName && <span className="context-tag svc-tag">{selectedSvcName}</span>}
+            {selectedEnvName && <span className="context-tag env-tag">{selectedEnvName}</span>}
+          </div>
         </div>
         <div className="header-actions">
           <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
@@ -923,7 +965,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
               <span className="count-badge">{fg.scenarios.length} scenario{fg.scenarios.length !== 1 ? 's' : ''}</span>
               <span className="count-badge">{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0)} test{fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) !== 1 ? 's' : ''}</span>
               {fg.auth && fg.auth.type === 'inherit' && fg.globalAuthProfileId && (() => {
-                const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
                 return profile
                   ? <span className="count-badge auth-badge auth-badge-global">Auth: {profile.name}</span>
                   : <span className="count-badge auth-badge auth-badge-feature">Auth: inherit (missing profile)</span>;
@@ -936,6 +978,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   onClick={() => toggleFeatureAuth(fg.id)}
                 >Auth</button>
                 <button className="btn btn-sm" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
+                {projects.length > 1 && <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'featureGroup', itemName: fg.name, fgId: fg.id, fgEnvironmentId: fg.environmentId, fgMicroserviceId: fg.microserviceId, fgAuthProfileId: fg.globalAuthProfileId })} title="Move to another project">Move</button>}
                 <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
                 <button className="btn btn-sm" onClick={() => exportFeatureGroup(fg)} title="Export this feature group">Export</button>
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
@@ -957,7 +1000,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       value={fgAuth.type}
                       onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, type: e.target.value as AuthType })}
                     >
-                      {globalAuthProfiles.length > 0 && <option value="inherit">Inherit from Global Profile</option>}
+                      {allAuthProfiles.length > 0 && <option value="inherit">Inherit from Auth Profile</option>}
                       <option value="none">No Auth</option>
                       <option value="basic">Basic Auth</option>
                       <option value="bearer">Bearer Token</option>
@@ -966,23 +1009,35 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       <option value="oauth2">OAuth2 Client Credentials</option>
                     </select>
                   </div>
-                  {fgAuth.type === 'inherit' && globalAuthProfiles.length > 0 && (() => {
-                    const selectedProfile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                  {fgAuth.type === 'inherit' && allAuthProfiles.length > 0 && (() => {
+                    const selectedProfile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
                     return (
                       <div className="global-profile-selector">
-                        <label>Global Profile</label>
+                        <label>Auth Profile</label>
                         <select
                           value={fg.globalAuthProfileId || ''}
                           onChange={(e) => updateFeatureAuth(fg.id, fgAuth, e.target.value || undefined)}
                         >
                           <option value="">— Select a profile —</option>
-                          {globalAuthProfiles.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                          ))}
+                          {globalAuthProfiles.length > 0 && (
+                            <optgroup label="Global (shared across projects)">
+                              {globalAuthProfiles.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {projectAuthProfiles.length > 0 && (
+                            <optgroup label="Project-level">
+                              {projectAuthProfiles.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                         {selectedProfile && (
                           <span className="auth-inherit-hint">
                             Using <strong>{selectedProfile.name}</strong> — {selectedProfile.auth.type.toUpperCase()}
+                            {globalAuthProfiles.some((g) => g.id === selectedProfile.id) ? ' (global)' : ' (project)'}
                           </span>
                         )}
                         {!selectedProfile && fg.globalAuthProfileId && (
@@ -1079,7 +1134,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   )}
                   {fgAuth.type !== 'none' && (() => {
                     const authToVerify = fgAuth.type === 'inherit' && fg.globalAuthProfileId
-                      ? globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId)?.auth
+                      ? allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId)?.auth
                       : fgAuth;
                     return (
                       <div className="auth-verify-section">
@@ -1175,6 +1230,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           onClick={() => toggleScenarioAuth(fg.id, sc.id)}
                         >Auth</button>
                         <button className="btn btn-sm" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
+                        <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'scenario', itemName: sc.name, fgId: fg.id, scenarioId: sc.id })} title="Move to another feature group or project">Move</button>
                         <button className="btn btn-sm" onClick={() => importTestsInto(fg.id, sc.id)} title="Import tests into this scenario">Import</button>
                         <button className="btn btn-sm" onClick={() => exportScenario(sc)} title="Export this scenario">Export</button>
                         <button className="btn btn-sm btn-danger" onClick={() => removeScenario(fg.id, sc.id)}>Delete</button>
@@ -1213,7 +1269,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
                             hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
                           } else if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
-                            const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                            const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
                             hint = profile
                               ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
                               : 'Feature references a missing global profile.';
@@ -1400,7 +1456,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                                   : fg.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit'
                                     ? <span className="tag auth-badge auth-badge-test-feature">Auth: {fg.auth.type} (feature)</span>
                                     : fg.auth?.type === 'inherit' && fg.globalAuthProfileId
-                                      ? <span className="tag auth-badge auth-badge-test-global">{(() => { const p = globalAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId); return p ? `Auth: ${p.auth.type} (${p.name})` : 'Auth: global (missing)'; })()}</span>
+                                      ? <span className="tag auth-badge auth-badge-test-global">{(() => { const p = allAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId); return p ? `Auth: ${p.auth.type} (${p.name})` : 'Auth: global (missing)'; })()}</span>
                                       : <span className="tag auth-badge auth-badge-test-none">Auth: none</span>
                               }
                               <span className="tag">Validation: {t.validation.mode}</span>
@@ -1408,6 +1464,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             <div className="test-card-actions">
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
                               <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
+                              <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'test', itemName: t.name || t.url, fgId: fg.id, scenarioId: sc.id, testId: t.id })} title="Move to another scenario">Move</button>
                               <button className="btn btn-sm" onClick={() => exportTest(t)} title="Export this test">Export</button>
                               <button className="btn btn-sm btn-danger" onClick={() => removeTest(fg.id, sc.id, t.id)}>Delete</button>
                             </div>
@@ -1487,6 +1544,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     }}>Assign</button>
                   </>
                 )}
+                {projects.length > 1 && <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'featureGroup', itemName: fg.name, fgId: fg.id, fgEnvironmentId: fg.environmentId, fgMicroserviceId: fg.microserviceId, fgAuthProfileId: fg.globalAuthProfileId })} title="Move to another project">Move</button>}
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
               </div>
             </div>
@@ -1749,7 +1807,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
                           if (scAuth?.type === 'inherit') hint += ' (scenario inherits from feature)';
                         } else if (fgAuth?.type === 'inherit' && fg?.globalAuthProfileId) {
-                          const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
                           hint = profile
                             ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
                             : 'Feature references a missing global profile.';
@@ -1986,6 +2044,23 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
             )}
           </div>
         </div>
+      )}
+
+      {moveDialog && (
+        <MoveDialog
+          type={moveDialog.type}
+          itemName={moveDialog.itemName}
+          projects={projects}
+          currentProjectId={currentProjectId}
+          currentFgId={moveDialog.fgId}
+          currentScenarioId={moveDialog.scenarioId}
+          fgEnvironmentId={moveDialog.fgEnvironmentId}
+          fgMicroserviceId={moveDialog.fgMicroserviceId}
+          fgAuthProfileId={moveDialog.fgAuthProfileId}
+          appGlobalAuthProfileIds={new Set(globalAuthProfiles.map((p) => p.id))}
+          onMove={handleMoveConfirm}
+          onClose={() => setMoveDialog(null)}
+        />
       )}
     </div>
   );
