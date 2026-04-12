@@ -1,4 +1,4 @@
-# FlowForge
+# RedfireForge
 
 A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
 
@@ -16,6 +16,8 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
 - [Feature Reference](#feature-reference)
+- [Development Workflow](#development-workflow)
+- [CI/CD & Multi-Platform Releases](#cicd--multi-platform-releases)
 - [Data Persistence](#data-persistence)
 
 ---
@@ -35,18 +37,38 @@ npm install
 npm run tauri:dev     # launches the native desktop window with hot-reload
 ```
 
-### Desktop Build (Production)
+### Desktop Build (Production — Local)
 
 ```bash
 npm run tauri:build
 ```
 
-This produces:
-- **macOS**: `FlowForge.app` and `FlowForge_x.x.x_aarch64.dmg` in `src-tauri/target/release/bundle/`
+This builds for your current OS only:
+- **macOS**: `RedfireForge.app` and `.dmg` in `src-tauri/target/release/bundle/`
 - **Windows**: `.msi` and `.exe` installers
 - **Linux**: `.deb` and `.AppImage` packages
 
 End users do **not** need Rust installed — the build produces a standalone native binary with all dependencies bundled.
+
+### Desktop Build (All Platforms — CI/CD)
+
+To build for all three platforms, push a version tag to GitHub:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the GitHub Actions workflow (`.github/workflows/release.yml`) which builds on macOS, Windows, and Linux runners simultaneously and creates a draft GitHub Release with all installers attached:
+
+| Platform | Artifacts |
+|---|---|
+| **macOS ARM64** (Apple Silicon) | `.app`, `.dmg` |
+| **macOS x64** (Intel) | `.app`, `.dmg` |
+| **Linux x64** | `.deb`, `.AppImage` |
+| **Windows x64** | `.msi`, `.exe` |
+
+You can also trigger builds manually from the Actions tab using "Run workflow."
 
 ### Web Mode (Browser)
 
@@ -119,7 +141,7 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 
 | Capability | Desktop (Tauri) | Web (Browser) |
 |---|---|---|
-| **Storage** | JSON files in `$APPDATA/flowforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
+| **Storage** | JSON files in `$APPDATA/redfireforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
 | **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS | Vite dev proxy (`/__proxy`) |
 | **File save dialogs** | Native OS file picker via Tauri `dialog` plugin | File System Access API / browser download |
 | **Cross-browser data** | Shared — data lives on disk | Isolated per browser |
@@ -482,6 +504,93 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
 | Native HTTP (desktop) | Tauri HTTP plugin bypasses CORS — no proxy needed |
 | CORS proxy (web) | Built-in Vite server proxy for browser mode |
+| Cross-platform builds | macOS (ARM + Intel), Windows, Linux via GitHub Actions CI/CD |
+| Hot-reload development | `npm run tauri:dev` gives instant UI updates in the desktop window |
+
+---
+
+## Development Workflow
+
+### Day-to-Day Development
+
+Use the Tauri dev mode for the best experience:
+
+```bash
+npm run tauri:dev
+```
+
+This launches the native desktop window with **hot-reload** — any changes to React components, styles, or logic are reflected instantly in the desktop window. No manual rebuild needed.
+
+| Command | What it does | Use when |
+|---|---|---|
+| `npm run tauri:dev` | Desktop app with hot-reload | Day-to-day development (recommended) |
+| `npm run dev` | Browser-only at `localhost:5173` | Quick UI tweaks, no Rust needed |
+| `npm run tauri:build` | Production build for current OS | Testing the final binary locally |
+
+### Making Changes
+
+1. Edit files in `src/` (React/TypeScript) — changes appear instantly in the desktop window via hot-reload.
+2. Edit files in `src-tauri/` (Rust/config) — Tauri automatically recompiles the Rust backend (~15-20 sec).
+3. When satisfied, build a local production binary with `npm run tauri:build` (~45 sec).
+4. To release for all platforms, push a version tag (see CI/CD below).
+
+### Project Scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server (browser-only mode) |
+| `npm run build` | Build the web frontend for production |
+| `npm run preview` | Serve the production web build locally |
+| `npm run tauri:dev` | Launch desktop app with hot-reload |
+| `npm run tauri:build` | Build desktop app for current OS |
+| `npm run lint` | Run ESLint |
+
+---
+
+## CI/CD & Multi-Platform Releases
+
+### Automated Builds
+
+The project includes a GitHub Actions workflow (`.github/workflows/release.yml`) that builds installers for all platforms:
+
+| Platform | Runner | Artifacts |
+|---|---|---|
+| **macOS ARM64** (Apple Silicon) | `macos-latest` | `.app`, `.dmg` |
+| **macOS x64** (Intel) | `macos-latest` | `.app`, `.dmg` |
+| **Linux x64** | `ubuntu-22.04` | `.deb`, `.AppImage` |
+| **Windows x64** | `windows-latest` | `.msi`, `.exe` |
+
+### How to Release
+
+1. Commit and push your changes:
+
+```bash
+git add .
+git commit -m "your changes"
+git push origin main
+```
+
+2. Create and push a version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+3. GitHub Actions automatically:
+   - Builds on all 4 platform targets in parallel (~5-10 min)
+   - Creates a **draft GitHub Release** with all installers attached
+4. Go to the GitHub Releases page, review the draft, and click **Publish**.
+
+You can also trigger a build manually from the **Actions** tab → **Build & Release** → **Run workflow** (no tag required).
+
+### End-User Installation
+
+End users download the installer for their OS from the GitHub Releases page. No development tools required — the installers are fully standalone:
+
+- **macOS**: Open the `.dmg`, drag `RedfireForge.app` to Applications
+- **Windows**: Run the `.msi` or `.exe` installer
+- **Linux**: Install the `.deb` package or run the `.AppImage` directly
 
 ---
 
@@ -491,9 +600,9 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 Data is stored as individual JSON files in the OS application data directory:
 
-- **macOS**: `~/Library/Application Support/com.flowforge.desktop/`
-- **Windows**: `%APPDATA%/com.flowforge.desktop/`
-- **Linux**: `~/.local/share/com.flowforge.desktop/`
+- **macOS**: `~/Library/Application Support/com.redfireforge.desktop/`
+- **Windows**: `%APPDATA%/com.redfireforge.desktop/`
+- **Linux**: `~/.local/share/com.redfireforge.desktop/`
 
 This means data persists across browsers and is shareable via file copy.
 

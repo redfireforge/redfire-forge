@@ -1,7 +1,7 @@
 [package]
-name = "flowforge"
+name = "redfireforge"
 version = "0.1.0"
-description = "FlowForge - API Performance Testing Tool"
+description = "RedfireForge - API Performance Testing Tool"
 authors = ["you"]
 license = "MIT"
 repository = ""

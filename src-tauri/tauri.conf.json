@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "FlowForge",
+  "productName": "RedfireForge",
   "version": "0.1.0",
-  "identifier": "com.flowforge.desktop",
+  "identifier": "com.redfireforge.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "FlowForge",
+        "title": "RedfireForge",
         "width": 1400,
         "height": 900,
         "minWidth": 900,

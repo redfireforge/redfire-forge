@@ -1,6 +1,6 @@
 /**
  * Tauri file-system backed storage.
- * Stores each key as a separate JSON file under $APPDATA/flowforge/.
+ * Stores each key as a separate JSON file under $APPDATA/redfireforge/.
  * The API mirrors localStorage's getItem/setItem/removeItem pattern.
  */
 

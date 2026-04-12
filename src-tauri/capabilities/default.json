@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default permissions for FlowForge desktop app",
+  "description": "Default permissions for RedfireForge desktop app",
   "windows": ["main"],
   "permissions": [
     "core:default",
