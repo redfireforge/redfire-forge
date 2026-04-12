@@ -1,4 +1,6 @@
 import type { TestRun, FeatureGroup, Environment, Microservice, GlobalAuthProfile } from '../types';
+import { isTauri } from './platform';
+import * as tauriStore from './tauriStore';
 
 const STORAGE_KEY = 'perf-test-runs';
 const SCENARIOS_KEY = 'perf-test-scenarios';
@@ -9,23 +11,46 @@ const SELECTED_ENV_KEY = 'perf-test-selected-env';
 const SELECTED_SVC_KEY = 'perf-test-selected-svc';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth';
+const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
+const THEME_KEY = 'perf-test-theme';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
 
-export function getMaxRuns(): number {
+// ---------- Low-level read/write abstraction ----------
+
+async function readKey(key: string): Promise<string | null> {
+  if (isTauri()) {
+    return tauriStore.getItem(key);
+  }
+  return localStorage.getItem(key);
+}
+
+async function writeKey(key: string, value: string): Promise<void> {
+  if (isTauri()) {
+    await tauriStore.setItem(key, value);
+    return;
+  }
+  localStorage.setItem(key, value);
+}
+
+// ---------- Max runs ----------
+
+export async function getMaxRuns(): Promise<number> {
   try {
-    const v = localStorage.getItem(MAX_RUNS_KEY);
+    const v = await readKey(MAX_RUNS_KEY);
     if (v) return Math.max(1, parseInt(v, 10) || DEFAULT_MAX_RUNS);
   } catch { /* ignore */ }
   return DEFAULT_MAX_RUNS;
 }
 
-export function setMaxRuns(n: number): void {
+export async function setMaxRuns(n: number): Promise<void> {
   const clamped = Math.max(1, Math.min(500, n));
-  localStorage.setItem(MAX_RUNS_KEY, String(clamped));
-  pruneOldRuns();
+  await writeKey(MAX_RUNS_KEY, String(clamped));
+  await pruneOldRuns();
 }
+
+// ---------- Helpers ----------
 
 function truncateResponseBodies(run: TestRun): TestRun {
   return {
@@ -40,16 +65,21 @@ function truncateResponseBodies(run: TestRun): TestRun {
   };
 }
 
-function pruneOldRuns(): void {
-  const runs = loadTestRuns();
-  const max = getMaxRuns();
+async function pruneOldRuns(): Promise<void> {
+  const runs = await loadTestRuns();
+  const max = await getMaxRuns();
   if (runs.length > max) {
     runs.length = max;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+    await writeKey(STORAGE_KEY, JSON.stringify(runs));
   }
 }
 
-export function getStorageUsage(): { usedBytes: number; entries: Record<string, number> } {
+// ---------- Storage usage ----------
+
+export async function getStorageUsage(): Promise<{ usedBytes: number; entries: Record<string, number> }> {
+  if (isTauri()) {
+    return tauriStore.getUsageBytes();
+  }
   const entries: Record<string, number> = {};
   let total = 0;
   for (let i = 0; i < localStorage.length; i++) {
@@ -63,49 +93,49 @@ export function getStorageUsage(): { usedBytes: number; entries: Record<string, 
   return { usedBytes: total, entries };
 }
 
-export function saveTestRun(run: TestRun): { ok: boolean; quotaError?: boolean } {
+// ---------- Test runs ----------
+
+export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = truncateResponseBodies(run);
-  const runs = loadTestRuns();
+  const runs = await loadTestRuns();
   runs.unshift(truncated);
-  const max = getMaxRuns();
+  const max = await getMaxRuns();
   if (runs.length > max) runs.length = max;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+    await writeKey(STORAGE_KEY, JSON.stringify(runs));
     return { ok: true };
   } catch {
     return { ok: false, quotaError: true };
   }
 }
 
-export function forceSaveTestRun(run: TestRun): { ok: boolean } {
+export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
   const truncated = truncateResponseBodies(run);
-  let runs = loadTestRuns();
+  let runs = await loadTestRuns();
   runs.unshift(truncated);
 
-  // Aggressively halve the stored runs until it fits
   for (let attempt = 0; attempt < 10; attempt++) {
     const keep = Math.max(1, Math.floor(runs.length / 2));
     runs = runs.slice(0, keep);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
-      setMaxRuns(keep);
+      await writeKey(STORAGE_KEY, JSON.stringify(runs));
+      await setMaxRuns(keep);
       return { ok: true };
     } catch { /* keep shrinking */ }
   }
 
-  // Last resort: only keep the new run
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([truncated]));
-    setMaxRuns(1);
+    await writeKey(STORAGE_KEY, JSON.stringify([truncated]));
+    await setMaxRuns(1);
     return { ok: true };
   } catch {
     return { ok: false };
   }
 }
 
-export function loadTestRuns(): TestRun[] {
+export async function loadTestRuns(): Promise<TestRun[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = await readKey(STORAGE_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as TestRun[];
   } catch {
@@ -113,22 +143,24 @@ export function loadTestRuns(): TestRun[] {
   }
 }
 
-export function saveTestRunsBulk(runs: TestRun[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+export async function saveTestRunsBulk(runs: TestRun[]): Promise<void> {
+  await writeKey(STORAGE_KEY, JSON.stringify(runs));
 }
 
-export function deleteTestRun(runId: string): void {
-  const runs = loadTestRuns().filter((r) => r.id !== runId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
+export async function deleteTestRun(runId: string): Promise<void> {
+  const runs = (await loadTestRuns()).filter((r) => r.id !== runId);
+  await writeKey(STORAGE_KEY, JSON.stringify(runs));
 }
 
-export function saveScenarios(scenarios: unknown): void {
-  localStorage.setItem(SCENARIOS_KEY, JSON.stringify(scenarios));
+// ---------- Scenarios ----------
+
+export async function saveScenarios(scenarios: unknown): Promise<void> {
+  await writeKey(SCENARIOS_KEY, JSON.stringify(scenarios));
 }
 
-export function loadScenarios<T>(): T | null {
+export async function loadScenarios<T>(): Promise<T | null> {
   try {
-    const raw = localStorage.getItem(SCENARIOS_KEY);
+    const raw = await readKey(SCENARIOS_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch {
@@ -136,13 +168,15 @@ export function loadScenarios<T>(): T | null {
   }
 }
 
-export function saveFeatureGroups(groups: FeatureGroup[]): void {
-  localStorage.setItem(FEATURES_KEY, JSON.stringify(groups));
+// ---------- Feature groups ----------
+
+export async function saveFeatureGroups(groups: FeatureGroup[]): Promise<void> {
+  await writeKey(FEATURES_KEY, JSON.stringify(groups));
 }
 
-export function loadFeatureGroups(): FeatureGroup[] {
+export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
   try {
-    const raw = localStorage.getItem(FEATURES_KEY);
+    const raw = await readKey(FEATURES_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as FeatureGroup[];
   } catch {
@@ -150,52 +184,86 @@ export function loadFeatureGroups(): FeatureGroup[] {
   }
 }
 
-// Environments
-export function saveEnvironments(envs: Environment[]): void {
-  localStorage.setItem(ENVS_KEY, JSON.stringify(envs));
+// ---------- Environments ----------
+
+export async function saveEnvironments(envs: Environment[]): Promise<void> {
+  await writeKey(ENVS_KEY, JSON.stringify(envs));
 }
-export function loadEnvironments(): Environment[] {
+
+export async function loadEnvironments(): Promise<Environment[]> {
   try {
-    const raw = localStorage.getItem(ENVS_KEY);
+    const raw = await readKey(ENVS_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as Environment[];
   } catch { return []; }
 }
 
-// Microservices
-export function saveMicroservices(svcs: Microservice[]): void {
-  localStorage.setItem(SERVICES_KEY, JSON.stringify(svcs));
+// ---------- Microservices ----------
+
+export async function saveMicroservices(svcs: Microservice[]): Promise<void> {
+  await writeKey(SERVICES_KEY, JSON.stringify(svcs));
 }
-export function loadMicroservices(): Microservice[] {
+
+export async function loadMicroservices(): Promise<Microservice[]> {
   try {
-    const raw = localStorage.getItem(SERVICES_KEY);
+    const raw = await readKey(SERVICES_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as Microservice[];
   } catch { return []; }
 }
 
-// Selections
-export function saveSelectedEnv(envId: string): void {
-  localStorage.setItem(SELECTED_ENV_KEY, envId);
-}
-export function loadSelectedEnv(): string {
-  return localStorage.getItem(SELECTED_ENV_KEY) ?? '';
-}
-export function saveSelectedService(svcId: string): void {
-  localStorage.setItem(SELECTED_SVC_KEY, svcId);
-}
-export function loadSelectedService(): string {
-  return localStorage.getItem(SELECTED_SVC_KEY) ?? '';
+// ---------- Selections ----------
+
+export async function saveSelectedEnv(envId: string): Promise<void> {
+  await writeKey(SELECTED_ENV_KEY, envId);
 }
 
-// Global Auth Profiles
-export function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): void {
-  localStorage.setItem(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
+export async function loadSelectedEnv(): Promise<string> {
+  return (await readKey(SELECTED_ENV_KEY)) ?? '';
 }
-export function loadGlobalAuthProfiles(): GlobalAuthProfile[] {
+
+export async function saveSelectedService(svcId: string): Promise<void> {
+  await writeKey(SELECTED_SVC_KEY, svcId);
+}
+
+export async function loadSelectedService(): Promise<string> {
+  return (await readKey(SELECTED_SVC_KEY)) ?? '';
+}
+
+// ---------- Global Auth Profiles ----------
+
+export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
+  await writeKey(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
+}
+
+export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
   try {
-    const raw = localStorage.getItem(GLOBAL_AUTH_KEY);
+    const raw = await readKey(GLOBAL_AUTH_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as GlobalAuthProfile[];
   } catch { return []; }
+}
+
+// ---------- Runner config ----------
+
+export async function saveRunnerConfig(config: unknown): Promise<void> {
+  await writeKey(RUNNER_CONFIG_KEY, JSON.stringify(config));
+}
+
+export async function loadRunnerConfig(): Promise<unknown | null> {
+  try {
+    const raw = await readKey(RUNNER_CONFIG_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+// ---------- Theme ----------
+
+export async function saveTheme(theme: string): Promise<void> {
+  await writeKey(THEME_KEY, theme);
+}
+
+export async function loadTheme(): Promise<string> {
+  return (await readKey(THEME_KEY)) ?? 'dark';
 }

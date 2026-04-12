@@ -1,0 +1,1470 @@
+{
+  "environments": [
+    {
+      "id": "9b11e5f7-ed95-4364-9eea-ee958dea2111",
+      "name": "d01"
+    },
+    {
+      "id": "bca7a236-6c81-4a2f-ba6f-bd927cb7f392",
+      "name": "t01"
+    },
+    {
+      "id": "19acef70-f249-4bd3-a489-5f6b3b71a4df",
+      "name": "t02"
+    },
+    {
+      "id": "cac422c4-8177-4cf5-b931-e5e024844c75",
+      "name": "p01"
+    }
+  ],
+  "microservices": [
+    {
+      "id": "be0d3ca4-5b12-4bfd-93c7-b86b9a27ea3f",
+      "name": "sales-product-autoassign",
+      "baseUrls": {
+        "bca7a236-6c81-4a2f-ba6f-bd927cb7f392": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com",
+        "9b11e5f7-ed95-4364-9eea-ee958dea2111": "",
+        "cac422c4-8177-4cf5-b931-e5e024844c75": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com",
+        "19acef70-f249-4bd3-a489-5f6b3b71a4df": ""
+      }
+    },
+    {
+      "id": "576c7df1-429e-42a5-8598-d2fb7f09cfef",
+      "name": "sales-order-retail",
+      "baseUrls": {
+        "9b11e5f7-ed95-4364-9eea-ee958dea2111": "",
+        "bca7a236-6c81-4a2f-ba6f-bd927cb7f392": "",
+        "cac422c4-8177-4cf5-b931-e5e024844c75": "",
+        "19acef70-f249-4bd3-a489-5f6b3b71a4df": ""
+      }
+    }
+  ],
+  "globalAuthProfiles": [
+    {
+      "id": "d45aa8f2-a1c5-4f84-b00a-ebab625fbb7d",
+      "name": "authz-qa-sales-offer-retail",
+      "auth": {
+        "type": "oauth2",
+        "tokenUrl": "https://sec-authz-bo.apps.gmna.stg.cvca.atmosdt.gm.com/api/v1/oauth/token",
+        "clientId": "SALES-OFFER-RETAIL1775572854",
+        "clientSecret": "!4S6pSMjy0I7!qzRz7TdoJumf13BPY"
+      }
+    },
+    {
+      "id": "c4053e3d-5a4b-4b8e-9861-87f9212b1d13",
+      "name": "authz-prod-sales-offer-retail",
+      "auth": {
+        "type": "oauth2",
+        "tokenUrl": "https://sec-authz-bo.apps.gmna.cvca.atmos.gm.com/api/v1/oauth/token",
+        "clientId": "SALES-OFFER-RETAIL1745591208",
+        "clientSecret": "t*kIx-7gqHD53*TZFWoOBDF46l7!MQ"
+      }
+    }
+  ],
+  "featureGroups": [
+    {
+      "id": "ba2fe6a1-fd68-4274-b966-fdfcb0eb683a",
+      "name": "Kafka Simulation Feature",
+      "microserviceId": "be0d3ca4-5b12-4bfd-93c7-b86b9a27ea3f",
+      "environmentId": "bca7a236-6c81-4a2f-ba6f-bd927cb7f392",
+      "scenarios": [
+        {
+          "id": "118ddf08-65c6-4af7-a07d-dd265e94c534",
+          "name": "First Owner",
+          "tests": [
+            {
+              "id": "0cb1da36-55e1-4dc3-bbc3-60e8ac40623b",
+              "name": "CA - PN - 1GYXPY1KXT1079338 - \tOnStar One - Trial - 1 Month, IHU Connectivity - 96 months CA, Trial Data 3GB - 1 Month CAN, Basics 8 Year, Connected Access - 8 Years, EV Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GYXPY1KXT1079338/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=CA&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"ONZFCNCP01MCALM\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"IHUTRNCP08YCAUL\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"DAFCNCP01MCA3G\""
+                  },
+                  {
+                    "jsonPath": "offers[3].associatedOfferingCode",
+                    "expectedValue": "\"BAZFCNCP08YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[4].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[5].associatedOfferingCode",
+                    "expectedValue": "\"EVZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"OnStar One - Trial - 1 Month\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"IHU Connectivity - 96 months CA\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Trial Data 3GB - 1 Month CAN\""
+                  },
+                  {
+                    "jsonPath": "offers[3].offerName",
+                    "expectedValue": "\"Basics 8 Year\""
+                  },
+                  {
+                    "jsonPath": "offers[4].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[5].offerName",
+                    "expectedValue": "\"EV Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"ONZFCNCP01MCALM\",\n      \"rank\": 1,\n      \"offerName\": \"OnStar One - Trial - 1 Month\",\n      \"productCode\": \"OnStar One\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 1\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"IHUTRNCP08YCAUL\",\n      \"rank\": 3,\n      \"offerName\": \"IHU Connectivity - 96 months CA\",\n      \"productCode\": \"IHU Connectivity 8 Year Trial CA\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 2880\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"DAFCNCP01MCA3G\",\n      \"rank\": 3,\n      \"offerName\": \"Trial Data 3GB - 1 Month CAN\",\n      \"productCode\": \"Trial Data CA 1 Month\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 30\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"BAZFCNCP08YUCX\",\n      \"rank\": 9,\n      \"offerName\": \"Basics 8 Year\",\n      \"productCode\": \"OnStar Basics\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EVZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"EV Access - 8 Years\",\n      \"productCode\": \"EV Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "368dacbc-cd15-433f-8c9f-a0ba6ce7cc98",
+              "name": "CA - PN - 1GNXDD1J4R1079348 - OnStar One - Trial - 1 Month, Trial Data 3GB - 1 Month CAN, IHU Connectivity - 96 months CA, Remote Access 8 Year, App Access 3 Year, Navigation and Voice Assistant 8 Years, Connected Access - 8 Years, EV Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GNXDD1J4R1079348/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=CA&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"ONZFCNCP01MCALM\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"DAFCNCP01MCA3G\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"IHUTRNCP08YCAUL\""
+                  },
+                  {
+                    "jsonPath": "offers[3].associatedOfferingCode",
+                    "expectedValue": "\"RAZFCNCP08YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[4].associatedOfferingCode",
+                    "expectedValue": "\"APZFCNCP03YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[5].associatedOfferingCode",
+                    "expectedValue": "\"VMZFCNCP08YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[6].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[7].associatedOfferingCode",
+                    "expectedValue": "\"EVZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"OnStar One - Trial - 1 Month\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Trial Data 3GB - 1 Month CAN\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"IHU Connectivity - 96 months CA\""
+                  },
+                  {
+                    "jsonPath": "offers[3].offerName",
+                    "expectedValue": "\"Remote Access 8 Year\""
+                  },
+                  {
+                    "jsonPath": "offers[4].offerName",
+                    "expectedValue": "\"App Access 3 Year\""
+                  },
+                  {
+                    "jsonPath": "offers[5].offerName",
+                    "expectedValue": "\"Navigation and Voice Assistant 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[6].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[7].offerName",
+                    "expectedValue": "\"EV Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"ONZFCNCP01MCALM\",\n      \"rank\": 1,\n      \"offerName\": \"OnStar One - Trial - 1 Month\",\n      \"productCode\": \"OnStar One\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 1\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"DAFCNCP01MCA3G\",\n      \"rank\": 3,\n      \"offerName\": \"Trial Data 3GB - 1 Month CAN\",\n      \"productCode\": \"Trial Data CA 1 Month\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 30\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"IHUTRNCP08YCAUL\",\n      \"rank\": 3,\n      \"offerName\": \"IHU Connectivity - 96 months CA\",\n      \"productCode\": \"IHU Connectivity 8 Year Trial CA\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 2880\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"RAZFCNCP08YUCX\",\n      \"rank\": 7,\n      \"offerName\": \"Remote Access 8 Year\",\n      \"productCode\": \"Remote Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"APZFCNCP03YUCX\",\n      \"rank\": 8,\n      \"offerName\": \"App Access 3 Year\",\n      \"productCode\": \"App Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"VMZFCNCP08YUCX\",\n      \"rank\": 9,\n      \"offerName\": \"Navigation and Voice Assistant 8 Years\",\n      \"productCode\": \"Navigation and Voice Assistant\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EVZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"EV Access - 8 Years\",\n      \"productCode\": \"EV Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "73587dae-c286-45e9-96cd-448f3404d697",
+              "name": "US- PN - 1GNXDD1J4R1079348 - Premium - 36 Month, Unlimited Data 36 Months, Connected Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GKKNJ119R1079316/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=US&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"PRFCNCP03YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"DAZFCNCP03YUSUL\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Premium - 36 Month\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Unlimited Data 36 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"PRFCNCP03YUCX\",\n      \"rank\": 1,\n      \"offerName\": \"Premium - 36 Month\",\n      \"productCode\": \"Premium\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"DAZFCNCP03YUSUL\",\n      \"rank\": 3,\n      \"offerName\": \"Unlimited Data 36 Months\",\n      \"productCode\": \"36 Months Unlimited Data\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 1095\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "753e3468-cca5-4c3d-9d35-ff32a6dc6074",
+              "name": "US- PN - 1GT1EYEH7T1079300 - OnStar One - Trial - 1 Month, Basics 8 Year, EV Access - 8 Years, Connected Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GT1EYEH7T1079300/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=US&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"ONZFCNCP01MUSUL\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"BAZFCNCP08YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EVZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[3].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"OnStar One - Trial - 1 Month\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Basics 8 Year\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"EV Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[3].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"ONZFCNCP01MUSUL\",\n      \"rank\": 1,\n      \"offerName\": \"OnStar One - Trial - 1 Month\",\n      \"productCode\": \"OnStar One\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 1\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"BAZFCNCP08YUCX\",\n      \"rank\": 9,\n      \"offerName\": \"Basics 8 Year\",\n      \"productCode\": \"OnStar Basics\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EVZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"EV Access - 8 Years\",\n      \"productCode\": \"EV Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "173c9e68-cafd-4ed4-aea1-29dfdaeb5cd1",
+              "name": "MX - PN - 1GT1EYEH7T1079300 - Essentials - 3 Months, Connected Access - 8 Years, EV Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GT1EYEH7T1079300/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EVZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"EV Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EVZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"EV Access - 8 Years\",\n      \"productCode\": \"EV Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "9166cfef-164a-4597-8220-ed5a7835e9cb",
+              "name": "MX - PN - 1GA1R7118S10793B2 - Alternative (APM) - B2B Annual Unlimited Data 25GB, Connected Access - 8 Years, Factory Trial Essentials 12 months Bolt EUV",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GA1R7118S10793B2/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DA3PNCP01YMXUL\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP01YMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Alternative (APM) - B2B Annual Unlimited Data 25GB\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Factory Trial Essentials 12 months Bolt EUV\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DA3PNCP01YMXUL\",\n      \"rank\": 3,\n      \"offerName\": \"Alternative (APM) - B2B Annual Unlimited Data 25GB\",\n      \"productCode\": \"Unlimited Data v4\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 12\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP01YMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Factory Trial Essentials 12 months Bolt EUV\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 1\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "dcc4b2f1-ff08-4b3b-8100-a8abf07e8623",
+              "name": "CA - FL - 1GNSCM1D3S10793BC - OnStar Connect Plus - 3 Months Trial, TELUS Hotspot Connectivity - 3 Months Trial, OnStar Protect - 3 Months, Basics 8 Year, Connected Access - 8 Years",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GNSCM1D3S10793BC/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=CA&accountType=FL&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"OCPFCNCP03MCALMT\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"DTZFCNCP03MCALMT\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"OPRFCNCP03MUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[3].associatedOfferingCode",
+                    "expectedValue": "\"BAZFCNCP08YUCX\""
+                  },
+                  {
+                    "jsonPath": "offers[4].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"OnStar Connect Plus - 3 Months Trial\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"TELUS Hotspot Connectivity - 3 Months Trial\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"OnStar Protect - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[3].offerName",
+                    "expectedValue": "\"Basics 8 Year\""
+                  },
+                  {
+                    "jsonPath": "offers[4].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"OCPFCNCP03MCALMT\",\n      \"rank\": 2,\n      \"offerName\": \"OnStar Connect Plus - 3 Months Trial\",\n      \"productCode\": \"OnStar Connect Plus\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"DTZFCNCP03MCALMT\",\n      \"rank\": 3,\n      \"offerName\": \"TELUS Hotspot Connectivity - 3 Months Trial\",\n      \"productCode\": \"TELUS Hotspot Connectivity 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"OPRFCNCP03MUCX\",\n      \"rank\": 5,\n      \"offerName\": \"OnStar Protect - 3 Months\",\n      \"productCode\": \"OnStar Protect\",\n      \"billingCadence\": \"Prepaid\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"BAZFCNCP08YUCX\",\n      \"rank\": 9,\n      \"offerName\": \"Basics 8 Year\",\n      \"productCode\": \"OnStar Basics\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"includedinvehicle\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "05ad093a-0b70-4b9b-8a4d-26c9b61e286b",
+              "name": "MX - FL - 1GYS871T6T107941C - 3GB Data Trial MX, Connected Access - 8 Years, Essentials - 3 Months",
+              "url": "https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com/sales/product/autoassign/v1/vehicles/management/1GYS871T6T107941C/onboarding/vehiclePurchaseOffers?channel=MC_WEBRNW&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=FL&vehicleUsageCode=",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": ""
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            }
+          ],
+          "auth": {
+            "type": "inherit",
+            "tokenUrl": "https://sec-authz-bo.apps.gmna.stg.cvca.atmosdt.gm.com/api/v1/oauth/token",
+            "clientId": "SALES-OFFER-RETAIL1775572854",
+            "clientSecret": "!4S6pSMjy0I7!qzRz7TdoJumf13BPY"
+          }
+        },
+        {
+          "id": "89c5e685-b040-41d1-93ab-f45ac7058da8",
+          "name": "Second Owner",
+          "tests": [],
+          "auth": {
+            "type": "inherit",
+            "tokenUrl": "https://sec-authz-bo.apps.gmna.stg.cvca.atmosdt.gm.com/api/v1/oauth/token",
+            "clientId": "SALES-OFFER-RETAIL1775572854",
+            "clientSecret": "!4S6pSMjy0I7!qzRz7TdoJumf13BPY"
+          }
+        }
+      ],
+      "auth": {
+        "type": "inherit",
+        "tokenUrl": "https://sec-authz-bo.apps.gmna.stg.cvca.atmosdt.gm.com/api/v1/oauth/token",
+        "clientId": "SALES-OFFER-RETAIL1775572854",
+        "clientSecret": "!4S6pSMjy0I7!qzRz7TdoJumf13BPY"
+      },
+      "globalAuthProfileId": "d45aa8f2-a1c5-4f84-b00a-ebab625fbb7d"
+    },
+    {
+      "id": "776b3c4f-b4c0-4728-839d-cc25145eb55b",
+      "name": "Prod Issue Feature",
+      "microserviceId": "be0d3ca4-5b12-4bfd-93c7-b86b9a27ea3f",
+      "environmentId": "cac422c4-8177-4cf5-b931-e5e024844c75",
+      "scenarios": [
+        {
+          "id": "1ea87dc1-d72e-41bd-ab46-bc744c79180c",
+          "name": "Issue Scenario 1 - 3 OfferCodes",
+          "tests": [
+            {
+              "id": "0a5b63c8-0993-4003-841b-c09d0297890c",
+              "name": "ONBOARD_AS_NEW - MX - PN - LSGEN53AXTD052276",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/LSGEN53AXTD052276/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "ae7fc55c-66ab-43fd-9d18-0757c16c4bde",
+              "name": "ONBOARD_AS_NEW - MX - PN - LSGEN53A8TD003626",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/LSGEN53A8TD003626/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "d135c26b-4e2f-407d-9404-03b0e34322f6",
+              "name": "ONBOARD_AS_NEW - MX - PN - 93CEW43C5TB152985",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/93CEW43C5TB152985/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "6ca0ecd9-2dfc-4f7b-94c7-e1b78edec2b7",
+              "name": "ONBOARD_AS_NEW - MX - PN - 1GNS69RL5SR364719",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/1GNS69RL5SR364719/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "feb6049b-b762-4400-996a-997dd9f7dc20",
+              "name": "ONBOARD_AS_NEW - MX - PN - 93CEW43CXTB181396",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/93CEW43CXTB181396/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "afc59201-82d4-4958-8102-5b23fc59ef77",
+              "name": "ONBOARD_AS_NEW - MX - PN - KL77L5E29TC054779",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/KL77L5E29TC054779/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "168f48d4-3fa2-4f54-ab8a-72f8f5a76e34",
+              "name": "ONBOARD_AS_NEW - MX - PN - KL77L5E26TC013736",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/KL77L5E26TC013736/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "e47d514e-d945-453a-b58c-c626bf816ccb",
+              "name": "ONBOARD_AS_NEW - MX - PN - 3GCNK9ED8TG136716",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/3GCNK9ED8TG136716/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "6af52991-1736-4362-97a7-133431aceec8",
+              "name": "ONBOARD_AS_NEW - MX - PN - LSGEN53A9TD023593",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/LSGEN53A9TD023593/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "73e9c315-9430-4cd3-be35-b968691f1bcf",
+              "name": "ONBOARD_AS_NEW - MX - PN - 1GYS98RL1SR407277",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/1GYS98RL1SR407277/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "46172ee2-ff5c-4e13-9aab-e2b0b695eaee",
+              "name": "ONBOARD_AS_NEW - MX - PN - KL4AM9GL9TB015256",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/KL4AM9GL9TB015256/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "daabc5bf-f519-41b8-b5d2-050a4f6c40d4",
+              "name": "ONBOARD_AS_NEW - MX - PN - KL77L5E25TC088525",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/KL77L5E25TC088525/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"DT3G3MMXINV\""
+                  },
+                  {
+                    "jsonPath": "offers[1].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[2].associatedOfferingCode",
+                    "expectedValue": "\"EBZFCNCP03MMXX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"3GB Data Trial MX\""
+                  },
+                  {
+                    "jsonPath": "offers[1].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  },
+                  {
+                    "jsonPath": "offers[2].offerName",
+                    "expectedValue": "\"Essentials  - 3 Months\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"DT3G3MMXINV\",\n      \"rank\": 3,\n      \"offerName\": \"3GB Data Trial MX\",\n      \"productCode\": \"Factory Trial 3 GB 3 Months\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Days\",\n        \"value\": 90\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    },\n    {\n      \"associatedOfferingCode\": \"EBZFCNCP03MMXX\",\n      \"rank\": 13,\n      \"offerName\": \"Essentials  - 3 Months\",\n      \"productCode\": \"Essentials\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Months\",\n        \"value\": 3\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            }
+          ],
+          "auth": {
+            "type": "inherit"
+          }
+        },
+        {
+          "id": "172f1a44-43ac-4829-b182-1cc1fed3ba02",
+          "name": "Issue Scenario 2 - 1 OfferCode",
+          "tests": [
+            {
+              "id": "18284cc8-b75c-4e10-9fb6-a882f903e20c",
+              "name": "ONBOARD_AS_NEW - MX - PN - 1GKS28RL8SR409199",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/1GKS28RL8SR409199/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}"
+              }
+            },
+            {
+              "id": "42d889c0-1766-496c-af24-da514d6ab23d",
+              "name": "ONBOARD_AS_NEW - MX - PN - 1GKS28RL6SR375957",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/1GKS28RL6SR375957/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            },
+            {
+              "id": "f6709ce9-e97a-4110-8445-af07d9384694",
+              "name": "ONBOARD_AS_NEW - MX - PN - 1GKS28RL0SR360497",
+              "url": "https://sales-product-autoassign.apps.gmna.cvca.atmos.gm.com/sales/product/autoassign/v1/vehicles/management/1GKS28RL0SR360497/onboarding/vehiclePurchaseOffers?channel=WEB&enrollmentType=ONBOARD_AS_NEW&country=MX&accountType=PN",
+              "method": "GET",
+              "headers": [
+                {
+                  "key": "Accept-Language",
+                  "value": "en-US"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer eyJqa3UiOiJodHRwczovL3NlYy1hdXRoei1iby5hcHBzLmdtbmEuY3ZjYS5hdG1vcy5nbS5jb20vYXBpL3YxL29hdXRoL2tleVNldHMvIiwia2lkIjoic2VjLWF1dGh6LXRva2VuLXNpZ25pbmctcHJvZC1rZiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJqdGkiOiJiZWMzNWIzNy03ZjJhLTRlZWQtYjhiNC03YjAwYTNkZWI0YzMiLCJpYXQiOjE3NzU5NTUwMTksImlzcyI6Imh0dHBzOi8vc2VjLWF1dGh6LWJvLmFwcHMuZ21uYS5jdmNhLmF0bW9zLmdtLmNvbSIsImF1ZCI6ImN2Y19wcm9kIiwiZXhwIjoxNzc1OTU2ODE5LCJwb2xpY3lWZXJzaW9uIjoiNTEiLCJ2ZXIiOjEuMywicGFpIjoiU0FMRVMtT0ZGRVItUkVUQUlMIiwidHlwIjoiYmVhcmVyIiwicGVyIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQmdBQUFBQUFBQUFBQUFBQUFBQUFBQUFBREFBQUFBQUFBQUFBQWdBR0FBQUFRQUFBQUFBQUFBQUFBQUFBQUFBQUFCZ0FGUUFFQUFFQUJBQUFBQUFBQUFBQUFBPT0iLCJjaGFuIjoiaW50ZXJuYWwifQ.dbLj-jbYJzrXf0al-HMKILPUiG_H5uebwWOjoC6-3NhJCS51e876SaqUaqmk6d7YgWTh3vyP2vcNUe0Qcj8fT5rf0zAywjHqLssULKIP9hVnwFGTzXkpXl62Tw3yG35UVfRK0tD0t2wFFs7CRnUPdvlVooVUPlVGqQJ9i1ZJLnR0Bmlf3ZktK8mNeUeS03tcwFLxaud68yqIpzs2vbYsudaTPKv7nVHUtDjtM6pQICnikb-W4lBofvlY_LkAJwUuZx8grMGCVttgnz3JKXVRTRpC-8A-hSE6450oGL8Mgsqvpo6bL5L4DiWiVe1hb4RiVJf8MhdFLO7zhohS0zhfdA"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "",
+              "auth": {
+                "type": "inherit"
+              },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  {
+                    "jsonPath": "offers[0].associatedOfferingCode",
+                    "expectedValue": "\"CAZFCNCP08YUCMX\""
+                  },
+                  {
+                    "jsonPath": "offers[0].offerName",
+                    "expectedValue": "\"Connected Access - 8 Years\""
+                  }
+                ],
+                "unorderedArrays": true,
+                "expectedJson": "",
+                "sampleJson": "{\n  \"offers\": [\n    {\n      \"associatedOfferingCode\": \"CAZFCNCP08YUCMX\",\n      \"rank\": 13,\n      \"offerName\": \"Connected Access - 8 Years\",\n      \"productCode\": \"Connected Access\",\n      \"billingCadence\": \"Prepaid\",\n      \"planType\": \"Trial\",\n      \"duration\": {\n        \"unit\": \"Years\",\n        \"value\": 8\n      }\n    }\n  ]\n}",
+                "excludedPaths": []
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "inherit",
+        "tokenUrl": "https://sec-authz-bo.apps.gmna.cvca.atmos.gm.com/api/v1/oauth/token",
+        "clientId": "SALES-OFFER-RETAIL1745591208",
+        "clientSecret": "t*kIx-7gqHD53*TZFWoOBDF46l7!MQ"
+      },
+      "globalAuthProfileId": "c4053e3d-5a4b-4b8e-9861-87f9212b1d13"
+    }
+  ],
+  "exportedAt": "2026-04-12T02:17:12.233Z",
+  "version": "1.0"
+}

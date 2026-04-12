@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField, GlobalAuthProfile } from '../types';
 import { parseCurl } from '../utils/curlParser';
-import { proxyFetch, acquireOAuth2Token, buildHeaders } from '../engine/executor';
+import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 import JsonPathBuilder from '../components/JsonPathBuilder';
 
@@ -333,13 +333,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const addHeader = () => setDraft({ ...draft, headers: [...draft.headers, { key: '', value: '' }] });
   const removeHeader = (index: number) => setDraft({ ...draft, headers: draft.headers.filter((_, i) => i !== index) });
 
-  // Validation field helpers
-  const updateExpectedField = (index: number, field: keyof ExpectedField, val: string) => {
+  // Validation field helpers (kept for future use in manual field editing)
+  const _updateExpectedField = (index: number, field: keyof ExpectedField, val: string) => {
     const fields = [...(draft.validation.expectedFields || [])];
     fields[index] = { ...fields[index], [field]: val };
     setDraft({ ...draft, validation: { ...draft.validation, expectedFields: fields } });
   };
-  const addExpectedField = () => {
+  void _updateExpectedField;
+  const _addExpectedField = () => {
     setDraft({
       ...draft,
       validation: {
@@ -348,7 +349,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       },
     });
   };
-  const removeExpectedField = (index: number) => {
+  void _addExpectedField;
+  const _removeExpectedField = (index: number) => {
     setDraft({
       ...draft,
       validation: {
@@ -357,6 +359,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       },
     });
   };
+  void _removeExpectedField;
 
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);

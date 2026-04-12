@@ -1,29 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, AuthConfig } from '../types';
 import { validate } from './validator';
+import { httpFetch, type HttpResponse } from '../utils/httpClient';
 
 type ProgressCallback = (completed: number, total: number, results: RequestResult[]) => void;
-
-interface ProxyResponse {
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: string;
-  error?: string;
-}
 
 export async function proxyFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
   body?: string
-): Promise<ProxyResponse> {
-  const resp = await fetch('/__proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, method, headers, body }),
-  });
-  return resp.json();
+): Promise<HttpResponse> {
+  return httpFetch(url, method, headers, body);
 }
 
 export async function acquireOAuth2Token(auth: AuthConfig): Promise<string> {

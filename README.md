@@ -1,6 +1,6 @@
-# Performance Test UI
+# FlowForge
 
-A browser-based performance testing tool built with React + TypeScript + Vite. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a single-page application.
+A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
 
 ---
 
@@ -26,17 +26,40 @@ A browser-based performance testing tool built with React + TypeScript + Vite. D
 
 - **Node.js** >= 18
 - **npm** (or yarn/pnpm)
+- **Rust** (for desktop builds only — install via [rustup](https://rustup.rs/))
 
-### Install & Run
+### Desktop App (Recommended)
+
+```bash
+npm install
+npm run tauri:dev     # launches the native desktop window with hot-reload
+```
+
+### Desktop Build (Production)
+
+```bash
+npm run tauri:build
+```
+
+This produces:
+- **macOS**: `FlowForge.app` and `FlowForge_x.x.x_aarch64.dmg` in `src-tauri/target/release/bundle/`
+- **Windows**: `.msi` and `.exe` installers
+- **Linux**: `.deb` and `.AppImage` packages
+
+End users do **not** need Rust installed — the build produces a standalone native binary with all dependencies bundled.
+
+### Web Mode (Browser)
+
+The app still runs as a standalone web app for development or environments where a desktop install isn't possible:
 
 ```bash
 npm install
 npm run dev
 ```
 
-The app starts at `http://localhost:5173` (default Vite port). A built-in Vite server-side proxy (`/__proxy`) handles all outbound HTTP requests to avoid CORS issues — no additional backend is needed.
+The app starts at `http://localhost:5173`. A built-in Vite server-side proxy (`/__proxy`) handles outbound HTTP requests to avoid CORS issues.
 
-### Build for Production
+### Build Web for Production
 
 ```bash
 npm run build
@@ -45,7 +68,7 @@ npm run preview   # serves the production build locally
 
 ### Stop
 
-Press `Ctrl+C` in the terminal running `npm run dev` (or `npm run preview`).
+Press `Ctrl+C` in the terminal running the dev command.
 
 ---
 
@@ -70,13 +93,36 @@ src/
 │   ├── ExportCenter.tsx     # Multi-select data export modal
 │   └── ImportCenter.tsx     # Import with per-item conflict resolution
 ├── utils/
-│   ├── storage.ts           # LocalStorage persistence helpers
+│   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
+│   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
+│   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
+│   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
-│   ├── fileSaver.ts         # Native "Save As" dialog (File System Access API)
+│   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   └── export.ts            # JSON & CSV export utilities
 └── types/
     └── index.ts             # Shared TypeScript interfaces
+
+src-tauri/
+├── tauri.conf.json          # Tauri app configuration (window, bundle, plugins)
+├── Cargo.toml               # Rust dependencies
+├── capabilities/
+│   └── default.json         # Plugin permissions (fs, http, dialog, shell)
+└── src/
+    ├── main.rs              # Tauri entry point
+    └── lib.rs               # Plugin registration (fs, http, dialog, shell)
 ```
+
+### Desktop vs Web Mode
+
+The app detects at runtime whether it's running inside Tauri or a browser:
+
+| Capability | Desktop (Tauri) | Web (Browser) |
+|---|---|---|
+| **Storage** | JSON files in `$APPDATA/flowforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
+| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS | Vite dev proxy (`/__proxy`) |
+| **File save dialogs** | Native OS file picker via Tauri `dialog` plugin | File System Access API / browser download |
+| **Cross-browser data** | Shared — data lives on disk | Isolated per browser |
 
 ---
 
@@ -92,7 +138,7 @@ Open **Settings** (⚙ button in the sidebar) to configure your testing infrastr
 |---|---|
 | **Environment** | A deployment target (e.g., `t01`, `d01`, `p01`) |
 | **Microservice** | A service you test (e.g., `sales-product-autoassign`) |
-| **Base URL** | Per-environment URL for each microservice (e.g., `https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com`) |
+| **Base URL** | Per-environment URL for each microservice |
 
 **How to configure:**
 
@@ -116,7 +162,7 @@ Multiple profiles support different environments (dev, QA, prod) without duplica
 
 #### Storage
 
-The **Storage** section shows how much localStorage is being used.
+The **Storage** section shows current data usage.
 
 - Click the **Total usage** row to expand a per-key breakdown with usage bars.
 - **Max stored runs** controls how many test runs are kept (1–500, default 50). Oldest runs are auto-deleted when the limit is exceeded.
@@ -403,6 +449,8 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 | Feature | Description |
 |---|---|
+| Native desktop app | Built with Tauri — native window, file system storage, no CORS issues |
+| Dual-mode (desktop + web) | Runs as desktop app or browser SPA; auto-detects environment |
 | Dark / light mode | Toggle between dark and light themes; preference persisted |
 | Hierarchical test organization | Feature Group → Scenario → Test |
 | Visual test builder | Point-and-click editor for URL, headers, body, auth, validation |
@@ -420,7 +468,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
-| Persistent configuration | All settings saved to localStorage across sessions |
+| Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
@@ -432,11 +480,24 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| CORS proxy | Built-in Vite server proxy eliminates CORS issues |
+| Native HTTP (desktop) | Tauri HTTP plugin bypasses CORS — no proxy needed |
+| CORS proxy (web) | Built-in Vite server proxy for browser mode |
 
 ---
 
 ## Data Persistence
+
+### Desktop Mode (Tauri)
+
+Data is stored as individual JSON files in the OS application data directory:
+
+- **macOS**: `~/Library/Application Support/com.flowforge.desktop/`
+- **Windows**: `%APPDATA%/com.flowforge.desktop/`
+- **Linux**: `~/.local/share/com.flowforge.desktop/`
+
+This means data persists across browsers and is shareable via file copy.
+
+### Web Mode (Browser)
 
 All data is stored in the browser's **localStorage**:
 

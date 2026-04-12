@@ -69,4 +69,8 @@ function proxyPlugin(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), proxyPlugin()],
+  clearScreen: false,
+  server: {
+    strictPort: true,
+  },
 })

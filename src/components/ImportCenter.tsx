@@ -196,9 +196,10 @@ export default function ImportCenter({ environments, microservices, featureGroup
     return setRunItems;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bulkAction = useCallback((secKey: string, action: 'checkAll' | 'uncheckAll' | 'skipAll' | 'overwriteAll' | 'keepBothAll') => {
-    const setter = getSetterForSection(secKey);
-    setter((prev: ResolvedItem<never>[]) => prev.map((it) => {
+    const setter = getSetterForSection(secKey) as (fn: (prev: ResolvedItem<any>[]) => ResolvedItem<any>[]) => void;
+    setter((prev) => prev.map((it) => {
       if (action === 'checkAll') return { ...it, checked: true };
       if (action === 'uncheckAll') return { ...it, checked: false };
       if (it.status === 'new') return it;
@@ -330,7 +331,7 @@ export default function ImportCenter({ environments, microservices, featureGroup
                                         <div key={li} className="import-detail-line">{line}</div>
                                       ))}
                                     </div>
-                                    {isConflict && ri.existingItem && (
+                                    {isConflict && !!ri.existingItem && (
                                       <div className="import-detail-col import-detail-existing">
                                         <div className="import-detail-heading">Existing</div>
                                         {getItemDetails(sec.key, ri.existingItem).map((line, li) => (

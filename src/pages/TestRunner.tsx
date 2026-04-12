@@ -1,18 +1,25 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
-
-const STORAGE_KEY = 'perf-test-runner-config';
+import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../utils/storage';
 
 type HostMode = 'hardcoded' | 'settings' | 'custom';
 
-function loadRunnerConfig(): { concurrency: number; totalTransactions: number; selectedScenarios: string[]; weights: Record<string, number>; skipValidation: boolean; hostMode: HostMode; customBaseUrl: string; executionMode: ExecutionMode } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {}, skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch' };
+interface RunnerConfig {
+  concurrency: number;
+  totalTransactions: number;
+  selectedScenarios: string[];
+  weights: Record<string, number>;
+  skipValidation: boolean;
+  hostMode: HostMode;
+  customBaseUrl: string;
+  executionMode: ExecutionMode;
 }
+
+const defaultConfig: RunnerConfig = {
+  concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {},
+  skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
+};
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -41,23 +48,37 @@ function replaceHost(testUrl: string, baseUrl: string): string {
 }
 
 export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
-  const saved = useMemo(() => loadRunnerConfig(), []);
-  const [concurrency, setConcurrency] = useState(saved.concurrency);
-  const [totalTransactions, setTotalTransactions] = useState(saved.totalTransactions);
-
-  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(() => new Set(saved.selectedScenarios));
-  const [weights, setWeights] = useState<Record<string, number>>(saved.weights);
-  const [skipValidation, setSkipValidation] = useState(saved.skipValidation);
-  const [hostMode, setHostMode] = useState<HostMode>(saved.hostMode || 'settings');
-  const [customBaseUrl, setCustomBaseUrl] = useState(saved.customBaseUrl || '');
-  const [executionMode, setExecutionMode] = useState<ExecutionMode>(saved.executionMode || 'batch');
+  const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
+  const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
+  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
+  const [weights, setWeights] = useState<Record<string, number>>({});
+  const [skipValidation, setSkipValidation] = useState(false);
+  const [hostMode, setHostMode] = useState<HostMode>('settings');
+  const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
 
   const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
-  // Persist config to localStorage
+  // Load runner config on mount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    loadRunnerConfigAsync().then((raw) => {
+      if (!raw) return;
+      const saved = raw as RunnerConfig;
+      setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
+      setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
+      setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
+      setWeights(saved.weights ?? {});
+      setSkipValidation(saved.skipValidation ?? false);
+      setHostMode(saved.hostMode ?? 'settings');
+      setCustomBaseUrl(saved.customBaseUrl ?? '');
+      setExecutionMode(saved.executionMode ?? 'batch');
+    });
+  }, []);
+
+  // Persist config
+  useEffect(() => {
+    void saveRunnerConfig({
       concurrency,
       totalTransactions,
       selectedScenarios: Array.from(selectedScenarios),
@@ -66,13 +87,13 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       hostMode,
       customBaseUrl,
       executionMode,
-    }));
+    });
   }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
   // Collect all tests from selected scenarios, resolving auth chain:
   // Priority: Test → Scenario → Feature → Global Profile (highest to lowest)
   const selectedTests: Scenario[] = useMemo(() => {
-    const resolveAuth = (test: Scenario, sc: { auth?: { type: string } & Record<string, unknown> }, fg: FeatureGroup): AuthConfig => {
+    const resolveAuth = (test: Scenario, sc: { auth?: AuthConfig }, fg: FeatureGroup): AuthConfig => {
       if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
       const scAuth = sc.auth;
       if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') return scAuth as AuthConfig;
@@ -419,8 +440,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {pendingRun && (
             <div className="storage-quota-banner">
               <div className="storage-quota-msg">
-                <strong>Storage full</strong> — the test completed successfully but could not be saved because localStorage is out of space.
-                Would you like to remove old runs to make room?
+                <strong>Storage full</strong> — the test completed successfully but could not be saved due to a storage error.
+                Would you like to remove old runs and retry?
               </div>
               <div className="storage-quota-actions">
                 <button className="btn btn-primary btn-sm" onClick={confirmSavePendingRun}>Yes, remove old runs &amp; save</button>
