@@ -227,6 +227,9 @@ export default function App() {
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               projectName={selectedProject?.name}
+              projectId={selectedProject?.id}
+              envId={selectedEnvId}
+              svcId={selectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
               globalAuthProfiles={[...appGlobalAuthProfiles, ...globalAuthProfiles]}
             />
