@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import type { Environment, Microservice, FeatureGroup, TestRun, GlobalAuthProfile } from '../types';
+import { isTauri } from '../utils/platform';
+import { openJsonFile } from '../utils/fileSaver';
 
 type ItemAction = 'add' | 'skip' | 'overwrite' | 'keepBoth';
 
@@ -97,36 +99,43 @@ export default function ImportCenter({ environments, microservices, featureGroup
     environments: true, microservices: true, globalAuth: true, features: true, runs: true,
   });
 
+  const processJson = useCallback((jsonText: string, name: string) => {
+    setFileName(name);
+    setParseError(null);
+    setImportData(null);
+    try {
+      const data = JSON.parse(jsonText) as ImportData;
+      const hasData = data.environments || data.microservices || data.globalAuthProfiles || data.featureGroups || data.testRuns;
+      if (!hasData) {
+        setParseError('File does not contain any recognizable data.');
+        return;
+      }
+      setImportData(data);
+      setEnvItems(resolveItems(data.environments || [], environments, (e) => e.name));
+      setSvcItems(resolveItems(data.microservices || [], microservices, (s) => s.name));
+      setProfileItems(resolveItems(data.globalAuthProfiles || [], globalAuthProfiles, (p) => p.name));
+      setFgItems(resolveItems(data.featureGroups || [], featureGroups, (fg) => fg.name));
+      setRunItems(resolveItems(data.testRuns || [], testRuns, (r) => new Date(r.timestamp).toLocaleString()));
+      setExpandedItems(new Set());
+    } catch {
+      setParseError('Invalid JSON file. Please select a valid export file.');
+    }
+  }, [environments, microservices, globalAuthProfiles, featureGroups, testRuns]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFileName(file.name);
-    setParseError(null);
-    setImportData(null);
-
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result as string) as ImportData;
-        const hasData = data.environments || data.microservices || data.globalAuthProfiles || data.featureGroups || data.testRuns;
-        if (!hasData) {
-          setParseError('File does not contain any recognizable data.');
-          return;
-        }
-        setImportData(data);
-        setEnvItems(resolveItems(data.environments || [], environments, (e) => e.name));
-        setSvcItems(resolveItems(data.microservices || [], microservices, (s) => s.name));
-        setProfileItems(resolveItems(data.globalAuthProfiles || [], globalAuthProfiles, (p) => p.name));
-        setFgItems(resolveItems(data.featureGroups || [], featureGroups, (fg) => fg.name));
-        setRunItems(resolveItems(data.testRuns || [], testRuns, (r) => new Date(r.timestamp).toLocaleString()));
-        setExpandedItems(new Set());
-      } catch {
-        setParseError('Invalid JSON file. Please select a valid export file.');
-      }
-    };
+    reader.onload = () => processJson(reader.result as string, file.name);
     reader.onerror = () => setParseError('Failed to read file.');
     reader.readAsText(file);
   };
+
+  const handleTauriOpen = useCallback(async () => {
+    const result = await openJsonFile();
+    if (!result) return;
+    processJson(result.content, result.name);
+  }, [processJson]);
 
   const updateItem = useCallback(<T,>(
     setter: React.Dispatch<React.SetStateAction<ResolvedItem<T>[]>>,
@@ -245,9 +254,9 @@ export default function ImportCenter({ environments, microservices, featureGroup
               Select a previously exported JSON file. You can then choose exactly which items to import and how to handle conflicts.
             </p>
             <div className="import-file-row">
-              <button className="btn btn-sm btn-primary" onClick={() => fileRef.current?.click()}>Choose File</button>
+              <button className="btn btn-sm btn-primary" onClick={isTauri() ? handleTauriOpen : () => fileRef.current?.click()}>Choose File</button>
               <span className="import-file-name">{fileName || 'No file selected'}</span>
-              <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileSelect} />
+              {!isTauri() && <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileSelect} />}
             </div>
             {parseError && <div className="import-error">{parseError}</div>}
           </div>
