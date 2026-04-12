@@ -1,63 +1,10 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ValidationMode, KeyValue, ExpectedField, GlobalAuthProfile, Project } from '../types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
-import { parseCurl } from '../utils/curlParser';
-import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
+import { acquireOAuth2Token } from '../engine/executor';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
-import JsonPathBuilder from '../components/JsonPathBuilder';
-
-const emptyTest = (): Scenario => ({
-  id: uuidv4(),
-  name: '',
-  url: '',
-  method: 'GET',
-  headers: [{ key: '', value: '' }],
-  body: '',
-  auth: { type: 'inherit' },
-  validation: { mode: 'none', expectedFields: [] },
-});
-
-type BuilderTab = 'params' | 'body' | 'auth' | 'headers' | 'validation';
-type InputMode = 'builder' | 'curl' | 'curl-export';
-
-// Parse query params from a URL string
-function parseQueryParams(url: string): KeyValue[] {
-  try {
-    const u = new URL(url);
-    const params: KeyValue[] = [];
-    u.searchParams.forEach((value, key) => {
-      params.push({ key, value });
-    });
-    if (params.length === 0) params.push({ key: '', value: '' });
-    return params;
-  } catch {
-    return [{ key: '', value: '' }];
-  }
-}
-
-// Rebuild URL from base + query params
-function rebuildUrl(url: string, params: KeyValue[]): string {
-  try {
-    const u = new URL(url);
-    u.search = '';
-    const nonEmpty = params.filter((p) => p.key.trim());
-    nonEmpty.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
-    return u.toString();
-  } catch {
-    return url;
-  }
-}
-
-// Get base URL without query string
-function getBaseUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch {
-    return url;
-  }
-}
+import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -101,13 +48,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new' } | null>(null);
   const [draft, setDraft] = useState<Scenario>(emptyTest());
 
-  // Builder state
-  const [inputMode, setInputMode] = useState<InputMode>('builder');
-  const [activeTab, setActiveTab] = useState<BuilderTab>('params');
-  const [curlText, setCurlText] = useState('');
-  const [generatedCurl, setGeneratedCurl] = useState('');
-  const [curlGenerating, setCurlGenerating] = useState(false);
-  const [queryParams, setQueryParams] = useState<KeyValue[]>([{ key: '', value: '' }]);
+  // Test editor modal (controlled by parent; UI lives in TestEditorModal)
+  const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
+  const [activeTab, setActiveTab] = useState<TestEditorTab>('params');
 
   // Move dialog state
   const [moveDialog, setMoveDialog] = useState<{
@@ -128,11 +71,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const dragHandleActive = useRef(false);
 
   // load/save is handled by App.tsx to avoid overwriting unfiltered groups
-
-  // Sync query params when URL changes externally (e.g., from cURL parse)
-  const syncParamsFromUrl = useCallback((url: string) => {
-    setQueryParams(parseQueryParams(url));
-  }, []);
 
   // Feature Group CRUD
   const addFeatureGroup = () => {
@@ -244,8 +182,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setEditingTest({ featureId, scenarioId, testId: 'new' });
     setInputMode('builder');
     setActiveTab('params');
-    setCurlText('');
-    setQueryParams([{ key: '', value: '' }]);
     setAuthVerifyResult(null);
   };
 
@@ -258,8 +194,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setEditingTest({ featureId, scenarioId, testId: test.id });
     setInputMode('builder');
     setActiveTab('params');
-    setCurlText('');
-    syncParamsFromUrl(test.url);
   };
 
   const saveTest = () => {
@@ -325,34 +259,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setCopyingTest(null);
   };
 
-  // Query param helpers
-  const updateQueryParam = (index: number, field: 'key' | 'value', val: string) => {
-    const next = [...queryParams];
-    next[index] = { ...next[index], [field]: val };
-    setQueryParams(next);
-    if (draft.url) {
-      setDraft((prev) => ({ ...prev, url: rebuildUrl(prev.url, next) }));
-    }
-  };
-  const addQueryParam = () => setQueryParams([...queryParams, { key: '', value: '' }]);
-  const removeQueryParam = (index: number) => {
-    const next = queryParams.filter((_, i) => i !== index);
-    if (next.length === 0) next.push({ key: '', value: '' });
-    setQueryParams(next);
-    if (draft.url) {
-      setDraft((prev) => ({ ...prev, url: rebuildUrl(prev.url, next) }));
-    }
-  };
-
-  // Header helpers
-  const updateHeader = (index: number, field: 'key' | 'value', val: string) => {
-    const headers = [...draft.headers];
-    headers[index] = { ...headers[index], [field]: val };
-    setDraft({ ...draft, headers });
-  };
-  const addHeader = () => setDraft({ ...draft, headers: [...draft.headers, { key: '', value: '' }] });
-  const removeHeader = (index: number) => setDraft({ ...draft, headers: draft.headers.filter((_, i) => i !== index) });
-
   // Validation field helpers (kept for future use in manual field editing)
   const _updateExpectedField = (index: number, field: keyof ExpectedField, val: string) => {
     const fields = [...(draft.validation.expectedFields || [])];
@@ -380,11 +286,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     });
   };
   void _removeExpectedField;
-
-  const [fetchingResponse, setFetchingResponse] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [fetchHostOverride, setFetchHostOverride] = useState('');
-  const [fetchHostEnabled, setFetchHostEnabled] = useState(false);
 
   const [authVerifying, setAuthVerifying] = useState(false);
   const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
@@ -436,249 +337,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       setAuthVerifying(false);
     }
   }, []);
-
-  // Resolve effective auth with priority chain: Test → Scenario → Feature
-  // Auth resolution chain: Test → Scenario → Feature → Global Profile
-  const resolveEffectiveAuth = useCallback((): { auth: AuthConfig; source: string } => {
-    if (draft.auth.type !== 'inherit' && draft.auth.type !== 'none') {
-      return { auth: draft.auth, source: 'test' };
-    }
-    if (editingTest) {
-      const fg = featureGroups.find((f) => f.id === editingTest.featureId);
-      const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
-      if (draft.auth.type === 'inherit' || draft.auth.type === 'none') {
-        if (sc?.auth && sc.auth.type !== 'none' && sc.auth.type !== 'inherit') {
-          return { auth: sc.auth, source: 'scenario' };
-        }
-        if (fg?.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit') {
-          return { auth: fg.auth, source: 'feature' };
-        }
-        // Feature inherits from global profile
-        if (fg?.auth?.type === 'inherit' && fg.globalAuthProfileId) {
-          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-          if (profile && profile.auth.type !== 'none') {
-            return { auth: profile.auth, source: `global:${profile.name}` };
-          }
-        }
-        // Feature has no auth but has a global profile linked
-        if ((!fg?.auth || fg.auth.type === 'none') && fg?.globalAuthProfileId) {
-          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-          if (profile && profile.auth.type !== 'none') {
-            return { auth: profile.auth, source: `global:${profile.name}` };
-          }
-        }
-      }
-    }
-    return { auth: { type: 'none' }, source: 'none' };
-  }, [draft.auth, editingTest, featureGroups, allAuthProfiles]);
-
-  const handleFetchSampleResponse = useCallback(async () => {
-    if (!draft.url.trim()) {
-      setFetchError('URL is required');
-      return;
-    }
-    setFetchingResponse(true);
-    setFetchError(null);
-    try {
-      const { auth: effectiveAuth, source: authSource } = resolveEffectiveAuth();
-
-      // Build headers — skip manual Authorization when auth is configured (same as executor)
-      const reqHeaders: Record<string, string> = {};
-      for (const h of draft.headers) {
-        if (!h.key.trim()) continue;
-        if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
-        reqHeaders[h.key.trim()] = h.value;
-      }
-      if (draft.body && !reqHeaders['Content-Type']) {
-        reqHeaders['Content-Type'] = 'application/json';
-      }
-
-      if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
-        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-        reqHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
-        const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
-        reqHeaders['Authorization'] = `${prefix} ${effectiveAuth.token}`;
-      } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        if (effectiveAuth.apiKeyIn === 'header') {
-          reqHeaders[effectiveAuth.apiKeyName] = effectiveAuth.apiKeyValue;
-        }
-      } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
-        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-        reqHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (effectiveAuth.type === 'oauth2') {
-        if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
-          const missing = [
-            !effectiveAuth.tokenUrl && 'tokenUrl',
-            !effectiveAuth.clientId && 'clientId',
-            !effectiveAuth.clientSecret && 'clientSecret',
-          ].filter(Boolean).join(', ');
-          setFetchError(`OAuth2 missing: ${missing} (auth source: ${authSource}). Configure OAuth2 credentials in the scenario auth panel.`);
-          setFetchingResponse(false);
-          return;
-        }
-        const token = await acquireOAuth2Token(effectiveAuth);
-        reqHeaders['Authorization'] = `Bearer ${token}`;
-      }
-
-      let fetchUrl = draft.url;
-      if (fetchHostEnabled && fetchHostOverride.trim()) {
-        try {
-          const orig = new URL(fetchUrl);
-          const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : fetchHostOverride.trim() + '/');
-          orig.protocol = base.protocol;
-          orig.host = base.host;
-          fetchUrl = orig.toString();
-        } catch { /* keep original */ }
-      }
-      if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        try {
-          const u = new URL(fetchUrl);
-          u.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
-          fetchUrl = u.toString();
-        } catch { /* keep original */ }
-      }
-
-      const reqBody = (draft.body && draft.method !== 'GET') ? draft.body : undefined;
-      const result = await proxyFetch(fetchUrl, draft.method, reqHeaders, reqBody);
-      if (result.error) {
-        setFetchError(result.error);
-      } else if (result.status >= 400) {
-        setFetchError(`HTTP ${result.status}: ${result.statusText}`);
-        if (result.body) {
-          let pretty: string;
-          try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
-          setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: pretty } }));
-        }
-      } else {
-        let pretty: string;
-        try {
-          pretty = JSON.stringify(JSON.parse(result.body), null, 2);
-        } catch {
-          pretty = result.body;
-        }
-        setDraft((prev) => ({
-          ...prev,
-          validation: {
-            ...prev.validation,
-            sampleJson: pretty,
-            expectedFields: [],
-            excludedPaths: [],
-          },
-        }));
-        setFetchError(null);
-      }
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setFetchingResponse(false);
-    }
-  }, [draft, editingTest, featureGroups, resolveEffectiveAuth]);
-
-  // Handle URL bar change — update base URL, keep params
-  const handleBaseUrlChange = (newBaseUrl: string) => {
-    const nonEmptyParams = queryParams.filter((p) => p.key.trim());
-    if (nonEmptyParams.length > 0) {
-      try {
-        const u = new URL(newBaseUrl);
-        nonEmptyParams.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
-        setDraft({ ...draft, url: u.toString() });
-      } catch {
-        setDraft({ ...draft, url: newBaseUrl });
-      }
-    } else {
-      setDraft({ ...draft, url: newBaseUrl });
-    }
-  };
-
-  // Handle cURL import
-  const handleCurlImport = () => {
-    if (!curlText.trim()) return;
-    const parsed = parseCurl(curlText);
-    setDraft((prev) => ({ ...prev, ...parsed, validation: prev.validation }));
-    syncParamsFromUrl(parsed.url || '');
-    setInputMode('builder');
-    setCurlText('');
-  };
-
-  // Generate cURL command from the current draft configuration (async to acquire real token)
-  const generateCurl = useCallback(async (): Promise<string> => {
-    const parts: string[] = ['curl'];
-
-    if (draft.method !== 'GET') {
-      parts.push(`-X ${draft.method}`);
-    }
-
-    parts.push(`'${draft.url}'`);
-
-    const headerEntries: { key: string; value: string }[] = [];
-    const { auth: effectiveAuth } = resolveEffectiveAuth();
-
-    for (const h of draft.headers) {
-      if (!h.key.trim()) continue;
-      if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
-      headerEntries.push({ key: h.key.trim(), value: h.value });
-    }
-
-    if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
-      const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-      headerEntries.push({ key: 'Authorization', value: `Basic ${encoded}` });
-    } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
-      const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
-      headerEntries.push({ key: 'Authorization', value: `${prefix} ${effectiveAuth.token}` });
-    } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-      if (effectiveAuth.apiKeyIn === 'query') {
-        try {
-          const url = new URL(draft.url);
-          url.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
-          parts[parts.indexOf(`'${draft.url}'`)] = `'${url.toString()}'`;
-        } catch { /* keep original URL */ }
-      } else {
-        headerEntries.push({ key: effectiveAuth.apiKeyName, value: effectiveAuth.apiKeyValue });
-      }
-    } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
-      parts.push('--digest');
-      parts.push(`-u '${effectiveAuth.username}:${effectiveAuth.password ?? ''}'`);
-    } else if (effectiveAuth.type === 'oauth2') {
-      try {
-        const token = await acquireOAuth2Token(effectiveAuth);
-        headerEntries.push({ key: 'Authorization', value: `Bearer ${token}` });
-      } catch {
-        headerEntries.push({ key: 'Authorization', value: 'Bearer <TOKEN_ERROR: check OAuth2 config>' });
-      }
-    }
-
-    if (draft.body && !headerEntries.some((h) => h.key.toLowerCase() === 'content-type')) {
-      headerEntries.push({ key: 'Content-Type', value: 'application/json' });
-    }
-
-    for (const h of headerEntries) {
-      parts.push(`\\\n  -H '${h.key}: ${h.value}'`);
-    }
-
-    if (draft.body) {
-      const escaped = draft.body.replace(/'/g, "'\\''");
-      parts.push(`\\\n  -d '${escaped}'`);
-    }
-
-    return parts.join(' ');
-  }, [draft, resolveEffectiveAuth]);
-
-  const triggerCurlGeneration = useCallback(async () => {
-    if (!draft.url.trim()) {
-      setGeneratedCurl('');
-      return;
-    }
-    setCurlGenerating(true);
-    try {
-      const cmd = await generateCurl();
-      setGeneratedCurl(cmd);
-    } catch (err) {
-      setGeneratedCurl(`# Error generating cURL: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setCurlGenerating(false);
-    }
-  }, [draft, generateCurl]);
 
   // ── Export / Import helpers ──
   const downloadJson = (data: unknown, filename: string) => saveJsonFile(data, filename);
@@ -812,12 +470,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setExpandedScenarios((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
-  // Counts for tab badges
-  const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim()).length, [queryParams]);
-  const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
   const totalTests = featureGroups.reduce((sum, fg) => sum + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);
-
-  const baseUrl = useMemo(() => draft.url ? getBaseUrl(draft.url) : '', [draft.url]);
 
   // ── Drag-and-drop handlers ──
   const moveScenario = useCallback((scenarioId: string, fromFgId: string, toFgId: string, beforeScId?: string) => {
@@ -1592,458 +1245,24 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         </div>
       )}
 
-      {/* ===== Full-screen Test Editor Modal ===== */}
       {editingTest && (
-        <div className="modal-overlay">
-          <div className="modal insomnia-modal">
-            {/* Top bar: mode toggle + name */}
-            <div className="insomnia-top-bar">
-              <h3>{editingTest.testId === 'new' ? 'New Test' : 'Edit Test'}</h3>
-              <div className="mode-toggle">
-                <button className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => setInputMode('builder')}>Builder</button>
-                <button className={`mode-btn ${inputMode === 'curl' ? 'active' : ''}`} onClick={() => setInputMode('curl')}>cURL Import</button>
-                <button className={`mode-btn ${inputMode === 'curl-export' ? 'active' : ''}`} onClick={() => { setInputMode('curl-export'); triggerCurlGeneration(); }}>cURL Export</button>
-                <button className="mode-btn" onClick={() => pickJsonFile((raw) => {
-                  const data = unwrapImport(raw);
-                  const t = data as Scenario;
-                  if (!t.name || !t.url || !t.method) { alert('Invalid file: expected a test with name, url, and method.'); return; }
-                  setDraft({ ...t, id: draft.id });
-                  syncParamsFromUrl(t.url || '');
-                  setInputMode('builder');
-                })}>Import</button>
-                <button className="mode-btn" onClick={() => exportTest(draft)}>Export</button>
-              </div>
-              <div className="insomnia-top-actions">
-                <button className="btn" onClick={() => setEditingTest(null)}>Cancel</button>
-                <button className="btn btn-primary" onClick={saveTest} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
-              </div>
-            </div>
-
-            {/* cURL mode */}
-            {inputMode === 'curl' && (
-              <div className="curl-mode-panel">
-                <label>Paste your cURL command</label>
-                <textarea
-                  rows={10}
-                  autoFocus
-                  value={curlText}
-                  onChange={(e) => setCurlText(e.target.value)}
-                  placeholder={`curl -X POST https://api.example.com/data \\
-  -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer token123' \\
-  -d '{"key": "value"}'`}
-                />
-                <div className="curl-actions">
-                  <button className="btn btn-primary" disabled={!curlText.trim()} onClick={handleCurlImport}>
-                    Import &amp; Switch to Builder
-                  </button>
-                </div>
-                {draft.url && (
-                  <div className="curl-preview">
-                    <strong>Current test:</strong> {draft.method} {draft.url}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* cURL export mode */}
-            {inputMode === 'curl-export' && (
-              <div className="curl-mode-panel">
-                <label>Generated cURL command</label>
-                {draft.url.trim() ? (
-                  <>
-                    <textarea
-                      rows={12}
-                      readOnly
-                      value={curlGenerating ? 'Generating cURL (acquiring token)...' : generatedCurl}
-                      className="curl-export-textarea"
-                      onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                    />
-                    <div className="curl-actions">
-                      <button className="btn btn-primary" disabled={curlGenerating || !generatedCurl} onClick={() => {
-                        navigator.clipboard.writeText(generatedCurl);
-                      }}>Copy to Clipboard</button>
-                      <button className="btn" disabled={curlGenerating} onClick={triggerCurlGeneration}>
-                        {curlGenerating ? 'Generating...' : 'Refresh'}
-                      </button>
-                    </div>
-                    {resolveEffectiveAuth().auth.type === 'oauth2' && !curlGenerating && (
-                      <div className="curl-preview">
-                        <strong>Note:</strong> The OAuth2 token above is a real token acquired from the token endpoint. It may expire — click <strong>Refresh</strong> to get a new one.
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="empty-state">Configure the test URL in the Builder first to generate a cURL command.</div>
-                )}
-              </div>
-            )}
-
-            {/* Builder mode */}
-            {inputMode === 'builder' && (
-              <div className="builder-panel">
-                {/* Name */}
-                <div className="form-row">
-                  <label>Name</label>
-                  <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
-                </div>
-
-                {/* URL bar */}
-                <div className="url-bar">
-                  <select
-                    className={`method-select method-color-${draft.method.toLowerCase()}`}
-                    value={draft.method}
-                    onChange={(e) => setDraft({ ...draft, method: e.target.value as Scenario['method'] })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                  <input
-                    className="url-input"
-                    value={baseUrl}
-                    onChange={(e) => handleBaseUrlChange(e.target.value)}
-                    placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
-                  />
-                  {resolvedBaseUrl && !draft.url && (
-                    <button className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
-                  )}
-                </div>
-
-                {/* URL preview when params exist */}
-                {paramCount > 0 && draft.url && (
-                  <div className="url-preview">
-                    <span className="url-preview-label">URL PREVIEW</span>
-                    <code>{draft.url}</code>
-                  </div>
-                )}
-
-                {/* Tabs */}
-                <div className="builder-tabs">
-                  <button className={`builder-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => setActiveTab('params')}>
-                    Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
-                  </button>
-                  {draft.method !== 'GET' && (
-                    <button className={`builder-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => setActiveTab('body')}>
-                      Body {draft.body ? <span className="tab-badge-dot" /> : null}
-                    </button>
-                  )}
-                  <button className={`builder-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => setActiveTab('auth')}>
-                    Auth {draft.auth.type !== 'none' && <span className="tab-badge-dot" />}
-                  </button>
-                  <button className={`builder-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => setActiveTab('headers')}>
-                    Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
-                  </button>
-                  <button className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => setActiveTab('validation')}>
-                    Validation {draft.validation.mode !== 'none' && <span className="tab-badge-dot" />}
-                  </button>
-                </div>
-
-                {/* Tab content */}
-                <div className="builder-tab-content">
-                  {/* Params tab */}
-                  {activeTab === 'params' && (
-                    <div className="kv-section">
-                      <div className="kv-header">
-                        <span>QUERY PARAMETERS</span>
-                      </div>
-                      {queryParams.map((p, i) => (
-                        <div key={i} className="kv-row">
-                          <input value={p.key} onChange={(e) => updateQueryParam(i, 'key', e.target.value)} placeholder="Parameter name" />
-                          <input value={p.value} onChange={(e) => updateQueryParam(i, 'value', e.target.value)} placeholder="Value" />
-                          <button className="btn btn-sm btn-danger" onClick={() => removeQueryParam(i)}>×</button>
-                        </div>
-                      ))}
-                      <button className="btn btn-sm" onClick={addQueryParam}>+ Add</button>
-                    </div>
-                  )}
-
-                  {/* Body tab */}
-                  {activeTab === 'body' && draft.method !== 'GET' && (
-                    <div>
-                      <textarea
-                        className="body-editor"
-                        rows={14}
-                        value={draft.body}
-                        onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                        placeholder='{"key": "value"}'
-                      />
-                    </div>
-                  )}
-
-                  {/* Auth tab */}
-                  {activeTab === 'auth' && (
-                    <div>
-                      <div className="auth-type-select">
-                        <label>Type</label>
-                        <select
-                          value={draft.auth.type}
-                          onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, type: e.target.value as AuthType } })}
-                        >
-                          <option value="inherit">Inherit from Scenario</option>
-                          <option value="none">No Auth</option>
-                          <option value="basic">Basic Auth</option>
-                          <option value="bearer">Bearer Token</option>
-                          <option value="apikey">API Key</option>
-                          <option value="digest">Digest Auth</option>
-                          <option value="oauth2">OAuth2 Client Credentials</option>
-                        </select>
-                      </div>
-                      {draft.auth.type === 'inherit' && (() => {
-                        const fg = editingTest ? featureGroups.find((f) => f.id === editingTest.featureId) : undefined;
-                        const sc = fg?.scenarios.find((s) => s.id === editingTest?.scenarioId);
-                        const scAuth = sc?.auth;
-                        const fgAuth = fg?.auth;
-                        const authLabel: Record<string, string> = {
-                          basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
-                          digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
-                        };
-                        let hint: string;
-                        if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') {
-                          hint = `Will use scenario-level ${authLabel[scAuth.type] ?? scAuth.type}`;
-                        } else if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
-                          hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
-                          if (scAuth?.type === 'inherit') hint += ' (scenario inherits from feature)';
-                        } else if (fgAuth?.type === 'inherit' && fg?.globalAuthProfileId) {
-                          const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-                          hint = profile
-                            ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
-                            : 'Feature references a missing global profile.';
-                          if (scAuth?.type === 'inherit') hint += ' (via scenario → feature → global)';
-                        } else {
-                          hint = 'No auth configured at scenario or feature level.';
-                        }
-                        return <div className="auth-inherit-hint">{hint}</div>;
-                      })()}
-                      {draft.auth.type === 'basic' && (
-                        <div className="form-row two-col">
-                          <div>
-                            <label>Username</label>
-                            <input value={draft.auth.username || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, username: e.target.value } })} />
-                          </div>
-                          <div>
-                            <label>Password</label>
-                            <input type="password" value={draft.auth.password || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, password: e.target.value } })} />
-                          </div>
-                        </div>
-                      )}
-                      {draft.auth.type === 'bearer' && (
-                        <div className="form-row two-col">
-                          <div>
-                            <label>Token</label>
-                            <input value={draft.auth.token || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, token: e.target.value } })} placeholder="eyJhbGciOi..." />
-                          </div>
-                          <div>
-                            <label>Prefix</label>
-                            <input value={draft.auth.prefix ?? 'Bearer'} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, prefix: e.target.value } })} placeholder="Bearer" />
-                          </div>
-                        </div>
-                      )}
-                      {draft.auth.type === 'apikey' && (
-                        <>
-                          <div className="form-row two-col">
-                            <div>
-                              <label>Key Name</label>
-                              <input value={draft.auth.apiKeyName || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, apiKeyName: e.target.value } })} placeholder="X-API-Key" />
-                            </div>
-                            <div>
-                              <label>Key Value</label>
-                              <input value={draft.auth.apiKeyValue || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, apiKeyValue: e.target.value } })} placeholder="your-api-key" />
-                            </div>
-                          </div>
-                          <div className="form-row">
-                            <label>Add to</label>
-                            <div className="radio-group">
-                              <label className="radio-label">
-                                <input type="radio" checked={draft.auth.apiKeyIn !== 'query'} onChange={() => setDraft({ ...draft, auth: { ...draft.auth, apiKeyIn: 'header' } })} />
-                                Header
-                              </label>
-                              <label className="radio-label">
-                                <input type="radio" checked={draft.auth.apiKeyIn === 'query'} onChange={() => setDraft({ ...draft, auth: { ...draft.auth, apiKeyIn: 'query' } })} />
-                                Query Parameter
-                              </label>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      {draft.auth.type === 'digest' && (
-                        <div className="form-row two-col">
-                          <div>
-                            <label>Username</label>
-                            <input value={draft.auth.username || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, username: e.target.value } })} />
-                          </div>
-                          <div>
-                            <label>Password</label>
-                            <input type="password" value={draft.auth.password || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, password: e.target.value } })} />
-                          </div>
-                        </div>
-                      )}
-                      {draft.auth.type === 'oauth2' && (
-                        <>
-                          <div className="form-row">
-                            <label>Token URL</label>
-                            <input value={draft.auth.tokenUrl || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, tokenUrl: e.target.value } })} placeholder="https://auth.example.com/oauth/token" />
-                          </div>
-                          <div className="form-row two-col">
-                            <div>
-                              <label>Client ID</label>
-                              <input value={draft.auth.clientId || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, clientId: e.target.value } })} />
-                            </div>
-                            <div>
-                              <label>Client Secret</label>
-                              <div className="secret-input-wrap">
-                                <input type={showSecret ? 'text' : 'password'} value={draft.auth.clientSecret || ''} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth, clientSecret: e.target.value } })} />
-                                <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      {draft.auth.type !== 'none' && draft.auth.type !== 'inherit' && (
-                        <div className="auth-verify-section">
-                          <button
-                            className="btn btn-sm btn-verify"
-                            onClick={() => { setAuthVerifyResult(null); verifyAuth(draft.auth); }}
-                            disabled={authVerifying}
-                          >
-                            {authVerifying ? 'Verifying...' : 'Verify Auth'}
-                          </button>
-                          {authVerifyResult && (
-                            <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                              <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                              <div className="auth-verify-body">
-                                <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                                {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {draft.auth.type === 'inherit' && (() => {
-                        const { auth: resolved, source } = resolveEffectiveAuth();
-                        if (resolved.type === 'none') return null;
-                        return (
-                          <div className="auth-verify-section">
-                            <button
-                              className="btn btn-sm btn-verify"
-                              onClick={() => { setAuthVerifyResult(null); verifyAuth(resolved); }}
-                              disabled={authVerifying}
-                            >
-                              {authVerifying ? 'Verifying...' : `Verify Inherited Auth (${source})`}
-                            </button>
-                            {authVerifyResult && (
-                              <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                                <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                                <div className="auth-verify-body">
-                                  <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                                  {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Headers tab */}
-                  {activeTab === 'headers' && (
-                    <div className="kv-section">
-                      <div className="kv-header">
-                        <span>REQUEST HEADERS</span>
-                      </div>
-                      {draft.headers.map((h: KeyValue, i: number) => (
-                        <div key={i} className="kv-row">
-                          <input value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} placeholder="Header name" />
-                          <input value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} placeholder="Header value" />
-                          <button className="btn btn-sm btn-danger" onClick={() => removeHeader(i)}>×</button>
-                        </div>
-                      ))}
-                      <button className="btn btn-sm" onClick={addHeader}>+ Add</button>
-                    </div>
-                  )}
-
-                  {/* Validation tab */}
-                  {activeTab === 'validation' && (
-                    <div>
-                      <div className="radio-group">
-                        {(['none', 'full', 'selective'] as ValidationMode[]).map((m) => (
-                          <label key={m} className="radio-label">
-                            <input type="radio" name="validationMode" checked={draft.validation.mode === m} onChange={() => setDraft({ ...draft, validation: { ...draft.validation, mode: m } })} />
-                            {m === 'none' ? 'No Validation' : m === 'full' ? 'Full JSON Match' : 'Selective Fields'}
-                          </label>
-                        ))}
-                      </div>
-                      {draft.validation.mode === 'full' && (
-                        <div className="form-row">
-                          <label>Expected JSON Response</label>
-                          <textarea
-                            rows={10}
-                            value={draft.validation.expectedJson || ''}
-                            onChange={(e) => setDraft({ ...draft, validation: { ...draft.validation, expectedJson: e.target.value } })}
-                            placeholder='Paste the complete expected JSON response here'
-                          />
-                        </div>
-                      )}
-                      {draft.validation.mode === 'selective' && (
-                        <>
-                          <div className="validation-options">
-                            <label className="checkbox-label">
-                              <input
-                                type="checkbox"
-                                checked={draft.validation.unorderedArrays || false}
-                                onChange={(e) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, unorderedArrays: e.target.checked } }))}
-                              />
-                              Unordered array matching
-                              <span className="option-hint">— ignore array item positions, match by value instead</span>
-                            </label>
-                          </div>
-                          <div className="fetch-host-override-row">
-                            <button
-                              className="btn btn-sm btn-accent"
-                              onClick={handleFetchSampleResponse}
-                              disabled={fetchingResponse}
-                            >
-                              {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
-                            </button>
-                            <label className="checkbox-label fetch-host-toggle">
-                              <input
-                                type="checkbox"
-                                checked={fetchHostEnabled}
-                                onChange={(e) => setFetchHostEnabled(e.target.checked)}
-                              />
-                              Host Override
-                            </label>
-                            <input
-                              value={fetchHostOverride}
-                              onChange={(e) => setFetchHostOverride(e.target.value)}
-                              placeholder={resolvedBaseUrl || 'Enter base URL'}
-                              disabled={!fetchHostEnabled}
-                            />
-                            {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
-                              <button className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
-                            )}
-                          </div>
-                          {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
-                          <JsonPathBuilder
-                            sampleJson={draft.validation.sampleJson || ''}
-                            onSampleJsonChange={(json) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, sampleJson: json } }))}
-                            selectiveMode={draft.validation.selectiveMode || 'include'}
-                            expectedFields={draft.validation.expectedFields || []}
-                            excludedPaths={draft.validation.excludedPaths || []}
-                            onUpdate={(patch) => setDraft((prev) => ({ ...prev, validation: { ...prev.validation, ...patch } }))}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <TestEditorModal
+          key={`${editingTest.featureId}-${editingTest.scenarioId}-${editingTest.testId}-${draft.id}`}
+          draft={draft}
+          onDraftChange={(d) => setDraft(d)}
+          onSave={saveTest}
+          onCancel={() => setEditingTest(null)}
+          isNew={editingTest.testId === 'new'}
+          inputMode={inputMode}
+          onInputModeChange={setInputMode}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+          resolvedBaseUrl={resolvedBaseUrl ?? ''}
+          allAuthProfiles={allAuthProfiles}
+          featureGroups={featureGroups}
+          editingTest={{ fgId: editingTest.featureId, scenarioId: editingTest.scenarioId, testId: editingTest.testId }}
+          onExportTest={exportTest}
+        />
       )}
 
       {moveDialog && (
