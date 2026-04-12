@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { isTauri } from './utils/platform';
 import { v4 as uuidv4 } from 'uuid';
 import type { FeatureGroup, Environment, Microservice, GlobalAuthProfile, AuthConfig, AuthType, TestRun } from './types';
 import { acquireOAuth2Token } from './engine/executor';
@@ -378,7 +379,9 @@ export default function App() {
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <header ref={headerRef} className="app-header">
-        <h1>🔥 RedfireForge</h1>
+        <h1>🔥 RedfireForge {!isTauri() && <span style={{ fontSize: '0.65em', fontWeight: 400, opacity: 0.75, marginLeft: '0.5em' }}>API Performance Studio</span>}
+          <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
+        </h1>
         <nav className="tab-nav">
           <button className={`tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>
             Feature Groups
