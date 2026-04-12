@@ -1057,14 +1057,22 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                         {scAuth.type === 'inherit' && (() => {
                           const fgAuth = fg.auth;
                           if (!fgAuth || fgAuth.type === 'none') return null;
+                          let resolvedAuth: AuthConfig = fgAuth;
+                          let resolvedLabel = 'feature';
+                          if (fgAuth.type === 'inherit' && fg.globalAuthProfileId) {
+                            const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+                            if (profile) { resolvedAuth = profile.auth; resolvedLabel = profile.name; }
+                            else return null;
+                          }
+                          if (resolvedAuth.type === 'none' || resolvedAuth.type === 'inherit') return null;
                           return (
                             <div className="auth-verify-section">
                               <button
                                 className="btn btn-sm btn-verify"
-                                onClick={() => { setAuthVerifyResult(null); verifyAuth(fgAuth); }}
+                                onClick={() => { setAuthVerifyResult(null); verifyAuth(resolvedAuth); }}
                                 disabled={authVerifying}
                               >
-                                {authVerifying ? 'Verifying...' : 'Verify Inherited Auth (feature)'}
+                                {authVerifying ? 'Verifying...' : `Verify Inherited Auth (${resolvedLabel})`}
                               </button>
                               {authVerifyResult && (
                                 <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
