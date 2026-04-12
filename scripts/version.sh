@@ -5,7 +5,7 @@ set -euo pipefail
 # RedfireForge version bump script
 #
 # Usage:
-#   ./scripts/version.sh <major|minor|patch> [--pre <N>]
+#   ./scripts/version.sh <major|minor|patch|set> [--pre <N>]
 #
 # Behaviour based on current git branch:
 #   master         → v1.2.3           (stable release)
@@ -14,9 +14,10 @@ set -euo pipefail
 #   feature/*      → v1.2.3-dev.N     (local dev build)
 #
 # Examples:
-#   ./scripts/version.sh patch               # 0.1.0 → 0.2.0 on master
+#   ./scripts/version.sh patch               # 0.1.0 → 0.1.1 on master
 #   ./scripts/version.sh minor --pre 1       # 0.1.0 → 0.2.0-alpha.1 on develop
 #   ./scripts/version.sh patch --pre 3       # 0.1.0 → 0.1.1-beta.3 on release/0.1.1
+#   ./scripts/version.sh set 0.2.0 --pre 1   # → 0.2.0-beta.1 (explicit base version)
 # ──────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -30,11 +31,13 @@ CARGO_TOML="$ROOT_DIR/src-tauri/Cargo.toml"
 
 BUMP_TYPE="${1:-}"
 PRE_NUM=""
+SET_VERSION=""
 
 if [[ -z "$BUMP_TYPE" ]]; then
-  echo "Usage: version.sh <major|minor|patch> [--pre <N>]"
+  echo "Usage: version.sh <major|minor|patch|set> [--pre <N>]"
   echo ""
   echo "  major|minor|patch   Which part of semver to bump"
+  echo "  set <X.Y.Z>        Set an explicit base version (no bump)"
   echo "  --pre <N>           Pre-release number (required on non-master branches)"
   echo ""
   echo "Current version: $(grep '"version"' "$PKG_JSON" | head -1 | sed 's/.*: *"\(.*\)".*/\1/')"
@@ -42,7 +45,17 @@ if [[ -z "$BUMP_TYPE" ]]; then
   exit 1
 fi
 
-shift
+if [[ "$BUMP_TYPE" == "set" ]]; then
+  SET_VERSION="${2:-}"
+  if [[ -z "$SET_VERSION" ]]; then
+    echo "Error: 'set' requires a version argument, e.g.: version.sh set 0.2.0 --pre 1"
+    exit 1
+  fi
+  shift 2
+else
+  shift
+fi
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pre)
@@ -82,29 +95,32 @@ IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_PATCH <<< "$CURRENT"
 
 # ── Bump ─────────────────────────────────────────────────────
 
-case "$BUMP_TYPE" in
-  major)
-    NEW_MAJOR=$((CUR_MAJOR + 1))
-    NEW_MINOR=0
-    NEW_PATCH=0
-    ;;
-  minor)
-    NEW_MAJOR=$CUR_MAJOR
-    NEW_MINOR=$((CUR_MINOR + 1))
-    NEW_PATCH=0
-    ;;
-  patch)
-    NEW_MAJOR=$CUR_MAJOR
-    NEW_MINOR=$CUR_MINOR
-    NEW_PATCH=$((CUR_PATCH + 1))
-    ;;
-  *)
-    echo "Invalid bump type: $BUMP_TYPE (use major|minor|patch)"
-    exit 1
-    ;;
-esac
-
-BASE_VERSION="$NEW_MAJOR.$NEW_MINOR.$NEW_PATCH"
+if [[ -n "$SET_VERSION" ]]; then
+  BASE_VERSION="$SET_VERSION"
+else
+  case "$BUMP_TYPE" in
+    major)
+      NEW_MAJOR=$((CUR_MAJOR + 1))
+      NEW_MINOR=0
+      NEW_PATCH=0
+      ;;
+    minor)
+      NEW_MAJOR=$CUR_MAJOR
+      NEW_MINOR=$((CUR_MINOR + 1))
+      NEW_PATCH=0
+      ;;
+    patch)
+      NEW_MAJOR=$CUR_MAJOR
+      NEW_MINOR=$CUR_MINOR
+      NEW_PATCH=$((CUR_PATCH + 1))
+      ;;
+    *)
+      echo "Invalid bump type: $BUMP_TYPE (use major|minor|patch|set)"
+      exit 1
+      ;;
+  esac
+  BASE_VERSION="$NEW_MAJOR.$NEW_MINOR.$NEW_PATCH"
+fi
 
 if [[ -n "$PRE_TAG" ]]; then
   if [[ -z "$PRE_NUM" ]]; then
