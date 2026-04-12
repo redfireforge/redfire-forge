@@ -368,7 +368,7 @@ export default function App() {
     return (
       <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
         <div style={{ textAlign: 'center', opacity: 0.7 }}>
-          <h2>FlowForge</h2>
+          <h2>RedfireForge</h2>
           <p>Loading...</p>
         </div>
       </div>
@@ -378,7 +378,7 @@ export default function App() {
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <header ref={headerRef} className="app-header">
-        <h1>⚡ FlowForge</h1>
+        <h1>🔥 RedfireForge</h1>
         <nav className="tab-nav">
           <button className={`tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>
             Feature Groups
