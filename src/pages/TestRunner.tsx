@@ -231,14 +231,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           <input type="radio" name="hostMode" checked={hostMode === 'custom'} onChange={() => setHostMode('custom')} disabled={isRunning} />
           Custom
         </label>
-        {hostMode === 'custom' && (
+        {(
           <input
             className="runner-custom-url-input"
             type="text"
             value={customBaseUrl}
             onChange={(e) => setCustomBaseUrl(e.target.value)}
             placeholder="https://my-host.example.com:8080"
-            disabled={isRunning}
+            disabled={isRunning || hostMode !== 'custom'}
           />
         )}
       </div>
