@@ -9,9 +9,9 @@ type HostMode = 'hardcoded' | 'settings' | 'custom';
 const defaultLoadProfile: LoadProfileConfig = {
   type: 'sustained',
   durationSec: 60,
-  maxConcurrency: 10,
+  maxConcurrency: 5,
   rampUpSec: 30,
-  spikeConcurrency: 30,
+  spikeConcurrency: 10,
   spikeStartSec: 20,
   spikeDurationSec: 10,
 };
