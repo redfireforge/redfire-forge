@@ -126,8 +126,19 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
                 : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
               }
               <span className="context-tag exec-mode-tag">
-                {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : 'Batch'}
-                {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
+                {selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
+                  <>
+                    {selectedRun.config.loadProfile.type === 'ramp-up' ? 'Ramp-Up' : selectedRun.config.loadProfile.type === 'spike' ? 'Spike' : 'Sustained'}
+                    {' · '}Peak:{selectedRun.config.loadProfile.maxConcurrency}
+                    {' · '}{selectedRun.config.loadProfile.durationSec}s
+                    {selectedRun.config.loadProfile.type === 'spike' && ` · Spike:${selectedRun.config.loadProfile.spikeConcurrency}`}
+                  </>
+                ) : (
+                  <>
+                    {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : 'Batch'}
+                    {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
+                  </>
+                )}
               </span>
             </div>
           )}
