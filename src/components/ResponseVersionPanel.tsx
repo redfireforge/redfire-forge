@@ -13,12 +13,30 @@ interface Props {
   onRenameVersion: (id: string, label: string) => void;
 }
 
-const makeDiffer = (unordered: boolean) => new Differ({
+const differ = new Differ({
   detectCircular: false,
   maxDepth: Infinity,
   showModifications: true,
-  arrayDiffMethod: unordered ? 'unorder-lcs' : 'lcs',
+  arrayDiffMethod: 'lcs',
 });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sortArraysDeep(val: any): any {
+  if (val === null || val === undefined || typeof val !== 'object') return val;
+  if (Array.isArray(val)) {
+    const mapped = val.map(sortArraysDeep);
+    return mapped.sort((a, b) => {
+      const sa = JSON.stringify(a);
+      const sb = JSON.stringify(b);
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    });
+  }
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(val).sort()) {
+    out[k] = sortArraysDeep(val[k]);
+  }
+  return out;
+}
 
 export default function ResponseVersionPanel({ versions, currentJson, onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
@@ -43,8 +61,13 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
     const rightVer = versions.find((v) => v.id === compareRight);
     if (!leftVer || !rightVer) return null;
     try {
-      const d = makeDiffer(unorderedArrays);
-      return d.diff(JSON.parse(leftVer.json), JSON.parse(rightVer.json));
+      let leftObj = JSON.parse(leftVer.json);
+      let rightObj = JSON.parse(rightVer.json);
+      if (unorderedArrays) {
+        leftObj = sortArraysDeep(leftObj);
+        rightObj = sortArraysDeep(rightObj);
+      }
+      return differ.diff(leftObj, rightObj);
     } catch {
       return null;
     }
