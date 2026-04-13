@@ -35,6 +35,6 @@ alwaysApply: true
 ## Naming
 
 - App name: **RedfireForge**
-- Tagline: **API Performance Studio**
-- Desktop title bar: "RedfireForge — API Performance Studio"
+- Tagline: **Redfire Performance Workbench**
+- Desktop title bar: "RedfireForge — Redfire Performance Workbench"
 - Export filenames: `{env}-{microservice}-{level}-{name}-{timestamp}.json`

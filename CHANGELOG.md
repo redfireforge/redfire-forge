@@ -66,8 +66,8 @@ _Changes merged into `develop` that haven't been released yet._
 ### Changed
 - Renamed application from "Performance Test" to "RedfireForge"
 - Storage layer converted to async (supports both localStorage and Tauri FS)
-- Window title: "RedfireForge — API Performance Studio"
-- Web header shows "API Performance Studio" subtitle; desktop omits it
+- Window title: "RedfireForge — Redfire Performance Workbench"
+- Web header shows "Redfire Performance Workbench" subtitle; desktop omits it
 
 ### Fixed
 - Tauri file path separator bug causing data loss on rebuilds

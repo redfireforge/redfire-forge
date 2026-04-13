@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "RedfireForge — API Performance Studio",
+        "title": "RedfireForge — Redfire Performance Workbench",
         "width": 1400,
         "height": 900,
         "minWidth": 900,
