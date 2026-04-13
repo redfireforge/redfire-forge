@@ -26,9 +26,45 @@ function canonicalize(val: any): any {
   return out;
 }
 
-function jsonEqual(a: string, b: string): boolean {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stripPaths(obj: any, paths: string[]): any {
+  if (!paths.length || obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+  for (const p of paths) {
+    const segments = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
+    if (!segments.length) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let cursor: any = clone;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const seg = segments[i];
+      const bracketMatch = seg.match(/^(.+)\[(\d+)\]$/);
+      if (bracketMatch) {
+        cursor = cursor?.[bracketMatch[1]];
+        cursor = Array.isArray(cursor) ? (cursor = [...cursor]) : cursor;
+        cursor = cursor?.[Number(bracketMatch[2])];
+      } else {
+        if (cursor && typeof cursor === 'object' && !Array.isArray(cursor)) cursor[seg] = { ...cursor[seg] };
+        cursor = cursor?.[seg];
+      }
+      if (!cursor || typeof cursor !== 'object') break;
+    }
+    if (cursor && typeof cursor === 'object') {
+      const last = segments[segments.length - 1];
+      delete cursor[last];
+    }
+  }
+  return clone;
+}
+
+function jsonEqual(a: string, b: string, excludedPaths?: string[]): boolean {
   try {
-    return JSON.stringify(canonicalize(JSON.parse(a))) === JSON.stringify(canonicalize(JSON.parse(b)));
+    let objA = JSON.parse(a);
+    let objB = JSON.parse(b);
+    if (excludedPaths?.length) {
+      objA = stripPaths(objA, excludedPaths);
+      objB = stripPaths(objB, excludedPaths);
+    }
+    return JSON.stringify(canonicalize(objA)) === JSON.stringify(canonicalize(objB));
   } catch {
     return a === b;
   }
@@ -370,7 +406,7 @@ export default function TestEditorModal({
         }
         const prevVersions = latest.validation.responseVersions || [];
         const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty) : false;
+        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty, latest.validation.excludedPaths) : false;
         const updatedVersions = isDuplicate
           ? prevVersions
           : [...prevVersions, { id: uuidv4(), timestamp: Date.now(), json: pretty } as ResponseVersion];
@@ -380,7 +416,6 @@ export default function TestEditorModal({
             ...latest.validation,
             sampleJson: pretty,
             expectedFields: [],
-            excludedPaths: [],
             responseVersions: updatedVersions,
           },
         });
@@ -962,19 +997,20 @@ export default function TestEditorModal({
                       <ResponseVersionPanel
                         versions={draft.validation.responseVersions || []}
                         currentJson={draft.validation.sampleJson || ''}
+                        excludedPaths={draft.validation.excludedPaths}
                         onSaveVersion={() => {
                           const prev = draftRef.current;
                           const json = prev.validation.sampleJson || '';
                           if (!json.trim()) return;
                           const prevVersions = prev.validation.responseVersions || [];
                           const latest = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-                          if (latest && jsonEqual(latest.json, json)) return;
+                          if (latest && jsonEqual(latest.json, json, prev.validation.excludedPaths)) return;
                           const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
                           onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: [...prevVersions, newVersion] } });
                         }}
                         onRestore={(json) => {
                           const prev = draftRef.current;
-                          onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json, expectedFields: [], excludedPaths: [] } });
+                          onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json, expectedFields: [] } });
                         }}
                         onDeleteVersion={(id) => {
                           const prev = draftRef.current;

@@ -7,6 +7,7 @@ import 'json-diff-kit/dist/viewer-monokai.css';
 interface Props {
   versions: ResponseVersion[];
   currentJson: string;
+  excludedPaths?: string[];
   onSaveVersion: () => void;
   onRestore: (json: string) => void;
   onDeleteVersion: (id: string) => void;
@@ -38,7 +39,7 @@ function sortArraysDeep(val: any): any {
   return out;
 }
 
-export default function ResponseVersionPanel({ versions, currentJson, onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
+export default function ResponseVersionPanel({ versions, currentJson, excludedPaths = [], onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
   const [compareRight, setCompareRight] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -105,11 +106,29 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
         for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
         return o;
       };
-      return JSON.stringify(canon(JSON.parse(currentJson))) === JSON.stringify(canon(JSON.parse(sorted[0].json)));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const strip = (obj: any): any => {
+        if (!excludedPaths.length || !obj || typeof obj !== 'object') return obj;
+        const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+        for (const p of excludedPaths) {
+          const segs = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
+          if (!segs.length) continue;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let cur: any = clone;
+          for (let i = 0; i < segs.length - 1; i++) {
+            if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur[segs[i]] = { ...cur[segs[i]] };
+            cur = cur?.[segs[i]];
+            if (!cur || typeof cur !== 'object') break;
+          }
+          if (cur && typeof cur === 'object') delete cur[segs[segs.length - 1]];
+        }
+        return clone;
+      };
+      return JSON.stringify(canon(strip(JSON.parse(currentJson)))) === JSON.stringify(canon(strip(JSON.parse(sorted[0].json))));
     } catch {
       return currentJson.trim() === sorted[0].json;
     }
-  }, [sorted, currentJson]);
+  }, [sorted, currentJson, excludedPaths]);
 
   const openCompare = () => {
     if (sorted.length >= 2) {
