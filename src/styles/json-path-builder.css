@@ -1,0 +1,268 @@
+/* JSON Path Builder */
+.json-path-builder {}
+
+/* Fetch host override */
+.fetch-host-override-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.fetch-host-override-row label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fetch-host-override-row input[type="text"],
+.fetch-host-override-row input:not([type]) {
+  flex: 1;
+  font-size: 0.82rem;
+}
+.fetch-host-override-row input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.fetch-host-toggle {
+  flex-shrink: 0;
+  gap: 4px;
+}
+.fetch-error-inline {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+}
+
+.jpb-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.jpb-columns.jpb-single-column { grid-template-columns: 1fr; }
+
+.jpb-left { display: flex; flex-direction: column; }
+.jpb-right { display: flex; flex-direction: column; }
+
+.jpb-textarea { flex: 1; min-height: 200px; resize: vertical; }
+
+.jpb-sample-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.jpb-sample-actions { display: flex; gap: 6px; align-items: center; }
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-accent:hover { opacity: 0.85; }
+.btn-accent:disabled { opacity: 0.5; cursor: not-allowed; }
+.jpb-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #ef444415;
+  border-radius: var(--radius);
+}
+
+.jpb-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.jpb-mode-toggle {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.jpb-bulk-actions { display: flex; gap: 6px; }
+.jpb-stats { font-size: 0.8rem; color: var(--text-muted); margin-left: auto; }
+
+.jpb-mode-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--primary);
+}
+
+.jpb-search { margin-bottom: 10px; }
+.jpb-search input { font-size: 0.85rem; }
+.jpb-search-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* JSON Tree */
+.json-tree-container {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex: 1;
+  min-height: 150px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+}
+
+.json-tree-node {}
+
+.json-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-left: 2px solid transparent;
+  min-height: 28px;
+}
+.json-tree-row:hover { background: var(--surface-hover); }
+.json-tree-row.selected { border-left-color: var(--primary); background: rgba(59, 130, 246, 0.08); }
+.json-tree-row.search-hit { background: rgba(245, 158, 11, 0.1); }
+
+.json-tree-toggle {
+  width: 14px;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  user-select: none;
+}
+.json-tree-toggle-spacer { width: 14px; flex-shrink: 0; }
+
+.json-tree-check {
+  width: auto !important;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.json-tree-key {
+  color: #e879f9;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.json-tree-colon { color: var(--text-muted); flex-shrink: 0; }
+.json-tree-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+.json-tree-path {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.json-tree-row:hover .json-tree-path { opacity: 1; }
+
+.json-tree-children {}
+
+/* Generated rules summary */
+.jpb-summary { margin-top: 4px; }
+.kv-header-left { display: flex; align-items: center; gap: 12px; }
+.jpb-view-toggle { display: flex; gap: 2px; }
+.btn-xs { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; }
+
+/* Rules table */
+.jpb-table-wrapper {
+  max-height: 300px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.jpb-rules-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.jpb-rules-table th,
+.jpb-rules-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.jpb-rules-table th { white-space: nowrap; }
+.jpb-rules-table th {
+  background: var(--bg);
+  color: var(--accent);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.jpb-table-row-header {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  background: var(--surface) !important;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.jpb-rules-table th.jpb-table-row-header { z-index: 3; }
+.jpb-table-val { color: #22c55e; }
+.jpb-table-empty { color: var(--text-muted); }
+.jpb-field-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.jpb-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+.jpb-field-path {
+  color: #e879f9;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+.jpb-field-eq { color: var(--text-muted); flex-shrink: 0; }
+.jpb-field-value {
+  color: #22c55e;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.jpb-field-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+}
+.jpb-field-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.jpb-manual-add { margin-top: 8px; }
+.jpb-manual-fallback { margin-top: 8px; }
+

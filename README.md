@@ -1,6 +1,8 @@
-# Performance Test UI
+# RedfireForge — Redfire Performance Workbench
 
-A browser-based performance testing tool built with React + TypeScript + Vite. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a single-page application.
+> *Fire. Measure. Validate.*
+
+A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
 
 ---
 
@@ -16,6 +18,9 @@ A browser-based performance testing tool built with React + TypeScript + Vite. D
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
 - [Feature Reference](#feature-reference)
+- [Branching Strategy & Versioning](#branching-strategy--versioning)
+- [Development Workflow](#development-workflow)
+- [CI/CD & Multi-Platform Releases](#cicd--multi-platform-releases)
 - [Data Persistence](#data-persistence)
 
 ---
@@ -26,17 +31,60 @@ A browser-based performance testing tool built with React + TypeScript + Vite. D
 
 - **Node.js** >= 18
 - **npm** (or yarn/pnpm)
+- **Rust** (for desktop builds only — install via [rustup](https://rustup.rs/))
 
-### Install & Run
+### Desktop App (Recommended)
+
+```bash
+npm install
+npm run tauri:dev     # launches the native desktop window with hot-reload
+```
+
+### Desktop Build (Production — Local)
+
+```bash
+npm run tauri:build
+```
+
+This builds for your current OS only:
+- **macOS**: `RedfireForge.app` and `.dmg` in `src-tauri/target/release/bundle/`
+- **Windows**: `.msi` and `.exe` installers
+- **Linux**: `.deb` and `.AppImage` packages
+
+End users do **not** need Rust installed — the build produces a standalone native binary with all dependencies bundled.
+
+### Desktop Build (All Platforms — CI/CD)
+
+To build for all three platforms, push a version tag to GitHub:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the GitHub Actions workflow (`.github/workflows/release.yml`) which builds on macOS, Windows, and Linux runners simultaneously and creates a draft GitHub Release with all installers attached:
+
+| Platform | Artifacts |
+|---|---|
+| **macOS ARM64** (Apple Silicon) | `.app`, `.dmg` |
+| **macOS x64** (Intel) | `.app`, `.dmg` |
+| **Linux x64** | `.deb`, `.AppImage` |
+| **Windows x64** | `.msi`, `.exe` |
+
+You can also trigger builds manually from the Actions tab using "Run workflow."
+
+### Web Mode (Browser)
+
+The app still runs as a standalone web app for development or environments where a desktop install isn't possible:
 
 ```bash
 npm install
 npm run dev
 ```
 
-The app starts at `http://localhost:5173` (default Vite port). A built-in Vite server-side proxy (`/__proxy`) handles all outbound HTTP requests to avoid CORS issues — no additional backend is needed.
+The app starts at `http://localhost:5173`. A built-in Vite server-side proxy (`/__proxy`) handles outbound HTTP requests to avoid CORS issues.
 
-### Build for Production
+### Build Web for Production
 
 ```bash
 npm run build
@@ -45,7 +93,7 @@ npm run preview   # serves the production build locally
 
 ### Stop
 
-Press `Ctrl+C` in the terminal running `npm run dev` (or `npm run preview`).
+Press `Ctrl+C` in the terminal running the dev command.
 
 ---
 
@@ -54,7 +102,8 @@ Press `Ctrl+C` in the terminal running `npm run dev` (or `npm run preview`).
 ```
 src/
 ├── App.tsx                  # Root component: tabs, sidebar, settings modal
-├── App.css                  # All application styles
+├── App.css                  # Root styles & imports
+├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
 ├── pages/
 │   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
 │   ├── TestRunner.tsx       # Configure & execute performance runs
@@ -64,19 +113,47 @@ src/
 │   ├── validator.ts         # Response validation (full, selective, unordered)
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
+│   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   └── useTestExecution.ts  # React hook wrapping the executor
 ├── components/
-│   ├── JsonPathBuilder.tsx  # Visual JSON path selector for validation
-│   ├── ExportCenter.tsx     # Multi-select data export modal
-│   └── ImportCenter.tsx     # Import with per-item conflict resolution
+│   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
+│   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
+│   ├── SettingsModal.tsx        # Split-panel settings (projects, auth, export/import, storage)
+│   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
+│   ├── TestEditorModal.tsx      # Full test editor (params, body, auth, headers, validation)
+│   ├── ExportCenter.tsx         # Multi-select data export modal
+│   └── ImportCenter.tsx         # Import with per-item conflict resolution
 ├── utils/
-│   ├── storage.ts           # LocalStorage persistence helpers
+│   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
+│   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
+│   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
+│   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
-│   ├── fileSaver.ts         # Native "Save As" dialog (File System Access API)
+│   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   └── export.ts            # JSON & CSV export utilities
 └── types/
     └── index.ts             # Shared TypeScript interfaces
+
+src-tauri/
+├── tauri.conf.json          # Tauri app configuration (window, bundle, plugins)
+├── Cargo.toml               # Rust dependencies
+├── capabilities/
+│   └── default.json         # Plugin permissions (fs, http, dialog, shell)
+└── src/
+    ├── main.rs              # Tauri entry point
+    └── lib.rs               # Plugin registration (fs, http, dialog, shell)
 ```
+
+### Desktop vs Web Mode
+
+The app detects at runtime whether it's running inside Tauri or a browser:
+
+| Capability | Desktop (Tauri) | Web (Browser) |
+|---|---|---|
+| **Storage** | JSON files in `$APPDATA/redfireforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
+| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS | Vite dev proxy (`/__proxy`) |
+| **File save dialogs** | Native OS file picker via Tauri `dialog` plugin | File System Access API / browser download |
+| **Cross-browser data** | Shared — data lives on disk | Isolated per browser |
 
 ---
 
@@ -92,7 +169,7 @@ Open **Settings** (⚙ button in the sidebar) to configure your testing infrastr
 |---|---|
 | **Environment** | A deployment target (e.g., `t01`, `d01`, `p01`) |
 | **Microservice** | A service you test (e.g., `sales-product-autoassign`) |
-| **Base URL** | Per-environment URL for each microservice (e.g., `https://sales-product-autoassign.apps.gmna.test.cvca.atmosdt.gm.com`) |
+| **Base URL** | Per-environment URL for each microservice |
 
 **How to configure:**
 
@@ -116,7 +193,7 @@ Multiple profiles support different environments (dev, QA, prod) without duplica
 
 #### Storage
 
-The **Storage** section shows how much localStorage is being used.
+The **Storage** section shows current data usage.
 
 - Click the **Total usage** row to expand a per-key breakdown with usage bars.
 - **Max stored runs** controls how many test runs are kept (1–500, default 50). Oldest runs are auto-deleted when the limit is exceeded.
@@ -299,8 +376,24 @@ Auth badges are color-coded by level for quick visual identification:
 **Selective Validation Features:**
 
 - **Visual JSON Path Builder**: Paste a sample JSON response, and a visual tree appears. Check/uncheck fields to build validation paths.
+- **Manual Rule Entry**: Click "+ Add Manual Rule" to type custom JSON paths and expected values directly.
 - **Unordered Array Matching**: Enable this to match array items regardless of their order (e.g., `offers[0]` can match `offers[3]` if field values match).
 - **Smart Path Remapping**: If paths don't resolve (e.g., response wraps data in a key), the validator automatically tries common remapping strategies.
+
+**Response & Validation Version History:**
+
+Each test can maintain a history of response + validation rule snapshots for tracking API changes over time.
+
+- **Auto-save on Fetch**: Each time "Fetch Response" returns new data, a version is automatically saved (if different from the latest).
+- **Save as Version**: Click "Save as Version" to manually snapshot the current response JSON and all validation rules.
+- **Duplicate Prevention**: Versions are only created when something actually changed. Comparison uses canonical JSON (sorted keys) and respects excluded paths — so dynamic fields like timestamps don't trigger false versions.
+- **Restore**: Click "Restore" on any version to bring back both the response and the complete validation configuration (mode, expected fields, excluded paths, etc.).
+- **Compare Modal**: Click "Compare" to open a full-screen diff modal with two tabs:
+  - **Response** — side-by-side JSON diff with syntax highlighting (green for additions, red for removals, blue for modifications)
+  - **Validation Rules** — diff of the validation mode, expected fields, excluded paths, and settings
+- **Unordered Arrays toggle**: In the compare modal, enable "Unordered Arrays" to ignore element order when diffing arrays of objects.
+- **Identical Banner**: A green checkmark banner appears when two versions are identical.
+- **Rename & Delete**: Click a version label to rename it; click "Delete" to remove it.
 
 **Fetch Response & Host Override:**
 
@@ -403,6 +496,8 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 | Feature | Description |
 |---|---|
+| Native desktop app | Built with Tauri — native window, file system storage, no CORS issues |
+| Dual-mode (desktop + web) | Runs as desktop app or browser SPA; auto-detects environment |
 | Dark / light mode | Toggle between dark and light themes; preference persisted |
 | Hierarchical test organization | Feature Group → Scenario → Test |
 | Visual test builder | Point-and-click editor for URL, headers, body, auth, validation |
@@ -416,11 +511,15 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
 | Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
-| Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle |
+| Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle; persisted across editor sessions |
+| Response version history | Save, restore, rename, and delete response + validation rule snapshots per test |
+| Visual diff comparison | Full-screen modal with side-by-side JSON diff (response + validation rules), monokai dark theme |
+| Duplicate version prevention | Auto-detects unchanged responses using canonical JSON comparison with excluded-paths support |
+| Unordered array diffing | Compare arrays ignoring element order, including arrays of complex objects |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
-| Persistent configuration | All settings saved to localStorage across sessions |
+| Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
@@ -432,11 +531,166 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| CORS proxy | Built-in Vite server proxy eliminates CORS issues |
+| Native HTTP (desktop) | Tauri HTTP plugin bypasses CORS — no proxy needed |
+| CORS proxy (web) | Built-in Vite server proxy for browser mode |
+| Cross-platform builds | macOS (ARM + Intel), Windows, Linux via GitHub Actions CI/CD |
+| Hot-reload development | `npm run tauri:dev` gives instant UI updates in the desktop window |
+
+---
+
+## Branching Strategy & Versioning
+
+### Branch Model (Git Flow)
+
+```
+master          ← stable releases      (v1.0.0)
+  └─ release/*  ← release candidates   (v1.0.0-beta.1)
+  └─ develop    ← integration branch   (v1.0.0-alpha.1)
+       └─ feature/*  ← feature work    (v1.0.0-dev.1)
+```
+
+| Branch | Purpose | Version tag | Merge target |
+|---|---|---|---|
+| `master` | Production-ready releases | `1.0.0` | — |
+| `release/<ver>` | Stabilisation & QA before release | `1.0.0-beta.N` | `master` |
+| `develop` | Integration of completed features | `1.0.0-alpha.N` | `release/*` |
+| `feature/<name>` | Individual feature development | `1.0.0-dev.N` | `develop` |
+
+### Version Bump Script
+
+A single script updates the version across all three config files (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`) and applies the correct pre-release tag based on the current branch:
+
+```bash
+# On master — stable release
+./scripts/version.sh minor              # 0.1.0 → 0.2.0
+
+# On develop — alpha build
+./scripts/version.sh minor --pre 1      # 0.1.0 → 0.2.0-alpha.1
+
+# On release/0.2.0 — beta build
+./scripts/version.sh minor --pre 1      # 0.1.0 → 0.2.0-beta.1
+./scripts/version.sh minor --pre 2      # 0.1.0 → 0.2.0-beta.2
+
+# On feature/* — dev build
+./scripts/version.sh patch --pre 1      # 0.1.0 → 0.1.1-dev.1
+```
+
+### Typical Release Flow
+
+```
+1.  feature/xyz  →  develop             (merge feature)
+2.  develop: ./scripts/version.sh minor --pre 1    → 0.2.0-alpha.1
+3.  develop  →  release/0.2.0           (create release branch)
+4.  release/0.2.0: ./scripts/version.sh minor --pre 1  → 0.2.0-beta.1
+5.  (QA & bug fixes on release branch)
+6.  release/0.2.0  →  master            (merge to master)
+7.  master: ./scripts/version.sh minor  → 0.2.0
+8.  git tag v0.2.0
+```
+
+The version is displayed in the app header as a badge (e.g., `v0.1.0`, `v0.2.0-alpha.1`).
+
+---
+
+## Development Workflow
+
+### Day-to-Day Development
+
+Use the Tauri dev mode for the best experience:
+
+```bash
+npm run tauri:dev
+```
+
+This launches the native desktop window with **hot-reload** — any changes to React components, styles, or logic are reflected instantly in the desktop window. No manual rebuild needed.
+
+| Command | What it does | Use when |
+|---|---|---|
+| `npm run tauri:dev` | Desktop app with hot-reload | Day-to-day development (recommended) |
+| `npm run dev` | Browser-only at `localhost:5173` | Quick UI tweaks, no Rust needed |
+| `npm run tauri:build` | Production build for current OS | Testing the final binary locally |
+
+### Making Changes
+
+1. Edit files in `src/` (React/TypeScript) — changes appear instantly in the desktop window via hot-reload.
+2. Edit files in `src-tauri/` (Rust/config) — Tauri automatically recompiles the Rust backend (~15-20 sec).
+3. When satisfied, build a local production binary with `npm run tauri:build` (~45 sec).
+4. To release for all platforms, push a version tag (see CI/CD below).
+
+### Project Scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server (browser-only mode) |
+| `npm run build` | Build the web frontend for production |
+| `npm run preview` | Serve the production web build locally |
+| `npm run tauri:dev` | Launch desktop app with hot-reload |
+| `npm run tauri:build` | Build desktop app for current OS |
+| `npm run lint` | Run ESLint |
+| `./scripts/version.sh` | Bump version across all config files |
+
+---
+
+## CI/CD & Multi-Platform Releases
+
+### Automated Builds
+
+The project includes a GitHub Actions workflow (`.github/workflows/release.yml`) that builds installers for all platforms:
+
+| Platform | Runner | Artifacts |
+|---|---|---|
+| **macOS ARM64** (Apple Silicon) | `macos-latest` | `.app`, `.dmg` |
+| **macOS x64** (Intel) | `macos-latest` | `.app`, `.dmg` |
+| **Linux x64** | `ubuntu-22.04` | `.deb`, `.AppImage` |
+| **Windows x64** | `windows-latest` | `.msi`, `.exe` |
+
+### How to Release
+
+1. Commit and push your changes:
+
+```bash
+git add .
+git commit -m "your changes"
+git push origin main
+```
+
+2. Create and push a version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+3. GitHub Actions automatically:
+   - Builds on all 4 platform targets in parallel (~5-10 min)
+   - Creates a **draft GitHub Release** with all installers attached
+4. Go to the GitHub Releases page, review the draft, and click **Publish**.
+
+You can also trigger a build manually from the **Actions** tab → **Build & Release** → **Run workflow** (no tag required).
+
+### End-User Installation
+
+End users download the installer for their OS from the GitHub Releases page. No development tools required — the installers are fully standalone:
+
+- **macOS**: Open the `.dmg`, drag `RedfireForge.app` to Applications
+- **Windows**: Run the `.msi` or `.exe` installer
+- **Linux**: Install the `.deb` package or run the `.AppImage` directly
 
 ---
 
 ## Data Persistence
+
+### Desktop Mode (Tauri)
+
+Data is stored as individual JSON files in the OS application data directory:
+
+- **macOS**: `~/Library/Application Support/com.redfireforge.desktop/`
+- **Windows**: `%APPDATA%/com.redfireforge.desktop/`
+- **Linux**: `~/.local/share/com.redfireforge.desktop/`
+
+This means data persists across browsers and is shareable via file copy.
+
+### Web Mode (Browser)
 
 All data is stored in the browser's **localStorage**:
 

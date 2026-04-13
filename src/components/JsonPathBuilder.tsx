@@ -574,9 +574,35 @@ export default function JsonPathBuilder({
               <div className="jpb-field-list">
                 {expectedFields.slice(0, 50).map((f, i) => (
                   <div key={i} className="jpb-field-row">
-                    <code className="jpb-field-path">{f.jsonPath}</code>
+                    {f.jsonPath === '' ? (
+                      <input
+                        className="jpb-field-input"
+                        value={f.jsonPath}
+                        onChange={(e) => {
+                          const next = [...expectedFields];
+                          next[i] = { ...next[i], jsonPath: e.target.value };
+                          onUpdate({ expectedFields: next });
+                        }}
+                        placeholder="JSON Path (e.g. data.id)"
+                      />
+                    ) : (
+                      <code className="jpb-field-path">{f.jsonPath}</code>
+                    )}
                     <span className="jpb-field-eq">=</span>
-                    <code className="jpb-field-value">{(() => { const s = stripQuotes(f.expectedValue); return s.length > 80 ? s.slice(0, 80) + '...' : s; })()}</code>
+                    {f.jsonPath === '' || f.expectedValue === '' ? (
+                      <input
+                        className="jpb-field-input"
+                        value={f.expectedValue}
+                        onChange={(e) => {
+                          const next = [...expectedFields];
+                          next[i] = { ...next[i], expectedValue: e.target.value };
+                          onUpdate({ expectedFields: next });
+                        }}
+                        placeholder="Expected value"
+                      />
+                    ) : (
+                      <code className="jpb-field-value">{(() => { const s = stripQuotes(f.expectedValue); return s.length > 80 ? s.slice(0, 80) + '...' : s; })()}</code>
+                    )}
                     {selectiveMode === 'include' && (
                       <button className="btn btn-sm btn-danger" onClick={() => {
                         onUpdate({ expectedFields: expectedFields.filter((_, j) => j !== i) });

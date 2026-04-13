@@ -7,10 +7,15 @@ import { exportJson, exportCsv } from '../utils/export';
 interface Props {
   envName?: string;
   svcName?: string;
+  projectName?: string;
 }
 
-export default function ResultsDashboard({ envName, svcName }: Props) {
-  const [allRuns, setAllRuns] = useState<TestRun[]>(() => loadTestRuns());
+export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
+  const [allRuns, setAllRuns] = useState<TestRun[]>([]);
+
+  useEffect(() => {
+    loadTestRuns().then(setAllRuns);
+  }, []);
 
   // Filter runs by selected environment and microservice
   const runs = useMemo(() => {
@@ -39,8 +44,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const summary = selectedRun?.summary ?? null;
 
-  const handleDelete = (runId: string) => {
-    deleteTestRun(runId);
+  const handleDelete = async (runId: string) => {
+    await deleteTestRun(runId);
     const updated = allRuns.filter((r) => r.id !== runId);
     setAllRuns(updated);
     if (selectedRunId === runId) {
@@ -53,8 +58,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     }
   };
 
-  const refreshRuns = () => {
-    const fresh = loadTestRuns();
+  const refreshRuns = async () => {
+    const fresh = await loadTestRuns();
     setAllRuns(fresh);
   };
 
@@ -111,8 +116,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       <div className="results-top">
         <div className="results-top-row">
           <h2>Results</h2>
-          {selectedRun && (selectedRun.svcName || selectedRun.envName) && (
+          {selectedRun && (
             <div className="context-tags">
+              {projectName && <span className="context-tag project-tag">{projectName}</span>}
               {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
               {selectedRun.baseUrl
@@ -140,6 +146,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
           {runs.map((r) => {
             const label = [
               new Date(r.timestamp).toLocaleString(),
+              r.projectName,
               r.svcName,
               r.envName,
               `${r.summary.totalRequests} req`,

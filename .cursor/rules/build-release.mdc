@@ -1,0 +1,35 @@
+---
+description: Desktop and web build process for RedfireForge
+alwaysApply: true
+---
+
+# Build & Release Rules
+
+## Before Building
+
+1. Confirm you are on the correct branch (`git branch --show-current`).
+2. Confirm the version is correct (`grep '"version"' package.json`).
+3. Ensure working tree is clean (`git status`).
+
+## Build Commands
+
+- **Desktop app:** `npx tauri build` (requires Rust toolchain)
+- **Web only:** `npm run build`
+- **Dev mode:** `npm run dev` (web) or `npm run tauri:dev` (desktop)
+
+## After Building Desktop
+
+- `.app` is at `src-tauri/target/release/bundle/macos/RedfireForge.app`
+- `.dmg` is at `src-tauri/target/release/bundle/dmg/`
+- DMG filename includes the version: `RedfireForge_X.Y.Z_aarch64.dmg`
+
+## Distributing
+
+- Share the `.dmg` file for macOS coworkers
+- For stable releases on `master`, create a git tag: `git tag vX.Y.Z`
+
+## Changelog
+
+When releasing any version, update `CHANGELOG.md`:
+- Move items from `[Unreleased]` into a new `## [X.Y.Z] — YYYY-MM-DD` section
+- Use categories: Added, Changed, Fixed, Removed
