@@ -88,9 +88,7 @@ export default function Sidebar({
                 <div className={`sidebar-item ${selectedEnvId === env.id ? 'selected' : ''} ${envHasFeatures ? 'has-features' : 'no-features'}`}>
                   <span className={`sidebar-expand-icon ${isExpanded ? 'expanded' : ''}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(env.id); }}>▸</span>
                   <span className="sidebar-item-name" onClick={() => {
-                    if (selectedEnvId === env.id) { onEnvSelect(''); onSvcSelect(''); }
-                    else { onEnvSelect(env.id); onSvcSelect(''); }
-                    if (!isExpanded) toggleExpanded(env.id);
+                    toggleExpanded(env.id);
                   }}>{env.name}</span>
                   <span className="sidebar-item-count">{svcsInEnv.length}</span>
                 </div>
@@ -128,9 +126,7 @@ export default function Sidebar({
                 <div className={`sidebar-item ${selectedSvcId === svc.id ? 'selected' : ''} ${svcHasFeatures ? 'has-features' : 'no-features'}`}>
                   <span className={`sidebar-expand-icon ${isExpanded ? 'expanded' : ''}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(svc.id); }}>▸</span>
                   <span className="sidebar-item-name" onClick={() => {
-                    if (selectedSvcId === svc.id) { onSvcSelect(''); onEnvSelect(''); }
-                    else { onSvcSelect(svc.id); onEnvSelect(''); }
-                    if (!isExpanded) toggleExpanded(svc.id);
+                    toggleExpanded(svc.id);
                   }}>{svc.name}</span>
                   <span className="sidebar-item-count">{envsForSvc.length}</span>
                 </div>
