@@ -720,3 +720,134 @@
   cursor: not-allowed;
 }
 
+/* Response Version Panel */
+.version-panel {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  overflow: hidden;
+}
+.version-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.version-panel-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.version-empty {
+  padding: 16px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.version-compare-bar {
+  display: flex;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  align-items: center;
+}
+.version-compare-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.version-compare-bar select {
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+.version-diff-viewer {
+  max-height: 400px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.version-diff-viewer table {
+  width: 100%;
+}
+.version-diff-identical {
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.version-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.version-item:last-child {
+  border-bottom: none;
+}
+.version-item:hover {
+  background: var(--surface);
+}
+.version-item.version-current {
+  background: rgba(39, 174, 96, 0.06);
+}
+.version-item-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.version-label {
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.version-label:hover {
+  background: var(--surface);
+}
+.version-label-input {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  width: 100px;
+}
+.version-time {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.version-current-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #27ae60;
+  background: rgba(39, 174, 96, 0.15);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.version-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
