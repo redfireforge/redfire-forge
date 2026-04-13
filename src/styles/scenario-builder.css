@@ -392,12 +392,12 @@
   background: rgba(39, 174, 96, 0.15);
   color: #27ae60;
   border: 1px solid rgba(39, 174, 96, 0.4);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: var(--radius);
 }
-.auth-badge-none { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 0.88rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius); }
+.auth-badge-none { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 0.92rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius); }
 .auth-badge-test-global { background: transparent; border: 1px solid #e67e22; color: #e67e22; }
 .btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
