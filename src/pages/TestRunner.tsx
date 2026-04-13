@@ -107,7 +107,6 @@ const profileDescriptions: Record<LoadProfileType, string> = {
   'ramp-up': 'Gradually increase from 1 to N concurrent users over a ramp period, then sustain',
   'sustained': 'Maintain a constant number of concurrent users for the full duration',
   'spike': 'Run at base concurrency, then burst to a peak for a short window',
-  'soak': 'Low concurrency over a long duration to detect degradation or leaks',
 };
 
 // ---------------------------------------------------------------------------
@@ -285,7 +284,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       case 'ramp-up': return 'Ramp-Up';
       case 'sustained': return 'Sustained';
       case 'spike': return 'Spike';
-      case 'soak': return 'Soak';
     }
   };
 
@@ -472,7 +470,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   </div>
 
                   <div className="profile-type-selector">
-                    {(['ramp-up', 'sustained', 'spike', 'soak'] as LoadProfileType[]).map((pt) => (
+                    {(['ramp-up', 'sustained', 'spike'] as LoadProfileType[]).map((pt) => (
                       <button
                         key={pt}
                         className={`profile-type-btn ${loadProfile.type === pt ? 'active' : ''}`}
