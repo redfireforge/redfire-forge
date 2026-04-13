@@ -777,11 +777,51 @@
 .version-diff-viewer {
   max-height: 400px;
   overflow: auto;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
 }
-.version-diff-viewer table {
-  width: 100%;
+.version-diff-viewer .json-diff-viewer {
+  background: #1a1a2e !important;
+  color: #e0e0e0 !important;
+}
+.version-diff-viewer .json-diff-viewer tr .line-add {
+  background: rgba(39, 174, 96, 0.22) !important;
+}
+.version-diff-viewer .json-diff-viewer tr .line-remove {
+  background: rgba(231, 76, 60, 0.22) !important;
+}
+.version-diff-viewer .json-diff-viewer tr .line-modify {
+  background: rgba(52, 152, 219, 0.18) !important;
+}
+.version-diff-viewer .json-diff-viewer pre .inline-diff-add {
+  background: rgba(39, 174, 96, 0.45) !important;
+  color: #27ae60 !important;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.version-diff-viewer .json-diff-viewer pre .inline-diff-remove {
+  background: rgba(231, 76, 60, 0.4) !important;
+  color: #e74c3c !important;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-decoration: line-through;
+}
+.version-diff-viewer .json-diff-viewer td.line-number {
+  color: #666 !important;
+  border-right-color: var(--border) !important;
+  min-width: 32px;
+  font-size: 0.72rem;
+}
+.version-diff-viewer .json-diff-viewer pre {
+  font-size: 0.82rem !important;
+  line-height: 1.5 !important;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace !important;
+}
+.version-diff-viewer .json-diff-viewer tr:hover td:before {
+  background: rgba(255, 255, 255, 0.03) !important;
 }
 .version-diff-identical {
   padding: 12px 14px;
