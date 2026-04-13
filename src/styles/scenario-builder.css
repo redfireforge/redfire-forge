@@ -926,27 +926,32 @@
 .version-diff-identical-icon {
   font-size: 1.1rem;
 }
-.version-rules-diff-bar {
+.version-diff-tabs {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 20px;
-  background: rgba(52, 152, 219, 0.1);
-  border-bottom: 1px solid rgba(52, 152, 219, 0.25);
-  color: #3498db;
-  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--surface);
 }
-.version-rules-diff-bar strong {
-  font-weight: 700;
-  margin-right: 4px;
+.version-diff-tab {
+  flex: 1;
+  padding: 9px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  text-align: center;
 }
-.version-rules-diff-item {
-  background: rgba(52, 152, 219, 0.15);
-  padding: 2px 8px;
-  border-radius: var(--radius);
-  font-size: 0.78rem;
+.version-diff-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.version-diff-tab.active {
+  color: var(--accent, #3498db);
+  border-bottom-color: var(--accent, #3498db);
 }
 .version-rules-tag {
   font-size: 0.68rem;
