@@ -751,35 +751,93 @@
   color: var(--text-muted);
   text-align: center;
 }
-.version-compare-bar {
+/* --- Diff Compare Modal --- */
+.version-diff-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
-  gap: 16px;
-  padding: 10px 14px;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.version-diff-modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 92vw;
+  max-width: 1200px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.version-diff-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  align-items: center;
+  flex-shrink: 0;
 }
-.version-compare-bar label {
+.version-diff-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.version-diff-modal-selectors {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
 }
-.version-compare-bar select {
-  padding: 3px 8px;
+.version-diff-modal-selectors label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.version-diff-selector-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  min-width: 36px;
+}
+.version-diff-modal-selectors select {
+  flex: 1;
+  padding: 6px 10px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+  font-size: 0.82rem;
+}
+.version-diff-vs {
   font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.version-diff-modal-title {
+  padding: 6px 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .version-diff-viewer {
-  max-height: 400px;
+  flex: 1;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 .version-diff-viewer .json-diff-viewer {
   background: #1a1a2e !important;
@@ -796,7 +854,7 @@
 }
 .version-diff-viewer .json-diff-viewer pre .inline-diff-add {
   background: rgba(39, 174, 96, 0.45) !important;
-  color: #27ae60 !important;
+  color: #2ecc71 !important;
   padding: 1px 4px;
   border-radius: 3px;
   font-weight: 700;
@@ -811,24 +869,23 @@
 }
 .version-diff-viewer .json-diff-viewer td.line-number {
   color: #666 !important;
-  border-right-color: var(--border) !important;
-  min-width: 32px;
-  font-size: 0.72rem;
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+  min-width: 36px;
+  font-size: 0.75rem;
 }
 .version-diff-viewer .json-diff-viewer pre {
-  font-size: 0.82rem !important;
-  line-height: 1.5 !important;
+  font-size: 0.85rem !important;
+  line-height: 1.6 !important;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace !important;
 }
 .version-diff-viewer .json-diff-viewer tr:hover td:before {
   background: rgba(255, 255, 255, 0.03) !important;
 }
 .version-diff-identical {
-  padding: 12px 14px;
-  font-size: 0.82rem;
+  padding: 24px 14px;
+  font-size: 0.85rem;
   color: var(--text-muted);
   text-align: center;
-  border-bottom: 1px solid var(--border);
 }
 .version-list {
   max-height: 200px;
