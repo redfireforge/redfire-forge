@@ -405,7 +405,7 @@ export default function SettingsModal({
                                     <input className="global-auth-profile-name" value={profile.name} onChange={(e) => {
                                       modifyProject(prj.id, (p) => ({ ...p, globalAuthProfiles: p.globalAuthProfiles.map((a) => a.id === profile.id ? { ...a, name: e.target.value } : a) }));
                                     }} />
-                                    <span className={`auth-badge auth-badge-${pa.type === 'none' ? 'none' : 'configured'}`}>{pa.type === 'none' ? 'No Auth' : pa.type.toUpperCase()}</span>
+                                    <span className={`auth-badge ${pa.type === 'none' ? 'auth-badge-none' : `auth-badge-type-${pa.type}`}`}>{pa.type === 'none' ? 'No Auth' : pa.type.toUpperCase()}</span>
                                     <button type="button" className="btn btn-xs" onClick={() => { setEditingGlobalAuth(isAuthEditing ? null : profile.id); setAuthVerifyResult(null); setShowSecret(false); }}>{isAuthEditing ? 'Collapse' : 'Configure'}</button>
                                     <select className="auth-xfer-select" defaultValue="" onChange={(e) => {
                                       const val = e.target.value; e.target.value = '';
@@ -524,7 +524,7 @@ export default function SettingsModal({
                       <input className="global-auth-profile-name" value={profile.name} onChange={(e) => {
                         setAppGlobalAuthProfiles((prev) => prev.map((a) => a.id === profile.id ? { ...a, name: e.target.value } : a));
                       }} />
-                      <span className={`auth-badge auth-badge-${pa.type === 'none' ? 'none' : 'configured'}`}>{pa.type === 'none' ? 'No Auth' : pa.type.toUpperCase()}</span>
+                      <span className={`auth-badge ${pa.type === 'none' ? 'auth-badge-none' : `auth-badge-type-${pa.type}`}`}>{pa.type === 'none' ? 'No Auth' : pa.type.toUpperCase()}</span>
                       <button type="button" className="btn btn-sm" onClick={() => { setEditingGlobalAuth(isAuthEditing ? null : profile.id); setAuthVerifyResult(null); setShowSecret(false); }}>{isAuthEditing ? 'Collapse' : 'Configure'}</button>
                       {projects.length > 0 && (
                         <select className="auth-xfer-select" defaultValue="" onChange={(e) => {
