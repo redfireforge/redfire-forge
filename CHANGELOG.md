@@ -12,7 +12,7 @@ _Changes merged into `develop` that haven't been released yet._
 
 ---
 
-## [0.3.2-beta.1] — 2026-04-13
+## [0.3.2] — 2026-04-13
 
 ### Added
 - **Response & Validation Version History**: Save snapshots of both the JSON response and validation rules as named versions, with restore and delete support
