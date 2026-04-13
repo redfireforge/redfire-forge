@@ -116,11 +116,6 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     return v.label || `v${num}`;
   };
 
-  const getLabelById = (id: string) => {
-    const idx = sorted.findIndex((v) => v.id === id);
-    if (idx < 0) return '?';
-    return getVersionLabel(sorted[idx], idx);
-  };
 
   const isDuplicate = useMemo(() => {
     if (sorted.length === 0 || !currentJson.trim()) return false;
