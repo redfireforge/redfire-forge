@@ -383,3 +383,33 @@ tr:hover td { background: var(--surface-hover); }
   fill: var(--text-muted);
 }
 
+/* ---------------------------------------------------------------------------
+   Live Streaming Charts
+   --------------------------------------------------------------------------- */
+
+.live-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.live-chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 12px 4px;
+  box-shadow: var(--card-shadow);
+}
+.live-chart-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.live-charts .recharts-cartesian-grid-horizontal line,
+.live-charts .recharts-cartesian-grid-vertical line {
+  opacity: 0.3;
+}
+
