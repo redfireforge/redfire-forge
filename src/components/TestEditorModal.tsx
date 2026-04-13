@@ -945,6 +945,14 @@ export default function TestEditorModal({
                       <ResponseVersionPanel
                         versions={draft.validation.responseVersions || []}
                         currentJson={draft.validation.sampleJson || ''}
+                        onSaveVersion={() => {
+                          const prev = draftRef.current;
+                          const json = prev.validation.sampleJson || '';
+                          if (!json.trim()) return;
+                          const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
+                          const prevVersions = prev.validation.responseVersions || [];
+                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: [...prevVersions, newVersion] } });
+                        }}
                         onRestore={(json) => {
                           const prev = draftRef.current;
                           onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json, expectedFields: [], excludedPaths: [] } });

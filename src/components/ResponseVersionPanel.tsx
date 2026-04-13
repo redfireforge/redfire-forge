@@ -6,6 +6,7 @@ import 'json-diff-kit/dist/viewer.css';
 interface Props {
   versions: ResponseVersion[];
   currentJson: string;
+  onSaveVersion: () => void;
   onRestore: (json: string) => void;
   onDeleteVersion: (id: string) => void;
   onRenameVersion: (id: string, label: string) => void;
@@ -18,7 +19,7 @@ const differ = new Differ({
   arrayDiffMethod: 'lcs',
 });
 
-export default function ResponseVersionPanel({ versions, currentJson, onRestore, onDeleteVersion, onRenameVersion }: Props) {
+export default function ResponseVersionPanel({ versions, currentJson, onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
   const [compareRight, setCompareRight] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(false);
@@ -56,8 +57,13 @@ export default function ResponseVersionPanel({ versions, currentJson, onRestore,
       <div className="version-panel">
         <div className="version-panel-header">
           <h4>Response Versions</h4>
+          {currentJson.trim() && (
+            <button type="button" className="btn btn-sm btn-accent" onClick={onSaveVersion}>
+              Save as Version
+            </button>
+          )}
         </div>
-        <div className="version-empty">No versions saved yet. Click "Fetch Response" to save the first version.</div>
+        <div className="version-empty">No versions saved yet. Paste or fetch a response, then click "Save as Version".</div>
       </div>
     );
   }
@@ -66,21 +72,28 @@ export default function ResponseVersionPanel({ versions, currentJson, onRestore,
     <div className="version-panel">
       <div className="version-panel-header">
         <h4>Response Versions ({sorted.length})</h4>
-        {sorted.length >= 2 && (
-          <button
-            type="button"
-            className={`btn btn-sm ${showDiff ? 'btn-active' : ''}`}
-            onClick={() => {
-              if (!showDiff && sorted.length >= 2) {
-                setCompareLeft(sorted[1].id);
-                setCompareRight(sorted[0].id);
-              }
-              setShowDiff(!showDiff);
-            }}
-          >
-            {showDiff ? 'Hide Compare' : 'Compare'}
-          </button>
-        )}
+        <div className="version-panel-actions">
+          {currentJson.trim() && (
+            <button type="button" className="btn btn-sm btn-accent" onClick={onSaveVersion}>
+              Save as Version
+            </button>
+          )}
+          {sorted.length >= 2 && (
+            <button
+              type="button"
+              className={`btn btn-sm ${showDiff ? 'btn-active' : ''}`}
+              onClick={() => {
+                if (!showDiff && sorted.length >= 2) {
+                  setCompareLeft(sorted[1].id);
+                  setCompareRight(sorted[0].id);
+                }
+                setShowDiff(!showDiff);
+              }}
+            >
+              {showDiff ? 'Hide Compare' : 'Compare'}
+            </button>
+          )}
+        </div>
       </div>
 
       {showDiff && (
