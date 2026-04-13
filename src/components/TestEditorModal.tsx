@@ -181,8 +181,8 @@ export default function TestEditorModal({
 
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [fetchHostOverride, setFetchHostOverride] = useState('');
-  const [fetchHostEnabled, setFetchHostEnabled] = useState(false);
+  const [fetchHostOverride, setFetchHostOverride] = useState(draft.fetchHostOverride || '');
+  const [fetchHostEnabled, setFetchHostEnabled] = useState(!!draft.fetchHostEnabled);
 
   const [authVerifying, setAuthVerifying] = useState(false);
   const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
@@ -193,10 +193,17 @@ export default function TestEditorModal({
     setCurlText('');
     setGeneratedCurl('');
     setFetchError(null);
-    setFetchHostOverride('');
-    setFetchHostEnabled(false);
+    setFetchHostOverride(draft.fetchHostOverride || '');
+    setFetchHostEnabled(!!draft.fetchHostEnabled);
     setAuthVerifyResult(null);
   }, [editingTest.fgId, editingTest.scenarioId, editingTest.testId, draft.id]);
+
+  useEffect(() => {
+    const prev = draftRef.current;
+    if (prev.fetchHostOverride !== fetchHostOverride || !!prev.fetchHostEnabled !== fetchHostEnabled) {
+      onDraftChange({ ...prev, fetchHostOverride, fetchHostEnabled });
+    }
+  }, [fetchHostOverride, fetchHostEnabled, onDraftChange]);
 
   const syncParamsFromUrl = useCallback((url: string) => {
     setQueryParams(parseQueryParams(url));
