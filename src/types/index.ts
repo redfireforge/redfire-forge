@@ -43,6 +43,18 @@ export interface ExpectedField {
 
 export type SelectiveMode = 'include' | 'exclude';
 
+export interface ResponseVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  json: string;
+  validationMode?: ValidationMode;
+  selectiveMode?: SelectiveMode;
+  expectedFields?: ExpectedField[];
+  excludedPaths?: string[];
+  unorderedArrays?: boolean;
+}
+
 export interface ValidationConfig {
   mode: ValidationMode;
   expectedJson?: string;
@@ -51,6 +63,7 @@ export interface ValidationConfig {
   sampleJson?: string;
   excludedPaths?: string[];
   unorderedArrays?: boolean;
+  responseVersions?: ResponseVersion[];
 }
 
 export interface Scenario {
@@ -62,6 +75,8 @@ export interface Scenario {
   body: string;
   auth: AuthConfig;
   validation: ValidationConfig;
+  fetchHostOverride?: string;
+  fetchHostEnabled?: boolean;
 }
 
 export interface TestScenario {
