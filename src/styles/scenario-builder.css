@@ -700,4 +700,10 @@
   background: var(--bg);
   color: var(--text);
 }
+.runner-custom-url-input:disabled {
+  opacity: 0.45;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: not-allowed;
+}
 
