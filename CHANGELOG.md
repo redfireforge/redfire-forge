@@ -12,6 +12,28 @@ _Changes merged into `develop` that haven't been released yet._
 
 ---
 
+## [0.3.3-beta.1] — 2026-04-13
+
+### Added
+- **Load Profile Execution Mode**: New "Load Profile" option alongside Sequential, Batch, and Pool modes for time-based load testing
+- **Ramp-Up Profile**: Gradually increase from 1 to N concurrent users over a configurable ramp period, then sustain
+- **Sustained Load Profile**: Maintain a constant number of concurrent users for a specified duration
+- **Spike Test Profile**: Run at base concurrency, then burst to a peak for a configurable window
+- **Live Response Time Chart**: Streaming area chart of average response times (ms) per second during execution
+- **Live Throughput Chart**: Streaming area chart of transactions per second (TPS) during execution
+- **Live Error Rate Chart**: Streaming line chart of error percentage per second during execution
+- **Live Concurrency Chart**: Step-area chart showing actual in-flight request count over time (load profile mode)
+- **SVG Profile Preview**: Inline preview of the concurrency shape for the selected load profile configuration
+- **Active Connections Gauge**: Real-time "Concurrency: X / Y" metric card during load profile runs
+- **Roadmap Document**: Added `ROADMAP.md` tracking planned features across 5 phases
+
+### Changed
+- Test Runner progress section now shows time-based progress (elapsed/duration) for load profile runs
+- Results Dashboard badge displays load profile details (type, peak, duration) instead of generic Batch/Concurrency/Total
+- Load profile configuration (type, duration, concurrency) persists per project/environment/microservice context
+
+---
+
 ## [0.3.2] — 2026-04-13
 
 ### Added
