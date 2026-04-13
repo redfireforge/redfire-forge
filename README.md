@@ -1,4 +1,4 @@
-# RedfireForge — API Performance Studio
+# RedfireForge — Redfire Performance Workbench
 
 > *Fire. Measure. Validate.*
 
