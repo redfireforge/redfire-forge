@@ -272,3 +272,114 @@ tr:hover td { background: var(--surface-hover); }
 }
 .expand-toggle:hover { color: var(--text); }
 
+/* ---------------------------------------------------------------------------
+   Load Profile Panel
+   --------------------------------------------------------------------------- */
+
+.load-profile-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.load-profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.load-profile-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Profile type selector — horizontal button group */
+.profile-type-selector {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.profile-type-btn {
+  flex: 1;
+  padding: 7px 14px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-right: 1px solid var(--border);
+}
+.profile-type-btn:last-child { border-right: none; }
+.profile-type-btn:hover { background: var(--surface-hover); color: var(--text); }
+.profile-type-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+.profile-type-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-type-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 14px;
+}
+
+/* Profile fields */
+.profile-fields { display: flex; flex-direction: column; gap: 10px; }
+.profile-field-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.profile-field { flex: 1; min-width: 140px; }
+.profile-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.profile-field input[type="number"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.profile-field .field-hint {
+  display: block;
+  margin-top: 3px;
+}
+
+/* SVG Preview */
+.profile-preview-container {
+  flex-shrink: 0;
+}
+.profile-preview-svg {
+  width: 220px;
+  height: 60px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.profile-preview-svg polygon {
+  fill: var(--primary);
+  opacity: 0.15;
+}
+.profile-preview-svg polyline {
+  stroke: var(--primary);
+}
+.profile-preview-svg .profile-preview-label {
+  font-size: 8px;
+  fill: var(--text-muted);
+}
+

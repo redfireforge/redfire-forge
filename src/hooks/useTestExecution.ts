@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../types';
 import { runTest } from '../engine/executor';
+import type { ProgressMeta } from '../engine/executor';
 import { computeMetrics } from '../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../utils/storage';
 
@@ -14,6 +15,7 @@ interface TestExecutionState {
   finalRun: TestRun | null;
   error: string | null;
   pendingRun: TestRun | null;
+  profileMeta: ProgressMeta | null;
 }
 
 export function useTestExecution() {
@@ -26,6 +28,7 @@ export function useTestExecution() {
     finalRun: null,
     error: null,
     pendingRun: null,
+    profileMeta: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
@@ -38,19 +41,20 @@ export function useTestExecution() {
     setState({
       isRunning: true,
       completed: 0,
-      total: config.totalTransactions,
+      total: config.executionMode === 'load-profile' ? -1 : config.totalTransactions,
       liveResults: [],
       liveSummary: null,
       finalRun: null,
       error: null,
       pendingRun: null,
+      profileMeta: null,
     });
 
     try {
       const results = await runTest(
         config,
         scenarios,
-        (completed, total, allResults) => {
+        (completed, total, allResults, profileMeta) => {
           const elapsed = performance.now() - startTimeRef.current;
           const summary = computeMetrics(allResults, elapsed);
           setState((prev) => ({
@@ -59,6 +63,7 @@ export function useTestExecution() {
             total,
             liveResults: allResults,
             liveSummary: summary,
+            profileMeta: profileMeta ?? prev.profileMeta,
           }));
         },
         abortRef.current.signal
