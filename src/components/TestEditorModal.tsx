@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile } from '../types';
+import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile, ResponseVersion } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import JsonPathBuilder from './JsonPathBuilder';
+import ResponseVersionPanel from './ResponseVersionPanel';
 
 export const emptyTest = (): Scenario => ({
   id: uuidv4(),
@@ -350,6 +351,12 @@ export default function TestEditorModal({
         } catch {
           pretty = result.body;
         }
+        const newVersion: ResponseVersion = {
+          id: uuidv4(),
+          timestamp: Date.now(),
+          json: pretty,
+        };
+        const prevVersions = latest.validation.responseVersions || [];
         onDraftChange({
           ...latest,
           validation: {
@@ -357,6 +364,7 @@ export default function TestEditorModal({
             sampleJson: pretty,
             expectedFields: [],
             excludedPaths: [],
+            responseVersions: [...prevVersions, newVersion],
           },
         });
         setFetchError(null);
@@ -932,6 +940,22 @@ export default function TestEditorModal({
                         onUpdate={(patch) => {
                           const prev = draftRef.current;
                           onDraftChange({ ...prev, validation: { ...prev.validation, ...patch } });
+                        }}
+                      />
+                      <ResponseVersionPanel
+                        versions={draft.validation.responseVersions || []}
+                        currentJson={draft.validation.sampleJson || ''}
+                        onRestore={(json) => {
+                          const prev = draftRef.current;
+                          onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json, expectedFields: [], excludedPaths: [] } });
+                        }}
+                        onDeleteVersion={(id) => {
+                          const prev = draftRef.current;
+                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).filter((v) => v.id !== id) } });
+                        }}
+                        onRenameVersion={(id, label) => {
+                          const prev = draftRef.current;
+                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
                         }}
                       />
                     </>
