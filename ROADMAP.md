@@ -26,15 +26,14 @@ Core features that make the tool usable for real-world API workflows.
 
 Graduate from "send N requests" to real performance testing with time-based execution.
 
-- [ ] **Duration-Based Runs** — "Run for 60 seconds at 10 concurrent" instead of fixed transaction count
-- [ ] **Ramp-Up Profile** — Gradually increase from 1 to N concurrent users over X seconds
-- [ ] **Sustained Load Profile** — Maintain N concurrent users for X duration
-- [ ] **Spike Test Profile** — Sudden burst of traffic to test resilience
-- [ ] **Soak Test Profile** — Low concurrency over a long duration to detect memory leaks / degradation
-- [ ] **Live Response Time Chart** — Streaming line chart of response times during execution
-- [ ] **Live Throughput Chart** — TPS over time during execution
-- [ ] **Live Error Rate Chart** — Error percentage over time during execution
-- [ ] **Active Connections Gauge** — Real-time count of in-flight requests
+- [x] **Duration-Based Runs** — "Run for 60 seconds at 10 concurrent" instead of fixed transaction count
+- [x] **Ramp-Up Profile** — Gradually increase from 1 to N concurrent users over X seconds
+- [x] **Sustained Load Profile** — Maintain N concurrent users for X duration
+- [x] **Spike Test Profile** — Sudden burst of traffic to test resilience
+- [x] **Active Connections Gauge** — Real-time count of in-flight requests (Concurrency: X / Y metric card)
+- [x] **Live Response Time Chart** — Streaming line chart of response times during execution
+- [x] **Live Throughput Chart** — TPS over time during execution
+- [x] **Live Error Rate Chart** — Error percentage over time during execution
 
 ---
 
@@ -119,11 +118,11 @@ Full open-source maturity.
 | Phase | Target | Items | Done |
 |---|---|---|---|
 | 0.4.0 | Workflow & Assertions | 10 | 0 |
-| 0.5.0 | Load Profiles & Live Monitoring | 9 | 0 |
+| 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | CLI & CI Integration | 10 | 0 |
 | 0.7.0 | Data-Driven & Advanced Validation | 10 | 0 |
 | 1.0.0 | Ecosystem & Community | 20 | 0 |
-| **Total** | | **59** | **0** |
+| **Total** | | **58** | **8** |
 
 ---
 
