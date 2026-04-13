@@ -33,8 +33,9 @@ git merge feature/my-feature
 
 # Bump alpha version
 ./scripts/version.sh minor --pre 1       # → 0.3.0-alpha.1
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore: bump version to 0.3.0-alpha.1"
+git status   # verify clean working tree
 ```
 
 For subsequent alpha builds on the same cycle:
@@ -54,8 +55,9 @@ git checkout -b release/0.3.0
 
 # Bump to beta
 ./scripts/version.sh set 0.3.0 --pre 1   # → 0.3.0-beta.1
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore: bump version to 0.3.0-beta.1"
+git status   # verify clean working tree
 
 # Build the desktop app
 npx tauri build
@@ -77,8 +79,9 @@ git commit -m "fix: resolve issue X"
 
 # Bump beta number
 ./scripts/version.sh set 0.3.0 --pre 2   # → 0.3.0-beta.2
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore: bump version to 0.3.0-beta.2"
+git status   # verify clean working tree
 
 npx tauri build
 ```
@@ -96,8 +99,9 @@ git merge release/0.3.0
 
 # Set stable version
 ./scripts/version.sh set 0.3.0
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore: release v0.3.0"
+git status   # verify clean working tree
 
 # Tag it
 git tag v0.3.0
@@ -131,8 +135,9 @@ git commit -m "fix: critical issue"
 
 # Bump patch version
 ./scripts/version.sh patch               # → 0.3.1
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "chore: release v0.3.1"
+git status   # verify clean working tree
 
 # Merge into master and tag
 git checkout master
@@ -174,6 +179,7 @@ Files updated by the script:
 - `package.json`
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock` (auto-updated by build; **always commit this too**)
 
 ---
 
