@@ -31,9 +31,9 @@ Graduate from "send N requests" to real performance testing with time-based exec
 - [x] **Sustained Load Profile** — Maintain N concurrent users for X duration
 - [x] **Spike Test Profile** — Sudden burst of traffic to test resilience
 - [x] **Active Connections Gauge** — Real-time count of in-flight requests (Concurrency: X / Y metric card)
-- [ ] **Live Response Time Chart** — Streaming line chart of response times during execution
-- [ ] **Live Throughput Chart** — TPS over time during execution
-- [ ] **Live Error Rate Chart** — Error percentage over time during execution
+- [x] **Live Response Time Chart** — Streaming line chart of response times during execution
+- [x] **Live Throughput Chart** — TPS over time during execution
+- [x] **Live Error Rate Chart** — Error percentage over time during execution
 
 ---
 
@@ -118,11 +118,11 @@ Full open-source maturity.
 | Phase | Target | Items | Done |
 |---|---|---|---|
 | 0.4.0 | Workflow & Assertions | 10 | 0 |
-| 0.5.0 | Load Profiles & Live Monitoring | 8 | 5 |
+| 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | CLI & CI Integration | 10 | 0 |
 | 0.7.0 | Data-Driven & Advanced Validation | 10 | 0 |
 | 1.0.0 | Ecosystem & Community | 20 | 0 |
-| **Total** | | **58** | **5** |
+| **Total** | | **58** | **8** |
 
 ---
 
