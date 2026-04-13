@@ -12,7 +12,7 @@ _Changes merged into `develop` that haven't been released yet._
 
 ---
 
-## [0.3.3-beta.1] — 2026-04-13
+## [0.3.3] — 2026-04-13
 
 ### Added
 - **Load Profile Execution Mode**: New "Load Profile" option alongside Sequential, Batch, and Pool modes for time-based load testing
