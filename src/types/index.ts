@@ -120,13 +120,26 @@ export interface ScenarioWeight {
   weight: number;
 }
 
-export type ExecutionMode = 'sequential' | 'batch' | 'pool';
+export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile';
+
+export type LoadProfileType = 'ramp-up' | 'sustained' | 'spike';
+
+export interface LoadProfileConfig {
+  type: LoadProfileType;
+  durationSec: number;
+  maxConcurrency: number;
+  rampUpSec?: number;
+  spikeConcurrency?: number;
+  spikeStartSec?: number;
+  spikeDurationSec?: number;
+}
 
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
+  loadProfile?: LoadProfileConfig;
 }
 
 export interface FailureDetail {
