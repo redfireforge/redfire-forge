@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile } from '../types';
+import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile, ResponseVersion } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import JsonPathBuilder from './JsonPathBuilder';
+import ResponseVersionPanel from './ResponseVersionPanel';
 
 export const emptyTest = (): Scenario => ({
   id: uuidv4(),
@@ -15,6 +16,59 @@ export const emptyTest = (): Scenario => ({
   auth: { type: 'inherit' },
   validation: { mode: 'none', expectedFields: [] },
 });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function canonicalize(val: any): any {
+  if (val === null || val === undefined || typeof val !== 'object') return val;
+  if (Array.isArray(val)) return val.map(canonicalize);
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(val).sort()) out[k] = canonicalize(val[k]);
+  return out;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stripPaths(obj: any, paths: string[]): any {
+  if (!paths.length || obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+  for (const p of paths) {
+    const segments = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
+    if (!segments.length) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let cursor: any = clone;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const seg = segments[i];
+      const bracketMatch = seg.match(/^(.+)\[(\d+)\]$/);
+      if (bracketMatch) {
+        cursor = cursor?.[bracketMatch[1]];
+        cursor = Array.isArray(cursor) ? (cursor = [...cursor]) : cursor;
+        cursor = cursor?.[Number(bracketMatch[2])];
+      } else {
+        if (cursor && typeof cursor === 'object' && !Array.isArray(cursor)) cursor[seg] = { ...cursor[seg] };
+        cursor = cursor?.[seg];
+      }
+      if (!cursor || typeof cursor !== 'object') break;
+    }
+    if (cursor && typeof cursor === 'object') {
+      const last = segments[segments.length - 1];
+      delete cursor[last];
+    }
+  }
+  return clone;
+}
+
+function jsonEqual(a: string, b: string, excludedPaths?: string[]): boolean {
+  try {
+    let objA = JSON.parse(a);
+    let objB = JSON.parse(b);
+    if (excludedPaths?.length) {
+      objA = stripPaths(objA, excludedPaths);
+      objB = stripPaths(objB, excludedPaths);
+    }
+    return JSON.stringify(canonicalize(objA)) === JSON.stringify(canonicalize(objB));
+  } catch {
+    return a === b;
+  }
+}
 
 export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
@@ -127,8 +181,8 @@ export default function TestEditorModal({
 
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [fetchHostOverride, setFetchHostOverride] = useState('');
-  const [fetchHostEnabled, setFetchHostEnabled] = useState(false);
+  const [fetchHostOverride, setFetchHostOverride] = useState(draft.fetchHostOverride || '');
+  const [fetchHostEnabled, setFetchHostEnabled] = useState(!!draft.fetchHostEnabled);
 
   const [authVerifying, setAuthVerifying] = useState(false);
   const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
@@ -139,10 +193,17 @@ export default function TestEditorModal({
     setCurlText('');
     setGeneratedCurl('');
     setFetchError(null);
-    setFetchHostOverride('');
-    setFetchHostEnabled(false);
+    setFetchHostOverride(draft.fetchHostOverride || '');
+    setFetchHostEnabled(!!draft.fetchHostEnabled);
     setAuthVerifyResult(null);
   }, [editingTest.fgId, editingTest.scenarioId, editingTest.testId, draft.id]);
+
+  useEffect(() => {
+    const prev = draftRef.current;
+    if (prev.fetchHostOverride !== fetchHostOverride || !!prev.fetchHostEnabled !== fetchHostEnabled) {
+      onDraftChange({ ...prev, fetchHostOverride, fetchHostEnabled });
+    }
+  }, [fetchHostOverride, fetchHostEnabled, onDraftChange]);
 
   const syncParamsFromUrl = useCallback((url: string) => {
     setQueryParams(parseQueryParams(url));
@@ -350,13 +411,26 @@ export default function TestEditorModal({
         } catch {
           pretty = result.body;
         }
+        const v = latest.validation;
+        const prevVersions = v.responseVersions || [];
+        const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
+        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
+        const updatedVersions = isDuplicate
+          ? prevVersions
+          : [...prevVersions, {
+              id: uuidv4(), timestamp: Date.now(), json: pretty,
+              validationMode: v.mode, selectiveMode: v.selectiveMode,
+              expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+              excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+              unorderedArrays: v.unorderedArrays,
+            } as ResponseVersion];
         onDraftChange({
           ...latest,
           validation: {
             ...latest.validation,
             sampleJson: pretty,
             expectedFields: [],
-            excludedPaths: [],
+            responseVersions: updatedVersions,
           },
         });
         setFetchError(null);
@@ -932,6 +1006,50 @@ export default function TestEditorModal({
                         onUpdate={(patch) => {
                           const prev = draftRef.current;
                           onDraftChange({ ...prev, validation: { ...prev.validation, ...patch } });
+                        }}
+                      />
+                      <ResponseVersionPanel
+                        versions={draft.validation.responseVersions || []}
+                        currentJson={draft.validation.sampleJson || ''}
+                        currentValidation={draft.validation}
+                        excludedPaths={draft.validation.excludedPaths}
+                        onSaveVersion={() => {
+                          const prev = draftRef.current;
+                          const v = prev.validation;
+                          const json = v.sampleJson || '';
+                          if (!json.trim()) return;
+                          const prevVersions = v.responseVersions || [];
+                          const newVersion: ResponseVersion = {
+                            id: uuidv4(), timestamp: Date.now(), json,
+                            validationMode: v.mode, selectiveMode: v.selectiveMode,
+                            expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+                            excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+                            unorderedArrays: v.unorderedArrays,
+                          };
+                          onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, newVersion] } });
+                        }}
+                        onRestore={(ver) => {
+                          const prev = draftRef.current;
+                          onDraftChange({
+                            ...prev,
+                            validation: {
+                              ...prev.validation,
+                              sampleJson: ver.json,
+                              mode: ver.validationMode || prev.validation.mode,
+                              selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
+                              expectedFields: ver.expectedFields || [],
+                              excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
+                              unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
+                            },
+                          });
+                        }}
+                        onDeleteVersion={(id) => {
+                          const prev = draftRef.current;
+                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).filter((v) => v.id !== id) } });
+                        }}
+                        onRenameVersion={(id, label) => {
+                          const prev = draftRef.current;
+                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
                         }}
                       />
                     </>

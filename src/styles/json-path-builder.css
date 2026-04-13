@@ -248,6 +248,21 @@
   white-space: nowrap;
   flex: 1;
 }
+.jpb-field-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+}
+.jpb-field-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
 .jpb-manual-add { margin-top: 8px; }
 .jpb-manual-fallback { margin-top: 8px; }
 

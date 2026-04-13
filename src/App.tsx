@@ -108,18 +108,13 @@ export default function App() {
   };
 
   const removeProject = (id: string) => {
-    const project = projects.find((p) => p.id === id);
-    const fgCount = project?.featureGroups.length ?? 0;
-    const detail = fgCount > 0 ? ` It contains ${fgCount} feature group(s) that will be deleted.` : '';
-    confirm(`Delete project "${project?.name}"?${detail}`, () => {
-      setProjects((prev) => {
-        const next = prev.filter((p) => p.id !== id);
-        if (selectedProjectId === id) {
-          const newSel = next.length > 0 ? next[0].id : '';
-          setTimeout(() => setSelectedProjectId(newSel), 0);
-        }
-        return next;
-      });
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      if (selectedProjectId === id) {
+        const newSel = next.length > 0 ? next[0].id : '';
+        setTimeout(() => setSelectedProjectId(newSel), 0);
+      }
+      return next;
     });
   };
 
