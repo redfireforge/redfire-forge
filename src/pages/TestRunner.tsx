@@ -1,24 +1,35 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
-
-const STORAGE_KEY = 'perf-test-runner-config';
+import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../utils/storage';
 
 type HostMode = 'hardcoded' | 'settings' | 'custom';
 
-function loadRunnerConfig(): { concurrency: number; totalTransactions: number; selectedScenarios: string[]; weights: Record<string, number>; skipValidation: boolean; hostMode: HostMode; customBaseUrl: string; executionMode: ExecutionMode } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {}, skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch' };
+interface RunnerConfig {
+  concurrency: number;
+  totalTransactions: number;
+  selectedScenarios: string[];
+  weights: Record<string, number>;
+  skipValidation: boolean;
+  hostMode: HostMode;
+  customBaseUrl: string;
+  executionMode: ExecutionMode;
 }
+
+const defaultConfig: RunnerConfig = {
+  concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {},
+  skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
+};
 
 interface Props {
   featureGroups: FeatureGroup[];
   onComplete: () => void;
   envName?: string;
   svcName?: string;
+  projectName?: string;
+  projectId?: string;
+  envId?: string;
+  svcId?: string;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
@@ -40,24 +51,54 @@ function replaceHost(testUrl: string, baseUrl: string): string {
   }
 }
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
-  const saved = useMemo(() => loadRunnerConfig(), []);
-  const [concurrency, setConcurrency] = useState(saved.concurrency);
-  const [totalTransactions, setTotalTransactions] = useState(saved.totalTransactions);
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, projectId, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
+  const configContextKey = [projectId, envId, svcId].filter(Boolean).join(':') || undefined;
 
-  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(() => new Set(saved.selectedScenarios));
-  const [weights, setWeights] = useState<Record<string, number>>(saved.weights);
-  const [skipValidation, setSkipValidation] = useState(saved.skipValidation);
-  const [hostMode, setHostMode] = useState<HostMode>(saved.hostMode || 'settings');
-  const [customBaseUrl, setCustomBaseUrl] = useState(saved.customBaseUrl || '');
-  const [executionMode, setExecutionMode] = useState<ExecutionMode>(saved.executionMode || 'batch');
+  const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
+  const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
+  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
+  const [weights, setWeights] = useState<Record<string, number>>({});
+  const [skipValidation, setSkipValidation] = useState(false);
+  const [hostMode, setHostMode] = useState<HostMode>('settings');
+  const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const { isRunning, completed, total, liveSummary, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
-  // Persist config to localStorage
+  // Load runner config when context changes (project/env/svc)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    setConfigLoaded(false);
+    loadRunnerConfigAsync(configContextKey).then((raw) => {
+      if (raw) {
+        const saved = raw as RunnerConfig;
+        setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
+        setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
+        setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
+        setWeights(saved.weights ?? {});
+        setSkipValidation(saved.skipValidation ?? false);
+        setHostMode(saved.hostMode ?? 'settings');
+        setCustomBaseUrl(saved.customBaseUrl ?? '');
+        setExecutionMode(saved.executionMode ?? 'batch');
+      } else {
+        setConcurrency(defaultConfig.concurrency);
+        setTotalTransactions(defaultConfig.totalTransactions);
+        setSelectedScenarios(new Set());
+        setWeights({});
+        setSkipValidation(defaultConfig.skipValidation);
+        setHostMode(defaultConfig.hostMode);
+        setCustomBaseUrl(defaultConfig.customBaseUrl);
+        setExecutionMode(defaultConfig.executionMode);
+      }
+      setConfigLoaded(true);
+    });
+  }, [configContextKey]);
+
+  // Persist config only after initial load is complete
+  useEffect(() => {
+    if (!configLoaded) return;
+    void saveRunnerConfig({
       concurrency,
       totalTransactions,
       selectedScenarios: Array.from(selectedScenarios),
@@ -66,13 +107,13 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       hostMode,
       customBaseUrl,
       executionMode,
-    }));
-  }, [concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
+    }, configContextKey);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode]);
 
   // Collect all tests from selected scenarios, resolving auth chain:
   // Priority: Test → Scenario → Feature → Global Profile (highest to lowest)
   const selectedTests: Scenario[] = useMemo(() => {
-    const resolveAuth = (test: Scenario, sc: { auth?: { type: string } & Record<string, unknown> }, fg: FeatureGroup): AuthConfig => {
+    const resolveAuth = (test: Scenario, sc: { auth?: AuthConfig }, fg: FeatureGroup): AuthConfig => {
       if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
       const scAuth = sc.auth;
       if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') return scAuth as AuthConfig;
@@ -148,16 +189,15 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   };
 
   const activeTestCount = selectedTests.filter((t) => (weights[t.id] ?? 1) > 0).length;
-  const effectiveTransactions = Math.max(totalTransactions, activeTestCount);
 
   const handleRun = () => {
     const scenarioWeights: ScenarioWeight[] = selectedTests.map((t) => ({
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
-    const config: TestConfig = { concurrency, totalTransactions: effectiveTransactions, scenarioWeights, executionMode };
+    const config: TestConfig = { concurrency, totalTransactions, scenarioWeights, executionMode };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
-    execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
+    execute(config, selectedTests, { projectName, envName, svcName, baseUrl: usedBaseUrl });
   };
 
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -167,12 +207,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     <div className="page">
       <div className="page-header">
         <h2>Test Runner</h2>
-        {(envName || svcName) && (
-          <div className="context-tags">
-            {envName && <span className="tag tag-info">Env: {envName}</span>}
-            {svcName && <span className="tag tag-info">Svc: {svcName}</span>}
-          </div>
-        )}
+        <div className="context-tags">
+          {projectName && <span className="context-tag project-tag">{projectName}</span>}
+          {svcName && <span className="context-tag svc-tag">{svcName}</span>}
+          {envName && <span className="context-tag env-tag">{envName}</span>}
+        </div>
       </div>
       <div className="runner-host-selector">
         <span className="runner-host-label">Host:</span>
@@ -192,14 +231,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           <input type="radio" name="hostMode" checked={hostMode === 'custom'} onChange={() => setHostMode('custom')} disabled={isRunning} />
           Custom
         </label>
-        {hostMode === 'custom' && (
+        {(
           <input
             className="runner-custom-url-input"
             type="text"
             value={customBaseUrl}
             onChange={(e) => setCustomBaseUrl(e.target.value)}
             placeholder="https://my-host.example.com:8080"
-            disabled={isRunning}
+            disabled={isRunning || hostMode !== 'custom'}
           />
         )}
       </div>
@@ -311,22 +350,27 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {/* Config */}
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-              <div className="form-row" style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+              <div className="form-row" style={{ display: 'flex', gap: 24 }}>
                 <div style={{ flex: 1 }}>
-                  <label>Concurrency (parallel requests) {executionMode === 'sequential' && <span className="field-hint-inline">— fixed to 1 in sequential mode</span>}</label>
+                  <label>Concurrency (parallel requests)</label>
                   <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential'} />
+                  {executionMode === 'sequential' && <span className="field-hint">Fixed to 1 in sequential mode</span>}
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Total Transactions</label>
                   <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => setTotalTransactions(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
-                  {effectiveTransactions > totalTransactions && (
-                    <span className="field-hint">Min {activeTestCount} to cover all tests (each runs at least once)</span>
+                  {totalTransactions < activeTestCount && (
+                    <span className="field-hint">{activeTestCount} tests active — top-weighted {totalTransactions} will be picked</span>
                   )}
                 </div>
               </div>
 
               <fieldset>
                 <legend>Test Distribution (weights)</legend>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
+                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
+                </div>
                 {selectedTests.map((t, idx) => (
                   <div key={t.id} className="weight-row">
                     <div className="weight-label">
@@ -419,8 +463,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {pendingRun && (
             <div className="storage-quota-banner">
               <div className="storage-quota-msg">
-                <strong>Storage full</strong> — the test completed successfully but could not be saved because localStorage is out of space.
-                Would you like to remove old runs to make room?
+                <strong>Storage full</strong> — the test completed successfully but could not be saved due to a storage error.
+                Would you like to remove old runs and retry?
               </div>
               <div className="storage-quota-actions">
                 <button className="btn btn-primary btn-sm" onClick={confirmSavePendingRun}>Yes, remove old runs &amp; save</button>

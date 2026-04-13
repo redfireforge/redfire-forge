@@ -1,0 +1,40 @@
+---
+description: RedfireForge project conventions and architecture
+alwaysApply: true
+---
+
+# Project Conventions
+
+## Tech Stack
+
+- Frontend: React + TypeScript + Vite
+- Desktop: Tauri (Rust backend, native webview)
+- Storage: localStorage (web) / Tauri FS plugin (desktop)
+- HTTP: Vite proxy (web) / Tauri HTTP plugin (desktop)
+
+## Platform Awareness
+
+- Use `isTauri()` from `src/utils/platform.ts` to detect desktop vs web.
+- Use `httpFetch()` from `src/utils/httpClient.ts` for all HTTP requests.
+- Use async functions from `src/utils/storage.ts` for all persistence.
+- Never use `localStorage` directly — always go through the storage abstraction.
+
+## Key Files
+
+| File | Purpose |
+|---|---|
+| `src/App.tsx` | Main app, routing, global state |
+| `src/utils/storage.ts` | Dual-mode persistence layer |
+| `src/utils/tauriStore.ts` | Tauri file-system storage |
+| `src/utils/httpClient.ts` | Dual-mode HTTP client |
+| `src/utils/platform.ts` | Platform detection |
+| `src/engine/executor.ts` | HTTP test execution engine |
+| `src-tauri/tauri.conf.json` | Tauri app config |
+| `scripts/version.sh` | Version bump script |
+
+## Naming
+
+- App name: **RedfireForge**
+- Tagline: **Redfire Performance Workbench**
+- Desktop title bar: "RedfireForge — Redfire Performance Workbench"
+- Export filenames: `{env}-{microservice}-{level}-{name}-{timestamp}.json`

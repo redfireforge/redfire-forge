@@ -1,29 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, AuthConfig } from '../types';
 import { validate } from './validator';
+import { httpFetch, type HttpResponse } from '../utils/httpClient';
 
 type ProgressCallback = (completed: number, total: number, results: RequestResult[]) => void;
-
-interface ProxyResponse {
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: string;
-  error?: string;
-}
 
 export async function proxyFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
   body?: string
-): Promise<ProxyResponse> {
-  const resp = await fetch('/__proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, method, headers, body }),
-  });
-  return resp.json();
+): Promise<HttpResponse> {
+  return httpFetch(url, method, headers, body);
 }
 
 export async function acquireOAuth2Token(auth: AuthConfig): Promise<string> {
@@ -177,44 +165,43 @@ export async function runTest(
     }
   }
 
-  // Build request queue based on weights, guaranteeing each scenario with
-  // weight > 0 appears at least once.
+  // Build request queue: distribute totalTransactions across active scenarios by weight.
+  // If totalTransactions < active count, pick top-weighted scenarios (random tiebreak).
   const activeWeights = config.scenarioWeights.filter((w) => w.weight > 0);
   const totalWeight = activeWeights.reduce((s, w) => s + w.weight, 0);
-  const effectiveTotal = Math.max(config.totalTransactions, activeWeights.length);
+  const total = config.totalTransactions;
   const queue: Scenario[] = [];
 
-  // First pass: give every active scenario at least 1 slot
-  const counts = new Map<string, number>();
-  let allocated = 0;
-  for (const sw of activeWeights) {
-    counts.set(sw.scenarioId, 1);
-    allocated++;
-  }
-  // Second pass: distribute the remaining slots by weight
-  const remaining = effectiveTotal - allocated;
-  if (remaining > 0 && totalWeight > 0) {
+  if (total >= activeWeights.length) {
+    // Enough slots: give each at least 1, distribute remainder by weight
+    const counts = new Map<string, number>();
+    for (const sw of activeWeights) counts.set(sw.scenarioId, 1);
+    const remaining = total - activeWeights.length;
+    if (remaining > 0 && totalWeight > 0) {
+      for (const sw of activeWeights) {
+        const extra = Math.round((sw.weight / totalWeight) * remaining);
+        counts.set(sw.scenarioId, (counts.get(sw.scenarioId) ?? 0) + extra);
+      }
+    }
     for (const sw of activeWeights) {
-      const extra = Math.round((sw.weight / totalWeight) * remaining);
-      counts.set(sw.scenarioId, (counts.get(sw.scenarioId) ?? 0) + extra);
+      const scenario = scenarios.find((s) => s.id === sw.scenarioId);
+      if (!scenario) continue;
+      for (let i = 0; i < (counts.get(sw.scenarioId) ?? 1); i++) queue.push(scenario);
+    }
+  } else {
+    // Fewer slots than scenarios: pick top-weighted, shuffle ties randomly
+    const sorted = [...activeWeights].sort((a, b) => {
+      if (b.weight !== a.weight) return b.weight - a.weight;
+      return Math.random() - 0.5;
+    });
+    const picked = sorted.slice(0, total);
+    for (const sw of picked) {
+      const scenario = scenarios.find((s) => s.id === sw.scenarioId);
+      if (scenario) queue.push(scenario);
     }
   }
-
-  for (const sw of activeWeights) {
-    const scenario = scenarios.find((s) => s.id === sw.scenarioId);
-    if (!scenario) continue;
-    const count = counts.get(sw.scenarioId) ?? 1;
-    for (let i = 0; i < count; i++) {
-      queue.push(scenario);
-    }
-  }
-  // Adjust to exact total
-  while (queue.length < effectiveTotal && scenarios.length > 0) {
-    queue.push(scenarios[0]);
-  }
-  while (queue.length > effectiveTotal) {
-    queue.pop();
-  }
+  while (queue.length < total && scenarios.length > 0) queue.push(scenarios[0]);
+  while (queue.length > total) queue.pop();
 
   // Shuffle for realistic distribution
   for (let i = queue.length - 1; i > 0; i--) {

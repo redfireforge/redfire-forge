@@ -1,11 +1,28 @@
+import { isTauri } from './platform';
+
+const EXPORT_DIR_NAME = 'RedfireForge';
+
+async function getDefaultExportDir(): Promise<string | undefined> {
+  if (!isTauri()) return undefined;
+  try {
+    const { documentDir } = await import('@tauri-apps/api/path');
+    const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+    const docDir = await documentDir();
+    const sep = docDir.endsWith('/') || docDir.endsWith('\\') ? '' : '/';
+    const exportDir = `${docDir}${sep}${EXPORT_DIR_NAME}`;
+    if (!(await exists(exportDir))) {
+      await mkdir(exportDir, { recursive: true });
+    }
+    return exportDir;
+  } catch {
+    return undefined;
+  }
+}
+
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-/**
- * Builds a consistent filename: {env}-{svc}-{level}-{name}-{date}.{ext}
- * Segments that are empty/undefined are omitted.
- */
 export function buildExportFilename(parts: {
   env?: string;
   svc?: string;
@@ -37,11 +54,30 @@ function getExtension(filename: string): string {
   return dot >= 0 ? filename.slice(dot) : '';
 }
 
-/**
- * Prompt the user to choose a save location via the File System Access API.
- * Falls back to a classic download if the browser doesn't support it.
- */
 export async function saveFile(blob: Blob, opts: SaveOptions): Promise<void> {
+  if (isTauri()) {
+    return tauriSaveFile(blob, opts);
+  }
+  return browserSaveFile(blob, opts);
+}
+
+async function tauriSaveFile(blob: Blob, opts: SaveOptions): Promise<void> {
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+  const ext = getExtension(opts.filename).replace('.', '') || 'json';
+  const exportDir = await getDefaultExportDir();
+  const sep = exportDir?.endsWith('/') || exportDir?.endsWith('\\') ? '' : '/';
+  const defaultPath = exportDir ? `${exportDir}${sep}${opts.filename}` : opts.filename;
+  const path = await save({
+    defaultPath,
+    filters: [{ name: opts.description ?? 'File', extensions: [ext] }],
+  });
+  if (!path) return;
+  const text = await blob.text();
+  await writeTextFile(path, text);
+}
+
+async function browserSaveFile(blob: Blob, opts: SaveOptions): Promise<void> {
   if ('showSaveFilePicker' in window) {
     try {
       const ext = getExtension(opts.filename) || '.json';
@@ -62,7 +98,6 @@ export async function saveFile(blob: Blob, opts: SaveOptions): Promise<void> {
     }
   }
 
-  // Fallback: classic browser download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -81,4 +116,21 @@ export async function saveJsonFile(data: unknown, filename: string): Promise<voi
 export async function saveCsvFile(content: string, filename: string): Promise<void> {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   await saveFile(blob, { filename, mimeType: 'text/csv', description: 'CSV file' });
+}
+
+export async function openJsonFile(): Promise<{ name: string; content: string } | null> {
+  if (!isTauri()) return null;
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const { readTextFile } = await import('@tauri-apps/plugin-fs');
+  const exportDir = await getDefaultExportDir();
+  const path = await open({
+    defaultPath: exportDir ?? undefined,
+    filters: [{ name: 'JSON file', extensions: ['json'] }],
+    multiple: false,
+    directory: false,
+  });
+  if (!path) return null;
+  const content = await readTextFile(path as string);
+  const name = (path as string).split('/').pop() || (path as string).split('\\').pop() || 'import.json';
+  return { name, content };
 }
