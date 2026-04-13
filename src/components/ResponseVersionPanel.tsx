@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ResponseVersion } from '../types';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
@@ -23,25 +23,30 @@ const differ = new Differ({
 export default function ResponseVersionPanel({ versions, currentJson, onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
   const [compareRight, setCompareRight] = useState<string | null>(null);
-  const [showDiff, setShowDiff] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelText, setLabelText] = useState('');
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
+  useEffect(() => {
+    if (!showModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showModal]);
+
   const diffResult = useMemo(() => {
-    if (!showDiff || !compareLeft || !compareRight) return null;
+    if (!showModal || !compareLeft || !compareRight) return null;
     const leftVer = versions.find((v) => v.id === compareLeft);
     const rightVer = versions.find((v) => v.id === compareRight);
     if (!leftVer || !rightVer) return null;
     try {
-      const leftObj = JSON.parse(leftVer.json);
-      const rightObj = JSON.parse(rightVer.json);
-      return differ.diff(leftObj, rightObj);
+      return differ.diff(JSON.parse(leftVer.json), JSON.parse(rightVer.json));
     } catch {
       return null;
     }
-  }, [showDiff, compareLeft, compareRight, versions]);
+  }, [showModal, compareLeft, compareRight, versions]);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -51,6 +56,12 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
   const getVersionLabel = (v: ResponseVersion, idx: number) => {
     const num = sorted.length - idx;
     return v.label || `v${num}`;
+  };
+
+  const getLabelById = (id: string) => {
+    const idx = sorted.findIndex((v) => v.id === id);
+    if (idx < 0) return '?';
+    return getVersionLabel(sorted[idx], idx);
   };
 
   const isDuplicate = useMemo(() => {
@@ -63,6 +74,14 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
       return currentJson.trim() === sorted[0].json;
     }
   }, [sorted, currentJson]);
+
+  const openCompare = () => {
+    if (sorted.length >= 2) {
+      setCompareLeft(sorted[1].id);
+      setCompareRight(sorted[0].id);
+    }
+    setShowModal(true);
+  };
 
   if (sorted.length === 0) {
     return (
@@ -91,61 +110,12 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
             </button>
           )}
           {sorted.length >= 2 && (
-            <button
-              type="button"
-              className={`btn btn-sm ${showDiff ? 'btn-active' : ''}`}
-              onClick={() => {
-                if (!showDiff && sorted.length >= 2) {
-                  setCompareLeft(sorted[1].id);
-                  setCompareRight(sorted[0].id);
-                }
-                setShowDiff(!showDiff);
-              }}
-            >
-              {showDiff ? 'Hide Compare' : 'Compare'}
+            <button type="button" className="btn btn-sm" onClick={openCompare}>
+              Compare
             </button>
           )}
         </div>
       </div>
-
-      {showDiff && (
-        <div className="version-compare-bar">
-          <label>
-            Left:
-            <select value={compareLeft || ''} onChange={(e) => setCompareLeft(e.target.value)}>
-              <option value="">Select...</option>
-              {sorted.map((v, i) => (
-                <option key={v.id} value={v.id}>{getVersionLabel(v, i)} — {formatTime(v.timestamp)}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Right:
-            <select value={compareRight || ''} onChange={(e) => setCompareRight(e.target.value)}>
-              <option value="">Select...</option>
-              {sorted.map((v, i) => (
-                <option key={v.id} value={v.id}>{getVersionLabel(v, i)} — {formatTime(v.timestamp)}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      {showDiff && diffResult && (
-        <div className="version-diff-viewer">
-          <Viewer
-            diff={diffResult}
-            indent={2}
-            lineNumbers={true}
-            highlightInlineDiff={true}
-            syntaxHighlight={{ theme: 'monokai' }}
-          />
-        </div>
-      )}
-
-      {showDiff && compareLeft && compareRight && !diffResult && (
-        <div className="version-diff-identical">No differences found (or JSON parse error).</div>
-      )}
 
       <div className="version-list">
         {sorted.map((v, i) => {
@@ -183,6 +153,61 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
           );
         })}
       </div>
+
+      {showModal && (
+        <div className="version-diff-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="version-diff-modal">
+            <div className="version-diff-modal-header">
+              <h3>Compare Versions</h3>
+              <button type="button" className="btn btn-sm" onClick={() => setShowModal(false)}>✕</button>
+            </div>
+            <div className="version-diff-modal-selectors">
+              <label>
+                <span className="version-diff-selector-label">Left</span>
+                <select value={compareLeft || ''} onChange={(e) => setCompareLeft(e.target.value)}>
+                  <option value="">Select...</option>
+                  {sorted.map((v, i) => (
+                    <option key={v.id} value={v.id}>{getVersionLabel(v, i)} — {formatTime(v.timestamp)}</option>
+                  ))}
+                </select>
+              </label>
+              <span className="version-diff-vs">vs</span>
+              <label>
+                <span className="version-diff-selector-label">Right</span>
+                <select value={compareRight || ''} onChange={(e) => setCompareRight(e.target.value)}>
+                  <option value="">Select...</option>
+                  {sorted.map((v, i) => (
+                    <option key={v.id} value={v.id}>{getVersionLabel(v, i)} — {formatTime(v.timestamp)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {compareLeft && compareRight && compareLeft === compareRight && (
+              <div className="version-diff-identical">Same version selected on both sides.</div>
+            )}
+            {diffResult && (
+              <div className="version-diff-modal-title">
+                {getLabelById(compareLeft!)} → {getLabelById(compareRight!)}
+              </div>
+            )}
+            <div className="version-diff-viewer">
+              {diffResult ? (
+                <Viewer
+                  diff={diffResult}
+                  indent={2}
+                  lineNumbers={true}
+                  highlightInlineDiff={true}
+                  syntaxHighlight={{ theme: 'monokai' }}
+                />
+              ) : compareLeft && compareRight && compareLeft !== compareRight ? (
+                <div className="version-diff-identical">No differences found (or JSON parse error).</div>
+              ) : (
+                <div className="version-diff-identical">Select two versions above to compare.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
