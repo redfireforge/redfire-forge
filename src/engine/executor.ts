@@ -346,9 +346,6 @@ export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: numb
       return Math.max(1, maxConcurrency);
     }
 
-    case 'soak':
-      return maxConcurrency;
-
     default:
       return maxConcurrency;
   }

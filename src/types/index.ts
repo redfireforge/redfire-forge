@@ -122,7 +122,7 @@ export interface ScenarioWeight {
 
 export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile';
 
-export type LoadProfileType = 'ramp-up' | 'sustained' | 'spike' | 'soak';
+export type LoadProfileType = 'ramp-up' | 'sustained' | 'spike';
 
 export interface LoadProfileConfig {
   type: LoadProfileType;
