@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { ResponseVersion } from '../types';
+import type { ResponseVersion, ValidationConfig } from '../types';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
@@ -7,9 +7,10 @@ import 'json-diff-kit/dist/viewer-monokai.css';
 interface Props {
   versions: ResponseVersion[];
   currentJson: string;
+  currentValidation: ValidationConfig;
   excludedPaths?: string[];
   onSaveVersion: () => void;
-  onRestore: (json: string) => void;
+  onRestore: (version: ResponseVersion) => void;
   onDeleteVersion: (id: string) => void;
   onRenameVersion: (id: string, label: string) => void;
 }
@@ -39,7 +40,7 @@ function sortArraysDeep(val: any): any {
   return out;
 }
 
-export default function ResponseVersionPanel({ versions, currentJson, excludedPaths = [], onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
+export default function ResponseVersionPanel({ versions, currentJson, currentValidation, excludedPaths = [], onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
   const [compareRight, setCompareRight] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -79,6 +80,30 @@ export default function ResponseVersionPanel({ versions, currentJson, excludedPa
     return diffResult.every(segment => segment.every(line => line.type === 'equal'));
   }, [diffResult]);
 
+  const rulesDiff = useMemo(() => {
+    if (!showModal || !compareLeft || !compareRight) return null;
+    const lv = versions.find((v) => v.id === compareLeft);
+    const rv = versions.find((v) => v.id === compareRight);
+    if (!lv || !rv) return null;
+    const changes: string[] = [];
+    const lm = lv.validationMode || 'none', rm = rv.validationMode || 'none';
+    if (lm !== rm) changes.push(`Mode: ${lm} → ${rm}`);
+    const ls = lv.selectiveMode || 'include', rs = rv.selectiveMode || 'include';
+    if (lm !== 'none' && rm !== 'none' && ls !== rs) changes.push(`Selective: ${ls} → ${rs}`);
+    const lf = JSON.stringify(lv.expectedFields || []), rf = JSON.stringify(rv.expectedFields || []);
+    if (lf !== rf) {
+      const lc = (lv.expectedFields || []).length, rc = (rv.expectedFields || []).length;
+      changes.push(`Expected fields: ${lc} → ${rc}`);
+    }
+    const le = JSON.stringify(lv.excludedPaths || []), re = JSON.stringify(rv.excludedPaths || []);
+    if (le !== re) {
+      const lc = (lv.excludedPaths || []).length, rc = (rv.excludedPaths || []).length;
+      changes.push(`Excluded paths: ${lc} → ${rc}`);
+    }
+    if (!!(lv.unorderedArrays) !== !!(rv.unorderedArrays)) changes.push(`Unordered arrays: ${!!lv.unorderedArrays} → ${!!rv.unorderedArrays}`);
+    return changes.length > 0 ? changes : null;
+  }, [showModal, compareLeft, compareRight, versions]);
+
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -97,38 +122,47 @@ export default function ResponseVersionPanel({ versions, currentJson, excludedPa
 
   const isDuplicate = useMemo(() => {
     if (sorted.length === 0 || !currentJson.trim()) return false;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const canon = (v: any): any => {
-        if (v === null || v === undefined || typeof v !== 'object') return v;
-        if (Array.isArray(v)) return v.map(canon);
-        const o: Record<string, unknown> = {};
-        for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
-        return o;
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const strip = (obj: any): any => {
-        if (!excludedPaths.length || !obj || typeof obj !== 'object') return obj;
-        const clone = Array.isArray(obj) ? [...obj] : { ...obj };
-        for (const p of excludedPaths) {
-          const segs = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
-          if (!segs.length) continue;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let cur: any = clone;
-          for (let i = 0; i < segs.length - 1; i++) {
-            if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur[segs[i]] = { ...cur[segs[i]] };
-            cur = cur?.[segs[i]];
-            if (!cur || typeof cur !== 'object') break;
-          }
-          if (cur && typeof cur === 'object') delete cur[segs[segs.length - 1]];
+    const latest = sorted[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const canon = (v: any): any => {
+      if (v === null || v === undefined || typeof v !== 'object') return v;
+      if (Array.isArray(v)) return v.map(canon);
+      const o: Record<string, unknown> = {};
+      for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
+      return o;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const strip = (obj: any): any => {
+      if (!excludedPaths.length || !obj || typeof obj !== 'object') return obj;
+      const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+      for (const p of excludedPaths) {
+        const segs = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
+        if (!segs.length) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let cur: any = clone;
+        for (let i = 0; i < segs.length - 1; i++) {
+          if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur[segs[i]] = { ...cur[segs[i]] };
+          cur = cur?.[segs[i]];
+          if (!cur || typeof cur !== 'object') break;
         }
-        return clone;
-      };
-      return JSON.stringify(canon(strip(JSON.parse(currentJson)))) === JSON.stringify(canon(strip(JSON.parse(sorted[0].json))));
+        if (cur && typeof cur === 'object') delete cur[segs[segs.length - 1]];
+      }
+      return clone;
+    };
+    try {
+      const jsonSame = JSON.stringify(canon(strip(JSON.parse(currentJson)))) === JSON.stringify(canon(strip(JSON.parse(latest.json))));
+      if (!jsonSame) return false;
     } catch {
-      return currentJson.trim() === sorted[0].json;
+      if (currentJson.trim() !== latest.json) return false;
     }
-  }, [sorted, currentJson, excludedPaths]);
+    const rulesSame =
+      (currentValidation.mode || 'none') === (latest.validationMode || 'none') &&
+      (currentValidation.selectiveMode || 'include') === (latest.selectiveMode || 'include') &&
+      JSON.stringify(currentValidation.expectedFields || []) === JSON.stringify(latest.expectedFields || []) &&
+      JSON.stringify(currentValidation.excludedPaths || []) === JSON.stringify(latest.excludedPaths || []) &&
+      !!(currentValidation.unorderedArrays) === !!(latest.unorderedArrays);
+    return rulesSame;
+  }, [sorted, currentJson, excludedPaths, currentValidation]);
 
   const openCompare = () => {
     if (sorted.length >= 2) {
@@ -175,6 +209,7 @@ export default function ResponseVersionPanel({ versions, currentJson, excludedPa
       <div className="version-list">
         {sorted.map((v, i) => {
           const isCurrent = v.json === currentJson;
+          const hasRules = v.validationMode && v.validationMode !== 'none';
           return (
             <div key={v.id} className={`version-item ${isCurrent ? 'version-current' : ''}`}>
               <div className="version-item-info">
@@ -196,11 +231,12 @@ export default function ResponseVersionPanel({ versions, currentJson, excludedPa
                   </span>
                 )}
                 <span className="version-time">{formatTime(v.timestamp)}</span>
+                {hasRules && <span className="version-rules-tag">{v.validationMode}{v.selectiveMode ? `·${v.selectiveMode}` : ''}</span>}
                 {isCurrent && <span className="version-current-tag">current</span>}
               </div>
               <div className="version-item-actions">
                 {!isCurrent && (
-                  <button type="button" className="btn btn-xs" onClick={() => onRestore(v.json)}>Restore</button>
+                  <button type="button" className="btn btn-xs" onClick={() => onRestore(v)}>Restore</button>
                 )}
                 <button type="button" className="btn btn-xs btn-danger" onClick={() => onDeleteVersion(v.id)}>Delete</button>
               </div>
@@ -251,10 +287,16 @@ export default function ResponseVersionPanel({ versions, currentJson, excludedPa
                 {getLabelById(compareLeft!)} → {getLabelById(compareRight!)}
               </div>
             )}
-            {isIdentical && (
+            {isIdentical && !rulesDiff && (
               <div className="version-diff-identical-banner">
                 <span className="version-diff-identical-icon">&#x2714;</span>
                 These two versions are identical{unorderedArrays ? ' (with unordered array matching)' : ''}
+              </div>
+            )}
+            {rulesDiff && (
+              <div className="version-rules-diff-bar">
+                <strong>Validation rule changes:</strong>
+                {rulesDiff.map((c, i) => <span key={i} className="version-rules-diff-item">{c}</span>)}
               </div>
             )}
             <div className="version-diff-viewer">
