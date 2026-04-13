@@ -12,6 +12,24 @@ _Changes merged into `develop` that haven't been released yet._
 
 ---
 
+## [0.3.1-beta.1] — 2026-04-12
+
+### Added
+- Per-context runner config: Concurrency and Total Transactions are now saved independently per project + environment + microservice combination
+- Custom host URL input always visible in Test Runner (disabled when not in custom mode, dimmed styling)
+
+### Changed
+- Tagline renamed from "API Performance Studio" to "Redfire Performance Workbench"
+- Sidebar: clicking a microservice or environment name only toggles expand/collapse, no longer changes content selection
+- Git branching rules strengthened: all code changes must go through feature/* or hotfix/* branches
+
+### Fixed
+- Auth badge on test cards showing "Auth: none" when inheriting through scenario → feature → global auth profile chain
+- Scenario-level "Verify Inherited Auth" button now resolves through feature to global auth profile
+- Settings modal header clipped behind app header in desktop mode
+
+---
+
 ## [0.3.0-beta.1] — 2026-04-12
 
 ### Added
