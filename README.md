@@ -102,7 +102,8 @@ Press `Ctrl+C` in the terminal running the dev command.
 ```
 src/
 ├── App.tsx                  # Root component: tabs, sidebar, settings modal
-├── App.css                  # All application styles
+├── App.css                  # Root styles & imports
+├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
 ├── pages/
 │   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
 │   ├── TestRunner.tsx       # Configure & execute performance runs
@@ -112,11 +113,16 @@ src/
 │   ├── validator.ts         # Response validation (full, selective, unordered)
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
+│   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   └── useTestExecution.ts  # React hook wrapping the executor
 ├── components/
-│   ├── JsonPathBuilder.tsx  # Visual JSON path selector for validation
-│   ├── ExportCenter.tsx     # Multi-select data export modal
-│   └── ImportCenter.tsx     # Import with per-item conflict resolution
+│   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
+│   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
+│   ├── SettingsModal.tsx        # Split-panel settings (projects, auth, export/import, storage)
+│   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
+│   ├── TestEditorModal.tsx      # Full test editor (params, body, auth, headers, validation)
+│   ├── ExportCenter.tsx         # Multi-select data export modal
+│   └── ImportCenter.tsx         # Import with per-item conflict resolution
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
 │   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
@@ -370,8 +376,24 @@ Auth badges are color-coded by level for quick visual identification:
 **Selective Validation Features:**
 
 - **Visual JSON Path Builder**: Paste a sample JSON response, and a visual tree appears. Check/uncheck fields to build validation paths.
+- **Manual Rule Entry**: Click "+ Add Manual Rule" to type custom JSON paths and expected values directly.
 - **Unordered Array Matching**: Enable this to match array items regardless of their order (e.g., `offers[0]` can match `offers[3]` if field values match).
 - **Smart Path Remapping**: If paths don't resolve (e.g., response wraps data in a key), the validator automatically tries common remapping strategies.
+
+**Response & Validation Version History:**
+
+Each test can maintain a history of response + validation rule snapshots for tracking API changes over time.
+
+- **Auto-save on Fetch**: Each time "Fetch Response" returns new data, a version is automatically saved (if different from the latest).
+- **Save as Version**: Click "Save as Version" to manually snapshot the current response JSON and all validation rules.
+- **Duplicate Prevention**: Versions are only created when something actually changed. Comparison uses canonical JSON (sorted keys) and respects excluded paths — so dynamic fields like timestamps don't trigger false versions.
+- **Restore**: Click "Restore" on any version to bring back both the response and the complete validation configuration (mode, expected fields, excluded paths, etc.).
+- **Compare Modal**: Click "Compare" to open a full-screen diff modal with two tabs:
+  - **Response** — side-by-side JSON diff with syntax highlighting (green for additions, red for removals, blue for modifications)
+  - **Validation Rules** — diff of the validation mode, expected fields, excluded paths, and settings
+- **Unordered Arrays toggle**: In the compare modal, enable "Unordered Arrays" to ignore element order when diffing arrays of objects.
+- **Identical Banner**: A green checkmark banner appears when two versions are identical.
+- **Rename & Delete**: Click a version label to rename it; click "Delete" to remove it.
 
 **Fetch Response & Host Override:**
 
@@ -489,7 +511,11 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
 | Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
-| Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle |
+| Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle; persisted across editor sessions |
+| Response version history | Save, restore, rename, and delete response + validation rule snapshots per test |
+| Visual diff comparison | Full-screen modal with side-by-side JSON diff (response + validation rules), monokai dark theme |
+| Duplicate version prevention | Auto-detects unchanged responses using canonical JSON comparison with excluded-paths support |
+| Unordered array diffing | Compare arrays ignoring element order, including arrays of complex objects |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |

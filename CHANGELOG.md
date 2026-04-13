@@ -12,6 +12,33 @@ _Changes merged into `develop` that haven't been released yet._
 
 ---
 
+## [0.3.2-beta.1] — 2026-04-13
+
+### Added
+- **Response & Validation Version History**: Save snapshots of both the JSON response and validation rules as named versions, with restore and delete support
+- **Save as Version**: Manually snapshot the current response + validation state at any time from the Validation tab
+- **Visual Diff Comparison Modal**: Full-screen pop-up modal with side-by-side JSON diff (monokai dark theme) for comparing any two versions
+- **Tabbed Comparison**: Compare modal has separate "Response" and "Validation Rules" tabs, each with full visual diff
+- **Unordered Array Matching**: Toggle in compare modal to ignore array element order when diffing (works for arrays of objects)
+- **Identical Version Banner**: Green checkmark banner when two compared versions are identical
+- **Duplicate Version Prevention**: Automatically skips creating a new version when the response and validation rules are unchanged (uses canonical JSON comparison with sorted keys)
+- **Excluded Paths for Deduplication**: Paths marked as excluded in validation rules are also ignored during duplicate version detection (handles dynamic fields like timestamps)
+- **Manual Validation Rule Input**: "+ Add Manual Rule" now renders editable input fields for JSON path and expected value (previously showed empty non-editable text)
+- **Host Override Persistence**: "Host Override" checkbox and URL value in the test editor now persist across close/reopen
+
+### Changed
+- Auth badge styling: consistent green highlight for configured types, reduced font size (0.75rem), bold, rounded corners
+- "No Auth" badge now has rounded corners matching other badges
+- Diff viewer uses monokai dark theme with green/red/blue tinting for added/removed/modified lines
+
+### Fixed
+- Project delete button was double-confirming (SettingsModal + App.tsx both called confirm), making deletion appear broken
+- Response version diff was hard to read on dark backgrounds (switched to monokai theme with custom inline-diff styling)
+- Unordered array comparison was not working for arrays of objects (library built-in sort failed; replaced with custom deep sort)
+- Validation rule comparison showed false diffs due to array ordering of expectedFields and excludedPaths
+
+---
+
 ## [0.3.1-beta.1] — 2026-04-12
 
 ### Added
