@@ -17,6 +17,23 @@ export const emptyTest = (): Scenario => ({
   validation: { mode: 'none', expectedFields: [] },
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function canonicalize(val: any): any {
+  if (val === null || val === undefined || typeof val !== 'object') return val;
+  if (Array.isArray(val)) return val.map(canonicalize);
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(val).sort()) out[k] = canonicalize(val[k]);
+  return out;
+}
+
+function jsonEqual(a: string, b: string): boolean {
+  try {
+    return JSON.stringify(canonicalize(JSON.parse(a))) === JSON.stringify(canonicalize(JSON.parse(b)));
+  } catch {
+    return a === b;
+  }
+}
+
 export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
 
@@ -353,11 +370,7 @@ export default function TestEditorModal({
         }
         const prevVersions = latest.validation.responseVersions || [];
         const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-        let isDuplicate = false;
-        if (latestVersion) {
-          try { isDuplicate = JSON.stringify(JSON.parse(latestVersion.json)) === JSON.stringify(JSON.parse(pretty)); }
-          catch { isDuplicate = latestVersion.json === pretty; }
-        }
+        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty) : false;
         const updatedVersions = isDuplicate
           ? prevVersions
           : [...prevVersions, { id: uuidv4(), timestamp: Date.now(), json: pretty } as ResponseVersion];
@@ -955,10 +968,7 @@ export default function TestEditorModal({
                           if (!json.trim()) return;
                           const prevVersions = prev.validation.responseVersions || [];
                           const latest = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-                          if (latest) {
-                            try { if (JSON.stringify(JSON.parse(latest.json)) === JSON.stringify(JSON.parse(json))) return; }
-                            catch { if (latest.json === json) return; }
-                          }
+                          if (latest && jsonEqual(latest.json, json)) return;
                           const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
                           onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: [...prevVersions, newVersion] } });
                         }}
