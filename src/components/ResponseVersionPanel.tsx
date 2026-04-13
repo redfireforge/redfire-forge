@@ -97,9 +97,15 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
   const isDuplicate = useMemo(() => {
     if (sorted.length === 0 || !currentJson.trim()) return false;
     try {
-      const current = JSON.stringify(JSON.parse(currentJson));
-      const latest = JSON.stringify(JSON.parse(sorted[0].json));
-      return current === latest;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canon = (v: any): any => {
+        if (v === null || v === undefined || typeof v !== 'object') return v;
+        if (Array.isArray(v)) return v.map(canon);
+        const o: Record<string, unknown> = {};
+        for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
+        return o;
+      };
+      return JSON.stringify(canon(JSON.parse(currentJson))) === JSON.stringify(canon(JSON.parse(sorted[0].json)));
     } catch {
       return currentJson.trim() === sorted[0].json;
     }
