@@ -84,8 +84,8 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   const buildRulesObj = (v: ResponseVersion) => ({
     mode: v.validationMode || 'none',
     selectiveMode: v.selectiveMode || 'include',
-    expectedFields: v.expectedFields || [],
-    excludedPaths: v.excludedPaths || [],
+    expectedFields: [...(v.expectedFields || [])].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath)),
+    excludedPaths: [...(v.excludedPaths || [])].sort(),
     unorderedArrays: !!v.unorderedArrays,
   });
 
@@ -157,11 +157,14 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     } catch {
       if (currentJson.trim() !== latest.json) return false;
     }
+    const sortFields = (f: { jsonPath: string; expectedValue: string }[]) =>
+      [...f].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath));
+    const sortPaths = (p: string[]) => [...p].sort();
     const rulesSame =
       (currentValidation.mode || 'none') === (latest.validationMode || 'none') &&
       (currentValidation.selectiveMode || 'include') === (latest.selectiveMode || 'include') &&
-      JSON.stringify(currentValidation.expectedFields || []) === JSON.stringify(latest.expectedFields || []) &&
-      JSON.stringify(currentValidation.excludedPaths || []) === JSON.stringify(latest.excludedPaths || []) &&
+      JSON.stringify(sortFields(currentValidation.expectedFields || [])) === JSON.stringify(sortFields(latest.expectedFields || [])) &&
+      JSON.stringify(sortPaths(currentValidation.excludedPaths || [])) === JSON.stringify(sortPaths(latest.excludedPaths || [])) &&
       !!(currentValidation.unorderedArrays) === !!(latest.unorderedArrays);
     return rulesSame;
   }, [sorted, currentJson, excludedPaths, currentValidation]);
