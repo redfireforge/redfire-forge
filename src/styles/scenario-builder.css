@@ -741,6 +741,10 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
+.version-panel-actions {
+  display: flex;
+  gap: 8px;
+}
 .version-empty {
   padding: 16px;
   font-size: 0.82rem;
