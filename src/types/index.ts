@@ -75,6 +75,8 @@ export interface Scenario {
   body: string;
   auth: AuthConfig;
   validation: ValidationConfig;
+  fetchHostOverride?: string;
+  fetchHostEnabled?: boolean;
 }
 
 export interface TestScenario {
