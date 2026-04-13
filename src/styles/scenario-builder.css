@@ -910,6 +910,22 @@
   color: var(--text-muted);
   text-align: center;
 }
+.version-diff-identical-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(39, 174, 96, 0.12);
+  border-bottom: 1px solid rgba(39, 174, 96, 0.3);
+  color: #2ecc71;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.version-diff-identical-icon {
+  font-size: 1.1rem;
+}
 .version-list {
   max-height: 200px;
   overflow-y: auto;

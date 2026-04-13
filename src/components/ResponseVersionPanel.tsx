@@ -73,6 +73,11 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
     }
   }, [showModal, compareLeft, compareRight, versions, unorderedArrays]);
 
+  const isIdentical = useMemo(() => {
+    if (!diffResult) return false;
+    return diffResult.every(segment => segment.every(line => line.type === 'equal'));
+  }, [diffResult]);
+
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -219,6 +224,12 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
             {diffResult && (
               <div className="version-diff-modal-title">
                 {getLabelById(compareLeft!)} → {getLabelById(compareRight!)}
+              </div>
+            )}
+            {isIdentical && (
+              <div className="version-diff-identical-banner">
+                <span className="version-diff-identical-icon">&#x2714;</span>
+                These two versions are identical{unorderedArrays ? ' (with unordered array matching)' : ''}
               </div>
             )}
             <div className="version-diff-viewer">
