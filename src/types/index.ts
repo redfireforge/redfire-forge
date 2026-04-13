@@ -48,6 +48,11 @@ export interface ResponseVersion {
   timestamp: number;
   label?: string;
   json: string;
+  validationMode?: ValidationMode;
+  selectiveMode?: SelectiveMode;
+  expectedFields?: ExpectedField[];
+  excludedPaths?: string[];
+  unorderedArrays?: boolean;
 }
 
 export interface ValidationConfig {

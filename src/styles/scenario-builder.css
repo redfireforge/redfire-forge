@@ -926,6 +926,37 @@
 .version-diff-identical-icon {
   font-size: 1.1rem;
 }
+.version-rules-diff-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(52, 152, 219, 0.1);
+  border-bottom: 1px solid rgba(52, 152, 219, 0.25);
+  color: #3498db;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.version-rules-diff-bar strong {
+  font-weight: 700;
+  margin-right: 4px;
+}
+.version-rules-diff-item {
+  background: rgba(52, 152, 219, 0.15);
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+}
+.version-rules-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+  text-transform: uppercase;
+}
 .version-list {
   max-height: 200px;
   overflow-y: auto;

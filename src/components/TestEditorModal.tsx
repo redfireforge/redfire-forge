@@ -404,12 +404,19 @@ export default function TestEditorModal({
         } catch {
           pretty = result.body;
         }
-        const prevVersions = latest.validation.responseVersions || [];
+        const v = latest.validation;
+        const prevVersions = v.responseVersions || [];
         const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty, latest.validation.excludedPaths) : false;
+        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
         const updatedVersions = isDuplicate
           ? prevVersions
-          : [...prevVersions, { id: uuidv4(), timestamp: Date.now(), json: pretty } as ResponseVersion];
+          : [...prevVersions, {
+              id: uuidv4(), timestamp: Date.now(), json: pretty,
+              validationMode: v.mode, selectiveMode: v.selectiveMode,
+              expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+              excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+              unorderedArrays: v.unorderedArrays,
+            } as ResponseVersion];
         onDraftChange({
           ...latest,
           validation: {
@@ -997,20 +1004,37 @@ export default function TestEditorModal({
                       <ResponseVersionPanel
                         versions={draft.validation.responseVersions || []}
                         currentJson={draft.validation.sampleJson || ''}
+                        currentValidation={draft.validation}
                         excludedPaths={draft.validation.excludedPaths}
                         onSaveVersion={() => {
                           const prev = draftRef.current;
-                          const json = prev.validation.sampleJson || '';
+                          const v = prev.validation;
+                          const json = v.sampleJson || '';
                           if (!json.trim()) return;
-                          const prevVersions = prev.validation.responseVersions || [];
-                          const latest = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-                          if (latest && jsonEqual(latest.json, json, prev.validation.excludedPaths)) return;
-                          const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
-                          onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: [...prevVersions, newVersion] } });
+                          const prevVersions = v.responseVersions || [];
+                          const newVersion: ResponseVersion = {
+                            id: uuidv4(), timestamp: Date.now(), json,
+                            validationMode: v.mode, selectiveMode: v.selectiveMode,
+                            expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+                            excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+                            unorderedArrays: v.unorderedArrays,
+                          };
+                          onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, newVersion] } });
                         }}
-                        onRestore={(json) => {
+                        onRestore={(ver) => {
                           const prev = draftRef.current;
-                          onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json, expectedFields: [] } });
+                          onDraftChange({
+                            ...prev,
+                            validation: {
+                              ...prev.validation,
+                              sampleJson: ver.json,
+                              mode: ver.validationMode || prev.validation.mode,
+                              selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
+                              expectedFields: ver.expectedFields || [],
+                              excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
+                              unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
+                            },
+                          });
                         }}
                         onDeleteVersion={(id) => {
                           const prev = draftRef.current;
