@@ -47,6 +47,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelText, setLabelText] = useState('');
   const [unorderedArrays, setUnorderedArrays] = useState(false);
+  const [diffTab, setDiffTab] = useState<'response' | 'rules'>('response');
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
@@ -80,29 +81,30 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     return diffResult.every(segment => segment.every(line => line.type === 'equal'));
   }, [diffResult]);
 
-  const rulesDiff = useMemo(() => {
+  const buildRulesObj = (v: ResponseVersion) => ({
+    mode: v.validationMode || 'none',
+    selectiveMode: v.selectiveMode || 'include',
+    expectedFields: v.expectedFields || [],
+    excludedPaths: v.excludedPaths || [],
+    unorderedArrays: !!v.unorderedArrays,
+  });
+
+  const rulesDiffResult = useMemo(() => {
     if (!showModal || !compareLeft || !compareRight) return null;
     const lv = versions.find((v) => v.id === compareLeft);
     const rv = versions.find((v) => v.id === compareRight);
     if (!lv || !rv) return null;
-    const changes: string[] = [];
-    const lm = lv.validationMode || 'none', rm = rv.validationMode || 'none';
-    if (lm !== rm) changes.push(`Mode: ${lm} → ${rm}`);
-    const ls = lv.selectiveMode || 'include', rs = rv.selectiveMode || 'include';
-    if (lm !== 'none' && rm !== 'none' && ls !== rs) changes.push(`Selective: ${ls} → ${rs}`);
-    const lf = JSON.stringify(lv.expectedFields || []), rf = JSON.stringify(rv.expectedFields || []);
-    if (lf !== rf) {
-      const lc = (lv.expectedFields || []).length, rc = (rv.expectedFields || []).length;
-      changes.push(`Expected fields: ${lc} → ${rc}`);
+    try {
+      return differ.diff(buildRulesObj(lv), buildRulesObj(rv));
+    } catch {
+      return null;
     }
-    const le = JSON.stringify(lv.excludedPaths || []), re = JSON.stringify(rv.excludedPaths || []);
-    if (le !== re) {
-      const lc = (lv.excludedPaths || []).length, rc = (rv.excludedPaths || []).length;
-      changes.push(`Excluded paths: ${lc} → ${rc}`);
-    }
-    if (!!(lv.unorderedArrays) !== !!(rv.unorderedArrays)) changes.push(`Unordered arrays: ${!!lv.unorderedArrays} → ${!!rv.unorderedArrays}`);
-    return changes.length > 0 ? changes : null;
   }, [showModal, compareLeft, compareRight, versions]);
+
+  const isRulesIdentical = useMemo(() => {
+    if (!rulesDiffResult) return true;
+    return rulesDiffResult.every(segment => segment.every(line => line.type === 'equal'));
+  }, [rulesDiffResult]);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -282,25 +284,26 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
             {compareLeft && compareRight && compareLeft === compareRight && (
               <div className="version-diff-identical">Same version selected on both sides.</div>
             )}
-            {diffResult && (
-              <div className="version-diff-modal-title">
-                {getLabelById(compareLeft!)} → {getLabelById(compareRight!)}
-              </div>
-            )}
-            {isIdentical && !rulesDiff && (
-              <div className="version-diff-identical-banner">
-                <span className="version-diff-identical-icon">&#x2714;</span>
-                These two versions are identical{unorderedArrays ? ' (with unordered array matching)' : ''}
-              </div>
-            )}
-            {rulesDiff && (
-              <div className="version-rules-diff-bar">
-                <strong>Validation rule changes:</strong>
-                {rulesDiff.map((c, i) => <span key={i} className="version-rules-diff-item">{c}</span>)}
-              </div>
+            {compareLeft && compareRight && compareLeft !== compareRight && (
+              <>
+                <div className="version-diff-tabs">
+                  <button type="button" className={`version-diff-tab ${diffTab === 'response' ? 'active' : ''}`} onClick={() => setDiffTab('response')}>
+                    Response {isIdentical ? '(identical)' : ''}
+                  </button>
+                  <button type="button" className={`version-diff-tab ${diffTab === 'rules' ? 'active' : ''}`} onClick={() => setDiffTab('rules')}>
+                    Validation Rules {isRulesIdentical ? '(identical)' : ''}
+                  </button>
+                </div>
+                {isIdentical && isRulesIdentical && (
+                  <div className="version-diff-identical-banner">
+                    <span className="version-diff-identical-icon">&#x2714;</span>
+                    These two versions are identical{unorderedArrays ? ' (with unordered array matching)' : ''}
+                  </div>
+                )}
+              </>
             )}
             <div className="version-diff-viewer">
-              {diffResult ? (
+              {diffTab === 'response' && diffResult ? (
                 <Viewer
                   diff={diffResult}
                   indent={2}
@@ -308,8 +311,16 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                   highlightInlineDiff={true}
                   syntaxHighlight={{ theme: 'monokai' }}
                 />
+              ) : diffTab === 'rules' && rulesDiffResult ? (
+                <Viewer
+                  diff={rulesDiffResult}
+                  indent={2}
+                  lineNumbers={true}
+                  highlightInlineDiff={true}
+                  syntaxHighlight={{ theme: 'monokai' }}
+                />
               ) : compareLeft && compareRight && compareLeft !== compareRight ? (
-                <div className="version-diff-identical">No differences found (or JSON parse error).</div>
+                <div className="version-diff-identical">No differences found.</div>
               ) : (
                 <div className="version-diff-identical">Select two versions above to compare.</div>
               )}
