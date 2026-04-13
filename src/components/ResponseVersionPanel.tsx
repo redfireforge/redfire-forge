@@ -13,11 +13,11 @@ interface Props {
   onRenameVersion: (id: string, label: string) => void;
 }
 
-const differ = new Differ({
+const makeDiffer = (unordered: boolean) => new Differ({
   detectCircular: false,
   maxDepth: Infinity,
   showModifications: true,
-  arrayDiffMethod: 'lcs',
+  arrayDiffMethod: unordered ? 'unorder-lcs' : 'lcs',
 });
 
 export default function ResponseVersionPanel({ versions, currentJson, onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
@@ -26,6 +26,7 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
   const [showModal, setShowModal] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelText, setLabelText] = useState('');
+  const [unorderedArrays, setUnorderedArrays] = useState(false);
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
@@ -42,11 +43,12 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
     const rightVer = versions.find((v) => v.id === compareRight);
     if (!leftVer || !rightVer) return null;
     try {
-      return differ.diff(JSON.parse(leftVer.json), JSON.parse(rightVer.json));
+      const d = makeDiffer(unorderedArrays);
+      return d.diff(JSON.parse(leftVer.json), JSON.parse(rightVer.json));
     } catch {
       return null;
     }
-  }, [showModal, compareLeft, compareRight, versions]);
+  }, [showModal, compareLeft, compareRight, versions, unorderedArrays]);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -159,7 +161,13 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
           <div className="version-diff-modal">
             <div className="version-diff-modal-header">
               <h3>Compare Versions</h3>
-              <button type="button" className="btn btn-sm" onClick={() => setShowModal(false)}>✕</button>
+              <div className="version-diff-modal-controls">
+                <label className="version-diff-toggle" title="When enabled, arrays are compared ignoring element order">
+                  <input type="checkbox" checked={unorderedArrays} onChange={(e) => setUnorderedArrays(e.target.checked)} />
+                  <span>Unordered Arrays</span>
+                </label>
+                <button type="button" className="btn btn-sm" onClick={() => setShowModal(false)}>✕</button>
+              </div>
             </div>
             <div className="version-diff-modal-selectors">
               <label>

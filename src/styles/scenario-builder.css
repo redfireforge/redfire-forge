@@ -788,6 +788,29 @@
   font-size: 1rem;
   font-weight: 700;
 }
+.version-diff-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.version-diff-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+.version-diff-toggle input[type="checkbox"] {
+  accent-color: var(--accent, #3498db);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+.version-diff-toggle span {
+  white-space: nowrap;
+}
 .version-diff-modal-selectors {
   display: flex;
   align-items: center;
