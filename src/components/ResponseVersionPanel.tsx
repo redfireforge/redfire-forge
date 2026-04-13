@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { ResponseVersion } from '../types';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
+import 'json-diff-kit/dist/viewer-monokai.css';
 
 interface Props {
   versions: ResponseVersion[];
@@ -52,6 +53,17 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
     return v.label || `v${num}`;
   };
 
+  const isDuplicate = useMemo(() => {
+    if (sorted.length === 0 || !currentJson.trim()) return false;
+    try {
+      const current = JSON.stringify(JSON.parse(currentJson));
+      const latest = JSON.stringify(JSON.parse(sorted[0].json));
+      return current === latest;
+    } catch {
+      return currentJson.trim() === sorted[0].json;
+    }
+  }, [sorted, currentJson]);
+
   if (sorted.length === 0) {
     return (
       <div className="version-panel">
@@ -74,8 +86,8 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
         <h4>Response Versions ({sorted.length})</h4>
         <div className="version-panel-actions">
           {currentJson.trim() && (
-            <button type="button" className="btn btn-sm btn-accent" onClick={onSaveVersion}>
-              Save as Version
+            <button type="button" className="btn btn-sm btn-accent" onClick={onSaveVersion} disabled={isDuplicate} title={isDuplicate ? 'No changes since last version' : ''}>
+              {isDuplicate ? 'No Changes' : 'Save as Version'}
             </button>
           )}
           {sorted.length >= 2 && (
@@ -126,6 +138,7 @@ export default function ResponseVersionPanel({ versions, currentJson, onSaveVers
             indent={2}
             lineNumbers={true}
             highlightInlineDiff={true}
+            syntaxHighlight={{ theme: 'monokai' }}
           />
         </div>
       )}

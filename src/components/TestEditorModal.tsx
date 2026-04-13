@@ -351,12 +351,16 @@ export default function TestEditorModal({
         } catch {
           pretty = result.body;
         }
-        const newVersion: ResponseVersion = {
-          id: uuidv4(),
-          timestamp: Date.now(),
-          json: pretty,
-        };
         const prevVersions = latest.validation.responseVersions || [];
+        const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
+        let isDuplicate = false;
+        if (latestVersion) {
+          try { isDuplicate = JSON.stringify(JSON.parse(latestVersion.json)) === JSON.stringify(JSON.parse(pretty)); }
+          catch { isDuplicate = latestVersion.json === pretty; }
+        }
+        const updatedVersions = isDuplicate
+          ? prevVersions
+          : [...prevVersions, { id: uuidv4(), timestamp: Date.now(), json: pretty } as ResponseVersion];
         onDraftChange({
           ...latest,
           validation: {
@@ -364,7 +368,7 @@ export default function TestEditorModal({
             sampleJson: pretty,
             expectedFields: [],
             excludedPaths: [],
-            responseVersions: [...prevVersions, newVersion],
+            responseVersions: updatedVersions,
           },
         });
         setFetchError(null);
@@ -949,8 +953,13 @@ export default function TestEditorModal({
                           const prev = draftRef.current;
                           const json = prev.validation.sampleJson || '';
                           if (!json.trim()) return;
-                          const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
                           const prevVersions = prev.validation.responseVersions || [];
+                          const latest = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
+                          if (latest) {
+                            try { if (JSON.stringify(JSON.parse(latest.json)) === JSON.stringify(JSON.parse(json))) return; }
+                            catch { if (latest.json === json) return; }
+                          }
+                          const newVersion: ResponseVersion = { id: uuidv4(), timestamp: Date.now(), json };
                           onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: [...prevVersions, newVersion] } });
                         }}
                         onRestore={(json) => {
