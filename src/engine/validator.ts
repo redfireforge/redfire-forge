@@ -1,7 +1,8 @@
 import type { ValidationConfig, FailureDetail, ExpectedField } from '../types';
 
 export function getByPath(obj: unknown, path: string): unknown {
-  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+  const parts = normalized.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
   let current: unknown = obj;
   for (const part of parts) {
     if (current == null || typeof current !== 'object') return undefined;
@@ -153,8 +154,6 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
     const usedIndices = new Set<number>();
 
     for (const [rowPrefix, rowFields] of rowMap) {
-      // Extract the field suffix after the row prefix
-      // e.g., for "offers[0].name", suffix is ".name"
       const fieldSuffixes = rowFields.map((f) => ({
         suffix: f.jsonPath.slice(rowPrefix.length),
         expectedValue: f.expectedValue,
@@ -162,15 +161,21 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
       }));
 
       let matchedIndex = -1;
+      let bestPartialIndex = -1;
+      let bestPartialCount = 0;
+      let bestPartialMismatches: { originalPath: string; expectedValue: string; actualValue: string }[] = [];
+      let bestPartialMatches: { suffix: string; value: string }[] = [];
 
       for (let i = 0; i < arrayLen; i++) {
         if (usedIndices.has(i)) continue;
 
-        // Build candidate paths with index i
         const baseIndex = rowPrefix.replace(indexPattern, `[${i}]`);
         let allMatch = true;
+        let matchCount = 0;
+        const mismatches: { originalPath: string; expectedValue: string; actualValue: string }[] = [];
+        const matches: { suffix: string; value: string }[] = [];
 
-        for (const { suffix, expectedValue } of fieldSuffixes) {
+        for (const { suffix, expectedValue, originalPath } of fieldSuffixes) {
           const candidatePath = baseIndex + suffix;
           const actualValue = getByPath(responseBody, candidatePath);
           const actualStr = JSON.stringify(actualValue);
@@ -182,7 +187,10 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
           }
           if (actualStr !== expectedStr) {
             allMatch = false;
-            break;
+            mismatches.push({ originalPath, expectedValue, actualValue: actualStr ?? 'undefined' });
+          } else {
+            matchCount++;
+            matches.push({ suffix: suffix.replace(/^\./, ''), value: expectedValue });
           }
         }
 
@@ -190,17 +198,33 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
           matchedIndex = i;
           break;
         }
+
+        if (matchCount > bestPartialCount) {
+          bestPartialCount = matchCount;
+          bestPartialIndex = i;
+          bestPartialMismatches = mismatches;
+          bestPartialMatches = matches;
+        }
       }
 
       if (matchedIndex >= 0) {
         usedIndices.add(matchedIndex);
+      } else if (bestPartialIndex >= 0 && bestPartialCount > 0) {
+        const matchedContext = bestPartialMatches.map(m => `${m.suffix}=${m.value}`).join(', ');
+        for (const m of bestPartialMismatches) {
+          const actual = m.actualValue === 'undefined' ? 'undefined' : m.actualValue.replace(/^"|"$/g, '');
+          failures.push({
+            path: m.originalPath,
+            expected: m.expectedValue,
+            actual: `${actual} (matched by ${matchedContext} at [${bestPartialIndex}])`,
+          });
+        }
       } else {
-        // No matching row found — report as failure with details
         for (const { originalPath, expectedValue } of fieldSuffixes) {
           failures.push({
             path: originalPath,
             expected: expectedValue,
-            actual: `no matching item found in array (unordered)`,
+            actual: `no matching item found in array`,
           });
         }
       }

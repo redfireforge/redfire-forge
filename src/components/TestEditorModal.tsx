@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile, ResponseVersion } from '../types';
+import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile, ResponseVersion, FailureDetail } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
+import { validate } from '../engine/validator';
+import CsvTemplateExportModal from './CsvTemplateExportModal';
 import JsonPathBuilder from './JsonPathBuilder';
 import ResponseVersionPanel from './ResponseVersionPanel';
 
@@ -183,6 +185,9 @@ export default function TestEditorModal({
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchHostOverride, setFetchHostOverride] = useState(draft.fetchHostOverride || '');
   const [fetchHostEnabled, setFetchHostEnabled] = useState(!!draft.fetchHostEnabled);
+
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{ passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null>(null);
 
   const [authVerifying, setAuthVerifying] = useState(false);
   const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
@@ -442,6 +447,102 @@ export default function TestEditorModal({
     }
   }, [fetchHostEnabled, fetchHostOverride, onDraftChange, resolveEffectiveAuth]);
 
+  const handleValidateResponse = useCallback(async () => {
+    const cur = draftRef.current;
+    if (!cur.url.trim()) {
+      setValidationResult({ passed: false, failures: [{ path: '(url)', expected: 'a URL', actual: 'empty' }] });
+      return;
+    }
+    const v = cur.validation;
+    if (v.mode === 'none' || ((v.expectedFields || []).length === 0 && v.mode === 'selective')) {
+      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
+      return;
+    }
+
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const { auth: effectiveAuth } = resolveEffectiveAuth();
+      const reqHeaders: Record<string, string> = {};
+      for (const h of cur.headers) {
+        if (!h.key.trim()) continue;
+        if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
+        reqHeaders[h.key.trim()] = h.value;
+      }
+      if (cur.body && !reqHeaders['Content-Type']) {
+        reqHeaders['Content-Type'] = 'application/json';
+      }
+
+      if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
+        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
+        reqHeaders['Authorization'] = `Basic ${encoded}`;
+      } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
+        const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
+        reqHeaders['Authorization'] = `${prefix} ${effectiveAuth.token}`;
+      } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
+        if (effectiveAuth.apiKeyIn === 'header') reqHeaders[effectiveAuth.apiKeyName] = effectiveAuth.apiKeyValue;
+      } else if (effectiveAuth.type === 'oauth2') {
+        if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
+          setValidationResult({ passed: false, failures: [{ path: '(auth)', expected: 'OAuth2 credentials', actual: 'missing tokenUrl/clientId/clientSecret' }] });
+          setValidating(false);
+          return;
+        }
+        const token = await acquireOAuth2Token(effectiveAuth);
+        reqHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      let fetchUrl = cur.url;
+      if (fetchHostEnabled && fetchHostOverride.trim()) {
+        try {
+          const orig = new URL(fetchUrl);
+          const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : `${fetchHostOverride.trim()}/`);
+          orig.protocol = base.protocol;
+          orig.host = base.host;
+          fetchUrl = orig.toString();
+        } catch { /* keep original */ }
+      }
+      if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
+        try {
+          const u = new URL(fetchUrl);
+          u.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
+          fetchUrl = u.toString();
+        } catch { /* keep original */ }
+      }
+
+      const reqBody = (cur.body && cur.method !== 'GET') ? cur.body : undefined;
+      const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
+
+      if (result.error) {
+        setValidationResult({ passed: false, failures: [{ path: '(network)', expected: 'response', actual: result.error }] });
+        return;
+      }
+      if (result.status >= 400) {
+        setValidationResult({
+          passed: false,
+          httpStatus: result.status,
+          failures: [{ path: '(http)', expected: '2xx', actual: `${result.status} ${result.statusText}` }],
+          responseJson: result.body,
+        });
+        return;
+      }
+
+      let responseObj: unknown;
+      try { responseObj = JSON.parse(result.body); } catch { responseObj = result.body; }
+
+      const failures = validate(v, responseObj);
+      setValidationResult({
+        passed: failures.length === 0,
+        failures,
+        httpStatus: result.status,
+        responseJson: result.body,
+      });
+    } catch (err) {
+      setValidationResult({ passed: false, failures: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }] });
+    } finally {
+      setValidating(false);
+    }
+  }, [fetchHostEnabled, fetchHostOverride, resolveEffectiveAuth]);
+
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
     const nonEmptyParams = queryParams.filter((p) => p.key.trim());
@@ -548,6 +649,8 @@ export default function TestEditorModal({
     }
   }, [generateCurl]);
 
+  const [csvExportOpen, setCsvExportOpen] = useState(false);
+
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim()).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
   const baseUrl = useMemo(() => (draft.url ? getBaseUrl(draft.url) : ''), [draft.url]);
@@ -586,6 +689,7 @@ export default function TestEditorModal({
               Import
             </button>
             <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
+            <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>CSV Template</button>
           </div>
           <div className="insomnia-top-actions">
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
@@ -1008,6 +1112,79 @@ export default function TestEditorModal({
                           onDraftChange({ ...prev, validation: { ...prev.validation, ...patch } });
                         }}
                       />
+
+                      {/* Validate Response button + results */}
+                      {draft.validation.mode !== 'none' && (draft.validation.expectedFields || []).length > 0 && (
+                        <div className="validate-response-section">
+                          <div className="validate-response-row">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-validate"
+                              onClick={() => void handleValidateResponse()}
+                              disabled={validating}
+                            >
+                              {validating ? 'Validating...' : 'Verify Rules'}
+                            </button>
+                            <label className="checkbox-label fetch-host-toggle">
+                              <input
+                                type="checkbox"
+                                checked={fetchHostEnabled}
+                                onChange={(e) => setFetchHostEnabled(e.target.checked)}
+                              />
+                              Host Override
+                            </label>
+                            <input
+                              className="validate-host-input"
+                              value={fetchHostOverride}
+                              onChange={(e) => setFetchHostOverride(e.target.value)}
+                              placeholder={resolvedBaseUrl || 'Enter base URL'}
+                              disabled={!fetchHostEnabled}
+                            />
+                            {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
+                              <button type="button" className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
+                            )}
+                          </div>
+                          {validationResult && (
+                            <div className={`validate-result ${validationResult.passed ? 'validate-pass' : 'validate-fail'}`}>
+                              <div className="validate-result-header">
+                                <span className={`validate-badge ${validationResult.passed ? 'badge-pass' : 'badge-fail'}`}>
+                                  {validationResult.passed ? 'PASSED' : 'FAILED'}
+                                </span>
+                                {validationResult.httpStatus && (
+                                  <span className="validate-http-status">HTTP {validationResult.httpStatus}</span>
+                                )}
+                                <span className="validate-summary">
+                                  {validationResult.passed
+                                    ? `All ${(draft.validation.expectedFields || []).length} rules matched`
+                                    : `${validationResult.failures.length} discrepanc${validationResult.failures.length === 1 ? 'y' : 'ies'} found`}
+                                </span>
+                                <button className="btn btn-xs" onClick={() => setValidationResult(null)}>×</button>
+                              </div>
+                              {!validationResult.passed && validationResult.failures.length > 0 && (
+                                <table className="validate-failures-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Path</th>
+                                      <th>Expected</th>
+                                      <th>Actual</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {validationResult.failures.map((f, i) => (
+                                      <tr key={i}>
+                                        <td><code>{f.path}</code></td>
+                                        <td className="val-expected">{f.expected}</td>
+                                        <td className="val-actual">{f.actual}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <ResponseVersionPanel
                         versions={draft.validation.responseVersions || []}
                         currentJson={draft.validation.sampleJson || ''}
@@ -1060,6 +1237,13 @@ export default function TestEditorModal({
           </div>
         )}
       </div>
+
+      {csvExportOpen && (
+        <CsvTemplateExportModal
+          test={draft}
+          onClose={() => setCsvExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
