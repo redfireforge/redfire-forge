@@ -10,6 +10,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+### Added
+- **CSV/Excel Template Import**: Create bulk tests from CSV files with metadata header, path variables, query parameters, and validation rules
+- **CSV Template Export**: Generate a CSV template from an existing test, with smart URL analysis to identify variable path segments and query parameters
+- **Drag-and-Drop CSV Import**: Drag CSV/Excel files directly into the import modal
+- **Create Feature Group on Import**: Option to create a new Feature Group during CSV import (not just a new Scenario)
+- **Verify Rules Button**: Invoke the API with current test config and compare response against validation rules, with host override option and detailed discrepancy table
+- **Auto-Refreshing Token Manager**: OAuth2 tokens are shared across all tests with the same credentials and auto-refresh on JWT expiry (30s buffer), eliminating redundant token requests
+- **Reusable CSV Generator Script**: `scripts/generate-csv-from-db.cjs` for generating importable CSV templates from PostgreSQL databases
+- **CSV Generator Cursor Skill**: `.cursor/skills/generate-csv-template/` with instructions and reusable script for DB-to-CSV workflow
+- **Sample CSV Templates**: Pre-built `sample_t01_100.csv` and `sample_prod_100.csv` with 100 diverse test records each
+
+### Changed
+- **Validation UI Consistency**: Imported tests now display validation rules in the same table format as manually configured tests (consistent header, auto-table view for array fields, "+ Add Manual Rule" button)
+- **Token Acquisition**: Replaced upfront per-scenario token loop with lazy `TokenManager` — startup is instant regardless of test count
+- **Unordered Array Matching**: CSV template export/import now correctly persists the `unorderedArrays` setting in metadata
+
+### Fixed
+- **JSONPath `$` Prefix**: Validator now correctly strips `$` or `$.` prefix from JSON paths (e.g., `$.offers[0].offerName`)
+- **Unordered Array Mismatch Reporting**: Partial matches now report only mismatched fields with context (e.g., `matched by associatedOfferingCode=XYZ at [3]`) instead of generic "no matching item found"
+
 ---
 
 ## [0.3.3] — 2026-04-13

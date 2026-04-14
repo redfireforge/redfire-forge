@@ -58,7 +58,7 @@ The open-source killer features — git-friendly and pipeline-ready.
 
 Enterprise-grade testing capabilities.
 
-- [ ] **CSV Data Files** — Run the same test with different inputs from CSV (parameterized testing)
+- [x] **CSV Data Files** — Run the same test with different inputs from CSV (parameterized testing)
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays
 - [ ] **Regex Assertions** — `$.name matches /^[A-Z].*/`
 - [ ] **Retry on Failure** — Retry N times with X ms delay per test
@@ -120,10 +120,10 @@ Full open-source maturity.
 | 0.4.0 | Workflow & Assertions | 10 | 0 |
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | CLI & CI Integration | 10 | 0 |
-| 0.7.0 | Data-Driven & Advanced Validation | 10 | 0 |
+| 0.7.0 | Data-Driven & Advanced Validation | 10 | 1 |
 | 1.0.0 | Ecosystem & Community | 20 | 0 |
-| **Total** | | **58** | **8** |
+| **Total** | | **58** | **9** |
 
 ---
 
-_Last updated: 2026-04-13_
+_Last updated: 2026-04-14_
