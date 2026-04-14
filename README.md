@@ -121,6 +121,8 @@ src/
 │   ├── SettingsModal.tsx        # Split-panel settings (projects, auth, export/import, storage)
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Full test editor (params, body, auth, headers, validation)
+│   ├── CsvTemplateExportModal.tsx # CSV template export with URL variable analysis
+│   ├── CsvImportModal.tsx       # CSV/Excel import with drag-and-drop support
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   └── ImportCenter.tsx         # Import with per-item conflict resolution
 ├── utils/
@@ -129,6 +131,7 @@ src/
 │   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
+│   ├── csvTemplate.ts       # CSV template generation and parsing utilities
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   └── export.ts            # JSON & CSV export utilities
 └── types/
@@ -364,6 +367,24 @@ Auth badges are color-coded by level for quick visual identification:
 - **Builder** (default): Fill in fields visually.
 - **cURL Import**: Paste a cURL command to auto-populate all fields (URL, method, headers, body, auth).
 - **cURL Export**: Generates a ready-to-use cURL command from the current config. For OAuth2 tests, it **fetches a real access token** and embeds it in the command. For Digest auth, it generates `--digest -u` flags. For API Key in query mode, the key is appended to the URL. Use the **Refresh** button to get a new token.
+- **CSV Template**: Generate a CSV template from the current test for bulk test creation. The template analyzes the URL to identify variable path segments and query parameters, letting you mark which parts vary per test. Import the filled CSV to create many tests at once.
+
+**CSV Template Import:**
+
+Import CSV files to create tests in bulk. Two import methods are supported:
+- **File picker**: Click to browse and select a CSV file.
+- **Drag-and-drop**: Drag a CSV/Excel file directly onto the import modal.
+
+During import, choose the target:
+- **Existing Scenario**: Add tests to an existing scenario.
+- **New Scenario**: Create a new scenario inside an existing Feature Group.
+- **New Feature Group**: Create a new Feature Group with a new scenario.
+
+The CSV format uses a `#META:` header line for fixed test configuration (method, URL pattern, headers, auth, validation settings), a column header row with prefixed columns (`path:`, `param:`, `validate:`), and data rows where each row becomes one test.
+
+**Verify Rules:**
+
+Below the validation rules, a "Verify Rules" button invokes the API with the current test configuration and compares the response against the expected validation rules. Results are displayed in a table showing pass/fail status with detailed discrepancies (path, expected value, actual value). A host override option lets you target a different server for verification.
 
 **Response Validation Modes:**
 
@@ -509,6 +530,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Full & selective validation | Deep JSON compare, specific path checks, unordered arrays |
 | Visual JSON path builder | Click fields in a sample JSON tree to build validation rules |
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
+| CSV template export/import | Generate CSV templates from tests, import filled CSVs to bulk-create tests with validation rules |
+| Drag-and-drop CSV import | Drag CSV/Excel files directly onto the import modal |
+| Verify validation rules | Invoke API and compare response against expected validation rules with host override |
+| Auto-refreshing OAuth2 tokens | Shared token cache with JWT expiry detection; auto-refresh with 30s buffer, no duplicate requests |
 | Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
 | Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle; persisted across editor sessions |
@@ -628,6 +653,7 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run tauri:build` | Build desktop app for current OS |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
+| `ENV=t01 COUNT=100 node scripts/generate-csv-from-db.cjs` | Generate CSV test template from PostgreSQL data dump |
 
 ---
 
