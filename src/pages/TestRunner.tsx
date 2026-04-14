@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
+import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestSummary, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import { getTargetConcurrency } from '../engine/executor';
+import type { ProgressMeta } from '../engine/executor';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../utils/storage';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
@@ -71,8 +72,8 @@ function replaceHost(testUrl: string, baseUrl: string): string {
 
 function ProfilePreview({ profile }: { profile: LoadProfileConfig }) {
   const w = 220;
-  const h = 60;
-  const pad = 4;
+  const h = 120;
+  const pad = 6;
   const innerW = w - pad * 2;
   const innerH = h - pad * 2;
 
@@ -96,7 +97,7 @@ function ProfilePreview({ profile }: { profile: LoadProfileConfig }) {
   const polyPoints = `${pad},${baseY} ${points.join(' ')} ${pad + innerW},${baseY}`;
 
   return (
-    <svg className="profile-preview-svg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+    <svg className="profile-preview-svg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
       <polygon points={polyPoints} />
       <polyline points={points.join(' ')} fill="none" strokeWidth="2" />
       <text x={pad} y={h - 1} className="profile-preview-label">{profile.durationSec}s</text>
@@ -205,12 +206,42 @@ const profileDescriptions: Record<LoadProfileType, string> = {
   'spike': 'Run at base concurrency, then burst to a peak for a short window',
 };
 
+interface PersistedProgress {
+  summary: TestSummary;
+  timeSeries: TimeSeriesPoint[];
+  completed: number;
+  total: number;
+  profileMeta: ProgressMeta | null;
+  isTimeBased: boolean;
+  executionMode: ExecutionMode;
+  concurrency: number;
+  loadProfile: LoadProfileConfig;
+  resultCount: number;
+  durationMs: number;
+}
+
+const PROGRESS_STORAGE_KEY = 'perf-test-last-progress';
+
+function saveProgress(key: string, data: PersistedProgress) {
+  try { localStorage.setItem(`${PROGRESS_STORAGE_KEY}:${key}`, JSON.stringify(data)); } catch { /* ignore */ }
+}
+function loadProgress(key: string): PersistedProgress | null {
+  try {
+    const raw = localStorage.getItem(`${PROGRESS_STORAGE_KEY}:${key}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function clearProgress(key: string) {
+  try { localStorage.removeItem(`${PROGRESS_STORAGE_KEY}:${key}`); } catch { /* ignore */ }
+}
+
 // ---------------------------------------------------------------------------
 // TestRunner Component
 // ---------------------------------------------------------------------------
 
 export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, projectId, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
   const configContextKey = [projectId, envId, svcId].filter(Boolean).join(':') || undefined;
+  const progressKey = configContextKey || '_default';
 
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
   const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
@@ -223,8 +254,39 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [weightsExpanded, setWeightsExpanded] = useState(true);
+  const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
 
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
+
+  useEffect(() => {
+    setSavedProgress(loadProgress(progressKey));
+  }, [progressKey]);
+
+  useEffect(() => {
+    if (finalRun && liveSummary && !isRunning) {
+      const data: PersistedProgress = {
+        summary: liveSummary,
+        timeSeries,
+        completed,
+        total,
+        profileMeta,
+        isTimeBased: executionMode === 'load-profile',
+        executionMode,
+        concurrency,
+        loadProfile,
+        resultCount: finalRun.results.length,
+        durationMs: finalRun.summary.totalDurationMs,
+      };
+      saveProgress(progressKey, data);
+      setSavedProgress(data);
+    }
+  }, [finalRun, isRunning]);
+
+  const handleClearProgress = () => {
+    clearProgress(progressKey);
+    setSavedProgress(null);
+  };
 
   useEffect(() => {
     setConfigLoaded(false);
@@ -366,9 +428,23 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   };
 
   const isTimeBased = isLoadProfile || (isRunning && total === -1);
-  const progressPct = isTimeBased
-    ? (profileMeta ? Math.min(100, Math.round((profileMeta.elapsedMs / profileMeta.durationMs) * 100)) : 0)
-    : (total > 0 ? Math.round((completed / total) * 100) : 0);
+
+  const hasLiveProgress = isRunning || liveSummary;
+  const showProgress = hasLiveProgress || (!isRunning && savedProgress);
+
+  const displaySummary = liveSummary ?? savedProgress?.summary ?? null;
+  const displayTimeSeries = timeSeries.length > 0 ? timeSeries : savedProgress?.timeSeries ?? [];
+  const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
+  const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
+  const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
+  const displayIsTimeBased = hasLiveProgress ? isTimeBased : savedProgress?.isTimeBased ?? false;
+  const displayProgressPct = displayIsTimeBased
+    ? (displayProfileMeta ? Math.min(100, Math.round((displayProfileMeta.elapsedMs / displayProfileMeta.durationMs) * 100)) : 0)
+    : (displayTotal > 0 ? Math.round((displayCompleted / displayTotal) * 100) : 0);
+
+  const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
+  const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
+  const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
   const hasAnyTests = featureGroups.some((fg) => fg.scenarios.some((sc) => sc.tests.length > 0));
 
   const updateProfile = (patch: Partial<LoadProfileConfig>) => {
@@ -558,123 +634,138 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               {/* Load Profile config */}
               {isLoadProfile && (
                 <div className="load-profile-panel">
-                  <div className="load-profile-header">
-                    <h4>Load Profile Configuration</h4>
+                  <h4 style={{ margin: '0 0 8px' }}>Load Profile Configuration</h4>
+                  <div className="load-profile-body">
+                    <div className="load-profile-controls">
+                      <div className="profile-type-selector">
+                        {(['ramp-up', 'sustained', 'spike'] as LoadProfileType[]).map((pt) => (
+                          <button
+                            key={pt}
+                            className={`profile-type-btn ${loadProfile.type === pt ? 'active' : ''}`}
+                            onClick={() => updateProfile({ type: pt })}
+                            disabled={isRunning}
+                          >
+                            {profileLabel(pt)}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="profile-type-desc">{profileDescriptions[loadProfile.type]}</div>
+
+                      <div className="profile-fields">
+                        <div className="profile-field-row">
+                          <div className="profile-field">
+                            <label>Duration (seconds)</label>
+                            <input
+                              type="number" min={5} max={3600}
+                              value={loadProfile.durationSec}
+                              onChange={(e) => updateProfile({ durationSec: parseInt(e.target.value) || 0 })}
+                              onBlur={() => updateProfile({ durationSec: Math.min(3600, Math.max(5, loadProfile.durationSec || 5)) })}
+                              disabled={isRunning}
+                            />
+                          </div>
+                          <div className="profile-field">
+                            <label>{loadProfile.type === 'spike' ? 'Base Concurrency' : 'Max Concurrency'}</label>
+                            <input
+                              type="number" min={1} max={100}
+                              value={loadProfile.maxConcurrency}
+                              onChange={(e) => updateProfile({ maxConcurrency: parseInt(e.target.value) || 0 })}
+                              onBlur={() => updateProfile({ maxConcurrency: Math.min(100, Math.max(1, loadProfile.maxConcurrency || 1)) })}
+                              disabled={isRunning}
+                            />
+                          </div>
+                          {loadProfile.type === 'ramp-up' && (
+                            <div className="profile-field">
+                              <label>Ramp Duration (seconds)</label>
+                              <input
+                                type="number" min={1} max={loadProfile.durationSec}
+                                value={loadProfile.rampUpSec ?? 30}
+                                onChange={(e) => updateProfile({ rampUpSec: parseInt(e.target.value) || 0 })}
+                                onBlur={() => updateProfile({ rampUpSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.rampUpSec || 1)) })}
+                                disabled={isRunning}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {loadProfile.type === 'spike' && (
+                          <div className="profile-field-row">
+                            <div className="profile-field">
+                              <label>Spike Concurrency</label>
+                              <input
+                                type="number" min={1} max={500}
+                                value={loadProfile.spikeConcurrency ?? 30}
+                                onChange={(e) => updateProfile({ spikeConcurrency: parseInt(e.target.value) || 0 })}
+                                onBlur={() => updateProfile({ spikeConcurrency: Math.min(500, Math.max(1, loadProfile.spikeConcurrency || 1)) })}
+                                disabled={isRunning}
+                              />
+                            </div>
+                            <div className="profile-field">
+                              <label>Spike Start (seconds)</label>
+                              <input
+                                type="number" min={0} max={loadProfile.durationSec}
+                                value={loadProfile.spikeStartSec ?? 20}
+                                onChange={(e) => updateProfile({ spikeStartSec: parseInt(e.target.value) || 0 })}
+                                onBlur={() => updateProfile({ spikeStartSec: Math.min(loadProfile.durationSec, Math.max(0, loadProfile.spikeStartSec || 0)) })}
+                                disabled={isRunning}
+                              />
+                            </div>
+                            <div className="profile-field">
+                              <label>Spike Duration (seconds)</label>
+                              <input
+                                type="number" min={1} max={loadProfile.durationSec}
+                                value={loadProfile.spikeDurationSec ?? 10}
+                                onChange={(e) => updateProfile({ spikeDurationSec: parseInt(e.target.value) || 0 })}
+                                onBlur={() => updateProfile({ spikeDurationSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.spikeDurationSec || 1)) })}
+                                disabled={isRunning}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="profile-preview-container">
                       <ProfilePreview profile={loadProfile} />
                     </div>
-                  </div>
-
-                  <div className="profile-type-selector">
-                    {(['ramp-up', 'sustained', 'spike'] as LoadProfileType[]).map((pt) => (
-                      <button
-                        key={pt}
-                        className={`profile-type-btn ${loadProfile.type === pt ? 'active' : ''}`}
-                        onClick={() => updateProfile({ type: pt })}
-                        disabled={isRunning}
-                      >
-                        {profileLabel(pt)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="profile-type-desc">{profileDescriptions[loadProfile.type]}</div>
-
-                  <div className="profile-fields">
-                    <div className="profile-field-row">
-                      <div className="profile-field">
-                        <label>Duration (seconds)</label>
-                        <input
-                          type="number" min={5} max={3600}
-                          value={loadProfile.durationSec}
-                          onChange={(e) => updateProfile({ durationSec: Math.max(5, parseInt(e.target.value) || 60) })}
-                          disabled={isRunning}
-                        />
-                      </div>
-                      <div className="profile-field">
-                        <label>{loadProfile.type === 'spike' ? 'Base Concurrency' : 'Max Concurrency'}</label>
-                        <input
-                          type="number" min={1} max={100}
-                          value={loadProfile.maxConcurrency}
-                          onChange={(e) => updateProfile({ maxConcurrency: Math.max(1, parseInt(e.target.value) || 10) })}
-                          disabled={isRunning}
-                        />
-                      </div>
-                    </div>
-
-                    {loadProfile.type === 'ramp-up' && (
-                      <div className="profile-field-row">
-                        <div className="profile-field">
-                          <label>Ramp Duration (seconds)</label>
-                          <input
-                            type="number" min={1} max={loadProfile.durationSec}
-                            value={loadProfile.rampUpSec ?? 30}
-                            onChange={(e) => updateProfile({ rampUpSec: Math.max(1, parseInt(e.target.value) || 30) })}
-                            disabled={isRunning}
-                          />
-                          <span className="field-hint">Time to reach max concurrency (sustains after)</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {loadProfile.type === 'spike' && (
-                      <div className="profile-field-row">
-                        <div className="profile-field">
-                          <label>Spike Concurrency</label>
-                          <input
-                            type="number" min={1} max={500}
-                            value={loadProfile.spikeConcurrency ?? 30}
-                            onChange={(e) => updateProfile({ spikeConcurrency: Math.max(1, parseInt(e.target.value) || 30) })}
-                            disabled={isRunning}
-                          />
-                        </div>
-                        <div className="profile-field">
-                          <label>Spike Start (seconds)</label>
-                          <input
-                            type="number" min={0} max={loadProfile.durationSec}
-                            value={loadProfile.spikeStartSec ?? 20}
-                            onChange={(e) => updateProfile({ spikeStartSec: Math.max(0, parseInt(e.target.value) || 20) })}
-                            disabled={isRunning}
-                          />
-                        </div>
-                        <div className="profile-field">
-                          <label>Spike Duration (seconds)</label>
-                          <input
-                            type="number" min={1} max={loadProfile.durationSec}
-                            value={loadProfile.spikeDurationSec ?? 10}
-                            onChange={(e) => updateProfile({ spikeDurationSec: Math.max(1, parseInt(e.target.value) || 10) })}
-                            disabled={isRunning}
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
 
               <fieldset>
-                <legend>Test Distribution (weights)</legend>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
-                  <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
-                </div>
-                {selectedTests.map((t, idx) => (
-                  <div key={t.id} className="weight-row">
-                    <div className="weight-label">
-                      <span className="test-number">{idx + 1}</span>
-                      <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
-                      {t.name}
+                <legend
+                  className="collapsible-legend"
+                  onClick={() => setWeightsExpanded((v) => !v)}
+                >
+                  <span className={`collapse-arrow ${weightsExpanded ? 'expanded' : ''}`}>▶</span>
+                  Test Distribution (weights)
+                  <span className="collapse-count">{selectedTests.length} tests</span>
+                </legend>
+                {weightsExpanded && (
+                  <>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 1); setWeights(w); }}>Reset All to 1</button>
+                      <button className="btn btn-xs" disabled={isRunning} onClick={() => { const w: Record<string, number> = {}; selectedTests.forEach((t) => w[t.id] = 0); setWeights(w); }}>Reset All to 0</button>
                     </div>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={weights[t.id] ?? 1}
-                      onChange={(e) => setWeights({ ...weights, [t.id]: Math.max(0, parseInt(e.target.value) || 0) })}
-                      disabled={isRunning}
-                      className="weight-input"
-                    />
-                  </div>
-                ))}
+                    {selectedTests.map((t, idx) => (
+                      <div key={t.id} className="weight-row">
+                        <div className="weight-label">
+                          <span className="test-number">{idx + 1}</span>
+                          <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
+                          {t.name}
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={weights[t.id] ?? 1}
+                          onChange={(e) => setWeights({ ...weights, [t.id]: Math.max(0, parseInt(e.target.value) || 0) })}
+                          disabled={isRunning}
+                          className="weight-input"
+                        />
+                      </div>
+                    ))}
+                  </>
+                )}
               </fieldset>
 
               <div className="form-actions">
@@ -691,76 +782,76 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             </div>
           )}
 
-          {/* Live Progress */}
-          {(isRunning || liveSummary) && (
+          {/* Progress */}
+          {showProgress && (
             <div className="progress-section">
-              <h3>Progress <span className="progress-mode-tag">
-                {isTimeBased ? (
-                  <>
-                    {profileLabel(loadProfile.type)}
-                    {' · '}Peak:{loadProfile.maxConcurrency}
-                    {' · '}{loadProfile.durationSec}s
-                    {loadProfile.type === 'ramp-up' && ` · ramp ${loadProfile.rampUpSec ?? loadProfile.durationSec}s`}
-                    {loadProfile.type === 'spike' && ` · spike to ${loadProfile.spikeConcurrency ?? loadProfile.maxConcurrency * 3}`}
-                  </>
-                ) : (
-                  <>
-                    {executionMode === 'pool' ? 'Continuous Pool' : executionMode === 'sequential' ? 'Sequential' : 'Batch'}
-                    {' · '}C:{executionMode === 'sequential' ? 1 : concurrency}
-                    {' · '}T:{total}
-                    {' · '}{executionMode === 'sequential'
-                      ? 'One request at a time'
-                      : executionMode === 'batch'
-                        ? `${concurrency} parallel, wait for all, repeat`
-                        : `${concurrency} always in-flight`}
-                  </>
-                )}
-              </span></h3>
-
-              <div className="progress-bar-container">
-                <div className="progress-bar" style={{ width: `${progressPct}%` }}></div>
-                <span className="progress-text">
-                  {isTimeBased ? (
+              <div className="progress-header-row">
+                <h3>Progress <span className="progress-mode-tag">
+                  {displayIsTimeBased ? (
                     <>
-                      {profileMeta ? `${(profileMeta.elapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : loadProfile.durationSec}s
-                      {' '}({completed} requests)
+                      {profileLabel(displayLoadProfile.type)}
+                      {' · '}Peak:{displayLoadProfile.maxConcurrency}
+                      {' · '}{displayLoadProfile.durationSec}s
+                      {displayLoadProfile.type === 'ramp-up' && ` · ramp ${displayLoadProfile.rampUpSec ?? displayLoadProfile.durationSec}s`}
+                      {displayLoadProfile.type === 'spike' && ` · spike to ${displayLoadProfile.spikeConcurrency ?? displayLoadProfile.maxConcurrency * 3}`}
                     </>
                   ) : (
-                    <>{completed} / {total} ({progressPct}%)</>
+                    <>
+                      {displayExecMode === 'pool' ? 'Continuous Pool' : displayExecMode === 'sequential' ? 'Sequential' : 'Batch'}
+                      {' · '}C:{displayExecMode === 'sequential' ? 1 : displayConc}
+                      {' · '}T:{displayTotal}
+                    </>
+                  )}
+                </span></h3>
+                {!isRunning && savedProgress && (
+                  <button className="btn btn-xs btn-ghost" onClick={handleClearProgress} title="Clear progress">✕ Clear</button>
+                )}
+              </div>
+
+              <div className="progress-bar-container">
+                <div className="progress-bar" style={{ width: `${displayProgressPct}%` }}></div>
+                <span className="progress-text">
+                  {displayIsTimeBased ? (
+                    <>
+                      {displayProfileMeta ? `${(displayProfileMeta.elapsedMs / 1000).toFixed(1)}s` : '0s'} / {displayProfileMeta ? (displayProfileMeta.durationMs / 1000).toFixed(0) : displayLoadProfile.durationSec}s
+                      {' '}({displayCompleted} requests)
+                    </>
+                  ) : (
+                    <>{displayCompleted} / {displayTotal} ({displayProgressPct}%)</>
                   )}
                 </span>
               </div>
 
-              {liveSummary && (
+              {displaySummary && (
                 <div className="live-metrics">
                   <div className="metric-card">
-                    <div className="metric-value">{liveSummary.tps}</div>
+                    <div className="metric-value">{displaySummary.tps}</div>
                     <div className="metric-label">TPS</div>
                   </div>
                   <div className="metric-card">
-                    <div className="metric-value">{liveSummary.avgResponseTime} ms</div>
+                    <div className="metric-value">{displaySummary.avgResponseTime} ms</div>
                     <div className="metric-label">Avg Response</div>
                   </div>
                   <div className="metric-card">
-                    <div className="metric-value">{liveSummary.errorRate}%</div>
+                    <div className="metric-value">{displaySummary.errorRate}%</div>
                     <div className="metric-label">Error Rate</div>
                   </div>
                   <div className="metric-card">
-                    <div className="metric-value">{liveSummary.failedValidations}</div>
+                    <div className="metric-value">{displaySummary.failedValidations}</div>
                     <div className="metric-label">Validation Failures</div>
                   </div>
-                  {isTimeBased && profileMeta && (
+                  {displayIsTimeBased && displayProfileMeta && (
                     <div className="metric-card">
-                      <div className="metric-value">{profileMeta.currentInFlight} / {profileMeta.targetConcurrency}</div>
+                      <div className="metric-value">{displayProfileMeta.currentInFlight} / {displayProfileMeta.targetConcurrency}</div>
                       <div className="metric-label">Concurrency</div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Live Charts */}
-              {timeSeries.length >= 2 && (
-                <LiveCharts data={timeSeries} isTimeBased={isTimeBased} />
+              {/* Charts */}
+              {displayTimeSeries.length >= 2 && (
+                <LiveCharts data={displayTimeSeries} isTimeBased={displayIsTimeBased} />
               )}
             </div>
           )}
@@ -770,6 +861,16 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             <div className="completion-section">
               <div className="completion-banner">
                 Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
+              </div>
+              <button className="btn btn-primary" onClick={onComplete}>
+                View Full Results →
+              </button>
+            </div>
+          )}
+          {!isRunning && !finalRun && savedProgress && (
+            <div className="completion-section">
+              <div className="completion-banner">
+                Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
               </div>
               <button className="btn btn-primary" onClick={onComplete}>
                 View Full Results →
