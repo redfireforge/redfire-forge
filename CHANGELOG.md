@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+---
+
+## [0.3.4] — 2026-04-14
+
 ### Added
 - **CSV/Excel Template Import**: Create bulk tests from CSV files with metadata header, path variables, query parameters, and validation rules
 - **CSV Template Export**: Generate a CSV template from an existing test, with smart URL analysis to identify variable path segments and query parameters
