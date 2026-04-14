@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
+import CsvImportModal from '../components/CsvImportModal';
 import { acquireOAuth2Token } from '../engine/executor';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
@@ -82,6 +83,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     fgMicroserviceId?: string;
     fgAuthProfileId?: string;
   } | null>(null);
+
+  // CSV Import modal state
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // Drag-and-drop state
   const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
@@ -424,6 +428,31 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     });
   };
 
+  const handleCsvImport = useCallback((fgId: string, scenarioId: string, tests: Scenario[]) => {
+    setFeatureGroups((prev) => prev.map((fg) => {
+      if (fg.id !== fgId) return fg;
+
+      if (scenarioId.startsWith('__new__:')) {
+        const newScenarioName = scenarioId.slice('__new__:'.length);
+        const newScenario: TestScenario = {
+          id: uuidv4(),
+          name: newScenarioName,
+          tests,
+        };
+        return { ...fg, scenarios: [...fg.scenarios, newScenario] };
+      }
+
+      return {
+        ...fg,
+        scenarios: fg.scenarios.map((sc) => {
+          if (sc.id !== scenarioId) return sc;
+          return { ...sc, tests: [...sc.tests, ...tests] };
+        }),
+      };
+    }));
+    setCsvImportOpen(false);
+  }, [setFeatureGroups]);
+
   // Single feature group
   const exportFeatureGroup = (fg: FeatureGroup) =>
     downloadJson(wrapExport(fg, 'feature-group'), fname('feature', fg.name));
@@ -599,6 +628,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="header-actions">
           <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
           <button className="btn" onClick={exportAll} disabled={featureGroups.length === 0}>Export</button>
+          <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>CSV Import</button>
           <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
       </div>
@@ -1305,6 +1335,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           appGlobalAuthProfileIds={new Set(globalAuthProfiles.map((p) => p.id))}
           onMove={handleMoveConfirm}
           onClose={() => setMoveDialog(null)}
+        />
+      )}
+
+      {csvImportOpen && (
+        <CsvImportModal
+          featureGroups={featureGroups}
+          onImport={handleCsvImport}
+          onClose={() => setCsvImportOpen(false)}
         />
       )}
     </div>
