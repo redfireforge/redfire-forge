@@ -46,6 +46,70 @@ export async function acquireOAuth2Token(auth: AuthConfig): Promise<string> {
   return data.access_token;
 }
 
+// ---------------------------------------------------------------------------
+// TokenManager — shared, auto-refreshing OAuth2 token cache
+// ---------------------------------------------------------------------------
+
+const TOKEN_EXPIRY_BUFFER_SEC = 30;
+
+function parseJwtExpiry(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return typeof decoded.exp === 'number' ? decoded.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+interface CachedToken {
+  token: string;
+  expiresSec: number;
+}
+
+export class TokenManager {
+  private cache = new Map<string, CachedToken>();
+  private pending = new Map<string, Promise<string>>();
+
+  private credKey(auth: AuthConfig): string {
+    return `${auth.tokenUrl}|${auth.clientId}|${auth.clientSecret}`;
+  }
+
+  private isExpired(entry: CachedToken): boolean {
+    const nowSec = Math.floor(Date.now() / 1000);
+    return nowSec >= entry.expiresSec - TOKEN_EXPIRY_BUFFER_SEC;
+  }
+
+  async getToken(scenario: Scenario): Promise<string | undefined> {
+    if (scenario.auth.type !== 'oauth2') return undefined;
+
+    const key = this.credKey(scenario.auth);
+    const cached = this.cache.get(key);
+    if (cached && !this.isExpired(cached)) return cached.token;
+
+    // If another call is already refreshing this credential, wait for it
+    const inflight = this.pending.get(key);
+    if (inflight) return inflight;
+
+    const refreshPromise = this.refresh(key, scenario.auth);
+    this.pending.set(key, refreshPromise);
+    try {
+      return await refreshPromise;
+    } finally {
+      this.pending.delete(key);
+    }
+  }
+
+  private async refresh(key: string, auth: AuthConfig): Promise<string> {
+    const token = await acquireOAuth2Token(auth);
+    const exp = parseJwtExpiry(token);
+    const expiresSec = exp ?? Math.floor(Date.now() / 1000) + 1800;
+    this.cache.set(key, { token, expiresSec });
+    return token;
+  }
+}
+
 export function buildHeaders(scenario: Scenario, token?: string): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const h of scenario.headers) {
@@ -163,24 +227,15 @@ export async function runTest(
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
-  // Acquire OAuth2 tokens
-  const tokenMap = new Map<string, string>();
-  for (const scenario of scenarios) {
-    if (scenario.auth.type === 'oauth2') {
-      const token = await acquireOAuth2Token(scenario.auth);
-      tokenMap.set(scenario.id, token);
-    }
-  }
+  const tokenManager = new TokenManager();
 
   // Build request queue: distribute totalTransactions across active scenarios by weight.
-  // If totalTransactions < active count, pick top-weighted scenarios (random tiebreak).
   const activeWeights = config.scenarioWeights.filter((w) => w.weight > 0);
   const totalWeight = activeWeights.reduce((s, w) => s + w.weight, 0);
   const total = config.totalTransactions;
   const queue: Scenario[] = [];
 
   if (total >= activeWeights.length) {
-    // Enough slots: give each at least 1, distribute remainder by weight
     const counts = new Map<string, number>();
     for (const sw of activeWeights) counts.set(sw.scenarioId, 1);
     const remaining = total - activeWeights.length;
@@ -196,7 +251,6 @@ export async function runTest(
       for (let i = 0; i < (counts.get(sw.scenarioId) ?? 1); i++) queue.push(scenario);
     }
   } else {
-    // Fewer slots than scenarios: pick top-weighted, shuffle ties randomly
     const sorted = [...activeWeights].sort((a, b) => {
       if (b.weight !== a.weight) return b.weight - a.weight;
       return Math.random() - 0.5;
@@ -219,20 +273,20 @@ export async function runTest(
   const mode = config.executionMode ?? 'batch';
 
   if (mode === 'load-profile' && config.loadProfile) {
-    return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, tokenMap, onProgress, abortSignal);
+    return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, tokenManager, onProgress, abortSignal);
   }
   if (mode === 'sequential') {
-    return runSequential(queue, tokenMap, onProgress, abortSignal);
+    return runSequential(queue, tokenManager, onProgress, abortSignal);
   }
   if (mode === 'pool') {
-    return runPool(queue, config.concurrency, tokenMap, onProgress, abortSignal);
+    return runPool(queue, config.concurrency, tokenManager, onProgress, abortSignal);
   }
-  return runBatch(queue, config.concurrency, tokenMap, onProgress, abortSignal);
+  return runBatch(queue, config.concurrency, tokenManager, onProgress, abortSignal);
 }
 
 async function runSequential(
   queue: Scenario[],
-  tokenMap: Map<string, string>,
+  tokenManager: TokenManager,
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
@@ -240,7 +294,8 @@ async function runSequential(
 
   for (const scenario of queue) {
     if (abortSignal?.aborted) break;
-    const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
+    const token = await tokenManager.getToken(scenario);
+    const headers = buildHeaders(scenario, token);
     const result = await executeRequest(scenario, headers);
     allResults.push(result);
     onProgress(allResults.length, queue.length, allResults);
@@ -252,7 +307,7 @@ async function runSequential(
 async function runBatch(
   queue: Scenario[],
   concurrency: number,
-  tokenMap: Map<string, string>,
+  tokenManager: TokenManager,
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
@@ -263,8 +318,9 @@ async function runBatch(
     if (abortSignal?.aborted) break;
 
     const batch = queue.slice(i, i + concurrency);
-    const batchPromises = batch.map((scenario) => {
-      const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
+    const batchPromises = batch.map(async (scenario) => {
+      const token = await tokenManager.getToken(scenario);
+      const headers = buildHeaders(scenario, token);
       return executeRequest(scenario, headers);
     });
 
@@ -280,7 +336,7 @@ async function runBatch(
 async function runPool(
   queue: Scenario[],
   concurrency: number,
-  tokenMap: Map<string, string>,
+  tokenManager: TokenManager,
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
@@ -295,8 +351,10 @@ async function runPool(
         if (abortSignal?.aborted) break;
         const scenario = queue[nextIdx++];
         inFlight++;
-        const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
-        executeRequest(scenario, headers).then((result) => {
+        tokenManager.getToken(scenario).then((token) => {
+          const headers = buildHeaders(scenario, token);
+          return executeRequest(scenario, headers);
+        }).then((result) => {
           allResults.push(result);
           inFlight--;
           onProgress(allResults.length, total, allResults);
@@ -383,7 +441,7 @@ async function runLoadProfile(
   profile: LoadProfileConfig,
   scenarios: Scenario[],
   weights: ScenarioWeight[],
-  tokenMap: Map<string, string>,
+  tokenManager: TokenManager,
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
@@ -408,8 +466,10 @@ async function runLoadProfile(
     function launchOne() {
       const scenario = nextScenario();
       inFlight++;
-      const headers = buildHeaders(scenario, tokenMap.get(scenario.id));
-      executeRequest(scenario, headers).then((result) => {
+      tokenManager.getToken(scenario).then((token) => {
+        const headers = buildHeaders(scenario, token);
+        return executeRequest(scenario, headers);
+      }).then((result) => {
         allResults.push(result);
         inFlight--;
         const elapsed = performance.now() - startTime;

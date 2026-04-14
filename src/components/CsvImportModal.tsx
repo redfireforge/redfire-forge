@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../types';
 import { parseCsvToScenarios, downloadCsv } from '../utils/csvTemplate';
 import type { CsvParseResult } from '../utils/csvTemplate';
@@ -12,19 +12,21 @@ interface Props {
 export default function CsvImportModal({ featureGroups, onImport, onClose }: Props) {
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [selectedFgId, setSelectedFgId] = useState(featureGroups[0]?.id ?? '');
+  const [createNewFg, setCreateNewFg] = useState(false);
+  const [newFgName, setNewFgName] = useState('');
   const [selectedScenarioId, setSelectedScenarioId] = useState('');
   const [newScenarioName, setNewScenarioName] = useState('');
   const [createNewScenario, setCreateNewScenario] = useState(false);
   const [fileName, setFileName] = useState('');
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'append'>('append');
+  const [dragging, setDragging] = useState(false);
+  const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedFg = featureGroups.find(fg => fg.id === selectedFgId);
+  const selectedFg = createNewFg ? null : featureGroups.find(fg => fg.id === selectedFgId);
   const scenarios = selectedFg?.scenarios ?? [];
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processFile = useCallback((file: File) => {
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -34,6 +36,52 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     };
     reader.readAsText(file);
   }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    };
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current++;
+      if (dragCounter.current === 1) setDragging(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current--;
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0;
+        setDragging(false);
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setDragging(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
+        processFile(file);
+      }
+    };
+
+    document.addEventListener('dragover', onDragOver);
+    document.addEventListener('dragenter', onDragEnter);
+    document.addEventListener('dragleave', onDragLeave);
+    document.addEventListener('drop', onDrop);
+
+    return () => {
+      document.removeEventListener('dragover', onDragOver);
+      document.removeEventListener('dragenter', onDragEnter);
+      document.removeEventListener('dragleave', onDragLeave);
+      document.removeEventListener('drop', onDrop);
+    };
+  }, [processFile]);
 
   const handleDownloadSample = useCallback(() => {
     const sampleCsv = [
@@ -49,17 +97,28 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const handleImport = () => {
     const tests = validTests.map(r => r.scenario!);
     if (tests.length === 0) return;
-    const scenId = createNewScenario ? `__new__:${newScenarioName.trim()}` : selectedScenarioId;
+
+    const fgId = createNewFg ? `__new_fg__:${newFgName.trim()}` : selectedFgId;
+    if (!fgId) return;
+
+    // When creating a new feature group, always create a new scenario too
+    const scenId = (createNewScenario || createNewFg)
+      ? `__new__:${newScenarioName.trim()}`
+      : selectedScenarioId;
     if (!scenId) return;
-    onImport(selectedFgId, scenId, tests);
+
+    onImport(fgId, scenId, tests);
   };
 
   const canImport = validTests.length > 0
-    && selectedFgId
-    && (createNewScenario ? newScenarioName.trim() : selectedScenarioId);
+    && (createNewFg ? newFgName.trim() : selectedFgId)
+    && ((createNewScenario || createNewFg) ? newScenarioName.trim() : selectedScenarioId);
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className="modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="modal csv-import-modal">
         <div className="modal-header">
           <h3>Import Tests from CSV</h3>
@@ -77,11 +136,23 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           {/* Step 2: Upload */}
           <div className="csv-step">
             <div className="csv-step-label">Step 2 — Upload your CSV</div>
-            <div className="csv-upload-row">
-              <button className="btn" onClick={() => fileInputRef.current?.click()}>
-                Choose File...
-              </button>
-              <span className="csv-filename">{fileName || 'No file selected'}</span>
+            <div
+              className={`csv-drop-zone${dragging ? ' csv-drop-zone-active' : ''}${fileName ? ' csv-drop-zone-done' : ''}`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {fileName ? (
+                <div className="csv-drop-zone-file">
+                  <span className="csv-drop-zone-icon">📄</span>
+                  <span className="csv-drop-zone-name">{fileName}</span>
+                  <span className="csv-drop-zone-hint">Click or drop to replace</span>
+                </div>
+              ) : (
+                <div className="csv-drop-zone-empty">
+                  <span className="csv-drop-zone-icon">{dragging ? '📥' : '📁'}</span>
+                  <span className="csv-drop-zone-label">{dragging ? 'Drop file here' : 'Drag & drop a CSV file here'}</span>
+                  <span className="csv-drop-zone-hint">or click to browse</span>
+                </div>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -158,15 +229,39 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
               <div className="csv-dest-fields">
                 <div className="csv-dest-field">
                   <label>Feature Group</label>
-                  <select value={selectedFgId} onChange={(e) => { setSelectedFgId(e.target.value); setSelectedScenarioId(''); setCreateNewScenario(false); }}>
-                    {featureGroups.map(fg => (
-                      <option key={fg.id} value={fg.id}>{fg.name}</option>
-                    ))}
-                  </select>
+                  {!createNewFg ? (
+                    <select value={selectedFgId} onChange={(e) => { setSelectedFgId(e.target.value); setSelectedScenarioId(''); setCreateNewScenario(false); }}>
+                      {featureGroups.map(fg => (
+                        <option key={fg.id} value={fg.id}>{fg.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="New feature group name"
+                      value={newFgName}
+                      onChange={(e) => setNewFgName(e.target.value)}
+                      autoFocus
+                    />
+                  )}
+                  <label className="csv-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={createNewFg}
+                      onChange={(e) => {
+                        setCreateNewFg(e.target.checked);
+                        if (e.target.checked) {
+                          setCreateNewScenario(true);
+                          setSelectedScenarioId('');
+                        }
+                      }}
+                    />
+                    Create new feature group
+                  </label>
                 </div>
                 <div className="csv-dest-field">
                   <label>Scenario</label>
-                  {!createNewScenario ? (
+                  {(!createNewScenario && !createNewFg) ? (
                     <select value={selectedScenarioId} onChange={(e) => setSelectedScenarioId(e.target.value)}>
                       <option value="">— Select —</option>
                       {scenarios.map(sc => (
@@ -179,13 +274,15 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                       placeholder="New scenario name"
                       value={newScenarioName}
                       onChange={(e) => setNewScenarioName(e.target.value)}
-                      autoFocus
+                      autoFocus={!createNewFg}
                     />
                   )}
-                  <label className="csv-checkbox-label">
-                    <input type="checkbox" checked={createNewScenario} onChange={(e) => { setCreateNewScenario(e.target.checked); setSelectedScenarioId(''); }} />
-                    Create new scenario
-                  </label>
+                  {!createNewFg && (
+                    <label className="csv-checkbox-label">
+                      <input type="checkbox" checked={createNewScenario} onChange={(e) => { setCreateNewScenario(e.target.checked); setSelectedScenarioId(''); }} />
+                      Create new scenario
+                    </label>
+                  )}
                 </div>
                 <div className="csv-dest-field">
                   <label>If test name already exists</label>
