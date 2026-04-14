@@ -92,10 +92,24 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
             </div>
           </div>
 
+          {/* Template info */}
+          {parseResult?.meta && (
+            <div className="csv-step">
+              <div className="csv-step-label">Template detected</div>
+              <div className="csv-fixed-summary">
+                <div><strong>Method:</strong> {parseResult.meta.method}</div>
+                <div><strong>URL Pattern:</strong> <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>{parseResult.meta.urlPattern}</code></div>
+                <div><strong>Headers:</strong> {parseResult.meta.headers.length} included</div>
+                <div><strong>Auth:</strong> {parseResult.meta.auth.type}</div>
+                <div><strong>Validation:</strong> {parseResult.meta.validationMode}{parseResult.meta.unorderedArrays ? ' (unordered arrays)' : ''}</div>
+              </div>
+            </div>
+          )}
+
           {/* Step 3: Preview */}
           {parseResult && (
             <div className="csv-step">
-              <div className="csv-step-label">Step 3 — Preview</div>
+              <div className="csv-step-label">{parseResult.meta ? 'Step 3 — Preview' : 'Step 3 — Preview'}</div>
               <div className="csv-parse-summary">
                 <span className="csv-stat csv-stat-ok">✓ {parseResult.validRows} valid</span>
                 {parseResult.errorRows > 0 && (
