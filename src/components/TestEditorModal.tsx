@@ -1114,7 +1114,7 @@ export default function TestEditorModal({
                       />
 
                       {/* Validate Response button + results */}
-                      {draft.validation.mode !== 'none' && (draft.validation.expectedFields || []).length > 0 && (
+                      {(draft.validation.expectedFields || []).length > 0 && (
                         <div className="validate-response-section">
                           <div className="validate-response-row">
                             <button
