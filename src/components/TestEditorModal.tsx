@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, FeatureGroup, AuthType, AuthConfig, ValidationMode, KeyValue, GlobalAuthProfile, ResponseVersion } from '../types';
 import { parseCurl } from '../utils/curlParser';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
+import { generateCsvTemplate, downloadCsv } from '../utils/csvTemplate';
 import JsonPathBuilder from './JsonPathBuilder';
 import ResponseVersionPanel from './ResponseVersionPanel';
 
@@ -548,6 +549,12 @@ export default function TestEditorModal({
     }
   }, [generateCurl]);
 
+  const handleCsvTemplateExport = useCallback((test: Scenario) => {
+    const csv = generateCsvTemplate(test);
+    const safeName = test.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || 'template';
+    downloadCsv(csv, `${safeName}_template.csv`);
+  }, []);
+
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim()).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
   const baseUrl = useMemo(() => (draft.url ? getBaseUrl(draft.url) : ''), [draft.url]);
@@ -586,6 +593,7 @@ export default function TestEditorModal({
               Import
             </button>
             <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
+            <button type="button" className="mode-btn" onClick={() => handleCsvTemplateExport(draft)}>CSV Template</button>
           </div>
           <div className="insomnia-top-actions">
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
