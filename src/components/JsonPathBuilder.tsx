@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, memo, Component } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, memo, Component } from 'react';
 import type { ExpectedField, SelectiveMode } from '../types';
 import type { ReactNode, ErrorInfo } from 'react';
 
@@ -220,9 +220,14 @@ function stripQuotes(v: string): string {
   return v;
 }
 
+function formatRowLabel(key: string): string {
+  const m = key.match(/\[(\d+)\]$/);
+  if (m) return `#${m[1]}`;
+  return key;
+}
+
 function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
-  const { columns, rows } = useMemo(() => {
-    // Split each path into row prefix + field name
+  const { columns, rows, arrayPrefix } = useMemo(() => {
     const parsed = expectedFields.map((f) => {
       const lastDot = f.jsonPath.lastIndexOf('.');
       if (lastDot === -1) return { rowKey: '(root)', field: f.jsonPath, value: f.expectedValue };
@@ -240,7 +245,24 @@ function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
 
     const columns = Array.from(colSet);
     const rows = Array.from(rowMap.entries()).map(([key, fields]) => ({ key, fields }));
-    return { columns, rows };
+
+    // Extract common array prefix for the header label (e.g. "$.offers")
+    const firstKey = rows[0]?.key || '';
+    const bracketIdx = firstKey.lastIndexOf('[');
+    const arrayPrefix = bracketIdx > 0 && rows.every(r => /\[\d+\]$/.test(r.key))
+      ? firstKey.slice(0, bracketIdx)
+      : '';
+
+    // Sort rows by array index if applicable
+    if (arrayPrefix) {
+      rows.sort((a, b) => {
+        const ai = parseInt(a.key.match(/\[(\d+)\]$/)?.[1] || '0');
+        const bi = parseInt(b.key.match(/\[(\d+)\]$/)?.[1] || '0');
+        return ai - bi;
+      });
+    }
+
+    return { columns, rows, arrayPrefix };
   }, [expectedFields]);
 
   if (columns.length === 0) return null;
@@ -250,7 +272,7 @@ function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
       <table className="jpb-rules-table">
         <thead>
           <tr>
-            <th className="jpb-table-row-header">Path</th>
+            <th className="jpb-table-row-header">{arrayPrefix || 'Path'}</th>
             {columns.map((col) => (
               <th key={col}>{col}</th>
             ))}
@@ -259,7 +281,7 @@ function RulesTable({ expectedFields }: { expectedFields: ExpectedField[] }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.key}>
-              <td className="jpb-table-row-header"><code>{row.key}</code></td>
+              <td className="jpb-table-row-header"><code>{arrayPrefix ? formatRowLabel(row.key) : row.key}</code></td>
               {columns.map((col) => {
                 const val = row.fields.get(col);
                 return (
@@ -306,6 +328,12 @@ export default function JsonPathBuilder({
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 150);
   const [rulesView, setRulesView] = useState<'list' | 'table'>('list');
+  const hasArrayFields = expectedFields.some(f => /\[\d+\]/.test(f.jsonPath));
+  const prevHasArray = useRef(false);
+  useEffect(() => {
+    if (hasArrayFields && !prevHasArray.current) setRulesView('table');
+    prevHasArray.current = hasArrayFields;
+  }, [hasArrayFields]);
 
   const { parsedTree, parseError } = useMemo(() => {
     if (!sampleJson.trim()) return { parsedTree: null, parseError: null };
@@ -634,36 +662,77 @@ export default function JsonPathBuilder({
 
       {/* Fallback: manual fields when no sample JSON */}
       {!parsedTree && !sampleJson.trim() && (
-        <div className="jpb-manual-fallback">
-          <div className="kv-header"><span>VALIDATION RULES (manual)</span></div>
-          {expectedFields.map((f, i) => (
-            <div key={i} className="kv-row">
-              <input
-                value={f.jsonPath}
-                onChange={(e) => {
-                  const next = [...expectedFields];
-                  next[i] = { ...next[i], jsonPath: e.target.value };
-                  onUpdate({ expectedFields: next });
-                }}
-                placeholder="JSON Path (e.g. data.id)"
-              />
-              <input
-                value={f.expectedValue}
-                onChange={(e) => {
-                  const next = [...expectedFields];
-                  next[i] = { ...next[i], expectedValue: e.target.value };
-                  onUpdate({ expectedFields: next });
-                }}
-                placeholder="Expected value"
-              />
-              <button className="btn btn-sm btn-danger" onClick={() => {
-                onUpdate({ expectedFields: expectedFields.filter((_, j) => j !== i) });
-              }}>×</button>
+        <div className="jpb-summary">
+          <div className="kv-header">
+            <div className="kv-header-left">
+              <span>VALIDATION RULES ({expectedFields.length})</span>
+              {expectedFields.length > 0 && (
+                <div className="jpb-view-toggle">
+                  <button className={`btn btn-xs ${rulesView === 'list' ? 'btn-active' : ''}`} onClick={() => setRulesView('list')}>List</button>
+                  <button className={`btn btn-xs ${rulesView === 'table' ? 'btn-active' : ''}`} onClick={() => setRulesView('table')}>Table</button>
+                </div>
+              )}
             </div>
-          ))}
-          <button className="btn btn-sm" onClick={() => {
-            onUpdate({ expectedFields: [...expectedFields, { jsonPath: '', expectedValue: '' }] });
-          }}>+ Add Field</button>
+          </div>
+          {expectedFields.length === 0 && (
+            <div className="empty-hint">No validation rules configured. Add rules manually or import from a CSV template.</div>
+          )}
+
+          {/* List view */}
+          {expectedFields.length > 0 && rulesView === 'list' && (
+            <div className="jpb-field-list">
+              {expectedFields.slice(0, 50).map((f, i) => (
+                <div key={i} className="jpb-field-row">
+                  {f.jsonPath === '' ? (
+                    <input
+                      className="jpb-field-input"
+                      value={f.jsonPath}
+                      onChange={(e) => {
+                        const next = [...expectedFields];
+                        next[i] = { ...next[i], jsonPath: e.target.value };
+                        onUpdate({ expectedFields: next });
+                      }}
+                      placeholder="JSON Path (e.g. data.id)"
+                    />
+                  ) : (
+                    <code className="jpb-field-path">{f.jsonPath}</code>
+                  )}
+                  <span className="jpb-field-eq">=</span>
+                  {f.jsonPath === '' || f.expectedValue === '' ? (
+                    <input
+                      className="jpb-field-input"
+                      value={f.expectedValue}
+                      onChange={(e) => {
+                        const next = [...expectedFields];
+                        next[i] = { ...next[i], expectedValue: e.target.value };
+                        onUpdate({ expectedFields: next });
+                      }}
+                      placeholder="Expected value"
+                    />
+                  ) : (
+                    <code className="jpb-field-value">{(() => { const s = stripQuotes(f.expectedValue); return s.length > 80 ? s.slice(0, 80) + '...' : s; })()}</code>
+                  )}
+                  <button className="btn btn-sm btn-danger" onClick={() => {
+                    onUpdate({ expectedFields: expectedFields.filter((_, j) => j !== i) });
+                  }}>×</button>
+                </div>
+              ))}
+              {expectedFields.length > 50 && (
+                <div className="empty-hint">...and {expectedFields.length - 50} more</div>
+              )}
+            </div>
+          )}
+
+          {/* Table view */}
+          {expectedFields.length > 0 && rulesView === 'table' && (
+            <RulesTable expectedFields={expectedFields} />
+          )}
+
+          <div className="jpb-manual-add">
+            <button className="btn btn-sm" onClick={() => {
+              onUpdate({ expectedFields: [...expectedFields, { jsonPath: '', expectedValue: '' }] });
+            }}>+ Add Manual Rule</button>
+          </div>
         </div>
       )}
     </div>

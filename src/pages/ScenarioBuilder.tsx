@@ -429,14 +429,32 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   const handleCsvImport = useCallback((fgId: string, scenarioId: string, tests: Scenario[]) => {
+    const scenName = scenarioId.startsWith('__new__:') ? scenarioId.slice('__new__:'.length) : '';
+
+    if (fgId.startsWith('__new_fg__:')) {
+      const fgName = fgId.slice('__new_fg__:'.length);
+      const newScenario: TestScenario = {
+        id: uuidv4(),
+        name: scenName || 'Imported Tests',
+        tests,
+      };
+      const newFg: FeatureGroup = {
+        id: uuidv4(),
+        name: fgName,
+        scenarios: [newScenario],
+      };
+      setFeatureGroups((prev) => [...prev, newFg]);
+      setCsvImportOpen(false);
+      return;
+    }
+
     setFeatureGroups((prev) => prev.map((fg) => {
       if (fg.id !== fgId) return fg;
 
-      if (scenarioId.startsWith('__new__:')) {
-        const newScenarioName = scenarioId.slice('__new__:'.length);
+      if (scenName) {
         const newScenario: TestScenario = {
           id: uuidv4(),
-          name: newScenarioName,
+          name: scenName,
           tests,
         };
         return { ...fg, scenarios: [...fg.scenarios, newScenario] };
