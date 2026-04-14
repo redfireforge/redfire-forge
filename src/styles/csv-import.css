@@ -168,3 +168,109 @@
 .csv-checkbox-label input[type="checkbox"] {
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   CSV Template Export Modal — Path Segments & Column Preview
+   --------------------------------------------------------------------------- */
+
+.path-segment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.path-segment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: background 0.15s;
+}
+.path-segment-row.selected {
+  background: rgba(52, 152, 219, 0.08);
+  border-color: var(--primary);
+}
+.path-segment-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.path-segment-value {
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.path-var-name-input {
+  width: 160px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.url-pattern-preview {
+  display: block;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  word-break: break-all;
+  color: var(--text);
+}
+
+.csv-columns-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.csv-col-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+.col-fixed {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.col-path {
+  background: rgba(155, 89, 182, 0.12);
+  border: 1px solid rgba(155, 89, 182, 0.3);
+  color: #9b59b6;
+}
+.col-param {
+  background: rgba(52, 152, 219, 0.12);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  color: #3498db;
+}
+.col-validate {
+  background: rgba(39, 174, 96, 0.12);
+  border: 1px solid rgba(39, 174, 96, 0.3);
+  color: #27ae60;
+}
+
+.csv-fixed-summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.csv-fixed-summary strong {
+  color: var(--text);
+}
