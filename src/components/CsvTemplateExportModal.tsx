@@ -50,7 +50,6 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
     onClose();
   };
 
-  // Build preview of URL pattern
   const pathParts = analysis.segments.map(seg => seg.segment);
   const previewParts = pathParts.map((seg, i) => {
     const sel = selections[i];
@@ -61,82 +60,109 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal csv-import-modal">
-        <div className="modal-header">
-          <h3>Export CSV Template</h3>
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
+      <div className="modal csv-export-modal">
+        {/* Header */}
+        <div className="csv-export-header">
+          <div>
+            <h3>Export CSV Template</h3>
+            <span className="csv-export-subtitle">
+              <span className={`method-badge method-${test.method.toLowerCase()}`}>{test.method}</span>
+              {test.name}
+            </span>
+          </div>
+          <div className="csv-export-header-actions">
+            <button className="btn" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleExport}>Download CSV Template</button>
+          </div>
         </div>
 
-        <div className="csv-import-body">
-          <div className="csv-step">
-            <div className="csv-step-label">Mark variable path segments</div>
-            <div className="csv-step-desc">
-              Select which parts of the URL path change per test. These become columns in the CSV.
-              Query parameters and validation rules are automatically included.
-            </div>
+        {/* Two-panel body */}
+        <div className="csv-export-body">
+          {/* Left: URL path segments */}
+          <div className="csv-export-left">
+            <div className="csv-panel-title">URL Path Segments</div>
+            <div className="csv-panel-desc">Check the segments that change per test. Name each variable.</div>
             <div className="path-segment-list">
-              {analysis.segments.map(seg => (
-                <div key={seg.index} className={`path-segment-row ${selections[seg.index]?.checked ? 'selected' : ''}`}>
-                  <label className="path-segment-check">
-                    <input
-                      type="checkbox"
-                      checked={selections[seg.index]?.checked ?? false}
-                      onChange={() => toggleSegment(seg.index)}
-                    />
-                    <code className="path-segment-value">/{seg.segment}</code>
-                  </label>
-                  {selections[seg.index]?.checked && (
-                    <input
-                      type="text"
-                      className="path-var-name-input"
-                      placeholder="Variable name (e.g. vin)"
-                      value={selections[seg.index]?.name ?? ''}
-                      onChange={(e) => setVarName(seg.index, e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                    />
-                  )}
-                </div>
-              ))}
+              {analysis.segments.map(seg => {
+                const sel = selections[seg.index];
+                const isChecked = sel?.checked ?? false;
+                return (
+                  <div key={seg.index} className={`path-seg ${isChecked ? 'path-seg-active' : ''}`}>
+                    <label className="path-seg-label">
+                      <input type="checkbox" checked={isChecked} onChange={() => toggleSegment(seg.index)} />
+                      <code>/{seg.segment}</code>
+                    </label>
+                    <div className="path-seg-spacer" />
+                    {isChecked ? (
+                      <input
+                        type="text"
+                        className="path-var-input"
+                        placeholder="variable name"
+                        value={sel?.name ?? ''}
+                        onChange={(e) => setVarName(seg.index, e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                        autoFocus
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* URL pattern */}
+            <div className="csv-panel-title" style={{ marginTop: 16 }}>URL Pattern</div>
+            <code className="url-pattern-box">{previewUrl}</code>
           </div>
 
-          <div className="csv-step">
-            <div className="csv-step-label">URL Pattern Preview</div>
-            <code className="url-pattern-preview">{previewUrl}</code>
-          </div>
-
-          <div className="csv-step">
-            <div className="csv-step-label">CSV Columns</div>
-            <div className="csv-columns-preview">
-              <span className="csv-col-badge col-fixed">name</span>
+          {/* Right: Summary */}
+          <div className="csv-export-right">
+            <div className="csv-panel-title">CSV Columns (per row)</div>
+            <div className="csv-panel-desc">These become column headers in the CSV file.</div>
+            <div className="csv-col-list">
+              <div className="csv-col-item col-fixed">name</div>
               {pathVars.map(pv => (
-                <span key={pv.segmentIndex} className="csv-col-badge col-path">path:{pv.variableName}</span>
+                <div key={pv.segmentIndex} className="csv-col-item col-path">path:{pv.variableName}</div>
               ))}
               {analysis.params.map(p => (
-                <span key={p.key} className="csv-col-badge col-param">param:{p.key}</span>
+                <div key={p.key} className="csv-col-item col-param">param:{p.key}</div>
               ))}
               {validationFields.map(f => (
-                <span key={f.jsonPath} className="csv-col-badge col-validate">validate:{f.jsonPath}</span>
+                <div key={f.jsonPath} className="csv-col-item col-validate">validate:{f.jsonPath}</div>
               ))}
             </div>
-          </div>
 
-          <div className="csv-step">
-            <div className="csv-step-label">What's included from this test (not in CSV)</div>
-            <div className="csv-fixed-summary">
-              <div><strong>Method:</strong> {test.method}</div>
-              <div><strong>Headers:</strong> {test.headers.filter(h => h.key.trim()).length} headers</div>
-              <div><strong>Auth:</strong> {test.auth.type}</div>
-              {test.body && <div><strong>Body:</strong> (template body included)</div>}
-              <div><strong>Validation mode:</strong> {test.validation.mode}</div>
+            <div className="csv-panel-title" style={{ marginTop: 16 }}>Inherited from test (fixed)</div>
+            <div className="csv-panel-desc">These are embedded in the template metadata — not repeated per row.</div>
+            <div className="csv-fixed-list">
+              <div className="csv-fixed-item">
+                <span className="csv-fixed-key">Method</span>
+                <span className={`method-badge method-${test.method.toLowerCase()}`}>{test.method}</span>
+              </div>
+              <div className="csv-fixed-item">
+                <span className="csv-fixed-key">Headers</span>
+                <span>{test.headers.filter(h => h.key.trim()).map(h => h.key).join(', ') || 'None'}</span>
+              </div>
+              <div className="csv-fixed-item">
+                <span className="csv-fixed-key">Auth</span>
+                <span>{test.auth.type}</span>
+              </div>
+              {test.body && (
+                <div className="csv-fixed-item">
+                  <span className="csv-fixed-key">Body</span>
+                  <span>Included</span>
+                </div>
+              )}
+              <div className="csv-fixed-item">
+                <span className="csv-fixed-key">Validation</span>
+                <span>{test.validation.mode}{test.validation.unorderedArrays ? ' · unordered arrays' : ''}</span>
+              </div>
+              {(test.validation.excludedPaths ?? []).length > 0 && (
+                <div className="csv-fixed-item">
+                  <span className="csv-fixed-key">Excluded</span>
+                  <span>{test.validation.excludedPaths!.length} paths</span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-
-        <div className="csv-import-footer">
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleExport}>
-            Download CSV Template
-          </button>
         </div>
       </div>
     </div>
