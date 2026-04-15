@@ -354,7 +354,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             const validation = skipValidation ? { mode: 'none' as const } : test.validation;
             const auth = resolveAuth(test, sc, fg);
-            tests.push({ ...test, url, auth, validation });
+            tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
           }
         }
       }
@@ -802,7 +802,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                       {' · '}T:{displayTotal}
                     </>
                   )}
-                </span></h3>
+                </span>
+                <span className="progress-host-tag">
+                  {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
+                </span>
+                </h3>
                 {!isRunning && savedProgress && (
                   <button className="btn btn-xs btn-ghost" onClick={handleClearProgress} title="Clear progress">✕ Clear</button>
                 )}
