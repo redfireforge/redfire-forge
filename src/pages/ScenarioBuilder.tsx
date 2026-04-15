@@ -791,7 +791,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="header-actions">
           <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
           <button className="btn" onClick={exportAll} disabled={featureGroups.length === 0}>Export</button>
-          <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>CSV Import</button>
+          <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
           <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
       </div>
