@@ -30,9 +30,9 @@ export interface SettingsProjectsTabProps {
   showSecret: boolean;
   setShowSecret: React.Dispatch<React.SetStateAction<boolean>>;
   authVerifying: boolean;
-  authVerifyResult: { ok: boolean; msg: string } | null;
+  authVerifyResult: { ok: boolean; message: string; detail?: string } | null;
   verifyProfileAuth: (auth: AuthConfig) => Promise<void>;
-  setAuthVerifyResult: React.Dispatch<React.SetStateAction<{ ok: boolean; msg: string } | null>>;
+  setAuthVerifyResult: React.Dispatch<React.SetStateAction<{ ok: boolean; message: string; detail?: string } | null>>;
   onAddProject: (name: string, desc?: string) => void;
   onRemoveProject: (id: string) => void;
   onUpdateProjectMeta: (id: string, updates: { name?: string; description?: string }) => void;
@@ -444,7 +444,7 @@ export default function SettingsProjectsTab({
                               {pa.type !== 'none' && (
                                 <div className="auth-verify-section">
                                   <button type="button" className="btn btn-sm btn-verify" onClick={() => verifyProfileAuth(pa)} disabled={authVerifying}>{authVerifying ? 'Verifying...' : 'Verify Auth'}</button>
-                                  {authVerifyResult && (<div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}><span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>{authVerifyResult.msg}</div>)}
+                                  {authVerifyResult && (<div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}><span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>{authVerifyResult.message}</div>)}
                                 </div>
                               )}
                             </div>
