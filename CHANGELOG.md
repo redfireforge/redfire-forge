@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+---
+
+## [0.3.5] — 2026-04-15
+
 ### Added
 - **Multi-Sheet Excel Template Export**: 3-step export wizard — (1) select URL path variables, (2) customize column names, (3) review & download. Generates `.xlsx` with styled Data sheet (Request/Response category headers) and Metadata sheet (COLUMN MAPPINGS, CONFIG, HEADERS sections with formatted tables)
 - **Excel Template Import**: Import `.xlsx` templates with comprehensive file-level and row-level validation. Supports dynamic column detection for user-added validation fields. Backward compatible with legacy CSV imports
