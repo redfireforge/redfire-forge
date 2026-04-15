@@ -3,9 +3,58 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
 import CsvImportModal from '../components/CsvImportModal';
-import { acquireOAuth2Token } from '../engine/executor';
+import { useAuthVerify } from '../hooks/useAuthVerify';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
+import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport } from '../utils/scenarioImportExport';
+import { buildSearchText, evaluateQuery, parseSearchQuery } from '../utils/scenarioSearch';
 import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
+import AuthConfigPanel from '../components/AuthConfigPanel';
+
+const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'inherit', label: 'Inherit from Feature' },
+  { value: 'none', label: 'No Auth' },
+  { value: 'basic', label: 'Basic Auth' },
+  { value: 'bearer', label: 'Bearer Token' },
+  { value: 'apikey', label: 'API Key' },
+  { value: 'digest', label: 'Digest Auth' },
+  { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+];
+
+function buildScenarioInheritHint(fg: FeatureGroup, allAuthProfiles: GlobalAuthProfile[]): string {
+  const fgAuth = fg.auth;
+  const authLabel: Record<string, string> = {
+    basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
+    digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
+  };
+  if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
+    return `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
+  }
+  if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
+    const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+    return profile
+      ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
+      : 'Feature references a missing global profile.';
+  }
+  return 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.';
+}
+
+function resolveScenarioInheritedAuth(
+  fg: FeatureGroup,
+  allAuthProfiles: GlobalAuthProfile[],
+): { auth: AuthConfig; label: string } | null {
+  const fgAuth = fg.auth;
+  if (!fgAuth || fgAuth.type === 'none') return null;
+  let resolvedAuth: AuthConfig = fgAuth;
+  let resolvedLabel = 'feature';
+  if (fgAuth.type === 'inherit' && fg.globalAuthProfileId) {
+    const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
+    if (!profile) return null;
+    resolvedAuth = profile.auth;
+    resolvedLabel = profile.name;
+  }
+  if (resolvedAuth.type === 'none' || resolvedAuth.type === 'inherit') return null;
+  return { auth: resolvedAuth, label: resolvedLabel };
+}
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -29,6 +78,22 @@ interface Props {
 
 export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], projectAuthProfiles = [], projects = [], currentProjectId = '', onMoveFeatureGroup, onMoveScenario, onMoveTest }: Props) {
   const allAuthProfiles = [...globalAuthProfiles, ...projectAuthProfiles];
+
+  const featureAuthTypeOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    if (allAuthProfiles.length > 0) {
+      opts.push({ value: 'inherit', label: 'Inherit from Auth Profile' });
+    }
+    opts.push(
+      { value: 'none', label: 'No Auth' },
+      { value: 'basic', label: 'Basic Auth' },
+      { value: 'bearer', label: 'Bearer Token' },
+      { value: 'apikey', label: 'API Key' },
+      { value: 'digest', label: 'Digest Auth' },
+      { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+    );
+    return opts;
+  }, [globalAuthProfiles, projectAuthProfiles]);
 
   const resolveEffectiveAuth = useCallback((t: Scenario, sc: TestScenario, fg: FeatureGroup): { label: string; source: string } | null => {
     if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
@@ -314,103 +379,19 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
   void _removeExpectedField;
 
-  const [authVerifying, setAuthVerifying] = useState(false);
-  const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; message: string; detail?: string } | null>(null);
+  const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
-
-  const verifyAuth = useCallback(async (auth: AuthConfig) => {
-    setAuthVerifying(true);
-    setAuthVerifyResult(null);
-    try {
-      if (auth.type === 'oauth2') {
-        if (!auth.tokenUrl || !auth.clientId || !auth.clientSecret) {
-          const missing = [!auth.tokenUrl && 'Token URL', !auth.clientId && 'Client ID', !auth.clientSecret && 'Client Secret'].filter(Boolean).join(', ');
-          setAuthVerifyResult({ ok: false, message: `Missing: ${missing}` });
-          return;
-        }
-        const token = await acquireOAuth2Token(auth);
-        const parts = token.split('.');
-        let detail = `Token: ${token.slice(0, 20)}...${token.slice(-10)}`;
-        if (parts.length === 3) {
-          try {
-            const payload = JSON.parse(atob(parts[1]));
-            if (payload.exp) {
-              const expDate = new Date(payload.exp * 1000);
-              detail += `\nExpires: ${expDate.toLocaleString()}`;
-            }
-            if (payload.scope) detail += `\nScope: ${payload.scope}`;
-          } catch { /* not a JWT */ }
-        }
-        setAuthVerifyResult({ ok: true, message: 'Token acquired successfully', detail });
-      } else if (auth.type === 'basic') {
-        if (!auth.username) { setAuthVerifyResult({ ok: false, message: 'Username is required' }); return; }
-        setAuthVerifyResult({ ok: true, message: 'Basic Auth configured', detail: `Username: ${auth.username}` });
-      } else if (auth.type === 'bearer') {
-        if (!auth.token) { setAuthVerifyResult({ ok: false, message: 'Token is required' }); return; }
-        const prefix = auth.prefix?.trim() || 'Bearer';
-        setAuthVerifyResult({ ok: true, message: 'Bearer Token configured', detail: `${prefix} ${auth.token.slice(0, 20)}...` });
-      } else if (auth.type === 'apikey') {
-        if (!auth.apiKeyName || !auth.apiKeyValue) { setAuthVerifyResult({ ok: false, message: 'Key Name and Key Value are required' }); return; }
-        setAuthVerifyResult({ ok: true, message: 'API Key configured', detail: `${auth.apiKeyName} → ${auth.apiKeyIn === 'query' ? 'Query Param' : 'Header'}` });
-      } else if (auth.type === 'digest') {
-        if (!auth.username) { setAuthVerifyResult({ ok: false, message: 'Username is required' }); return; }
-        setAuthVerifyResult({ ok: true, message: 'Digest Auth configured', detail: `Username: ${auth.username}` });
-      } else {
-        setAuthVerifyResult({ ok: false, message: 'No auth type selected' });
-      }
-    } catch (err) {
-      setAuthVerifyResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setAuthVerifying(false);
-    }
-  }, []);
 
   // ── Export / Import helpers ──
   const downloadJson = (data: unknown, filename: string) => saveJsonFile(data, filename);
 
-  const pickJsonFile = (onLoad: (data: unknown) => void) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          onLoad(JSON.parse(ev.target?.result as string));
-        } catch { alert('Failed to parse JSON file.'); }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
-  const reIdScenarios = (scenarios: TestScenario[]) =>
-    scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })) }));
-
-  const wrapExport = (data: unknown, level: string) => ({
-    _exportMeta: {
-      microservice: selectedSvcName || undefined,
-      environment: selectedEnvName || undefined,
-      exportedAt: new Date().toISOString(),
-      level,
-    },
-    data,
-  });
+  const exportMeta = { microservice: selectedSvcName || undefined, environment: selectedEnvName || undefined };
 
   const fname = (level: string, name?: string) =>
     buildExportFilename({ env: selectedEnvName, svc: selectedSvcName, level, name });
 
-  const unwrapImport = (raw: unknown): unknown => {
-    if (raw && typeof raw === 'object' && '_exportMeta' in raw && 'data' in raw) {
-      return (raw as { data: unknown }).data;
-    }
-    return raw;
-  };
-
   // All feature groups
-  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups'), fname('feature-groups'));
+  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups', exportMeta), fname('feature-groups'));
 
   const importAll = () => {
     if (!selectedSvcId || !selectedEnvId) { alert('Select a microservice and environment first.'); return; }
@@ -477,7 +458,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single feature group
   const exportFeatureGroup = (fg: FeatureGroup) =>
-    downloadJson(wrapExport(fg, 'feature-group'), fname('feature', fg.name));
+    downloadJson(wrapExport(fg, 'feature-group', exportMeta), fname('feature', fg.name));
 
   const importScenariosInto = (featureId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -502,7 +483,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single scenario
   const exportScenario = (sc: TestScenario) =>
-    downloadJson(wrapExport(sc, 'scenario'), fname('scenario', sc.name));
+    downloadJson(wrapExport(sc, 'scenario', exportMeta), fname('scenario', sc.name));
 
   const importTestsInto = (featureId: string, scenarioId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -531,7 +512,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single test
   const exportTest = (t: Scenario) =>
-    downloadJson(wrapExport(t, 'test'), fname('test', t.name));
+    downloadJson(wrapExport(t, 'test', exportMeta), fname('test', t.name));
 
   const toggleFeature = (id: string) => {
     setExpandedFeatures((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -636,133 +617,25 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setMoveDialog(null);
   }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
 
-  // ── Advanced search engine (AND, OR, NOT, "quoted phrases", parentheses) ──
-
-  type QNode = { type: 'term'; value: string; exact: boolean }
-    | { type: 'not'; child: QNode }
-    | { type: 'and'; children: QNode[] }
-    | { type: 'or'; children: QNode[] };
-
-  const parseSearchQuery = useCallback((raw: string): QNode | null => {
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    const tokens: string[] = [];
-    let i = 0;
-    while (i < trimmed.length) {
-      if (trimmed[i] === ' ') { i++; continue; }
-      if (trimmed[i] === '(' || trimmed[i] === ')') { tokens.push(trimmed[i]); i++; continue; }
-      if (trimmed[i] === '"') {
-        const end = trimmed.indexOf('"', i + 1);
-        if (end !== -1) { tokens.push(trimmed.slice(i, end + 1)); i = end + 1; }
-        else { tokens.push(trimmed.slice(i)); i = trimmed.length; }
-        continue;
-      }
-      let j = i;
-      while (j < trimmed.length && trimmed[j] !== ' ' && trimmed[j] !== '(' && trimmed[j] !== ')') j++;
-      tokens.push(trimmed.slice(i, j));
-      i = j;
-    }
-
-    let pos = 0;
-    const peek = () => tokens[pos] ?? '';
-    const next = () => tokens[pos++] ?? '';
-
-    const parseAtom = (): QNode => {
-      const t = peek();
-      if (t.toUpperCase() === 'NOT' || t === '-') {
-        next();
-        return { type: 'not', child: parseAtom() };
-      }
-      if (t.startsWith('-') && t.length > 1) {
-        next();
-        const val = t.slice(1);
-        return { type: 'not', child: { type: 'term', value: val.toLowerCase(), exact: false } };
-      }
-      if (t === '(') {
-        next();
-        const node = parseOr();
-        if (peek() === ')') next();
-        return node;
-      }
-      next();
-      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
-        return { type: 'term', value: t.slice(1, -1).toLowerCase(), exact: true };
-      }
-      return { type: 'term', value: t.toLowerCase(), exact: false };
-    };
-
-    const parseAnd = (): QNode => {
-      const nodes: QNode[] = [parseAtom()];
-      while (pos < tokens.length && peek() !== ')' && peek().toUpperCase() !== 'OR') {
-        if (peek().toUpperCase() === 'AND') { next(); continue; }
-        nodes.push(parseAtom());
-      }
-      return nodes.length === 1 ? nodes[0] : { type: 'and', children: nodes };
-    };
-
-    const parseOr = (): QNode => {
-      const nodes: QNode[] = [parseAnd()];
-      while (peek().toUpperCase() === 'OR') {
-        next();
-        nodes.push(parseAnd());
-      }
-      return nodes.length === 1 ? nodes[0] : { type: 'or', children: nodes };
-    };
-
-    if (tokens.length === 0) return null;
-    const result = parseOr();
-    return result;
-  }, []);
-
-  const evaluateQuery = useCallback((node: QNode, text: string): boolean => {
-    switch (node.type) {
-      case 'term':
-        if (node.exact) {
-          const re = new RegExp(`\\b${node.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-          return re.test(text);
-        }
-        return text.toLowerCase().includes(node.value);
-      case 'not':
-        return !evaluateQuery(node.child, text);
-      case 'and':
-        return node.children.every((c) => evaluateQuery(c, text));
-      case 'or':
-        return node.children.some((c) => evaluateQuery(c, text));
-    }
-  }, []);
-
-  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery, parseSearchQuery]);
+  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const isSearching = parsedQuery !== null;
-
-  const buildSearchText = useCallback((t: Scenario): string => {
-    const parts = [
-      t.name, t.url, t.method, t.body,
-      ...t.headers.flatMap((h) => [h.key, h.value]),
-      t.auth.type,
-      t.auth.tokenUrl ?? '', t.auth.clientId ?? '', t.auth.username ?? '',
-      t.validation.mode,
-      ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
-      t.validation.expectedJson ?? '',
-    ];
-    return parts.join(' ');
-  }, []);
 
   const testMatches = useCallback((t: Scenario): boolean => {
     if (!parsedQuery) return true;
     return evaluateQuery(parsedQuery, buildSearchText(t));
-  }, [parsedQuery, evaluateQuery, buildSearchText]);
+  }, [parsedQuery]);
 
   const scenarioMatches = useCallback((sc: TestScenario): boolean => {
     if (!parsedQuery) return true;
     if (evaluateQuery(parsedQuery, sc.name)) return true;
     return sc.tests.some((t) => testMatches(t));
-  }, [parsedQuery, evaluateQuery, testMatches]);
+  }, [parsedQuery, testMatches]);
 
   const featureMatches = useCallback((fg: FeatureGroup): boolean => {
     if (!parsedQuery) return true;
     if (evaluateQuery(parsedQuery, fg.name)) return true;
     return fg.scenarios.some((sc) => scenarioMatches(sc));
-  }, [parsedQuery, evaluateQuery, scenarioMatches]);
+  }, [parsedQuery, scenarioMatches]);
 
   const matchCount = useMemo(() => {
     if (!isSearching) return 0;
@@ -888,180 +761,28 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
             </div>
 
             {/* Feature-level auth config panel */}
-            {editingFeatureAuth === fg.id && (() => {
-              const fgAuth = fg.auth || { type: 'none' as AuthType };
-              return (
-                <div className="scenario-auth-panel feature-auth-panel" onClick={(e) => e.stopPropagation()}>
-                  <div className="scenario-auth-header">
-                    <strong>Feature Auth</strong>
-                    <span className="auth-hint">Inherited by all scenarios in this feature (unless overridden)</span>
-                  </div>
-                  <div className="auth-type-select">
-                    <label>Type</label>
-                    <select
-                      value={fgAuth.type}
-                      onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, type: e.target.value as AuthType })}
-                    >
-                      {allAuthProfiles.length > 0 && <option value="inherit">Inherit from Auth Profile</option>}
-                      <option value="none">No Auth</option>
-                      <option value="basic">Basic Auth</option>
-                      <option value="bearer">Bearer Token</option>
-                      <option value="apikey">API Key</option>
-                      <option value="digest">Digest Auth</option>
-                      <option value="oauth2">OAuth2 Client Credentials</option>
-                    </select>
-                  </div>
-                  {fgAuth.type === 'inherit' && allAuthProfiles.length > 0 && (() => {
-                    const selectedProfile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-                    return (
-                      <div className="global-profile-selector">
-                        <label>Auth Profile</label>
-                        <select
-                          value={fg.globalAuthProfileId || ''}
-                          onChange={(e) => updateFeatureAuth(fg.id, fgAuth, e.target.value || undefined)}
-                        >
-                          <option value="">— Select a profile —</option>
-                          {globalAuthProfiles.length > 0 && (
-                            <optgroup label="Global (shared across projects)">
-                              {globalAuthProfiles.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                              ))}
-                            </optgroup>
-                          )}
-                          {projectAuthProfiles.length > 0 && (
-                            <optgroup label="Project-level">
-                              {projectAuthProfiles.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </select>
-                        {selectedProfile && (
-                          <span className="auth-inherit-hint">
-                            Using <strong>{selectedProfile.name}</strong> — {selectedProfile.auth.type.toUpperCase()}
-                            {globalAuthProfiles.some((g) => g.id === selectedProfile.id) ? ' (global)' : ' (project)'}
-                          </span>
-                        )}
-                        {!selectedProfile && fg.globalAuthProfileId && (
-                          <span className="auth-inherit-hint auth-inherit-warn">
-                            ⚠ Selected profile no longer exists
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {fgAuth.type === 'basic' && (
-                    <div className="form-row two-col">
-                      <div>
-                        <label>Username</label>
-                        <input value={fgAuth.username || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, username: e.target.value })} />
-                      </div>
-                      <div>
-                        <label>Password</label>
-                        <input type="password" value={fgAuth.password || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, password: e.target.value })} />
-                      </div>
-                    </div>
-                  )}
-                  {fgAuth.type === 'bearer' && (
-                    <div className="form-row two-col">
-                      <div>
-                        <label>Token</label>
-                        <input value={fgAuth.token || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, token: e.target.value })} placeholder="eyJhbGciOi..." />
-                      </div>
-                      <div>
-                        <label>Prefix</label>
-                        <input value={fgAuth.prefix ?? 'Bearer'} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, prefix: e.target.value })} placeholder="Bearer" />
-                      </div>
-                    </div>
-                  )}
-                  {fgAuth.type === 'apikey' && (
-                    <>
-                      <div className="form-row two-col">
-                        <div>
-                          <label>Key Name</label>
-                          <input value={fgAuth.apiKeyName || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyName: e.target.value })} placeholder="X-API-Key" />
-                        </div>
-                        <div>
-                          <label>Key Value</label>
-                          <input value={fgAuth.apiKeyValue || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyValue: e.target.value })} placeholder="your-api-key" />
-                        </div>
-                      </div>
-                      <div className="form-row">
-                        <label>Add to</label>
-                        <div className="radio-group">
-                          <label className="radio-label">
-                            <input type="radio" checked={fgAuth.apiKeyIn !== 'query'} onChange={() => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyIn: 'header' })} />
-                            Header
-                          </label>
-                          <label className="radio-label">
-                            <input type="radio" checked={fgAuth.apiKeyIn === 'query'} onChange={() => updateFeatureAuth(fg.id, { ...fgAuth, apiKeyIn: 'query' })} />
-                            Query Parameter
-                          </label>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  {fgAuth.type === 'digest' && (
-                    <div className="form-row two-col">
-                      <div>
-                        <label>Username</label>
-                        <input value={fgAuth.username || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, username: e.target.value })} />
-                      </div>
-                      <div>
-                        <label>Password</label>
-                        <input type="password" value={fgAuth.password || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, password: e.target.value })} />
-                      </div>
-                    </div>
-                  )}
-                  {fgAuth.type === 'oauth2' && (
-                    <>
-                      <div className="form-row">
-                        <label>Token URL</label>
-                        <input value={fgAuth.tokenUrl || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
-                      </div>
-                      <div className="form-row two-col">
-                        <div>
-                          <label>Client ID</label>
-                          <input value={fgAuth.clientId || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, clientId: e.target.value })} />
-                        </div>
-                        <div>
-                          <label>Client Secret</label>
-                          <div className="secret-input-wrap">
-                            <input type={showSecret ? 'text' : 'password'} value={fgAuth.clientSecret || ''} onChange={(e) => updateFeatureAuth(fg.id, { ...fgAuth, clientSecret: e.target.value })} />
-                            <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  {fgAuth.type !== 'none' && (() => {
-                    const authToVerify = fgAuth.type === 'inherit' && fg.globalAuthProfileId
-                      ? allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId)?.auth
-                      : fgAuth;
-                    return (
-                      <div className="auth-verify-section">
-                        <button
-                          className="btn btn-sm btn-verify"
-                          onClick={() => { setAuthVerifyResult(null); if (authToVerify && authToVerify.type !== 'none') verifyAuth(authToVerify); }}
-                          disabled={authVerifying || !authToVerify || authToVerify.type === 'none'}
-                        >
-                          {authVerifying ? 'Verifying...' : 'Verify Auth'}
-                        </button>
-                        {authVerifyResult && (
-                          <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                            <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                            <div className="auth-verify-body">
-                              <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                              {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })()}
+            {editingFeatureAuth === fg.id && (
+              <AuthConfigPanel
+                panelClassName="scenario-auth-panel feature-auth-panel"
+                auth={fg.auth || { type: 'none' as AuthType }}
+                onChange={(next) => updateFeatureAuth(fg.id, next)}
+                title="Feature Auth"
+                hint="Inherited by all scenarios in this feature (unless overridden)"
+                showProfileSelector
+                globalAuthProfileId={fg.globalAuthProfileId}
+                onProfileChange={(profileId) => updateFeatureAuth(fg.id, fg.auth || { type: 'none' }, profileId)}
+                globalAuthProfiles={globalAuthProfiles}
+                projectAuthProfiles={projectAuthProfiles}
+                allAuthProfiles={allAuthProfiles}
+                authVerifying={authVerifying}
+                authVerifyResult={authVerifyResult}
+                setAuthVerifyResult={setAuthVerifyResult}
+                verifyAuth={verifyAuth}
+                showSecret={showSecret}
+                setShowSecret={setShowSecret}
+                authTypeOptions={featureAuthTypeOptions}
+              />
+            )}
 
             {(expandedFeatures.has(fg.id) || isSearching) && (
               <div className="feature-group-body">
@@ -1140,184 +861,28 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     </div>
 
                     {/* Scenario-level auth config panel */}
-                    {editingScenarioAuth === sc.id && (
-                      <div className="scenario-auth-panel" onClick={(e) => e.stopPropagation()}>
-                        <div className="scenario-auth-header">
-                          <strong>Scenario Auth</strong>
-                          <span className="auth-hint">Applied to all tests in this scenario (unless overridden at test level)</span>
-                        </div>
-                        <div className="auth-type-select">
-                          <label>Type</label>
-                          <select
-                            value={scAuth.type}
-                            onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, type: e.target.value as AuthType })}
-                          >
-                            <option value="inherit">Inherit from Feature</option>
-                            <option value="none">No Auth</option>
-                            <option value="basic">Basic Auth</option>
-                            <option value="bearer">Bearer Token</option>
-                            <option value="apikey">API Key</option>
-                            <option value="digest">Digest Auth</option>
-                            <option value="oauth2">OAuth2 Client Credentials</option>
-                          </select>
-                        </div>
-                        {scAuth.type === 'inherit' && (() => {
-                          const fgAuth = fg.auth;
-                          const authLabel: Record<string, string> = {
-                            basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
-                            digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
-                          };
-                          let hint: string;
-                          if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
-                            hint = `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
-                          } else if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
-                            const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-                            hint = profile
-                              ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
-                              : 'Feature references a missing global profile.';
-                          } else {
-                            hint = 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.';
-                          }
-                          return <div className="auth-inherit-hint">{hint}</div>;
-                        })()}
-                        {scAuth.type === 'basic' && (
-                          <div className="form-row two-col">
-                            <div>
-                              <label>Username</label>
-                              <input value={scAuth.username || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, username: e.target.value })} />
-                            </div>
-                            <div>
-                              <label>Password</label>
-                              <input type="password" value={scAuth.password || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, password: e.target.value })} />
-                            </div>
-                          </div>
-                        )}
-                        {scAuth.type === 'bearer' && (
-                          <div className="form-row two-col">
-                            <div>
-                              <label>Token</label>
-                              <input value={scAuth.token || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, token: e.target.value })} placeholder="eyJhbGciOi..." />
-                            </div>
-                            <div>
-                              <label>Prefix</label>
-                              <input value={scAuth.prefix ?? 'Bearer'} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, prefix: e.target.value })} placeholder="Bearer" />
-                            </div>
-                          </div>
-                        )}
-                        {scAuth.type === 'apikey' && (
-                          <>
-                            <div className="form-row two-col">
-                              <div>
-                                <label>Key Name</label>
-                                <input value={scAuth.apiKeyName || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyName: e.target.value })} placeholder="X-API-Key" />
-                              </div>
-                              <div>
-                                <label>Key Value</label>
-                                <input value={scAuth.apiKeyValue || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyValue: e.target.value })} placeholder="your-api-key" />
-                              </div>
-                            </div>
-                            <div className="form-row">
-                              <label>Add to</label>
-                              <div className="radio-group">
-                                <label className="radio-label">
-                                  <input type="radio" checked={scAuth.apiKeyIn !== 'query'} onChange={() => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyIn: 'header' })} />
-                                  Header
-                                </label>
-                                <label className="radio-label">
-                                  <input type="radio" checked={scAuth.apiKeyIn === 'query'} onChange={() => updateScenarioAuth(fg.id, sc.id, { ...scAuth, apiKeyIn: 'query' })} />
-                                  Query Parameter
-                                </label>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                        {scAuth.type === 'digest' && (
-                          <div className="form-row two-col">
-                            <div>
-                              <label>Username</label>
-                              <input value={scAuth.username || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, username: e.target.value })} />
-                            </div>
-                            <div>
-                              <label>Password</label>
-                              <input type="password" value={scAuth.password || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, password: e.target.value })} />
-                            </div>
-                          </div>
-                        )}
-                        {scAuth.type === 'oauth2' && (
-                          <>
-                            <div className="form-row">
-                              <label>Token URL</label>
-                              <input value={scAuth.tokenUrl || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
-                            </div>
-                            <div className="form-row two-col">
-                              <div>
-                                <label>Client ID</label>
-                                <input value={scAuth.clientId || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, clientId: e.target.value })} />
-                              </div>
-                              <div>
-                                <label>Client Secret</label>
-                                <div className="secret-input-wrap">
-                                  <input type={showSecret ? 'text' : 'password'} value={scAuth.clientSecret || ''} onChange={(e) => updateScenarioAuth(fg.id, sc.id, { ...scAuth, clientSecret: e.target.value })} />
-                                  <button type="button" className="secret-toggle" onClick={() => setShowSecret((v) => !v)} title={showSecret ? 'Hide' : 'Show'}>{showSecret ? '🙈' : '👁'}</button>
-                                </div>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                        {scAuth.type !== 'none' && scAuth.type !== 'inherit' && (
-                          <div className="auth-verify-section">
-                            <button
-                              className="btn btn-sm btn-verify"
-                              onClick={() => { setAuthVerifyResult(null); verifyAuth(scAuth); }}
-                              disabled={authVerifying}
-                            >
-                              {authVerifying ? 'Verifying...' : 'Verify Auth'}
-                            </button>
-                            {authVerifyResult && (
-                              <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                                <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                                <div className="auth-verify-body">
-                                  <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                                  {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {scAuth.type === 'inherit' && (() => {
-                          const fgAuth = fg.auth;
-                          if (!fgAuth || fgAuth.type === 'none') return null;
-                          let resolvedAuth: AuthConfig = fgAuth;
-                          let resolvedLabel = 'feature';
-                          if (fgAuth.type === 'inherit' && fg.globalAuthProfileId) {
-                            const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-                            if (profile) { resolvedAuth = profile.auth; resolvedLabel = profile.name; }
-                            else return null;
-                          }
-                          if (resolvedAuth.type === 'none' || resolvedAuth.type === 'inherit') return null;
-                          return (
-                            <div className="auth-verify-section">
-                              <button
-                                className="btn btn-sm btn-verify"
-                                onClick={() => { setAuthVerifyResult(null); verifyAuth(resolvedAuth); }}
-                                disabled={authVerifying}
-                              >
-                                {authVerifying ? 'Verifying...' : `Verify Inherited Auth (${resolvedLabel})`}
-                              </button>
-                              {authVerifyResult && (
-                                <div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}>
-                                  <span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                                  <div className="auth-verify-body">
-                                    <span className="auth-verify-msg">{authVerifyResult.message}</span>
-                                    {authVerifyResult.detail && <pre className="auth-verify-detail">{authVerifyResult.detail}</pre>}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                    {editingScenarioAuth === sc.id && (() => {
+                      const inherited = resolveScenarioInheritedAuth(fg, allAuthProfiles);
+                      return (
+                        <AuthConfigPanel
+                          auth={scAuth}
+                          onChange={(next) => updateScenarioAuth(fg.id, sc.id, next)}
+                          title="Scenario Auth"
+                          hint="Applied to all tests in this scenario (unless overridden at test level)"
+                          inheritHint={scAuth.type === 'inherit' ? buildScenarioInheritHint(fg, allAuthProfiles) : null}
+                          inheritedAuth={inherited?.auth ?? null}
+                          inheritedLabel={inherited?.label}
+                          allAuthProfiles={allAuthProfiles}
+                          authVerifying={authVerifying}
+                          authVerifyResult={authVerifyResult}
+                          setAuthVerifyResult={setAuthVerifyResult}
+                          verifyAuth={verifyAuth}
+                          showSecret={showSecret}
+                          setShowSecret={setShowSecret}
+                          authTypeOptions={SCENARIO_AUTH_TYPE_OPTIONS}
+                        />
+                      );
+                    })()}
 
                     {(expandedScenarios.has(sc.id) || isSearching) && (
                       <div

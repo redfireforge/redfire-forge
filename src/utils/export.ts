@@ -64,7 +64,7 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
   saveCsvFile(csvContent, filename);
 }
 
-function escapeCsv(value: string): string {
+export function escapeCsv(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replace(/"/g, '""')}"`;
   }
