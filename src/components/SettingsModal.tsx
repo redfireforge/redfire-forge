@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, GlobalAuthProfile, AuthType, AuthConfig } from '../types';
-import { acquireOAuth2Token } from '../engine/executor';
+import type { Project, GlobalAuthProfile, AuthType } from '../types';
+import { useAuthVerify } from '../hooks/useAuthVerify';
 import { getStorageUsage, getMaxRuns } from '../utils/storage';
 import SettingsProjectsTab from './SettingsProjectsTab';
 import SettingsStorageTab from './SettingsStorageTab';
@@ -54,8 +54,7 @@ export default function SettingsModal({
   const [newProfileName, setNewProfileName] = useState('');
   const [newGlobalProfileName, setNewGlobalProfileName] = useState('');
   const [showSecret, setShowSecret] = useState(false);
-  const [authVerifying, setAuthVerifying] = useState(false);
-  const [authVerifyResult, setAuthVerifyResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth: verifyProfileAuth } = useAuthVerify();
 
   useEffect(() => {
     void (async () => {
@@ -63,27 +62,6 @@ export default function SettingsModal({
       setStorageUsage(usage);
       setMaxRunsLocal(maxR);
     })();
-  }, []);
-
-  const verifyProfileAuth = useCallback(async (auth: AuthConfig) => {
-    setAuthVerifying(true);
-    setAuthVerifyResult(null);
-    try {
-      if (auth.type === 'oauth2') {
-        const token = await acquireOAuth2Token(auth);
-        setAuthVerifyResult({ ok: true, msg: `Token acquired (${token.substring(0, 20)}…)` });
-      } else if (auth.type === 'basic' || auth.type === 'digest') {
-        setAuthVerifyResult({ ok: !!(auth.username && auth.password), msg: auth.username && auth.password ? 'Credentials configured' : 'Missing username or password' });
-      } else if (auth.type === 'bearer') {
-        setAuthVerifyResult({ ok: !!auth.token, msg: auth.token ? 'Token configured' : 'Missing token' });
-      } else if (auth.type === 'apikey') {
-        setAuthVerifyResult({ ok: !!(auth.apiKeyName && auth.apiKeyValue), msg: auth.apiKeyName && auth.apiKeyValue ? 'API Key configured' : 'Missing key name or value' });
-      }
-    } catch (err: unknown) {
-      setAuthVerifyResult({ ok: false, msg: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setAuthVerifying(false);
-    }
   }, []);
 
   return (
@@ -232,7 +210,7 @@ export default function SettingsModal({
                         {pa.type !== 'none' && (
                           <div className="auth-verify-section">
                             <button type="button" className="btn btn-sm btn-verify" onClick={() => verifyProfileAuth(pa)} disabled={authVerifying}>{authVerifying ? 'Verifying...' : 'Verify Auth'}</button>
-                            {authVerifyResult && (<div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}><span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>{authVerifyResult.msg}</div>)}
+                            {authVerifyResult && (<div className={`auth-verify-result ${authVerifyResult.ok ? 'auth-verify-ok' : 'auth-verify-fail'}`}><span className="auth-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>{authVerifyResult.message}</div>)}
                           </div>
                         )}
                       </div>
