@@ -205,6 +205,16 @@
 .filter-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .filter-row select { width: auto; min-width: 160px; }
 .filter-count { font-size: 0.8rem; color: var(--text-muted); }
+.results-search {
+  width: 220px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.results-search::placeholder { color: var(--text-muted); opacity: 0.6; }
 
 /* Table */
 .table-container { overflow-x: auto; }
