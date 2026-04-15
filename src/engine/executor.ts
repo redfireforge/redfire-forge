@@ -277,13 +277,22 @@ class CircuitBreaker {
   private errorCount = 0;
   private totalCount = 0;
   private tripped = false;
+  private policy: ErrorPolicy;
+  private maxErrors: number;
+  private maxErrorRate: number;
+  private minSampleSize: number;
 
   constructor(
-    private policy: ErrorPolicy = 'continue',
-    private maxErrors: number = 10,
-    private maxErrorRate: number = 50,
-    private minSampleSize: number = 10
-  ) {}
+    policy: ErrorPolicy = 'continue',
+    maxErrors: number = 10,
+    maxErrorRate: number = 50,
+    minSampleSize: number = 10
+  ) {
+    this.policy = policy;
+    this.maxErrors = maxErrors;
+    this.maxErrorRate = maxErrorRate;
+    this.minSampleSize = minSampleSize;
+  }
 
   record(result: RequestResult): void {
     this.totalCount++;
