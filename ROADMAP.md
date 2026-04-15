@@ -42,11 +42,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- **No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 218 unit tests across 14 test files
 - **No CLI / CI** — without pipeline integration, adoption is limited to manual QA
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- **Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths broken into 25 focused modules; largest file now ~1100 lines
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ---
@@ -114,15 +114,17 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > **Moved up from Phase 1.0.** Zero tests is a blocker for open-source credibility. Contributors won't trust or contribute to an untested codebase.
 
-- [ ] **Unit Tests — Executor** — `executor.ts`: request execution, timeout, retry, circuit breaker logic
-- [ ] **Unit Tests — Validator** — `validator.ts`: full match, selective, unordered arrays, path remapping
-- [ ] **Unit Tests — Metrics** — `metrics.ts`: summary stats, percentile calculations
-- [ ] **Unit Tests — CSV/Excel** — `csvTemplate.ts`: export/import round-trip for all 3 validation modes
+- [x] **Unit Tests — Executor** — `executor.ts`: buildHeaders (6 auth types), buildUrl, Content-Type auto-detection (24 tests)
+- [x] **Unit Tests — Validator** — `validator.ts`: getByPath, full match, selective, unordered arrays, path remapping (28 tests)
+- [x] **Unit Tests — Metrics** — `metrics.ts`: summary stats, TPS, percentiles, error rates (16 tests)
+- [x] **Unit Tests — CSV/Excel** — `csvTemplateUrl.ts`: parseUrl, analyzeUrlPath, buildUrlFromTemplate (12 tests)
+- [x] **Unit Tests — Engine** — `circuitBreaker.ts` (10 tests), `loadProfileRunner.ts` (14 tests), `scenarioSearch.ts` (25 tests), `curlParser.ts` (14 tests)
+- [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28 tests), `resultsGrouping.ts` (14 tests), `jsonPathTreeUtils.ts` (24 tests), `helpers.ts` (2 tests), `fileSaver.ts` (5 tests), `export.ts` (2 tests)
 - [ ] **Integration Tests** — Import/export roundtrips, storage layer, auth inheritance resolution
 - [ ] **E2E Tests** — Playwright tests for critical UI flows (create test, run test, view results, import Excel)
-- [ ] **`npm test` Script** — Runnable test suite with coverage reporting
+- [x] **`npm test` Script** — Vitest test suite (218 tests, <300ms)
 - [ ] **CI Test Pipeline** — GitHub Actions runs tests on every PR
-- [ ] **Refactor Large Components** — Break down ScenarioBuilder (~1400 lines), TestRunner (~1000 lines), TestEditorModal into smaller focused components
+- [x] **Refactor Large Components** — 8 monoliths broken into 25 focused modules: executor (4), csvTemplate (4), TestEditorModal (4), ScenarioBuilder (3), TestRunner (3), SettingsModal (2), ResultsDashboard (2), JsonPathBuilder (1) + shared useAuthVerify hook + AuthConfigPanel
 
 ---
 
@@ -214,13 +216,13 @@ Post-launch features driven by community feedback.
 | 0.6.0 | Data-Driven & Resilience | 8 | 8 |
 | 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
 | 0.7.0 | CLI & CI Integration | 7 | 0 |
-| 0.8.0 | Test Suite & Code Quality | 9 | 0 |
+| 0.8.0 | Test Suite & Code Quality | 9 | 7 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **80** | **24** |
+| **Total** | | **80** | **31** |
 
 ### Adoption Forecast
 
@@ -241,4 +243,4 @@ Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launc
 
 ---
 
-_Last updated: 2026-04-15 (v0.3.5)_
+_Last updated: 2026-04-17 (v0.3.5 + refactor branch)_

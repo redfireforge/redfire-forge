@@ -10,6 +10,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+### Added
+- **Unit Test Suite (218 tests)**: Comprehensive Vitest test suite covering 14 modules — validator, executor, circuit breaker, metrics, load profile runner, scenario search, cURL parser, JSON path tree utils, test editor utils, results grouping, CSV template URL, helpers, file saver, and CSV export
+- **`npm test` / `npm run test:watch` / `npm run test:coverage` scripts**: Runnable test suite with Vitest
+
+### Changed
+- **Refactored 8 monolithic files into 25 focused modules**: No behavior changes; all existing imports preserved via barrel re-exports
+  - `executor.ts` (641→144 lines) → `tokenManager.ts`, `circuitBreaker.ts`, `requestExecution.ts`, `loadProfileRunner.ts`
+  - `csvTemplate.ts` (949→barrel) → `csvTemplateTypes.ts`, `csvTemplateUrl.ts`, `csvTemplateCsv.ts`, `csvTemplateExcel.ts`
+  - `TestEditorModal.tsx` (1250→690 lines) → `testEditorUtils.ts`, `curlGenerator.ts`, `TestEditorAuthTab.tsx`, `TestEditorValidationTab.tsx`
+  - `ScenarioBuilder.tsx` (1551→1116 lines) → `AuthConfigPanel.tsx`, `scenarioSearch.ts`, `scenarioImportExport.ts`
+  - `TestRunner.tsx` (993→822 lines) → `LiveCharts.tsx`, `ProfilePreview.tsx`, `runnerProgressStorage.ts`
+  - `SettingsModal.tsx` (643→251 lines) → `SettingsProjectsTab.tsx`, `SettingsStorageTab.tsx`
+  - `ResultsDashboard.tsx` (639→519 lines) → `resultsGrouping.ts`, `ResponseDetailModal.tsx`
+  - `JsonPathBuilder.tsx` (740→675 lines) → `jsonPathTreeUtils.ts`
+- **Shared `useAuthVerify` hook**: Eliminated ~110 lines of duplicate auth verification logic across `TestEditorModal`, `ScenarioBuilder`, and `SettingsModal`
+- **Shared `AuthConfigPanel` component**: Eliminated ~350 lines of duplicate auth form JSX in `ScenarioBuilder` (feature + scenario panels)
+
 ---
 
 ## [0.3.5] — 2026-04-15
