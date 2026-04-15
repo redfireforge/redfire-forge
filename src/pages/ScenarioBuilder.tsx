@@ -649,7 +649,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       (t.auth.type !== 'none' && t.auth.type.toLowerCase().includes(q)) ||
       (t.auth.tokenUrl?.toLowerCase().includes(q) ?? false) ||
       t.validation.mode.toLowerCase().includes(q) ||
-      (t.validation.expectedFields ?? []).some((f) => f.path.toLowerCase().includes(q) || f.value.toLowerCase().includes(q))
+      (t.validation.expectedFields ?? []).some((f) => (f.path ?? '').toLowerCase().includes(q) || (f.value ?? '').toLowerCase().includes(q))
     );
   };
 
