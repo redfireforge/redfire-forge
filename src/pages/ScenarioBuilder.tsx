@@ -5,6 +5,8 @@ import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDi
 import CsvImportModal from '../components/CsvImportModal';
 import { acquireOAuth2Token } from '../engine/executor';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
+import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport } from '../utils/scenarioImportExport';
+import { buildSearchText, evaluateQuery, parseSearchQuery } from '../utils/scenarioSearch';
 import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
 
 interface Props {
@@ -368,49 +370,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   // ── Export / Import helpers ──
   const downloadJson = (data: unknown, filename: string) => saveJsonFile(data, filename);
 
-  const pickJsonFile = (onLoad: (data: unknown) => void) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          onLoad(JSON.parse(ev.target?.result as string));
-        } catch { alert('Failed to parse JSON file.'); }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
-  const reIdScenarios = (scenarios: TestScenario[]) =>
-    scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })) }));
-
-  const wrapExport = (data: unknown, level: string) => ({
-    _exportMeta: {
-      microservice: selectedSvcName || undefined,
-      environment: selectedEnvName || undefined,
-      exportedAt: new Date().toISOString(),
-      level,
-    },
-    data,
-  });
+  const exportMeta = { microservice: selectedSvcName || undefined, environment: selectedEnvName || undefined };
 
   const fname = (level: string, name?: string) =>
     buildExportFilename({ env: selectedEnvName, svc: selectedSvcName, level, name });
 
-  const unwrapImport = (raw: unknown): unknown => {
-    if (raw && typeof raw === 'object' && '_exportMeta' in raw && 'data' in raw) {
-      return (raw as { data: unknown }).data;
-    }
-    return raw;
-  };
-
   // All feature groups
-  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups'), fname('feature-groups'));
+  const exportAll = () => downloadJson(wrapExport(featureGroups, 'feature-groups', exportMeta), fname('feature-groups'));
 
   const importAll = () => {
     if (!selectedSvcId || !selectedEnvId) { alert('Select a microservice and environment first.'); return; }
@@ -477,7 +443,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single feature group
   const exportFeatureGroup = (fg: FeatureGroup) =>
-    downloadJson(wrapExport(fg, 'feature-group'), fname('feature', fg.name));
+    downloadJson(wrapExport(fg, 'feature-group', exportMeta), fname('feature', fg.name));
 
   const importScenariosInto = (featureId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -502,7 +468,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single scenario
   const exportScenario = (sc: TestScenario) =>
-    downloadJson(wrapExport(sc, 'scenario'), fname('scenario', sc.name));
+    downloadJson(wrapExport(sc, 'scenario', exportMeta), fname('scenario', sc.name));
 
   const importTestsInto = (featureId: string, scenarioId: string) => pickJsonFile((raw) => {
     const data = unwrapImport(raw);
@@ -531,7 +497,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Single test
   const exportTest = (t: Scenario) =>
-    downloadJson(wrapExport(t, 'test'), fname('test', t.name));
+    downloadJson(wrapExport(t, 'test', exportMeta), fname('test', t.name));
 
   const toggleFeature = (id: string) => {
     setExpandedFeatures((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -636,133 +602,25 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setMoveDialog(null);
   }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
 
-  // ── Advanced search engine (AND, OR, NOT, "quoted phrases", parentheses) ──
-
-  type QNode = { type: 'term'; value: string; exact: boolean }
-    | { type: 'not'; child: QNode }
-    | { type: 'and'; children: QNode[] }
-    | { type: 'or'; children: QNode[] };
-
-  const parseSearchQuery = useCallback((raw: string): QNode | null => {
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    const tokens: string[] = [];
-    let i = 0;
-    while (i < trimmed.length) {
-      if (trimmed[i] === ' ') { i++; continue; }
-      if (trimmed[i] === '(' || trimmed[i] === ')') { tokens.push(trimmed[i]); i++; continue; }
-      if (trimmed[i] === '"') {
-        const end = trimmed.indexOf('"', i + 1);
-        if (end !== -1) { tokens.push(trimmed.slice(i, end + 1)); i = end + 1; }
-        else { tokens.push(trimmed.slice(i)); i = trimmed.length; }
-        continue;
-      }
-      let j = i;
-      while (j < trimmed.length && trimmed[j] !== ' ' && trimmed[j] !== '(' && trimmed[j] !== ')') j++;
-      tokens.push(trimmed.slice(i, j));
-      i = j;
-    }
-
-    let pos = 0;
-    const peek = () => tokens[pos] ?? '';
-    const next = () => tokens[pos++] ?? '';
-
-    const parseAtom = (): QNode => {
-      const t = peek();
-      if (t.toUpperCase() === 'NOT' || t === '-') {
-        next();
-        return { type: 'not', child: parseAtom() };
-      }
-      if (t.startsWith('-') && t.length > 1) {
-        next();
-        const val = t.slice(1);
-        return { type: 'not', child: { type: 'term', value: val.toLowerCase(), exact: false } };
-      }
-      if (t === '(') {
-        next();
-        const node = parseOr();
-        if (peek() === ')') next();
-        return node;
-      }
-      next();
-      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
-        return { type: 'term', value: t.slice(1, -1).toLowerCase(), exact: true };
-      }
-      return { type: 'term', value: t.toLowerCase(), exact: false };
-    };
-
-    const parseAnd = (): QNode => {
-      const nodes: QNode[] = [parseAtom()];
-      while (pos < tokens.length && peek() !== ')' && peek().toUpperCase() !== 'OR') {
-        if (peek().toUpperCase() === 'AND') { next(); continue; }
-        nodes.push(parseAtom());
-      }
-      return nodes.length === 1 ? nodes[0] : { type: 'and', children: nodes };
-    };
-
-    const parseOr = (): QNode => {
-      const nodes: QNode[] = [parseAnd()];
-      while (peek().toUpperCase() === 'OR') {
-        next();
-        nodes.push(parseAnd());
-      }
-      return nodes.length === 1 ? nodes[0] : { type: 'or', children: nodes };
-    };
-
-    if (tokens.length === 0) return null;
-    const result = parseOr();
-    return result;
-  }, []);
-
-  const evaluateQuery = useCallback((node: QNode, text: string): boolean => {
-    switch (node.type) {
-      case 'term':
-        if (node.exact) {
-          const re = new RegExp(`\\b${node.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-          return re.test(text);
-        }
-        return text.toLowerCase().includes(node.value);
-      case 'not':
-        return !evaluateQuery(node.child, text);
-      case 'and':
-        return node.children.every((c) => evaluateQuery(c, text));
-      case 'or':
-        return node.children.some((c) => evaluateQuery(c, text));
-    }
-  }, []);
-
-  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery, parseSearchQuery]);
+  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const isSearching = parsedQuery !== null;
-
-  const buildSearchText = useCallback((t: Scenario): string => {
-    const parts = [
-      t.name, t.url, t.method, t.body,
-      ...t.headers.flatMap((h) => [h.key, h.value]),
-      t.auth.type,
-      t.auth.tokenUrl ?? '', t.auth.clientId ?? '', t.auth.username ?? '',
-      t.validation.mode,
-      ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
-      t.validation.expectedJson ?? '',
-    ];
-    return parts.join(' ');
-  }, []);
 
   const testMatches = useCallback((t: Scenario): boolean => {
     if (!parsedQuery) return true;
     return evaluateQuery(parsedQuery, buildSearchText(t));
-  }, [parsedQuery, evaluateQuery, buildSearchText]);
+  }, [parsedQuery]);
 
   const scenarioMatches = useCallback((sc: TestScenario): boolean => {
     if (!parsedQuery) return true;
     if (evaluateQuery(parsedQuery, sc.name)) return true;
     return sc.tests.some((t) => testMatches(t));
-  }, [parsedQuery, evaluateQuery, testMatches]);
+  }, [parsedQuery, testMatches]);
 
   const featureMatches = useCallback((fg: FeatureGroup): boolean => {
     if (!parsedQuery) return true;
     if (evaluateQuery(parsedQuery, fg.name)) return true;
     return fg.scenarios.some((sc) => scenarioMatches(sc));
-  }, [parsedQuery, evaluateQuery, scenarioMatches]);
+  }, [parsedQuery, scenarioMatches]);
 
   const matchCount = useMemo(() => {
     if (!isSearching) return 0;
