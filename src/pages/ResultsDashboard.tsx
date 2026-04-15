@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { TestRun, RequestResult } from '../types';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
@@ -201,6 +201,27 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     else if (val === 'group') setSubGroupBy('test');
   };
 
+  /* ── Response Detail Modal ── */
+  const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
+
+  const formatResponseBody = useCallback((body: string) => {
+    try {
+      return JSON.stringify(JSON.parse(body), null, 2);
+    } catch { return body; }
+  }, []);
+
+  const renderErrorSnippet = (r: RequestResult) => {
+    const hasError = !r.passed && (r.errorMessage || r.responseBody);
+    if (!hasError) return null;
+    const snippet = r.errorMessage || r.responseBody?.slice(0, 120) || '';
+    const display = snippet.length > 100 ? snippet.slice(0, 100) + '…' : snippet;
+    return (
+      <span className="error-snippet" onClick={(e) => { e.stopPropagation(); setResponseModal(r); }} title="Click to view full response">
+        {display}
+      </span>
+    );
+  };
+
   /* ── Render helpers ── */
 
   const renderDetailRow = (r: RequestResult) => (
@@ -216,12 +237,12 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
       <td>{r.responseTimeMs}</td>
       <td>{r.passed ? '✓' : '✗'}</td>
       <td className="failure-cell">
-        {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
-        {r.failureDetails.map((f, i) => (
-          <div key={i} className="failure-detail">
-            <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
-          </div>
-        ))}
+        {renderErrorSnippet(r)}
+        {r.passed === false && !r.errorMessage && r.failureDetails.length > 0 && (
+          <span className="error-snippet validation-snippet" onClick={(e) => { e.stopPropagation(); setResponseModal(r); }} title="Click to view details">
+            {r.failureDetails.length} validation failure{r.failureDetails.length > 1 ? 's' : ''}
+          </span>
+        )}
       </td>
     </tr>
   );
@@ -250,7 +271,21 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
           <td>{g.maxTime}</td>
         </tr>
         {isOpen && hasChildren && g.children.map((child) => renderGroupRow(child, depth + 1, nodeKey))}
-        {isOpen && !hasChildren && g.results.map(renderDetailRow)}
+        {isOpen && !hasChildren && (
+          <>
+            <tr className="detail-header-row">
+              <th></th>
+              <th>Test Name</th>
+              <th colSpan={2}>URL</th>
+              <th>Status</th>
+              <th>Validation</th>
+              <th>Time (ms)</th>
+              <th>Passed</th>
+              <th>Error / Details</th>
+            </tr>
+            {g.results.map(renderDetailRow)}
+          </>
+        )}
       </Fragment>
     );
   };
@@ -515,12 +550,12 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
                     <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
                     <td>{r.passed ? '✓' : '✗'}</td>
                     <td className="failure-cell">
-                      {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
-                      {r.failureDetails.map((f, i) => (
-                        <div key={i} className="failure-detail">
-                          <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
-                        </div>
-                      ))}
+                      {renderErrorSnippet(r)}
+                      {r.passed === false && !r.errorMessage && r.failureDetails.length > 0 && (
+                        <span className="error-snippet validation-snippet" onClick={(e) => { e.stopPropagation(); setResponseModal(r); }} title="Click to view details">
+                          {r.failureDetails.length} validation failure{r.failureDetails.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -540,6 +575,70 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
           </div>
         )}
       </div>
+
+      {/* Response Detail Modal */}
+      {responseModal && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setResponseModal(null); }}>
+          <div className="modal response-detail-modal">
+            <div className="modal-header">
+              <h3>Response Detail</h3>
+            </div>
+            <div className="response-detail-body">
+              <div className="response-detail-meta">
+                <div className="response-meta-row">
+                  <span className={`method-badge method-${responseModal.method.toLowerCase()}`}>{responseModal.method}</span>
+                  <span className="response-meta-name">{responseModal.scenarioName}</span>
+                  <span className={`tag ${responseModal.httpStatus >= 400 ? 'tag-danger' : responseModal.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>
+                    {responseModal.httpStatus || 'ERR'}
+                  </span>
+                  <span className="tag">{responseModal.responseTimeMs} ms</span>
+                  <span className={`tag ${responseModal.passed ? 'tag-success' : 'tag-danger'}`}>
+                    {responseModal.passed ? 'Passed' : 'Failed'}
+                  </span>
+                </div>
+                <div className="response-meta-url">{responseModal.url}</div>
+              </div>
+
+              {responseModal.errorMessage && (
+                <div className="response-detail-section">
+                  <h4>Error Message</h4>
+                  <div className="response-error-box">{responseModal.errorMessage}</div>
+                </div>
+              )}
+
+              {responseModal.failureDetails.length > 0 && (
+                <div className="response-detail-section">
+                  <h4>Validation Failures ({responseModal.failureDetails.length})</h4>
+                  <table className="response-failures-table">
+                    <thead>
+                      <tr><th>Path</th><th>Expected</th><th>Actual</th></tr>
+                    </thead>
+                    <tbody>
+                      {responseModal.failureDetails.map((f, i) => (
+                        <tr key={i}>
+                          <td className="failure-path">{f.path}</td>
+                          <td className="failure-expected">{f.expected}</td>
+                          <td className="failure-actual">{f.actual}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {responseModal.responseBody && (
+                <div className="response-detail-section">
+                  <h4>Response Body</h4>
+                  <pre className="response-body-pre">{formatResponseBody(responseModal.responseBody)}</pre>
+                </div>
+              )}
+            </div>
+            <div className="response-detail-footer">
+              <button className="btn btn-primary" onClick={() => setResponseModal(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

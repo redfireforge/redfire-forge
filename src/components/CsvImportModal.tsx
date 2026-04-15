@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../types';
-import { parseCsvToScenarios, downloadCsv } from '../utils/csvTemplate';
+import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import type { CsvParseResult } from '../utils/csvTemplate';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
 
 export default function CsvImportModal({ featureGroups, onImport, onClose }: Props) {
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [selectedFgId, setSelectedFgId] = useState(featureGroups[0]?.id ?? '');
   const [createNewFg, setCreateNewFg] = useState(false);
   const [newFgName, setNewFgName] = useState('');
@@ -20,21 +21,62 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const [fileName, setFileName] = useState('');
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'append'>('append');
   const [dragging, setDragging] = useState(false);
+  const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedFg = createNewFg ? null : featureGroups.find(fg => fg.id === selectedFgId);
   const scenarios = selectedFg?.scenarios ?? [];
 
+  const isExcelFile = (name: string) => /\.xlsx?$/i.test(name);
+
+  const toggleRowError = (rowIdx: number) => {
+    setExpandedErrors(prev => {
+      const next = new Set(prev);
+      if (next.has(rowIdx)) next.delete(rowIdx);
+      else next.add(rowIdx);
+      return next;
+    });
+  };
+
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const result = parseCsvToScenarios(text);
-      setParseResult(result);
-    };
-    reader.readAsText(file);
+    setParseResult(null);
+    setParseError(null);
+    setExpandedErrors(new Set());
+    const baseName = file.name.replace(/\.(xlsx?|csv|txt)$/i, '').replace(/[_-]/g, ' ').trim();
+    setNewScenarioName(prev => prev || baseName);
+    try {
+      if (isExcelFile(file.name)) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const buffer = ev.target?.result as ArrayBuffer;
+            const result = parseExcelToScenarios(buffer);
+            setParseResult(result);
+          } catch (e) {
+            setParseError(`Failed to parse Excel file: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        };
+        reader.onerror = () => setParseError('Failed to read file. It may be corrupted or too large.');
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const text = ev.target?.result as string;
+            const result = parseCsvToScenarios(text);
+            setParseResult(result);
+          } catch (e) {
+            setParseError(`Failed to parse CSV file: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        };
+        reader.onerror = () => setParseError('Failed to read file. It may be corrupted or too large.');
+        reader.readAsText(file);
+      }
+    } catch (e) {
+      setParseError(`Unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +107,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
       dragCounter.current = 0;
       setDragging(false);
       const file = e.dataTransfer?.files?.[0];
-      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
+      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt') || isExcelFile(file.name))) {
         processFile(file);
       }
     };
@@ -121,7 +163,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     >
       <div className="modal csv-import-modal">
         <div className="modal-header">
-          <h3>Import Tests from CSV</h3>
+          <h3>Import Tests from CSV / Excel</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -129,13 +171,13 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           {/* Step 1: Download template */}
           <div className="csv-step">
             <div className="csv-step-label">Step 1 — Get a template</div>
-            <div className="csv-step-desc">Download a sample CSV template, or use "CSV Template" from any existing test's editor to generate one pre-filled with its URL, headers, and validation rules.</div>
+            <div className="csv-step-desc">Use "Export Template" from any existing test's editor to generate an Excel template pre-filled with its URL, headers, and validation rules. You can also import legacy CSV files.</div>
             <button className="btn btn-xs" onClick={handleDownloadSample}>Download Sample Template</button>
           </div>
 
           {/* Step 2: Upload */}
           <div className="csv-step">
-            <div className="csv-step-label">Step 2 — Upload your CSV</div>
+            <div className="csv-step-label">Step 2 — Upload your file</div>
             <div
               className={`csv-drop-zone${dragging ? ' csv-drop-zone-active' : ''}${fileName ? ' csv-drop-zone-done' : ''}`}
               onClick={() => fileInputRef.current?.click()}
@@ -149,22 +191,60 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
               ) : (
                 <div className="csv-drop-zone-empty">
                   <span className="csv-drop-zone-icon">{dragging ? '📥' : '📁'}</span>
-                  <span className="csv-drop-zone-label">{dragging ? 'Drop file here' : 'Drag & drop a CSV file here'}</span>
-                  <span className="csv-drop-zone-hint">or click to browse</span>
+                  <span className="csv-drop-zone-label">{dragging ? 'Drop file here' : 'Drag & drop an Excel or CSV file here'}</span>
+                  <span className="csv-drop-zone-hint">or click to browse · .xlsx .csv</span>
                 </div>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.txt"
+                accept=".xlsx,.xls,.csv,.txt"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
             </div>
           </div>
 
+          {/* Parse error (crash-level) */}
+          {parseError && (
+            <div className="csv-step">
+              <div className="import-error-box import-error-fatal">
+                <div className="import-error-title">Parse Error</div>
+                <div className="import-error-msg">{parseError}</div>
+              </div>
+            </div>
+          )}
+
+          {/* File-level structural errors */}
+          {parseResult && parseResult.fileErrors.length > 0 && (
+            <div className="csv-step">
+              <div className="import-error-box import-error-fatal">
+                <div className="import-error-title">
+                  File Structure Error{parseResult.fileErrors.length > 1 ? 's' : ''}
+                </div>
+                {parseResult.fileErrors.map((err, i) => (
+                  <div key={i} className="import-error-msg">{err}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Warnings */}
+          {parseResult && parseResult.warnings.length > 0 && (
+            <div className="csv-step">
+              <div className="import-error-box import-error-warn">
+                <div className="import-error-title">
+                  Warning{parseResult.warnings.length > 1 ? 's' : ''}
+                </div>
+                {parseResult.warnings.map((w, i) => (
+                  <div key={i} className="import-error-msg">{w}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Template info */}
-          {parseResult?.meta && (
+          {parseResult?.meta && parseResult.fileErrors.length === 0 && (
             <div className="csv-step">
               <div className="csv-step-label">Template detected</div>
               <div className="csv-fixed-summary">
@@ -172,19 +252,27 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                 <div><strong>URL Pattern:</strong> <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>{parseResult.meta.urlPattern}</code></div>
                 <div><strong>Headers:</strong> {parseResult.meta.headers.length} included</div>
                 <div><strong>Auth:</strong> {parseResult.meta.auth.type}</div>
-                <div><strong>Validation:</strong> {parseResult.meta.validationMode}{parseResult.meta.unorderedArrays ? ' (unordered arrays)' : ''}</div>
+                <div><strong>Validation:</strong> {
+                  parseResult.meta.validationMode === 'none' ? 'No Validation' :
+                  parseResult.meta.validationMode === 'full' ? 'Full JSON Match' :
+                  'Selective Fields'
+                }{parseResult.meta.unorderedArrays ? ' · unordered arrays' : ''}</div>
+                {parseResult.meta.validationMode === 'full' && (
+                  <div><strong>Expected JSON:</strong> {parseResult.meta.expectedJson ? 'Included in metadata' : 'Not set (capture after first run)'}</div>
+                )}
+                <div><strong>Columns:</strong> {parseResult.columns.length} in Data sheet</div>
               </div>
             </div>
           )}
 
           {/* Step 3: Preview */}
-          {parseResult && (
+          {parseResult && parseResult.fileErrors.length === 0 && parseResult.totalRows > 0 && (
             <div className="csv-step">
-              <div className="csv-step-label">{parseResult.meta ? 'Step 3 — Preview' : 'Step 3 — Preview'}</div>
+              <div className="csv-step-label">Step 3 — Preview</div>
               <div className="csv-parse-summary">
                 <span className="csv-stat csv-stat-ok">✓ {parseResult.validRows} valid</span>
                 {parseResult.errorRows > 0 && (
-                  <span className="csv-stat csv-stat-err">✗ {parseResult.errorRows} errors</span>
+                  <span className="csv-stat csv-stat-err">✗ {parseResult.errorRows} error{parseResult.errorRows !== 1 ? 's' : ''}</span>
                 )}
                 <span className="csv-stat">{parseResult.totalRows} total rows</span>
               </div>
@@ -201,29 +289,54 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                     </tr>
                   </thead>
                   <tbody>
-                    {parseResult.rows.map((row) => (
-                      <tr key={row.rowIndex} className={row.errors.length > 0 ? 'csv-row-error' : ''}>
-                        <td>{row.rowIndex}</td>
-                        <td>{row.errors.length > 0 ? <span className="csv-badge-err">Error</span> : <span className="csv-badge-ok">OK</span>}</td>
-                        <td className="csv-cell-name">{row.scenario?.name ?? row.raw['name'] ?? ''}</td>
-                        <td><span className={`method-badge method-${(row.scenario?.method ?? row.raw['method'] ?? '').toLowerCase()}`}>{row.scenario?.method ?? row.raw['method'] ?? ''}</span></td>
-                        <td className="csv-cell-url">{row.scenario?.url ?? row.raw['url'] ?? ''}</td>
-                        <td>{row.scenario?.validation?.expectedFields?.length ?? 0} rules</td>
-                      </tr>
-                    ))}
+                    {parseResult.rows.map((row) => {
+                      const hasErr = row.errors.length > 0;
+                      const isExpanded = expandedErrors.has(row.rowIndex);
+                      return (
+                        <React.Fragment key={row.rowIndex}>
+                          <tr
+                            className={`${hasErr ? 'csv-row-error' : ''} ${hasErr ? 'csv-row-clickable' : ''}`}
+                            onClick={hasErr ? () => toggleRowError(row.rowIndex) : undefined}
+                          >
+                            <td>{row.rowIndex}</td>
+                            <td>
+                              {hasErr
+                                ? <span className="csv-badge-err">{row.errors.length} Error{row.errors.length > 1 ? 's' : ''}</span>
+                                : <span className="csv-badge-ok">OK</span>}
+                            </td>
+                            <td className="csv-cell-name">{row.scenario?.name ?? row.raw['name'] ?? ''}</td>
+                            <td><span className={`method-badge method-${(row.scenario?.method ?? row.raw['method'] ?? '').toLowerCase()}`}>{row.scenario?.method ?? row.raw['method'] ?? ''}</span></td>
+                            <td className="csv-cell-url">{row.scenario?.url ?? row.raw['url'] ?? ''}</td>
+                            <td>{row.scenario?.validation?.expectedFields?.length ?? 0} rules</td>
+                          </tr>
+                          {hasErr && isExpanded && (
+                            <tr className="csv-row-error-expanded">
+                              <td colSpan={6}>
+                                <div className="csv-row-error-details">
+                                  {row.errors.map((err, ei) => (
+                                    <div key={ei} className="csv-row-error-line">• {err}</div>
+                                  ))}
+                                  <div className="csv-row-raw-data">
+                                    <strong>Raw data:</strong>
+                                    {Object.entries(row.raw).filter(([,v]) => v).map(([k, v]) => (
+                                      <span key={k} className="csv-raw-kv"><span className="csv-raw-key">{k}:</span> {v}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              {parseResult.rows.filter(r => r.errors.length > 0).map(r => (
-                <div key={r.rowIndex} className="csv-row-error-detail">
-                  Row {r.rowIndex}: {r.errors.join(', ')}
-                </div>
-              ))}
             </div>
           )}
 
           {/* Step 4: Destination */}
-          {parseResult && parseResult.validRows > 0 && (
+          {parseResult && parseResult.fileErrors.length === 0 && parseResult.validRows > 0 && (
             <div className="csv-step">
               <div className="csv-step-label">Step 4 — Select destination</div>
               <div className="csv-dest-fields">
