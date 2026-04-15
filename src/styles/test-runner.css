@@ -324,6 +324,79 @@ tr:hover td { background: var(--surface-hover); }
   font-style: italic;
 }
 
+/* Resilience Config (Timeout / Retry / Error Policy) */
+.resilience-config {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.resilience-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.resilience-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 130px;
+}
+.resilience-field > label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.resilience-field input[type="number"] {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 0.88rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+}
+.resilience-field .field-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #888);
+  margin-top: 1px;
+}
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.input-with-unit input {
+  flex: 1;
+  min-width: 60px;
+}
+.input-with-unit .unit {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.error-policy-options {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.error-policy-options .radio-label {
+  font-size: 0.84rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 /* Test Runner Selection */
 .selection-header {
   display: flex;

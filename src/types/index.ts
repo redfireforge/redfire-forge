@@ -136,12 +136,20 @@ export interface LoadProfileConfig {
   spikeDurationSec?: number;
 }
 
+export type ErrorPolicy = 'continue' | 'stop-first' | 'stop-threshold';
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  timeoutSec?: number;
+  retryCount?: number;
+  retryDelayMs?: number;
+  errorPolicy?: ErrorPolicy;
+  maxErrors?: number;
+  maxErrorRate?: number;
 }
 
 export interface FailureDetail {
