@@ -354,7 +354,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             const validation = skipValidation ? { mode: 'none' as const } : test.validation;
             const auth = resolveAuth(test, sc, fg);
-            tests.push({ ...test, url, auth, validation });
+            tests.push({ ...test, url, auth, validation, groupName: sc.name });
           }
         }
       }

@@ -77,6 +77,7 @@ export interface Scenario {
   validation: ValidationConfig;
   fetchHostOverride?: string;
   fetchHostEnabled?: boolean;
+  groupName?: string;
 }
 
 export interface TestScenario {
@@ -152,6 +153,7 @@ export interface RequestResult {
   id: string;
   scenarioId: string;
   scenarioName: string;
+  groupName?: string;
   url: string;
   method: string;
   httpStatus: number;
