@@ -22,10 +22,8 @@ interface GroupStats {
   maxTime: number;
 }
 
-// Derive a group key by stripping VIN-like suffix (17-char alphanumeric after last separator)
-function deriveGroupKey(name: string): string {
-  const match = name.match(/^(.+?)[-_]([A-Z0-9]{17})$/i);
-  return match ? match[1] : name;
+function groupKey(r: RequestResult): string {
+  return r.groupName || r.scenarioName;
 }
 
 export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
@@ -123,10 +121,10 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     if (filteredResults.length === 0) return [];
     const map = new Map<string, RequestResult[]>();
     for (const r of filteredResults) {
-      const key = deriveGroupKey(r.scenarioName);
-      const arr = map.get(key);
+      const k = groupKey(r);
+      const arr = map.get(k);
       if (arr) arr.push(r);
-      else map.set(key, [r]);
+      else map.set(k, [r]);
     }
     return Array.from(map.entries()).map(([key, results]) => {
       const times = results.map((r) => r.responseTimeMs);

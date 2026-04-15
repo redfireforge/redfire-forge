@@ -208,6 +208,7 @@ async function executeRequest(
     id,
     scenarioId: scenario.id,
     scenarioName: scenario.name,
+    groupName: scenario.groupName,
     url: scenario.url,
     method: scenario.method,
     httpStatus,
