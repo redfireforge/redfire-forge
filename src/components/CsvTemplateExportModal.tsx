@@ -91,7 +91,7 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
   }, [columnDefs]);
 
   // --- Step 3: review & export ---
-  const { origin, pathname, params: urlParams } = useMemo(() => {
+  const { params: urlParams } = useMemo(() => {
     try {
       const u = new URL(test.url);
       const params: { key: string; value: string }[] = [];
