@@ -35,6 +35,21 @@ Bulk testing with data files, request resilience, and advanced results.
 
 ---
 
+## Phase 0.6.5 — Excel Templates & Error Visibility ✅
+
+Structured multi-sheet Excel templates for bulk test management and better error diagnostics.
+
+- [x] **Multi-Sheet Excel Template Export** — 3-step wizard: select path variables → customize column names → review & download styled `.xlsx`
+- [x] **Styled Data Sheet** — Request/Response category headers with color-coded columns (blue for request, green for validation)
+- [x] **Styled Metadata Sheet** — Formatted COLUMN MAPPINGS, CONFIG, HEADERS sections with bold headings and table layout
+- [x] **Excel Template Import** — Parse `.xlsx` with file-level and row-level validation, dynamic column detection for user-added fields
+- [x] **All Validation Modes** — Full support for none, full JSON match, and selective fields through export/import round-trip
+- [x] **Response Error Display** — Clickable error snippets on failed result rows; Response Detail modal with error message, validation failures table, and full response body
+- [x] **HTTP Error Message Extraction** — Executor parses `message`/`error`/`detail` from 4xx/5xx response bodies
+- [x] **Detail Header Row** — Column headers shown when expanding grouped results to individual test rows
+
+---
+
 ## Phase 0.7.0 — Assertions & Observability
 
 Richer assertions and deeper visibility into what happened during a run.
@@ -127,12 +142,13 @@ Post-launch features driven by community feedback.
 |---|---|---|---|
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | Data-Driven & Resilience | 8 | 8 |
+| 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
 | 0.7.0 | Assertions & Observability | 7 | 0 |
 | 0.8.0 | Variables & Chaining | 6 | 0 |
 | 0.9.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | CLI, CI & Open-Source Release | 19 | 0 |
 | 1.x | Future | 7 | 0 |
-| **Total** | | **60** | **16** |
+| **Total** | | **68** | **24** |
 
 ---
 

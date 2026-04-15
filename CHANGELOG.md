@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 _Changes merged into `develop` that haven't been released yet._
 
 ### Added
+- **Multi-Sheet Excel Template Export**: 3-step export wizard — (1) select URL path variables, (2) customize column names, (3) review & download. Generates `.xlsx` with styled Data sheet (Request/Response category headers) and Metadata sheet (COLUMN MAPPINGS, CONFIG, HEADERS sections with formatted tables)
+- **Excel Template Import**: Import `.xlsx` templates with comprehensive file-level and row-level validation. Supports dynamic column detection for user-added validation fields. Backward compatible with legacy CSV imports
+- **Response Error Display in Results**: Failed requests (HTTP 4xx/5xx) now show a clickable error snippet in the result row. Click to open a Response Detail modal with error message, validation failure table, and full response body
+- **Detail Header Row in Grouped Results**: Expanding a group now shows column headers (Test Name, URL, Status, Validation, Time, Passed, Error/Details) above the individual result rows
 - **Multi-Level Grouped Results**: Group results by Feature, Scenario, or Test Name with cascading sub-group options (Feature → Scenario → Test). Collapsible rows with per-group stats (total, passed, failed, validation failed, avg/min/max response time)
 - **Advanced Search in Scenario Builder**: Boolean search engine with AND, OR, NOT/-, "quoted phrases", and (parentheses). Searches across test name, URL, method, headers, body, auth config, validation rules and expected values. Inline syntax help via ? button
 - **Results Search**: Text search in the Results Dashboard Request Details — filter by name, URL, feature, group, or error message
@@ -20,6 +24,9 @@ _Changes merged into `develop` that haven't been released yet._
 - **Error Policy (Circuit Breaker)**: Three policies — Continue (ignore errors), Stop on First Error, or Stop at Threshold (configurable max error count and max error rate %). Applies across all execution modes including Load Profile
 
 ### Changed
+- **Excel replaces CSV as primary template format**: Export button renamed "Export Template", import button renamed "Import Template". Both support `.xlsx` (preferred) and legacy `.csv`
+- **Error extraction from HTTP error responses**: Executor now parses `message`, `error`, `detail`, or `errorMessage` from 4xx/5xx response bodies for meaningful error messages
+- **xlsx-js-style replaces xlsx**: Switched to `xlsx-js-style` for Excel cell styling support (bold headings, colored backgrounds, merged cells)
 - **Results Group By replaces Scenario dropdown**: The old "All Scenarios" dropdown (listing 100+ individual tests) is replaced by the Group By controls and search
 - **Feature/Scenario/Test hierarchy in results**: `featureGroupName` and `groupName` are now threaded from the test hierarchy through execution into `RequestResult` for accurate grouping
 - **Unified Execution Config**: Execution Mode, Concurrency, Transactions, Timeout, Retry, and Error Policy grouped into a single card. Load Profile Configuration appears as part of the same group when selected
