@@ -61,9 +61,9 @@ Enterprise-grade testing capabilities.
 - [x] **CSV Data Files** — Run the same test with different inputs from CSV (parameterized testing)
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays
 - [ ] **Regex Assertions** — `$.name matches /^[A-Z].*/`
-- [ ] **Retry on Failure** — Retry N times with X ms delay per test
-- [ ] **Per-Test Timeout** — Configurable timeout per request (currently no timeout)
-- [ ] **Circuit Breaker** — Stop the run if error rate exceeds X%
+- [x] **Retry on Failure** — Retry N times with X ms delay per test
+- [x] **Per-Test Timeout** — Configurable timeout per request (default 10s, 0 = unlimited)
+- [x] **Circuit Breaker** — Stop the run on first error, or when error count/rate exceeds threshold
 - [ ] **Trend Analysis** — P95 trend across last N runs for the same test suite
 - [ ] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
 - [ ] **Response Headers in Results** — Capture and display response headers (currently only body)
@@ -120,9 +120,9 @@ Full open-source maturity.
 | 0.4.0 | Workflow & Assertions | 10 | 0 |
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | CLI & CI Integration | 10 | 0 |
-| 0.7.0 | Data-Driven & Advanced Validation | 10 | 1 |
+| 0.7.0 | Data-Driven & Advanced Validation | 10 | 4 |
 | 1.0.0 | Ecosystem & Community | 20 | 0 |
-| **Total** | | **58** | **9** |
+| **Total** | | **58** | **12** |
 
 ---
 

@@ -450,22 +450,31 @@ Choose which hostname is used at runtime:
 
 **Configuration:**
 
+All execution settings are grouped in a single unified card below the Execution Mode selector.
+
 | Field | Description |
 |---|---|
-| **Concurrency** | Number of parallel requests (1–100). Automatically disabled and fixed to 1 when Sequential mode is selected. |
-| **Total Transactions** | Total number of requests to execute. Automatically adjusts upward if less than the number of selected tests (each runs at least once). |
+| **Concurrency** | Number of parallel requests (1–100). Fixed to 1 in Sequential mode. Disabled (visible) in Load Profile mode. |
+| **Transactions** | Total number of requests to execute. Disabled in Load Profile mode (time-based). |
+| **Timeout** | Per-request timeout in seconds (0 = unlimited, default 10s). Timed-out requests are recorded as failures. |
+| **Retry** | Number of retry attempts on failure (0–10). When > 0, a Retry Delay field appears. |
+| **Retry Delay** | Milliseconds to wait between retry attempts (shown only when Retry > 0). |
+| **On Error** | Error policy: **Continue** (ignore errors), **Stop 1st** (halt on first failure), or **Threshold** (halt when Max Errors count or Error Rate % is exceeded). |
+| **Max Errors** | Stop after this many errors (only active in Threshold mode). |
+| **Error Rate** | Stop when error percentage exceeds this value (only active in Threshold mode, requires minimum 10 samples). |
+| **Skip Validation** | Checkbox in the scenario selection header. Disables all response validation for pure throughput testing. |
 | **Test Distribution (Weights)** | Set relative weights per test. A test with weight `2` runs roughly twice as often as one with weight `1`. Set to `0` to skip a test without deselecting it. |
 
 **Running a Test:**
 
 1. Select one or more Scenarios using the checkboxes.
-2. Adjust concurrency, total transactions, and weights.
+2. Configure concurrency, transactions, timeout, retry, and error policy.
 3. Click **▶ Run Test**.
-4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`).
-5. Click **■ Stop** to abort early.
+4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`). The active host is displayed alongside.
+5. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
 6. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, transactions, timeout, retry, error policy, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
 
 ### Results Dashboard
 
@@ -542,6 +551,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Visual diff comparison | Full-screen modal with side-by-side JSON diff (response + validation rules), monokai dark theme |
 | Duplicate version prevention | Auto-detects unchanged responses using canonical JSON comparison with excluded-paths support |
 | Unordered array diffing | Compare arrays ignoring element order, including arrays of complex objects |
+| Request timeout | Per-request timeout (0–300s, default 10s); timed-out requests move to next test |
+| Retry on failure | Retry failed requests up to N times with configurable delay between attempts |
+| Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
+| Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
