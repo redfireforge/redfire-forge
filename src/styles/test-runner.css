@@ -117,7 +117,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 10px 20px 20px;
   box-shadow: var(--card-shadow);
 }
 .weight-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
@@ -297,7 +297,7 @@ tr:hover td { background: var(--surface-hover); }
   box-shadow: var(--card-shadow);
 }
 .runner-option-box .checkbox-label {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -305,94 +305,142 @@ tr:hover td { background: var(--surface-hover); }
   white-space: nowrap;
 }
 .runner-exec-label {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
 }
 .runner-option-box .radio-label {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   cursor: pointer;
 }
 .exec-mode-hint {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-secondary, #888);
   margin-left: auto;
   font-style: italic;
 }
+
+/* Execution Group (Mode + Config row) */
+.execution-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 12px;
+}
+.execution-group .runner-option-boxes { margin-bottom: 0; }
+.execution-group .runner-option-box {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+.execution-group .resilience-config {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+.execution-group .load-profile-section {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+}
+.execution-group .load-profile-section .profile-type-selector { margin-bottom: 4px; }
+.execution-group .load-profile-section .profile-type-desc { font-size: 0.75rem; }
+.execution-group .load-profile-section .profile-field label { font-size: 0.75rem; }
+.execution-group .load-profile-section .profile-field input { font-size: 0.85rem; }
 
 /* Resilience Config (Timeout / Retry / Error Policy) */
 .resilience-config {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 10px 14px;
   margin-bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 .resilience-row {
   display: flex;
-  gap: 20px;
+  gap: 12px;
   align-items: flex-start;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .resilience-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 130px;
+  gap: 3px;
+  min-width: 0;
 }
+.resilience-field-sm { flex: 0.8; min-width: 70px; }
+.resilience-field-xs { flex: 0.6; min-width: 60px; }
 .resilience-field > label {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
+  min-height: 12px;
 }
 .resilience-field input[type="number"] {
   width: 100%;
-  padding: 6px 8px;
-  font-size: 0.88rem;
+  padding: 5px 7px;
+  font-size: 0.85rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
   color: var(--text);
+  height: 30px;
+  box-sizing: border-box;
+}
+.resilience-field input[type="number"]:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .resilience-field .field-hint {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-secondary, #888);
-  margin-top: 1px;
+  font-style: italic;
+  white-space: nowrap;
+  min-height: 14px;
+  line-height: 14px;
+}
+.resilience-divider {
+  width: 1px;
+  min-height: 44px;
+  background: var(--border);
+  margin: 0 10px;
+  flex-shrink: 0;
+  align-self: center;
 }
 .input-with-unit {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  height: 30px;
 }
-.input-with-unit input {
-  flex: 1;
-  min-width: 60px;
-}
+.input-with-unit input { flex: 1; min-width: 40px; }
 .input-with-unit .unit {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
 .error-policy-options {
   display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 20px;
+  height: 30px;
+  align-items: center;
 }
 .error-policy-options .radio-label {
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -405,9 +453,10 @@ tr:hover td { background: var(--surface-hover); }
   margin-bottom: 12px;
   flex-wrap: wrap;
   gap: 8px;
+  min-height: 32px;
 }
-.selection-header h3 { font-size: 1rem; margin: 0; }
-.selection-actions { display: flex; align-items: center; gap: 8px; }
+.selection-header h3 { font-size: 1rem; margin: 0; padding: 0; line-height: 32px; }
+.selection-actions { display: flex; align-items: center; gap: 8px; line-height: 32px; }
 
 .selection-tree { display: flex; flex-direction: column; gap: 8px; }
 
