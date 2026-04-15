@@ -180,7 +180,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   };
 
   const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
-    if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Group' }, { value: 'test', label: 'Then by Test Name' }];
+    if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Scenario' }, { value: 'test', label: 'Then by Test Name' }];
     if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
     return [];
   }, [groupBy]);
@@ -437,7 +437,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
             <label className="group-by-label">Group by</label>
             <select value={groupBy} onChange={(e) => handleGroupByChange(e.target.value as GroupByLevel)}>
               <option value="feature">Feature</option>
-              <option value="group">Group</option>
+              <option value="group">Scenario</option>
               <option value="test">Test Name (flat)</option>
             </select>
             {subGroupOptions.length > 0 && (
@@ -463,7 +463,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
               <thead>
                 <tr>
                   <th style={{ width: 28 }}></th>
-                  <th>{groupBy === 'feature' ? 'Feature' : 'Group'}</th>
+                  <th>{groupBy === 'feature' ? 'Feature' : 'Scenario'}</th>
                   <th>Total</th>
                   <th>Passed</th>
                   <th>Failed</th>
