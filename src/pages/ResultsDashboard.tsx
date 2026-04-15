@@ -78,7 +78,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
-  const [filterScenario, setFilterScenario] = useState<string>('all');
+  const [filterScenario] = useState<string>('all');
   const [filterPassed, setFilterPassed] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<GroupByLevel>('feature');
   const [subGroupBy, setSubGroupBy] = useState<GroupByLevel>('group');
@@ -152,12 +152,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     });
   }, [selectedRun, filterScenario, filterPassed, searchTerm]);
 
-  const scenarioNames = useMemo(() => {
-    if (!selectedRun) return [];
-    const map = new Map<string, string>();
-    selectedRun.results.forEach((r) => map.set(r.scenarioId, r.scenarioName));
-    return Array.from(map.entries());
-  }, [selectedRun]);
 
   const groupLevels: GroupByLevel[] = useMemo(() => {
     if (groupBy === 'test') return ['test'];

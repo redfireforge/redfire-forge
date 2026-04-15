@@ -350,7 +350,7 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
   const responseCols = columnDefs.filter(d => d.type === 'validate');
   const firstValidateIdx = requestCols.length;
 
-  const categoryRow: string[] = columnDefs.map((d, i) => {
+  const categoryRow: string[] = columnDefs.map((_d, i) => {
     if (i === 0) return 'Request';
     if (i === firstValidateIdx) return 'Response (Validation)';
     return '';

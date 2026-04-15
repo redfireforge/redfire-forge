@@ -152,4 +152,4 @@ Post-launch features driven by community feedback.
 
 ---
 
-_Last updated: 2026-04-15_
+_Last updated: 2026-04-15 (v0.3.5)_
