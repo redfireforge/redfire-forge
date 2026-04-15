@@ -10,6 +10,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+### Added
+- **Multi-Level Grouped Results**: Group results by Feature, Scenario, or Test Name with cascading sub-group options (Feature → Scenario → Test). Collapsible rows with per-group stats (total, passed, failed, validation failed, avg/min/max response time)
+- **Advanced Search in Scenario Builder**: Boolean search engine with AND, OR, NOT/-, "quoted phrases", and (parentheses). Searches across test name, URL, method, headers, body, auth config, validation rules and expected values. Inline syntax help via ? button
+- **Results Search**: Text search in the Results Dashboard Request Details — filter by name, URL, feature, group, or error message
+- **Host Badge on Progress**: Shows the active host (Settings URL, custom URL, or Original) next to the execution mode tag in the Progress section
+
+### Changed
+- **Results Group By replaces Scenario dropdown**: The old "All Scenarios" dropdown (listing 100+ individual tests) is replaced by the Group By controls and search
+- **Feature/Scenario/Test hierarchy in results**: `featureGroupName` and `groupName` are now threaded from the test hierarchy through execution into `RequestResult` for accurate grouping
+
 ---
 
 ## [0.3.4] — 2026-04-14

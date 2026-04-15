@@ -500,9 +500,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 **Request Details Table:**
 
-- Filter by scenario, pass/fail status.
-- Paginated view of individual requests showing method, URL, status, response time, and validation result.
-- Expand a row to see the full response body and any validation failure details.
+- **Group By**: Cascade grouping with three levels — Feature, Scenario, or Test Name (flat). Select a primary group, then a sub-group (e.g., Feature → then by Scenario). Collapsible rows show per-group stats: total, passed, failed, validation failed, avg/min/max response times.
+- **Search**: Text search filters results by name, URL, feature group, scenario, or error message.
+- Filter by pass/fail status (All, Passed Only, Failed Only).
+- Flat view with pagination for individual request details (method, URL, status, response time, validation).
 - Alternating row stripes for readability.
 
 **Export:**
@@ -546,6 +547,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
+| Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |
+| Advanced search (Scenario Builder) | Boolean search: AND, OR, NOT/-, "quoted phrases", (parentheses); searches name, URL, method, headers, body, auth, validation |
+| Results search | Filter request details by name, URL, feature, group, or error message |
+| Host badge on Progress | Active host (Settings/Custom/Original) displayed next to execution mode in Progress section |
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
 | Export Center | Selectively export any combination of environments, microservices, global auth profiles, features, and runs |
