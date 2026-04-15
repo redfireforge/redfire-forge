@@ -109,20 +109,33 @@ src/
 │   ├── TestRunner.tsx       # Configure & execute performance runs
 │   └── ResultsDashboard.tsx # View & analyze historical test results
 ├── engine/
-│   ├── executor.ts          # HTTP execution engine (sequential, batch & pool modes)
+│   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
+│   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
+│   ├── circuitBreaker.ts    # Error policy: continue, stop-first, stop-threshold
+│   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
+│   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
 │   ├── validator.ts         # Response validation (full, selective, unordered)
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
-│   └── useTestExecution.ts  # React hook wrapping the executor
+│   ├── useTestExecution.ts  # React hook wrapping the executor
+│   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
 ├── components/
 │   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
 │   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
-│   ├── SettingsModal.tsx        # Split-panel settings (projects, auth, export/import, storage)
+│   ├── SettingsModal.tsx        # Split-panel settings shell (delegates to tab components)
+│   ├── SettingsProjectsTab.tsx  # Projects tab: environments, microservices, auth profiles
+│   ├── SettingsStorageTab.tsx   # Storage usage tab
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
-│   ├── TestEditorModal.tsx      # Full test editor (params, body, auth, headers, validation)
-│   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard (variables → columns → review)
-│   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop support
+│   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
+│   ├── TestEditorAuthTab.tsx    # Auth tab: auth type selector, credentials, verify
+│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder
+│   ├── AuthConfigPanel.tsx      # Shared auth config form (used by Feature & Scenario panels)
+│   ├── LiveCharts.tsx           # Live time-series charts (response time, TPS, error rate)
+│   ├── ProfilePreview.tsx       # SVG load profile shape preview
+│   ├── ResponseDetailModal.tsx  # Full response detail for failed requests
+│   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard
+│   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   └── ImportCenter.tsx         # Import with per-item conflict resolution
 ├── utils/
@@ -131,7 +144,18 @@ src/
 │   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
-│   ├── csvTemplate.ts       # CSV template generation and parsing utilities
+│   ├── curlGenerator.ts     # Test config → cURL command builder
+│   ├── csvTemplate.ts       # Barrel re-export (delegates to focused modules below)
+│   ├── csvTemplateTypes.ts  # Shared interfaces & constants for CSV/Excel templates
+│   ├── csvTemplateUrl.ts    # URL parsing, path variable detection, URL rebuilding
+│   ├── csvTemplateCsv.ts    # CSV template generation and parsing
+│   ├── csvTemplateExcel.ts  # Excel template generation, styling, and parsing
+│   ├── testEditorUtils.ts   # Test editor helpers (canonicalize, stripPaths, rebuildUrl)
+│   ├── scenarioSearch.ts    # Boolean search parser (AND, OR, NOT, phrases, parens)
+│   ├── scenarioImportExport.ts # Scenario JSON import/export utilities
+│   ├── resultsGrouping.ts   # Multi-level result grouping and stats computation
+│   ├── runnerProgressStorage.ts # Test runner progress persistence
+│   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   └── export.ts            # JSON & CSV export utilities
 └── types/
@@ -689,6 +713,9 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
+| `npm test` | Run unit test suite (Vitest, 218 tests) |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
 | `ENV=t01 COUNT=100 node scripts/generate-csv-from-db.cjs` | Generate CSV test template from PostgreSQL data dump |
