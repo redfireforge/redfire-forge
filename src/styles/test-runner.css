@@ -212,6 +212,27 @@ tr:hover td { background: var(--surface-hover); }
 .error-msg { color: var(--danger); }
 .table-truncated { text-align: center; padding: 12px; color: var(--text-muted); font-size: 0.85rem; }
 
+/* View Toggle */
+.view-toggle { display: flex; gap: 2px; background: var(--surface); border-radius: 6px; padding: 2px; }
+.view-toggle .btn-sm { border-radius: 4px; font-size: 0.72rem; padding: 3px 10px; background: transparent; color: var(--text-muted); border: none; }
+.view-toggle .btn-active { background: var(--accent); color: #fff; }
+
+/* Grouped Table */
+.group-header-row { cursor: pointer; transition: background 0.15s; }
+.group-header-row:hover td { background: var(--surface-hover) !important; }
+.group-header-row td { font-weight: 600; font-size: 0.85rem; padding: 10px 12px; background: var(--surface); }
+.group-chevron { width: 28px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
+.group-key { min-width: 200px; }
+.group-passed { color: var(--success, #22c55e); }
+.group-failed { color: var(--danger, #ef4444); font-weight: 700; }
+.group-val-failed { color: var(--warning, #f59e0b); font-weight: 700; }
+.group-has-failures td { border-left: 3px solid var(--danger, #ef4444); }
+.group-has-failures td:first-child { padding-left: 9px; }
+.group-detail-row td { padding-left: 12px; font-size: 0.82rem; background: var(--bg, #0a0e17); }
+.group-detail-row:hover td { background: var(--surface-hover) !important; }
+.group-detail-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 350px; }
+.group-detail-name .method-badge { vertical-align: middle; margin-right: 4px; }
+
 /* Pagination */
 .pagination {
   display: flex;
