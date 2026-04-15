@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestSummary, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
+import type { AuthConfig, ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestSummary, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import { getTargetConcurrency } from '../engine/executor';
@@ -29,6 +29,12 @@ interface RunnerConfig {
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  timeoutSec?: number;
+  retryCount?: number;
+  retryDelayMs?: number;
+  errorPolicy?: ErrorPolicy;
+  maxErrors?: number;
+  maxErrorRate?: number;
 }
 
 const defaultConfig: RunnerConfig = {
@@ -252,6 +258,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
+  const [timeoutSec, setTimeoutSec] = useState(30);
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryDelayMs, setRetryDelayMs] = useState(1000);
+  const [errorPolicy, setErrorPolicy] = useState<ErrorPolicy>('continue');
+  const [maxErrors, setMaxErrors] = useState(10);
+  const [maxErrorRate, setMaxErrorRate] = useState(50);
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [configLoaded, setConfigLoaded] = useState(false);
   const [weightsExpanded, setWeightsExpanded] = useState(true);
@@ -302,6 +314,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(saved.customBaseUrl ?? '');
         setExecutionMode(saved.executionMode ?? 'batch');
         if (saved.loadProfile) setLoadProfile(saved.loadProfile);
+        setTimeoutSec(saved.timeoutSec ?? 30);
+        setRetryCount(saved.retryCount ?? 0);
+        setRetryDelayMs(saved.retryDelayMs ?? 1000);
+        setErrorPolicy(saved.errorPolicy ?? 'continue');
+        setMaxErrors(saved.maxErrors ?? 10);
+        setMaxErrorRate(saved.maxErrorRate ?? 50);
       } else {
         setConcurrency(defaultConfig.concurrency);
         setTotalTransactions(defaultConfig.totalTransactions);
@@ -312,6 +330,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(defaultConfig.customBaseUrl);
         setExecutionMode(defaultConfig.executionMode);
         setLoadProfile({ ...defaultLoadProfile });
+        setTimeoutSec(30);
+        setRetryCount(0);
+        setRetryDelayMs(1000);
+        setErrorPolicy('continue');
+        setMaxErrors(10);
+        setMaxErrorRate(50);
       }
       setConfigLoaded(true);
     });
@@ -329,8 +353,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       customBaseUrl,
       executionMode,
       loadProfile,
+      timeoutSec,
+      retryCount,
+      retryDelayMs,
+      errorPolicy,
+      maxErrors,
+      maxErrorRate,
     }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile]);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
 
   const selectedTests: Scenario[] = useMemo(() => {
     const resolveAuth = (test: Scenario, sc: { auth?: AuthConfig }, fg: FeatureGroup): AuthConfig => {
@@ -422,6 +452,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioWeights,
       executionMode,
       ...(isLoadProfile ? { loadProfile } : {}),
+      timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
+      retryCount: retryCount > 0 ? retryCount : 0,
+      retryDelayMs,
+      errorPolicy,
+      maxErrors,
+      maxErrorRate,
     };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     execute(config, selectedTests, { projectName, envName, svcName, baseUrl: usedBaseUrl });
@@ -730,6 +766,71 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   </div>
                 </div>
               )}
+
+              {/* Timeout, Retry & Error Policy */}
+              <div className="resilience-config">
+                <div className="resilience-row">
+                  <div className="resilience-field">
+                    <label>Request Timeout</label>
+                    <div className="input-with-unit">
+                      <input type="number" min={0} max={300} value={timeoutSec} onChange={(e) => setTimeoutSec(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+                      <span className="unit">sec</span>
+                    </div>
+                    <span className="field-hint">0 = no timeout</span>
+                  </div>
+                  <div className="resilience-field">
+                    <label>Retry on Failure</label>
+                    <div className="input-with-unit">
+                      <input type="number" min={0} max={10} value={retryCount} onChange={(e) => setRetryCount(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+                      <span className="unit">times</span>
+                    </div>
+                    <span className="field-hint">0 = no retry</span>
+                  </div>
+                  {retryCount > 0 && (
+                    <div className="resilience-field">
+                      <label>Retry Delay</label>
+                      <div className="input-with-unit">
+                        <input type="number" min={0} max={30000} step={100} value={retryDelayMs} onChange={(e) => setRetryDelayMs(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+                        <span className="unit">ms</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="resilience-row">
+                  <div className="resilience-field" style={{ flex: 2 }}>
+                    <label>On Error</label>
+                    <div className="error-policy-options">
+                      <label className="radio-label">
+                        <input type="radio" name="errorPolicy" checked={errorPolicy === 'continue'} onChange={() => setErrorPolicy('continue')} disabled={isRunning} />
+                        Continue
+                      </label>
+                      <label className="radio-label">
+                        <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-first'} onChange={() => setErrorPolicy('stop-first')} disabled={isRunning} />
+                        Stop on First Error
+                      </label>
+                      <label className="radio-label">
+                        <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-threshold'} onChange={() => setErrorPolicy('stop-threshold')} disabled={isRunning} />
+                        Stop at Threshold
+                      </label>
+                    </div>
+                  </div>
+                  {errorPolicy === 'stop-threshold' && (
+                    <>
+                      <div className="resilience-field">
+                        <label>Max Errors</label>
+                        <input type="number" min={1} max={10000} value={maxErrors} onChange={(e) => setMaxErrors(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
+                      </div>
+                      <div className="resilience-field">
+                        <label>Max Error Rate</label>
+                        <div className="input-with-unit">
+                          <input type="number" min={1} max={100} value={maxErrorRate} onChange={(e) => setMaxErrorRate(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
+                          <span className="unit">%</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
               <fieldset>
                 <legend
