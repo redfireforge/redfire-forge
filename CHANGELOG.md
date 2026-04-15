@@ -15,10 +15,16 @@ _Changes merged into `develop` that haven't been released yet._
 - **Advanced Search in Scenario Builder**: Boolean search engine with AND, OR, NOT/-, "quoted phrases", and (parentheses). Searches across test name, URL, method, headers, body, auth config, validation rules and expected values. Inline syntax help via ? button
 - **Results Search**: Text search in the Results Dashboard Request Details — filter by name, URL, feature, group, or error message
 - **Host Badge on Progress**: Shows the active host (Settings URL, custom URL, or Original) next to the execution mode tag in the Progress section
+- **Request Timeout**: Per-request timeout (0–300s, default 10s). Timed-out requests are recorded as failures and execution moves to the next test
+- **Retry on Failure**: Retry failed requests up to N times with configurable delay between attempts. Final result reflects the last attempt
+- **Error Policy (Circuit Breaker)**: Three policies — Continue (ignore errors), Stop on First Error, or Stop at Threshold (configurable max error count and max error rate %). Applies across all execution modes including Load Profile
 
 ### Changed
 - **Results Group By replaces Scenario dropdown**: The old "All Scenarios" dropdown (listing 100+ individual tests) is replaced by the Group By controls and search
 - **Feature/Scenario/Test hierarchy in results**: `featureGroupName` and `groupName` are now threaded from the test hierarchy through execution into `RequestResult` for accurate grouping
+- **Unified Execution Config**: Execution Mode, Concurrency, Transactions, Timeout, Retry, and Error Policy grouped into a single card. Load Profile Configuration appears as part of the same group when selected
+- **Skip Validation moved**: Relocated from a standalone checkbox to the "Select Scenarios to Test" header row
+- **Concurrency/Transactions always visible**: Disabled (not hidden) when Load Profile mode is active, keeping layout consistent
 
 ---
 
