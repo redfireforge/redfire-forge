@@ -1130,3 +1130,35 @@
 .val-expected { color: #22c55e; }
 .val-actual { color: #ef4444; }
 
+/* Builder Search */
+.builder-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.builder-search-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.builder-search-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+.builder-search-count {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.test-card.search-match {
+  border-left: 3px solid var(--accent, #3b82f6);
+  background: color-mix(in srgb, var(--accent, #3b82f6) 5%, var(--surface));
+}
+

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
@@ -86,6 +86,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // CSV Import modal state
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Drag-and-drop state
   const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
@@ -632,6 +635,48 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setMoveDialog(null);
   }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
 
+  const q = searchQuery.toLowerCase().trim();
+  const isSearching = q.length > 0;
+
+  const testMatches = (t: Scenario): boolean => {
+    if (!isSearching) return true;
+    return (
+      t.name.toLowerCase().includes(q) ||
+      t.url.toLowerCase().includes(q) ||
+      t.method.toLowerCase().includes(q) ||
+      t.body.toLowerCase().includes(q) ||
+      t.headers.some((h) => h.key.toLowerCase().includes(q) || h.value.toLowerCase().includes(q)) ||
+      (t.auth.type !== 'none' && t.auth.type.toLowerCase().includes(q)) ||
+      (t.auth.tokenUrl?.toLowerCase().includes(q) ?? false) ||
+      t.validation.mode.toLowerCase().includes(q) ||
+      (t.validation.expectedFields ?? []).some((f) => f.path.toLowerCase().includes(q) || f.value.toLowerCase().includes(q))
+    );
+  };
+
+  const scenarioMatches = (sc: TestScenario): boolean => {
+    if (!isSearching) return true;
+    return sc.name.toLowerCase().includes(q) || sc.tests.some(testMatches);
+  };
+
+  const featureMatches = (fg: FeatureGroup): boolean => {
+    if (!isSearching) return true;
+    return fg.name.toLowerCase().includes(q) || fg.scenarios.some(scenarioMatches);
+  };
+
+  const matchCount = useMemo(() => {
+    if (!isSearching) return 0;
+    let count = 0;
+    for (const fg of featureGroups) {
+      if (!featureMatches(fg)) continue;
+      for (const sc of fg.scenarios) {
+        if (!scenarioMatches(sc)) continue;
+        count += sc.tests.filter(testMatches).length;
+      }
+    }
+    return count;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featureGroups, q]);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -669,11 +714,29 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="empty-state">No feature groups for this microservice + environment. Click "+ Add Feature Group" to get started.</div>
       )}
 
+      {selectedSvcId && selectedEnvId && featureGroups.length > 0 && (
+        <div className="builder-search-bar">
+          <input
+            className="builder-search-input"
+            type="text"
+            placeholder="Search tests by name, URL, method, headers, body, auth, validation..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {isSearching && (
+            <>
+              <span className="builder-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>
+              <button className="btn btn-xs btn-ghost" onClick={() => setSearchQuery('')}>Clear</button>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="feature-tree">
-        {featureGroups.map((fg) => (
+        {featureGroups.filter((fg) => !isSearching || featureMatches(fg)).map((fg) => (
           <div key={fg.id} className="feature-group-card">
             <div className="feature-group-header" onClick={() => toggleFeature(fg.id)}>
-              <span className={`expand-icon ${expandedFeatures.has(fg.id) ? 'expanded' : ''}`}>&#9654;</span>
+              <span className={`expand-icon ${(expandedFeatures.has(fg.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
               {editingFeatureName === fg.id ? (
                 <input className="inline-edit-input" autoFocus value={editName}
                   onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
@@ -881,7 +944,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
               );
             })()}
 
-            {expandedFeatures.has(fg.id) && (
+            {(expandedFeatures.has(fg.id) || isSearching) && (
               <div className="feature-group-body">
                 {namingScenario === fg.id && (
                   <div className="inline-name-form nested">
@@ -902,7 +965,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     {dragScenario ? 'Drop scenario here' : 'No scenarios. Click "+ Scenario" to add one.'}
                   </div>
                 )}
-                {fg.scenarios.map((sc) => {
+                {fg.scenarios.filter((sc) => !isSearching || scenarioMatches(sc)).map((sc) => {
                   const scAuth = sc.auth || { type: 'none' as AuthType };
                   const isScDragOver = dropTarget?.type === 'scenario' && dropTarget.featureId === fg.id && dropTarget.targetId === sc.id;
                   const isSelfScDrag = dragScenario?.scenarioId === sc.id && dragScenario?.fromFeatureId === fg.id;
@@ -931,7 +994,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   >
                     <div className="scenario-group-header" onClick={() => toggleScenario(sc.id)}>
                       <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
-                      <span className={`expand-icon small ${expandedScenarios.has(sc.id) ? 'expanded' : ''}`}>&#9654;</span>
+                      <span className={`expand-icon small ${(expandedScenarios.has(sc.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
                       {editingScenarioName === sc.id ? (
                         <input className="inline-edit-input" autoFocus value={editName}
                           onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
@@ -1137,7 +1200,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       </div>
                     )}
 
-                    {expandedScenarios.has(sc.id) && (
+                    {(expandedScenarios.has(sc.id) || isSearching) && (
                       <div
                         className="scenario-group-body"
                         onDragOver={(e) => { if (dragTest && sc.tests.length === 0) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'test', featureId: fg.id, scenarioId: sc.id }); } }}
@@ -1148,13 +1211,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             {dragTest ? 'Drop test here' : 'No tests. Click "+ Test" to add an HTTP request.'}
                           </div>
                         )}
-                        {sc.tests.map((t, tIdx) => {
+                        {sc.tests.filter((t) => !isSearching || testMatches(t)).map((t, tIdx) => {
                           const isTestDragOver = dropTarget?.type === 'test' && dropTarget.scenarioId === sc.id && dropTarget.targetId === t.id;
                           const isSelfTestDrag = dragTest?.testId === t.id && dragTest?.fromFeatureId === fg.id && dragTest?.fromScenarioId === sc.id;
                           return (
                           <div
                             key={`${fg.id}-${sc.id}-${t.id}`}
-                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''}`}
+                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''} ${isSearching && testMatches(t) ? 'search-match' : ''}`}
                             draggable
                             onDragStart={(e) => {
                               if (!dragHandleActive.current) { e.preventDefault(); return; }
