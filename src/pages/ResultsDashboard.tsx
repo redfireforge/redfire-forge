@@ -83,6 +83,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   const [groupBy, setGroupBy] = useState<GroupByLevel>('feature');
   const [subGroupBy, setSubGroupBy] = useState<GroupByLevel>('group');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 50;
 
@@ -135,13 +136,21 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
 
   const filteredResults: RequestResult[] = useMemo(() => {
     if (!selectedRun) return [];
+    const q = searchTerm.toLowerCase().trim();
     return selectedRun.results.filter((r) => {
       if (filterScenario !== 'all' && r.scenarioId !== filterScenario) return false;
       if (filterPassed === 'passed' && !r.passed) return false;
       if (filterPassed === 'failed' && r.passed) return false;
+      if (q && !(
+        r.scenarioName.toLowerCase().includes(q) ||
+        r.url.toLowerCase().includes(q) ||
+        (r.featureGroupName?.toLowerCase().includes(q)) ||
+        (r.groupName?.toLowerCase().includes(q)) ||
+        (r.errorMessage?.toLowerCase().includes(q))
+      )) return false;
       return true;
     });
-  }, [selectedRun, filterScenario, filterPassed]);
+  }, [selectedRun, filterScenario, filterPassed, searchTerm]);
 
   const scenarioNames = useMemo(() => {
     if (!selectedRun) return [];
@@ -421,6 +430,13 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
       <div className="section">
         <h3>Request Details</h3>
         <div className="filter-row">
+          <input
+            className="results-search"
+            type="text"
+            placeholder="Search by name, URL, feature..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+          />
           <select value={filterScenario} onChange={(e) => { setFilterScenario(e.target.value); setPage(0); }}>
             <option value="all">All Scenarios</option>
             {scenarioNames.map(([id, name]) => (
