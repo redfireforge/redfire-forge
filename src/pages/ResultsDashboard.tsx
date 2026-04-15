@@ -10,6 +10,24 @@ interface Props {
   projectName?: string;
 }
 
+interface GroupStats {
+  key: string;
+  results: RequestResult[];
+  total: number;
+  passed: number;
+  failed: number;
+  validationFailed: number;
+  avgTime: number;
+  minTime: number;
+  maxTime: number;
+}
+
+// Derive a group key by stripping VIN-like suffix (17-char alphanumeric after last separator)
+function deriveGroupKey(name: string): string {
+  const match = name.match(/^(.+?)[-_]([A-Z0-9]{17})$/i);
+  return match ? match[1] : name;
+}
+
 export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
 
@@ -29,6 +47,8 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
   const [filterScenario, setFilterScenario] = useState<string>('all');
   const [filterPassed, setFilterPassed] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('grouped');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const pageSize = 50;
 
@@ -98,6 +118,43 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     selectedRun.results.forEach((r) => map.set(r.scenarioId, r.scenarioName));
     return Array.from(map.entries());
   }, [selectedRun]);
+
+  const groupedResults: GroupStats[] = useMemo(() => {
+    if (filteredResults.length === 0) return [];
+    const map = new Map<string, RequestResult[]>();
+    for (const r of filteredResults) {
+      const key = deriveGroupKey(r.scenarioName);
+      const arr = map.get(key);
+      if (arr) arr.push(r);
+      else map.set(key, [r]);
+    }
+    return Array.from(map.entries()).map(([key, results]) => {
+      const times = results.map((r) => r.responseTimeMs);
+      const passed = results.filter((r) => r.passed).length;
+      const httpFailed = results.filter((r) => !r.passed && r.errorMessage).length;
+      const validationFailed = results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length;
+      return {
+        key,
+        results,
+        total: results.length,
+        passed,
+        failed: httpFailed,
+        validationFailed,
+        avgTime: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
+        minTime: Math.min(...times),
+        maxTime: Math.max(...times),
+      };
+    });
+  }, [filteredResults]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   if (runs.length === 0) {
     return (
@@ -285,56 +342,134 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
           </select>
-          <span className="filter-count">{filteredResults.length} results</span>
+          <div className="view-toggle">
+            <button className={`btn btn-sm ${viewMode === 'grouped' ? 'btn-active' : ''}`} onClick={() => setViewMode('grouped')}>Grouped</button>
+            <button className={`btn btn-sm ${viewMode === 'flat' ? 'btn-active' : ''}`} onClick={() => setViewMode('flat')}>Flat</button>
+          </div>
+          <span className="filter-count">
+            {viewMode === 'grouped'
+              ? `${groupedResults.length} groups · ${filteredResults.length} results`
+              : `${filteredResults.length} results`}
+          </span>
         </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Scenario</th>
-                <th>Method</th>
-                <th>URL</th>
-                <th>Status</th>
-                <th>Time (ms)</th>
-                <th>Validation</th>
-                <th>Passed</th>
-                <th>Failure Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
-                <tr key={r.id} className={r.passed ? '' : 'row-failed'}>
-                  <td>{r.scenarioName}</td>
-                  <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
-                  <td className="url-cell">{r.url}</td>
-                  <td>{r.httpStatus || 'ERR'}</td>
-                  <td>{r.responseTimeMs}</td>
-                  <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
-                  <td>{r.passed ? '✓' : '✗'}</td>
-                  <td className="failure-cell">
-                    {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
-                    {r.failureDetails.map((f, i) => (
-                      <div key={i} className="failure-detail">
-                        <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
-                      </div>
-                    ))}
-                  </td>
+
+        {viewMode === 'grouped' ? (
+          /* ── Grouped View ── */
+          <div className="table-container">
+            <table className="grouped-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 28 }}></th>
+                  <th>Group</th>
+                  <th>Total</th>
+                  <th>Passed</th>
+                  <th>Failed</th>
+                  <th>Validation Failed</th>
+                  <th>Avg (ms)</th>
+                  <th>Min (ms)</th>
+                  <th>Max (ms)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredResults.length > pageSize && (
-            <div className="pagination">
-              <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(0)}>First</button>
-              <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Prev</button>
-              <span className="pagination-info">
-                {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredResults.length)} of {filteredResults.length}
-              </span>
-              <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage((p) => p + 1)}>Next</button>
-              <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage(Math.ceil(filteredResults.length / pageSize) - 1)}>Last</button>
-            </div>
-          )}
-        </div>
+              </thead>
+              <tbody>
+                {groupedResults.map((g) => {
+                  const isOpen = expandedGroups.has(g.key);
+                  const allPassed = g.failed === 0 && g.validationFailed === 0;
+                  return (
+                    <> 
+                      <tr
+                        key={g.key}
+                        className={`group-header-row ${allPassed ? '' : 'group-has-failures'}`}
+                        onClick={() => toggleGroup(g.key)}
+                      >
+                        <td className="group-chevron">{isOpen ? '▼' : '▶'}</td>
+                        <td className="group-key">{g.key}</td>
+                        <td>{g.total}</td>
+                        <td className="group-passed">{g.passed}</td>
+                        <td className={g.failed > 0 ? 'group-failed' : ''}>{g.failed}</td>
+                        <td className={g.validationFailed > 0 ? 'group-val-failed' : ''}>{g.validationFailed}</td>
+                        <td>{g.avgTime}</td>
+                        <td>{g.minTime}</td>
+                        <td>{g.maxTime}</td>
+                      </tr>
+                      {isOpen && g.results.map((r) => (
+                        <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'}`}>
+                          <td></td>
+                          <td className="group-detail-name">
+                            <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
+                            {' '}{r.scenarioName}
+                          </td>
+                          <td colSpan={2} className="url-cell">{r.url}</td>
+                          <td>{r.httpStatus || 'ERR'}</td>
+                          <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
+                          <td>{r.responseTimeMs}</td>
+                          <td>{r.passed ? '✓' : '✗'}</td>
+                          <td className="failure-cell">
+                            {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
+                            {r.failureDetails.map((f, i) => (
+                              <div key={i} className="failure-detail">
+                                <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
+                              </div>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* ── Flat View (original) ── */
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Method</th>
+                  <th>URL</th>
+                  <th>Status</th>
+                  <th>Time (ms)</th>
+                  <th>Validation</th>
+                  <th>Passed</th>
+                  <th>Failure Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
+                  <tr key={r.id} className={r.passed ? '' : 'row-failed'}>
+                    <td>{r.scenarioName}</td>
+                    <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
+                    <td className="url-cell">{r.url}</td>
+                    <td>{r.httpStatus || 'ERR'}</td>
+                    <td>{r.responseTimeMs}</td>
+                    <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
+                    <td>{r.passed ? '✓' : '✗'}</td>
+                    <td className="failure-cell">
+                      {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
+                      {r.failureDetails.map((f, i) => (
+                        <div key={i} className="failure-detail">
+                          <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
+                        </div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredResults.length > pageSize && (
+              <div className="pagination">
+                <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(0)}>First</button>
+                <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Prev</button>
+                <span className="pagination-info">
+                  {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredResults.length)} of {filteredResults.length}
+                </span>
+                <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage((p) => p + 1)}>Next</button>
+                <button className="btn btn-sm" disabled={(page + 1) * pageSize >= filteredResults.length} onClick={() => setPage(Math.ceil(filteredResults.length / pageSize) - 1)}>Last</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
