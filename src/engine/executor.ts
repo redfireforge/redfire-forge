@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestConfig, RequestResult, AuthConfig, LoadProfileConfig, ScenarioWeight } from '../types';
+import type { Scenario, TestConfig, RequestResult, AuthConfig, LoadProfileConfig, ScenarioWeight, ErrorPolicy } from '../types';
 import { validate } from './validator';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
 
@@ -159,7 +159,8 @@ export function buildUrl(scenario: Scenario): string {
 
 async function executeRequest(
   scenario: Scenario,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  timeoutMs?: number
 ): Promise<RequestResult> {
   const id = uuidv4();
   const start = performance.now();
@@ -171,7 +172,17 @@ async function executeRequest(
   try {
     const reqBody = (scenario.body && scenario.method !== 'GET') ? scenario.body : undefined;
     const url = buildUrl(scenario);
-    const result = await proxyFetch(url, scenario.method, headers, reqBody);
+
+    let resultPromise: Promise<HttpResponse> = proxyFetch(url, scenario.method, headers, reqBody);
+
+    if (timeoutMs && timeoutMs > 0) {
+      const timeoutPromise = new Promise<HttpResponse>((_, reject) => {
+        setTimeout(() => reject(new Error(`Request timeout (${(timeoutMs / 1000).toFixed(0)}s)`)), timeoutMs);
+      });
+      resultPromise = Promise.race([resultPromise, timeoutPromise]);
+    }
+
+    const result = await resultPromise;
 
     if (result.error) {
       httpStatus = 0;
@@ -223,6 +234,73 @@ async function executeRequest(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Retry wrapper
+// ---------------------------------------------------------------------------
+
+async function executeWithRetry(
+  scenario: Scenario,
+  headers: Record<string, string>,
+  timeoutMs?: number,
+  retryCount = 0,
+  retryDelayMs = 1000
+): Promise<RequestResult> {
+  let result = await executeRequest(scenario, headers, timeoutMs);
+  let attempt = 0;
+  while (!result.passed && attempt < retryCount) {
+    attempt++;
+    if (retryDelayMs > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    result = await executeRequest(scenario, headers, timeoutMs);
+  }
+  if (attempt > 0) {
+    result.errorMessage = result.passed
+      ? undefined
+      : `${result.errorMessage ?? 'Failed'} (after ${attempt + 1} attempts)`;
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Circuit Breaker — tracks errors and decides whether to stop
+// ---------------------------------------------------------------------------
+
+class CircuitBreaker {
+  private errorCount = 0;
+  private totalCount = 0;
+  private tripped = false;
+
+  constructor(
+    private policy: ErrorPolicy = 'continue',
+    private maxErrors: number = 10,
+    private maxErrorRate: number = 50,
+    private minSampleSize: number = 10
+  ) {}
+
+  record(result: RequestResult): void {
+    this.totalCount++;
+    if (!result.passed) this.errorCount++;
+    if (this.policy === 'continue') return;
+    if (this.policy === 'stop-first' && !result.passed) {
+      this.tripped = true;
+      return;
+    }
+    if (this.policy === 'stop-threshold') {
+      if (this.errorCount >= this.maxErrors) { this.tripped = true; return; }
+      if (this.totalCount >= this.minSampleSize) {
+        const rate = (this.errorCount / this.totalCount) * 100;
+        if (rate >= this.maxErrorRate) this.tripped = true;
+      }
+    }
+  }
+
+  get shouldStop(): boolean { return this.tripped; }
+  get reason(): string {
+    if (this.policy === 'stop-first') return 'Stopped: first error encountered';
+    if (this.errorCount >= this.maxErrors) return `Stopped: ${this.errorCount} errors reached max (${this.maxErrors})`;
+    return `Stopped: error rate ${((this.errorCount / this.totalCount) * 100).toFixed(1)}% exceeded ${this.maxErrorRate}%`;
+  }
+}
+
 export async function runTest(
   config: TestConfig,
   scenarios: Scenario[],
@@ -230,6 +308,14 @@ export async function runTest(
   abortSignal?: AbortSignal
 ): Promise<RequestResult[]> {
   const tokenManager = new TokenManager();
+  const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;
+  const retryCount = config.retryCount ?? 0;
+  const retryDelayMs = config.retryDelayMs ?? 1000;
+  const breaker = new CircuitBreaker(
+    config.errorPolicy ?? 'continue',
+    config.maxErrors ?? 10,
+    config.maxErrorRate ?? 50
+  );
 
   // Build request queue: distribute totalTransactions across active scenarios by weight.
   const activeWeights = config.scenarioWeights.filter((w) => w.weight > 0);
@@ -273,61 +359,65 @@ export async function runTest(
   }
 
   const mode = config.executionMode ?? 'batch';
+  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal };
 
   if (mode === 'load-profile' && config.loadProfile) {
-    return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, tokenManager, onProgress, abortSignal);
+    return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts);
   }
   if (mode === 'sequential') {
-    return runSequential(queue, tokenManager, onProgress, abortSignal);
+    return runSequential(queue, opts);
   }
   if (mode === 'pool') {
-    return runPool(queue, config.concurrency, tokenManager, onProgress, abortSignal);
+    return runPool(queue, config.concurrency, opts);
   }
-  return runBatch(queue, config.concurrency, tokenManager, onProgress, abortSignal);
+  return runBatch(queue, config.concurrency, opts);
 }
 
-async function runSequential(
-  queue: Scenario[],
-  tokenManager: TokenManager,
-  onProgress: ProgressCallback,
-  abortSignal?: AbortSignal
-): Promise<RequestResult[]> {
+interface RunOpts {
+  tokenManager: TokenManager;
+  timeoutMs?: number;
+  retryCount: number;
+  retryDelayMs: number;
+  breaker: CircuitBreaker;
+  onProgress: ProgressCallback;
+  abortSignal?: AbortSignal;
+}
+
+async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
   const allResults: RequestResult[] = [];
 
   for (const scenario of queue) {
-    if (abortSignal?.aborted) break;
+    if (abortSignal?.aborted || breaker.shouldStop) break;
     const token = await tokenManager.getToken(scenario);
     const headers = buildHeaders(scenario, token);
-    const result = await executeRequest(scenario, headers);
+    const result = await executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
     allResults.push(result);
+    breaker.record(result);
     onProgress(allResults.length, queue.length, allResults);
   }
 
   return allResults;
 }
 
-async function runBatch(
-  queue: Scenario[],
-  concurrency: number,
-  tokenManager: TokenManager,
-  onProgress: ProgressCallback,
-  abortSignal?: AbortSignal
-): Promise<RequestResult[]> {
+async function runBatch(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
   const allResults: RequestResult[] = [];
   let completed = 0;
 
   for (let i = 0; i < queue.length; i += concurrency) {
-    if (abortSignal?.aborted) break;
+    if (abortSignal?.aborted || breaker.shouldStop) break;
 
     const batch = queue.slice(i, i + concurrency);
     const batchPromises = batch.map(async (scenario) => {
       const token = await tokenManager.getToken(scenario);
       const headers = buildHeaders(scenario, token);
-      return executeRequest(scenario, headers);
+      return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
     });
 
     const batchResults = await Promise.all(batchPromises);
     allResults.push(...batchResults);
+    batchResults.forEach((r) => breaker.record(r));
     completed += batchResults.length;
     onProgress(completed, queue.length, allResults);
   }
@@ -335,13 +425,8 @@ async function runBatch(
   return allResults;
 }
 
-async function runPool(
-  queue: Scenario[],
-  concurrency: number,
-  tokenManager: TokenManager,
-  onProgress: ProgressCallback,
-  abortSignal?: AbortSignal
-): Promise<RequestResult[]> {
+async function runPool(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
   const allResults: RequestResult[] = [];
   let nextIdx = 0;
   let inFlight = 0;
@@ -350,17 +435,18 @@ async function runPool(
   return new Promise((resolve) => {
     function launch() {
       while (inFlight < concurrency && nextIdx < total) {
-        if (abortSignal?.aborted) break;
+        if (abortSignal?.aborted || breaker.shouldStop) break;
         const scenario = queue[nextIdx++];
         inFlight++;
         tokenManager.getToken(scenario).then((token) => {
           const headers = buildHeaders(scenario, token);
-          return executeRequest(scenario, headers);
+          return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
         }).then((result) => {
           allResults.push(result);
+          breaker.record(result);
           inFlight--;
           onProgress(allResults.length, total, allResults);
-          if (allResults.length >= total || abortSignal?.aborted) {
+          if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
             resolve(allResults);
           } else {
             launch();
@@ -443,10 +529,9 @@ async function runLoadProfile(
   profile: LoadProfileConfig,
   scenarios: Scenario[],
   weights: ScenarioWeight[],
-  tokenManager: TokenManager,
-  onProgress: ProgressCallback,
-  abortSignal?: AbortSignal
+  opts: RunOpts
 ): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
   const allResults: RequestResult[] = [];
   let inFlight = 0;
   const durationMs = profile.durationSec * 1000;
@@ -470,9 +555,10 @@ async function runLoadProfile(
       inFlight++;
       tokenManager.getToken(scenario).then((token) => {
         const headers = buildHeaders(scenario, token);
-        return executeRequest(scenario, headers);
+        return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
       }).then((result) => {
         allResults.push(result);
+        breaker.record(result);
         inFlight--;
         const elapsed = performance.now() - startTime;
         const target = getTargetConcurrency(profile, elapsed);
@@ -482,6 +568,11 @@ async function runLoadProfile(
           currentInFlight: inFlight,
           durationMs,
         });
+        if (breaker.shouldStop) {
+          timerStopped = true;
+          if (inFlight === 0) finish();
+          return;
+        }
         if (timerStopped && inFlight === 0) {
           finish();
         } else if (!timerStopped) {
@@ -491,7 +582,7 @@ async function runLoadProfile(
     }
 
     function fillPool() {
-      if (abortSignal?.aborted) {
+      if (abortSignal?.aborted || breaker.shouldStop) {
         timerStopped = true;
         if (inFlight === 0) finish();
         return;
@@ -503,13 +594,13 @@ async function runLoadProfile(
         return;
       }
       const target = getTargetConcurrency(profile, elapsed);
-      while (inFlight < target && !abortSignal?.aborted) {
+      while (inFlight < target && !abortSignal?.aborted && !breaker.shouldStop) {
         launchOne();
       }
     }
 
     const ticker = setInterval(() => {
-      if (abortSignal?.aborted || performance.now() - startTime >= durationMs) {
+      if (abortSignal?.aborted || breaker.shouldStop || performance.now() - startTime >= durationMs) {
         timerStopped = true;
         clearInterval(ticker);
         if (inFlight === 0) finish();
