@@ -209,6 +209,15 @@ async function executeRequest(
     : [];
 
   const httpFailed = httpStatus >= 400 || httpStatus === 0;
+  if (httpFailed && !errorMessage && responseBody) {
+    try {
+      const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
+      errorMessage = (parsed?.message ?? parsed?.error ?? parsed?.detail ?? parsed?.errorMessage) as string | undefined
+        || responseBody.slice(0, 300);
+    } catch {
+      errorMessage = responseBody.slice(0, 300);
+    }
+  }
   if (httpFailed && errorMessage) {
     failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }];
   }
