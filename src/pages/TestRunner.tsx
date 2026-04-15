@@ -802,7 +802,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                       {' · '}T:{displayTotal}
                     </>
                   )}
-                </span></h3>
+                </span>
+                <span className="progress-host-tag">
+                  {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
+                </span>
+                </h3>
                 {!isRunning && savedProgress && (
                   <button className="btn btn-xs btn-ghost" onClick={handleClearProgress} title="Clear progress">✕ Clear</button>
                 )}
