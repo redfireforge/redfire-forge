@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { TestRun, RequestResult } from '../types';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
@@ -10,9 +10,12 @@ interface Props {
   projectName?: string;
 }
 
-interface GroupStats {
+type GroupByLevel = 'feature' | 'group' | 'test';
+
+interface GroupNode {
   key: string;
   results: RequestResult[];
+  children: GroupNode[];
   total: number;
   passed: number;
   failed: number;
@@ -22,8 +25,41 @@ interface GroupStats {
   maxTime: number;
 }
 
-function groupKey(r: RequestResult): string {
-  return r.groupName || r.scenarioName;
+function computeStats(results: RequestResult[]): Omit<GroupNode, 'key' | 'results' | 'children'> {
+  const times = results.map((r) => r.responseTimeMs);
+  return {
+    total: results.length,
+    passed: results.filter((r) => r.passed).length,
+    failed: results.filter((r) => !r.passed && r.errorMessage).length,
+    validationFailed: results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length,
+    avgTime: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
+    minTime: times.length ? Math.min(...times) : 0,
+    maxTime: times.length ? Math.max(...times) : 0,
+  };
+}
+
+function buildGroups(results: RequestResult[], levels: GroupByLevel[]): GroupNode[] {
+  if (levels.length === 0 || results.length === 0) return [];
+
+  const [level, ...rest] = levels;
+  const map = new Map<string, RequestResult[]>();
+
+  for (const r of results) {
+    let key: string;
+    if (level === 'feature') key = r.featureGroupName || '(unknown feature)';
+    else if (level === 'group') key = r.groupName || '(unknown group)';
+    else key = r.scenarioName;
+    const arr = map.get(key);
+    if (arr) arr.push(r);
+    else map.set(key, [r]);
+  }
+
+  return Array.from(map.entries()).map(([key, items]) => ({
+    key,
+    results: items,
+    children: rest.length > 0 ? buildGroups(items, rest) : [],
+    ...computeStats(items),
+  }));
 }
 
 export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
@@ -33,7 +69,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     loadTestRuns().then(setAllRuns);
   }, []);
 
-  // Filter runs by selected environment and microservice
   const runs = useMemo(() => {
     return allRuns.filter((r) => {
       if (envName && r.envName !== envName) return false;
@@ -45,12 +80,12 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
   const [filterScenario, setFilterScenario] = useState<string>('all');
   const [filterPassed, setFilterPassed] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('grouped');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupBy, setGroupBy] = useState<GroupByLevel>('feature');
+  const [subGroupBy, setSubGroupBy] = useState<GroupByLevel>('group');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const pageSize = 50;
 
-  // Reset selection when filtered runs change (env/svc switch)
   useEffect(() => {
     if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
       setSelectedRunId(runs[0].id);
@@ -81,7 +116,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     setAllRuns(fresh);
   };
 
-  // Distribution chart data — bucket response times into 10 bins
   const histogramData = useMemo(() => {
     if (!selectedRun) return [];
     const times = selectedRun.results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
@@ -99,7 +133,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     return buckets;
   }, [selectedRun]);
 
-  // Filtered failure records
   const filteredResults: RequestResult[] = useMemo(() => {
     if (!selectedRun) return [];
     return selectedRun.results.filter((r) => {
@@ -117,41 +150,100 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     return Array.from(map.entries());
   }, [selectedRun]);
 
-  const groupedResults: GroupStats[] = useMemo(() => {
-    if (filteredResults.length === 0) return [];
-    const map = new Map<string, RequestResult[]>();
-    for (const r of filteredResults) {
-      const k = groupKey(r);
-      const arr = map.get(k);
-      if (arr) arr.push(r);
-      else map.set(k, [r]);
-    }
-    return Array.from(map.entries()).map(([key, results]) => {
-      const times = results.map((r) => r.responseTimeMs);
-      const passed = results.filter((r) => r.passed).length;
-      const httpFailed = results.filter((r) => !r.passed && r.errorMessage).length;
-      const validationFailed = results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length;
-      return {
-        key,
-        results,
-        total: results.length,
-        passed,
-        failed: httpFailed,
-        validationFailed,
-        avgTime: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
-        minTime: Math.min(...times),
-        maxTime: Math.max(...times),
-      };
-    });
-  }, [filteredResults]);
+  const groupLevels: GroupByLevel[] = useMemo(() => {
+    if (groupBy === 'test') return ['test'];
+    if (groupBy === 'group') return subGroupBy === 'test' ? ['group', 'test'] : ['group'];
+    // feature
+    if (subGroupBy === 'group') return ['feature', 'group'];
+    return ['feature', 'test'];
+  }, [groupBy, subGroupBy]);
 
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
+  const isFlat = groupBy === 'test';
+
+  const groupTree = useMemo(() => {
+    if (isFlat) return [];
+    return buildGroups(filteredResults, groupLevels);
+  }, [filteredResults, groupLevels, isFlat]);
+
+  const groupCount = useMemo(() => {
+    if (isFlat) return 0;
+    return groupTree.reduce((n, g) => n + 1 + g.children.length, 0);
+  }, [groupTree, isFlat]);
+
+  const toggle = (key: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
+  };
+
+  const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
+    if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Group' }, { value: 'test', label: 'Then by Test Name' }];
+    if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
+    return [];
+  }, [groupBy]);
+
+  const handleGroupByChange = (val: GroupByLevel) => {
+    setGroupBy(val);
+    setExpanded(new Set());
+    if (val === 'feature') setSubGroupBy('group');
+    else if (val === 'group') setSubGroupBy('test');
+  };
+
+  /* ── Render helpers ── */
+
+  const renderDetailRow = (r: RequestResult) => (
+    <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'}`}>
+      <td></td>
+      <td className="group-detail-name">
+        <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
+        {' '}{r.scenarioName}
+      </td>
+      <td colSpan={2} className="url-cell">{r.url}</td>
+      <td>{r.httpStatus || 'ERR'}</td>
+      <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
+      <td>{r.responseTimeMs}</td>
+      <td>{r.passed ? '✓' : '✗'}</td>
+      <td className="failure-cell">
+        {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
+        {r.failureDetails.map((f, i) => (
+          <div key={i} className="failure-detail">
+            <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
+          </div>
+        ))}
+      </td>
+    </tr>
+  );
+
+  const renderGroupRow = (g: GroupNode, depth: number, parentKey: string) => {
+    const nodeKey = parentKey ? `${parentKey}/${g.key}` : g.key;
+    const isOpen = expanded.has(nodeKey);
+    const allPassed = g.failed === 0 && g.validationFailed === 0;
+    const hasChildren = g.children.length > 0;
+    const indent = depth * 20;
+
+    return (
+      <Fragment key={nodeKey}>
+        <tr
+          className={`group-header-row depth-${depth} ${allPassed ? '' : 'group-has-failures'}`}
+          onClick={() => toggle(nodeKey)}
+        >
+          <td className="group-chevron" style={{ paddingLeft: indent }}>{isOpen ? '▼' : '▶'}</td>
+          <td className="group-key">{g.key}</td>
+          <td>{g.total}</td>
+          <td className="group-passed">{g.passed}</td>
+          <td className={g.failed > 0 ? 'group-failed' : ''}>{g.failed}</td>
+          <td className={g.validationFailed > 0 ? 'group-val-failed' : ''}>{g.validationFailed}</td>
+          <td>{g.avgTime}</td>
+          <td>{g.minTime}</td>
+          <td>{g.maxTime}</td>
+        </tr>
+        {isOpen && hasChildren && g.children.map((child) => renderGroupRow(child, depth + 1, nodeKey))}
+        {isOpen && !hasChildren && g.results.map(renderDetailRow)}
+      </Fragment>
+    );
   };
 
   if (runs.length === 0) {
@@ -325,7 +417,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
         </div>
       )}
 
-      {/* Request Details Table */}
+      {/* Request Details */}
       <div className="section">
         <h3>Request Details</h3>
         <div className="filter-row">
@@ -340,85 +432,54 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
           </select>
-          <div className="view-toggle">
-            <button className={`btn btn-sm ${viewMode === 'grouped' ? 'btn-active' : ''}`} onClick={() => setViewMode('grouped')}>Grouped</button>
-            <button className={`btn btn-sm ${viewMode === 'flat' ? 'btn-active' : ''}`} onClick={() => setViewMode('flat')}>Flat</button>
+
+          <div className="group-by-controls">
+            <label className="group-by-label">Group by</label>
+            <select value={groupBy} onChange={(e) => handleGroupByChange(e.target.value as GroupByLevel)}>
+              <option value="feature">Feature</option>
+              <option value="group">Group</option>
+              <option value="test">Test Name (flat)</option>
+            </select>
+            {subGroupOptions.length > 0 && (
+              <select value={subGroupBy} onChange={(e) => { setSubGroupBy(e.target.value as GroupByLevel); setExpanded(new Set()); }}>
+                {subGroupOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            )}
           </div>
+
           <span className="filter-count">
-            {viewMode === 'grouped'
-              ? `${groupedResults.length} groups · ${filteredResults.length} results`
-              : `${filteredResults.length} results`}
+            {isFlat
+              ? `${filteredResults.length} results`
+              : `${groupCount} groups · ${filteredResults.length} results`}
           </span>
         </div>
 
-        {viewMode === 'grouped' ? (
-          /* ── Grouped View ── */
+        {!isFlat ? (
+          /* ── Grouped / Multi-level View ── */
           <div className="table-container">
             <table className="grouped-table">
               <thead>
                 <tr>
                   <th style={{ width: 28 }}></th>
-                  <th>Group</th>
+                  <th>{groupBy === 'feature' ? 'Feature' : 'Group'}</th>
                   <th>Total</th>
                   <th>Passed</th>
                   <th>Failed</th>
-                  <th>Validation Failed</th>
+                  <th>Val. Failed</th>
                   <th>Avg (ms)</th>
                   <th>Min (ms)</th>
                   <th>Max (ms)</th>
                 </tr>
               </thead>
               <tbody>
-                {groupedResults.map((g) => {
-                  const isOpen = expandedGroups.has(g.key);
-                  const allPassed = g.failed === 0 && g.validationFailed === 0;
-                  return (
-                    <> 
-                      <tr
-                        key={g.key}
-                        className={`group-header-row ${allPassed ? '' : 'group-has-failures'}`}
-                        onClick={() => toggleGroup(g.key)}
-                      >
-                        <td className="group-chevron">{isOpen ? '▼' : '▶'}</td>
-                        <td className="group-key">{g.key}</td>
-                        <td>{g.total}</td>
-                        <td className="group-passed">{g.passed}</td>
-                        <td className={g.failed > 0 ? 'group-failed' : ''}>{g.failed}</td>
-                        <td className={g.validationFailed > 0 ? 'group-val-failed' : ''}>{g.validationFailed}</td>
-                        <td>{g.avgTime}</td>
-                        <td>{g.minTime}</td>
-                        <td>{g.maxTime}</td>
-                      </tr>
-                      {isOpen && g.results.map((r) => (
-                        <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'}`}>
-                          <td></td>
-                          <td className="group-detail-name">
-                            <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
-                            {' '}{r.scenarioName}
-                          </td>
-                          <td colSpan={2} className="url-cell">{r.url}</td>
-                          <td>{r.httpStatus || 'ERR'}</td>
-                          <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
-                          <td>{r.responseTimeMs}</td>
-                          <td>{r.passed ? '✓' : '✗'}</td>
-                          <td className="failure-cell">
-                            {r.errorMessage && <div className="error-msg">{r.errorMessage}</div>}
-                            {r.failureDetails.map((f, i) => (
-                              <div key={i} className="failure-detail">
-                                <strong>{f.path}</strong>: expected {f.expected}, got {f.actual}
-                              </div>
-                            ))}
-                          </td>
-                        </tr>
-                      ))}
-                    </>
-                  );
-                })}
+                {groupTree.map((g) => renderGroupRow(g, 0, ''))}
               </tbody>
             </table>
           </div>
         ) : (
-          /* ── Flat View (original) ── */
+          /* ── Flat View ── */
           <div className="table-container">
             <table>
               <thead>

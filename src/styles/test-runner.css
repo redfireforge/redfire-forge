@@ -212,15 +212,18 @@ tr:hover td { background: var(--surface-hover); }
 .error-msg { color: var(--danger); }
 .table-truncated { text-align: center; padding: 12px; color: var(--text-muted); font-size: 0.85rem; }
 
-/* View Toggle */
-.view-toggle { display: flex; gap: 2px; background: var(--surface); border-radius: 6px; padding: 2px; }
-.view-toggle .btn-sm { border-radius: 4px; font-size: 0.72rem; padding: 3px 10px; background: transparent; color: var(--text-muted); border: none; }
-.view-toggle .btn-active { background: var(--accent); color: #fff; }
+/* Group-By Controls */
+.group-by-controls { display: flex; align-items: center; gap: 6px; }
+.group-by-controls select { width: auto; min-width: 120px; font-size: 0.82rem; }
+.group-by-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; white-space: nowrap; }
 
 /* Grouped Table */
 .group-header-row { cursor: pointer; transition: background 0.15s; }
 .group-header-row:hover td { background: var(--surface-hover) !important; }
 .group-header-row td { font-weight: 600; font-size: 0.85rem; padding: 10px 12px; background: var(--surface); }
+.group-header-row.depth-0 td { background: var(--surface); }
+.group-header-row.depth-1 td { background: color-mix(in srgb, var(--surface) 70%, var(--bg)); font-size: 0.83rem; }
+.group-header-row.depth-2 td { background: color-mix(in srgb, var(--surface) 40%, var(--bg)); font-size: 0.81rem; }
 .group-chevron { width: 28px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
 .group-key { min-width: 200px; }
 .group-passed { color: var(--success, #22c55e); }
