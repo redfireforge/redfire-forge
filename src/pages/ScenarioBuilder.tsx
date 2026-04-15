@@ -89,6 +89,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchHelp, setShowSearchHelp] = useState(false);
 
   // Drag-and-drop state
   const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
@@ -635,33 +636,133 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setMoveDialog(null);
   }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
 
-  const q = searchQuery.toLowerCase().trim();
-  const isSearching = q.length > 0;
+  // ── Advanced search engine (AND, OR, NOT, "quoted phrases", parentheses) ──
 
-  const testMatches = (t: Scenario): boolean => {
-    if (!isSearching) return true;
-    return (
-      t.name.toLowerCase().includes(q) ||
-      t.url.toLowerCase().includes(q) ||
-      t.method.toLowerCase().includes(q) ||
-      t.body.toLowerCase().includes(q) ||
-      t.headers.some((h) => h.key.toLowerCase().includes(q) || h.value.toLowerCase().includes(q)) ||
-      (t.auth.type !== 'none' && t.auth.type.toLowerCase().includes(q)) ||
-      (t.auth.tokenUrl?.toLowerCase().includes(q) ?? false) ||
-      t.validation.mode.toLowerCase().includes(q) ||
-      (t.validation.expectedFields ?? []).some((f) => (f.path ?? '').toLowerCase().includes(q) || (f.value ?? '').toLowerCase().includes(q))
-    );
-  };
+  type QNode = { type: 'term'; value: string; exact: boolean }
+    | { type: 'not'; child: QNode }
+    | { type: 'and'; children: QNode[] }
+    | { type: 'or'; children: QNode[] };
 
-  const scenarioMatches = (sc: TestScenario): boolean => {
-    if (!isSearching) return true;
-    return sc.name.toLowerCase().includes(q) || sc.tests.some(testMatches);
-  };
+  const parseSearchQuery = useCallback((raw: string): QNode | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < trimmed.length) {
+      if (trimmed[i] === ' ') { i++; continue; }
+      if (trimmed[i] === '(' || trimmed[i] === ')') { tokens.push(trimmed[i]); i++; continue; }
+      if (trimmed[i] === '"') {
+        const end = trimmed.indexOf('"', i + 1);
+        if (end !== -1) { tokens.push(trimmed.slice(i, end + 1)); i = end + 1; }
+        else { tokens.push(trimmed.slice(i)); i = trimmed.length; }
+        continue;
+      }
+      let j = i;
+      while (j < trimmed.length && trimmed[j] !== ' ' && trimmed[j] !== '(' && trimmed[j] !== ')') j++;
+      tokens.push(trimmed.slice(i, j));
+      i = j;
+    }
 
-  const featureMatches = (fg: FeatureGroup): boolean => {
-    if (!isSearching) return true;
-    return fg.name.toLowerCase().includes(q) || fg.scenarios.some(scenarioMatches);
-  };
+    let pos = 0;
+    const peek = () => tokens[pos] ?? '';
+    const next = () => tokens[pos++] ?? '';
+
+    const parseAtom = (): QNode => {
+      const t = peek();
+      if (t.toUpperCase() === 'NOT' || t === '-') {
+        next();
+        return { type: 'not', child: parseAtom() };
+      }
+      if (t.startsWith('-') && t.length > 1) {
+        next();
+        const val = t.slice(1);
+        return { type: 'not', child: { type: 'term', value: val.toLowerCase(), exact: false } };
+      }
+      if (t === '(') {
+        next();
+        const node = parseOr();
+        if (peek() === ')') next();
+        return node;
+      }
+      next();
+      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
+        return { type: 'term', value: t.slice(1, -1).toLowerCase(), exact: true };
+      }
+      return { type: 'term', value: t.toLowerCase(), exact: false };
+    };
+
+    const parseAnd = (): QNode => {
+      const nodes: QNode[] = [parseAtom()];
+      while (pos < tokens.length && peek() !== ')' && peek().toUpperCase() !== 'OR') {
+        if (peek().toUpperCase() === 'AND') { next(); continue; }
+        nodes.push(parseAtom());
+      }
+      return nodes.length === 1 ? nodes[0] : { type: 'and', children: nodes };
+    };
+
+    const parseOr = (): QNode => {
+      const nodes: QNode[] = [parseAnd()];
+      while (peek().toUpperCase() === 'OR') {
+        next();
+        nodes.push(parseAnd());
+      }
+      return nodes.length === 1 ? nodes[0] : { type: 'or', children: nodes };
+    };
+
+    if (tokens.length === 0) return null;
+    const result = parseOr();
+    return result;
+  }, []);
+
+  const evaluateQuery = useCallback((node: QNode, text: string): boolean => {
+    switch (node.type) {
+      case 'term':
+        if (node.exact) {
+          const re = new RegExp(`\\b${node.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          return re.test(text);
+        }
+        return text.toLowerCase().includes(node.value);
+      case 'not':
+        return !evaluateQuery(node.child, text);
+      case 'and':
+        return node.children.every((c) => evaluateQuery(c, text));
+      case 'or':
+        return node.children.some((c) => evaluateQuery(c, text));
+    }
+  }, []);
+
+  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery, parseSearchQuery]);
+  const isSearching = parsedQuery !== null;
+
+  const buildSearchText = useCallback((t: Scenario): string => {
+    const parts = [
+      t.name, t.url, t.method, t.body,
+      ...t.headers.flatMap((h) => [h.key, h.value]),
+      t.auth.type,
+      t.auth.tokenUrl ?? '', t.auth.clientId ?? '', t.auth.username ?? '',
+      t.validation.mode,
+      ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
+      t.validation.expectedJson ?? '',
+    ];
+    return parts.join(' ');
+  }, []);
+
+  const testMatches = useCallback((t: Scenario): boolean => {
+    if (!parsedQuery) return true;
+    return evaluateQuery(parsedQuery, buildSearchText(t));
+  }, [parsedQuery, evaluateQuery, buildSearchText]);
+
+  const scenarioMatches = useCallback((sc: TestScenario): boolean => {
+    if (!parsedQuery) return true;
+    if (evaluateQuery(parsedQuery, sc.name)) return true;
+    return sc.tests.some((t) => testMatches(t));
+  }, [parsedQuery, evaluateQuery, testMatches]);
+
+  const featureMatches = useCallback((fg: FeatureGroup): boolean => {
+    if (!parsedQuery) return true;
+    if (evaluateQuery(parsedQuery, fg.name)) return true;
+    return fg.scenarios.some((sc) => scenarioMatches(sc));
+  }, [parsedQuery, evaluateQuery, scenarioMatches]);
 
   const matchCount = useMemo(() => {
     if (!isSearching) return 0;
@@ -674,8 +775,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       }
     }
     return count;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [featureGroups, q]);
+  }, [featureGroups, isSearching, featureMatches, scenarioMatches, testMatches]);
 
   return (
     <div className="page">
@@ -715,19 +815,38 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       )}
 
       {selectedSvcId && selectedEnvId && featureGroups.length > 0 && (
-        <div className="builder-search-bar">
-          <input
-            className="builder-search-input"
-            type="text"
-            placeholder="Search tests by name, URL, method, headers, body, auth, validation..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {isSearching && (
-            <>
-              <span className="builder-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>
-              <button className="btn btn-xs btn-ghost" onClick={() => setSearchQuery('')}>Clear</button>
-            </>
+        <div className="builder-search-wrapper">
+          <div className="builder-search-bar">
+            <input
+              className="builder-search-input"
+              type="text"
+              placeholder='Search: terms, "exact phrase", AND, OR, NOT, -exclude, (group)...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {isSearching && (
+              <>
+                <span className="builder-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>
+                <button className="btn btn-xs btn-ghost" onClick={() => setSearchQuery('')}>Clear</button>
+              </>
+            )}
+            <button className="btn btn-xs btn-ghost" onClick={() => setShowSearchHelp((v) => !v)} title="Search syntax help">?</button>
+          </div>
+          {showSearchHelp && (
+            <div className="search-help">
+              <table className="search-help-table">
+                <tbody>
+                  <tr><td><code>trial</code></td><td>Substring match (case-insensitive)</td></tr>
+                  <tr><td><code>"OnStar One"</code></td><td>Exact phrase (word boundary)</td></tr>
+                  <tr><td><code>trial AND US</code></td><td>Both terms must match</td></tr>
+                  <tr><td><code>trial OR spike</code></td><td>Either term matches</td></tr>
+                  <tr><td><code>NOT CA</code> or <code>-CA</code></td><td>Exclude term</td></tr>
+                  <tr><td><code>(US OR CA) AND trial</code></td><td>Group with parentheses</td></tr>
+                  <tr><td><code>onboard US -FL</code></td><td>Implicit AND between terms</td></tr>
+                </tbody>
+              </table>
+              <div className="search-help-fields">Searches: name, URL, method, headers, body, auth, validation rules &amp; expected values</div>
+            </div>
           )}
         </div>
       )}
