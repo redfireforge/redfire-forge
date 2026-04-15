@@ -430,12 +430,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
       <div className="section">
         <h3>Request Details</h3>
         <div className="filter-row">
-          <select value={filterScenario} onChange={(e) => { setFilterScenario(e.target.value); setPage(0); }}>
-            <option value="all">All Scenarios</option>
-            {scenarioNames.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
           <select value={filterPassed} onChange={(e) => { setFilterPassed(e.target.value); setPage(0); }}>
             <option value="all">All Results</option>
             <option value="passed">Passed Only</option>
