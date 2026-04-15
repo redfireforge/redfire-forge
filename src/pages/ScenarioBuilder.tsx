@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
@@ -86,6 +86,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
 
   // CSV Import modal state
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchHelp, setShowSearchHelp] = useState(false);
 
   // Drag-and-drop state
   const [dragScenario, setDragScenario] = useState<{ scenarioId: string; fromFeatureId: string } | null>(null);
@@ -632,6 +636,147 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     setMoveDialog(null);
   }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
 
+  // ── Advanced search engine (AND, OR, NOT, "quoted phrases", parentheses) ──
+
+  type QNode = { type: 'term'; value: string; exact: boolean }
+    | { type: 'not'; child: QNode }
+    | { type: 'and'; children: QNode[] }
+    | { type: 'or'; children: QNode[] };
+
+  const parseSearchQuery = useCallback((raw: string): QNode | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < trimmed.length) {
+      if (trimmed[i] === ' ') { i++; continue; }
+      if (trimmed[i] === '(' || trimmed[i] === ')') { tokens.push(trimmed[i]); i++; continue; }
+      if (trimmed[i] === '"') {
+        const end = trimmed.indexOf('"', i + 1);
+        if (end !== -1) { tokens.push(trimmed.slice(i, end + 1)); i = end + 1; }
+        else { tokens.push(trimmed.slice(i)); i = trimmed.length; }
+        continue;
+      }
+      let j = i;
+      while (j < trimmed.length && trimmed[j] !== ' ' && trimmed[j] !== '(' && trimmed[j] !== ')') j++;
+      tokens.push(trimmed.slice(i, j));
+      i = j;
+    }
+
+    let pos = 0;
+    const peek = () => tokens[pos] ?? '';
+    const next = () => tokens[pos++] ?? '';
+
+    const parseAtom = (): QNode => {
+      const t = peek();
+      if (t.toUpperCase() === 'NOT' || t === '-') {
+        next();
+        return { type: 'not', child: parseAtom() };
+      }
+      if (t.startsWith('-') && t.length > 1) {
+        next();
+        const val = t.slice(1);
+        return { type: 'not', child: { type: 'term', value: val.toLowerCase(), exact: false } };
+      }
+      if (t === '(') {
+        next();
+        const node = parseOr();
+        if (peek() === ')') next();
+        return node;
+      }
+      next();
+      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
+        return { type: 'term', value: t.slice(1, -1).toLowerCase(), exact: true };
+      }
+      return { type: 'term', value: t.toLowerCase(), exact: false };
+    };
+
+    const parseAnd = (): QNode => {
+      const nodes: QNode[] = [parseAtom()];
+      while (pos < tokens.length && peek() !== ')' && peek().toUpperCase() !== 'OR') {
+        if (peek().toUpperCase() === 'AND') { next(); continue; }
+        nodes.push(parseAtom());
+      }
+      return nodes.length === 1 ? nodes[0] : { type: 'and', children: nodes };
+    };
+
+    const parseOr = (): QNode => {
+      const nodes: QNode[] = [parseAnd()];
+      while (peek().toUpperCase() === 'OR') {
+        next();
+        nodes.push(parseAnd());
+      }
+      return nodes.length === 1 ? nodes[0] : { type: 'or', children: nodes };
+    };
+
+    if (tokens.length === 0) return null;
+    const result = parseOr();
+    return result;
+  }, []);
+
+  const evaluateQuery = useCallback((node: QNode, text: string): boolean => {
+    switch (node.type) {
+      case 'term':
+        if (node.exact) {
+          const re = new RegExp(`\\b${node.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          return re.test(text);
+        }
+        return text.toLowerCase().includes(node.value);
+      case 'not':
+        return !evaluateQuery(node.child, text);
+      case 'and':
+        return node.children.every((c) => evaluateQuery(c, text));
+      case 'or':
+        return node.children.some((c) => evaluateQuery(c, text));
+    }
+  }, []);
+
+  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery, parseSearchQuery]);
+  const isSearching = parsedQuery !== null;
+
+  const buildSearchText = useCallback((t: Scenario): string => {
+    const parts = [
+      t.name, t.url, t.method, t.body,
+      ...t.headers.flatMap((h) => [h.key, h.value]),
+      t.auth.type,
+      t.auth.tokenUrl ?? '', t.auth.clientId ?? '', t.auth.username ?? '',
+      t.validation.mode,
+      ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
+      t.validation.expectedJson ?? '',
+    ];
+    return parts.join(' ');
+  }, []);
+
+  const testMatches = useCallback((t: Scenario): boolean => {
+    if (!parsedQuery) return true;
+    return evaluateQuery(parsedQuery, buildSearchText(t));
+  }, [parsedQuery, evaluateQuery, buildSearchText]);
+
+  const scenarioMatches = useCallback((sc: TestScenario): boolean => {
+    if (!parsedQuery) return true;
+    if (evaluateQuery(parsedQuery, sc.name)) return true;
+    return sc.tests.some((t) => testMatches(t));
+  }, [parsedQuery, evaluateQuery, testMatches]);
+
+  const featureMatches = useCallback((fg: FeatureGroup): boolean => {
+    if (!parsedQuery) return true;
+    if (evaluateQuery(parsedQuery, fg.name)) return true;
+    return fg.scenarios.some((sc) => scenarioMatches(sc));
+  }, [parsedQuery, evaluateQuery, scenarioMatches]);
+
+  const matchCount = useMemo(() => {
+    if (!isSearching) return 0;
+    let count = 0;
+    for (const fg of featureGroups) {
+      if (!featureMatches(fg)) continue;
+      for (const sc of fg.scenarios) {
+        if (!scenarioMatches(sc)) continue;
+        count += sc.tests.filter(testMatches).length;
+      }
+    }
+    return count;
+  }, [featureGroups, isSearching, featureMatches, scenarioMatches, testMatches]);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -646,7 +791,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="header-actions">
           <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
           <button className="btn" onClick={exportAll} disabled={featureGroups.length === 0}>Export</button>
-          <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>CSV Import</button>
+          <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
           <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
       </div>
@@ -669,11 +814,48 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="empty-state">No feature groups for this microservice + environment. Click "+ Add Feature Group" to get started.</div>
       )}
 
+      {selectedSvcId && selectedEnvId && featureGroups.length > 0 && (
+        <div className="builder-search-wrapper">
+          <div className="builder-search-bar">
+            <input
+              className="builder-search-input"
+              type="text"
+              placeholder='Search: terms, "exact phrase", AND, OR, NOT, -exclude, (group)...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {isSearching && (
+              <>
+                <span className="builder-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>
+                <button className="btn btn-xs btn-ghost" onClick={() => setSearchQuery('')}>Clear</button>
+              </>
+            )}
+            <button className="btn btn-xs btn-ghost" onClick={() => setShowSearchHelp((v) => !v)} title="Search syntax help">?</button>
+          </div>
+          {showSearchHelp && (
+            <div className="search-help">
+              <table className="search-help-table">
+                <tbody>
+                  <tr><td><code>trial</code></td><td>Substring match (case-insensitive)</td></tr>
+                  <tr><td><code>"OnStar One"</code></td><td>Exact phrase (word boundary)</td></tr>
+                  <tr><td><code>trial AND US</code></td><td>Both terms must match</td></tr>
+                  <tr><td><code>trial OR spike</code></td><td>Either term matches</td></tr>
+                  <tr><td><code>NOT CA</code> or <code>-CA</code></td><td>Exclude term</td></tr>
+                  <tr><td><code>(US OR CA) AND trial</code></td><td>Group with parentheses</td></tr>
+                  <tr><td><code>onboard US -FL</code></td><td>Implicit AND between terms</td></tr>
+                </tbody>
+              </table>
+              <div className="search-help-fields">Searches: name, URL, method, headers, body, auth, validation rules &amp; expected values</div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="feature-tree">
-        {featureGroups.map((fg) => (
+        {featureGroups.filter((fg) => !isSearching || featureMatches(fg)).map((fg) => (
           <div key={fg.id} className="feature-group-card">
             <div className="feature-group-header" onClick={() => toggleFeature(fg.id)}>
-              <span className={`expand-icon ${expandedFeatures.has(fg.id) ? 'expanded' : ''}`}>&#9654;</span>
+              <span className={`expand-icon ${(expandedFeatures.has(fg.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
               {editingFeatureName === fg.id ? (
                 <input className="inline-edit-input" autoFocus value={editName}
                   onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
@@ -881,7 +1063,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
               );
             })()}
 
-            {expandedFeatures.has(fg.id) && (
+            {(expandedFeatures.has(fg.id) || isSearching) && (
               <div className="feature-group-body">
                 {namingScenario === fg.id && (
                   <div className="inline-name-form nested">
@@ -902,7 +1084,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     {dragScenario ? 'Drop scenario here' : 'No scenarios. Click "+ Scenario" to add one.'}
                   </div>
                 )}
-                {fg.scenarios.map((sc) => {
+                {fg.scenarios.filter((sc) => !isSearching || scenarioMatches(sc)).map((sc) => {
                   const scAuth = sc.auth || { type: 'none' as AuthType };
                   const isScDragOver = dropTarget?.type === 'scenario' && dropTarget.featureId === fg.id && dropTarget.targetId === sc.id;
                   const isSelfScDrag = dragScenario?.scenarioId === sc.id && dragScenario?.fromFeatureId === fg.id;
@@ -931,7 +1113,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   >
                     <div className="scenario-group-header" onClick={() => toggleScenario(sc.id)}>
                       <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
-                      <span className={`expand-icon small ${expandedScenarios.has(sc.id) ? 'expanded' : ''}`}>&#9654;</span>
+                      <span className={`expand-icon small ${(expandedScenarios.has(sc.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
                       {editingScenarioName === sc.id ? (
                         <input className="inline-edit-input" autoFocus value={editName}
                           onClick={(e) => e.stopPropagation()} onChange={(e) => setEditName(e.target.value)}
@@ -1137,7 +1319,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       </div>
                     )}
 
-                    {expandedScenarios.has(sc.id) && (
+                    {(expandedScenarios.has(sc.id) || isSearching) && (
                       <div
                         className="scenario-group-body"
                         onDragOver={(e) => { if (dragTest && sc.tests.length === 0) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ type: 'test', featureId: fg.id, scenarioId: sc.id }); } }}
@@ -1148,13 +1330,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             {dragTest ? 'Drop test here' : 'No tests. Click "+ Test" to add an HTTP request.'}
                           </div>
                         )}
-                        {sc.tests.map((t, tIdx) => {
+                        {sc.tests.filter((t) => !isSearching || testMatches(t)).map((t, tIdx) => {
                           const isTestDragOver = dropTarget?.type === 'test' && dropTarget.scenarioId === sc.id && dropTarget.targetId === t.id;
                           const isSelfTestDrag = dragTest?.testId === t.id && dragTest?.fromFeatureId === fg.id && dragTest?.fromScenarioId === sc.id;
                           return (
                           <div
                             key={`${fg.id}-${sc.id}-${t.id}`}
-                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''}`}
+                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''} ${isSearching && testMatches(t) ? 'search-match' : ''}`}
                             draggable
                             onDragStart={(e) => {
                               if (!dragHandleActive.current) { e.preventDefault(); return; }
