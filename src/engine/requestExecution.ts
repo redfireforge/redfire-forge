@@ -1,0 +1,204 @@
+import { v4 as uuidv4 } from 'uuid';
+import type { Scenario, RequestResult } from '../types';
+import { validate } from './validator';
+import { httpFetch, type HttpResponse } from '../utils/httpClient';
+import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
+import type { TokenManager } from './tokenManager';
+import { CircuitBreaker } from './circuitBreaker';
+
+async function executeRequest(
+  scenario: Scenario,
+  headers: Record<string, string>,
+  timeoutMs?: number
+): Promise<RequestResult> {
+  const id = uuidv4();
+  const start = performance.now();
+  let httpStatus = 0;
+  let responseBody = '';
+  let responseObj: unknown = null;
+  let errorMessage: string | undefined;
+
+  try {
+    const reqBody = (scenario.body && scenario.method !== 'GET') ? scenario.body : undefined;
+    const url = buildUrl(scenario);
+
+    let resultPromise: Promise<HttpResponse> = httpFetch(url, scenario.method, headers, reqBody);
+
+    if (timeoutMs && timeoutMs > 0) {
+      const timeoutPromise = new Promise<HttpResponse>((_, reject) => {
+        setTimeout(() => reject(new Error(`Request timeout (${(timeoutMs / 1000).toFixed(0)}s)`)), timeoutMs);
+      });
+      resultPromise = Promise.race([resultPromise, timeoutPromise]);
+    }
+
+    const result = await resultPromise;
+
+    if (result.error) {
+      httpStatus = 0;
+      errorMessage = result.error;
+    } else {
+      httpStatus = result.status;
+      responseBody = result.body;
+      try {
+        responseObj = JSON.parse(responseBody);
+      } catch {
+        responseObj = responseBody;
+      }
+    }
+  } catch (err) {
+    httpStatus = 0;
+    errorMessage = err instanceof Error ? err.message : String(err);
+  }
+
+  const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
+
+  let failureDetails = scenario.validation.mode !== 'none' && httpStatus > 0 && httpStatus < 400
+    ? validate(scenario.validation, responseObj)
+    : [];
+
+  const httpFailed = httpStatus >= 400 || httpStatus === 0;
+  if (httpFailed && !errorMessage && responseBody) {
+    try {
+      const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
+      errorMessage = (parsed?.message ?? parsed?.error ?? parsed?.detail ?? parsed?.errorMessage) as string | undefined
+        || responseBody.slice(0, 300);
+    } catch {
+      errorMessage = responseBody.slice(0, 300);
+    }
+  }
+  if (httpFailed && errorMessage) {
+    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }];
+  }
+
+  const passed = !httpFailed && failureDetails.length === 0;
+
+  return {
+    id,
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    featureGroupName: scenario.featureGroupName,
+    groupName: scenario.groupName,
+    url: scenario.url,
+    method: scenario.method,
+    httpStatus,
+    responseTimeMs,
+    responseBody: responseBody.slice(0, 2000),
+    timestamp: Date.now(),
+    passed,
+    validationMode: scenario.validation.mode,
+    failureDetails,
+    errorMessage,
+  };
+}
+
+async function executeWithRetry(
+  scenario: Scenario,
+  headers: Record<string, string>,
+  timeoutMs?: number,
+  retryCount = 0,
+  retryDelayMs = 1000
+): Promise<RequestResult> {
+  let result = await executeRequest(scenario, headers, timeoutMs);
+  let attempt = 0;
+  while (!result.passed && attempt < retryCount) {
+    attempt++;
+    if (retryDelayMs > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    result = await executeRequest(scenario, headers, timeoutMs);
+  }
+  if (attempt > 0) {
+    result.errorMessage = result.passed
+      ? undefined
+      : `${result.errorMessage ?? 'Failed'} (after ${attempt + 1} attempts)`;
+  }
+  return result;
+}
+
+export interface RunOpts {
+  tokenManager: TokenManager;
+  timeoutMs?: number;
+  retryCount: number;
+  retryDelayMs: number;
+  breaker: CircuitBreaker;
+  onProgress: (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;
+  abortSignal?: AbortSignal;
+}
+
+export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const allResults: RequestResult[] = [];
+
+  for (const scenario of queue) {
+    if (abortSignal?.aborted || breaker.shouldStop) break;
+    const token = await tokenManager.getToken(scenario);
+    const headers = buildHeaders(scenario, token);
+    const result = await executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+    allResults.push(result);
+    breaker.record(result);
+    onProgress(allResults.length, queue.length, allResults);
+  }
+
+  return allResults;
+}
+
+export async function runBatch(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const allResults: RequestResult[] = [];
+  let completed = 0;
+
+  for (let i = 0; i < queue.length; i += concurrency) {
+    if (abortSignal?.aborted || breaker.shouldStop) break;
+
+    const batch = queue.slice(i, i + concurrency);
+    const batchPromises = batch.map(async (scenario) => {
+      const token = await tokenManager.getToken(scenario);
+      const headers = buildHeaders(scenario, token);
+      return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+    batchResults.forEach((r) => breaker.record(r));
+    completed += batchResults.length;
+    onProgress(completed, queue.length, allResults);
+  }
+
+  return allResults;
+}
+
+export async function runPool(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const allResults: RequestResult[] = [];
+  let nextIdx = 0;
+  let inFlight = 0;
+  const total = queue.length;
+
+  return new Promise((resolve) => {
+    function launch() {
+      while (inFlight < concurrency && nextIdx < total) {
+        if (abortSignal?.aborted || breaker.shouldStop) break;
+        const scenario = queue[nextIdx++];
+        inFlight++;
+        tokenManager.getToken(scenario).then((token) => {
+          const headers = buildHeaders(scenario, token);
+          return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+        }).then((result) => {
+          allResults.push(result);
+          breaker.record(result);
+          inFlight--;
+          onProgress(allResults.length, total, allResults);
+          if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
+            resolve(allResults);
+          } else {
+            launch();
+          }
+        });
+      }
+      if (nextIdx >= total && inFlight === 0) {
+        resolve(allResults);
+      }
+    }
+    launch();
+  });
+}
+
+export { executeWithRetry };

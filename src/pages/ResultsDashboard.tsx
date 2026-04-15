@@ -1,65 +1,15 @@
-import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { TestRun, RequestResult } from '../types';
+import ResponseDetailModal from '../components/ResponseDetailModal';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
 import { exportJson, exportCsv } from '../utils/export';
+import { buildGroups, type GroupByLevel, type GroupNode } from '../utils/resultsGrouping';
 
 interface Props {
   envName?: string;
   svcName?: string;
   projectName?: string;
-}
-
-type GroupByLevel = 'feature' | 'group' | 'test';
-
-interface GroupNode {
-  key: string;
-  results: RequestResult[];
-  children: GroupNode[];
-  total: number;
-  passed: number;
-  failed: number;
-  validationFailed: number;
-  avgTime: number;
-  minTime: number;
-  maxTime: number;
-}
-
-function computeStats(results: RequestResult[]): Omit<GroupNode, 'key' | 'results' | 'children'> {
-  const times = results.map((r) => r.responseTimeMs);
-  return {
-    total: results.length,
-    passed: results.filter((r) => r.passed).length,
-    failed: results.filter((r) => !r.passed && r.errorMessage).length,
-    validationFailed: results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length,
-    avgTime: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
-    minTime: times.length ? Math.min(...times) : 0,
-    maxTime: times.length ? Math.max(...times) : 0,
-  };
-}
-
-function buildGroups(results: RequestResult[], levels: GroupByLevel[]): GroupNode[] {
-  if (levels.length === 0 || results.length === 0) return [];
-
-  const [level, ...rest] = levels;
-  const map = new Map<string, RequestResult[]>();
-
-  for (const r of results) {
-    let key: string;
-    if (level === 'feature') key = r.featureGroupName || '(unknown feature)';
-    else if (level === 'group') key = r.groupName || '(unknown group)';
-    else key = r.scenarioName;
-    const arr = map.get(key);
-    if (arr) arr.push(r);
-    else map.set(key, [r]);
-  }
-
-  return Array.from(map.entries()).map(([key, items]) => ({
-    key,
-    results: items,
-    children: rest.length > 0 ? buildGroups(items, rest) : [],
-    ...computeStats(items),
-  }));
 }
 
 export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
@@ -195,14 +145,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     else if (val === 'group') setSubGroupBy('test');
   };
 
-  /* ── Response Detail Modal ── */
   const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
-
-  const formatResponseBody = useCallback((body: string) => {
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch { return body; }
-  }, []);
 
   const renderErrorSnippet = (r: RequestResult) => {
     const hasError = !r.passed && (r.errorMessage || r.responseBody);
@@ -570,69 +513,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
         )}
       </div>
 
-      {/* Response Detail Modal */}
-      {responseModal && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setResponseModal(null); }}>
-          <div className="modal response-detail-modal">
-            <div className="modal-header">
-              <h3>Response Detail</h3>
-            </div>
-            <div className="response-detail-body">
-              <div className="response-detail-meta">
-                <div className="response-meta-row">
-                  <span className={`method-badge method-${responseModal.method.toLowerCase()}`}>{responseModal.method}</span>
-                  <span className="response-meta-name">{responseModal.scenarioName}</span>
-                  <span className={`tag ${responseModal.httpStatus >= 400 ? 'tag-danger' : responseModal.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>
-                    {responseModal.httpStatus || 'ERR'}
-                  </span>
-                  <span className="tag">{responseModal.responseTimeMs} ms</span>
-                  <span className={`tag ${responseModal.passed ? 'tag-success' : 'tag-danger'}`}>
-                    {responseModal.passed ? 'Passed' : 'Failed'}
-                  </span>
-                </div>
-                <div className="response-meta-url">{responseModal.url}</div>
-              </div>
-
-              {responseModal.errorMessage && (
-                <div className="response-detail-section">
-                  <h4>Error Message</h4>
-                  <div className="response-error-box">{responseModal.errorMessage}</div>
-                </div>
-              )}
-
-              {responseModal.failureDetails.length > 0 && (
-                <div className="response-detail-section">
-                  <h4>Validation Failures ({responseModal.failureDetails.length})</h4>
-                  <table className="response-failures-table">
-                    <thead>
-                      <tr><th>Path</th><th>Expected</th><th>Actual</th></tr>
-                    </thead>
-                    <tbody>
-                      {responseModal.failureDetails.map((f, i) => (
-                        <tr key={i}>
-                          <td className="failure-path">{f.path}</td>
-                          <td className="failure-expected">{f.expected}</td>
-                          <td className="failure-actual">{f.actual}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {responseModal.responseBody && (
-                <div className="response-detail-section">
-                  <h4>Response Body</h4>
-                  <pre className="response-body-pre">{formatResponseBody(responseModal.responseBody)}</pre>
-                </div>
-              )}
-            </div>
-            <div className="response-detail-footer">
-              <button className="btn btn-primary" onClick={() => setResponseModal(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
     </div>
   );
 }
