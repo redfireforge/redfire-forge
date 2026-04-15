@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { AuthConfig, ExecutionMode, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestSummary, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
+import type { AuthConfig, ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestSummary, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import { getTargetConcurrency } from '../engine/executor';
@@ -29,6 +29,12 @@ interface RunnerConfig {
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  timeoutSec?: number;
+  retryCount?: number;
+  retryDelayMs?: number;
+  errorPolicy?: ErrorPolicy;
+  maxErrors?: number;
+  maxErrorRate?: number;
 }
 
 const defaultConfig: RunnerConfig = {
@@ -252,6 +258,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
+  const [timeoutSec, setTimeoutSec] = useState(10);
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryDelayMs, setRetryDelayMs] = useState(1000);
+  const [errorPolicy, setErrorPolicy] = useState<ErrorPolicy>('continue');
+  const [maxErrors, setMaxErrors] = useState(10);
+  const [maxErrorRate, setMaxErrorRate] = useState(50);
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [configLoaded, setConfigLoaded] = useState(false);
   const [weightsExpanded, setWeightsExpanded] = useState(true);
@@ -302,6 +314,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(saved.customBaseUrl ?? '');
         setExecutionMode(saved.executionMode ?? 'batch');
         if (saved.loadProfile) setLoadProfile(saved.loadProfile);
+        setTimeoutSec(saved.timeoutSec ?? 10);
+        setRetryCount(saved.retryCount ?? 0);
+        setRetryDelayMs(saved.retryDelayMs ?? 1000);
+        setErrorPolicy(saved.errorPolicy ?? 'continue');
+        setMaxErrors(saved.maxErrors ?? 10);
+        setMaxErrorRate(saved.maxErrorRate ?? 50);
       } else {
         setConcurrency(defaultConfig.concurrency);
         setTotalTransactions(defaultConfig.totalTransactions);
@@ -312,6 +330,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(defaultConfig.customBaseUrl);
         setExecutionMode(defaultConfig.executionMode);
         setLoadProfile({ ...defaultLoadProfile });
+        setTimeoutSec(10);
+        setRetryCount(0);
+        setRetryDelayMs(1000);
+        setErrorPolicy('continue');
+        setMaxErrors(10);
+        setMaxErrorRate(50);
       }
       setConfigLoaded(true);
     });
@@ -329,8 +353,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       customBaseUrl,
       executionMode,
       loadProfile,
+      timeoutSec,
+      retryCount,
+      retryDelayMs,
+      errorPolicy,
+      maxErrors,
+      maxErrorRate,
     }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile]);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
 
   const selectedTests: Scenario[] = useMemo(() => {
     const resolveAuth = (test: Scenario, sc: { auth?: AuthConfig }, fg: FeatureGroup): AuthConfig => {
@@ -354,7 +384,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             const validation = skipValidation ? { mode: 'none' as const } : test.validation;
             const auth = resolveAuth(test, sc, fg);
-            tests.push({ ...test, url, auth, validation });
+            tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
           }
         }
       }
@@ -422,6 +452,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioWeights,
       executionMode,
       ...(isLoadProfile ? { loadProfile } : {}),
+      timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
+      retryCount: retryCount > 0 ? retryCount : 0,
+      retryDelayMs,
+      errorPolicy,
+      maxErrors,
+      maxErrorRate,
     };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     execute(config, selectedTests, { projectName, envName, svcName, baseUrl: usedBaseUrl });
@@ -499,19 +535,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         )}
       </div>
 
+      <div className="execution-group">
       <div className="runner-option-boxes">
-        <div className="runner-option-box">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={skipValidation}
-              onChange={(e) => setSkipValidation(e.target.checked)}
-              disabled={isRunning}
-            />
-            Skip validation
-          </label>
-        </div>
-
         <div className="runner-option-box" style={{ flex: 1 }}>
           <span className="runner-exec-label">Execution Mode:</span>
           <label className="radio-label" title="Executes requests one by one in sequence. No parallelism.">
@@ -542,6 +567,179 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         </div>
       </div>
 
+      {/* Concurrency, Transactions, Timeout, Retry, Error Policy */}
+      <div className="resilience-config">
+        <div className="resilience-row">
+          <div className="resilience-field resilience-field-sm">
+            <label>Concurrency</label>
+            <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile} />
+            {executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
+            {isLoadProfile && <span className="field-hint">Set in profile</span>}
+          </div>
+          <div className="resilience-field resilience-field-sm">
+            <label>Transactions</label>
+            <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => setTotalTransactions(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile} />
+            {!isLoadProfile && totalTransactions < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
+            {isLoadProfile && <span className="field-hint">Time-based</span>}
+          </div>
+          <div className="resilience-divider" />
+          <div className="resilience-field resilience-field-sm">
+            <label>Timeout</label>
+            <div className="input-with-unit">
+              <input type="number" min={0} max={300} value={timeoutSec} onChange={(e) => setTimeoutSec(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+              <span className="unit">sec</span>
+            </div>
+            {timeoutSec === 0 && <span className="field-hint">No timeout</span>}
+          </div>
+          <div className="resilience-field resilience-field-sm">
+            <label>Retry</label>
+            <div className="input-with-unit">
+              <input type="number" min={0} max={10} value={retryCount} onChange={(e) => setRetryCount(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+              <span className="unit">times</span>
+            </div>
+            {retryCount === 0 && <span className="field-hint">No retry</span>}
+          </div>
+          {retryCount > 0 && (
+            <div className="resilience-field resilience-field-sm">
+              <label>Retry Delay</label>
+              <div className="input-with-unit">
+                <input type="number" min={0} max={30000} step={100} value={retryDelayMs} onChange={(e) => setRetryDelayMs(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+                <span className="unit">ms</span>
+              </div>
+            </div>
+          )}
+          <div className="resilience-divider" />
+          <div className="resilience-field" style={{ flex: '0 0 auto' }}>
+            <label>On Error</label>
+            <div className="error-policy-options">
+              <label className="radio-label">
+                <input type="radio" name="errorPolicy" checked={errorPolicy === 'continue'} onChange={() => setErrorPolicy('continue')} disabled={isRunning} />
+                Continue
+              </label>
+              <label className="radio-label">
+                <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-first'} onChange={() => setErrorPolicy('stop-first')} disabled={isRunning} />
+                Stop 1st
+              </label>
+              <label className="radio-label">
+                <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-threshold'} onChange={() => setErrorPolicy('stop-threshold')} disabled={isRunning} />
+                Threshold
+              </label>
+            </div>
+          </div>
+          <div className="resilience-field resilience-field-xs">
+            <label>Max Errors</label>
+            <input type="number" min={1} max={10000} value={maxErrors} onChange={(e) => setMaxErrors(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
+          </div>
+          <div className="resilience-field resilience-field-xs">
+            <label>Error Rate</label>
+            <div className="input-with-unit">
+              <input type="number" min={1} max={100} value={maxErrorRate} onChange={(e) => setMaxErrorRate(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
+              <span className="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Load Profile config */}
+      {isLoadProfile && (
+        <div className="load-profile-section">
+          <div className="load-profile-body">
+            <div className="load-profile-controls">
+              <div className="profile-type-selector">
+                {(['ramp-up', 'sustained', 'spike'] as LoadProfileType[]).map((pt) => (
+                  <button
+                    key={pt}
+                    className={`profile-type-btn ${loadProfile.type === pt ? 'active' : ''}`}
+                    onClick={() => updateProfile({ type: pt })}
+                    disabled={isRunning}
+                  >
+                    {profileLabel(pt)}
+                  </button>
+                ))}
+              </div>
+              <div className="profile-type-desc">{profileDescriptions[loadProfile.type]}</div>
+
+              <div className="profile-fields">
+                <div className="profile-field-row">
+                  <div className="profile-field">
+                    <label>Duration (sec)</label>
+                    <input
+                      type="number" min={5} max={3600}
+                      value={loadProfile.durationSec}
+                      onChange={(e) => updateProfile({ durationSec: parseInt(e.target.value) || 0 })}
+                      onBlur={() => updateProfile({ durationSec: Math.min(3600, Math.max(5, loadProfile.durationSec || 5)) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                  <div className="profile-field">
+                    <label>{loadProfile.type === 'spike' ? 'Base Concurrency' : 'Max Concurrency'}</label>
+                    <input
+                      type="number" min={1} max={100}
+                      value={loadProfile.maxConcurrency}
+                      onChange={(e) => updateProfile({ maxConcurrency: parseInt(e.target.value) || 0 })}
+                      onBlur={() => updateProfile({ maxConcurrency: Math.min(100, Math.max(1, loadProfile.maxConcurrency || 1)) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                  {loadProfile.type === 'ramp-up' && (
+                    <div className="profile-field">
+                      <label>Ramp (sec)</label>
+                      <input
+                        type="number" min={1} max={loadProfile.durationSec}
+                        value={loadProfile.rampUpSec ?? 30}
+                        onChange={(e) => updateProfile({ rampUpSec: parseInt(e.target.value) || 0 })}
+                        onBlur={() => updateProfile({ rampUpSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.rampUpSec || 1)) })}
+                        disabled={isRunning}
+                      />
+                    </div>
+                  )}
+                  {loadProfile.type === 'spike' && (
+                    <>
+                      <div className="profile-field">
+                        <label>Spike Concurrency</label>
+                        <input
+                          type="number" min={1} max={500}
+                          value={loadProfile.spikeConcurrency ?? 30}
+                          onChange={(e) => updateProfile({ spikeConcurrency: parseInt(e.target.value) || 0 })}
+                          onBlur={() => updateProfile({ spikeConcurrency: Math.min(500, Math.max(1, loadProfile.spikeConcurrency || 1)) })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                      <div className="profile-field">
+                        <label>Spike Start (sec)</label>
+                        <input
+                          type="number" min={0} max={loadProfile.durationSec}
+                          value={loadProfile.spikeStartSec ?? 20}
+                          onChange={(e) => updateProfile({ spikeStartSec: parseInt(e.target.value) || 0 })}
+                          onBlur={() => updateProfile({ spikeStartSec: Math.min(loadProfile.durationSec, Math.max(0, loadProfile.spikeStartSec || 0)) })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                      <div className="profile-field">
+                        <label>Spike Duration (sec)</label>
+                        <input
+                          type="number" min={1} max={loadProfile.durationSec}
+                          value={loadProfile.spikeDurationSec ?? 10}
+                          onChange={(e) => updateProfile({ spikeDurationSec: parseInt(e.target.value) || 0 })}
+                          onBlur={() => updateProfile({ spikeDurationSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.spikeDurationSec || 1)) })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="profile-preview-container">
+              <ProfilePreview profile={loadProfile} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      </div>
+
       {!hasAnyTests ? (
         <div className="empty-state">No tests defined. Go to Feature Groups tab to add some first.</div>
       ) : (
@@ -553,6 +751,15 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               <div className="selection-actions">
                 <button className="btn btn-sm" onClick={selectAll} disabled={isRunning}>Select All</button>
                 <button className="btn btn-sm" onClick={deselectAll} disabled={isRunning}>Deselect All</button>
+                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={skipValidation}
+                    onChange={(e) => setSkipValidation(e.target.checked)}
+                    disabled={isRunning}
+                  />
+                  Skip validation
+                </label>
                 <span className="filter-count">
                   {selectedScenarios.size} scenario{selectedScenarios.size !== 1 ? 's' : ''} selected
                   ({selectedTests.length} test{selectedTests.length !== 1 ? 's' : ''})
@@ -612,124 +819,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {/* Config */}
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-
-              {/* Count-based config (non-load-profile) */}
-              {!isLoadProfile && (
-                <div className="form-row" style={{ display: 'flex', gap: 24 }}>
-                  <div style={{ flex: 1 }}>
-                    <label>Concurrency (parallel requests)</label>
-                    <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => setConcurrency(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential'} />
-                    {executionMode === 'sequential' && <span className="field-hint">Fixed to 1 in sequential mode</span>}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label>Total Transactions</label>
-                    <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => setTotalTransactions(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning} />
-                    {totalTransactions < activeTestCount && (
-                      <span className="field-hint">{activeTestCount} tests active — top-weighted {totalTransactions} will be picked</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Load Profile config */}
-              {isLoadProfile && (
-                <div className="load-profile-panel">
-                  <h4 style={{ margin: '0 0 8px' }}>Load Profile Configuration</h4>
-                  <div className="load-profile-body">
-                    <div className="load-profile-controls">
-                      <div className="profile-type-selector">
-                        {(['ramp-up', 'sustained', 'spike'] as LoadProfileType[]).map((pt) => (
-                          <button
-                            key={pt}
-                            className={`profile-type-btn ${loadProfile.type === pt ? 'active' : ''}`}
-                            onClick={() => updateProfile({ type: pt })}
-                            disabled={isRunning}
-                          >
-                            {profileLabel(pt)}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="profile-type-desc">{profileDescriptions[loadProfile.type]}</div>
-
-                      <div className="profile-fields">
-                        <div className="profile-field-row">
-                          <div className="profile-field">
-                            <label>Duration (seconds)</label>
-                            <input
-                              type="number" min={5} max={3600}
-                              value={loadProfile.durationSec}
-                              onChange={(e) => updateProfile({ durationSec: parseInt(e.target.value) || 0 })}
-                              onBlur={() => updateProfile({ durationSec: Math.min(3600, Math.max(5, loadProfile.durationSec || 5)) })}
-                              disabled={isRunning}
-                            />
-                          </div>
-                          <div className="profile-field">
-                            <label>{loadProfile.type === 'spike' ? 'Base Concurrency' : 'Max Concurrency'}</label>
-                            <input
-                              type="number" min={1} max={100}
-                              value={loadProfile.maxConcurrency}
-                              onChange={(e) => updateProfile({ maxConcurrency: parseInt(e.target.value) || 0 })}
-                              onBlur={() => updateProfile({ maxConcurrency: Math.min(100, Math.max(1, loadProfile.maxConcurrency || 1)) })}
-                              disabled={isRunning}
-                            />
-                          </div>
-                          {loadProfile.type === 'ramp-up' && (
-                            <div className="profile-field">
-                              <label>Ramp Duration (seconds)</label>
-                              <input
-                                type="number" min={1} max={loadProfile.durationSec}
-                                value={loadProfile.rampUpSec ?? 30}
-                                onChange={(e) => updateProfile({ rampUpSec: parseInt(e.target.value) || 0 })}
-                                onBlur={() => updateProfile({ rampUpSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.rampUpSec || 1)) })}
-                                disabled={isRunning}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {loadProfile.type === 'spike' && (
-                          <div className="profile-field-row">
-                            <div className="profile-field">
-                              <label>Spike Concurrency</label>
-                              <input
-                                type="number" min={1} max={500}
-                                value={loadProfile.spikeConcurrency ?? 30}
-                                onChange={(e) => updateProfile({ spikeConcurrency: parseInt(e.target.value) || 0 })}
-                                onBlur={() => updateProfile({ spikeConcurrency: Math.min(500, Math.max(1, loadProfile.spikeConcurrency || 1)) })}
-                                disabled={isRunning}
-                              />
-                            </div>
-                            <div className="profile-field">
-                              <label>Spike Start (seconds)</label>
-                              <input
-                                type="number" min={0} max={loadProfile.durationSec}
-                                value={loadProfile.spikeStartSec ?? 20}
-                                onChange={(e) => updateProfile({ spikeStartSec: parseInt(e.target.value) || 0 })}
-                                onBlur={() => updateProfile({ spikeStartSec: Math.min(loadProfile.durationSec, Math.max(0, loadProfile.spikeStartSec || 0)) })}
-                                disabled={isRunning}
-                              />
-                            </div>
-                            <div className="profile-field">
-                              <label>Spike Duration (seconds)</label>
-                              <input
-                                type="number" min={1} max={loadProfile.durationSec}
-                                value={loadProfile.spikeDurationSec ?? 10}
-                                onChange={(e) => updateProfile({ spikeDurationSec: parseInt(e.target.value) || 0 })}
-                                onBlur={() => updateProfile({ spikeDurationSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.spikeDurationSec || 1)) })}
-                                disabled={isRunning}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="profile-preview-container">
-                      <ProfilePreview profile={loadProfile} />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <fieldset>
                 <legend
@@ -802,7 +891,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                       {' · '}T:{displayTotal}
                     </>
                   )}
-                </span></h3>
+                </span>
+                <span className="progress-host-tag">
+                  {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
+                </span>
+                </h3>
                 {!isRunning && savedProgress && (
                   <button className="btn btn-xs btn-ghost" onClick={handleClearProgress} title="Clear progress">✕ Clear</button>
                 )}

@@ -689,7 +689,7 @@ export default function TestEditorModal({
               Import
             </button>
             <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
-            <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>CSV Template</button>
+            <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
           </div>
           <div className="insomnia-top-actions">
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>

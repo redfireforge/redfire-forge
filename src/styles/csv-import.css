@@ -186,6 +186,95 @@
   padding-left: 4px;
 }
 
+/* Clickable error rows */
+.csv-row-clickable {
+  cursor: pointer;
+}
+.csv-row-clickable:hover td {
+  background: rgba(231, 76, 60, 0.12);
+}
+
+/* Expanded error row */
+.csv-row-error-expanded td {
+  background: rgba(231, 76, 60, 0.05);
+  padding: 0 !important;
+}
+.csv-row-error-details {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.csv-row-error-line {
+  font-size: 0.75rem;
+  color: #e74c3c;
+  font-weight: 500;
+}
+.csv-row-raw-data {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+.csv-raw-kv {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  background: var(--surface);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.7rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.csv-raw-key {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* File-level error & warning boxes */
+.import-error-box {
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-error-fatal {
+  background: rgba(231, 76, 60, 0.08);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+.import-error-warn {
+  background: rgba(243, 156, 18, 0.08);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+}
+.import-error-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.import-error-fatal .import-error-title {
+  color: #e74c3c;
+}
+.import-error-warn .import-error-title {
+  color: #f39c12;
+}
+.import-error-msg {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.import-error-fatal .import-error-msg {
+  color: #c0392b;
+}
+.import-error-warn .import-error-msg {
+  color: #b8860b;
+}
+
 /* Destination fields */
 .csv-dest-fields {
   display: flex;
@@ -429,4 +518,271 @@
 }
 .csv-fixed-summary strong {
   color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+   Excel Export Wizard — Step Indicator, Column Table, Review
+   --------------------------------------------------------------------------- */
+
+/* Step indicator bar */
+.excel-steps-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.excel-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.excel-step-indicator.active {
+  color: var(--accent, #3498db);
+  border-bottom-color: var(--accent, #3498db);
+  font-weight: 600;
+}
+.excel-step-indicator.done {
+  color: #27ae60;
+}
+.excel-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--border);
+  color: var(--text-muted);
+}
+.excel-step-indicator.active .excel-step-num {
+  background: var(--accent, #3498db);
+  color: #fff;
+}
+.excel-step-indicator.done .excel-step-num {
+  background: #27ae60;
+  color: #fff;
+}
+.excel-step-label {
+  white-space: nowrap;
+}
+
+/* Step content container */
+.excel-step-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.excel-step-content.excel-step-columns,
+.excel-step-content.excel-step-review {
+  flex-direction: column;
+  padding: 16px 20px;
+  overflow-y: auto;
+  gap: 16px;
+}
+
+/* Footer navigation */
+.excel-export-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------------------
+   Step 2: Column Names Table
+   --------------------------------------------------------------------------- */
+.excel-col-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.excel-col-table-wrap::-webkit-scrollbar { width: 5px; }
+.excel-col-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.excel-col-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.excel-col-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.excel-col-table th {
+  background: var(--surface);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.excel-col-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.excel-col-table tr:last-child td { border-bottom: none; }
+
+.excel-col-num {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.excel-col-path code {
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: var(--text-muted);
+}
+.excel-col-auto {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Type badges */
+.excel-col-type-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.excel-col-type-badge.type-name { background: var(--surface); color: var(--text); }
+.excel-col-type-badge.type-path { background: rgba(155, 89, 182, 0.1); color: #9b59b6; }
+.excel-col-type-badge.type-param { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+.excel-col-type-badge.type-validate { background: rgba(39, 174, 96, 0.1); color: #27ae60; }
+
+/* Editable input */
+.excel-col-input {
+  width: 100%;
+  max-width: 200px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+.excel-col-input:focus {
+  outline: none;
+  border-color: var(--accent, #3498db);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+}
+.excel-col-input.input-error {
+  border-color: #e74c3c;
+}
+.excel-col-err {
+  font-size: 0.68rem;
+  color: #e74c3c;
+  margin-left: 6px;
+}
+.excel-col-row-error td {
+  background: rgba(231, 76, 60, 0.04);
+}
+
+/* ---------------------------------------------------------------------------
+   Step 3: Review & Confirm
+   --------------------------------------------------------------------------- */
+.excel-review-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.excel-review-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.excel-review-table-wrap::-webkit-scrollbar { width: 5px; height: 5px; }
+.excel-review-table-wrap::-webkit-scrollbar-track { background: transparent; }
+.excel-review-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.excel-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.excel-review-table th {
+  background: var(--surface);
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.excel-review-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.excel-review-table tr:last-child td { border-bottom: none; }
+.excel-review-table.excel-review-table-sm td,
+.excel-review-table.excel-review-table-sm th {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+/* Type dot (small circle before header in data preview) */
+.excel-col-type-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.excel-col-type-dot.type-name { background: var(--text-muted); }
+.excel-col-type-dot.type-path { background: #9b59b6; }
+.excel-col-type-dot.type-param { background: #3498db; }
+.excel-col-type-dot.type-validate { background: #27ae60; }
+
+/* Meta groups in review */
+.excel-review-meta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.excel-review-meta-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.excel-review-kv-list {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 4px;
+}
+.excel-review-kv-list strong {
+  color: var(--text);
+}
+.text-muted {
+  color: var(--text-muted);
+  font-style: italic;
 }

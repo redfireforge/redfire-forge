@@ -77,6 +77,8 @@ export interface Scenario {
   validation: ValidationConfig;
   fetchHostOverride?: string;
   fetchHostEnabled?: boolean;
+  featureGroupName?: string;
+  groupName?: string;
 }
 
 export interface TestScenario {
@@ -134,12 +136,20 @@ export interface LoadProfileConfig {
   spikeDurationSec?: number;
 }
 
+export type ErrorPolicy = 'continue' | 'stop-first' | 'stop-threshold';
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  timeoutSec?: number;
+  retryCount?: number;
+  retryDelayMs?: number;
+  errorPolicy?: ErrorPolicy;
+  maxErrors?: number;
+  maxErrorRate?: number;
 }
 
 export interface FailureDetail {
@@ -152,6 +162,8 @@ export interface RequestResult {
   id: string;
   scenarioId: string;
   scenarioName: string;
+  featureGroupName?: string;
+  groupName?: string;
   url: string;
   method: string;
   httpStatus: number;

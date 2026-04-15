@@ -121,8 +121,8 @@ src/
 │   ├── SettingsModal.tsx        # Split-panel settings (projects, auth, export/import, storage)
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Full test editor (params, body, auth, headers, validation)
-│   ├── CsvTemplateExportModal.tsx # CSV template export with URL variable analysis
-│   ├── CsvImportModal.tsx       # CSV/Excel import with drag-and-drop support
+│   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard (variables → columns → review)
+│   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop support
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   └── ImportCenter.tsx         # Import with per-item conflict resolution
 ├── utils/
@@ -367,20 +367,35 @@ Auth badges are color-coded by level for quick visual identification:
 - **Builder** (default): Fill in fields visually.
 - **cURL Import**: Paste a cURL command to auto-populate all fields (URL, method, headers, body, auth).
 - **cURL Export**: Generates a ready-to-use cURL command from the current config. For OAuth2 tests, it **fetches a real access token** and embeds it in the command. For Digest auth, it generates `--digest -u` flags. For API Key in query mode, the key is appended to the URL. Use the **Refresh** button to get a new token.
-- **CSV Template**: Generate a CSV template from the current test for bulk test creation. The template analyzes the URL to identify variable path segments and query parameters, letting you mark which parts vary per test. Import the filled CSV to create many tests at once.
+- **Export Template**: Generate a multi-sheet Excel (`.xlsx`) template from the current test for bulk test creation. A 3-step wizard guides you through: (1) select which URL path segments are variable, (2) review and customize auto-generated short column names, (3) preview both sheets and confirm download.
 
-**CSV Template Import:**
+**Excel Template Format:**
 
-Import CSV files to create tests in bulk. Two import methods are supported:
-- **File picker**: Click to browse and select a CSV file.
-- **Drag-and-drop**: Drag a CSV/Excel file directly onto the import modal.
+The exported `.xlsx` file contains two sheets:
+
+| Sheet | Purpose |
+|---|---|
+| **Data** | One row per test. Columns split into "Request" (blue headers) and "Response (Validation)" (green headers). First row has sample data from the original test. |
+| **Metadata** | Read-only technical config: COLUMN MAPPINGS (short name → type → full path), CONFIG (method, URL pattern, auth, validation mode), and HEADERS sections with formatted tables. |
+
+**Import Template:**
+
+Import `.xlsx` or legacy `.csv` files to create tests in bulk. Two import methods are supported:
+- **File picker**: Click to browse and select an Excel or CSV file.
+- **Drag-and-drop**: Drag a file directly onto the import modal.
+
+Import includes comprehensive validation:
+- **File-level checks**: Missing sheets, invalid metadata structure, missing URL pattern or HTTP method.
+- **Row-level checks**: Missing required data, malformed entries — with expandable error details per row.
+- **Dynamic columns**: Columns in the Data sheet not defined in Metadata are automatically treated as validation fields.
+- **Warnings**: Non-blocking issues (e.g., unmapped columns) displayed in a yellow box.
+
+All three validation modes are fully supported through the export/import round-trip: No Validation, Full JSON Match, and Selective Fields.
 
 During import, choose the target:
 - **Existing Scenario**: Add tests to an existing scenario.
 - **New Scenario**: Create a new scenario inside an existing Feature Group.
-- **New Feature Group**: Create a new Feature Group with a new scenario.
-
-The CSV format uses a `#META:` header line for fixed test configuration (method, URL pattern, headers, auth, validation settings), a column header row with prefixed columns (`path:`, `param:`, `validate:`), and data rows where each row becomes one test.
+- **New Feature Group**: Create a new Feature Group with a new scenario (auto-fills scenario name from filename).
 
 **Verify Rules:**
 
@@ -450,22 +465,31 @@ Choose which hostname is used at runtime:
 
 **Configuration:**
 
+All execution settings are grouped in a single unified card below the Execution Mode selector.
+
 | Field | Description |
 |---|---|
-| **Concurrency** | Number of parallel requests (1–100). Automatically disabled and fixed to 1 when Sequential mode is selected. |
-| **Total Transactions** | Total number of requests to execute. Automatically adjusts upward if less than the number of selected tests (each runs at least once). |
+| **Concurrency** | Number of parallel requests (1–100). Fixed to 1 in Sequential mode. Disabled (visible) in Load Profile mode. |
+| **Transactions** | Total number of requests to execute. Disabled in Load Profile mode (time-based). |
+| **Timeout** | Per-request timeout in seconds (0 = unlimited, default 10s). Timed-out requests are recorded as failures. |
+| **Retry** | Number of retry attempts on failure (0–10). When > 0, a Retry Delay field appears. |
+| **Retry Delay** | Milliseconds to wait between retry attempts (shown only when Retry > 0). |
+| **On Error** | Error policy: **Continue** (ignore errors), **Stop 1st** (halt on first failure), or **Threshold** (halt when Max Errors count or Error Rate % is exceeded). |
+| **Max Errors** | Stop after this many errors (only active in Threshold mode). |
+| **Error Rate** | Stop when error percentage exceeds this value (only active in Threshold mode, requires minimum 10 samples). |
+| **Skip Validation** | Checkbox in the scenario selection header. Disables all response validation for pure throughput testing. |
 | **Test Distribution (Weights)** | Set relative weights per test. A test with weight `2` runs roughly twice as often as one with weight `1`. Set to `0` to skip a test without deselecting it. |
 
 **Running a Test:**
 
 1. Select one or more Scenarios using the checkboxes.
-2. Adjust concurrency, total transactions, and weights.
+2. Configure concurrency, transactions, timeout, retry, and error policy.
 3. Click **▶ Run Test**.
-4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`).
-5. Click **■ Stop** to abort early.
+4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`). The active host is displayed alongside.
+5. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
 6. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, transactions, timeout, retry, error policy, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
 
 ### Results Dashboard
 
@@ -500,9 +524,13 @@ A bar chart shows the distribution of response times in histogram buckets.
 
 **Request Details Table:**
 
-- Filter by scenario, pass/fail status.
-- Paginated view of individual requests showing method, URL, status, response time, and validation result.
-- Expand a row to see the full response body and any validation failure details.
+- **Group By**: Cascade grouping with three levels — Feature, Scenario, or Test Name (flat). Select a primary group, then a sub-group (e.g., Feature → then by Scenario). Collapsible rows show per-group stats: total, passed, failed, validation failed, avg/min/max response times.
+- **Detail Column Headers**: When expanding a group to individual results, a header row appears with Test Name, URL, Status, Validation, Time, Passed, and Error/Details columns.
+- **Error Snippets**: Failed requests show a clickable error snippet (red chip for HTTP errors, orange for validation failures) truncated to 100 characters.
+- **Response Detail Modal**: Click any error snippet to open a modal with: method badge, test name, status code, timing, full URL, error message, validation failures table (path/expected/actual), and the complete response body (formatted JSON, scrollable).
+- **Search**: Text search filters results by name, URL, feature group, scenario, or error message.
+- Filter by pass/fail status (All, Passed Only, Failed Only).
+- Flat view with pagination for individual request details (method, URL, status, response time, validation).
 - Alternating row stripes for readability.
 
 **Export:**
@@ -530,8 +558,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Full & selective validation | Deep JSON compare, specific path checks, unordered arrays |
 | Visual JSON path builder | Click fields in a sample JSON tree to build validation rules |
 | Smart path remapping | Auto-detects and remaps JSON paths when structure differs |
-| CSV template export/import | Generate CSV templates from tests, import filled CSVs to bulk-create tests with validation rules |
-| Drag-and-drop CSV import | Drag CSV/Excel files directly onto the import modal |
+| Multi-sheet Excel template export | 3-step wizard: select path variables → customize column names → review & download styled `.xlsx` with Data + Metadata sheets |
+| Excel/CSV template import | Import `.xlsx` or legacy `.csv` with file-level and row-level validation, dynamic column detection, all three validation modes |
+| Drag-and-drop file import | Drag Excel/CSV files directly onto the import modal; auto-fills scenario name from filename |
+| Response Detail modal | Click error snippets on failed results to view full error message, validation failures table, and response body |
 | Verify validation rules | Invoke API and compare response against expected validation rules with host override |
 | Auto-refreshing OAuth2 tokens | Shared token cache with JWT expiry detection; auto-refresh with 30s buffer, no duplicate requests |
 | Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
@@ -541,11 +571,19 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Visual diff comparison | Full-screen modal with side-by-side JSON diff (response + validation rules), monokai dark theme |
 | Duplicate version prevention | Auto-detects unchanged responses using canonical JSON comparison with excluded-paths support |
 | Unordered array diffing | Compare arrays ignoring element order, including arrays of complex objects |
+| Request timeout | Per-request timeout (0–300s, default 10s); timed-out requests move to next test |
+| Retry on failure | Retry failed requests up to N times with configurable delay between attempts |
+| Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
+| Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
+| Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |
+| Advanced search (Scenario Builder) | Boolean search: AND, OR, NOT/-, "quoted phrases", (parentheses); searches name, URL, method, headers, body, auth, validation |
+| Results search | Filter request details by name, URL, feature, group, or error message |
+| Host badge on Progress | Active host (Settings/Custom/Original) displayed next to execution mode in Progress section |
 | Rich metrics dashboard | TPS/TPM/TPH/TPD, percentiles, error rates, response distribution |
 | JSON & CSV export | Export results with native file picker dialog |
 | Export Center | Selectively export any combination of environments, microservices, global auth profiles, features, and runs |
