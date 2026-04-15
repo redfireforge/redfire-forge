@@ -42,11 +42,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 218 unit tests across 14 test files
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 306 unit/integration tests (Vitest) + 17 E2E tests (Playwright) = 323 total
 - **No CLI / CI** — without pipeline integration, adoption is limited to manual QA
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths broken into 25 focused modules; largest file now ~1100 lines
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ---
@@ -94,35 +94,47 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ### Phase 0.8.0 — Test Suite & Code Quality ✅
 
-> **Moved up from Phase 1.0.** Zero tests is a blocker for open-source credibility. Contributors won't trust or contribute to an untested codebase.
+> Zero tests was a blocker for open-source credibility. Contributors won't trust or contribute to an untested codebase.
 
 - [x] **Unit Tests — Executor** — `executor.ts`: buildHeaders (6 auth types), buildUrl, Content-Type auto-detection (24 tests)
 - [x] **Unit Tests — Validator** — `validator.ts`: getByPath, full match, selective, unordered arrays, path remapping (28 tests)
 - [x] **Unit Tests — Metrics** — `metrics.ts`: summary stats, TPS, percentiles, error rates (16 tests)
 - [x] **Unit Tests — CSV/Excel** — `csvTemplateUrl.ts`: parseUrl, analyzeUrlPath, buildUrlFromTemplate (12 tests)
-- [x] **Unit Tests — Engine** — `circuitBreaker.ts` (10 tests), `loadProfileRunner.ts` (14 tests), `scenarioSearch.ts` (25 tests), `curlParser.ts` (14 tests)
-- [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28 tests), `resultsGrouping.ts` (14 tests), `jsonPathTreeUtils.ts` (24 tests), `helpers.ts` (2 tests), `fileSaver.ts` (5 tests), `export.ts` (2 tests)
-- [x] **Integration Tests** — Storage layer (31 tests), auth inheritance resolution (15 tests), JSON import/export roundtrips (15 tests), CSV template roundtrips (12 tests), Excel template roundtrips (15 tests)
-- [x] **E2E Tests** — Playwright tests: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
+- [x] **Unit Tests — Engine** — `circuitBreaker.ts` (10), `loadProfileRunner.ts` (14), `scenarioSearch.ts` (25), `curlParser.ts` (14)
+- [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
+- [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
+- [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
 - [x] **`npm test` Script** — Vitest (306 tests, <1s) + Playwright E2E (17 tests, <10s)
-- [ ] **CI Test Pipeline** — GitHub Actions runs tests on every PR
 - [x] **Refactor Large Components** — 8 monoliths broken into 25 focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
 
 ## Upcoming Phases
 
-### Phase 0.7.0 — CLI & CI Integration ⬆️ PRIORITY
+### Phase 0.7.0 — CLI Runner ⬆️ PRIORITY
 
-> **Moved up from Phase 1.0.** Without CLI/CI, the tool is limited to manual use. This is the single most important feature for adoption.
+> Without a CLI, the tool is limited to manual use. This is the single most important feature for adoption.
 
 - [ ] **File-Based Projects** — Store test definitions as `.yaml` or `.json` files committable to git
 - [ ] **CLI Runner** — `redfireforge run ./tests/checkout-flow.yaml --env t01 --concurrency 10 --duration 60s`
 - [ ] **CI Exit Codes** — Exit code 1 if assertions fail or error rate exceeds threshold
 - [ ] **JUnit XML Output** — For CI/CD integration (GitHub Actions, Jenkins, GitLab CI)
 - [ ] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports
-- [ ] **GitHub Actions Example** — Ready-to-use workflow YAML for running tests in CI
 - [ ] **npm Package** — Publish CLI as `npm install -g redfireforge`
+
+---
+
+### Phase 0.7.5 — CI/CD Pipeline
+
+> Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
+
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 306 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 17 tests) on every PR
+- [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
+- [ ] **PR Status Checks** — Require all CI jobs to pass before merge
+- [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
+- [ ] **Automated Version Tagging** — GitHub Action to create version tags on `master` merge
+- [ ] **Live Demo Deployment** — Auto-deploy web build to Vercel/Netlify on `master` push
 
 ---
 
@@ -213,32 +225,35 @@ Post-launch features driven by community feedback.
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | Data-Driven & Resilience | 8 | 8 |
 | 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
-| 0.7.0 | CLI & CI Integration | 7 | 0 |
-| 0.8.0 | Test Suite & Code Quality | 9 | 9 |
+| 0.7.0 | CLI Runner | 6 | 0 |
+| 0.7.5 | CI/CD Pipeline | 7 | 0 |
+| 0.8.0 | Test Suite & Code Quality | 10 | 10 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **80** | **33** |
+| **Total** | | **87** | **34** |
 
 ### Adoption Forecast
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (no CLI, no tests, no demo) | 50–200 | ❌ Not recommended |
-| Launch with CLI + tests + live demo | 500–2,000 | Phases 0.7–0.8 complete |
+| Launch now (no CLI, no CI pipeline, no demo) | 50–200 | ❌ Not recommended |
+| Launch with CLI + CI pipeline + live demo | 500–2,000 | Phases 0.7.0 + 0.7.5 complete |
 | Viral launch (HN front page, YouTube) | 2,000–5,000+ | All of above + great branding + luck |
 
 ### Critical Path to Open-Source (minimum viable launch)
 
 ```
-Phase 0.7.0 (CLI/CI)  →  Phase 0.8.0 (Tests)  →  Phase 1.0.0 (Launch)
-     ↑ MUST HAVE            ↑ MUST HAVE              ↑ MUST HAVE
+Phase 0.7.0 (CLI)  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
+     ↑ MUST HAVE          ↑ MUST HAVE              ↑ MUST HAVE
+
+Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
 ```
 
 Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launch but not blockers. They can ship as post-launch updates to sustain momentum.
 
 ---
 
-_Last updated: 2026-04-17 (v0.3.5 + integration/E2E tests complete)_
+_Last updated: 2026-04-17 (v0.3.5 — Phase 0.8.0 complete)_
