@@ -713,9 +713,11 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit test suite (Vitest, 218 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 306 tests) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage report |
+| `npm run test:e2e` | Run Playwright E2E tests (17 tests, Chromium) |
+| `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
 | `ENV=t01 COUNT=100 node scripts/generate-csv-from-db.cjs` | Generate CSV test template from PostgreSQL data dump |

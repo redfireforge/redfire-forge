@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { AuthConfig, ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
+import type { ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig, LoadProfileType } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../utils/storage';
+import { resolveAuth } from '../utils/authResolver';
 import { LiveCharts } from '../components/LiveCharts';
 import { ProfilePreview } from '../components/ProfilePreview';
 import { type PersistedProgress, profileDescriptions, saveProgress, loadProgress, clearProgress } from '../utils/runnerProgressStorage';
@@ -193,18 +194,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
 
   const selectedTests: Scenario[] = useMemo(() => {
-    const resolveAuth = (test: Scenario, sc: { auth?: AuthConfig }, fg: FeatureGroup): AuthConfig => {
-      if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
-      const scAuth = sc.auth;
-      if (scAuth && scAuth.type !== 'none' && scAuth.type !== 'inherit') return scAuth as AuthConfig;
-      const fgAuth = fg.auth;
-      if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') return fgAuth as AuthConfig;
-      if (fg.globalAuthProfileId) {
-        const profile = globalAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-        if (profile && profile.auth.type !== 'none') return profile.auth;
-      }
-      return { type: 'none' };
-    };
     const tests: Scenario[] = [];
     for (const fg of featureGroups) {
       for (const sc of fg.scenarios) {
@@ -213,7 +202,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             const effectiveBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '';
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             const validation = skipValidation ? { mode: 'none' as const } : test.validation;
-            const auth = resolveAuth(test, sc, fg);
+            const auth = resolveAuth(test, sc, fg, globalAuthProfiles);
             tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
           }
         }

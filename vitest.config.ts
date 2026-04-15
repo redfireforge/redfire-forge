@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', 'src-tauri'],
+    exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
   },
   resolve: {
     alias: {
