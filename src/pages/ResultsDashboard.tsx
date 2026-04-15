@@ -430,13 +430,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
       <div className="section">
         <h3>Request Details</h3>
         <div className="filter-row">
-          <input
-            className="results-search"
-            type="text"
-            placeholder="Search by name, URL, feature..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
-          />
           <select value={filterScenario} onChange={(e) => { setFilterScenario(e.target.value); setPage(0); }}>
             <option value="all">All Scenarios</option>
             {scenarioNames.map(([id, name]) => (
@@ -470,6 +463,13 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
               ? `${filteredResults.length} results`
               : `${groupCount} groups · ${filteredResults.length} results`}
           </span>
+          <input
+            className="results-search"
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+          />
         </div>
 
         {!isFlat ? (
