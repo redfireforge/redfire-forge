@@ -12,7 +12,11 @@ _Changes merged into `develop` that haven't been released yet._
 
 ### Added
 - **Unit Test Suite (218 tests)**: Comprehensive Vitest test suite covering 14 modules — validator, executor, circuit breaker, metrics, load profile runner, scenario search, cURL parser, JSON path tree utils, test editor utils, results grouping, CSV template URL, helpers, file saver, and CSV export
-- **`npm test` / `npm run test:watch` / `npm run test:coverage` scripts**: Runnable test suite with Vitest
+- **Integration Test Suite (88 tests)**: Storage layer roundtrips (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
+- **E2E Test Suite (17 tests)**: Playwright tests for critical UI flows — create feature group/scenario/test (4), run test and view completion (4), results dashboard (4), navigation and settings (5)
+- **`npm test` / `npm run test:watch` / `npm run test:coverage` scripts**: Runnable Vitest suite (306 tests)
+- **`npm run test:e2e` / `npm run test:e2e:headed` scripts**: Playwright E2E tests with Chromium
+- **Extracted `resolveAuth` utility** (`src/utils/authResolver.ts`): Shared auth inheritance chain resolver (Test → Scenario → Feature → Global → none), previously inline in TestRunner
 
 ### Changed
 - **Refactored 8 monolithic files into 25 focused modules**: No behavior changes; all existing imports preserved via barrel re-exports
