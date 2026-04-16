@@ -150,7 +150,8 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   const renderErrorSnippet = (r: RequestResult) => {
     const hasError = !r.passed && (r.errorMessage || r.responseBody);
     if (!hasError) return null;
-    const snippet = r.errorMessage || r.responseBody?.slice(0, 120) || '';
+    const raw = r.errorMessage || r.responseBody?.slice(0, 120) || '';
+    const snippet = typeof raw === 'string' ? raw : JSON.stringify(raw);
     const display = snippet.length > 100 ? snippet.slice(0, 100) + '…' : snippet;
     return (
       <span className="error-snippet" onClick={(e) => { e.stopPropagation(); setResponseModal(r); }} title="Click to view full response">

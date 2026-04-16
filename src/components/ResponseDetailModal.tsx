@@ -42,7 +42,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           {result.errorMessage && (
             <div className="response-detail-section">
               <h4>Error Message</h4>
-              <div className="response-error-box">{result.errorMessage}</div>
+              <div className="response-error-box">{typeof result.errorMessage === 'string' ? result.errorMessage : JSON.stringify(result.errorMessage)}</div>
             </div>
           )}
 
@@ -57,8 +57,8 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
                   {result.failureDetails.map((f, i) => (
                     <tr key={i}>
                       <td className="failure-path">{f.path}</td>
-                      <td className="failure-expected">{f.expected}</td>
-                      <td className="failure-actual">{f.actual}</td>
+                      <td className="failure-expected">{typeof f.expected === 'string' ? f.expected : JSON.stringify(f.expected)}</td>
+                      <td className="failure-actual">{typeof f.actual === 'string' ? f.actual : JSON.stringify(f.actual)}</td>
                     </tr>
                   ))}
                 </tbody>
