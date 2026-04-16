@@ -18,6 +18,7 @@ const LEGACY_GLOBAL_AUTH_KEY = 'perf-test-global-auth';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
+const MAX_STORED_RESULTS_PER_RUN = 2000;
 
 // ---------- Low-level read/write abstraction ----------
 
@@ -62,10 +63,26 @@ export async function setMaxRuns(n: number): Promise<void> {
 
 // ---------- Helpers ----------
 
-function truncateResponseBodies(run: TestRun): TestRun {
+function capAndTruncateResults(run: TestRun): TestRun {
+  let results = run.results;
+
+  if (results.length > MAX_STORED_RESULTS_PER_RUN) {
+    const failed = results.filter(r => !r.passed);
+    const passed = results.filter(r => r.passed);
+    const passedBudget = Math.max(0, MAX_STORED_RESULTS_PER_RUN - failed.length);
+    if (passed.length > passedBudget) {
+      const step = Math.ceil(passed.length / passedBudget);
+      const sampled: RequestResult[] = [];
+      for (let i = 0; i < passed.length && sampled.length < passedBudget; i += step) {
+        sampled.push(passed[i]);
+      }
+      results = [...failed, ...sampled];
+    }
+  }
+
   return {
     ...run,
-    results: run.results.map((r) => ({
+    results: results.map((r) => ({
       ...r,
       responseBody:
         r.responseBody.length > RESPONSE_BODY_MAX_CHARS
@@ -106,7 +123,7 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
 // ---------- Test runs (global, not per-project) ----------
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
-  const truncated = truncateResponseBodies(run);
+  const truncated = capAndTruncateResults(run);
   const runs = await loadTestRuns();
   runs.unshift(truncated);
   const max = await getMaxRuns();
@@ -120,7 +137,7 @@ export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaErr
 }
 
 export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
-  const truncated = truncateResponseBodies(run);
+  const truncated = capAndTruncateResults(run);
   let runs = await loadTestRuns();
   runs.unshift(truncated);
 
