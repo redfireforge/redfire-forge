@@ -1,4 +1,4 @@
-import type { LoadProfileConfig, Scenario, ScenarioWeight, RequestResult } from '../types';
+import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../types';
 import { buildHeaders } from './executor';
 import { executeWithRetry, type RunOpts } from './requestExecution';
 
@@ -95,6 +95,27 @@ export async function runLoadProfile(
       }).then((result) => {
         allResults.push(result);
         breaker.record(result);
+      }).catch((err) => {
+        const errorResult: RequestResult = {
+          id: `err-${Date.now()}`,
+          scenarioId: scenario.id,
+          scenarioName: scenario.name,
+          featureGroupName: scenario.featureGroupName,
+          groupName: scenario.groupName,
+          url: scenario.url,
+          method: scenario.method,
+          httpStatus: 0,
+          responseTimeMs: 0,
+          responseBody: '',
+          timestamp: Date.now(),
+          passed: false,
+          validationMode: scenario.validation.mode,
+          failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
+          errorMessage: err instanceof Error ? err.message : String(err),
+        };
+        allResults.push(errorResult);
+        breaker.record(errorResult);
+      }).finally(() => {
         inFlight--;
         const elapsed = performance.now() - startTime;
         const target = getTargetConcurrency(profile, elapsed);

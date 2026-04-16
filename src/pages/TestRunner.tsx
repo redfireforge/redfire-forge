@@ -25,6 +25,7 @@ interface RunnerConfig {
   selectedScenarios: string[];
   weights: Record<string, number>;
   skipValidation: boolean;
+  forceUnordered: boolean;
   hostMode: HostMode;
   customBaseUrl: string;
   executionMode: ExecutionMode;
@@ -39,7 +40,7 @@ interface RunnerConfig {
 
 const defaultConfig: RunnerConfig = {
   concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {},
-  skipValidation: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
+  skipValidation: false, forceUnordered: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
 };
 
 interface Props {
@@ -85,6 +86,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [skipValidation, setSkipValidation] = useState(false);
+  const [forceUnordered, setForceUnordered] = useState(false);
   const [hostMode, setHostMode] = useState<HostMode>('settings');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
@@ -141,6 +143,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
         setWeights(saved.weights ?? {});
         setSkipValidation(saved.skipValidation ?? false);
+        setForceUnordered(saved.forceUnordered ?? false);
         setHostMode(saved.hostMode ?? 'settings');
         setCustomBaseUrl(saved.customBaseUrl ?? '');
         setExecutionMode(saved.executionMode ?? 'batch');
@@ -157,6 +160,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setSelectedScenarios(new Set());
         setWeights({});
         setSkipValidation(defaultConfig.skipValidation);
+        setForceUnordered(defaultConfig.forceUnordered);
         setHostMode(defaultConfig.hostMode);
         setCustomBaseUrl(defaultConfig.customBaseUrl);
         setExecutionMode(defaultConfig.executionMode);
@@ -180,6 +184,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       selectedScenarios: Array.from(selectedScenarios),
       weights,
       skipValidation,
+      forceUnordered,
       hostMode,
       customBaseUrl,
       executionMode,
@@ -191,7 +196,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       maxErrors,
       maxErrorRate,
     }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, forceUnordered, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
 
   const selectedTests: Scenario[] = useMemo(() => {
     const tests: Scenario[] = [];
@@ -201,7 +206,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           for (const test of sc.tests) {
             const effectiveBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '';
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
-            const validation = skipValidation ? { mode: 'none' as const } : test.validation;
+            let validation = skipValidation ? { mode: 'none' as const } : test.validation;
+            if (forceUnordered && !skipValidation && validation.mode === 'selective') {
+              validation = { ...validation, unorderedArrays: true };
+            }
             const auth = resolveAuth(test, sc, fg, globalAuthProfiles);
             tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
           }
@@ -209,7 +217,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       }
     }
     return tests;
-  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, hostMode, customBaseUrl, globalAuthProfiles]);
+  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useMemo(() => {
@@ -288,7 +296,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const showProgress = hasLiveProgress || (!isRunning && savedProgress);
 
   const displaySummary = liveSummary ?? savedProgress?.summary ?? null;
-  const displayTimeSeries = timeSeries.length > 0 ? timeSeries : savedProgress?.timeSeries ?? [];
+  const displayTimeSeries = isRunning ? timeSeries : (timeSeries.length > 0 ? timeSeries : savedProgress?.timeSeries ?? []);
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
@@ -578,6 +586,15 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                     disabled={isRunning}
                   />
                   Skip validation
+                </label>
+                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Match array items by content regardless of order — useful when APIs return arrays in non-deterministic order">
+                  <input
+                    type="checkbox"
+                    checked={forceUnordered}
+                    onChange={(e) => setForceUnordered(e.target.checked)}
+                    disabled={isRunning || skipValidation}
+                  />
+                  Unordered arrays
                 </label>
                 <span className="filter-count">
                   {selectedScenarios.size} scenario{selectedScenarios.size !== 1 ? 's' : ''} selected

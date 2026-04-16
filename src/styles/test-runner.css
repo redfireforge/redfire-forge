@@ -701,7 +701,13 @@ tr:hover td { background: var(--surface-hover); }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.response-detail-body::-webkit-scrollbar { width: 5px; }
+.response-detail-body::-webkit-scrollbar-track { background: transparent; }
+.response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 .response-detail-meta {
   display: flex;
   flex-direction: column;
@@ -795,5 +801,11 @@ tr:hover td { background: var(--surface-hover); }
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.response-body-pre::-webkit-scrollbar { width: 5px; height: 5px; }
+.response-body-pre::-webkit-scrollbar-track { background: transparent; }
+.response-body-pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.response-body-pre::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
