@@ -60,8 +60,10 @@ async function executeRequest(
   if (httpFailed && !errorMessage && responseBody) {
     try {
       const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
-      errorMessage = (parsed?.message ?? parsed?.error ?? parsed?.detail ?? parsed?.errorMessage) as string | undefined
-        || responseBody.slice(0, 300);
+      const raw = parsed?.message ?? parsed?.error ?? parsed?.detail ?? parsed?.errorMessage;
+      if (typeof raw === 'string') errorMessage = raw;
+      else if (raw != null) errorMessage = JSON.stringify(raw);
+      else errorMessage = responseBody.slice(0, 300);
     } catch {
       errorMessage = responseBody.slice(0, 300);
     }
@@ -184,6 +186,27 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
         }).then((result) => {
           allResults.push(result);
           breaker.record(result);
+        }).catch((err) => {
+          const errorResult: RequestResult = {
+            id: `err-${Date.now()}`,
+            scenarioId: scenario.id,
+            scenarioName: scenario.name,
+            featureGroupName: scenario.featureGroupName,
+            groupName: scenario.groupName,
+            url: scenario.url,
+            method: scenario.method,
+            httpStatus: 0,
+            responseTimeMs: 0,
+            responseBody: '',
+            timestamp: Date.now(),
+            passed: false,
+            validationMode: scenario.validation.mode,
+            failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
+            errorMessage: err instanceof Error ? err.message : String(err),
+          };
+          allResults.push(errorResult);
+          breaker.record(errorResult);
+        }).finally(() => {
           inFlight--;
           onProgress(allResults.length, total, allResults);
           if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
