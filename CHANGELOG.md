@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+---
+
+## [0.4.0] — 2026-04-16
+
 ### Added
 - **Unit Test Suite (218 tests)**: Comprehensive Vitest test suite covering 14 modules — validator, executor, circuit breaker, metrics, load profile runner, scenario search, cURL parser, JSON path tree utils, test editor utils, results grouping, CSV template URL, helpers, file saver, and CSV export
 - **Integration Test Suite (88 tests)**: Storage layer roundtrips (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
@@ -20,7 +24,8 @@ _Changes merged into `develop` that haven't been released yet._
 - **Global "Unordered arrays" toggle in Test Runner**: Forces unordered array matching for all tests during execution — useful when APIs return array items in non-deterministic order. Persisted per runner config
 
 ### Fixed
-- **UI crash during sustained testing (~10 min)**: Throttled progress state updates to max once per 500ms (was every request), added incremental metrics tracking instead of O(n log n) re-sort per tick, capped in-memory live results to 500 (all failures kept, passed results sampled), and capped stored results per run to 2000
+- **UI crash during sustained testing (~10 min)**: Throttled progress state updates to max once per 500ms (was every request), added incremental metrics tracking instead of O(n log n) re-sort per tick, capped in-memory live results to 500 (all failures kept, passed results sampled), and capped stored results per run to 2,000
+- **Error handling in load profile and pool execution modes**: Graceful error recovery during time-based load tests and connection pool runners
 
 ### Changed
 - **Refactored 8 monolithic files into 25 focused modules**: No behavior changes; all existing imports preserved via barrel re-exports

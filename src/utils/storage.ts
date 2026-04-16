@@ -1,4 +1,4 @@
-import type { TestRun, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project } from '../types';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
