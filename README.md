@@ -225,6 +225,7 @@ The **Storage** section shows current data usage.
 - Click the **Total usage** row to expand a per-key breakdown with usage bars.
 - **Max stored runs** controls how many test runs are kept (1–500, default 50). Oldest runs are auto-deleted when the limit is exceeded.
 - Response bodies are automatically truncated to 2 KB each to conserve storage.
+- Results per run are capped at 2,000 (all failures kept; passed results evenly sampled). Live results during a run are capped at 500 for UI responsiveness.
 
 #### Export Center
 
@@ -506,7 +507,7 @@ All execution settings are grouped in a single unified card below the Execution 
 
 **Running a Test:**
 
-1. Select one or more Scenarios using the checkboxes.
+1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
 2. Configure concurrency, transactions, timeout, retry, and error policy.
 3. Click **▶ Run Test**.
 4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`). The active host is displayed alongside.
@@ -600,8 +601,9 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
 | Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
+| Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Weighted test distribution | Control relative frequency of each test |
-| Live progress monitoring | Real-time TPS, response times, and error rates during runs |
+| Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |

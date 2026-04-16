@@ -17,6 +17,10 @@ _Changes merged into `develop` that haven't been released yet._
 - **`npm test` / `npm run test:watch` / `npm run test:coverage` scripts**: Runnable Vitest suite (306 tests)
 - **`npm run test:e2e` / `npm run test:e2e:headed` scripts**: Playwright E2E tests with Chromium
 - **Extracted `resolveAuth` utility** (`src/utils/authResolver.ts`): Shared auth inheritance chain resolver (Test → Scenario → Feature → Global → none), previously inline in TestRunner
+- **Global "Unordered arrays" toggle in Test Runner**: Forces unordered array matching for all tests during execution — useful when APIs return array items in non-deterministic order. Persisted per runner config
+
+### Fixed
+- **UI crash during sustained testing (~10 min)**: Throttled progress state updates to max once per 500ms (was every request), added incremental metrics tracking instead of O(n log n) re-sort per tick, capped in-memory live results to 500 (all failures kept, passed results sampled), and capped stored results per run to 2000
 
 ### Changed
 - **Refactored 8 monolithic files into 25 focused modules**: No behavior changes; all existing imports preserved via barrel re-exports
