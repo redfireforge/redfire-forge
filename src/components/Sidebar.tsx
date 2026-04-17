@@ -18,7 +18,6 @@ interface Props {
 export default function Sidebar({
   projects, selectedProjectId, environments, microservices, featureGroups,
   selectedEnvId, selectedSvcId, onProjectSwitch, onEnvSelect, onSvcSelect,
-  onOpenSettings,
 }: Props) {
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());

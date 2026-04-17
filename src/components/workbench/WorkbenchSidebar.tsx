@@ -48,7 +48,7 @@ function authLabel(col: WorkbenchCollection): string {
   if (!col.auth) return '';
   switch (col.auth.type) {
     case 'bearer': return 'Bearer'; case 'basic': return 'Basic';
-    case 'api-key': return 'API Key'; case 'oauth2': return 'OAuth2'; default: return '';
+    case 'apikey': return 'API Key'; case 'oauth2': return 'OAuth2'; default: return '';
   }
 }
 
@@ -74,11 +74,12 @@ function countFolderReqs(folder: WorkbenchFolder): number {
   return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
 }
 
-type CtxMenu = {
+type CtxMenuData = {
   x: number; y: number;
   type: 'collection' | 'folder' | 'request';
   colId: string; folderId?: string; reqId?: string;
-} | null;
+};
+type CtxMenu = CtxMenuData | null;
 
 type DragItem = { kind: 'request'; reqId: string; colId: string } | { kind: 'folder'; folderId: string; colId: string } | { kind: 'collection'; colId: string } | null;
 
@@ -161,7 +162,7 @@ export default function WorkbenchSidebar({
     setExpandedFolders((prev) => { const n = new Set(prev); if (n.has(folderId)) n.delete(folderId); else n.add(folderId); return n; });
   };
 
-  const handleContext = (e: React.MouseEvent, type: CtxMenu['type'], colId: string, folderId?: string, reqId?: string) => {
+  const handleContext = (e: React.MouseEvent, type: CtxMenuData['type'], colId: string, folderId?: string, reqId?: string) => {
     e.preventDefault(); e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, type, colId, folderId, reqId });
     setShowMoveMenu(false); setShowFolderMoveMenu(false);
