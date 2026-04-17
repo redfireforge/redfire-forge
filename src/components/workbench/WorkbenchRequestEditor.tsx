@@ -704,6 +704,12 @@ export default function WorkbenchRequestEditor({
           </div>
         )}
 
+        {!sending && !response && !sendAllResults && (
+          <div className="wb-response-placeholder">
+            Click <strong>Send</strong> to get a response
+          </div>
+        )}
+
         {!sending && response && !sendAllResults && (
           <div className="wb-response-panel">
             <div className="wb-response-header">
