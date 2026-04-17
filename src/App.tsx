@@ -7,13 +7,14 @@ import { useProjects } from './hooks/useProjects';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
+import Workbench from './pages/Workbench';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
 import './styles/index.css';
 
-type Tab = 'scenarios' | 'runner' | 'results';
+type Tab = 'scenarios' | 'runner' | 'results' | 'workbench';
 
 declare const __APP_VERSION__: string;
 
@@ -155,6 +156,8 @@ export default function App() {
           <button className={`tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
           <button className={`tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
           <button className={`tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+          <span className="tab-divider" />
+          <button className={`tab tab-workbench ${activeTab === 'workbench' ? 'active' : ''}`} onClick={() => setActiveTab('workbench')}>Workbench</button>
         </nav>
         <div className="header-selectors">
           <button className="btn btn-sm settings-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}>
@@ -166,16 +169,18 @@ export default function App() {
         </div>
       </header>
 
-      <button
-        className="sidebar-float-toggle"
-        style={{ left: sidebarCollapsed ? 0 : 300 }}
-        onClick={() => setSidebarCollapsed((c) => !c)}
-        title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-      >
-        {sidebarCollapsed ? '▶' : '◀'}
-      </button>
+      {activeTab !== 'workbench' && (
+        <button
+          className="sidebar-float-toggle"
+          style={{ left: sidebarCollapsed ? 0 : 300 }}
+          onClick={() => setSidebarCollapsed((c) => !c)}
+          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+        >
+          {sidebarCollapsed ? '▶' : '◀'}
+        </button>
+      )}
 
-      {!sidebarCollapsed && (
+      {!sidebarCollapsed && activeTab !== 'workbench' && (
         <Sidebar
           projects={projects}
           selectedProjectId={selectedProjectId}
@@ -193,7 +198,7 @@ export default function App() {
       )}
 
       <div className="app-body">
-        <main className={`app-main ${sidebarCollapsed ? '' : 'sidebar-open'}`}>
+        <main className={`app-main ${sidebarCollapsed || activeTab === 'workbench' ? '' : 'sidebar-open'}`}>
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}
@@ -234,6 +239,12 @@ export default function App() {
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               projectName={selectedProject?.name}
+            />
+          )}
+          {activeTab === 'workbench' && (
+            <Workbench
+              projects={projects}
+              appGlobalAuthProfiles={appGlobalAuthProfiles}
             />
           )}
         </main>

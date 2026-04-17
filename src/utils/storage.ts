@@ -1,4 +1,4 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project, WorkbenchData } from '../types';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
@@ -9,6 +9,7 @@ const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
 const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
+const WORKBENCH_KEY = 'perf-test-workbench';
 
 // Legacy keys (used only for migration)
 const LEGACY_FEATURES_KEY = 'perf-test-features';
@@ -293,4 +294,23 @@ export async function saveTheme(theme: string): Promise<void> {
 
 export async function loadTheme(): Promise<string> {
   return (await readKey(THEME_KEY)) ?? 'dark';
+}
+
+// ---------- Workbench ----------
+
+const EMPTY_WORKBENCH: WorkbenchData = {
+  environments: [],
+  collections: [],
+};
+
+export async function loadWorkbench(): Promise<WorkbenchData> {
+  try {
+    const raw = await readKey(WORKBENCH_KEY);
+    if (raw) return JSON.parse(raw) as WorkbenchData;
+  } catch { /* ignore */ }
+  return { ...EMPTY_WORKBENCH, environments: [], collections: [] };
+}
+
+export async function saveWorkbench(data: WorkbenchData): Promise<void> {
+  await writeKey(WORKBENCH_KEY, JSON.stringify(data));
 }
