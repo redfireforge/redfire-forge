@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { isTauri } from './utils/platform';
 import type { Project, TestRun } from './types';
+import { findFolderDeep } from './utils/workbenchTree';
 import { loadTestRuns, saveTheme } from './utils/storage';
 import { createEmptyProject } from './utils/helpers';
 import { useProjects } from './hooks/useProjects';
+import { useWorkbench } from './hooks/useWorkbench';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
@@ -11,7 +13,11 @@ import Workbench from './pages/Workbench';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
+import WorkbenchSidebar from './components/workbench/WorkbenchSidebar';
 import SettingsModal from './components/SettingsModal';
+import WorkbenchCollectionModal from './components/workbench/WorkbenchCollectionModal';
+import WorkbenchEnvManager from './components/workbench/WorkbenchEnvManager';
+import SubCollectionModal from './components/workbench/SubCollectionModal';
 import './styles/index.css';
 
 type Tab = 'scenarios' | 'runner' | 'results' | 'workbench';
@@ -29,15 +35,30 @@ export default function App() {
     initialTheme, initialTestRuns,
   } = useProjects();
 
+  const wb = useWorkbench();
+
   // ---- App shell state ----
-  const [activeTab, setActiveTab] = useState<Tab>('scenarios');
+  const [activeTab, setActiveTab] = useState<Tab>('workbench');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const isResizingRef = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [showImportCenter, setShowImportCenter] = useState(false);
   const [testRunsCache, setTestRunsCache] = useState<TestRun[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
+  const [editingWbCollection, setEditingWbCollection] = useState<import('./types').WorkbenchCollection | null>(null);
+  const [showWbEnvManager, setShowWbEnvManager] = useState(false);
+  const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
+
+  const subColForEdit = useMemo(() => {
+    if (!editingSubCol) return null;
+    const col = wb.collections.find(c => c.id === editingSubCol.colId);
+    const folder = col ? findFolderDeep(col.folders ?? [], editingSubCol.folderId) : null;
+    return col && folder ? { col, folder } : null;
+  }, [editingSubCol, wb.collections]);
 
   // ---- Sync theme from loaded data ----
   useEffect(() => {
@@ -59,6 +80,30 @@ export default function App() {
     window.addEventListener('resize', syncHeaderHeight);
     return () => window.removeEventListener('resize', syncHeaderHeight);
   }, [syncHeaderHeight]);
+
+  // ---- Sidebar resize ----
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newW = Math.min(600, Math.max(180, startW + ev.clientX - startX));
+      setSidebarWidth(newW);
+    };
+    const onUp = () => {
+      isResizingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [sidebarWidth]);
 
   // ---- Theme ----
   useEffect(() => {
@@ -98,9 +143,6 @@ export default function App() {
   // ---- Helpers ----
   const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
 
-  const handleProjectSwitch = (newProjectId: string) => {
-    setSelectedProjectId(newProjectId);
-  };
 
   const addProject = (name: string, desc?: string) => {
     const project = createEmptyProject(name, desc);
@@ -122,6 +164,28 @@ export default function App() {
   const updateProjectMeta = (id: string, updates: { name?: string; description?: string }) => {
     setProjects((prev) => prev.map((p) => p.id === id ? { ...p, ...updates } : p));
   };
+
+  const handleWbNewCollection = useCallback(() => {
+    setEditingWbCollection(null); setShowWbCollectionModal(true);
+  }, []);
+  const handleWbEditCollection = useCallback((col: import('./types').WorkbenchCollection) => {
+    setEditingWbCollection(col); setShowWbCollectionModal(true);
+  }, []);
+  const handleWbSaveCollection = useCallback((col: Omit<import('./types').WorkbenchCollection, 'id' | 'requests'> & { id?: string }) => {
+    if (col.id) {
+      wb.updateCollection(col.id, { name: col.name, mode: col.mode, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
+    } else {
+      wb.addCollection({ name: col.name, mode: col.mode, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
+    }
+    setShowWbCollectionModal(false); setEditingWbCollection(null);
+  }, [wb]);
+  const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
+    wb.addRequest(colId, folderId);
+    if (activeTab !== 'workbench') setActiveTab('workbench');
+  }, [wb, activeTab]);
+  const handleEditSubCollection = useCallback((colId: string, folderId: string) => {
+    setEditingSubCol({ colId, folderId });
+  }, []);
 
   const handleImportProject = useCallback(async (imported: Project) => {
     setProjects((prev) => {
@@ -152,53 +216,101 @@ export default function App() {
         <h1>🔥 RedfireForge {!isTauri() && <span style={{ fontSize: '0.65em', fontWeight: 400, opacity: 0.75, marginLeft: '0.5em' }}>Redfire Performance Workbench</span>}
           <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
         </h1>
-        <nav className="tab-nav">
-          <button className={`tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-          <button className={`tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-          <button className={`tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-          <span className="tab-divider" />
-          <button className={`tab tab-workbench ${activeTab === 'workbench' ? 'active' : ''}`} onClick={() => setActiveTab('workbench')}>Workbench</button>
-        </nav>
         <div className="header-selectors">
-          <button className="btn btn-sm settings-btn" onClick={() => setSidebarCollapsed((c) => !c)} title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}>
-            {sidebarCollapsed ? '◀' : '▶'}
-          </button>
           <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
         </div>
       </header>
 
-      {activeTab !== 'workbench' && (
-        <button
-          className="sidebar-float-toggle"
-          style={{ left: sidebarCollapsed ? 0 : 300 }}
-          onClick={() => setSidebarCollapsed((c) => !c)}
-          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        >
-          {sidebarCollapsed ? '▶' : '◀'}
-        </button>
-      )}
-
-      {!sidebarCollapsed && activeTab !== 'workbench' && (
-        <Sidebar
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          environments={environments}
-          microservices={microservices}
-          featureGroups={featureGroups}
-          selectedEnvId={selectedEnvId}
-          selectedSvcId={selectedSvcId}
-          onProjectSwitch={handleProjectSwitch}
-          onEnvSelect={setSelectedEnvId}
-          onSvcSelect={setSelectedSvcId}
-          onClose={() => setSidebarCollapsed(true)}
-          onOpenSettings={async () => { setShowSettings(true); }}
-        />
-      )}
-
       <div className="app-body">
-        <main className={`app-main ${sidebarCollapsed || activeTab === 'workbench' ? '' : 'sidebar-open'}`}>
+      {!sidebarCollapsed && (
+      <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
+        {/* ── Top bar: section switcher ── */}
+        <div className="usb-top-bar">
+          <button className={`usb-top-tab ${activeTab === 'workbench' ? 'active' : ''}`}
+            onClick={() => setActiveTab('workbench')}>Workbench</button>
+          <button className={`usb-top-tab ${activeTab !== 'workbench' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'workbench') setActiveTab('scenarios'); }}>Projects</button>
+        </div>
+
+        {/* ── Content area ── */}
+        <div className="usb-content">
+          {activeTab === 'workbench' ? (
+            wb.loaded && (
+              <WorkbenchSidebar
+                collections={wb.collections}
+                selectedCollectionId={wb.selectedCollection?.id}
+                selectedRequestId={wb.selectedRequest?.id}
+                onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('workbench'); }}
+                onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('workbench'); }}
+                onNewCollection={handleWbNewCollection}
+                onEditCollection={handleWbEditCollection}
+                onDeleteCollection={wb.removeCollection}
+                onDuplicateCollection={wb.duplicateCollection}
+                onNewRequest={handleWbNewRequest}
+                onDeleteRequest={wb.removeRequest}
+                onDuplicateRequest={wb.duplicateRequest}
+                onAddFolder={wb.addFolder}
+                onAddSubCollection={wb.addSubCollection}
+                onEditSubCollection={handleEditSubCollection}
+                onRenameFolder={wb.renameFolder}
+                onDeleteFolder={wb.removeFolder}
+                onDuplicateFolder={wb.duplicateFolder}
+                onMoveFolder={wb.moveFolder}
+                onMoveFolderTo={wb.moveFolderTo}
+                onMoveRequest={wb.moveRequest}
+                onMoveRequestToCollection={wb.moveRequestToCollection}
+                onMoveFolderToCollection={wb.moveFolderToCollection}
+                onMergeCollectionInto={wb.moveCollectionAsSubCollection}
+                onManageEnvs={() => setShowWbEnvManager(true)}
+                countAllRequests={wb.countAllRequests}
+                onImportCollection={wb.importCollection}
+                onImportFolder={wb.importFolder}
+              />
+            )
+          ) : (
+            <>
+              <Sidebar
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                environments={environments}
+                microservices={microservices}
+                featureGroups={featureGroups}
+                selectedEnvId={selectedEnvId}
+                selectedSvcId={selectedSvcId}
+                onProjectSwitch={setSelectedProjectId}
+                onEnvSelect={setSelectedEnvId}
+                onSvcSelect={setSelectedSvcId}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            </>
+          )}
+        </div>
+
+        {/* ── Shared Settings button ── */}
+        <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
+      </aside>
+      )}
+      {!sidebarCollapsed && (
+        <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
+      )}
+      <button
+        className={`usb-toggle-btn ${sidebarCollapsed ? 'collapsed' : ''}`}
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+      >
+        {sidebarCollapsed ? '▶' : '◀'}
+      </button>
+
+        <main className="app-main">
+          {activeTab !== 'workbench' && (
+            <div className="main-top-nav">
+              <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
+              <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
+              <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+            </div>
+          )}
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}
@@ -243,7 +355,7 @@ export default function App() {
           )}
           {activeTab === 'workbench' && (
             <Workbench
-              projects={projects}
+              wb={wb}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
             />
           )}
@@ -259,7 +371,7 @@ export default function App() {
           setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
           modifyProject={modifyProject}
           onClose={() => setShowSettings(false)}
-          onProjectSwitch={handleProjectSwitch}
+          onProjectSwitch={setSelectedProjectId}
           onAddProject={addProject}
           onRemoveProject={removeProject}
           onUpdateProjectMeta={updateProjectMeta}
@@ -286,6 +398,40 @@ export default function App() {
           onImport={handleImportProject}
           onImportGlobalAuth={(profiles) => setAppGlobalAuthProfiles((prev) => [...prev, ...profiles])}
           onClose={() => { setShowImportCenter(false); setShowSettings(true); }}
+        />
+      )}
+
+      {showWbCollectionModal && (
+        <WorkbenchCollectionModal
+          collection={editingWbCollection}
+          collections={wb.collections}
+          environments={wb.environments}
+          projects={projects}
+          globalAuthProfiles={appGlobalAuthProfiles}
+          onSave={handleWbSaveCollection}
+          onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); }}
+        />
+      )}
+
+      {showWbEnvManager && (
+        <WorkbenchEnvManager
+          environments={wb.environments}
+          projects={projects}
+          onAdd={wb.addEnv}
+          onRemove={wb.removeEnv}
+          onImport={wb.importEnvsFromProject}
+          onClose={() => setShowWbEnvManager(false)}
+        />
+      )}
+
+      {editingSubCol && subColForEdit && (
+        <SubCollectionModal
+          subCollection={subColForEdit.folder}
+          parentCollection={subColForEdit.col}
+          environments={wb.environments}
+          globalAuthProfiles={appGlobalAuthProfiles}
+          onSave={(patch) => wb.updateSubCollection(editingSubCol.colId, editingSubCol.folderId, patch)}
+          onClose={() => setEditingSubCol(null)}
         />
       )}
 

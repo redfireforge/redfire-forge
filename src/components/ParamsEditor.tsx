@@ -44,7 +44,7 @@ export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
   const removeRow = useCallback(
     (idx: number) => {
       const next = params.filter((_, i) => i !== idx);
-      onChange(next.length > 0 ? next : [{ ...EMPTY_ROW }]);
+      onChange(next);
     },
     [params, onChange],
   );

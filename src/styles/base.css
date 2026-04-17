@@ -1,5 +1,5 @@
 /* Layout */
-.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .app-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -38,11 +38,123 @@
 .app-body { display: flex; flex: 1; overflow: hidden; position: relative; }
 .app-main {
   flex: 1;
-  padding: 24px 32px;
-  overflow-y: auto;
+  display: flex; flex-direction: column;
+  overflow: hidden;
   width: 100%;
   transition: margin-left 0.25s ease;
 }
+.app-main > *:not(.main-top-nav) {
+  flex: 1; overflow-y: auto; padding: 24px 32px;
+}
+.main-top-nav {
+  display: flex; gap: 4px; padding: 6px 16px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.main-nav-tab {
+  padding: 6px 16px; font-size: 0.8rem; font-weight: 600;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.main-nav-tab:hover { color: var(--text); background: var(--surface-hover); }
+.main-nav-tab.active {
+  color: var(--primary); background: rgba(var(--primary-rgb, 99,102,241), 0.12);
+  border-color: var(--primary);
+}
+
+/* ─── Unified sidebar ──────────────────────────────── */
+.unified-sidebar {
+  flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--bg); border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* Top tab bar */
+.usb-top-bar {
+  display: flex; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.usb-top-tab {
+  flex: 1; padding: 8px 6px; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; text-align: center;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.usb-top-tab:hover { color: var(--text); background: var(--surface-hover); }
+.usb-top-tab.active {
+  color: var(--primary); border-bottom-color: var(--primary);
+  background: rgba(var(--primary-rgb, 99,102,241), 0.06);
+}
+
+/* Scrollable content */
+.usb-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.usb-content::-webkit-scrollbar { width: 5px; }
+.usb-content::-webkit-scrollbar-track { background: transparent; }
+.usb-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.usb-content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Settings button pinned at bottom */
+.usb-settings-btn {
+  margin: 0 8px 8px 8px; padding: 6px 12px; border-radius: 6px;
+  background: var(--surface-hover); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.usb-settings-btn:hover { color: var(--text); border-color: var(--primary); background: rgba(var(--primary-rgb, 99,102,241), 0.1); }
+
+/* Resize handle */
+.usb-resize-handle {
+  width: 4px; flex-shrink: 0; cursor: col-resize;
+  background: transparent; transition: background 0.15s;
+  position: relative; z-index: 10;
+}
+.usb-resize-handle:hover,
+.usb-resize-handle:active {
+  background: var(--primary);
+}
+
+/* Toggle button */
+.usb-toggle-btn {
+  flex-shrink: 0; width: 16px; align-self: stretch;
+  background: var(--surface); border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.55rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; opacity: 0;
+}
+.app-body:hover .usb-toggle-btn { opacity: 0.6; }
+.usb-toggle-btn:hover { opacity: 1; color: var(--primary); background: var(--surface-hover); }
+.usb-toggle-btn.collapsed { opacity: 1; width: 24px; }
+
+/* Project sub-tabs */
+.usb-project-tabs {
+  display: flex; padding: 4px 8px; gap: 2px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.usb-tab {
+  flex: 1; padding: 5px 6px; font-size: 0.68rem; font-weight: 600;
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  border-radius: 4px; text-align: center; transition: all 0.12s;
+}
+.usb-tab:hover { color: var(--text); background: var(--surface-hover); }
+.usb-tab.active { color: var(--primary); background: rgba(var(--primary-rgb, 99,102,241), 0.12); }
+
+/* Sidebar embedded mode: remove own aside styling */
+.config-sidebar-inner {
+  padding: 4px 4px 4px 8px;
+}
+.config-sidebar-inner .sidebar-close-btn { display: none; }
+
+/* Workbench sidebar within unified sidebar */
+.unified-sidebar .wb-sidebar {
+  border-right: none; height: auto;
+}
+
+/* Workbench container without own sidebar */
+.wb-no-sidebar { padding-left: 0; }
+.wb-no-sidebar .wb-main { flex: 1; }
 
 /* Tabs */
 .tab-nav { display: flex; gap: 4px; }

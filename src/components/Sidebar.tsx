@@ -12,14 +12,13 @@ interface Props {
   onProjectSwitch: (projectId: string) => void;
   onEnvSelect: (envId: string) => void;
   onSvcSelect: (svcId: string) => void;
-  onClose: () => void;
   onOpenSettings: () => void;
 }
 
 export default function Sidebar({
   projects, selectedProjectId, environments, microservices, featureGroups,
   selectedEnvId, selectedSvcId, onProjectSwitch, onEnvSelect, onSvcSelect,
-  onClose, onOpenSettings,
+  onOpenSettings,
 }: Props) {
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -43,10 +42,7 @@ export default function Sidebar({
   const collapseAll = () => setExpandedNodes(new Set());
 
   return (
-    <aside className="config-sidebar">
-      <button className="sidebar-close-btn" onClick={onClose} title="Hide sidebar">×</button>
-
-      <div className="sidebar-section-label">Projects</div>
+    <div className="config-sidebar-inner">
       <div className="sidebar-project-list">
         {projects.map((prj) => {
           const isActive = prj.id === selectedProjectId;
@@ -152,7 +148,6 @@ export default function Sidebar({
         </div>
       )}
 
-      <button className="btn btn-sm sidebar-settings-btn" onClick={onOpenSettings}>⚙ Settings</button>
-    </aside>
+    </div>
   );
 }

@@ -222,6 +222,18 @@ export interface WorkbenchRequest {
   bodyType?: BodyType;
   bodyForm?: KeyValue[];
   auth: AuthConfig;
+  savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
+}
+
+export interface WorkbenchFolder {
+  id: string;
+  name: string;
+  requests: WorkbenchRequest[];
+  folders?: WorkbenchFolder[];
+  isSubCollection?: boolean;
+  auth?: AuthConfig;
+  baseUrls?: Record<string, string>;
+  selectedEnvId?: string;
 }
 
 export interface WorkbenchCollection {
@@ -230,7 +242,9 @@ export interface WorkbenchCollection {
   mode: 'direct' | 'multi-env';
   baseUrls?: Record<string, string>;
   auth?: AuthConfig;
+  authPerEnv?: Record<string, AuthConfig>;
   requests: WorkbenchRequest[];
+  folders?: WorkbenchFolder[];
 }
 
 export interface WorkbenchEnv {
