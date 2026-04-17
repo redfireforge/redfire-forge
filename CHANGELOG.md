@@ -10,6 +10,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 _Changes merged into `develop` that haven't been released yet._
 
+### Added
+- **Workbench (Ad-Hoc API Testing)**: Full Insomnia/Postman-style request editor with collections, folders, sub-collections, and per-request response caching
+- **Collection hierarchy**: Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting depth
+- **Drag-and-drop**: Move requests, folders, and entire collections between containers; drag a collection onto another to convert it into a sub-collection
+- **Right-click context menus**: Add, rename, duplicate, move, export, import, and delete collections, folders, sub-collections, and requests
+- **Per-environment base URLs**: Configure hostnames per environment in collection settings with dynamic URL resolution (relative path + full resolved URL display)
+- **Sub-collection environment pinning**: Sub-collections can lock to a specific environment with isolated URL resolution and auth
+- **Auth inheritance in Workbench**: Requests inherit auth from collection or override with Bearer, Basic, API Key, OAuth2, or Global Auth Profile
+- **cURL import/export**: Paste cURL to create requests; generate cURL with live OAuth2 tokens from any request
+- **JSON import/export for collections/folders**: Export and import collections or folders as JSON with format validation and duplicate name prevention
+- **Insomnia-style console trace**: Detailed request/response trace (headers, timing, body prefixes) in a terminal-like viewer
+- **Collapsible JSON tree response viewer**: Response bodies rendered as expandable/collapsible tree with search, match count, prev/next navigation, highlight, and collapse/expand all toggles
+- **Response preservation**: Response data cached per-request and restored when navigating between requests
+- **Query parameter management**: Enable/disable parameters via checkbox without deleting; order preserved across toggle
+- **Unified sidebar**: Tabbed Workbench | Projects toggle with resizable width, collapse toggle, and persistent Settings button
+- **Confirmation dialogs**: All delete actions require confirmation with item count
+- **Duplicate name prevention**: Collection, folder, and sub-collection names validated for uniqueness at the same level
+
+### Changed
+- **Refactored WorkbenchRequestEditor.tsx** (1098→745 lines): Extracted `RequestAuthEditor`, `JsonTreePreview`, `ConsoleLog`, `MultiEnvResultRow` to dedicated files; extracted `useResponseCache` custom hook
+- **Refactored WorkbenchSidebar.tsx** (726→524 lines): Extracted `SidebarContextMenu` (312 lines) to own component; removed dead helper functions
+- **Refactored useWorkbench.ts** (578→424 lines): Moved 18 pure tree helper functions to shared `workbenchTree.ts` utility (170 lines)
+- **Cleaned up Workbench.tsx**: Removed dead `findParentSubCollection` function and unused `projects` prop
+- **CSS cleanup**: Merged duplicate rules, removed orphaned selectors, removed empty rules in `workbench.css`
+
 ---
 
 ## [0.4.0] — 2026-04-16

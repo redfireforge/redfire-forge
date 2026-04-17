@@ -107,7 +107,8 @@ src/
 ├── pages/
 │   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
 │   ├── TestRunner.tsx       # Configure & execute performance runs
-│   └── ResultsDashboard.tsx # View & analyze historical test results
+│   ├── ResultsDashboard.tsx # View & analyze historical test results
+│   └── Workbench.tsx        # Workbench: ad-hoc API testing (Insomnia/Postman-style)
 ├── engine/
 │   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
 │   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
@@ -118,6 +119,8 @@ src/
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
+│   ├── useWorkbench.ts      # Workbench state management (collections, folders, requests, drag-and-drop)
+│   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
 │   ├── useTestExecution.ts  # React hook wrapping the executor
 │   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
 ├── components/
@@ -137,7 +140,17 @@ src/
 │   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard
 │   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
 │   ├── ExportCenter.tsx         # Multi-select data export modal
-│   └── ImportCenter.tsx         # Import with per-item conflict resolution
+│   ├── ImportCenter.tsx         # Import with per-item conflict resolution
+│   └── workbench/              # Workbench (ad-hoc API testing) components
+│       ├── WorkbenchRequestEditor.tsx  # Request editor: URL, params, headers, body, auth, send
+│       ├── WorkbenchSidebar.tsx        # Collection/folder/request tree with drag-and-drop
+│       ├── WorkbenchCollectionModal.tsx # Collection create/edit modal
+│       ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
+│       ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
+│       ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
+│       ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
+│       ├── ConsoleLog.tsx             # Request/response trace console
+│       └── MultiEnvResultRow.tsx      # Multi-environment result row
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
 │   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
@@ -157,7 +170,8 @@ src/
 │   ├── runnerProgressStorage.ts # Test runner progress persistence
 │   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
-│   └── export.ts            # JSON & CSV export utilities
+│   ├── export.ts            # JSON & CSV export utilities
+│   └── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
 └── types/
     └── index.ts             # Shared TypeScript interfaces
 
@@ -463,6 +477,44 @@ Above the sample JSON area, a single row provides:
 - **Fetch Response** button — sends the current test request and populates the sample JSON with the actual API response. Auth credentials are applied automatically based on the inheritance chain.
 - **Host Override** checkbox + input — when enabled, replaces the hostname in the test URL with a different base URL for the fetch only (does not modify the test). Click **Use Settings** to quickly fill in the configured base URL. The override value is preserved when toggling off/on.
 
+### Workbench (Ad-Hoc API Testing)
+
+The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
+
+**Key Concepts:**
+
+| Concept | Description |
+|---|---|
+| **Collection** | A top-level group of requests. Can be `URL` mode (direct URLs) or `ENV` mode (multi-environment with base URL switching). |
+| **Folder** (📁) | A pure grouping container for organizing requests within a collection. |
+| **Sub-Collection** (📦) | A mini-collection within a collection — has its own auth, base URL overrides, and can pin to a specific environment. |
+| **Request** | An individual HTTP request (GET, POST, PUT, PATCH, DELETE) with params, headers, body, and auth. |
+
+**Features:**
+
+- **Hierarchical organization**: Collections → Folders / Sub-Collections → Requests with unlimited nesting depth.
+- **Drag-and-drop**: Move requests and folders within and across collections. Drag a collection onto another to convert it into a sub-collection.
+- **Right-click context menus**: Add, rename, duplicate, move, export, import, and delete items.
+- **Per-environment base URLs**: Configure hostnames per environment in collection settings. URLs are dynamically resolved — the editor shows relative paths with the full resolved URL displayed separately.
+- **Sub-collection environment pinning**: A sub-collection can lock to a specific environment, showing only that environment's base URL.
+- **Auth inheritance**: Requests inherit auth from their collection, or override with Bearer, Basic, API Key, OAuth2, or a Global Auth Profile.
+- **cURL import/export**: Paste a cURL command to create a request; generate cURL from any request (OAuth2 tokens fetched automatically).
+- **JSON import/export**: Export collections or folders as JSON files; import them with duplicate name validation.
+- **Console trace**: View detailed request/response trace (headers, timing, body) similar to Insomnia's console.
+- **Collapsible JSON tree response viewer**: Response bodies rendered as an expandable/collapsible tree with search, match navigation, and highlight.
+- **Response caching**: Responses are preserved per-request when navigating between requests.
+- **Query parameter management**: Enable/disable parameters without deleting them; order is preserved.
+- **Confirmation dialogs**: Delete actions require confirmation, showing the count of affected items.
+- **Duplicate name prevention**: Collection, folder, and sub-collection names must be unique at the same level.
+
+**Unified Sidebar:**
+
+The left sidebar uses a **Workbench | Projects** tab toggle at the top:
+- **Workbench** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
+- **Projects** shows project-based navigation (Feature Groups, Environments, Microservices).
+- The sidebar is resizable (drag the right edge) and collapsible (toggle button).
+- **Settings** is always accessible at the bottom of the sidebar.
+
 ### Test Runner
 
 Navigate to the **Test Runner** tab (second tab).
@@ -617,6 +669,16 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Import conflict detection | Feature Group, Scenario, and Test imports warn on duplicates with confirmation dialogs |
 | Consistent export naming | All exports follow `{env}-{svc}-{level}-{name}-{timestamp}.json` naming convention |
 | Storage management | Monitor usage, configure max runs, auto-prune old data, graceful quota-exceeded recovery |
+| Workbench (ad-hoc testing) | Insomnia/Postman-style request editor with collections, folders, sub-collections, and drag-and-drop |
+| Workbench collection hierarchy | Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting |
+| Workbench drag-and-drop | Move requests, folders, and entire collections between any containers; drag collection onto another to merge as sub-collection |
+| Workbench per-env base URLs | Configure hostnames per environment; URLs dynamically resolve with relative path display |
+| Workbench sub-collection pinning | Sub-collections can pin to a specific environment with locked URL resolution |
+| Workbench console trace | Insomnia-style request/response trace with headers, timing, and body |
+| Collapsible JSON tree viewer | Response bodies as expandable tree with search, match count, prev/next navigation, and collapse/expand all |
+| Workbench response caching | Responses preserved per-request during navigation |
+| Workbench JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
+| Unified sidebar (Workbench + Projects) | Tabbed sidebar with resizable width, collapse toggle, and persistent Settings access |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |

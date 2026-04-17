@@ -109,6 +109,25 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
+### Phase 0.8.5 — Workbench (Ad-Hoc API Testing) ✅
+
+> Insomnia/Postman-style ad-hoc request editor integrated into the app, independent of the project test hierarchy.
+
+- [x] **Workbench Collections** — Organize requests in collections with folders, sub-collections, and unlimited nesting
+- [x] **Drag-and-Drop** — Move requests, folders, and collections between containers; convert collections to sub-collections via drag
+- [x] **Per-Environment Base URLs** — Configure hostnames per environment; dynamic URL resolution with relative/full path display
+- [x] **Sub-Collection Environment Pinning** — Lock sub-collections to a specific environment with isolated auth and URL resolution
+- [x] **Auth Inheritance** — Requests inherit auth from collection or override with Bearer, Basic, API Key, OAuth2, Global Auth Profile
+- [x] **cURL Import/Export** — Paste cURL to create requests; generate cURL with live OAuth2 tokens
+- [x] **JSON Import/Export** — Export/import collections and folders as JSON with validation and duplicate prevention
+- [x] **Console Trace** — Insomnia-style request/response trace with headers, timing, and body
+- [x] **Collapsible JSON Tree Viewer** — Expandable response tree with search, match navigation, and collapse/expand all
+- [x] **Response Caching** — Preserve responses per-request during navigation
+- [x] **Unified Sidebar** — Tabbed Workbench | Projects toggle with resize, collapse, and persistent Settings
+- [x] **Context Menus & Confirmation Dialogs** — Full right-click menus with duplicate/move/rename/delete and confirmation
+
+---
+
 ## Upcoming Phases
 
 ### Phase 0.7.0 — CLI Runner ⬆️ PRIORITY
@@ -228,12 +247,13 @@ Post-launch features driven by community feedback.
 | 0.7.0 | CLI Runner | 6 | 0 |
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
+| 0.8.5 | Workbench (Ad-Hoc API Testing) | 12 | 12 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **87** | **34** |
+| **Total** | | **99** | **46** |
 
 ### Adoption Forecast
 
@@ -250,10 +270,11 @@ Phase 0.7.0 (CLI)  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
      ↑ MUST HAVE          ↑ MUST HAVE              ↑ MUST HAVE
 
 Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
+Phase 0.8.5 (Workbench) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 ```
 
 Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launch but not blockers. They can ship as post-launch updates to sustain momentum.
 
 ---
 
-_Last updated: 2026-04-17 (v0.3.5 — Phase 0.8.0 complete)_
+_Last updated: 2026-04-18 (v0.4.0 — Phase 0.8.5 complete)_

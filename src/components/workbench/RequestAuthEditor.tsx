@@ -1,0 +1,109 @@
+import type { AuthConfig, WorkbenchCollection, GlobalAuthProfile } from '../../types';
+
+interface Props {
+  auth: AuthConfig;
+  collection: WorkbenchCollection;
+  globalAuthProfiles: GlobalAuthProfile[];
+  onUpdate: (auth: AuthConfig) => void;
+}
+
+export default function RequestAuthEditor({ auth, collection, globalAuthProfiles, onUpdate }: Props) {
+  const authSelectValue = (auth as any).globalProfileId ? 'global-profile' : auth.type;
+
+  const handleTypeChange = (val: string) => {
+    if (val === 'global-profile') {
+      const first = globalAuthProfiles[0];
+      if (first) onUpdate({ ...first.auth, globalProfileId: first.id } as any);
+    } else {
+      onUpdate({ type: val as AuthConfig['type'] });
+    }
+  };
+
+  const handleProfileChange = (profileId: string) => {
+    const profile = globalAuthProfiles.find(p => p.id === profileId);
+    if (profile) onUpdate({ ...profile.auth, globalProfileId: profile.id } as any);
+  };
+
+  const selectedProfile = (auth as any).globalProfileId
+    ? globalAuthProfiles.find(p => p.id === (auth as any).globalProfileId)
+    : null;
+
+  return (
+    <div className="wb-auth-editor">
+      <select className="wb-select" value={authSelectValue} onChange={(e) => handleTypeChange(e.target.value)}>
+        <option value="inherit">Inherit from Collection</option>
+        <option value="none">No Auth</option>
+        {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
+        <option value="bearer">Bearer Token</option>
+        <option value="basic">Basic Auth</option>
+        <option value="api-key">API Key</option>
+        <option value="oauth2">OAuth2 Client Credentials</option>
+      </select>
+
+      {authSelectValue === 'global-profile' && (
+        <div className="wb-auth-fields">
+          <label className="wb-auth-label">Select Profile</label>
+          <select className="wb-select" value={(auth as any).globalProfileId ?? ''}
+            onChange={(e) => handleProfileChange(e.target.value)}>
+            {globalAuthProfiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
+            ))}
+          </select>
+          {selectedProfile && (
+            <div className="wb-profile-info">
+              <span className="wb-profile-type-badge">{selectedProfile.auth.type.toUpperCase()}</span>
+              <span>{selectedProfile.name}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {auth.type === 'bearer' && !selectedProfile && (
+        <div className="wb-auth-fields">
+          <label className="wb-auth-label">Prefix</label>
+          <input className="wb-input" value={auth.prefix ?? 'Bearer'} onChange={(e) => onUpdate({ ...auth, prefix: e.target.value })} placeholder="Bearer" />
+          <label className="wb-auth-label">Token</label>
+          <input className="wb-input" value={auth.token ?? ''} onChange={(e) => onUpdate({ ...auth, token: e.target.value })} placeholder="Token" />
+        </div>
+      )}
+      {auth.type === 'basic' && !selectedProfile && (
+        <div className="wb-auth-fields">
+          <label className="wb-auth-label">Username</label>
+          <input className="wb-input" value={auth.username ?? ''} onChange={(e) => onUpdate({ ...auth, username: e.target.value })} placeholder="Username" />
+          <label className="wb-auth-label">Password</label>
+          <input className="wb-input" type="password" value={auth.password ?? ''} onChange={(e) => onUpdate({ ...auth, password: e.target.value })} placeholder="Password" />
+        </div>
+      )}
+      {auth.type === 'api-key' && !selectedProfile && (
+        <div className="wb-auth-fields">
+          <label className="wb-auth-label">Key Name</label>
+          <input className="wb-input" value={auth.apiKeyName ?? ''} onChange={(e) => onUpdate({ ...auth, apiKeyName: e.target.value })} placeholder="Key name" />
+          <label className="wb-auth-label">Key Value</label>
+          <input className="wb-input" value={auth.apiKeyValue ?? ''} onChange={(e) => onUpdate({ ...auth, apiKeyValue: e.target.value })} placeholder="Key value" />
+          <label className="wb-auth-label">Add To</label>
+          <select className="wb-select" value={auth.apiKeyIn ?? 'header'}
+            onChange={(e) => onUpdate({ ...auth, apiKeyIn: e.target.value as 'header' | 'query' })}>
+            <option value="header">Header</option><option value="query">Query String</option>
+          </select>
+        </div>
+      )}
+      {auth.type === 'oauth2' && !selectedProfile && (
+        <div className="wb-auth-fields">
+          <label className="wb-auth-label">Token URL</label>
+          <input className="wb-input" value={auth.tokenUrl ?? ''} onChange={(e) => onUpdate({ ...auth, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
+          <label className="wb-auth-label">Client ID</label>
+          <input className="wb-input" value={auth.clientId ?? ''} onChange={(e) => onUpdate({ ...auth, clientId: e.target.value })} placeholder="Client ID" />
+          <label className="wb-auth-label">Client Secret</label>
+          <input className="wb-input" type="password" value={auth.clientSecret ?? ''} onChange={(e) => onUpdate({ ...auth, clientSecret: e.target.value })} placeholder="Client Secret" />
+        </div>
+      )}
+      {auth.type === 'inherit' && collection.auth && collection.auth.type !== 'none' && (
+        <div className="wb-auth-inherit-info">
+          Inheriting <strong>{(collection.auth as any).globalProfileId
+            ? globalAuthProfiles.find(p => p.id === (collection.auth as any).globalProfileId)?.name ?? collection.auth.type
+            : collection.auth.type}</strong> auth from collection "{collection.name}"
+        </div>
+      )}
+    </div>
+  );
+}

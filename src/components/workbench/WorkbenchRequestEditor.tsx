@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type {
   WorkbenchCollection, WorkbenchRequest, WorkbenchEnv,
   GlobalAuthProfile, KeyValue, HttpMethod, Scenario, AuthConfig,
@@ -8,13 +8,22 @@ import type { HttpResponse } from '../../utils/httpClient';
 import { serializeWithContentType } from '../../utils/bodySerializer';
 import { parseCurl } from '../../utils/curlParser';
 import { buildCurlCommand } from '../../utils/curlGenerator';
+import { acquireOAuth2Token } from '../../engine/tokenManager';
 import { pickJsonFile, unwrapImport } from '../../utils/testEditorUtils';
+import { useResponseCache } from '../../hooks/useResponseCache';
+import type { ConsoleLine } from '../../hooks/useResponseCache';
 import { BodyEditor } from '../BodyEditor';
-import { ParamsEditor, toParamEntries, fromParamEntries } from '../ParamsEditor';
+import { ParamsEditor, fromParamEntries } from '../ParamsEditor';
 import type { ParamEntry } from '../ParamsEditor';
+import RequestAuthEditor from './RequestAuthEditor';
+import JsonPreview, { buildJTree } from './JsonTreePreview';
+import type { JNode } from './JsonTreePreview';
+import ConsoleLog from './ConsoleLog';
+import MultiEnvResultRow from './MultiEnvResultRow';
 
 type EditorTab = 'params' | 'headers' | 'body' | 'auth';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
+type ResponseTab = 'preview' | 'headers' | 'console';
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -29,11 +38,11 @@ const METHOD_COLORS: Record<string, string> = {
 interface Props {
   collection: WorkbenchCollection;
   request: WorkbenchRequest;
+  parentSubCollection?: import('../../types').WorkbenchFolder;
   environments: WorkbenchEnv[];
   selectedEnvId?: string;
   onEnvChange: (envId: string | undefined) => void;
   onUpdateRequest: (patch: Partial<WorkbenchRequest>) => void;
-  resolveUrl: (request: WorkbenchRequest) => string;
   appGlobalAuthProfiles: GlobalAuthProfile[];
 }
 
@@ -57,44 +66,95 @@ function buildUrl(base: string, params: ParamEntry[]): string {
   return `${basePart}?${qs}`;
 }
 
-function getBaseUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch { return url; }
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function WorkbenchRequestEditor({
-  collection, request, environments, selectedEnvId, onEnvChange,
-  onUpdateRequest, resolveUrl, appGlobalAuthProfiles,
+  collection, request, parentSubCollection, environments, selectedEnvId, onEnvChange,
+  onUpdateRequest, appGlobalAuthProfiles,
 }: Props) {
   const [activeTab, setActiveTab] = useState<EditorTab>('params');
   const [inputMode, setInputMode] = useState<InputMode>('builder');
   const [sending, setSending] = useState(false);
-  const [response, setResponse] = useState<HttpResponse | null>(null);
-  const [responseTime, setResponseTime] = useState(0);
-  const [sendAllResults, setSendAllResults] = useState<{ envName: string; response: HttpResponse; time: number }[] | null>(null);
+  const [responseTab, setResponseTab] = useState<ResponseTab>('preview');
   const [reqNameEditing, setReqNameEditing] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // cURL Import/Export state
   const [curlText, setCurlText] = useState('');
   const [generatedCurl, setGeneratedCurl] = useState('');
   const [curlGenerating, setCurlGenerating] = useState(false);
   const [curlCopied, setCurlCopied] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [responseSearch, setResponseSearch] = useState('');
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
+  const handleTreeToggle = useCallback((path: string) => {
+    setCollapsedSet(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
 
-  const queryParams = useMemo(() => toParamEntries(parseQueryParams(request.url)), [request.url]);
+  const {
+    response, setResponse,
+    responseTime, setResponseTime,
+    sendAllResults, setSendAllResults,
+    consoleLines, setConsoleLines,
+  } = useResponseCache(request.id);
+
+  const prevReqIdForUI = useRef<string>(request.id);
+  useEffect(() => {
+    if (prevReqIdForUI.current !== request.id) {
+      prevReqIdForUI.current = request.id;
+      setResponseSearch('');
+      setSearchMatchIdx(0);
+      setInputMode('builder');
+      setCurlText('');
+      setGeneratedCurl('');
+    }
+  }, [request.id]);
+
+  const responseTree = useMemo(() => {
+    if (!response?.body) return null;
+    try { return buildJTree(JSON.parse(response.body), ''); } catch { return null; }
+  }, [response?.body]);
+  const allTreePaths = useMemo(() => {
+    if (!responseTree) return new Set<string>();
+    const paths = new Set<string>();
+    (function walk(node: JNode, p: string) {
+      if (node.children?.length) { paths.add(p); node.children.forEach((c) => walk(c, `${p}/${c.key}`)); }
+    })(responseTree, '');
+    return paths;
+  }, [responseTree]);
+  const isAllCollapsed = collapsedSet.size > 0 && collapsedSet.size >= allTreePaths.size;
+  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
+  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
+  const searchMatchIdxRef = useRef(searchMatchIdx);
+  searchMatchIdxRef.current = searchMatchIdx;
+  const handleMatchCountChange = useCallback((count: number) => {
+    setSearchMatchCount(count);
+    if (searchMatchIdxRef.current >= count) setSearchMatchIdx(Math.max(0, count - 1));
+  }, []);
+
+  const queryParams = useMemo(() => {
+    if (request.savedQueryParams && request.savedQueryParams.length > 0) {
+      return request.savedQueryParams.map(p => ({
+        key: p.key, value: p.value, enabled: p.enabled, description: p.description ?? '',
+      }));
+    }
+    const parsed = parseQueryParams(request.url);
+    if (parsed.length === 0) return [{ key: '', value: '', enabled: true, description: '' }];
+    return parsed.map(kv => ({ ...kv, enabled: true, description: '' }));
+  }, [request.url, request.savedQueryParams]);
   const headerCount = useMemo(() => request.headers.filter((h) => h.key.trim()).length, [request.headers]);
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
-  const baseUrl = useMemo(() => (request.url ? getBaseUrl(request.url) : ''), [request.url]);
 
   const handleMethodChange = (method: HttpMethod) => onUpdateRequest({ method });
-
-  const handleUrlChange = (url: string) => onUpdateRequest({ url });
-
-  const handleParamsChange = useCallback((params: ParamEntry[]) => {
-    onUpdateRequest({ url: buildUrl(request.url, params) });
-  }, [request.url, onUpdateRequest]);
 
   const handleHeaderChange = (idx: number, field: 'key' | 'value', val: string) => {
     const headers = [...request.headers];
@@ -102,692 +162,584 @@ export default function WorkbenchRequestEditor({
     onUpdateRequest({ headers });
   };
 
-  const addHeader = () => {
-    onUpdateRequest({ headers: [...request.headers, { key: '', value: '' }] });
-  };
+  const addHeader = () => onUpdateRequest({ headers: [...request.headers, { key: '', value: '' }] });
 
   const removeHeader = (idx: number) => {
     const headers = request.headers.filter((_, i) => i !== idx);
     onUpdateRequest({ headers: headers.length > 0 ? headers : [{ key: '', value: '' }] });
   };
 
+  const subColEnvId = useMemo(() => {
+    if (!parentSubCollection) return undefined;
+    if (parentSubCollection.selectedEnvId) return parentSubCollection.selectedEnvId;
+    const matched = environments.find(e => e.name.toLowerCase() === parentSubCollection.name.toLowerCase());
+    return matched?.id;
+  }, [parentSubCollection, environments]);
+
+  const allKnownBaseUrls = useMemo(() => {
+    const urls: string[] = [];
+    for (const u of Object.values(collection.baseUrls ?? {})) urls.push(u.replace(/\/+$/, ''));
+    if (parentSubCollection?.baseUrls) {
+      for (const u of Object.values(parentSubCollection.baseUrls)) urls.push(u.replace(/\/+$/, ''));
+    }
+    return urls.sort((a, b) => b.length - a.length);
+  }, [collection.baseUrls, parentSubCollection?.baseUrls]);
+
+  const stripToRelative = useCallback((url: string): string => {
+    if (collection.mode !== 'multi-env') return url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+    const matched = allKnownBaseUrls.find(b => url.startsWith(b));
+    if (matched) return url.slice(matched.length) || '/';
+    try { return new URL(url).pathname + new URL(url).search + new URL(url).hash; } catch {}
+    return url;
+  }, [collection.mode, allKnownBaseUrls]);
+
+  const handleUrlChange = useCallback((url: string) => {
+    onUpdateRequest({ url: stripToRelative(url) });
+  }, [onUpdateRequest, stripToRelative]);
+
+  const handleParamsChange = useCallback((params: ParamEntry[]) => {
+    const hasDisabled = params.some(p => !p.enabled && p.key.trim());
+    const nonEmpty = params.filter(p => p.key.trim());
+    const hasEmptyTrailing = params.length > 0 && !params[params.length - 1].key.trim();
+    const toSave = hasEmptyTrailing
+      ? [...nonEmpty, { key: '', value: '', enabled: true, description: '' }]
+      : nonEmpty;
+    onUpdateRequest({
+      url: buildUrl(request.url, params),
+      savedQueryParams: hasDisabled || toSave.length > 0
+        ? toSave.map(p => ({ key: p.key, value: p.value, enabled: p.enabled, description: p.description }))
+        : undefined,
+    });
+  }, [request.url, onUpdateRequest]);
+
+  const relativePath = useMemo(() => stripToRelative(request.url), [request.url, stripToRelative]);
+
+  const displayUrl = useMemo(() => {
+    if (collection.mode === 'direct') return relativePath;
+    const effectiveEnvId = subColEnvId || selectedEnvId;
+
+    const targetBase = parentSubCollection?.baseUrls?.[subColEnvId ?? '']
+      ? parentSubCollection.baseUrls[subColEnvId!].replace(/\/+$/, '')
+      : effectiveEnvId && collection.baseUrls?.[effectiveEnvId]
+        ? collection.baseUrls[effectiveEnvId].replace(/\/+$/, '')
+        : null;
+
+    if (!targetBase) return relativePath;
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+    return `${targetBase}${path}`;
+  }, [relativePath, collection.mode, collection.baseUrls, selectedEnvId, subColEnvId, parentSubCollection]);
+
   const asDraftScenario = useCallback((): Scenario => ({
-    id: request.id,
-    name: request.name,
-    url: resolveUrl(request),
-    method: request.method,
-    headers: request.headers,
-    body: request.body,
-    bodyType: request.bodyType,
-    bodyForm: request.bodyForm,
-    auth: request.auth,
-    validation: { mode: 'none' },
-  }), [request, resolveUrl]);
+    id: request.id, name: request.name, url: displayUrl,
+    method: request.method, headers: request.headers, body: request.body,
+    bodyType: request.bodyType, bodyForm: request.bodyForm,
+    auth: request.auth, validation: { mode: 'none' },
+  }), [request, displayUrl]);
 
-  const resolveEffectiveAuth = useCallback((): AuthConfig => {
-    if (request.auth?.type !== 'none' && request.auth?.type !== 'inherit') {
-      return request.auth;
+  const resolveEffectiveAuth = useCallback((envId?: string): AuthConfig => {
+    if (request.auth?.type !== 'none' && request.auth?.type !== 'inherit') return request.auth;
+    if (parentSubCollection?.auth?.type && parentSubCollection.auth.type !== 'none' && parentSubCollection.auth.type !== 'inherit') {
+      return parentSubCollection.auth;
     }
-    if (collection.auth?.type && collection.auth.type !== 'none') {
-      return collection.auth;
+    if (envId && collection.authPerEnv?.[envId]) {
+      const envAuth = collection.authPerEnv[envId];
+      if (envAuth.type && envAuth.type !== 'none') return envAuth;
     }
+    if (collection.auth?.type && collection.auth.type !== 'none') return collection.auth;
     return { type: 'none' };
-  }, [request.auth, collection.auth]);
+  }, [request.auth, parentSubCollection?.auth, collection.auth, collection.authPerEnv]);
 
-  const buildRequestHeaders = useCallback((scenario: Scenario, contentType: string | null): Record<string, string> => {
+  const buildRequestHeaders = useCallback(async (scenario: Scenario, contentType: string | null, envId?: string): Promise<Record<string, string>> => {
     const h: Record<string, string> = {};
-    for (const kv of scenario.headers) {
-      if (kv.key.trim()) h[kv.key.trim()] = kv.value;
-    }
-
+    for (const kv of scenario.headers) { if (kv.key.trim()) h[kv.key.trim()] = kv.value; }
     if (contentType) {
-      if (contentType.startsWith('multipart/form-data')) {
-        h['Content-Type'] = contentType;
-      } else if (!h['Content-Type']) {
-        h['Content-Type'] = contentType;
-      }
+      if (contentType.startsWith('multipart/form-data')) h['Content-Type'] = contentType;
+      else if (!h['Content-Type']) h['Content-Type'] = contentType;
     }
-
-    const auth = resolveEffectiveAuth();
-
-    if (auth?.type === 'bearer' && auth.token) {
+    const auth = resolveEffectiveAuth(envId);
+    if (auth?.type === 'oauth2' && auth.tokenUrl) {
+      const token = await acquireOAuth2Token(auth);
+      h['Authorization'] = `Bearer ${token}`;
+    } else if (auth?.type === 'bearer' && auth.token) {
       h['Authorization'] = `${auth.prefix || 'Bearer'} ${auth.token}`;
     } else if (auth?.type === 'basic' && auth.username) {
       h['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password || ''}`)}`;
     } else if (auth?.type === 'api-key' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn === 'header') {
       h[auth.apiKeyName] = auth.apiKeyValue;
     }
-
     return h;
   }, [resolveEffectiveAuth]);
 
-  // ─── cURL Import ────────────────────────────────────
 
   const handleCurlImport = useCallback(() => {
     if (!curlText.trim()) return;
     const parsed = parseCurl(curlText);
-    const { id: _discardId, validation: _discardVal, ...parsedFields } = parsed as Scenario;
-    onUpdateRequest({
+    const { id: _discardId, validation: _discardVal, name: parsedName, ...parsedFields } = parsed as Scenario;
+    const patch: Partial<typeof parsedFields & { name?: string }> = {
       ...parsedFields,
-    });
-    setInputMode('builder');
-    setCurlText('');
-    if (parsed.bodyType && parsed.bodyType !== 'none' && parsed.method !== 'GET') {
-      setActiveTab('body');
-    }
-  }, [curlText, onUpdateRequest]);
-
-  // ─── cURL Export ────────────────────────────────────
+      url: stripToRelative(parsedFields.url),
+    };
+    if (!request.name.trim() && parsedName) patch.name = parsedName;
+    onUpdateRequest(patch);
+    setInputMode('builder'); setCurlText('');
+    if (parsed.bodyType && parsed.bodyType !== 'none' && parsed.method !== 'GET') setActiveTab('body');
+  }, [curlText, onUpdateRequest, stripToRelative, request.name]);
 
   const triggerCurlGeneration = useCallback(async () => {
-    if (!request.url.trim()) {
-      setGeneratedCurl('');
-      return;
-    }
+    if (!request.url.trim()) { setGeneratedCurl(''); return; }
     setCurlGenerating(true);
     try {
-      const scenario = asDraftScenario();
-      const auth = resolveEffectiveAuth();
-      const cmd = await buildCurlCommand(scenario, auth);
+      const cmd = await buildCurlCommand(asDraftScenario(), resolveEffectiveAuth());
       setGeneratedCurl(cmd);
-    } catch (err) {
-      setGeneratedCurl(`# Error generating cURL: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setCurlGenerating(false);
-    }
+    } catch (err) { setGeneratedCurl(`# Error: ${err instanceof Error ? err.message : String(err)}`); }
+    finally { setCurlGenerating(false); }
   }, [asDraftScenario, resolveEffectiveAuth, request.url]);
 
   const handleCopyToClipboard = useCallback(async () => {
     await navigator.clipboard.writeText(generatedCurl);
-    setCurlCopied(true);
-    setTimeout(() => setCurlCopied(false), 2000);
+    setCurlCopied(true); setTimeout(() => setCurlCopied(false), 2000);
   }, [generatedCurl]);
-
-  // ─── JSON Import ────────────────────────────────────
 
   const handleJsonImport = useCallback(() => {
     pickJsonFile((raw) => {
       const data = unwrapImport(raw) as Record<string, unknown>;
-      if (!data.name || !data.url || !data.method) {
-        alert('Invalid file: expected a request with name, url, and method.');
-        return;
-      }
+      if (!data.name || !data.url || !data.method) { alert('Invalid file: expected a request with name, url, and method.'); return; }
       const imported = data as unknown as WorkbenchRequest;
-      onUpdateRequest({
-        name: imported.name,
-        method: imported.method,
-        url: imported.url,
-        headers: imported.headers || [{ key: '', value: '' }],
-        body: imported.body || '',
-        bodyType: imported.bodyType,
-        bodyForm: imported.bodyForm,
-        auth: imported.auth || { type: 'inherit' },
+      onUpdateRequest({ name: imported.name, method: imported.method, url: stripToRelative(imported.url),
+        headers: imported.headers || [{ key: '', value: '' }], body: imported.body || '',
+        bodyType: imported.bodyType, bodyForm: imported.bodyForm, auth: imported.auth || { type: 'inherit' },
       });
       setInputMode('builder');
     });
-  }, [onUpdateRequest]);
-
-  // ─── JSON Export ────────────────────────────────────
+  }, [onUpdateRequest, stripToRelative]);
 
   const handleJsonExport = useCallback(() => {
-    const payload = {
-      _exportMeta: { type: 'workbench-request', version: 1, exportedAt: new Date().toISOString() },
-      data: {
-        name: request.name,
-        method: request.method,
-        url: request.url,
-        headers: request.headers,
-        body: request.body,
-        bodyType: request.bodyType,
-        bodyForm: request.bodyForm,
-        auth: request.auth,
-      },
+    const payload = { _exportMeta: { type: 'workbench-request', version: 1, exportedAt: new Date().toISOString() },
+      data: { name: request.name, method: request.method, url: request.url, headers: request.headers,
+        body: request.body, bodyType: request.bodyType, bodyForm: request.bodyForm, auth: request.auth },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${request.name || 'request'}.json`;
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = `${request.name || 'request'}.json`; a.click();
     URL.revokeObjectURL(url);
   }, [request]);
 
-  // ─── Send ───────────────────────────────────────────
-
   const handleSend = useCallback(async () => {
-    setSending(true);
-    setResponse(null);
-    setSendAllResults(null);
+    setSending(true); setResponse(null); setSendAllResults(null);
+    const log: ConsoleLine[] = [];
+    const info = (t: string) => log.push({ prefix: '*', text: t });
+    const out = (t: string) => log.push({ prefix: '>', text: t });
+    const inp = (t: string) => log.push({ prefix: '<', text: t });
+
     try {
       const scenario = asDraftScenario();
+
+      if (!scenario.url.startsWith('http://') && !scenario.url.startsWith('https://')) {
+        const envId = subColEnvId || selectedEnvId;
+        const base =
+          parentSubCollection?.baseUrls?.[envId ?? '']?.replace(/\/+$/, '') ||
+          (envId && collection.baseUrls?.[envId]?.replace(/\/+$/, '')) ||
+          null;
+        if (base) {
+          const path = scenario.url.startsWith('/') ? scenario.url : `/${scenario.url}`;
+          scenario.url = `${base}${path}`;
+        } else {
+          const errMsg = collection.mode === 'multi-env'
+            ? 'Cannot send: no base URL configured for the selected environment. Edit collection settings to add hostnames.'
+            : 'Cannot send: URL must be a full URL (e.g. https://api.example.com/...).';
+          info(`ERROR: ${errMsg}`);
+          setConsoleLines(log);
+          setResponse({ status: 0, statusText: 'Error', headers: {}, body: errMsg, error: errMsg });
+          setSending(false);
+          return;
+        }
+      }
+
       const { body: reqBody, contentType } = serializeWithContentType(scenario);
-      const headers = buildRequestHeaders(scenario, contentType);
+
+      log.push({ prefix: '', text: `Preparing request to ${scenario.url}` });
+      info(`Current time is ${new Date().toISOString()}`);
+
+      const effectiveEnvId = subColEnvId || selectedEnvId;
+      const auth = resolveEffectiveAuth(effectiveEnvId);
+      if (auth.type === 'oauth2' && auth.tokenUrl) {
+        info(`Acquiring OAuth2 token from ${auth.tokenUrl}`);
+        info(`Client ID: ${auth.clientId}`);
+        info(`Grant type: client_credentials`);
+      }
+
+      const headers = await buildRequestHeaders(scenario, contentType, effectiveEnvId);
+
+      if (auth.type === 'oauth2') info('OAuth2 token acquired successfully');
+      if (auth.type === 'bearer') info('Using Bearer token authentication');
+      if (auth.type === 'basic') info('Using Basic authentication');
+      if (auth.type === 'api-key') info(`Using API Key in ${auth.apiKeyIn ?? 'header'}`);
+
+      let hostname = '';
+      try { hostname = new URL(scenario.url).hostname; } catch {}
+      if (hostname) info(`Connecting to ${hostname}...`);
+      info('Using browser fetch API');
+      if (scenario.url.startsWith('https')) info('SSL/TLS handled by browser');
+
+      log.push({ prefix: '', text: '' });
+      out(`${scenario.method} ${scenario.url.replace(/https?:\/\/[^/]+/, '')} HTTP/1.1`);
+      if (hostname) out(`Host: ${hostname}`);
+      for (const [k, v] of Object.entries(headers)) {
+        out(`${k}: ${v}`);
+      }
+      out('');
+
+      if (reqBody && reqBody.length > 0) {
+        info(`Request body: ${formatBytes(reqBody.length)}`);
+        if (reqBody.length <= 500) {
+          log.push({ prefix: '#', text: reqBody });
+        } else {
+          log.push({ prefix: '#', text: reqBody.slice(0, 500) + `... (${reqBody.length - 500} more bytes)` });
+        }
+        log.push({ prefix: '', text: '' });
+      }
+
       const t0 = performance.now();
       const resp = await httpFetch(scenario.url, scenario.method, headers, reqBody);
       const elapsed = Math.round(performance.now() - t0);
-      setResponse(resp);
-      setResponseTime(elapsed);
+
+      log.push({ prefix: '', text: '' });
+      inp(`HTTP/1.1 ${resp.status} ${resp.statusText}`);
+      for (const [k, v] of Object.entries(resp.headers)) {
+        inp(`${k}: ${v}`);
+      }
+      inp('');
+
+      info(`Received ${formatBytes(resp.body?.length ?? 0)} in ${elapsed} ms`);
+      info(`Response status: ${resp.status} ${resp.statusText}`);
+
+      setResponse(resp); setResponseTime(elapsed);
     } catch (err) {
-      setResponse({
-        status: 0, statusText: 'Error', headers: {},
-        body: err instanceof Error ? err.message : String(err),
-        error: err instanceof Error ? err.message : String(err),
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      log.push({ prefix: '', text: '' });
+      info(`ERROR: ${msg}`);
+      setResponse({ status: 0, statusText: 'Error', headers: {},
+        body: msg, error: msg });
       setResponseTime(0);
     }
+    setConsoleLines(log);
     setSending(false);
-  }, [asDraftScenario, buildRequestHeaders]);
+  }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, subColEnvId, selectedEnvId, collection, parentSubCollection]);
 
   const handleSendAll = useCallback(async () => {
     if (collection.mode !== 'multi-env') return;
-    setSending(true);
-    setResponse(null);
-    setSendAllResults(null);
+    setSending(true); setResponse(null); setSendAllResults(null);
+    const log: ConsoleLine[] = [];
+    const info = (t: string) => log.push({ prefix: '*', text: t });
     const results: { envName: string; response: HttpResponse; time: number }[] = [];
-
     for (const env of environments) {
       const base = collection.baseUrls?.[env.id]?.replace(/\/+$/, '') ?? '';
       const path = request.url.startsWith('/') ? request.url : `/${request.url}`;
       const fullUrl = request.url.startsWith('http') ? request.url : `${base}${path}`;
-
       const scenario: Scenario = { ...asDraftScenario(), url: fullUrl };
       const { body: reqBody, contentType } = serializeWithContentType(scenario);
-      const headers = buildRequestHeaders(scenario, contentType);
+
+      log.push({ prefix: '', text: `── ${env.name} ──` });
+      log.push({ prefix: '', text: `Preparing request to ${fullUrl}` });
+      info(`Current time is ${new Date().toISOString()}`);
+
+      const headers = await buildRequestHeaders(scenario, contentType, env.id);
+      log.push({ prefix: '>', text: `${scenario.method} ${fullUrl.replace(/https?:\/\/[^/]+/, '')} HTTP/1.1` });
+      for (const [k, v] of Object.entries(headers)) {
+        log.push({ prefix: '>', text: `${k}: ${v}` });
+      }
+
       try {
         const t0 = performance.now();
         const resp = await httpFetch(fullUrl, scenario.method, headers, reqBody);
         const elapsed = Math.round(performance.now() - t0);
         results.push({ envName: env.name, response: resp, time: elapsed });
-      } catch (err) {
-        results.push({
-          envName: env.name,
-          response: {
-            status: 0, statusText: 'Error', headers: {},
-            body: err instanceof Error ? err.message : String(err),
-            error: err instanceof Error ? err.message : String(err),
-          },
-          time: 0,
-        });
-      }
-    }
 
-    setSendAllResults(results);
-    setSending(false);
+        log.push({ prefix: '<', text: `HTTP/1.1 ${resp.status} ${resp.statusText}` });
+        for (const [k, v] of Object.entries(resp.headers)) {
+          log.push({ prefix: '<', text: `${k}: ${v}` });
+        }
+        info(`Received ${formatBytes(resp.body?.length ?? 0)} in ${elapsed} ms`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        results.push({ envName: env.name, response: { status: 0, statusText: 'Error', headers: {},
+          body: msg, error: msg }, time: 0 });
+        info(`ERROR: ${msg}`);
+      }
+      log.push({ prefix: '', text: '' });
+    }
+    setConsoleLines(log);
+    setSendAllResults(results); setSending(false);
   }, [collection, environments, request, asDraftScenario, buildRequestHeaders]);
 
-  const handleNameBlur = () => setReqNameEditing(false);
-
   const handleDraftChange = useCallback((draft: Scenario) => {
-    onUpdateRequest({
-      body: draft.body,
-      bodyType: draft.bodyType,
-      bodyForm: draft.bodyForm,
-    });
+    onUpdateRequest({ body: draft.body, bodyType: draft.bodyType, bodyForm: draft.bodyForm });
   }, [onUpdateRequest]);
 
   const draftScenario = asDraftScenario();
+  const responseHeaderCount = response ? Object.keys(response.headers).length : 0;
 
   return (
     <div className="wb-editor">
-      {/* Top bar: request name + mode toolbar */}
-      <div className="wb-top-bar">
-        <div className="wb-req-name-bar">
-          {reqNameEditing ? (
-            <input
-              ref={nameInputRef}
-              className="wb-req-name-input"
-              value={request.name}
-              onChange={(e) => onUpdateRequest({ name: e.target.value })}
-              onBlur={handleNameBlur}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleNameBlur(); }}
-              autoFocus
-            />
-          ) : (
-            <span className="wb-req-name-display" onClick={() => setReqNameEditing(true)}>
-              {request.name || 'Untitled Request'}
-              <span className="wb-edit-hint">&#9998;</span>
-            </span>
-          )}
-        </div>
-
-        <div className="wb-mode-toggle">
-          <button
-            className={`wb-mode-btn ${inputMode === 'builder' ? 'active' : ''}`}
-            onClick={() => setInputMode('builder')}
-          >
-            Builder
-          </button>
-          <button
-            className={`wb-mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`}
-            onClick={() => setInputMode('curlImport')}
-          >
-            cURL Import
-          </button>
-          <button
-            className={`wb-mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
-            onClick={() => { setInputMode('curlExport'); void triggerCurlGeneration(); }}
-          >
-            cURL Export
-          </button>
-          <button className="wb-mode-btn" onClick={handleJsonImport}>Import</button>
-          <button className="wb-mode-btn" onClick={handleJsonExport}>Export</button>
-        </div>
+      {/* ── Request name ── */}
+      <div className="wb-req-name-bar">
+        {reqNameEditing ? (
+          <input ref={nameInputRef} className="wb-req-name-input" value={request.name}
+            onChange={(e) => onUpdateRequest({ name: e.target.value })}
+            onBlur={() => setReqNameEditing(false)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setReqNameEditing(false); }} autoFocus />
+        ) : (
+          <span className="wb-req-name-display" onClick={() => setReqNameEditing(true)}>
+            {request.name || 'Untitled Request'} <span className="wb-edit-hint">&#9998;</span>
+          </span>
+        )}
       </div>
 
-      {/* cURL Import panel */}
-      {inputMode === 'curlImport' && (
-        <div className="wb-curl-panel">
-          <label className="wb-curl-label">Paste your cURL command</label>
-          <textarea
-            className="wb-curl-textarea"
-            rows={8}
-            autoFocus
-            value={curlText}
-            onChange={(e) => setCurlText(e.target.value)}
-            placeholder={`curl -X POST https://api.example.com/data \\
-  -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer token123' \\
-  -d '{"key": "value"}'`}
-          />
-          <div className="wb-curl-actions">
-            <button
-              className="btn btn-primary"
-              disabled={!curlText.trim()}
-              onClick={handleCurlImport}
-            >
-              Import &amp; Switch to Builder
+      {/* ── URL bar + status ── */}
+      <div className="wb-url-row">
+        <select className="wb-method-select" value={request.method}
+          onChange={(e) => handleMethodChange(e.target.value as HttpMethod)}
+          style={{ color: METHOD_COLORS[request.method] }}>
+          {METHODS.map((m) => <option key={m} value={m} style={{ color: METHOD_COLORS[m] }}>{m}</option>)}
+        </select>
+        <input className="wb-url-input"
+          value={relativePath}
+          onChange={(e) => handleUrlChange(e.target.value)}
+          placeholder={collection.mode === 'multi-env' ? '/v1/endpoint' : 'https://api.example.com/v1/endpoint'} />
+        <button className="wb-send-btn" onClick={handleSend} disabled={sending}>
+          {sending ? '...' : 'Send'}
+        </button>
+
+        {response && !sending && (
+          <div className="wb-status-row">
+            <span className={`wb-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
+              {response.status} {response.statusText}
+            </span>
+            <span className="wb-stat">{responseTime} ms</span>
+            <span className="wb-stat">{formatBytes(response.body?.length ?? 0)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Env bar + resolved URL (multi-env only) ── */}
+      {collection.mode === 'multi-env' && environments.length > 0 && (() => {
+        const envName = subColEnvId ? environments.find(e => e.id === subColEnvId)?.name : null;
+        const hasBaseUrls = Object.keys(collection.baseUrls ?? {}).length > 0;
+        return (
+        <div className="wb-env-bar">
+          <span className="wb-env-bar-label">Env:</span>
+          {subColEnvId ? (
+            <span className="wb-env-pill active pinned">{envName}</span>
+          ) : (
+            <div className="wb-env-pills">
+              {environments.map((env) => (
+                <button key={env.id} className={`wb-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
+                  onClick={() => onEnvChange(env.id)}>{env.name}</button>
+              ))}
+            </div>
+          )}
+          {displayUrl !== relativePath && (
+            <>
+              <span className="wb-resolved-url-arrow">&#8594;</span>
+              <span className="wb-resolved-url-full" title={displayUrl}>{displayUrl}</span>
+            </>
+          )}
+          {!hasBaseUrls && (
+            <span className="wb-env-hint">Base URLs not configured — edit collection to add hostnames</span>
+          )}
+        </div>
+        );
+      })()}
+
+      {/* ── Split pane: request (left) + response (right) ── */}
+      <div className="wb-split-pane">
+
+        {/* LEFT: Request editor */}
+        <div className="wb-pane-left">
+          {/* Tabs row with action menu */}
+          <div className="wb-tabs">
+            <button className={`wb-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => { setActiveTab('params'); setInputMode('builder'); }}>
+              Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
+            </button>
+            <button className={`wb-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => { setActiveTab('body'); setInputMode('builder'); }}>Body</button>
+            <button className={`wb-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => { setActiveTab('auth'); setInputMode('builder'); }}>
+              Auth {request.auth.type !== 'none' && request.auth.type !== 'inherit' && <span className="wb-tab-dot" />}
+            </button>
+            <button className={`wb-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
+              Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
+            </button>
+
+            <div className="wb-action-menu-wrapper">
+              <button className="wb-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
+                title="Import / Export">&#9662;</button>
+              {showActionMenu && (
+                <div className="wb-action-dropdown" onClick={() => setShowActionMenu(false)}>
+                  <button onClick={() => setInputMode('curlImport')}>cURL Import</button>
+                  <button onClick={() => { setInputMode('curlExport'); void triggerCurlGeneration(); }}>cURL Export</button>
+                  <div className="wb-dropdown-divider" />
+                  <button onClick={handleJsonImport}>Import JSON</button>
+                  <button onClick={handleJsonExport}>Export JSON</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tab / cURL content */}
+          <div className="wb-tab-content">
+            {/* cURL Import panel */}
+            {inputMode === 'curlImport' && (
+              <div className="wb-curl-panel">
+                <label className="wb-curl-label">Paste your cURL command</label>
+                <textarea className="wb-curl-textarea" rows={8} autoFocus value={curlText}
+                  onChange={(e) => setCurlText(e.target.value)}
+                  placeholder={`curl -X POST https://api.example.com \\
+  -H 'Authorization: Bearer token' \\
+  -d '{"key": "value"}'`} />
+                <div className="wb-curl-actions">
+                  <button className="btn btn-primary" disabled={!curlText.trim()} onClick={handleCurlImport}>Import &amp; Apply</button>
+                  <button className="btn btn-ghost" onClick={() => setInputMode('builder')}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* cURL Export panel */}
+            {inputMode === 'curlExport' && (
+              <div className="wb-curl-panel">
+                <label className="wb-curl-label">Generated cURL command</label>
+                {request.url.trim() ? (<>
+                  <textarea className="wb-curl-textarea wb-curl-export" rows={10} readOnly
+                    value={curlGenerating ? 'Generating...' : generatedCurl}
+                    onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
+                  <div className="wb-curl-actions">
+                    <button className="btn btn-primary" disabled={curlGenerating || !generatedCurl} onClick={handleCopyToClipboard}>
+                      {curlCopied ? 'Copied!' : 'Copy'}</button>
+                    <button className="btn" disabled={curlGenerating} onClick={() => void triggerCurlGeneration()}>Refresh</button>
+                    <button className="btn btn-ghost" onClick={() => setInputMode('builder')}>Close</button>
+                  </div>
+                </>) : <div className="wb-curl-empty">Set a URL first.</div>}
+              </div>
+            )}
+
+            {/* Builder content */}
+            {inputMode === 'builder' && (<>
+              {activeTab === 'params' && <ParamsEditor params={queryParams} onChange={handleParamsChange} />}
+              {activeTab === 'body' && <BodyEditor draft={draftScenario} onDraftChange={handleDraftChange} />}
+
+              {activeTab === 'headers' && (
+                <div className="wb-headers-editor">
+                  <div className="wb-kv-toolbar">
+                    <button className="btn btn-sm" onClick={addHeader}>+ Add</button>
+                    <button className="btn btn-sm btn-ghost" onClick={() => onUpdateRequest({ headers: [{ key: '', value: '' }] })}>Delete all</button>
+                  </div>
+                  {request.headers.map((h, i) => (
+                    <div key={i} className="wb-header-row">
+                      <input className="wb-input" value={h.key} onChange={(e) => handleHeaderChange(i, 'key', e.target.value)} placeholder="Header name" />
+                      <input className="wb-input" value={h.value} onChange={(e) => handleHeaderChange(i, 'value', e.target.value)} placeholder="Value" />
+                      <button className="wb-icon-btn danger" onClick={() => removeHeader(i)}>&times;</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'auth' && (
+                <RequestAuthEditor
+                  auth={request.auth}
+                  collection={collection}
+                  globalAuthProfiles={appGlobalAuthProfiles}
+                  onUpdate={(auth) => onUpdateRequest({ auth })}
+                />
+              )}
+            </>)}
+          </div>
+        </div>
+
+        {/* RIGHT: Response panel */}
+        <div className="wb-pane-right">
+          {/* Response tabs */}
+          <div className="wb-tabs wb-resp-tabs">
+            <button className={`wb-tab ${responseTab === 'preview' ? 'active' : ''}`} onClick={() => setResponseTab('preview')}>Preview</button>
+            <button className={`wb-tab ${responseTab === 'headers' ? 'active' : ''}`} onClick={() => setResponseTab('headers')}>
+              Headers {responseHeaderCount > 0 && <span className="tab-badge">{responseHeaderCount}</span>}
+            </button>
+            <button className={`wb-tab ${responseTab === 'console' ? 'active' : ''}`} onClick={() => setResponseTab('console')}>
+              Console
             </button>
           </div>
-          {request.url && (
-            <div className="wb-curl-preview">
-              <strong>Current request:</strong> {request.method} {request.url}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* cURL Export panel */}
-      {inputMode === 'curlExport' && (
-        <div className="wb-curl-panel">
-          <label className="wb-curl-label">Generated cURL command</label>
-          {request.url.trim() ? (
-            <>
-              <textarea
-                className="wb-curl-textarea wb-curl-export"
-                rows={10}
-                readOnly
-                value={curlGenerating ? 'Generating cURL...' : generatedCurl}
-                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+          {responseTab === 'preview' && (
+            <div className="wb-resp-search">
+              <button
+                className="wb-tree-toggle-btn"
+                title={isAllCollapsed ? 'Expand All' : 'Collapse All'}
+                onClick={isAllCollapsed ? handleExpandAll : handleCollapseAll}
+              >{isAllCollapsed ? '⊞' : '⊟'}</button>
+              <input
+                className="wb-resp-search-input"
+                type="text"
+                placeholder="Search response..."
+                value={responseSearch}
+                onChange={(e) => { setResponseSearch(e.target.value); setSearchMatchIdx(0); }}
               />
-              <div className="wb-curl-actions">
-                <button
-                  className="btn btn-primary"
-                  disabled={curlGenerating || !generatedCurl}
-                  onClick={handleCopyToClipboard}
-                >
-                  {curlCopied ? 'Copied!' : 'Copy to Clipboard'}
-                </button>
-                <button
-                  className="btn"
-                  disabled={curlGenerating}
-                  onClick={() => void triggerCurlGeneration()}
-                >
-                  {curlGenerating ? 'Generating...' : 'Refresh'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="wb-curl-empty">
-              Configure the request URL in the Builder first to generate a cURL command.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Builder mode */}
-      {inputMode === 'builder' && (
-        <>
-          {/* Environment switcher for multi-env */}
-          {collection.mode === 'multi-env' && environments.length > 0 && (
-            <div className="wb-env-bar">
-              <span className="wb-env-bar-label">Environment:</span>
-              <div className="wb-env-pills">
-                {environments.map((env) => (
-                  <button
-                    key={env.id}
-                    className={`wb-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
-                    onClick={() => onEnvChange(env.id)}
-                  >
-                    {env.name}
-                  </button>
-                ))}
-              </div>
-              {environments.length > 1 && (
-                <button
-                  className="btn btn-sm wb-send-all-btn"
-                  onClick={handleSendAll}
-                  disabled={sending}
-                  title="Send request to all environments"
-                >
-                  Send to All
-                </button>
+              {responseSearch && (
+                <>
+                  <span className="wb-resp-search-count">
+                    {searchMatchCount > 0 ? `${searchMatchIdx + 1}/${searchMatchCount}` : 'No match'}
+                  </span>
+                  <button className="wb-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
+                    onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}>&#9650;</button>
+                  <button className="wb-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
+                    onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}>&#9660;</button>
+                  <button className="wb-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
+                </>
               )}
             </div>
           )}
 
-          {/* URL bar */}
-          <div className="wb-url-bar">
-            <select
-              className="wb-method-select"
-              value={request.method}
-              onChange={(e) => handleMethodChange(e.target.value as HttpMethod)}
-              style={{ color: METHOD_COLORS[request.method] }}
-            >
-              {METHODS.map((m) => (
-                <option key={m} value={m} style={{ color: METHOD_COLORS[m] }}>{m}</option>
-              ))}
-            </select>
-            <input
-              className="wb-url-input"
-              value={request.url}
-              onChange={(e) => handleUrlChange(e.target.value)}
-              placeholder={collection.mode === 'multi-env' ? '/v1/endpoint' : 'https://api.example.com/v1/endpoint'}
-            />
-            <button
-              className="btn btn-primary wb-send-btn"
-              onClick={handleSend}
-              disabled={sending}
-            >
-              {sending ? 'Sending...' : 'Send'}
-            </button>
-          </div>
-
-          {/* URL preview */}
-          {paramCount > 0 && request.url && (
-            <div className="wb-url-preview">
-              <span className="wb-url-preview-label">URL PREVIEW</span>
-              <code>{request.url}</code>
-            </div>
-          )}
-
-          {/* Resolved URL preview for multi-env */}
-          {collection.mode === 'multi-env' && selectedEnvId && !request.url.startsWith('http') && (
-            <div className="wb-resolved-url">
-              {resolveUrl(request) || 'Select an environment to resolve the full URL'}
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="wb-tabs">
-            <button className={`wb-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => setActiveTab('params')}>
-              Params
-              {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
-            </button>
-            {request.method !== 'GET' && (
-              <button className={`wb-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => setActiveTab('body')}>
-                Body
-                {(request.body || (request.bodyForm ?? []).some(kv => kv.key.trim())) ? <span className="wb-tab-dot" /> : null}
-              </button>
-            )}
-            <button className={`wb-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => setActiveTab('headers')}>
-              Headers
-              {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
-            </button>
-            <button className={`wb-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => setActiveTab('auth')}>
-              Auth
-              {request.auth.type !== 'none' && request.auth.type !== 'inherit' && <span className="wb-tab-dot" />}
-            </button>
-          </div>
-
-          {/* Tab content */}
-          <div className="wb-tab-content">
-            {activeTab === 'params' && (
-              <ParamsEditor params={queryParams} onChange={handleParamsChange} />
+          <div className="wb-resp-content">
+            {sending && (
+              <div className="wb-response-loading"><div className="wb-spinner" /> Sending...</div>
             )}
 
-            {activeTab === 'body' && request.method !== 'GET' && (
-              <BodyEditor draft={draftScenario} onDraftChange={handleDraftChange} />
+            {!sending && !response && !sendAllResults && (
+              <div className="wb-response-placeholder">Click <strong>Send</strong> to get a response</div>
             )}
 
-            {activeTab === 'headers' && (
-              <div className="wb-headers-editor">
-                <div className="wb-kv-header">
-                  <span>REQUEST HEADERS</span>
-                </div>
-                {request.headers.map((h, i) => (
-                  <div key={i} className="wb-header-row">
-                    <input
-                      className="wb-input"
-                      value={h.key}
-                      onChange={(e) => handleHeaderChange(i, 'key', e.target.value)}
-                      placeholder="Header name"
-                    />
-                    <input
-                      className="wb-input"
-                      value={h.value}
-                      onChange={(e) => handleHeaderChange(i, 'value', e.target.value)}
-                      placeholder="Value"
-                    />
-                    <button className="wb-icon-btn danger" onClick={() => removeHeader(i)}>&times;</button>
+            {!sending && response && !sendAllResults && responseTab === 'preview' && (
+              <JsonPreview body={response.body} error={response.error} search={responseSearch}
+                collapsedSet={collapsedSet} onToggle={handleTreeToggle} prebuiltTree={responseTree}
+                currentMatchIdx={searchMatchIdx} onMatchCountChange={handleMatchCountChange} />
+            )}
+
+            {!sending && response && !sendAllResults && responseTab === 'headers' && (
+              <div className="wb-resp-headers-list">
+                {Object.entries(response.headers).map(([k, v]) => (
+                  <div key={k} className="wb-resp-header-row">
+                    <span className="wb-resp-header-key">{k}</span>
+                    <span className="wb-resp-header-val">{v}</span>
                   </div>
                 ))}
-                <button className="btn btn-sm" onClick={addHeader}>+ Add Header</button>
-              </div>
-            )}
-
-            {activeTab === 'auth' && (
-              <div className="wb-auth-editor">
-                <select
-                  className="wb-select"
-                  value={request.auth.type}
-                  onChange={(e) => onUpdateRequest({ auth: { ...request.auth, type: e.target.value as AuthConfig['type'] } })}
-                >
-                  <option value="inherit">Inherit from Collection</option>
-                  <option value="none">No Auth</option>
-                  <option value="bearer">Bearer Token</option>
-                  <option value="basic">Basic Auth</option>
-                  <option value="api-key">API Key</option>
-                  <option value="oauth2">OAuth2 Client Credentials</option>
-                </select>
-
-                {request.auth.type === 'bearer' && (
-                  <div className="wb-auth-fields">
-                    <label className="wb-auth-label">Prefix</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.prefix ?? 'Bearer'}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, prefix: e.target.value } })}
-                      placeholder="Prefix (default: Bearer)"
-                    />
-                    <label className="wb-auth-label">Token</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.token ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, token: e.target.value } })}
-                      placeholder="Token"
-                    />
-                  </div>
-                )}
-
-                {request.auth.type === 'basic' && (
-                  <div className="wb-auth-fields">
-                    <label className="wb-auth-label">Username</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.username ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, username: e.target.value } })}
-                      placeholder="Username"
-                    />
-                    <label className="wb-auth-label">Password</label>
-                    <input
-                      className="wb-input"
-                      type="password"
-                      value={request.auth.password ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, password: e.target.value } })}
-                      placeholder="Password"
-                    />
-                  </div>
-                )}
-
-                {request.auth.type === 'api-key' && (
-                  <div className="wb-auth-fields">
-                    <label className="wb-auth-label">Key Name</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.apiKeyName ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, apiKeyName: e.target.value } })}
-                      placeholder="Key name"
-                    />
-                    <label className="wb-auth-label">Key Value</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.apiKeyValue ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, apiKeyValue: e.target.value } })}
-                      placeholder="Key value"
-                    />
-                    <label className="wb-auth-label">Add To</label>
-                    <select
-                      className="wb-select"
-                      value={request.auth.apiKeyIn ?? 'header'}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, apiKeyIn: e.target.value as 'header' | 'query' } })}
-                    >
-                      <option value="header">Header</option>
-                      <option value="query">Query String</option>
-                    </select>
-                  </div>
-                )}
-
-                {request.auth.type === 'oauth2' && (
-                  <div className="wb-auth-fields">
-                    <label className="wb-auth-label">Token URL</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.tokenUrl ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, tokenUrl: e.target.value } })}
-                      placeholder="https://auth.example.com/oauth/token"
-                    />
-                    <label className="wb-auth-label">Client ID</label>
-                    <input
-                      className="wb-input"
-                      value={request.auth.clientId ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, clientId: e.target.value } })}
-                      placeholder="Client ID"
-                    />
-                    <label className="wb-auth-label">Client Secret</label>
-                    <input
-                      className="wb-input"
-                      type="password"
-                      value={request.auth.clientSecret ?? ''}
-                      onChange={(e) => onUpdateRequest({ auth: { ...request.auth, clientSecret: e.target.value } })}
-                      placeholder="Client Secret"
-                    />
-                  </div>
-                )}
-
-                {request.auth.type === 'inherit' && collection.auth && collection.auth.type !== 'none' && (
-                  <div className="wb-auth-inherit-info">
-                    Inheriting <strong>{collection.auth.type}</strong> auth from collection "{collection.name}"
-                  </div>
+                {Object.keys(response.headers).length === 0 && (
+                  <div className="wb-response-placeholder">No response headers</div>
                 )}
               </div>
             )}
+
+            {responseTab === 'console' && (
+              <ConsoleLog lines={consoleLines} />
+            )}
+
+            {!sending && sendAllResults && responseTab !== 'console' && (
+              <div className="wb-multi-results">
+                {sendAllResults.map((r, i) => <MultiEnvResultRow key={i} {...r} />)}
+              </div>
+            )}
           </div>
-        </>
-      )}
-
-      {/* Response area */}
-      <div className="wb-response-area">
-        {sending && (
-          <div className="wb-response-loading">
-            <div className="wb-spinner" />
-            Sending request...
-          </div>
-        )}
-
-        {!sending && !response && !sendAllResults && (
-          <div className="wb-response-placeholder">
-            Click <strong>Send</strong> to get a response
-          </div>
-        )}
-
-        {!sending && response && !sendAllResults && (
-          <div className="wb-response-panel">
-            <div className="wb-response-header">
-              <span className="wb-response-title">Response</span>
-              <span className={`wb-status-badge ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
-                {response.status} {response.statusText}
-              </span>
-              <span className="wb-response-time">{responseTime} ms</span>
-              <span className="wb-response-size">{(response.body?.length ?? 0).toLocaleString()} chars</span>
-            </div>
-            <div className="wb-response-tabs">
-              <ResponseBody body={response.body} error={response.error} />
-            </div>
-          </div>
-        )}
-
-        {!sending && sendAllResults && (
-          <div className="wb-response-panel">
-            <div className="wb-response-header">
-              <span className="wb-response-title">Multi-Environment Results</span>
-            </div>
-            <div className="wb-multi-results">
-              {sendAllResults.map((r, i) => (
-                <MultiEnvResultRow key={i} {...r} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResponseBody({ body, error }: { body: string; error?: string }) {
-  const [wrap, setWrap] = useState(false);
-
-  const formatted = useMemo(() => {
-    if (error) return error;
-    if (!body) return '(empty response)';
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch {
-      return body;
-    }
-  }, [body, error]);
-
-  return (
-    <div className="wb-response-body-container">
-      <div className="wb-response-body-toolbar">
-        <label className="wb-toggle-label">
-          <input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} />
-          Wrap
-        </label>
-      </div>
-      <pre className={`wb-response-body ${wrap ? 'wrap' : ''}`}>{formatted}</pre>
-    </div>
-  );
-}
-
-function MultiEnvResultRow({ envName, response, time }: { envName: string; response: HttpResponse; time: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const isSuccess = response.status >= 200 && response.status < 300;
-
-  return (
-    <div className={`wb-multi-row ${isSuccess ? 'success' : 'error'}`}>
-      <div className="wb-multi-row-header" onClick={() => setExpanded(!expanded)}>
-        <span className="wb-multi-arrow">{expanded ? '▾' : '▸'}</span>
-        <span className="wb-multi-env">{envName}</span>
-        <span className={`wb-status-badge ${isSuccess ? 'success' : 'error'}`}>
-          {response.status || 'ERR'}
-        </span>
-        <span className="wb-response-time">{time} ms</span>
-      </div>
-      {expanded && (
-        <div className="wb-multi-row-body">
-          <ResponseBody body={response.body} error={response.error} />
         </div>
-      )}
+      </div>
+
     </div>
   );
 }
+
