@@ -274,9 +274,105 @@
   overflow: hidden;
 }
 
+/* Top bar: name + mode toggle */
+.wb-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.wb-mode-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-hover);
+  border-radius: var(--radius);
+  padding: 2px;
+}
+.wb-mode-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.wb-mode-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+.wb-mode-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* cURL Import / Export panels */
+.wb-curl-panel {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.wb-curl-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+.wb-curl-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 12px 14px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.wb-curl-textarea:focus {
+  border-color: var(--primary);
+}
+.wb-curl-export {
+  cursor: text;
+  background: var(--surface);
+}
+.wb-curl-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.wb-curl-preview {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--surface-hover);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.wb-curl-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 /* Request name */
 .wb-req-name-bar {
-  padding: 12px 20px 4px;
+  flex: 1;
+  min-width: 0;
 }
 .wb-req-name-display {
   font-size: 0.95rem;
@@ -398,6 +494,33 @@
   font-size: 0.85rem;
   white-space: nowrap;
 }
+/* URL preview (full URL with query params) */
+.wb-url-preview {
+  padding: 2px 20px 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wb-url-preview-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.wb-url-preview code {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--surface-hover);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
 .wb-resolved-url {
   padding: 0 20px 4px;
   font-size: 0.72rem;
@@ -446,6 +569,13 @@
   min-width: 16px;
   text-align: center;
 }
+.wb-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: inline-block;
+}
 
 /* Tab content */
 .wb-tab-content {
@@ -461,6 +591,14 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.wb-kv-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
 }
 .wb-header-row {
   display: flex;
@@ -480,6 +618,15 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 12px;
+}
+.wb-auth-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.wb-auth-label:first-child {
+  margin-top: 0;
 }
 .wb-auth-inherit-info {
   margin-top: 12px;
