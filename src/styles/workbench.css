@@ -780,6 +780,15 @@
   cursor: pointer; max-width: 100%;
 }
 .wb-base-url-picker:hover { border-color: var(--primary); color: var(--text); }
+.wb-add-env-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.wb-add-env-row .wb-input {
+  flex: 1;
+}
 .wb-import-from-project {
   display: flex;
   gap: 8px;

@@ -409,6 +409,7 @@ export default function App() {
           projects={projects}
           globalAuthProfiles={appGlobalAuthProfiles}
           onSave={handleWbSaveCollection}
+          onAddEnv={wb.addEnv}
           onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); }}
         />
       )}

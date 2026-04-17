@@ -10,6 +10,7 @@ interface Props {
   projects: Project[];
   globalAuthProfiles: GlobalAuthProfile[];
   onSave: (col: Omit<WorkbenchCollection, 'id' | 'requests'> & { id?: string }) => void;
+  onAddEnv: (name: string) => void;
   onClose: () => void;
 }
 
@@ -153,11 +154,12 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
   );
 }
 
-export default function WorkbenchCollectionModal({ collection, collections, environments, projects, globalAuthProfiles, onSave, onClose }: Props) {
+export default function WorkbenchCollectionModal({ collection, collections, environments, projects, globalAuthProfiles, onSave, onAddEnv, onClose }: Props) {
   const [name, setName] = useState(collection?.name ?? '');
   const [mode, setMode] = useState<'direct' | 'multi-env'>(collection?.mode ?? 'direct');
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>(collection?.baseUrls ?? {});
   const [importProjectId, setImportProjectId] = useState('');
+  const [newEnvName, setNewEnvName] = useState('');
 
   const [defaultAuth, setDefaultAuth] = useState<EnvAuthState>(
     authToState(collection?.auth, globalAuthProfiles)
@@ -321,6 +323,26 @@ export default function WorkbenchCollectionModal({ collection, collections, envi
                   })}
                 </div>
               )}
+              <div className="wb-add-env-row">
+                <input className="wb-input" value={newEnvName}
+                  onChange={(e) => setNewEnvName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newEnvName.trim()) {
+                      const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
+                      if (exists) { alert(`Environment "${newEnvName.trim()}" already exists.`); return; }
+                      onAddEnv(newEnvName.trim());
+                      setNewEnvName('');
+                    }
+                  }}
+                  placeholder="Add new environment (e.g. staging)" />
+                <button className="btn btn-sm" disabled={!newEnvName.trim()}
+                  onClick={() => {
+                    const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
+                    if (exists) { alert(`Environment "${newEnvName.trim()}" already exists.`); return; }
+                    onAddEnv(newEnvName.trim());
+                    setNewEnvName('');
+                  }}>+ Add Env</button>
+              </div>
               {projects.length > 0 && (
                 <div className="wb-import-from-project">
                   <select className="wb-select" value={importProjectId} onChange={(e) => setImportProjectId(e.target.value)}>

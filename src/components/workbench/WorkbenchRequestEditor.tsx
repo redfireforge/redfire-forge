@@ -216,16 +216,24 @@ export default function WorkbenchRequestEditor({
 
   const displayUrl = useMemo(() => {
     if (collection.mode === 'direct') return relativePath;
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
     const effectiveEnvId = subColEnvId || selectedEnvId;
 
-    const targetBase = parentSubCollection?.baseUrls?.[subColEnvId ?? '']
-      ? parentSubCollection.baseUrls[subColEnvId!].replace(/\/+$/, '')
-      : effectiveEnvId && collection.baseUrls?.[effectiveEnvId]
-        ? collection.baseUrls[effectiveEnvId].replace(/\/+$/, '')
-        : null;
+    let targetBase: string | null = null;
+    if (parentSubCollection?.baseUrls) {
+      const subBaseUrls = parentSubCollection.baseUrls;
+      if (subColEnvId && subBaseUrls[subColEnvId]) {
+        targetBase = subBaseUrls[subColEnvId].replace(/\/+$/, '');
+      } else {
+        const firstBase = Object.values(subBaseUrls)[0];
+        if (firstBase) targetBase = firstBase.replace(/\/+$/, '');
+      }
+    }
+    if (!targetBase && effectiveEnvId && collection.baseUrls?.[effectiveEnvId]) {
+      targetBase = collection.baseUrls[effectiveEnvId].replace(/\/+$/, '');
+    }
 
     if (!targetBase) return relativePath;
-    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
     const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
     return `${targetBase}${path}`;
   }, [relativePath, collection.mode, collection.baseUrls, selectedEnvId, subColEnvId, parentSubCollection]);
@@ -337,10 +345,19 @@ export default function WorkbenchRequestEditor({
 
       if (!scenario.url.startsWith('http://') && !scenario.url.startsWith('https://')) {
         const envId = subColEnvId || selectedEnvId;
-        const base =
-          parentSubCollection?.baseUrls?.[envId ?? '']?.replace(/\/+$/, '') ||
-          (envId && collection.baseUrls?.[envId]?.replace(/\/+$/, '')) ||
-          null;
+        let base: string | null = null;
+        if (parentSubCollection?.baseUrls) {
+          const subBaseUrls = parentSubCollection.baseUrls;
+          if (envId && subBaseUrls[envId]) {
+            base = subBaseUrls[envId].replace(/\/+$/, '');
+          } else {
+            const firstBase = Object.values(subBaseUrls)[0];
+            if (firstBase) base = firstBase.replace(/\/+$/, '');
+          }
+        }
+        if (!base && envId && collection.baseUrls?.[envId]) {
+          base = collection.baseUrls[envId].replace(/\/+$/, '');
+        }
         if (base) {
           const path = scenario.url.startsWith('/') ? scenario.url : `/${scenario.url}`;
           scenario.url = `${base}${path}`;
@@ -477,14 +494,17 @@ export default function WorkbenchRequestEditor({
       </div>
 
       {/* ── Env bar + resolved URL (multi-env only) ── */}
-      {collection.mode === 'multi-env' && environments.length > 0 && (() => {
-        const envName = subColEnvId ? environments.find(e => e.id === subColEnvId)?.name : null;
-        const hasBaseUrls = Object.keys(collection.baseUrls ?? {}).length > 0;
+      {collection.mode === 'multi-env' && (environments.length > 0 || parentSubCollection) && (() => {
+        const envName = subColEnvId
+          ? environments.find(e => e.id === subColEnvId)?.name
+          : parentSubCollection?.name ?? null;
+        const hasBaseUrls = Object.keys(collection.baseUrls ?? {}).length > 0
+          || Object.keys(parentSubCollection?.baseUrls ?? {}).length > 0;
         return (
         <div className="wb-env-bar">
           <span className="wb-env-bar-label">Env:</span>
-          {subColEnvId ? (
-            <span className="wb-env-pill active pinned">{envName}</span>
+          {parentSubCollection ? (
+            <span className="wb-env-pill active pinned">{envName ?? parentSubCollection.name}</span>
           ) : (
             <div className="wb-env-pills">
               {environments.map((env) => (
@@ -500,7 +520,7 @@ export default function WorkbenchRequestEditor({
             </>
           )}
           {!hasBaseUrls && (
-            <span className="wb-env-hint">Base URLs not configured — edit collection to add hostnames</span>
+            <span className="wb-env-hint">Base URLs not configured — edit collection or sub-collection to add hostnames</span>
           )}
         </div>
         );
