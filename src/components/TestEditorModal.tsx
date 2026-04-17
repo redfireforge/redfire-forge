@@ -11,6 +11,9 @@ import {
   rebuildUrl,
   unwrapImport,
 } from '../utils/testEditorUtils';
+import { serializeWithContentType, getEffectiveBodyType } from '../utils/bodySerializer';
+import { BodyEditor } from './BodyEditor';
+import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from './ParamsEditor';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import { useAuthVerify } from '../hooks/useAuthVerify';
 import { validate } from '../engine/validator';
@@ -65,7 +68,7 @@ export default function TestEditorModal({
   const [curlText, setCurlText] = useState('');
   const [generatedCurl, setGeneratedCurl] = useState('');
   const [curlGenerating, setCurlGenerating] = useState(false);
-  const [queryParams, setQueryParams] = useState<KeyValue[]>(() => parseQueryParams(draft.url));
+  const [queryParams, setQueryParams] = useState<ParamEntry[]>(() => toParamEntries(parseQueryParams(draft.url)));
 
   const [fetchingResponse, setFetchingResponse] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export default function TestEditorModal({
   const [showSecret, setShowSecret] = useState(false);
 
   useEffect(() => {
-    setQueryParams(parseQueryParams(draft.url));
+    setQueryParams(toParamEntries(parseQueryParams(draft.url)));
     setCurlText('');
     setGeneratedCurl('');
     setFetchError(null);
@@ -96,30 +99,16 @@ export default function TestEditorModal({
   }, [fetchHostOverride, fetchHostEnabled, onDraftChange]);
 
   const syncParamsFromUrl = useCallback((url: string) => {
-    setQueryParams(parseQueryParams(url));
+    setQueryParams(toParamEntries(parseQueryParams(url)));
   }, []);
 
-  const updateQueryParam = (index: number, field: 'key' | 'value', val: string) => {
-    const next = [...queryParams];
-    next[index] = { ...next[index], [field]: val };
-    setQueryParams(next);
+  const handleParamsChange = useCallback((entries: ParamEntry[]) => {
+    setQueryParams(entries);
     const cur = draftRef.current;
     if (cur.url) {
-      onDraftChange({ ...cur, url: rebuildUrl(cur.url, next) });
+      onDraftChange({ ...cur, url: rebuildUrl(cur.url, fromParamEntries(entries)) });
     }
-  };
-
-  const addQueryParam = () => setQueryParams([...queryParams, { key: '', value: '' }]);
-
-  const removeQueryParam = (index: number) => {
-    const next = queryParams.filter((_, i) => i !== index);
-    if (next.length === 0) next.push({ key: '', value: '' });
-    setQueryParams(next);
-    const cur = draftRef.current;
-    if (cur.url) {
-      onDraftChange({ ...cur, url: rebuildUrl(cur.url, next) });
-    }
-  };
+  }, [onDraftChange]);
 
   const updateHeader = (index: number, field: 'key' | 'value', val: string) => {
     const cur = draftRef.current;
@@ -185,8 +174,12 @@ export default function TestEditorModal({
         if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
         reqHeaders[h.key.trim()] = h.value;
       }
-      if (cur.body && !reqHeaders['Content-Type']) {
-        reqHeaders['Content-Type'] = 'application/json';
+      const { body: reqBody, contentType: autoContentType } = serializeWithContentType(cur);
+      const bt = getEffectiveBodyType(cur);
+      if (bt === 'form-data' && autoContentType) {
+        reqHeaders['Content-Type'] = autoContentType;
+      } else if (!reqHeaders['Content-Type'] && autoContentType) {
+        reqHeaders['Content-Type'] = autoContentType;
       }
 
       if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
@@ -235,7 +228,6 @@ export default function TestEditorModal({
         } catch { /* keep original */ }
       }
 
-      const reqBody = (cur.body && cur.method !== 'GET') ? cur.body : undefined;
       const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
       const latest = draftRef.current;
       if (result.error) {
@@ -307,8 +299,12 @@ export default function TestEditorModal({
         if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
         reqHeaders[h.key.trim()] = h.value;
       }
-      if (cur.body && !reqHeaders['Content-Type']) {
-        reqHeaders['Content-Type'] = 'application/json';
+      const { body: reqBody, contentType: autoContentType } = serializeWithContentType(cur);
+      const bt = getEffectiveBodyType(cur);
+      if (bt === 'form-data' && autoContentType) {
+        reqHeaders['Content-Type'] = autoContentType;
+      } else if (!reqHeaders['Content-Type'] && autoContentType) {
+        reqHeaders['Content-Type'] = autoContentType;
       }
 
       if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
@@ -347,7 +343,6 @@ export default function TestEditorModal({
         } catch { /* keep original */ }
       }
 
-      const reqBody = (cur.body && cur.method !== 'GET') ? cur.body : undefined;
       const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
 
       if (result.error) {
@@ -383,11 +378,11 @@ export default function TestEditorModal({
 
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
-    const nonEmptyParams = queryParams.filter((p) => p.key.trim());
-    if (nonEmptyParams.length > 0) {
+    const enabledParams = fromParamEntries(queryParams);
+    if (enabledParams.length > 0) {
       try {
         const u = new URL(newBaseUrl);
-        nonEmptyParams.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
+        enabledParams.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
         onDraftChange({ ...cur, url: u.toString() });
       } catch {
         onDraftChange({ ...cur, url: newBaseUrl });
@@ -401,10 +396,15 @@ export default function TestEditorModal({
     if (!curlText.trim()) return;
     const parsed = parseCurl(curlText);
     const cur = draftRef.current;
-    onDraftChange({ ...cur, ...parsed, validation: cur.validation });
+    // Preserve cur.id so the React key doesn't change and cause a remount
+    const { id: _discardId, ...parsedWithoutId } = parsed;
+    onDraftChange({ ...cur, ...parsedWithoutId, validation: cur.validation });
     syncParamsFromUrl(parsed.url || '');
     onInputModeChange('builder');
     setCurlText('');
+    if (parsed.bodyType && parsed.bodyType !== 'none' && parsed.method !== 'GET') {
+      onActiveTabChange('body');
+    }
   };
 
   const generateCurl = useCallback(async (): Promise<string> => {
@@ -432,7 +432,7 @@ export default function TestEditorModal({
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
 
-  const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim()).length, [queryParams]);
+  const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim() && p.enabled).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
   const baseUrl = useMemo(() => (draft.url ? getBaseUrl(draft.url) : ''), [draft.url]);
 
@@ -579,7 +579,7 @@ export default function TestEditorModal({
               </button>
               {draft.method !== 'GET' && (
                 <button type="button" className={`builder-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => onActiveTabChange('body')}>
-                  Body {draft.body ? <span className="tab-badge-dot" /> : null}
+                  Body {(draft.body || (draft.bodyForm ?? []).some(kv => kv.key.trim())) ? <span className="tab-badge-dot" /> : null}
                 </button>
               )}
               <button type="button" className={`builder-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => onActiveTabChange('auth')}>
@@ -595,31 +595,11 @@ export default function TestEditorModal({
 
             <div className="builder-tab-content">
               {activeTab === 'params' && (
-                <div className="kv-section">
-                  <div className="kv-header">
-                    <span>QUERY PARAMETERS</span>
-                  </div>
-                  {queryParams.map((p, i) => (
-                    <div key={i} className="kv-row">
-                      <input value={p.key} onChange={(e) => updateQueryParam(i, 'key', e.target.value)} placeholder="Parameter name" />
-                      <input value={p.value} onChange={(e) => updateQueryParam(i, 'value', e.target.value)} placeholder="Value" />
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeQueryParam(i)}>×</button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-sm" onClick={addQueryParam}>+ Add</button>
-                </div>
+                <ParamsEditor params={queryParams} onChange={handleParamsChange} />
               )}
 
               {activeTab === 'body' && draft.method !== 'GET' && (
-                <div>
-                  <textarea
-                    className="body-editor"
-                    rows={14}
-                    value={draft.body}
-                    onChange={(e) => onDraftChange({ ...draft, body: e.target.value })}
-                    placeholder='{"key": "value"}'
-                  />
-                </div>
+                <BodyEditor draft={draft} onDraftChange={onDraftChange} />
               )}
 
               {activeTab === 'auth' && (

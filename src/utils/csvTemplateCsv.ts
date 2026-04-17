@@ -32,6 +32,8 @@ export function generateCsvTemplate(opts: ExportOptions): string {
     urlPattern,
     headers: test.headers.filter(h => h.key.trim()),
     body: test.body || '',
+    bodyType: test.bodyType,
+    bodyForm: test.bodyForm,
     auth: test.auth,
     validationMode: test.validation.mode,
     selectiveMode: test.validation.selectiveMode,
@@ -186,6 +188,8 @@ export function parseCsvToScenarios(csvText: string): CsvParseResult {
       url: fullUrl,
       headers: headers.map(h => ({ ...h })),
       body,
+      bodyType: meta?.bodyType,
+      bodyForm: meta?.bodyForm,
       auth: { ...auth },
       validation: {
         mode: validationMode,

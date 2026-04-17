@@ -8,6 +8,8 @@ export const emptyTest = (): Scenario => ({
   method: 'GET',
   headers: [{ key: '', value: '' }],
   body: '',
+  bodyType: 'none',
+  bodyForm: [{ key: '', value: '' }],
   auth: { type: 'inherit' },
   validation: { mode: 'none', expectedFields: [] },
 });
