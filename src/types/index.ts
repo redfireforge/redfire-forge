@@ -207,3 +207,41 @@ export interface TestRun {
   svcName?: string;
   baseUrl?: string;
 }
+
+// ─── Workbench types ─────────────────────────────────────────
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface WorkbenchRequest {
+  id: string;
+  name: string;
+  method: HttpMethod;
+  url: string;
+  headers: KeyValue[];
+  body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
+  auth: AuthConfig;
+}
+
+export interface WorkbenchCollection {
+  id: string;
+  name: string;
+  mode: 'direct' | 'multi-env';
+  baseUrls?: Record<string, string>;
+  auth?: AuthConfig;
+  requests: WorkbenchRequest[];
+}
+
+export interface WorkbenchEnv {
+  id: string;
+  name: string;
+}
+
+export interface WorkbenchData {
+  environments: WorkbenchEnv[];
+  collections: WorkbenchCollection[];
+  selectedEnvId?: string;
+  selectedCollectionId?: string;
+  selectedRequestId?: string;
+}
