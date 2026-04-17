@@ -212,6 +212,12 @@ export default function WorkbenchSidebar({
 
   // ─── Export / Import ──────────────────────────────────
 
+  const handleExportAll = async () => {
+    if (collections.length === 0) return;
+    const payload = buildExportPayload('workbench-all', { collections });
+    await saveJsonFile(payload, `workbench-all-collections.json`);
+  };
+
   const handleExportCollection = async (colId: string) => {
     const col = collections.find(c => c.id === colId);
     if (!col) return;
@@ -260,8 +266,25 @@ export default function WorkbenchSidebar({
           name: nameExists ? `${incoming.name} (imported)` : incoming.name,
         });
         onImportFolder(colId, imported);
+      } else if (json.type === 'workbench-all' && json.data?.collections) {
+        const incoming = json.data.collections as WorkbenchCollection[];
+        let importedCount = 0;
+        for (const inc of incoming) {
+          if (!inc.name || !inc.requests) continue;
+          const nameExists = collections.some(c => c.name.toLowerCase() === inc.name.toLowerCase());
+          const imported: WorkbenchCollection = {
+            ...inc,
+            id: uuidv4(),
+            name: nameExists ? `${inc.name} (imported)` : inc.name,
+            requests: inc.requests.map(r => ({ ...r, id: uuidv4() })),
+            folders: (inc.folders ?? []).map(regenIds),
+          };
+          onImportCollection(imported);
+          importedCount++;
+        }
+        if (importedCount === 0) alert('No valid collections found in the file.');
       } else {
-        alert('Unrecognized file format. Expected a workbench collection or folder export.');
+        alert('Unrecognized file format. Expected a workbench collection, folder, or all-collections export.');
       }
     } catch {
       alert('Invalid JSON file. Please select a valid export file.');
@@ -440,6 +463,7 @@ export default function WorkbenchSidebar({
         <span className="wb-sidebar-title">COLLECTIONS</span>
         <div className="wb-sidebar-actions">
           <button className="wb-icon-btn" onClick={onManageEnvs} title="Manage Environments">&#9881;</button>
+          <button className="wb-icon-btn" onClick={handleExportAll} title="Export All Collections">&#8613;</button>
           <button className="wb-icon-btn" onClick={() => handleImportToCollection()} title="Import Collection">&#8615;</button>
           <button className="wb-icon-btn" onClick={onNewCollection} title="New Collection">+</button>
         </div>
