@@ -1,5 +1,6 @@
 import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../types';
 import { buildHeaders } from './executor';
+import { serializeWithContentType } from '../utils/bodySerializer';
 import { executeWithRetry, type RunOpts } from './requestExecution';
 
 export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: number): number {
@@ -89,9 +90,10 @@ export async function runLoadProfile(
     function launchOne() {
       const scenario = nextScenario();
       inFlight++;
+      const { body: reqBody, contentType } = serializeWithContentType(scenario);
       tokenManager.getToken(scenario).then((token) => {
-        const headers = buildHeaders(scenario, token);
-        return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+        const headers = buildHeaders(scenario, token, contentType);
+        return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
       }).then((result) => {
         allResults.push(result);
         breaker.record(result);

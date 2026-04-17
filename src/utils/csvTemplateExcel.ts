@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx-js-style';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, KeyValue, ExpectedField, ValidationMode, SelectiveMode, AuthConfig } from '../types';
+import type { Scenario, BodyType, KeyValue, ExpectedField, ValidationMode, SelectiveMode, AuthConfig } from '../types';
 import {
   type ColumnDef,
   type CsvParseResult,
@@ -250,6 +250,10 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
   metaRows.push(['method', test.method]);
   metaRows.push(['urlPattern', urlPattern]);
   metaRows.push(['body', test.body || '']);
+  metaRows.push(['bodyType', test.bodyType ?? 'json']);
+  if (test.bodyForm && test.bodyForm.length > 0) {
+    metaRows.push(['bodyForm', JSON.stringify(test.bodyForm)]);
+  }
   metaRows.push(['auth', JSON.stringify(test.auth)]);
   metaRows.push(['validationMode', test.validation.mode]);
   metaRows.push(['selectiveMode', test.validation.selectiveMode ?? '']);
@@ -371,11 +375,16 @@ function parseMetadataSheet(sheet: XLSX.WorkSheet): ExcelMeta | null {
   let auth: AuthConfig;
   try { auth = JSON.parse(config['auth'] || '{}'); } catch { auth = { type: 'inherit' }; }
 
+  let bodyForm: KeyValue[] | undefined;
+  try { bodyForm = config['bodyForm'] ? JSON.parse(config['bodyForm']) : undefined; } catch { /* ignore */ }
+
   return {
     version: parseInt(config['version'] || '2'),
     method: config['method'] || 'GET',
     urlPattern: config['urlPattern'] || '',
     body: config['body'] || '',
+    bodyType: (config['bodyType'] as BodyType) || undefined,
+    bodyForm,
     auth,
     validationMode: (config['validationMode'] || 'none') as ValidationMode,
     selectiveMode: (config['selectiveMode'] || 'include') as SelectiveMode,
@@ -505,6 +514,8 @@ export function parseExcelToScenarios(buffer: ArrayBuffer): CsvParseResult {
     urlPattern: excelMeta.urlPattern,
     headers: excelMeta.headers,
     body: excelMeta.body,
+    bodyType: excelMeta.bodyType,
+    bodyForm: excelMeta.bodyForm,
     auth: excelMeta.auth,
     validationMode: excelMeta.validationMode,
     selectiveMode: excelMeta.selectiveMode,
@@ -568,6 +579,8 @@ export function parseExcelToScenarios(buffer: ArrayBuffer): CsvParseResult {
       url: fullUrl,
       headers: excelMeta.headers.map(h => ({ ...h })),
       body: excelMeta.body,
+      bodyType: excelMeta.bodyType,
+      bodyForm: excelMeta.bodyForm,
       auth: { ...excelMeta.auth },
       validation: {
         mode: vMode,

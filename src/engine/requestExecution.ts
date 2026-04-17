@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestResult } from '../types';
 import { validate } from './validator';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
+import { serializeWithContentType } from '../utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
@@ -9,6 +10,7 @@ import { CircuitBreaker } from './circuitBreaker';
 async function executeRequest(
   scenario: Scenario,
   headers: Record<string, string>,
+  reqBody: string | undefined,
   timeoutMs?: number
 ): Promise<RequestResult> {
   const id = uuidv4();
@@ -19,7 +21,6 @@ async function executeRequest(
   let errorMessage: string | undefined;
 
   try {
-    const reqBody = (scenario.body && scenario.method !== 'GET') ? scenario.body : undefined;
     const url = buildUrl(scenario);
 
     let resultPromise: Promise<HttpResponse> = httpFetch(url, scenario.method, headers, reqBody);
@@ -96,16 +97,17 @@ async function executeRequest(
 async function executeWithRetry(
   scenario: Scenario,
   headers: Record<string, string>,
+  reqBody: string | undefined,
   timeoutMs?: number,
   retryCount = 0,
   retryDelayMs = 1000
 ): Promise<RequestResult> {
-  let result = await executeRequest(scenario, headers, timeoutMs);
+  let result = await executeRequest(scenario, headers, reqBody, timeoutMs);
   let attempt = 0;
   while (!result.passed && attempt < retryCount) {
     attempt++;
     if (retryDelayMs > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
-    result = await executeRequest(scenario, headers, timeoutMs);
+    result = await executeRequest(scenario, headers, reqBody, timeoutMs);
   }
   if (attempt > 0) {
     result.errorMessage = result.passed
@@ -131,9 +133,10 @@ export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<R
 
   for (const scenario of queue) {
     if (abortSignal?.aborted || breaker.shouldStop) break;
+    const { body: reqBody, contentType } = serializeWithContentType(scenario);
     const token = await tokenManager.getToken(scenario);
-    const headers = buildHeaders(scenario, token);
-    const result = await executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+    const headers = buildHeaders(scenario, token, contentType);
+    const result = await executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
     allResults.push(result);
     breaker.record(result);
     onProgress(allResults.length, queue.length, allResults);
@@ -152,9 +155,10 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
 
     const batch = queue.slice(i, i + concurrency);
     const batchPromises = batch.map(async (scenario) => {
+      const { body: reqBody, contentType } = serializeWithContentType(scenario);
       const token = await tokenManager.getToken(scenario);
-      const headers = buildHeaders(scenario, token);
-      return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+      const headers = buildHeaders(scenario, token, contentType);
+      return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
     });
 
     const batchResults = await Promise.all(batchPromises);
@@ -180,9 +184,10 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
         if (abortSignal?.aborted || breaker.shouldStop) break;
         const scenario = queue[nextIdx++];
         inFlight++;
+        const { body: reqBody, contentType } = serializeWithContentType(scenario);
         tokenManager.getToken(scenario).then((token) => {
-          const headers = buildHeaders(scenario, token);
-          return executeWithRetry(scenario, headers, timeoutMs, retryCount, retryDelayMs);
+          const headers = buildHeaders(scenario, token, contentType);
+          return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
         }).then((result) => {
           allResults.push(result);
           breaker.record(result);
