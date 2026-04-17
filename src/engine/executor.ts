@@ -1,5 +1,6 @@
 import type { TestConfig, Scenario, RequestResult } from '../types';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
+import { serializeWithContentType, getEffectiveBodyType } from '../utils/bodySerializer';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
@@ -23,7 +24,7 @@ export async function proxyFetch(
   return httpFetch(url, method, headers, body);
 }
 
-export function buildHeaders(scenario: Scenario, token?: string): Record<string, string> {
+export function buildHeaders(scenario: Scenario, token?: string, contentType?: string | null): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const h of scenario.headers) {
     if (h.key.trim()) {
@@ -54,8 +55,13 @@ export function buildHeaders(scenario: Scenario, token?: string): Record<string,
   if (auth.type === 'oauth2' && token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  if (scenario.body && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+  const bt = getEffectiveBodyType(scenario);
+  if (contentType) {
+    if (bt === 'form-data') {
+      headers['Content-Type'] = contentType;
+    } else if (!headers['Content-Type']) {
+      headers['Content-Type'] = contentType;
+    }
   }
   return headers;
 }

@@ -1,4 +1,4 @@
-import type { Scenario, KeyValue, AuthConfig, ValidationMode, SelectiveMode } from '../types';
+import type { Scenario, BodyType, KeyValue, AuthConfig, ValidationMode, SelectiveMode } from '../types';
 
 // ---------------------------------------------------------------------------
 // Column prefixes for CSV headers
@@ -15,16 +15,18 @@ export const META_LINE_PREFIX = '#META:';
 export interface TemplateMetadata {
   version: 1;
   method: string;
-  urlPattern: string;          // e.g. https://host/v1/vehicles/management/{{vin}}/onboarding/...
+  urlPattern: string;
   headers: KeyValue[];
   body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
   auth: AuthConfig;
   validationMode: ValidationMode;
   selectiveMode?: SelectiveMode;
   unorderedArrays?: boolean;
   excludedPaths?: string[];
   expectedJson?: string;
-  pathVariables: string[];     // e.g. ['vin']
+  pathVariables: string[];
 }
 
 export interface PathSegmentChoice {
@@ -76,6 +78,8 @@ export interface ExcelMeta {
   method: string;
   urlPattern: string;
   body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
   auth: AuthConfig;
   validationMode: ValidationMode;
   selectiveMode: SelectiveMode;

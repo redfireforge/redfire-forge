@@ -66,6 +66,8 @@ export interface ValidationConfig {
   responseVersions?: ResponseVersion[];
 }
 
+export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'form-data' | 'file';
+
 export interface Scenario {
   id: string;
   name: string;
@@ -73,6 +75,8 @@ export interface Scenario {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers: KeyValue[];
   body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
   auth: AuthConfig;
   validation: ValidationConfig;
   fetchHostOverride?: string;

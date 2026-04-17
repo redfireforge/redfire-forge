@@ -194,10 +194,10 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
                     <span className="csv-fixed-key">Auth</span>
                     <span>{test.auth.type}</span>
                   </div>
-                  {test.body && (
+                  {(test.body || (test.bodyForm ?? []).some(kv => kv.key.trim())) && (
                     <div className="csv-fixed-item">
                       <span className="csv-fixed-key">Body</span>
-                      <span>Included</span>
+                      <span>{(test.bodyType ?? 'json').toUpperCase()}</span>
                     </div>
                   )}
                   <div className="csv-fixed-item">

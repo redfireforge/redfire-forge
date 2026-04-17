@@ -1,9 +1,7 @@
 import { acquireOAuth2Token } from '../engine/executor';
 import type { AuthConfig, Scenario } from '../types';
+import { getEffectiveBodyType, serializeWithContentType } from './bodySerializer';
 
-/**
- * Build a cURL command string for the given scenario and resolved effective auth.
- */
 export async function buildCurlCommand(scenario: Scenario, effectiveAuth: AuthConfig): Promise<string> {
   const parts: string[] = ['curl'];
 
@@ -49,8 +47,43 @@ export async function buildCurlCommand(scenario: Scenario, effectiveAuth: AuthCo
     }
   }
 
-  if (scenario.body && !headerEntries.some((h) => h.key.toLowerCase() === 'content-type')) {
-    headerEntries.push({ key: 'Content-Type', value: 'application/json' });
+  const bodyType = getEffectiveBodyType(scenario);
+
+  // For form-data, use --form flags (skip Content-Type header — curl sets it automatically)
+  if (bodyType === 'form-data') {
+    const ctIdx = headerEntries.findIndex(h => h.key.toLowerCase() === 'content-type');
+    if (ctIdx >= 0) headerEntries.splice(ctIdx, 1);
+    for (const h of headerEntries) {
+      parts.push(`\\\n  -H '${h.key}: ${h.value}'`);
+    }
+    for (const kv of scenario.bodyForm ?? []) {
+      if (!kv.key.trim()) continue;
+      const escaped = kv.value.replace(/'/g, "'\\''");
+      parts.push(`\\\n  --form '${kv.key.trim()}=${escaped}'`);
+    }
+    return parts.join(' ');
+  }
+
+  // For form-urlencoded, use --data-urlencode
+  if (bodyType === 'form-urlencoded') {
+    if (!headerEntries.some(h => h.key.toLowerCase() === 'content-type')) {
+      headerEntries.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded' });
+    }
+    for (const h of headerEntries) {
+      parts.push(`\\\n  -H '${h.key}: ${h.value}'`);
+    }
+    const { body: serialized } = serializeWithContentType(scenario);
+    if (serialized) {
+      const escaped = serialized.replace(/'/g, "'\\''");
+      parts.push(`\\\n  --data-urlencode '${escaped}'`);
+    }
+    return parts.join(' ');
+  }
+
+  // For other types (json, xml, text, file)
+  if (bodyType !== 'none' && !headerEntries.some(h => h.key.toLowerCase() === 'content-type')) {
+    const { contentType } = serializeWithContentType(scenario);
+    if (contentType) headerEntries.push({ key: 'Content-Type', value: contentType });
   }
 
   for (const h of headerEntries) {
