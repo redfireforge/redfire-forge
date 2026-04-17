@@ -277,4 +277,4 @@ Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launc
 
 ---
 
-_Last updated: 2026-04-18 (v0.4.0 — Phase 0.8.5 complete)_
+_Last updated: 2026-04-18 (v0.5.0 — Phase 0.8.5 complete)_
