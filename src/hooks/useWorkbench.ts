@@ -3,12 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { WorkbenchData, WorkbenchCollection, WorkbenchRequest, WorkbenchFolder, WorkbenchEnv, HttpMethod, BodyType } from '../types';
 import { loadWorkbench, saveWorkbench } from '../utils/storage';
 import {
-  findFolderDeep, findReqInFolders, findRequestInCollection,
+  findFolderDeep, findRequestInCollection,
   countAllRequests, mapRequests, removeRequestFrom,
   mapFolderDeep, addToFolderDeep, removeFolderDeep,
   cloneRequest, cloneFolder, extractFolderDeep,
   isDescendantOf, addReqToFolderDeep, findReqParentFolder,
-  reorderInFolders, swapInFolders, collectAllRequests,
+  reorderInFolders, swapInFolders,
 } from '../utils/workbenchTree';
 
 const EMPTY_REQUEST: () => WorkbenchRequest = () => ({

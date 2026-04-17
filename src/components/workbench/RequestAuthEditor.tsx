@@ -36,7 +36,7 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
         {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
         <option value="bearer">Bearer Token</option>
         <option value="basic">Basic Auth</option>
-        <option value="api-key">API Key</option>
+        <option value="apikey">API Key</option>
         <option value="oauth2">OAuth2 Client Credentials</option>
       </select>
 
@@ -74,7 +74,7 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
           <input className="wb-input" type="password" value={auth.password ?? ''} onChange={(e) => onUpdate({ ...auth, password: e.target.value })} placeholder="Password" />
         </div>
       )}
-      {auth.type === 'api-key' && !selectedProfile && (
+      {auth.type === 'apikey' && !selectedProfile && (
         <div className="wb-auth-fields">
           <label className="wb-auth-label">Key Name</label>
           <input className="wb-input" value={auth.apiKeyName ?? ''} onChange={(e) => onUpdate({ ...auth, apiKeyName: e.target.value })} placeholder="Key name" />

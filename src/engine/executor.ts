@@ -1,6 +1,6 @@
 import type { TestConfig, Scenario, RequestResult } from '../types';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
-import { serializeWithContentType, getEffectiveBodyType } from '../utils/bodySerializer';
+import { getEffectiveBodyType } from '../utils/bodySerializer';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';

@@ -4,7 +4,6 @@ import type {
   GlobalAuthProfile, KeyValue, HttpMethod, Scenario, AuthConfig,
 } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
-import type { HttpResponse } from '../../utils/httpClient';
 import { serializeWithContentType } from '../../utils/bodySerializer';
 import { parseCurl } from '../../utils/curlParser';
 import { buildCurlCommand } from '../../utils/curlGenerator';
@@ -266,7 +265,7 @@ export default function WorkbenchRequestEditor({
       h['Authorization'] = `${auth.prefix || 'Bearer'} ${auth.token}`;
     } else if (auth?.type === 'basic' && auth.username) {
       h['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password || ''}`)}`;
-    } else if (auth?.type === 'api-key' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn === 'header') {
+    } else if (auth?.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn === 'header') {
       h[auth.apiKeyName] = auth.apiKeyValue;
     }
     return h;
@@ -375,7 +374,7 @@ export default function WorkbenchRequestEditor({
       if (auth.type === 'oauth2') info('OAuth2 token acquired successfully');
       if (auth.type === 'bearer') info('Using Bearer token authentication');
       if (auth.type === 'basic') info('Using Basic authentication');
-      if (auth.type === 'api-key') info(`Using API Key in ${auth.apiKeyIn ?? 'header'}`);
+      if (auth.type === 'apikey') info(`Using API Key in ${auth.apiKeyIn ?? 'header'}`);
 
       let hostname = '';
       try { hostname = new URL(scenario.url).hostname; } catch {}
@@ -427,52 +426,6 @@ export default function WorkbenchRequestEditor({
     setConsoleLines(log);
     setSending(false);
   }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, subColEnvId, selectedEnvId, collection, parentSubCollection]);
-
-  const handleSendAll = useCallback(async () => {
-    if (collection.mode !== 'multi-env') return;
-    setSending(true); setResponse(null); setSendAllResults(null);
-    const log: ConsoleLine[] = [];
-    const info = (t: string) => log.push({ prefix: '*', text: t });
-    const results: { envName: string; response: HttpResponse; time: number }[] = [];
-    for (const env of environments) {
-      const base = collection.baseUrls?.[env.id]?.replace(/\/+$/, '') ?? '';
-      const path = request.url.startsWith('/') ? request.url : `/${request.url}`;
-      const fullUrl = request.url.startsWith('http') ? request.url : `${base}${path}`;
-      const scenario: Scenario = { ...asDraftScenario(), url: fullUrl };
-      const { body: reqBody, contentType } = serializeWithContentType(scenario);
-
-      log.push({ prefix: '', text: `── ${env.name} ──` });
-      log.push({ prefix: '', text: `Preparing request to ${fullUrl}` });
-      info(`Current time is ${new Date().toISOString()}`);
-
-      const headers = await buildRequestHeaders(scenario, contentType, env.id);
-      log.push({ prefix: '>', text: `${scenario.method} ${fullUrl.replace(/https?:\/\/[^/]+/, '')} HTTP/1.1` });
-      for (const [k, v] of Object.entries(headers)) {
-        log.push({ prefix: '>', text: `${k}: ${v}` });
-      }
-
-      try {
-        const t0 = performance.now();
-        const resp = await httpFetch(fullUrl, scenario.method, headers, reqBody);
-        const elapsed = Math.round(performance.now() - t0);
-        results.push({ envName: env.name, response: resp, time: elapsed });
-
-        log.push({ prefix: '<', text: `HTTP/1.1 ${resp.status} ${resp.statusText}` });
-        for (const [k, v] of Object.entries(resp.headers)) {
-          log.push({ prefix: '<', text: `${k}: ${v}` });
-        }
-        info(`Received ${formatBytes(resp.body?.length ?? 0)} in ${elapsed} ms`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        results.push({ envName: env.name, response: { status: 0, statusText: 'Error', headers: {},
-          body: msg, error: msg }, time: 0 });
-        info(`ERROR: ${msg}`);
-      }
-      log.push({ prefix: '', text: '' });
-    }
-    setConsoleLines(log);
-    setSendAllResults(results); setSending(false);
-  }, [collection, environments, request, asDraftScenario, buildRequestHeaders]);
 
   const handleDraftChange = useCallback((draft: Scenario) => {
     onUpdateRequest({ body: draft.body, bodyType: draft.bodyType, bodyForm: draft.bodyForm });
