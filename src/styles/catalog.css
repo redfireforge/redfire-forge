@@ -498,6 +498,9 @@
 .sw-pin-header { color: #8b5cf6; }
 
 .sw-pdesc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+.sw-pformat { color: var(--text-muted); }
+.sw-penum { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
+.sw-pdefault { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
 .sw-pinput {
   width: 100%; padding: 8px 12px; font-size: 0.82rem; box-sizing: border-box;
   background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;

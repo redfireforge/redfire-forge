@@ -62,8 +62,11 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
           return (
             <div
               key={entry.id}
+              role="button"
+              tabIndex={0}
               className={`cat-sidebar-entry ${isSelected ? 'active' : ''}`}
               onClick={() => onSelectEntry(entry.id)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectEntry(entry.id); } }}
               onContextMenu={e => handleContextMenu(e, entry.id)}
             >
               <div className="cat-entry-name">{entry.name}</div>
