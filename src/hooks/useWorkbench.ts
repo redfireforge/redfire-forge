@@ -408,6 +408,15 @@ export function useWorkbench() {
     });
   }, []);
 
+  const addEnvironments = useCallback((envs: { id: string; name: string }[]) => {
+    setData((prev) => {
+      const existingNames = new Set(prev.environments.map((e) => e.name));
+      const newEnvs = envs.filter((e) => !existingNames.has(e.name));
+      if (newEnvs.length === 0) return prev;
+      return { ...prev, environments: [...prev.environments, ...newEnvs] };
+    });
+  }, []);
+
   const importCollection = useCallback((col: WorkbenchCollection) => {
     setData((prev) => ({
       ...prev,
@@ -444,6 +453,6 @@ export function useWorkbench() {
     addFolder, addSubCollection, updateSubCollection, renameFolder, removeFolder, duplicateFolder, moveFolder, reorderFolder, moveFolderTo,
     addRequest, updateRequest, removeRequest, duplicateRequest, moveRequest, selectRequest,
     moveRequestToCollection, moveFolderToCollection, moveCollectionAsSubCollection,
-    importEnvsFromProject, countAllRequests, importCollection, importFolder,
+    importEnvsFromProject, addEnvironments, countAllRequests, importCollection, importFolder,
   };
 }

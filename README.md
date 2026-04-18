@@ -616,11 +616,11 @@ Above the sample JSON area, a single row provides:
 
 ### API Catalog
 
-The **Catalog** tab is the third pillar of RedfireForge — an OpenAPI/Swagger specification browser with interactive testing, cURL generation, and version tracking.
+The **Catalog** section is the third pillar of RedfireForge — an OpenAPI/Swagger specification browser with interactive testing, cURL generation, and version tracking.
 
 **Import & Browse:**
 
-1. Click the **Catalog** tab in the sidebar, then **Import API** to add an OpenAPI 3.0/3.1 or Swagger 2.0 spec (file upload or paste YAML/JSON).
+1. Click **Catalog** in the sidebar, then **Import API** to add an OpenAPI 3.0/3.1 or Swagger 2.0 spec (file upload or paste YAML/JSON).
 2. The import modal previews the spec: title, version, servers, endpoints grouped by tag, and any warnings.
 3. Imported APIs appear in the catalog sidebar with version badges and endpoint counts.
 4. Select an API to see the **Overview** page: endpoint stats by method/tag, server list, security schemes, and quick action buttons.
@@ -661,7 +661,7 @@ The **Catalog** tab is the third pillar of RedfireForge — an OpenAPI/Swagger s
 
 ### Workbench (Ad-Hoc API Testing)
 
-The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
+The **Requests** section provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
 
 **Key Concepts:**
 
@@ -691,10 +691,10 @@ The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc AP
 
 **Unified Sidebar:**
 
-The left sidebar uses a **Workbench | Catalog | Projects** tab toggle at the top:
-- **Workbench** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
+The left sidebar uses a vertical **Requests | Catalog | Harness** nav rail:
+- **Requests** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
 - **Catalog** shows imported API specs with version badges and endpoint counts.
-- **Projects** shows project-based navigation (Feature Groups, Environments, Microservices).
+- **Harness** shows project-based navigation (Feature Groups, Environments, Microservices) for regression and performance testing.
 - The sidebar is resizable (drag the right edge) and collapsible (toggle button).
 - **Settings** is always accessible at the bottom of the sidebar.
 
@@ -861,7 +861,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible JSON tree viewer | Response bodies as expandable tree with search, match count, prev/next navigation, and collapse/expand all |
 | Workbench response caching | Responses preserved per-request during navigation |
 | Workbench JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
-| Unified sidebar (Workbench + Catalog + Projects) | Tabbed sidebar with resizable width, collapse toggle, and persistent Settings access |
+| Unified sidebar (Requests + Catalog + Harness) | Vertical nav rail with resizable width, collapse toggle, and persistent Settings access |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
