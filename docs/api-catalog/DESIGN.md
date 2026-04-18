@@ -250,7 +250,84 @@ CatalogEntry { name, versions[], folders[], endpoints[], servers[], ... }
 
 ---
 
-## 9. Host & Auth Resolution
+## 9. Storage Budget & Optimization
+
+### What Gets Stored
+
+There is **no compilation**. The UI renders from pre-extracted plain JS objects
+at runtime — the same pattern Workbench uses for `WorkbenchRequest`. The only
+stored data is:
+
+| Data | Where | Purpose |
+|---|---|---|
+| `CatalogEntry` (parsed structure) | `catalog-entries` key | Endpoint tree, parameters, schemas — what the UI reads |
+| `rawSpec` (original YAML/JSON text) | Inside each `CatalogVersion` | Re-export, version diff, re-parse if internal format changes |
+
+### Size Estimates
+
+| Scenario | rawSpec | Parsed Entry | Versions (3) | Total |
+|---|---|---|---|---|
+| Small API (10 endpoints) | ~10 KB | ~5 KB | ~35 KB | **~40 KB** |
+| Medium API (50 endpoints) | ~80 KB | ~40 KB | ~280 KB | **~320 KB** |
+| Large API (200 endpoints) | ~400 KB | ~150 KB | ~1.35 MB | **~1.5 MB** |
+
+Realistic workspace: **10 APIs × 3 versions avg ≈ 2–3 MB**.
+
+### Platform Limits
+
+| Platform | Storage Limit | Risk Level |
+|---|---|---|
+| **Tauri (desktop)** | Unlimited (file system) | None |
+| **Web (localStorage)** | ~5–10 MB | Moderate — tight with many large specs |
+
+### Optimization Strategies
+
+**1. Separate storage for raw specs (lazy loading)**
+
+The `rawSpec` string is by far the largest field — typically 70–80% of total
+storage. It's only needed when the user opens Version History, re-imports, or
+exports. By storing it in a separate key, it doesn't need to load into memory
+at startup:
+
+```
+'catalog-entries'                    → CatalogEntry[] (without rawSpec)
+'catalog-spec-{entryId}-{versionId}' → string (rawSpec, loaded on demand)
+```
+
+This cuts initial load from ~3 MB to ~500 KB for 10 APIs.
+
+**2. Version cap (default: 10)**
+
+Old versions auto-purge when the cap is reached. Most users only care about
+the last few imports. Configurable via Settings.
+
+**3. Optional LZ compression for raw specs**
+
+YAML/JSON text compresses extremely well (~80% reduction). A 400 KB spec
+compresses to ~80 KB with `lz-string` (browser-compatible, no dependencies).
+This is opt-in — enabled by default in web mode, optional in desktop.
+
+**4. Storage usage indicator**
+
+Show a bar in Settings: "Catalog storage: 1.8 MB / 5 MB". Warn when
+approaching the limit. Suggest pruning old versions or deleting unused entries.
+
+**5. Strip rawSpec from old versions**
+
+For versions older than N (configurable), drop the `rawSpec` and only keep
+the `specHash` + diff summary. The user loses the ability to re-export or
+restore that specific version, but saves significant space.
+
+### What Is NOT Stored
+
+- No compiled or rendered HTML — the UI is React components reading data
+- No duplicate schemas — `$ref` is dereferenced once at import, stored flat
+- No response cache — "Try It" responses are session-only (lost on refresh)
+- No filled parameter values — session-only (lost on refresh)
+
+---
+
+## 10. Host & Auth Resolution
 
 Each `CatalogEntry` has a host and auth configuration with a **strategy** selector:
 
@@ -265,7 +342,7 @@ can be overridden per-endpoint in a future phase.
 
 ---
 
-## 10. Reuse from Existing Code
+## 11. Reuse from Existing Code
 
 | Existing Code | Reused In |
 |---|---|
@@ -285,7 +362,7 @@ existing Workbench implementation.
 
 ---
 
-## 11. Bridge to Workbench (Future)
+## 12. Bridge to Workbench (Future)
 
 A "Send to Workbench" button on any endpoint or entire catalog entry copies
 endpoint(s) as `WorkbenchRequest` objects into a Workbench collection. This
