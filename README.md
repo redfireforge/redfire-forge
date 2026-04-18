@@ -18,6 +18,8 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Test Editor](#test-editor)
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
+  - [API Catalog](#api-catalog)
+  - [Workbench](#workbench-ad-hoc-api-testing)
 - [Feature Reference](#feature-reference)
 - [Branching Strategy & Versioning](#branching-strategy--versioning)
 - [Development Workflow](#development-workflow)
@@ -216,7 +218,8 @@ src/
 │   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
 │   ├── TestRunner.tsx       # Configure & execute performance runs
 │   ├── ResultsDashboard.tsx # View & analyze historical test results
-│   └── Workbench.tsx        # Workbench: ad-hoc API testing (Insomnia/Postman-style)
+│   ├── Workbench.tsx        # Workbench: ad-hoc API testing (Insomnia/Postman-style)
+│   └── ApiCatalog.tsx       # API Catalog: OpenAPI/Swagger browser & interactive testing
 ├── engine/
 │   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
 │   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
@@ -228,6 +231,7 @@ src/
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   ├── useWorkbench.ts      # Workbench state management (collections, folders, requests, drag-and-drop)
+│   ├── useCatalog.ts        # API Catalog CRUD, persistence, import, versioning
 │   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
 │   ├── useTestExecution.ts  # React hook wrapping the executor
 │   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
@@ -249,16 +253,27 @@ src/
 │   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   ├── ImportCenter.tsx         # Import with per-item conflict resolution
-│   └── workbench/              # Workbench (ad-hoc API testing) components
-│       ├── WorkbenchRequestEditor.tsx  # Request editor: URL, params, headers, body, auth, send
-│       ├── WorkbenchSidebar.tsx        # Collection/folder/request tree with drag-and-drop
-│       ├── WorkbenchCollectionModal.tsx # Collection create/edit modal
-│       ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
-│       ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
-│       ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
-│       ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
-│       ├── ConsoleLog.tsx             # Request/response trace console
-│       └── MultiEnvResultRow.tsx      # Multi-environment result row
+│   ├── workbench/              # Workbench (ad-hoc API testing) components
+│   │   ├── WorkbenchRequestEditor.tsx  # Request editor: URL, params, headers, body, auth, send
+│   │   ├── WorkbenchSidebar.tsx        # Collection/folder/request tree with drag-and-drop
+│   │   ├── WorkbenchCollectionModal.tsx # Collection create/edit modal
+│   │   ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
+│   │   ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
+│   │   ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
+│   │   ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
+│   │   ├── ConsoleLog.tsx             # Request/response trace console
+│   │   └── MultiEnvResultRow.tsx      # Multi-environment result row
+│   └── catalog/                # API Catalog (OpenAPI/Swagger browser) components
+│       ├── CatalogSidebar.tsx         # API list with version badges and endpoint counts
+│       ├── CatalogImportModal.tsx     # OpenAPI/Swagger spec import with preview
+│       ├── CatalogOverview.tsx        # API summary: endpoint stats, servers, security schemes
+│       ├── CatalogEndpointBrowser.tsx # Tag-grouped endpoint list with search/filter
+│       ├── CatalogEndpointCard.tsx    # Swagger-UI-style endpoint detail with "Try It"
+│       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
+│       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
+│       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
+│       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
+│       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
 │   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
@@ -279,9 +294,12 @@ src/
 │   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   ├── export.ts            # JSON & CSV export utilities
-│   └── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
+│   ├── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
+│   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
+│   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
 └── types/
-    └── index.ts             # Shared TypeScript interfaces
+    ├── index.ts             # Shared TypeScript interfaces
+    └── catalog.ts           # API Catalog types (CatalogEntry, CatalogEndpoint, CatalogVersion)
 
 cli/                            # CLI Runner (headless, Node.js)
 ├── index.ts                 # Entry point: `run` and `validate` commands (commander)
@@ -596,6 +614,51 @@ Above the sample JSON area, a single row provides:
 - **Fetch Response** button — sends the current test request and populates the sample JSON with the actual API response. Auth credentials are applied automatically based on the inheritance chain.
 - **Host Override** checkbox + input — when enabled, replaces the hostname in the test URL with a different base URL for the fetch only (does not modify the test). Click **Use Settings** to quickly fill in the configured base URL. The override value is preserved when toggling off/on.
 
+### API Catalog
+
+The **Catalog** tab is the third pillar of RedfireForge — an OpenAPI/Swagger specification browser with interactive testing, cURL generation, and version tracking.
+
+**Import & Browse:**
+
+1. Click the **Catalog** tab in the sidebar, then **Import API** to add an OpenAPI 3.0/3.1 or Swagger 2.0 spec (file upload or paste YAML/JSON).
+2. The import modal previews the spec: title, version, servers, endpoints grouped by tag, and any warnings.
+3. Imported APIs appear in the catalog sidebar with version badges and endpoint counts.
+4. Select an API to see the **Overview** page: endpoint stats by method/tag, server list, security schemes, and quick action buttons.
+
+**Endpoint Browser:**
+
+- Endpoints are grouped by tag with a search/filter bar and method-colored badges (GET, POST, PUT, DELETE, PATCH).
+- Click an endpoint to open the **Swagger-UI-style detail view**: summary, parameters with type hints/enums/required badges, request body schema, and response schemas.
+- Edit parameter values, headers, and body directly in the forms.
+
+**Interactive Testing ("Try It"):**
+
+- Click **Try It** to execute the endpoint against a real server. Results display in a JSON tree viewer.
+- **Host Strategy**: Choose "From Spec" (use servers from the spec), "Custom URL" (type any base URL), or "Environment" (per-API named environments configured via Edit).
+- **Auth**: Configure authentication per API — Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), or manual credentials.
+- **Verify Auth**: Test OAuth2 token acquisition with a single click.
+
+**cURL Integration:**
+
+- **Generate cURL** for any endpoint with real OAuth2 token acquisition, syntax highlighting, and single/multi-line toggle.
+- Copy to clipboard with one click.
+
+**Versioning:**
+
+- Re-import updated specs to create new versions. The import flow detects existing APIs by title and offers "Update existing" or "Import as new".
+- **Version History**: View all past imports with timestamps. Restore any previous version.
+- **Visual Diff**: See added, removed, and changed endpoints between any two spec versions.
+- Version history is capped at 10 per API (oldest auto-pruned).
+
+**Environments & Persistence:**
+
+- Right-click an API → **Edit** to configure per-API environments (name + base URL pairs), auth settings, and host strategy.
+- All settings — auth tokens, endpoint form values (params, headers, body), environments, host strategy — survive browser refresh and server restart.
+
+**Send to Workbench:**
+
+- Send individual endpoints or all endpoints from an API into a Workbench collection for further ad-hoc testing.
+
 ### Workbench (Ad-Hoc API Testing)
 
 The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
@@ -628,8 +691,9 @@ The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc AP
 
 **Unified Sidebar:**
 
-The left sidebar uses a **Workbench | Projects** tab toggle at the top:
+The left sidebar uses a **Workbench | Catalog | Projects** tab toggle at the top:
 - **Workbench** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
+- **Catalog** shows imported API specs with version badges and endpoint counts.
 - **Projects** shows project-based navigation (Feature Groups, Environments, Microservices).
 - The sidebar is resizable (drag the right edge) and collapsible (toggle button).
 - **Settings** is always accessible at the bottom of the sidebar.
@@ -797,10 +861,20 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible JSON tree viewer | Response bodies as expandable tree with search, match count, prev/next navigation, and collapse/expand all |
 | Workbench response caching | Responses preserved per-request during navigation |
 | Workbench JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
-| Unified sidebar (Workbench + Projects) | Tabbed sidebar with resizable width, collapse toggle, and persistent Settings access |
+| Unified sidebar (Workbench + Catalog + Projects) | Tabbed sidebar with resizable width, collapse toggle, and persistent Settings access |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
+| **API Catalog** | Import OpenAPI 3.0/3.1 and Swagger 2.0 specs; browse endpoints in Swagger-UI-style detail view |
+| Catalog endpoint browser | Tag-grouped endpoint list with search/filter, parameter forms, request body editor, response schemas |
+| Catalog "Try It" testing | Execute endpoints interactively with host strategy (From Spec / Custom URL / Environment) and auth config |
+| Catalog cURL generation | Generate cURL commands per endpoint with real OAuth2 token acquisition, syntax highlighting, copy to clipboard |
+| Catalog versioning | Re-import updated specs with version history, visual endpoint diff (added/removed/changed), and restore |
+| Catalog environments | Per-API environment configuration with name + base URL pairs; "Environment" host strategy |
+| Catalog auth panel | Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), Verify Auth with token validation |
+| Catalog persistence | Auth tokens, form values, environments, and host strategy survive refresh and restart |
+| Catalog overview page | API summary with endpoint stats by method/tag, server list, security schemes, quick actions |
+| Catalog "Send to Workbench" | Copy endpoint(s) as WorkbenchRequest objects into a Workbench collection |
 | **CLI Runner** | Execute tests from YAML/JSON files via `redfireforge run` — same engine as the GUI |
 | CLI validate | `redfireforge validate` checks file structure without executing |
 | JUnit XML reports | `--junit report.xml` for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI) |

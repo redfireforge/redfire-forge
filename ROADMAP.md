@@ -138,6 +138,48 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports (`-o`, `--markdown`)
 - [ ] **npm Package** — Publish CLI as `npm install -g redfireforge`
 
+### Phase 0.8.8 — API Catalog (OpenAPI/Swagger Browser) ✅
+
+> **Third pillar of RedfireForge.** Import OpenAPI/Swagger specs, browse endpoints with Swagger-UI-style documentation, test them interactively, generate cURL commands, and track spec versions over time. Sits alongside Workbench and Projects as a top-level feature.
+
+> Full design docs: [`docs/api-catalog/`](docs/api-catalog/) — [Design](docs/api-catalog/DESIGN.md) · [Data Model](docs/api-catalog/DATA-MODEL.md) · [UI Wireframes](docs/api-catalog/UI-WIREFRAMES.md) · [Phases](docs/api-catalog/PHASES.md)
+
+**Phase 1 — Foundation**
+- [x] **Catalog types** — `CatalogEntry`, `CatalogEndpoint`, `CatalogVersion`, `CatalogFolder`, host/auth config types
+- [x] **OpenAPI parser** — Parse + validate + dereference specs via `@apidevtools/swagger-parser`; group endpoints by tag
+- [x] **Schema stub generator** — Convert JSON Schema → sample request body (uses `example`/`default`/type fallback)
+- [x] **Catalog sidebar** — Thin sidebar tab showing API names + version badges + endpoint count (no endpoint trees)
+- [x] **Import modal** — File picker → validate → preview (title, version, servers, endpoints by tag, warnings) → import
+- [x] **Storage hook** (`useCatalog`) — CRUD for catalog entries, persist via existing storage abstraction
+- [x] **App integration** — Third sidebar tab (`Workbench | Catalog | Projects`), welcome page
+
+**Phase 2 — Endpoint Browser**
+- [x] **Endpoint nav strip** — Tag-grouped endpoint list inside main panel (not sidebar); search/filter, collapse, resize
+- [x] **Endpoint detail view** — Swagger-UI-style: method badge, path, summary, parameters, request body schema, response schemas
+- [x] **Main panel orchestrator** — Three modes: welcome (empty), overview (API selected), endpoint detail (endpoint selected)
+
+**Phase 3 — Interactive Testing**
+- [x] **Host & auth bar** — Strategy selector (From Spec / Custom URL / Environment) for base URL and authentication
+- [x] **Parameter editor** — Editable forms for path, query, header params with type hints, enums, required badges
+- [x] **"Try It" execution** — Build URL + headers + body → `httpFetch()` → display response (reuse `JsonTreePreview`)
+
+**Phase 4 — cURL Integration**
+- [x] **cURL generation** — Extend existing `buildCurlCommand` for catalog endpoint shape
+- [x] **cURL preview popover** — Formatted command with single/multi-line toggle + copy to clipboard
+- [x] **Context menu cURL** — Right-click endpoint in nav → "Copy as cURL" with schema defaults
+
+**Phase 5 — Versioning**
+- [x] **Version storage** — Each entry stores version history with raw spec + hash for change detection
+- [x] **Re-import flow** — Detect existing API by title, compute diff, offer "Update existing" vs "Import as new"
+- [x] **Spec diff engine** — Detect added/removed/changed endpoints between versions
+- [x] **Version history modal** — List past imports, view diffs, restore previous versions
+
+**Phase 6 — Polish & Bridges**
+- [x] **Overview page** — API summary with endpoint stats by tag/method, server list, config status
+- [x] **"Send to Workbench"** — Copy endpoint(s) as `WorkbenchRequest` objects into a collection
+- [x] **Swagger 2.0 verification** — End-to-end test with real Swagger 2.0 specs
+- [x] **Unit + E2E tests** — Parser, stub generator, diff engine, import flow, endpoint browsing
+
 ---
 
 ## Upcoming Phases
@@ -153,50 +195,6 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
 - [ ] **Automated Version Tagging** — GitHub Action to create version tags on `master` merge
 - [ ] **Live Demo Deployment** — Auto-deploy web build to Vercel/Netlify on `master` push
-
----
-
-### Phase 0.8.8 — API Catalog (OpenAPI/Swagger Browser)
-
-> **Third pillar of RedfireForge.** Import OpenAPI/Swagger specs, browse endpoints with Swagger-UI-style documentation, test them interactively, generate cURL commands, and track spec versions over time. Sits alongside Workbench and Projects as a top-level feature.
-
-> Full design docs: [`docs/api-catalog/`](docs/api-catalog/) — [Design](docs/api-catalog/DESIGN.md) · [Data Model](docs/api-catalog/DATA-MODEL.md) · [UI Wireframes](docs/api-catalog/UI-WIREFRAMES.md) · [Phases](docs/api-catalog/PHASES.md)
-
-**Phase 1 — Foundation**
-- [ ] **Catalog types** — `CatalogEntry`, `CatalogEndpoint`, `CatalogVersion`, `CatalogFolder`, host/auth config types
-- [ ] **OpenAPI parser** — Parse + validate + dereference specs via `@apidevtools/swagger-parser`; group endpoints by tag
-- [ ] **Schema stub generator** — Convert JSON Schema → sample request body (uses `example`/`default`/type fallback)
-- [ ] **Catalog sidebar** — Thin sidebar tab showing API names + version badges + endpoint count (no endpoint trees)
-- [ ] **Import modal** — File picker → validate → preview (title, version, servers, endpoints by tag, warnings) → import
-- [ ] **Storage hook** (`useCatalog`) — CRUD for catalog entries, persist via existing storage abstraction
-- [ ] **App integration** — Third sidebar tab (`Workbench | Catalog | Projects`), welcome page
-
-**Phase 2 — Endpoint Browser**
-- [ ] **Endpoint nav strip** — Tag-grouped endpoint list inside main panel (not sidebar); search/filter, collapse, resize
-- [ ] **Endpoint detail view** — Swagger-UI-style: method badge, path, summary, parameters, request body schema, response schemas
-- [ ] **Main panel orchestrator** — Three modes: welcome (empty), overview (API selected), endpoint detail (endpoint selected)
-
-**Phase 3 — Interactive Testing**
-- [ ] **Host & auth bar** — Strategy selector (Global / Inherited / Hardcoded) for base URL and authentication
-- [ ] **Parameter editor** — Editable forms for path, query, header params with type hints, enums, required badges
-- [ ] **"Try It" execution** — Build URL + headers + body → `httpFetch()` → display response (reuse `JsonTreePreview`)
-
-**Phase 4 — cURL Integration**
-- [ ] **cURL generation** — Extend existing `buildCurlCommand` for catalog endpoint shape
-- [ ] **cURL preview popover** — Formatted command with single/multi-line toggle + copy to clipboard
-- [ ] **Context menu cURL** — Right-click endpoint in nav → "Copy as cURL" with schema defaults
-
-**Phase 5 — Versioning**
-- [ ] **Version storage** — Each entry stores version history with raw spec + hash for change detection
-- [ ] **Re-import flow** — Detect existing API by title, compute diff, offer "Update existing" vs "Import as new"
-- [ ] **Spec diff engine** — Detect added/removed/changed endpoints between versions
-- [ ] **Version history modal** — List past imports, view diffs, restore previous versions
-
-**Phase 6 — Polish & Bridges**
-- [ ] **Overview page** — API summary with endpoint stats by tag/method, server list, config status
-- [ ] **"Send to Workbench"** — Copy endpoint(s) as `WorkbenchRequest` objects into a collection
-- [ ] **Swagger 2.0 verification** — End-to-end test with real Swagger 2.0 specs
-- [ ] **Unit + E2E tests** — Parser, stub generator, diff engine, import flow, endpoint browsing
 
 ---
 
@@ -291,13 +289,13 @@ Post-launch features driven by community feedback.
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
 | 0.8.5 | Workbench (Ad-Hoc API Testing) | 13 | 13 |
-| 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 0 |
+| 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **118** | **52** |
+| **Total** | | **118** | **70** |
 
 ### Adoption Forecast
 
@@ -315,10 +313,11 @@ Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
 
 Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
 Phase 0.8.5 (Workbench) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
+Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
 
 Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launch but not blockers. They can ship as post-launch updates to sustain momentum.
 
 ---
 
-_Last updated: 2026-04-18 (v0.5.0 — Added API Catalog to roadmap)_
+_Last updated: 2026-04-18 (v0.5.0 — Completed API Catalog phase)_
