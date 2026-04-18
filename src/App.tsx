@@ -6,10 +6,14 @@ import { loadTestRuns, saveTheme } from './utils/storage';
 import { createEmptyProject } from './utils/helpers';
 import { useProjects } from './hooks/useProjects';
 import { useWorkbench } from './hooks/useWorkbench';
+import { useCatalog } from './hooks/useCatalog';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
 import Workbench from './pages/Workbench';
+import ApiCatalog from './pages/ApiCatalog';
+import CatalogSidebar from './components/catalog/CatalogSidebar';
+import CatalogImportModal from './components/catalog/CatalogImportModal';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
@@ -20,7 +24,7 @@ import WorkbenchEnvManager from './components/workbench/WorkbenchEnvManager';
 import SubCollectionModal from './components/workbench/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'scenarios' | 'runner' | 'results' | 'workbench';
+type Tab = 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
 
 declare const __APP_VERSION__: string;
 
@@ -36,6 +40,7 @@ export default function App() {
   } = useProjects();
 
   const wb = useWorkbench();
+  const catalog = useCatalog();
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>('workbench');
@@ -52,6 +57,7 @@ export default function App() {
   const [editingWbCollection, setEditingWbCollection] = useState<import('./types').WorkbenchCollection | null>(null);
   const [showWbEnvManager, setShowWbEnvManager] = useState(false);
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
+  const [showCatalogImport, setShowCatalogImport] = useState(false);
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -230,13 +236,25 @@ export default function App() {
         <div className="usb-top-bar">
           <button className={`usb-top-tab ${activeTab === 'workbench' ? 'active' : ''}`}
             onClick={() => setActiveTab('workbench')}>Workbench</button>
-          <button className={`usb-top-tab ${activeTab !== 'workbench' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'workbench') setActiveTab('scenarios'); }}>Projects</button>
+          <button className={`usb-top-tab ${activeTab === 'catalog' ? 'active' : ''}`}
+            onClick={() => setActiveTab('catalog')}>Catalog</button>
+          <button className={`usb-top-tab ${activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Projects</button>
         </div>
 
         {/* ── Content area ── */}
         <div className="usb-content">
-          {activeTab === 'workbench' ? (
+          {activeTab === 'catalog' ? (
+            catalog.loaded && (
+              <CatalogSidebar
+                entries={catalog.entries}
+                selectedEntryId={catalog.selectedEntryId}
+                onSelectEntry={(id) => { catalog.selectEntry(id); setActiveTab('catalog'); }}
+                onImport={() => setShowCatalogImport(true)}
+                onDeleteEntry={catalog.removeEntry}
+              />
+            )
+          ) : activeTab === 'workbench' ? (
             wb.loaded && (
               <WorkbenchSidebar
                 collections={wb.collections}
@@ -304,7 +322,7 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {activeTab !== 'workbench' && (
+          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
@@ -351,6 +369,12 @@ export default function App() {
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               projectName={selectedProject?.name}
+            />
+          )}
+          {activeTab === 'catalog' && (
+            <ApiCatalog
+              catalog={catalog}
+              onImport={() => setShowCatalogImport(true)}
             />
           )}
           {activeTab === 'workbench' && (
@@ -433,6 +457,14 @@ export default function App() {
           globalAuthProfiles={appGlobalAuthProfiles}
           onSave={(patch) => wb.updateSubCollection(editingSubCol.colId, editingSubCol.folderId, patch)}
           onClose={() => setEditingSubCol(null)}
+        />
+      )}
+
+      {showCatalogImport && (
+        <CatalogImportModal
+          existingEntries={catalog.entries}
+          onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
+          onClose={() => setShowCatalogImport(false)}
         />
       )}
 
