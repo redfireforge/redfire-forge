@@ -33,6 +33,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Response History Dropdown**: Workbench Send button now shows response history with timestamps, status, and restore/delete/clear actions
 
 ### Changed
+- **Sidebar nav rail**: Replaced horizontal tab bar with vertical nav rail; renamed sections to **Requests** (was Workbench), **Catalog** (unchanged), **Harness** (was Projects) to better reflect their purpose
 - **Platform detection**: `isTauri()` now safe in non-browser environments; added `isNode()` for CLI mode
 - **HTTP client**: Added Node-native `fetch` path with `undici` proxy agent for corporate networks
 - **Workbench Send button**: Reduced height, added border-radius for a cleaner look
@@ -66,7 +67,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Collapsible JSON tree response viewer**: Response bodies rendered as expandable/collapsible tree with search, match count, prev/next navigation, highlight, and collapse/expand all toggles
 - **Response preservation**: Response data cached per-request and restored when navigating between requests
 - **Query parameter management**: Enable/disable parameters via checkbox without deleting; order preserved across toggle
-- **Unified sidebar**: Tabbed Workbench | Projects toggle with resizable width, collapse toggle, and persistent Settings button
+- **Unified sidebar**: Vertical Requests | Catalog | Harness nav rail with resizable width, collapse toggle, and persistent Settings button
 - **Confirmation dialogs**: All delete actions require confirmation with item count
 - **Duplicate name prevention**: Collection, folder, and sub-collection names validated for uniqueness at the same level
 

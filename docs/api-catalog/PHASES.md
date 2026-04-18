@@ -77,7 +77,7 @@
 
 - [ ] **Wire into App.tsx**
   - Add `'catalog'` to `Tab` type
-  - Add third sidebar tab button between Workbench and Projects
+  - Add nav rail button between Requests and Harness
   - Render `<CatalogSidebar>` when `activeTab === 'catalog'`
   - Render `<ApiCatalog>` (placeholder) in main area
 

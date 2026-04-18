@@ -291,15 +291,15 @@ export default function App() {
       <div className="app-body">
       {!sidebarCollapsed && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
-        {/* ── Top bar: section switcher ── */}
-        <div className="usb-top-bar">
-          <button className={`usb-top-tab ${activeTab === 'workbench' ? 'active' : ''}`}
-            onClick={() => setActiveTab('workbench')}>Workbench</button>
-          <button className={`usb-top-tab ${activeTab === 'catalog' ? 'active' : ''}`}
+        {/* ── Nav rail: vertical section switcher ── */}
+        <nav className="usb-nav-rail">
+          <button className={`usb-nav-btn ${activeTab === 'workbench' ? 'active' : ''}`}
+            onClick={() => setActiveTab('workbench')}>Requests</button>
+          <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
             onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-top-tab ${activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Projects</button>
-        </div>
+          <button className={`usb-nav-btn ${activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
+        </nav>
 
         {/* ── Content area ── */}
         <div className="usb-content">
