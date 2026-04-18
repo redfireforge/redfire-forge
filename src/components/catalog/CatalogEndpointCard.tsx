@@ -32,6 +32,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [liveResponse, setLiveResponse] = useState<{
     status: number; statusText: string;
     headers: Record<string, string>; body: string; timeMs: number;
+    error?: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCurl, setShowCurl] = useState(false);
@@ -187,31 +188,54 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               <div className="sw-section-bar">
                 <span className="sw-section-title">Server response</span>
               </div>
-              <div className="sw-resp-table">
-                <div className="sw-resp-thead">
-                  <div className="sw-resp-col-code">Code</div>
-                  <div className="sw-resp-col-desc">Details</div>
-                </div>
-                <div className="sw-resp-row">
-                  <div className={`sw-resp-code sw-sc-${String(liveResponse.status)[0]}`}>{liveResponse.status}</div>
-                  <div className="sw-resp-detail">
-                    <div className="sw-resp-description">
-                      {liveResponse.statusText}
-                      <span className="sw-resp-time">{liveResponse.timeMs}ms</span>
-                      <button className="sw-copy-btn" onClick={() => copy(liveResponse.body)}>Copy</button>
-                    </div>
-                    {Object.keys(liveResponse.headers).length > 0 && (
-                      <details className="sw-resp-headers-details">
-                        <summary>Response headers</summary>
-                        <pre className="sw-code-block sw-code-sm">
-                          {Object.entries(liveResponse.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}
-                        </pre>
-                      </details>
-                    )}
-                    <JsonBlock json={fmtBody(liveResponse.body)} label="Response body" />
+
+              {liveResponse.error ? (
+                <div className="sw-error-block">
+                  <div className="sw-error-title">Request failed</div>
+                  <div className="sw-error-message">{liveResponse.error}</div>
+                  <div className="sw-error-hint">
+                    {liveResponse.error.includes('ENOTFOUND') || liveResponse.error.includes('ECONNREFUSED')
+                      ? 'The server could not be reached. Check the hostname and ensure you are connected to the correct network/VPN.'
+                      : liveResponse.error.includes('CERT') || liveResponse.error.includes('SSL') || liveResponse.error.includes('certificate')
+                        ? 'SSL/TLS certificate error. The server may use a self-signed or corporate certificate.'
+                        : liveResponse.error.includes('CORS') || liveResponse.error.includes('Failed to fetch')
+                          ? 'CORS error. In web mode, requests go through a server-side proxy. Try using the Tauri desktop app for direct requests.'
+                          : liveResponse.error.includes('TIMEOUT') || liveResponse.error.includes('timeout')
+                            ? 'The request timed out. The server may be slow or unreachable.'
+                            : 'Check the URL, network connection, and server status.'}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="sw-resp-table">
+                  <div className="sw-resp-thead">
+                    <div className="sw-resp-col-code">Code</div>
+                    <div className="sw-resp-col-desc">Details</div>
+                  </div>
+                  <div className="sw-resp-row">
+                    <div className={`sw-resp-code sw-sc-${String(liveResponse.status)[0]}`}>{liveResponse.status}</div>
+                    <div className="sw-resp-detail">
+                      <div className="sw-resp-description">
+                        {liveResponse.statusText}
+                        <span className="sw-resp-time">{liveResponse.timeMs}ms</span>
+                        <button className="sw-copy-btn" onClick={() => copy(liveResponse.body)}>Copy</button>
+                      </div>
+                      {Object.keys(liveResponse.headers).length > 0 && (
+                        <details className="sw-resp-headers-details">
+                          <summary>Response headers</summary>
+                          <pre className="sw-code-block sw-code-sm">
+                            {Object.entries(liveResponse.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}
+                          </pre>
+                        </details>
+                      )}
+                      {liveResponse.body ? (
+                        <JsonBlock json={fmtBody(liveResponse.body)} label="Response body" />
+                      ) : (
+                        <div className="sw-no-params">No response body</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
