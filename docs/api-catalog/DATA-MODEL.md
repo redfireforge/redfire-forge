@@ -34,9 +34,10 @@ export interface CatalogVersion {
   id: string;
   version: string;                      // from info.version (e.g. "3.2.1")
   importedAt: number;                   // timestamp
-  rawSpec: string;                      // original YAML/JSON for re-parse & export
   specHash: string;                     // SHA-256 of rawSpec for quick change detection
   changelog?: string;                   // optional user note on what changed
+  specSize: number;                     // rawSpec byte length (for storage UI)
+  // rawSpec is NOT stored here — see "Lazy-Loaded Raw Specs" below
 }
 ```
 
@@ -240,32 +241,157 @@ The parser auto-detects the spec format:
 
 ```typescript
 // In src/utils/storage.ts, add:
+
+// Primary key — loaded at app startup (lightweight, no raw specs)
 'catalog-entries'  →  CatalogEntry[]
+
+// Per-version raw spec — loaded on demand only
+'catalog-spec-{entryId}-{versionId}'  →  string   // raw YAML/JSON text
 ```
 
 Uses the same `loadData<T>(key)` / `saveData<T>(key, value)` abstraction that
 powers Projects and Workbench. Works in both web (localStorage) and desktop
 (Tauri FS plugin).
 
-### Size Considerations
+### Lazy-Loaded Raw Specs
 
-| Concern | Mitigation |
-|---|---|
-| Large raw YAML specs (1–5 MB each) | Store compressed or only last N versions; raw spec is only for re-parse/export |
-| Many endpoints per entry | Endpoints are plain objects, lightweight in JSON |
-| Version accumulation | Default: keep last 10 versions; configurable in settings |
-| Total storage | localStorage limit ~5–10 MB; Tauri FS has no limit. Warn user if approaching limit |
+The `rawSpec` (original YAML/JSON text) is the largest piece of data per version
+— typically 70–80% of total catalog storage. It is only needed for:
+
+- **Re-export** — "Export Original Spec" in context menu
+- **Version diff** — comparing two versions in Version History
+- **Version restore** — re-parsing an older version's spec
+
+Since these are infrequent actions, `rawSpec` is stored in **separate keys** and
+loaded on demand:
+
+```typescript
+// Saving a raw spec (at import time):
+saveData(`catalog-spec-${entryId}-${versionId}`, rawYamlString);
+
+// Loading a raw spec (only when user opens Version History, exports, etc.):
+const rawSpec = await loadData<string>(`catalog-spec-${entryId}-${versionId}`);
+```
+
+This means the primary `catalog-entries` key stays small (only parsed
+`CatalogEntry` objects without raw text), keeping app startup fast.
+
+### Storage Access Patterns
+
+```
+App Startup
+    │
+    └──▶ loadData('catalog-entries')        ~50–500 KB (parsed entries only)
+         Fast — no raw specs loaded
+
+User clicks "Version History"
+    │
+    └──▶ loadData('catalog-spec-abc-v1')    ~80 KB (one raw spec)
+    └──▶ loadData('catalog-spec-abc-v2')    ~80 KB (another raw spec)
+         On-demand — only when diffing
+
+User clicks "Export Original Spec"
+    │
+    └──▶ loadData('catalog-spec-abc-v3')    ~80 KB (current version raw spec)
+         On-demand — only when exporting
+```
+
+### Size Budget
+
+| Item | Typical Size | Stored In |
+|---|---|---|
+| `CatalogEntry` (50 endpoints, no rawSpec) | ~40 KB | `catalog-entries` |
+| `CatalogEntry` (200 endpoints, no rawSpec) | ~150 KB | `catalog-entries` |
+| `rawSpec` (50-endpoint YAML) | ~80 KB | `catalog-spec-{id}-{vid}` |
+| `rawSpec` (200-endpoint YAML) | ~400 KB | `catalog-spec-{id}-{vid}` |
+
+Realistic workspace: **10 APIs × 3 versions each**
+
+| Data | Size | Loaded At |
+|---|---|---|
+| 10 × `CatalogEntry` (avg 50 eps) | ~400 KB | Startup |
+| 30 × `rawSpec` (avg 80 KB) | ~2.4 MB | On demand |
+| **Total** | **~2.8 MB** | |
+| **In memory at startup** | **~400 KB** | |
+
+### Version Cap
+
+Default: keep the **last 10 versions** per entry. Configurable in Settings.
+
+When a new version is imported and the cap is reached:
+1. Delete the oldest `CatalogVersion` from the entry's `versions[]` array
+2. Delete the corresponding `catalog-spec-{entryId}-{versionId}` storage key
+3. Save the updated entry
+
+### Optional LZ Compression (Web Mode)
+
+For web mode where localStorage is limited (~5–10 MB), raw specs can be
+compressed before storage using `lz-string` (browser-compatible, zero
+dependencies, ~5 KB library):
+
+| Spec Size | Raw | Compressed | Savings |
+|---|---|---|---|
+| 80 KB YAML | 80 KB | ~16 KB | ~80% |
+| 400 KB YAML | 400 KB | ~80 KB | ~80% |
+
+YAML/JSON compresses extremely well because of repetitive structure (schema
+definitions, response patterns, etc.).
+
+Implementation:
+```typescript
+// Compress on save
+saveData(`catalog-spec-${id}-${vid}`, lzCompress(rawSpec));
+
+// Decompress on load
+const rawSpec = lzDecompress(await loadData(`catalog-spec-${id}-${vid}`));
+```
+
+Compression is enabled by default in web mode, disabled in desktop (Tauri has
+no storage limit so the CPU cost isn't worth it).
+
+### Storage Usage Indicator
+
+Show in Settings → Catalog section:
+
+```
+Catalog Storage
+━━━━━━━━━━━━━━━━━━░░░░░░░  1.8 MB / 5 MB (36%)
+
+  Sales Product API     3 versions    320 KB
+  Payment Gateway       2 versions    180 KB
+  Notification Svc      5 versions    890 KB
+  ...
+
+  [Purge Old Versions]  [Clear All]
+```
+
+Warn at 80% capacity. At 95%, block new imports until user frees space.
+
+### Pruning Old Versions
+
+For versions older than the configured cap, two pruning strategies:
+
+| Strategy | What's Kept | What's Deleted | Use Case |
+|---|---|---|---|
+| **Soft prune** (default) | Version metadata + `specHash` + diff summary | `rawSpec` (the large string) | User sees history but can't re-export or restore old versions |
+| **Hard prune** | Nothing | Entire `CatalogVersion` + `rawSpec` | Clean slate, minimal storage |
+
+Soft prune preserves the version timeline while reclaiming ~90% of the storage
+for that version.
 
 ### Save Triggers
 
 Catalog data is saved whenever:
-- A new spec is imported
-- A spec is re-imported (new version)
-- Host/auth config is changed
-- An entry is deleted
-- Version is restored
+- A new spec is imported (entry + raw spec)
+- A spec is re-imported (new version + raw spec)
+- Host/auth config is changed (entry only)
+- An entry is deleted (entry + all its raw specs)
+- Version is restored (entry only)
+- Version is pruned (entry + pruned raw specs)
 
-Debounced save (200ms) to avoid excessive writes during rapid config changes.
+Debounced save (200ms) for the primary `catalog-entries` key to avoid excessive
+writes during rapid config changes. Raw spec saves are immediate (one-time on
+import).
 
 ---
 

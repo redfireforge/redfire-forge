@@ -52,9 +52,11 @@
   - Guard against circular references (max depth)
 
 - [ ] **Storage hook** (`src/hooks/useCatalog.ts`)
-  - Load/save `CatalogEntry[]` via storage abstraction
+  - Load/save `CatalogEntry[]` via storage abstraction (lightweight — no raw specs at startup)
+  - Save raw specs in separate keys: `catalog-spec-{entryId}-{versionId}`
   - `addEntry()`, `removeEntry()`, `updateEntry()`
   - `selectEntry(id)`, `selectEndpoint(id)`
+  - `loadRawSpec(entryId, versionId)` — on-demand loader for version history/export
   - State: `entries`, `selectedEntryId`, `selectedEndpointId`
 
 - [ ] **Catalog sidebar** (`src/components/catalog/CatalogSidebar.tsx`)
@@ -246,11 +248,12 @@
 
 ### Deliverables
 
-- [ ] **Version storage**
+- [ ] **Version storage with lazy-loaded raw specs**
   - Each `CatalogEntry` has `versions: CatalogVersion[]` (ordered by `importedAt` desc)
-  - `CatalogVersion` stores: `id`, `version` (from spec), `importedAt`, `rawSpec`, `specHash`
+  - `CatalogVersion` stores: `id`, `version`, `importedAt`, `specHash`, `specSize`, `changelog`
+  - `rawSpec` stored separately in `catalog-spec-{entryId}-{versionId}` key (not in the entry)
   - Current version linked via `currentVersionId`
-  - Raw spec stored for re-parsing, export, and diff
+  - Raw spec loaded on demand only (version history, export, restore)
 
 - [ ] **Re-import flow**
   - "Re-import / Update" in sidebar context menu
@@ -284,12 +287,23 @@
   - Click a version → switch to it (re-parses that version's raw spec)
   - Current version has checkmark indicator
 
+- [ ] **Storage optimization**
+  - Version cap: auto-purge oldest versions when exceeding limit (default: 10)
+  - Soft prune: strip `rawSpec` from old versions, keep metadata + diff summary
+  - LZ compression for raw specs in web mode (`lz-string`, ~80% size reduction)
+  - Storage usage indicator in Settings showing per-entry breakdown
+  - Warning at 80% localStorage capacity, block new imports at 95%
+  - Cleanup on entry deletion: remove all `catalog-spec-{id}-*` keys
+
 ### Acceptance Criteria
 - Re-importing a changed spec creates a new version entry
 - Re-importing an identical spec shows "no changes"
 - Version history lists all past imports
 - Diff accurately identifies added/removed/changed endpoints
 - Restoring a previous version works correctly
+- Raw specs load on demand (not at startup) — verified by checking startup load size
+- Version cap auto-prunes oldest versions when exceeded
+- Storage indicator shows accurate per-entry size breakdown
 
 ---
 
