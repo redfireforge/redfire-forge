@@ -124,7 +124,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Collapsible JSON Tree Viewer** — Expandable response tree with search, match navigation, and collapse/expand all
 - [x] **Response Caching** — Preserve responses per-request during navigation
 - [x] **Response History** — Per-request history dropdown with timestamps, restore, delete, and clear actions
-- [x] **Unified Sidebar** — Tabbed Workbench | Projects toggle with resize, collapse, and persistent Settings
+- [x] **Unified Sidebar** — Vertical Requests | Catalog | Harness nav rail with resize, collapse, and persistent Settings
 - [x] **Context Menus & Confirmation Dialogs** — Full right-click menus with duplicate/move/rename/delete and confirmation
 
 ### Phase 0.7.0 — CLI Runner ✅
@@ -151,7 +151,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Catalog sidebar** — Thin sidebar tab showing API names + version badges + endpoint count (no endpoint trees)
 - [x] **Import modal** — File picker → validate → preview (title, version, servers, endpoints by tag, warnings) → import
 - [x] **Storage hook** (`useCatalog`) — CRUD for catalog entries, persist via existing storage abstraction
-- [x] **App integration** — Third sidebar tab (`Workbench | Catalog | Projects`), welcome page
+- [x] **App integration** — Third nav rail section (`Requests | Catalog | Harness`), welcome page
 
 **Phase 2 — Endpoint Browser**
 - [x] **Endpoint nav strip** — Tag-grouped endpoint list inside main panel (not sidebar); search/filter, collapse, resize

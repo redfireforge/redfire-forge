@@ -83,11 +83,11 @@ out of the box, teams can import any spec they have.
 ├────────────────┬───────────────────────────────────────────────┤
 │ Sidebar        │  Main Content Area                            │
 │                │                                               │
-│ ┌────────────┐ │  (depends on active sidebar tab)              │
-│ │ Workbench  │ │                                               │
-│ │ Catalog    │ │  Workbench → request editor                   │
-│ │ Projects   │ │  Catalog   → endpoint browser + detail        │
-│ └────────────┘ │  Projects  → feature groups / runner / results│
+│ ┌────────────┐ │  (depends on active nav rail section)         │
+│ │ Requests   │ │                                               │
+│ │ Catalog    │ │  Requests → request editor                    │
+│ │ Harness    │ │  Catalog  → endpoint browser + detail         │
+│ └────────────┘ │  Harness  → feature groups / runner / results │
 │                │                                               │
 │ (tree changes  │                                               │
 │  per tab)      │                                               │
@@ -184,15 +184,15 @@ src/
 │   ├── index.css                         — add @import './catalog.css'
 │   └── catalog.css (NEW)                — all Catalog-specific styles
 │
-├── App.tsx                               — add 3rd sidebar tab + <ApiCatalog/>
+├── App.tsx                               — add 3rd nav rail section + <ApiCatalog/>
 ```
 
 ### Modified Existing Files
 
 | File | Change |
 |---|---|
-| `src/App.tsx` | Add `'catalog'` to `Tab` type, add third sidebar tab button, render `<CatalogSidebar>` and `<ApiCatalog>` |
-| `src/styles/base.css` | Adjust `.usb-top-tab` flex for 3 tabs |
+| `src/App.tsx` | Add `'catalog'` to `Tab` type, add third nav rail button, render `<CatalogSidebar>` and `<ApiCatalog>` |
+| `src/styles/base.css` | Vertical `.usb-nav-rail` with `.usb-nav-btn` for section switcher |
 | `src/styles/index.css` | Add `@import './catalog.css'` |
 | `src/utils/curlGenerator.ts` | Extend `buildCurlCommand` to accept catalog endpoint shape (or add parallel function) |
 
