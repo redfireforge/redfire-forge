@@ -411,15 +411,15 @@
   color: var(--text); outline: none; min-width: 0;
 }
 .wb-send-btn {
-  background: var(--success); color: #fff; border: none; padding: 10px 20px;
+  background: var(--success); color: #fff; border: none; padding: 6px 20px;
   font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
-  transition: background 0.15s;
+  transition: background 0.15s; flex-shrink: 0; border-radius: 4px; margin: 4px 0;
 }
 .wb-send-btn:hover { background: #16a34a; }
 .wb-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Status pills (inline with Send) */
-.wb-status-row { display: flex; align-items: center; gap: 10px; padding: 0 14px; flex-shrink: 0; }
+.wb-status-row { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 8px; flex-shrink: 0; position: relative; min-width: 280px; }
 .wb-status-pill {
   font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; white-space: nowrap;
 }
@@ -427,6 +427,143 @@
 .wb-status-pill.error   { background: rgba(239,68,68,0.2); color: var(--danger); }
 .wb-status-pill.warn    { background: rgba(245,158,11,0.2); color: var(--warning); }
 .wb-stat { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+
+/* ── Response history dropdown ─────────────────── */
+.resp-history-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.resp-history-trigger {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.resp-history-trigger:hover { background: var(--surface-hover); color: var(--foreground); }
+.resp-history-trigger:disabled { opacity: 0.4; cursor: default; }
+.resp-history-trigger:disabled:hover { background: none; color: var(--text-muted); }
+
+.resp-history-arrow { font-size: 0.55rem; opacity: 0.6; }
+
+.resp-history-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  width: 420px;
+  max-height: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: respHistIn 0.12s ease-out;
+}
+@keyframes respHistIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.resp-history-actions {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resp-history-action-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: var(--foreground);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.resp-history-action-btn:hover { background: var(--surface-hover); }
+.resp-history-action-danger { color: var(--danger); }
+.resp-history-action-icon { font-size: 0.85rem; }
+
+.resp-history-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+
+.resp-history-group { padding: 0; }
+.resp-history-group-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 8px 12px 3px;
+}
+
+.resp-history-entry {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.resp-history-entry:hover { background: var(--surface-hover); }
+.resp-history-entry.active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
+.resp-history-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.resp-history-status.success { background: rgba(34,197,94,0.2); color: var(--success); }
+.resp-history-status.error   { background: rgba(239,68,68,0.2); color: var(--danger); }
+.resp-history-status.warn    { background: rgba(245,158,11,0.2); color: var(--warning); }
+
+.resp-history-method {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 32px;
+}
+
+.resp-history-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
+.resp-history-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 
 /* ── Row 2: env bar ─────────────────────────────── */
 .wb-env-bar {
