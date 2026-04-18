@@ -36,7 +36,7 @@ export default function Workbench({ wb, appGlobalAuthProfiles }: Props) {
   }, [wb.selectedCollection, wb.selectedRequest]);
 
   if (!wb.loaded) {
-    return <div className="wb-loading">Loading Workbench...</div>;
+    return <div className="wb-loading">Loading Requests...</div>;
   }
 
   return (
