@@ -1,4 +1,5 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project, WorkbenchData } from '../types';
+import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
@@ -10,6 +11,9 @@ const MAX_RUNS_KEY = 'perf-test-max-runs';
 const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
 const WORKBENCH_KEY = 'perf-test-workbench';
+const CATALOG_KEY = 'perf-test-catalog';
+const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
+const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
 
 // Legacy keys (used only for migration)
 const LEGACY_FEATURES_KEY = 'perf-test-features';
@@ -313,4 +317,55 @@ export async function loadWorkbench(): Promise<WorkbenchData> {
 
 export async function saveWorkbench(data: WorkbenchData): Promise<void> {
   await writeKey(WORKBENCH_KEY, JSON.stringify(data));
+}
+
+// ---------- Catalog ----------
+
+export async function loadCatalogEntries(): Promise<CatalogEntry[]> {
+  try {
+    const raw = await readKey(CATALOG_KEY);
+    if (raw) return JSON.parse(raw) as CatalogEntry[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+export async function saveCatalogEntries(entries: CatalogEntry[]): Promise<void> {
+  await writeKey(CATALOG_KEY, JSON.stringify(entries));
+}
+
+export async function loadCatalogRawSpec(entryId: string, versionId: string): Promise<string | null> {
+  try {
+    const raw = await readKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
+    return raw || null;
+  } catch { return null; }
+}
+
+export async function saveCatalogRawSpec(entryId: string, versionId: string, rawSpec: string): Promise<void> {
+  await writeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`, rawSpec);
+}
+
+export async function removeCatalogRawSpec(entryId: string, versionId: string): Promise<void> {
+  await removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
+}
+
+export async function removeAllCatalogRawSpecs(entryId: string, versionIds: string[]): Promise<void> {
+  await Promise.all(versionIds.map(vid => removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${vid}`)));
+}
+
+// ---------- Catalog Endpoint Values ----------
+
+export async function loadCatalogEndpointValues(entryId: string): Promise<Record<string, SavedEndpointValues>> {
+  try {
+    const raw = await readKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return {};
+}
+
+export async function saveCatalogEndpointValues(entryId: string, values: Record<string, SavedEndpointValues>): Promise<void> {
+  await writeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`, JSON.stringify(values));
+}
+
+export async function removeCatalogEndpointValues(entryId: string): Promise<void> {
+  await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
 }

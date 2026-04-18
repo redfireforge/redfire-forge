@@ -35,7 +35,7 @@ function proxyPlugin(): Plugin {
         }
 
         try {
-          const fetchOpts: RequestInit = {
+          const fetchOpts: Record<string, unknown> = {
             method: payload.method,
             headers: payload.headers,
           };
@@ -43,7 +43,20 @@ function proxyPlugin(): Plugin {
             fetchOpts.body = payload.body;
           }
 
-          const response = await fetch(payload.url, fetchOpts);
+          const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
+            || process.env.HTTP_PROXY || process.env.http_proxy;
+          if (proxy) {
+            try {
+              const undici = await import('undici');
+              if (undici.EnvHttpProxyAgent) {
+                fetchOpts.dispatcher = new undici.EnvHttpProxyAgent();
+              } else if (undici.ProxyAgent) {
+                fetchOpts.dispatcher = new undici.ProxyAgent(proxy);
+              }
+            } catch { /* undici not available */ }
+          }
+
+          const response = await fetch(payload.url, fetchOpts as RequestInit);
           const responseBody = await response.text();
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
