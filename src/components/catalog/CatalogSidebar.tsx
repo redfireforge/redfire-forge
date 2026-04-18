@@ -11,13 +11,14 @@ interface Props {
   onDeleteEntry: (entryId: string) => void;
   onVersionHistory: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
+  onEdit?: (entryId: string) => void;
 }
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#f59e0b', PUT: '#3b82f6', PATCH: '#8b5cf6', DELETE: '#ef4444',
 };
 
-export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry, onImport, onReimport, onDeleteEntry, onVersionHistory, onExportSpec }: Props) {
+export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry, onImport, onReimport, onDeleteEntry, onVersionHistory, onExportSpec, onEdit }: Props) {
   const [filter, setFilter] = useState('');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entryId: string } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
@@ -105,6 +106,11 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
                   </div>
                 )}
                 <div className="cat-ctx-sep" />
+                {onEdit && (
+                  <div className="cat-ctx-item" onClick={() => { onEdit(ctxMenu.entryId); closeCtx(); }}>
+                    Edit
+                  </div>
+                )}
                 <div className="cat-ctx-item" onClick={() => { onReimport(ctxMenu.entryId); closeCtx(); }}>
                   Re-import / Update
                 </div>

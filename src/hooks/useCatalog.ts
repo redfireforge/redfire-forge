@@ -3,7 +3,7 @@ import type { CatalogEntry, ParsedSpec } from '../types/catalog';
 import {
   loadCatalogEntries, saveCatalogEntries,
   saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs,
-  loadCatalogRawSpec,
+  loadCatalogRawSpec, removeCatalogEndpointValues,
 } from '../utils/storage';
 import { parseOpenApiSpec } from '../utils/openApiParser';
 
@@ -112,6 +112,7 @@ export function useCatalog() {
     const entry = entries.find(e => e.id === entryId);
     if (entry) {
       await removeAllCatalogRawSpecs(entryId, entry.versions.map(v => v.id));
+      await removeCatalogEndpointValues(entryId);
     }
     setEntries(prev => prev.filter(e => e.id !== entryId));
     if (selectedEntryId === entryId) {

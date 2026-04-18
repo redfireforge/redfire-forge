@@ -1,22 +1,51 @@
-import { useState, useMemo, useCallback } from 'react';
-import type { CatalogEntry } from '../../types/catalog';
-import type { AuthConfig } from '../../types';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { CatalogEntry, SavedEndpointValues } from '../../types/catalog';
+import type { AuthConfig, GlobalAuthProfile } from '../../types';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../../utils/catalogCurlGenerator';
+import { loadCatalogEndpointValues, saveCatalogEndpointValues } from '../../utils/storage';
 
 interface Props {
   entry: CatalogEntry;
   auth: AuthConfig;
   onAuthChange: (auth: AuthConfig) => void;
   onHostChange: (patch: Partial<CatalogEntry['hostConfig']>) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [hideDeprecated, setHideDeprecated] = useState(false);
+  const [epValues, setEpValues] = useState<Record<string, SavedEndpointValues>>({});
+  const [epLoaded, setEpLoaded] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const entryIdRef = useRef(entry.id);
+
+  useEffect(() => {
+    if (entry.id !== entryIdRef.current) {
+      entryIdRef.current = entry.id;
+      setEpValues({});
+      setEpLoaded(false);
+    }
+    loadCatalogEndpointValues(entry.id).then(v => { setEpValues(v); setEpLoaded(true); });
+  }, [entry.id]);
+
+  const pendingEpValues = useRef<Record<string, SavedEndpointValues>>({});
+
+  const handleEpValuesChange = useCallback((endpointId: string, vals: SavedEndpointValues) => {
+    setEpValues(prev => {
+      const next = { ...prev, [endpointId]: vals };
+      pendingEpValues.current = next;
+      return next;
+    });
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveCatalogEndpointValues(entry.id, pendingEpValues.current);
+    }, 600);
+  }, [entry.id]);
 
   const toggleTag = useCallback((tagId: string) => {
     setCollapsedTags(prev => {
@@ -54,7 +83,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   }, [entry]);
 
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
-  const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers);
+  const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments);
 
   return (
     <div className="ceb-container">
@@ -77,6 +106,15 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               >
                 From Spec
               </button>
+              {(entry.environments?.length ?? 0) > 0 && (
+                <button
+                  className={`ceb-strat-btn ${entry.hostConfig.strategy === 'environment' ? 'active' : ''}`}
+                  onClick={() => onHostChange({ strategy: 'environment', environmentId: entry.hostConfig.environmentId ?? entry.environments?.[0]?.id })}
+                  title="Use a configured environment"
+                >
+                  Environment
+                </button>
+              )}
               <button
                 className={`ceb-strat-btn ${entry.hostConfig.strategy === 'hardcoded' ? 'active' : ''}`}
                 onClick={() => onHostChange({ strategy: 'hardcoded', hardcodedUrl: entry.hostConfig.hardcodedUrl ?? baseUrl ?? '' })}
@@ -95,6 +133,20 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                 {entry.servers.map((s, i) => (
                   <option key={i} value={i}>
                     {s.url}{s.description ? ` — ${s.description}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {entry.hostConfig.strategy === 'environment' && (entry.environments?.length ?? 0) > 0 && (
+              <select
+                className="ceb-server-select"
+                value={entry.hostConfig.environmentId ?? ''}
+                onChange={e => onHostChange({ strategy: 'environment', environmentId: e.target.value })}
+              >
+                {entry.environments!.map(env => (
+                  <option key={env.id} value={env.id}>
+                    {env.name} — {env.baseUrl}
                   </option>
                 ))}
               </select>
@@ -145,12 +197,13 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
           auth={auth}
           onAuthChange={onAuthChange}
           securitySchemes={entry.securitySchemes}
+          globalAuthProfiles={globalAuthProfiles}
           onClose={() => setShowAuthPanel(false)}
         />
       )}
 
       {/* ── Endpoint list ───────────────────────── */}
-      <div className="ceb-endpoints">
+      <div className="ceb-endpoints" key={`${entry.id}-${epLoaded}`}>
         {filteredFolders.map(folder => (
           <div key={folder.id} className="ceb-tag-group">
             <div className="ceb-tag-header" onClick={() => toggleTag(folder.id)}>
@@ -168,6 +221,9 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     servers={entry.servers}
                     hostConfig={entry.hostConfig}
                     auth={auth}
+                    savedValues={epValues[ep.id]}
+                    onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
+                    environments={entry.environments}
                   />
                 ))}
               </div>
@@ -191,6 +247,9 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     servers={entry.servers}
                     hostConfig={entry.hostConfig}
                     auth={auth}
+                    savedValues={epValues[ep.id]}
+                    onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
+                    environments={entry.environments}
                   />
                 ))}
               </div>

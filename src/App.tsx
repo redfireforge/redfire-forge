@@ -19,6 +19,7 @@ import ApiCatalog from './pages/ApiCatalog';
 import CatalogSidebar from './components/catalog/CatalogSidebar';
 import CatalogImportModal from './components/catalog/CatalogImportModal';
 import CatalogVersionHistory from './components/catalog/CatalogVersionHistory';
+import CatalogEditModal from './components/catalog/CatalogEditModal';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
@@ -65,6 +66,7 @@ export default function App() {
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
+  const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -301,8 +303,8 @@ export default function App() {
 
         {/* ── Content area ── */}
         <div className="usb-content">
-          {activeTab === 'catalog' ? (
-            catalog.loaded && (
+          <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
+            {catalog.loaded && (
               <CatalogSidebar
                 entries={catalog.entries}
                 selectedEntryId={catalog.selectedEntryId}
@@ -311,6 +313,7 @@ export default function App() {
                 onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
                 onDeleteEntry={catalog.removeEntry}
                 onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
+                onEdit={(entryId) => setCatalogEditId(entryId)}
                 onExportSpec={async (entryId) => {
                   const entry = catalog.entries.find(e => e.id === entryId);
                   if (!entry) return;
@@ -325,9 +328,10 @@ export default function App() {
                   URL.revokeObjectURL(url);
                 }}
               />
-            )
-          ) : activeTab === 'workbench' ? (
-            wb.loaded && (
+            )}
+          </div>
+          <div style={{ display: activeTab === 'workbench' ? 'contents' : 'none' }}>
+            {wb.loaded && (
               <WorkbenchSidebar
                 collections={wb.collections}
                 selectedCollectionId={wb.selectedCollection?.id}
@@ -358,8 +362,9 @@ export default function App() {
                 onImportCollection={wb.importCollection}
                 onImportFolder={wb.importFolder}
               />
-            )
-          ) : (
+            )}
+          </div>
+          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
             <>
               <Sidebar
                 projects={projects}
@@ -443,7 +448,7 @@ export default function App() {
               projectName={selectedProject?.name}
             />
           )}
-          {activeTab === 'catalog' && (
+          <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
             <ApiCatalog
               catalog={catalog}
               onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
@@ -463,14 +468,15 @@ export default function App() {
                 URL.revokeObjectURL(url);
               }}
               onSendToWorkbench={handleSendToWorkbench}
+              globalAuthProfiles={appGlobalAuthProfiles}
             />
-          )}
-          {activeTab === 'workbench' && (
+          </div>
+          <div className="app-tab-pane" style={{ display: activeTab === 'workbench' ? 'flex' : 'none' }}>
             <Workbench
               wb={wb}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
             />
-          )}
+          </div>
         </main>
       </div>
 
@@ -568,6 +574,18 @@ export default function App() {
             onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
             onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
             loadRawSpec={catalog.loadRawSpec}
+          />
+        );
+      })()}
+
+      {catalogEditId && (() => {
+        const editEntry = catalog.entries.find(e => e.id === catalogEditId);
+        if (!editEntry) return null;
+        return (
+          <CatalogEditModal
+            entry={editEntry}
+            onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
+            onClose={() => setCatalogEditId(undefined)}
           />
         );
       })()}

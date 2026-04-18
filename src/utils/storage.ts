@@ -1,5 +1,5 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project, WorkbenchData } from '../types';
-import type { CatalogEntry } from '../types/catalog';
+import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
@@ -13,6 +13,7 @@ const THEME_KEY = 'perf-test-theme';
 const WORKBENCH_KEY = 'perf-test-workbench';
 const CATALOG_KEY = 'perf-test-catalog';
 const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
+const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
 
 // Legacy keys (used only for migration)
 const LEGACY_FEATURES_KEY = 'perf-test-features';
@@ -349,4 +350,22 @@ export async function removeCatalogRawSpec(entryId: string, versionId: string): 
 
 export async function removeAllCatalogRawSpecs(entryId: string, versionIds: string[]): Promise<void> {
   await Promise.all(versionIds.map(vid => removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${vid}`)));
+}
+
+// ---------- Catalog Endpoint Values ----------
+
+export async function loadCatalogEndpointValues(entryId: string): Promise<Record<string, SavedEndpointValues>> {
+  try {
+    const raw = await readKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return {};
+}
+
+export async function saveCatalogEndpointValues(entryId: string, values: Record<string, SavedEndpointValues>): Promise<void> {
+  await writeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`, JSON.stringify(values));
+}
+
+export async function removeCatalogEndpointValues(entryId: string): Promise<void> {
+  await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
 }
