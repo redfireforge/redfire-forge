@@ -1,5 +1,6 @@
 import type { CatalogEndpoint, HostConfig, CatalogServer } from '../types/catalog';
 import type { AuthConfig } from '../types';
+import { generateStubJson } from './schemaStubGenerator';
 
 interface CurlParams {
   endpoint: CatalogEndpoint;
@@ -65,6 +66,34 @@ export function buildCatalogCurlCommand(params: CurlParams): string {
   }
 
   return parts.join(' ');
+}
+
+export function buildCatalogCurlSingleLine(params: CurlParams): string {
+  return buildCatalogCurlCommand(params).replace(/\\\n\s*/g, ' ');
+}
+
+export function buildDefaultCurlCommand(
+  endpoint: CatalogEndpoint,
+  hostConfig: HostConfig,
+  servers: CatalogServer[],
+  auth: AuthConfig,
+): string {
+  const paramValues: Record<string, string> = {};
+  for (const p of endpoint.parameters) {
+    if (p.example != null) paramValues[p.name] = String(p.example);
+    else if (p.schema?.example != null) paramValues[p.name] = String(p.schema.example);
+    else if (p.schema?.default != null) paramValues[p.name] = String(p.schema.default);
+  }
+
+  let bodyText = '';
+  const jsonCT = endpoint.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
+  if (jsonCT?.schema) {
+    bodyText = generateStubJson(jsonCT.schema);
+  }
+
+  return buildCatalogCurlCommand({
+    endpoint, hostConfig, servers, paramValues, headerValues: {}, bodyText, auth,
+  });
 }
 
 export function resolveBaseUrl(hostConfig: HostConfig, servers: CatalogServer[]): string {

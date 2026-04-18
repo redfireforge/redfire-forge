@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, type MouseEvent, type ReactNode } from 'react';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter } from '../../types/catalog';
 import type { AuthConfig } from '../../types';
 import { generateStubJson } from '../../utils/schemaStubGenerator';
-import { buildCatalogCurlCommand, resolveBaseUrl, buildFullUrl } from '../../utils/catalogCurlGenerator';
+import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../../utils/catalogCurlGenerator';
 import { httpFetch } from '../../utils/httpClient';
 import { highlightJson } from '../../utils/jsonHighlighter';
 
@@ -36,7 +36,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCurl, setShowCurl] = useState(false);
+  const [curlMultiline, setCurlMultiline] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   const jsonCT = endpoint.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
   const hasBody = !!(endpoint.requestBody && jsonCT);
@@ -79,14 +81,28 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
     setLoading(false);
   }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth]);
 
-  const curlCmd = useMemo(() =>
-    showCurl ? buildCatalogCurlCommand({ endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth }) : '',
-    [showCurl, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth],
-  );
+  const curlCmd = useMemo(() => {
+    if (!showCurl) return '';
+    const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth };
+    return curlMultiline ? buildCatalogCurlCommand(params) : buildCatalogCurlSingleLine(params);
+  }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth]);
 
   const copy = useCallback(async (t: string) => {
     try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
   }, []);
+
+  const handleContextMenu = useCallback((e: MouseEvent) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+    const close = () => { setCtxMenu(null); document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }, []);
+
+  const handleCopyDefaultCurl = useCallback(async () => {
+    const cmd = buildDefaultCurlCommand(endpoint, hostConfig, servers, auth);
+    await copy(cmd);
+    setCtxMenu(null);
+  }, [endpoint, hostConfig, servers, auth, copy]);
 
   const hasSec = endpoint.security && endpoint.security.length > 0;
   const color = MC[endpoint.method] ?? '#888';
@@ -96,6 +112,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
       {/* ── HEADER ────────────────────────────────── */}
       <div className="sw-header" role="button" tabIndex={0} style={{ background: MBG[endpoint.method] }}
         onClick={() => setExpanded(v => !v)}
+        onContextMenu={handleContextMenu}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(v => !v); } }}>
         <span className="sw-method" style={{ background: color }}>{endpoint.method}</span>
         <span className="sw-path">{endpoint.path}</span>
@@ -104,6 +121,15 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
         {hasSec && <span className="sw-lock">🔒</span>}
         <span className={`sw-chevron ${expanded ? 'open' : ''}`}>&#9662;</span>
       </div>
+
+      {/* ── CONTEXT MENU ─────────────────────────── */}
+      {ctxMenu && (
+        <div className="sw-ctx-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}>
+          <button className="sw-ctx-item" onClick={handleCopyDefaultCurl}>
+            Copy as cURL
+          </button>
+        </div>
+      )}
 
       {expanded && (
         <div className="sw-body">
@@ -176,9 +202,15 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
             <div className="sw-curl-box">
               <div className="sw-curl-bar">
                 <span>Curl</span>
-                <button className="sw-copy-btn" onClick={() => copy(curlCmd)}>{copied ? '✓ Copied' : 'Copy'}</button>
+                <div className="sw-curl-actions">
+                  <button className={`sw-curl-toggle ${curlMultiline ? 'active' : ''}`} onClick={() => setCurlMultiline(true)}
+                    title="Multi-line">⏎</button>
+                  <button className={`sw-curl-toggle ${!curlMultiline ? 'active' : ''}`} onClick={() => setCurlMultiline(false)}
+                    title="Single line">―</button>
+                  <button className="sw-copy-btn" onClick={() => copy(curlCmd)}>{copied ? '✓ Copied' : 'Copy'}</button>
+                </div>
               </div>
-              <pre className="sw-code-block">{curlCmd}</pre>
+              <pre className="sw-code-block sw-curl-hl">{highlightCurl(curlCmd)}</pre>
             </div>
           )}
 
@@ -391,4 +423,46 @@ function buildModel(s: NonNullable<CatalogResponse['schema']>, d: number): strin
 
 function fmtBody(b: string): string {
   try { return JSON.stringify(JSON.parse(b), null, 2); } catch { return b; }
+}
+
+/* ── cURL syntax highlighting ────────────────────── */
+
+function highlightCurl(cmd: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let key = 0;
+  const lines = cmd.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (i > 0) parts.push('\n');
+
+    const tokens = line.match(/(curl|-X\s+\w+|-H|-d|'[^']*'|\\|\S+)/g);
+    if (!tokens) { parts.push(line); continue; }
+
+    let first = true;
+    for (const tok of tokens) {
+      if (!first) parts.push(' ');
+      first = false;
+
+      if (tok === 'curl') {
+        parts.push(<span key={key++} className="sw-hl-cmd">{tok}</span>);
+      } else if (/^-X\s+\w+$/.test(tok)) {
+        parts.push(<span key={key++} className="sw-hl-method">{tok}</span>);
+      } else if (tok === '-H' || tok === '-d') {
+        parts.push(<span key={key++} className="sw-hl-flag">{tok}</span>);
+      } else if (tok.startsWith("'") && tok.endsWith("'")) {
+        if (tok.includes('://')) {
+          parts.push(<span key={key++} className="sw-hl-url">{tok}</span>);
+        } else if (tok.includes(':')) {
+          parts.push(<span key={key++} className="sw-hl-string">{tok}</span>);
+        } else {
+          parts.push(<span key={key++} className="sw-hl-string">{tok}</span>);
+        }
+      } else if (tok === '\\') {
+        parts.push(<span key={key++} className="sw-hl-escape">{tok}</span>);
+      } else {
+        parts.push(tok);
+      }
+    }
+  }
+  return parts;
 }

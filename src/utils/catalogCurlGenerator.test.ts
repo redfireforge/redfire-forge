@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCatalogCurlCommand, resolveBaseUrl, buildFullUrl } from './catalogCurlGenerator';
+import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from './catalogCurlGenerator';
 import type { CatalogEndpoint, CatalogServer, HostConfig } from '../types/catalog';
 import type { AuthConfig } from '../types';
 
@@ -173,5 +173,60 @@ describe('buildCatalogCurlCommand', () => {
       hostConfig, servers, paramValues: { petId: '42' }, headerValues: {}, bodyText: '', auth: noAuth,
     });
     expect(curl).toContain('/pets/42');
+  });
+});
+
+describe('buildCatalogCurlSingleLine', () => {
+  const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
+
+  it('removes line continuations', () => {
+    const auth: AuthConfig = { type: 'bearer', token: 'tok' };
+    const curl = buildCatalogCurlSingleLine({
+      endpoint: makeEndpoint({ method: 'POST' }),
+      hostConfig, servers, paramValues: {}, headerValues: {},
+      bodyText: '{"a":1}', auth,
+    });
+    expect(curl).not.toContain('\\\n');
+    expect(curl).not.toContain('\n');
+    expect(curl).toContain('curl');
+    expect(curl).toContain('-H');
+    expect(curl).toContain('-d');
+  });
+});
+
+describe('buildDefaultCurlCommand', () => {
+  const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
+
+  it('uses example values from parameters', () => {
+    const ep = makeEndpoint({
+      path: '/pets/{petId}',
+      parameters: [{ name: 'petId', in: 'path', required: true, example: '99', schema: { type: 'string' } }],
+    });
+    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).toContain('/pets/99');
+  });
+
+  it('uses schema default values', () => {
+    const ep = makeEndpoint({
+      parameters: [{ name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 20 } }],
+    });
+    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).toContain('limit=20');
+  });
+
+  it('generates body from request body schema', () => {
+    const ep = makeEndpoint({
+      method: 'POST',
+      requestBody: {
+        required: true,
+        contentTypes: [{
+          mediaType: 'application/json',
+          schema: { type: 'object', properties: { name: { type: 'string' } } },
+        }],
+      },
+    });
+    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).toContain('-d');
+    expect(curl).toContain('name');
   });
 });
