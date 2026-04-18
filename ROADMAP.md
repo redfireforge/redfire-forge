@@ -123,6 +123,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Console Trace** — Insomnia-style request/response trace with headers, timing, and body
 - [x] **Collapsible JSON Tree Viewer** — Expandable response tree with search, match navigation, and collapse/expand all
 - [x] **Response Caching** — Preserve responses per-request during navigation
+- [x] **Response History** — Per-request history dropdown with timestamps, restore, delete, and clear actions
 - [x] **Unified Sidebar** — Tabbed Workbench | Projects toggle with resize, collapse, and persistent Settings
 - [x] **Context Menus & Confirmation Dialogs** — Full right-click menus with duplicate/move/rename/delete and confirmation
 
@@ -245,13 +246,13 @@ Post-launch features driven by community feedback.
 | 0.7.0 | CLI Runner | 6 | 5 |
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
-| 0.8.5 | Workbench (Ad-Hoc API Testing) | 12 | 12 |
+| 0.8.5 | Workbench (Ad-Hoc API Testing) | 13 | 13 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **99** | **51** |
+| **Total** | | **100** | **52** |
 
 ### Adoption Forecast
 
@@ -275,4 +276,4 @@ Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launc
 
 ---
 
-_Last updated: 2026-04-17 (v0.7.0 — CLI Runner complete)_
+_Last updated: 2026-04-18 (v0.5.0 — Workbench UI fixes & error handling)_

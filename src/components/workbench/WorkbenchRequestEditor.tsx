@@ -19,6 +19,7 @@ import JsonPreview, { buildJTree } from './JsonTreePreview';
 import type { JNode } from './JsonTreePreview';
 import ConsoleLog from './ConsoleLog';
 import MultiEnvResultRow from './MultiEnvResultRow';
+import { ResponseHistoryDropdown } from './ResponseHistoryDropdown';
 
 type EditorTab = 'params' | 'headers' | 'body' | 'auth';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
@@ -104,7 +105,9 @@ export default function WorkbenchRequestEditor({
     responseTime, setResponseTime,
     sendAllResults, setSendAllResults,
     consoleLines, setConsoleLines,
+    history, pushHistory, restoreFromHistory, deleteHistoryEntry, clearHistory,
   } = useResponseCache(request.id);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
 
   const prevReqIdForUI = useRef<string>(request.id);
   useEffect(() => {
@@ -340,8 +343,12 @@ export default function WorkbenchRequestEditor({
     const out = (t: string) => log.push({ prefix: '>', text: t });
     const inp = (t: string) => log.push({ prefix: '<', text: t });
 
+    let sendUrl = '';
+    let sendMethod = '';
+
     try {
       const scenario = asDraftScenario();
+      sendMethod = scenario.method;
 
       if (!scenario.url.startsWith('http://') && !scenario.url.startsWith('https://')) {
         const envId = subColEnvId || selectedEnvId;
@@ -372,6 +379,7 @@ export default function WorkbenchRequestEditor({
           return;
         }
       }
+      sendUrl = scenario.url;
 
       const { body: reqBody, contentType } = serializeWithContentType(scenario);
 
@@ -432,17 +440,24 @@ export default function WorkbenchRequestEditor({
       info(`Response status: ${resp.status} ${resp.statusText}`);
 
       setResponse(resp); setResponseTime(elapsed);
+      setConsoleLines(log);
+
+      const hid = pushHistory({ timestamp: Date.now(), method: sendMethod, url: sendUrl, response: resp, responseTime: elapsed, consoleLines: log });
+      setActiveHistoryId(hid);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.push({ prefix: '', text: '' });
       info(`ERROR: ${msg}`);
-      setResponse({ status: 0, statusText: 'Error', headers: {},
-        body: msg, error: msg });
+      const errResp = { status: 0, statusText: 'Error', headers: {} as Record<string, string>, body: msg, error: msg };
+      setResponse(errResp);
       setResponseTime(0);
+      setConsoleLines(log);
+
+      const hid = pushHistory({ timestamp: Date.now(), method: sendMethod || 'GET', url: sendUrl || request.url, response: errResp, responseTime: 0, consoleLines: log });
+      setActiveHistoryId(hid);
     }
-    setConsoleLines(log);
     setSending(false);
-  }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, subColEnvId, selectedEnvId, collection, parentSubCollection]);
+  }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, subColEnvId, selectedEnvId, collection, parentSubCollection, pushHistory, request.url]);
 
   const handleDraftChange = useCallback((draft: Scenario) => {
     onUpdateRequest({ body: draft.body, bodyType: draft.bodyType, bodyForm: draft.bodyForm });
@@ -481,16 +496,30 @@ export default function WorkbenchRequestEditor({
         <button className="wb-send-btn" onClick={handleSend} disabled={sending}>
           {sending ? '...' : 'Send'}
         </button>
-
-        {response && !sending && (
-          <div className="wb-status-row">
-            <span className={`wb-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
-              {response.status} {response.statusText}
-            </span>
-            <span className="wb-stat">{responseTime} ms</span>
-            <span className="wb-stat">{formatBytes(response.body?.length ?? 0)}</span>
-          </div>
-        )}
+        <div className="wb-status-row">
+          {response && !sending && (
+            <>
+              <span className={`wb-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
+                {response.status} {response.statusText}
+              </span>
+              <span className="wb-stat">{responseTime} ms</span>
+              <span className="wb-stat">{formatBytes(response.body?.length ?? 0)}</span>
+            </>
+          )}
+          <ResponseHistoryDropdown
+            history={history}
+            currentEntryId={activeHistoryId}
+            onRestore={(id) => { restoreFromHistory(id); setActiveHistoryId(id); }}
+            onDeleteEntry={(id) => {
+              deleteHistoryEntry(id);
+              if (id === activeHistoryId) {
+                setActiveHistoryId(null);
+                setResponse(null);
+              }
+            }}
+            onClearHistory={() => { clearHistory(); setActiveHistoryId(null); }}
+          />
+        </div>
       </div>
 
       {/* ── Env bar + resolved URL (multi-env only) ── */}
