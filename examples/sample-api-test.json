@@ -1,0 +1,43 @@
+{
+  "name": "JSON Format Example",
+  "baseUrl": "https://jsonplaceholder.typicode.com",
+  "defaults": {
+    "headers": {
+      "Accept": "application/json"
+    },
+    "timeout": 10
+  },
+  "config": {
+    "concurrency": 2,
+    "transactions": 6,
+    "mode": "batch"
+  },
+  "tests": [
+    {
+      "name": "List Users",
+      "url": "/users",
+      "method": "GET"
+    },
+    {
+      "name": "Get User by ID",
+      "url": "/users/1",
+      "method": "GET",
+      "validation": {
+        "mode": "selective",
+        "expectedFields": [
+          { "jsonPath": "$.name", "expectedValue": "Leanne Graham" }
+        ]
+      }
+    },
+    {
+      "name": "Create Post",
+      "url": "/posts",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"title\": \"Test\", \"body\": \"Created by RedfireForge\", \"userId\": 1}",
+      "weight": 2
+    }
+  ]
+}

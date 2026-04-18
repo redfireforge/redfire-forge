@@ -1,0 +1,42 @@
+# RedfireForge CLI — authentication examples
+# Run: npx redfireforge run examples/auth-test.yaml --base-url https://httpbin.org
+
+name: Auth Scenarios
+baseUrl: https://httpbin.org
+
+defaults:
+  timeout: 10
+
+tests:
+  - name: Bearer Token Auth
+    url: /bearer
+    method: GET
+    auth:
+      type: bearer
+      token: my-jwt-token
+
+  - name: Basic Auth
+    url: /basic-auth/user/passwd
+    method: GET
+    auth:
+      type: basic
+      username: user
+      password: passwd
+
+  - name: API Key in Header
+    url: /headers
+    method: GET
+    auth:
+      type: apikey
+      apiKeyName: X-Api-Key
+      apiKeyValue: secret-key-123
+      apiKeyIn: header
+
+  - name: API Key in Query
+    url: /get
+    method: GET
+    auth:
+      type: apikey
+      apiKeyName: api_key
+      apiKeyValue: secret-key-123
+      apiKeyIn: query

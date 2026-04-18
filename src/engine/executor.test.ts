@@ -154,7 +154,7 @@ describe('buildHeaders', () => {
   describe('Content-Type auto-detection', () => {
     it('adds Content-Type for scenarios with body', () => {
       const scenario = makeScenario({ body: '{"data":1}' });
-      const headers = buildHeaders(scenario);
+      const headers = buildHeaders(scenario, undefined, 'application/json');
       expect(headers['Content-Type']).toBe('application/json');
     });
 
@@ -163,7 +163,7 @@ describe('buildHeaders', () => {
         body: '<xml>',
         headers: [{ key: 'Content-Type', value: 'text/xml' }],
       });
-      const headers = buildHeaders(scenario);
+      const headers = buildHeaders(scenario, undefined, 'application/xml');
       expect(headers['Content-Type']).toBe('text/xml');
     });
 
