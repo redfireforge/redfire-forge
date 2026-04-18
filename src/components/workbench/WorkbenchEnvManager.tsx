@@ -37,7 +37,7 @@ export default function WorkbenchEnvManager({ environments, projects, onAdd, onR
     <div className="wb-modal-overlay" onClick={onClose}>
       <div className="modal wb-env-modal" onClick={(e) => e.stopPropagation()}>
         <div className="wb-modal-header">
-          <h3>Workbench Environments</h3>
+          <h3>Requests Environments</h3>
           <button className="wb-modal-close" onClick={onClose}>&times;</button>
         </div>
 

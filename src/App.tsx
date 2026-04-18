@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { isTauri } from './utils/platform';
 import type { Project, TestRun, WorkbenchCollection, WorkbenchRequest, KeyValue } from './types';
 import type { CatalogEntry, CatalogEndpoint } from './types/catalog';
-import { resolveBaseUrl } from './utils/catalogCurlGenerator';
 import { generateStubJson } from './utils/schemaStubGenerator';
 import { findFolderDeep } from './utils/workbenchTree';
 import { loadTestRuns, saveTheme } from './utils/storage';
@@ -203,7 +202,6 @@ export default function App() {
   }, []);
 
   const handleSendToWorkbench = useCallback((entry: CatalogEntry) => {
-    const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers);
     const allEps: CatalogEndpoint[] = [...entry.endpoints];
     const walk = (folders: CatalogEntry['folders']) => {
       for (const f of folders) { allEps.push(...f.endpoints); walk(f.folders); }
@@ -231,7 +229,7 @@ export default function App() {
         id: uuidv4(),
         name: ep.summary || `${ep.method} ${ep.path}`,
         method: ep.method,
-        url: `${baseUrl}${pathUrl}`,
+        url: pathUrl,
         headers,
         body,
         bodyType: body ? 'json' as const : undefined,
@@ -240,10 +238,28 @@ export default function App() {
       };
     });
 
+    const envSources = entry.environments?.length
+      ? entry.environments
+      : entry.servers.map((s, i) => ({ id: uuidv4(), name: s.description || `Server ${i + 1}`, baseUrl: s.url }));
+
+    const baseUrls: Record<string, string> = {};
+    const newEnvs: { id: string; name: string }[] = [];
+    for (const src of envSources) {
+      const existing = wb.environments.find(e => e.name === src.name);
+      const envId = existing?.id ?? src.id;
+      baseUrls[envId] = src.baseUrl;
+      if (!existing) newEnvs.push({ id: envId, name: src.name });
+    }
+
+    if (newEnvs.length > 0) {
+      wb.addEnvironments(newEnvs);
+    }
+
     const col: WorkbenchCollection = {
       id: uuidv4(),
       name: `${entry.name} (from Catalog)`,
-      mode: 'direct',
+      mode: 'multi-env',
+      baseUrls,
       requests,
       folders: [],
     };

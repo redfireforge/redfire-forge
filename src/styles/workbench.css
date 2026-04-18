@@ -5,9 +5,9 @@
 /* ─── Container ─────────────────────────────────── */
 .wb-container {
   display: flex;
-  height: calc(100vh - var(--header-h, 70px));
+  width: 100%;
+  height: 100%;
   gap: 0;
-  margin: -24px -32px;
 }
 .wb-loading {
   display: flex;

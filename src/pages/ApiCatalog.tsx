@@ -92,7 +92,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
         </button>
         {onSendToWorkbench && (
           <button className="cat-view-tab cat-wb-send" onClick={() => onSendToWorkbench(entry)}>
-            Send All to Workbench
+            Send All to Requests
           </button>
         )}
       </div>
