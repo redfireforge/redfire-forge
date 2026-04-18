@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { isTauri } from './utils/platform';
-import type { Project, TestRun } from './types';
+import type { Project, TestRun, WorkbenchCollection, WorkbenchRequest, KeyValue } from './types';
+import type { CatalogEntry, CatalogEndpoint } from './types/catalog';
+import { resolveBaseUrl } from './utils/catalogCurlGenerator';
+import { generateStubJson } from './utils/schemaStubGenerator';
 import { findFolderDeep } from './utils/workbenchTree';
 import { loadTestRuns, saveTheme } from './utils/storage';
 import { createEmptyProject } from './utils/helpers';
@@ -195,6 +199,56 @@ export default function App() {
   const handleEditSubCollection = useCallback((colId: string, folderId: string) => {
     setEditingSubCol({ colId, folderId });
   }, []);
+
+  const handleSendToWorkbench = useCallback((entry: CatalogEntry) => {
+    const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers);
+    const allEps: CatalogEndpoint[] = [...entry.endpoints];
+    const walk = (folders: CatalogEntry['folders']) => {
+      for (const f of folders) { allEps.push(...f.endpoints); walk(f.folders); }
+    };
+    walk(entry.folders);
+
+    const requests: WorkbenchRequest[] = allEps.map(ep => {
+      const headers: KeyValue[] = ep.parameters
+        .filter(p => p.in === 'header')
+        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '' }));
+
+      const queryParams = ep.parameters
+        .filter(p => p.in === 'query')
+        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '', enabled: true }));
+
+      let pathUrl = ep.path;
+      for (const p of ep.parameters.filter(pp => pp.in === 'path')) {
+        pathUrl = pathUrl.replace(`{${p.name}}`, p.example ? String(p.example) : `{${p.name}}`);
+      }
+
+      const jsonCT = ep.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
+      const body = jsonCT?.schema ? generateStubJson(jsonCT.schema) : '';
+
+      return {
+        id: uuidv4(),
+        name: ep.summary || `${ep.method} ${ep.path}`,
+        method: ep.method,
+        url: `${baseUrl}${pathUrl}`,
+        headers,
+        body,
+        bodyType: body ? 'json' as const : undefined,
+        auth: { type: 'none' as const },
+        savedQueryParams: queryParams,
+      };
+    });
+
+    const col: WorkbenchCollection = {
+      id: uuidv4(),
+      name: `${entry.name} (from Catalog)`,
+      mode: 'direct',
+      requests,
+      folders: [],
+    };
+
+    wb.importCollection(col);
+    setActiveTab('workbench');
+  }, [wb]);
 
   const handleImportProject = useCallback(async (imported: Project) => {
     setProjects((prev) => {
@@ -392,7 +446,23 @@ export default function App() {
           {activeTab === 'catalog' && (
             <ApiCatalog
               catalog={catalog}
-              onImport={() => setShowCatalogImport(true)}
+              onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
+              onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
+              onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
+              onExportSpec={async (entryId) => {
+                const entry = catalog.entries.find(e => e.id === entryId);
+                if (!entry) return;
+                const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
+                if (!raw) return;
+                const blob = new Blob([raw], { type: 'text/yaml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              onSendToWorkbench={handleSendToWorkbench}
             />
           )}
           {activeTab === 'workbench' && (

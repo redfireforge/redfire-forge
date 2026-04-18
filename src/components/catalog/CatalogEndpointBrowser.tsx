@@ -16,6 +16,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [hideDeprecated, setHideDeprecated] = useState(false);
 
   const toggleTag = useCallback((tagId: string) => {
     setCollapsedTags(prev => {
@@ -26,31 +27,31 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   }, []);
 
   const filterLc = filter.toLowerCase();
-  const filteredFolders = useMemo(() =>
-    entry.folders.map(f => ({
-      ...f,
-      endpoints: filterLc
-        ? f.endpoints.filter(e =>
-          e.path.toLowerCase().includes(filterLc) ||
-          e.summary.toLowerCase().includes(filterLc) ||
-          e.method.toLowerCase().includes(filterLc) ||
-          (e.operationId ?? '').toLowerCase().includes(filterLc)
-        )
-        : f.endpoints,
-    })).filter(f => f.endpoints.length > 0),
-    [entry.folders, filterLc],
-  );
-
-  const filteredRoot = useMemo(() =>
-    filterLc
-      ? entry.endpoints.filter(e =>
+  const applyFilters = useCallback((eps: typeof entry.endpoints) => {
+    let result = eps;
+    if (hideDeprecated) result = result.filter(e => !e.deprecated);
+    if (filterLc) {
+      result = result.filter(e =>
         e.path.toLowerCase().includes(filterLc) ||
         e.summary.toLowerCase().includes(filterLc) ||
-        e.method.toLowerCase().includes(filterLc)
-      )
-      : entry.endpoints,
-    [entry.endpoints, filterLc],
+        e.method.toLowerCase().includes(filterLc) ||
+        (e.operationId ?? '').toLowerCase().includes(filterLc)
+      );
+    }
+    return result;
+  }, [filterLc, hideDeprecated]);
+
+  const filteredFolders = useMemo(() =>
+    entry.folders.map(f => ({ ...f, endpoints: applyFilters(f.endpoints) })).filter(f => f.endpoints.length > 0),
+    [entry.folders, applyFilters],
   );
+
+  const filteredRoot = useMemo(() => applyFilters(entry.endpoints), [entry.endpoints, applyFilters]);
+
+  const hasDeprecated = useMemo(() => {
+    const check = (eps: typeof entry.endpoints) => eps.some(e => e.deprecated);
+    return check(entry.endpoints) || entry.folders.some(f => check(f.endpoints));
+  }, [entry]);
 
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
   const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers);
@@ -116,13 +117,21 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             </button>
           </div>
 
-          <input
-            className="ceb-filter"
-            type="text"
-            placeholder="Filter endpoints..."
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-          />
+          <div className="ceb-filter-row">
+            <input
+              className="ceb-filter"
+              type="text"
+              placeholder="Filter endpoints..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+            {hasDeprecated && (
+              <label className="ceb-deprecated-toggle">
+                <input type="checkbox" checked={hideDeprecated} onChange={e => setHideDeprecated(e.target.checked)} />
+                Hide deprecated
+              </label>
+            )}
+          </div>
         </div>
 
         {baseUrl && (

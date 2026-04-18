@@ -3,14 +3,22 @@ import type { UseCatalogReturn } from '../hooks/useCatalog';
 import type { AuthConfig } from '../types';
 import CatalogWelcome from '../components/catalog/CatalogWelcome';
 import CatalogEndpointBrowser from '../components/catalog/CatalogEndpointBrowser';
+import CatalogOverview from '../components/catalog/CatalogOverview';
 
 interface Props {
   catalog: UseCatalogReturn;
   onImport: () => void;
+  onReimport?: (entryId: string) => void;
+  onVersionHistory?: (entryId: string) => void;
+  onExportSpec?: (entryId: string) => void;
+  onSendToWorkbench?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
 }
 
-export default function ApiCatalog({ catalog, onImport }: Props) {
+type View = 'overview' | 'endpoints';
+
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
+  const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -21,8 +29,7 @@ export default function ApiCatalog({ catalog, onImport }: Props) {
     const schemes = Object.entries(entry.securitySchemes);
     if (schemes.length > 0) {
       const [schemeName, scheme] = schemes[0];
-      let detectedType: AuthConfig['type'] = 'bearer';
-      const base: AuthConfig = { type: detectedType };
+      const base: AuthConfig = { type: 'bearer' };
       if (scheme.type === 'apiKey') {
         base.type = 'apikey';
         base.apiKeyName = scheme.name;
@@ -51,12 +58,39 @@ export default function ApiCatalog({ catalog, onImport }: Props) {
     return <CatalogWelcome onImport={onImport} />;
   }
 
+  const entry = catalog.selectedEntry;
+
   return (
-    <CatalogEndpointBrowser
-      entry={catalog.selectedEntry}
-      auth={auth}
-      onAuthChange={setAuth}
-      onHostChange={handleHostChange}
-    />
+    <div className="cat-main-panel">
+      <div className="cat-view-tabs">
+        <button className={`cat-view-tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>
+          Overview
+        </button>
+        <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} onClick={() => setView('endpoints')}>
+          Endpoints
+        </button>
+        {onSendToWorkbench && (
+          <button className="cat-view-tab cat-wb-send" onClick={() => onSendToWorkbench(entry)}>
+            Send All to Workbench
+          </button>
+        )}
+      </div>
+
+      {view === 'overview' ? (
+        <CatalogOverview
+          entry={entry}
+          onReimport={() => onReimport?.(entry.id)}
+          onVersionHistory={() => onVersionHistory?.(entry.id)}
+          onExportSpec={() => onExportSpec?.(entry.id)}
+        />
+      ) : (
+        <CatalogEndpointBrowser
+          entry={entry}
+          auth={auth}
+          onAuthChange={setAuth}
+          onHostChange={handleHostChange}
+        />
+      )}
+    </div>
   );
 }
