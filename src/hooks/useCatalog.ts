@@ -15,7 +15,11 @@ export function useCatalog() {
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | undefined>();
 
   useEffect(() => {
-    loadCatalogEntries().then((e) => { setEntries(e); setLoaded(true); });
+    loadCatalogEntries().then((e) => {
+      setEntries(e);
+      setLoaded(true);
+      if (e.length === 1) setSelectedEntryId(e[0].id);
+    });
   }, []);
 
   useEffect(() => {

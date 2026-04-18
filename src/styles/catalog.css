@@ -105,6 +105,18 @@
   padding: 12px 20px; border-top: 1px solid var(--border);
 }
 
+/* Import mode tabs */
+.cat-import-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.cat-import-tab {
+  padding: 8px 20px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; color: var(--text-muted); background: transparent;
+  border: none; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.cat-import-tab:hover { color: var(--text); }
+.cat-import-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+
 /* Dropzone */
 .cat-import-dropzone {
   border: 2px dashed var(--border); border-radius: var(--radius);
@@ -116,6 +128,18 @@
 .cat-dropzone-text { font-size: 0.9rem; color: var(--text); margin-bottom: 16px; }
 .cat-dropzone-actions { margin-bottom: 16px; }
 .cat-dropzone-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+/* Paste area */
+.cat-import-paste { display: flex; flex-direction: column; gap: 12px; }
+.cat-paste-textarea {
+  width: 100%; box-sizing: border-box; padding: 12px 14px;
+  font-size: 0.82rem; font-family: 'SF Mono','Consolas','Menlo',monospace;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  resize: vertical; outline: none; line-height: 1.5;
+}
+.cat-paste-textarea:focus { border-color: var(--primary); }
+.cat-paste-actions { display: flex; align-items: center; gap: 12px; }
 
 /* Preview */
 .cat-import-preview { font-size: 0.82rem; }
