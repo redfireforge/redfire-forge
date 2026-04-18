@@ -14,6 +14,7 @@ import Workbench from './pages/Workbench';
 import ApiCatalog from './pages/ApiCatalog';
 import CatalogSidebar from './components/catalog/CatalogSidebar';
 import CatalogImportModal from './components/catalog/CatalogImportModal';
+import CatalogVersionHistory from './components/catalog/CatalogVersionHistory';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
@@ -58,6 +59,8 @@ export default function App() {
   const [showWbEnvManager, setShowWbEnvManager] = useState(false);
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
   const [showCatalogImport, setShowCatalogImport] = useState(false);
+  const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
+  const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -250,8 +253,23 @@ export default function App() {
                 entries={catalog.entries}
                 selectedEntryId={catalog.selectedEntryId}
                 onSelectEntry={(id) => { catalog.selectEntry(id); setActiveTab('catalog'); }}
-                onImport={() => setShowCatalogImport(true)}
+                onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
+                onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
                 onDeleteEntry={catalog.removeEntry}
+                onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
+                onExportSpec={async (entryId) => {
+                  const entry = catalog.entries.find(e => e.id === entryId);
+                  if (!entry) return;
+                  const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
+                  if (!raw) return;
+                  const blob = new Blob([raw], { type: 'text/yaml' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
               />
             )
           ) : activeTab === 'workbench' ? (
@@ -463,10 +481,26 @@ export default function App() {
       {showCatalogImport && (
         <CatalogImportModal
           existingEntries={catalog.entries}
+          reimportEntryId={catalogReimportId}
           onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
-          onClose={() => setShowCatalogImport(false)}
+          onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
+          onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); }}
         />
       )}
+
+      {catalogVersionHistoryId && (() => {
+        const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
+        if (!vhEntry) return null;
+        return (
+          <CatalogVersionHistory
+            entry={vhEntry}
+            onClose={() => setCatalogVersionHistoryId(undefined)}
+            onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
+            onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
+            loadRawSpec={catalog.loadRawSpec}
+          />
+        );
+      })()}
 
       {confirmAction && (
         <div className="confirm-overlay">

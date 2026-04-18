@@ -6,13 +6,15 @@ import { isTauri } from '../../utils/platform';
 interface Props {
   existingEntries: CatalogEntry[];
   onImport: (entry: CatalogEntry, rawSpec: string) => void;
+  onReimport?: (entryId: string, parsed: ParsedSpec) => void;
   onClose: () => void;
+  reimportEntryId?: string;
 }
 
 type Step = 'pick' | 'preview' | 'error';
 type InputMode = 'file' | 'paste';
 
-export default function CatalogImportModal({ existingEntries, onImport, onClose }: Props) {
+export default function CatalogImportModal({ existingEntries, onImport, onReimport, onClose, reimportEntryId }: Props) {
   const [step, setStep] = useState<Step>('pick');
   const [inputMode, setInputMode] = useState<InputMode>('file');
   const [parsed, setParsed] = useState<ParsedSpec | null>(null);
@@ -70,19 +72,34 @@ export default function CatalogImportModal({ existingEntries, onImport, onClose 
 
   const handleImport = useCallback(() => {
     if (!parsed) return;
-    onImport(parsed.entry, parsed.rawSpec);
-    onClose();
-  }, [parsed, onImport, onClose]);
 
-  const duplicate = parsed ? existingEntries.find(e =>
-    e.name.toLowerCase() === parsed.entry.name.toLowerCase()
+    const targetEntry = reimportEntryId
+      ? existingEntries.find(e => e.id === reimportEntryId)
+      : existingEntries.find(e => e.name.toLowerCase() === parsed.entry.name.toLowerCase());
+
+    if (targetEntry && onReimport) {
+      onReimport(targetEntry.id, parsed);
+    } else {
+      onImport(parsed.entry, parsed.rawSpec);
+    }
+    onClose();
+  }, [parsed, existingEntries, reimportEntryId, onImport, onReimport, onClose]);
+
+  const duplicate = parsed ? (
+    reimportEntryId
+      ? existingEntries.find(e => e.id === reimportEntryId)
+      : existingEntries.find(e => e.name.toLowerCase() === parsed.entry.name.toLowerCase())
   ) : null;
+
+  const hashMatch = duplicate && parsed
+    ? duplicate.versions.some(v => v.specHash === parsed.entry.versions[0]?.specHash)
+    : false;
 
   return (
     <div className="cat-modal-overlay" onClick={onClose}>
       <div className="cat-modal" onClick={e => e.stopPropagation()}>
         <div className="cat-modal-header">
-          <h3>Import OpenAPI Specification</h3>
+          <h3>{reimportEntryId ? 'Re-import / Update Specification' : 'Import OpenAPI Specification'}</h3>
           <button className="cat-modal-close" onClick={onClose}>&times;</button>
         </div>
 
@@ -229,10 +246,15 @@ export default function CatalogImportModal({ existingEntries, onImport, onClose 
                 </div>
               )}
 
-              {duplicate && (
-                <div className="cat-preview-duplicate">
-                  ⚠ "{duplicate.name}" already exists in catalog.
-                  Importing will create a separate entry.
+              {duplicate && hashMatch && (
+                <div className="cat-preview-duplicate cat-preview-nochange">
+                  ✅ No changes detected — the spec is identical to the current version ({duplicate.versions[0]?.version}).
+                </div>
+              )}
+              {duplicate && !hashMatch && (
+                <div className="cat-preview-duplicate cat-preview-update">
+                  ↑ "{duplicate.name}" already exists (v{duplicate.versions[0]?.version}).
+                  Importing will add a new version to the existing entry.
                 </div>
               )}
             </div>
@@ -259,7 +281,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onClose 
           </button>
           {step === 'preview' && (
             <button className="cat-btn cat-btn-primary" onClick={handleImport}>
-              Import
+              {duplicate && !hashMatch ? 'Update' : hashMatch ? 'Import Anyway' : 'Import'}
             </button>
           )}
         </div>

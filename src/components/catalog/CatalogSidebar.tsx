@@ -7,14 +7,17 @@ interface Props {
   selectedEntryId?: string;
   onSelectEntry: (entryId: string | undefined) => void;
   onImport: () => void;
+  onReimport: (entryId: string) => void;
   onDeleteEntry: (entryId: string) => void;
+  onVersionHistory: (entryId: string) => void;
+  onExportSpec?: (entryId: string) => void;
 }
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#f59e0b', PUT: '#3b82f6', PATCH: '#8b5cf6', DELETE: '#ef4444',
 };
 
-export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry, onImport, onDeleteEntry }: Props) {
+export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry, onImport, onReimport, onDeleteEntry, onVersionHistory, onExportSpec }: Props) {
   const [filter, setFilter] = useState('');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entryId: string } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
@@ -98,6 +101,19 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
                 {currentVersion && (
                   <div className="cat-ctx-item disabled">
                     v{currentVersion.version} (current)
+                    {entry.versions.length > 1 && ` · ${entry.versions.length} versions`}
+                  </div>
+                )}
+                <div className="cat-ctx-sep" />
+                <div className="cat-ctx-item" onClick={() => { onReimport(ctxMenu.entryId); closeCtx(); }}>
+                  Re-import / Update
+                </div>
+                <div className="cat-ctx-item" onClick={() => { onVersionHistory(ctxMenu.entryId); closeCtx(); }}>
+                  Version History
+                </div>
+                {onExportSpec && (
+                  <div className="cat-ctx-item" onClick={() => { onExportSpec(ctxMenu.entryId); closeCtx(); }}>
+                    Export Original Spec
                   </div>
                 )}
                 <div className="cat-ctx-sep" />

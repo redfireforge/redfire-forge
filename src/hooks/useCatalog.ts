@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { CatalogEntry } from '../types/catalog';
+import type { CatalogEntry, ParsedSpec } from '../types/catalog';
 import {
   loadCatalogEntries, saveCatalogEntries,
   saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs,
   loadCatalogRawSpec,
 } from '../utils/storage';
+import { parseOpenApiSpec } from '../utils/openApiParser';
+
+const MAX_VERSIONS = 10;
 
 export type UseCatalogReturn = ReturnType<typeof useCatalog>;
 
@@ -34,6 +37,76 @@ export function useCatalog() {
     setSelectedEndpointId(undefined);
     await saveCatalogRawSpec(entry.id, entry.currentVersionId, rawSpec);
   }, []);
+
+  const findByTitle = useCallback((title: string): CatalogEntry | undefined => {
+    return entries.find(e => e.name.toLowerCase() === title.toLowerCase());
+  }, [entries]);
+
+  const addVersionToEntry = useCallback(async (
+    entryId: string,
+    parsed: ParsedSpec,
+  ) => {
+    const newVersion = parsed.entry.versions[0];
+    if (!newVersion) return;
+
+    setEntries(prev => prev.map(e => {
+      if (e.id !== entryId) return e;
+      const updatedVersions = [newVersion, ...e.versions];
+      const pruned = updatedVersions.slice(0, MAX_VERSIONS);
+      return {
+        ...e,
+        currentVersionId: newVersion.id,
+        versions: pruned,
+        description: parsed.entry.description,
+        servers: parsed.entry.servers,
+        securitySchemes: parsed.entry.securitySchemes,
+        folders: parsed.entry.folders,
+        endpoints: parsed.entry.endpoints,
+      };
+    }));
+
+    await saveCatalogRawSpec(entryId, newVersion.id, parsed.rawSpec);
+    setSelectedEntryId(entryId);
+    setSelectedEndpointId(undefined);
+
+    const entry = entries.find(e => e.id === entryId);
+    if (entry) {
+      const allVersions = [newVersion, ...entry.versions];
+      const toPrune = allVersions.slice(MAX_VERSIONS);
+      for (const v of toPrune) {
+        await removeCatalogRawSpec(entryId, v.id);
+      }
+    }
+  }, [entries]);
+
+  const switchVersion = useCallback(async (entryId: string, versionId: string) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const version = entry.versions.find(v => v.id === versionId);
+    if (!version) return;
+
+    const rawSpec = await loadCatalogRawSpec(entryId, versionId);
+    if (!rawSpec) return;
+
+    try {
+      const parsed = await parseOpenApiSpec(rawSpec);
+      setEntries(prev => prev.map(e => {
+        if (e.id !== entryId) return e;
+        return {
+          ...e,
+          currentVersionId: versionId,
+          description: parsed.entry.description,
+          servers: parsed.entry.servers,
+          securitySchemes: parsed.entry.securitySchemes,
+          folders: parsed.entry.folders,
+          endpoints: parsed.entry.endpoints,
+        };
+      }));
+    } catch {
+      // Raw spec is corrupted — can't switch
+    }
+  }, [entries]);
 
   const removeEntry = useCallback(async (entryId: string) => {
     const entry = entries.find(e => e.id === entryId);
@@ -80,6 +153,9 @@ export function useCatalog() {
     selectedEntryId,
     selectedEndpointId,
     addEntry,
+    addVersionToEntry,
+    findByTitle,
+    switchVersion,
     removeEntry,
     updateEntry,
     selectEntry,
