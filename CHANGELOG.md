@@ -20,10 +20,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Corporate proxy support**: Auto-detects `HTTP_PROXY`/`HTTPS_PROXY` for Node.js environments
 - **Example test files**: `examples/sample-api-test.yaml`, `examples/load-profile-test.yaml`, `examples/auth-test.yaml`, `examples/sample-api-test.json`
 - **esbuild CLI build**: `npm run build:cli` bundles to a single distributable `dist-cli/redfireforge.mjs`
+- **Response History Dropdown**: Workbench Send button now shows response history with timestamps, status, and restore/delete/clear actions
 
 ### Changed
 - **Platform detection**: `isTauri()` now safe in non-browser environments; added `isNode()` for CLI mode
 - **HTTP client**: Added Node-native `fetch` path with `undici` proxy agent for corporate networks
+- **Workbench Send button**: Reduced height, added border-radius for a cleaner look
+- **Workbench status row**: Always visible with consistent min-width so Send button position stays stable with or without a response
+- **Response history dropdown**: Aligned to right edge of trigger button; status pills sit tight against Send button
+
+### Fixed
+- **Load profile runner hangs on error**: Added `.catch()` to `launchOne()` promise chain — unhandled rejections (e.g., dev server down) no longer permanently stall execution at 0 requests
+- **Pool runner hangs on error**: Same `.catch()` fix for `runPool()` which had the identical missing error handler
+- **React crash on object error messages**: Non-string `errorMessage` and `failureDetails` values are now JSON-stringified before rendering in ResponseDetailModal, ResultsDashboard, and requestExecution
+- **Stale chart display during active runs**: Live charts now show only current run data instead of falling back to previous run's saved time series
+- **Thick scrollbar in Response Detail modal**: Added thin scrollbar styling (5px) to modal body and response body pre block
 
 ---
 
