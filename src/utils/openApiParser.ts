@@ -26,20 +26,60 @@ interface RawSpec {
   consumes?: string[];
 }
 
+function resolveRefs(obj: unknown, root: unknown, depth = 0): unknown {
+  if (depth > 30 || obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => resolveRefs(item, root, depth + 1));
+  }
+
+  const record = obj as Record<string, unknown>;
+  if (typeof record.$ref === 'string') {
+    const resolved = followRef(record.$ref, root);
+    if (resolved !== undefined) {
+      return resolveRefs(resolved, root, depth + 1);
+    }
+    return record;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = resolveRefs(value, root, depth + 1);
+  }
+  return result;
+}
+
+function followRef(ref: string, root: unknown): unknown {
+  if (!ref.startsWith('#/')) return undefined;
+  const parts = ref.slice(2).split('/').map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let current: unknown = root;
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
 export async function parseOpenApiSpec(rawText: string): Promise<ParsedSpec> {
   const warnings: string[] = [];
-  let spec: RawSpec;
+  let rawParsed: unknown;
 
   try {
-    spec = YAML.parse(rawText);
+    rawParsed = YAML.parse(rawText);
   } catch {
     try {
-      spec = JSON.parse(rawText);
+      rawParsed = JSON.parse(rawText);
     } catch {
       throw new Error('Invalid file: could not parse as YAML or JSON');
     }
   }
 
+  if (!rawParsed || typeof rawParsed !== 'object') {
+    throw new Error('Invalid file: parsed content is not an object');
+  }
+
+  const spec = resolveRefs(rawParsed, rawParsed) as RawSpec;
   if (!spec || typeof spec !== 'object') {
     throw new Error('Invalid file: parsed content is not an object');
   }
