@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type { CatalogEntry } from '../../types/catalog';
 import type { AuthConfig } from '../../types';
 import CatalogEndpointCard from './CatalogEndpointCard';
+import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../../utils/catalogCurlGenerator';
 
 interface Props {
@@ -131,80 +132,12 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
 
       {/* ── Auth panel ──────────────────────────── */}
       {showAuthPanel && (
-        <div className="ceb-auth-panel">
-          <div className="ceb-auth-header">
-            <h3>Authorization</h3>
-            <button className="cat-modal-close" onClick={() => setShowAuthPanel(false)}>&times;</button>
-          </div>
-          <div className="ceb-auth-body">
-            <div className="cep-tryit-field">
-              <label className="cep-field-name">Type</label>
-              <select
-                className="cep-field-input"
-                value={auth.type}
-                onChange={e => onAuthChange({ ...auth, type: e.target.value as AuthConfig['type'] })}
-              >
-                <option value="none">None</option>
-                <option value="bearer">Bearer Token</option>
-                <option value="basic">Basic Auth</option>
-                <option value="apikey">API Key</option>
-              </select>
-            </div>
-            {auth.type === 'bearer' && (
-              <>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Token</label>
-                  <input
-                    className="cep-field-input"
-                    placeholder="JWT or access token"
-                    value={auth.token ?? ''}
-                    onChange={e => onAuthChange({ ...auth, token: e.target.value })}
-                  />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Prefix</label>
-                  <input
-                    className="cep-field-input"
-                    placeholder="Bearer"
-                    value={auth.prefix ?? ''}
-                    onChange={e => onAuthChange({ ...auth, prefix: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-            {auth.type === 'basic' && (
-              <>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Username</label>
-                  <input className="cep-field-input" value={auth.username ?? ''} onChange={e => onAuthChange({ ...auth, username: e.target.value })} />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Password</label>
-                  <input className="cep-field-input" type="password" value={auth.password ?? ''} onChange={e => onAuthChange({ ...auth, password: e.target.value })} />
-                </div>
-              </>
-            )}
-            {auth.type === 'apikey' && (
-              <>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Key Name</label>
-                  <input className="cep-field-input" placeholder="X-API-Key" value={auth.apiKeyName ?? ''} onChange={e => onAuthChange({ ...auth, apiKeyName: e.target.value })} />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Key Value</label>
-                  <input className="cep-field-input" value={auth.apiKeyValue ?? ''} onChange={e => onAuthChange({ ...auth, apiKeyValue: e.target.value })} />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Add To</label>
-                  <select className="cep-field-input" value={auth.apiKeyIn ?? 'header'} onChange={e => onAuthChange({ ...auth, apiKeyIn: e.target.value as 'header' | 'query' })}>
-                    <option value="header">Header</option>
-                    <option value="query">Query Parameter</option>
-                  </select>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <CatalogAuthPanel
+          auth={auth}
+          onAuthChange={onAuthChange}
+          securitySchemes={entry.securitySchemes}
+          onClose={() => setShowAuthPanel(false)}
+        />
       )}
 
       {/* ── Endpoint list ───────────────────────── */}

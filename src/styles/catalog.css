@@ -393,6 +393,21 @@
 .ceb-auth-header h3 { margin: 0; font-size: 0.9rem; }
 .ceb-auth-body { display: flex; flex-direction: column; gap: 6px; }
 
+.ceb-auth-inherit-info {
+  padding: 8px 0; display: flex; flex-direction: column; gap: 6px;
+}
+.ceb-scheme-badge {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: var(--surface-hover); border-radius: var(--radius);
+  font-size: 0.82rem;
+}
+.ceb-scheme-type {
+  background: var(--primary); color: #fff; padding: 2px 8px;
+  border-radius: 3px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.ceb-scheme-detail { color: var(--text-muted); font-size: 0.78rem; }
+
 /* ── Tag groups ────────────────────────────────── */
 
 .ceb-endpoints { padding: 16px 28px 40px; flex: 1; }
