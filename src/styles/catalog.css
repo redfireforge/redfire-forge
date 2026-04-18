@@ -329,6 +329,19 @@
 .ceb-host-bar {
   display: flex; gap: 8px; align-items: center;
 }
+.ceb-host-strategy {
+  display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex-shrink: 0;
+}
+.ceb-strat-btn {
+  padding: 6px 14px; font-size: 0.75rem; font-weight: 600;
+  background: var(--surface); color: var(--text-muted);
+  border: none; cursor: pointer; transition: all 0.15s;
+  border-right: 1px solid var(--border); white-space: nowrap;
+}
+.ceb-strat-btn:last-child { border-right: none; }
+.ceb-strat-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.ceb-strat-btn.active { background: var(--primary); color: #fff; }
+.ceb-strat-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ceb-server-select {
   flex: 1; padding: 6px 10px; font-size: 0.78rem;
   background: var(--surface); color: var(--text);
@@ -340,8 +353,9 @@
   flex: 1; padding: 6px 10px; font-size: 0.78rem;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius);
-  outline: none;
+  outline: none; font-family: 'SF Mono','Consolas','Menlo',monospace;
 }
+.ceb-host-input:focus { border-color: var(--primary); }
 .ceb-host-input:focus { border-color: var(--primary); }
 .ceb-auth-btn {
   padding: 6px 14px; font-size: 0.78rem; font-weight: 600;

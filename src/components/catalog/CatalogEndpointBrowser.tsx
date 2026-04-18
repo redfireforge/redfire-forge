@@ -65,9 +65,26 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
         {entry.description && <p className="ceb-desc">{entry.description}</p>}
 
         <div className="ceb-toolbar">
-          {/* Server selector */}
           <div className="ceb-host-bar">
-            {entry.servers.length > 0 ? (
+            <div className="ceb-host-strategy">
+              <button
+                className={`ceb-strat-btn ${entry.hostConfig.strategy === 'inherited' ? 'active' : ''}`}
+                onClick={() => onHostChange({ strategy: 'inherited', selectedServerIndex: entry.hostConfig.selectedServerIndex ?? 0 })}
+                disabled={entry.servers.length === 0}
+                title={entry.servers.length === 0 ? 'No servers defined in spec' : 'Use server URL from the spec'}
+              >
+                From Spec
+              </button>
+              <button
+                className={`ceb-strat-btn ${entry.hostConfig.strategy === 'hardcoded' ? 'active' : ''}`}
+                onClick={() => onHostChange({ strategy: 'hardcoded', hardcodedUrl: entry.hostConfig.hardcodedUrl ?? baseUrl ?? '' })}
+                title="Enter a custom base URL"
+              >
+                Custom URL
+              </button>
+            </div>
+
+            {entry.hostConfig.strategy === 'inherited' && entry.servers.length > 0 && (
               <select
                 className="ceb-server-select"
                 value={entry.hostConfig.selectedServerIndex ?? 0}
@@ -79,10 +96,12 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                   </option>
                 ))}
               </select>
-            ) : (
+            )}
+
+            {entry.hostConfig.strategy === 'hardcoded' && (
               <input
                 className="ceb-host-input"
-                placeholder="Base URL (e.g. https://api.example.com)"
+                placeholder="https://api.example.com/v1"
                 value={entry.hostConfig.hardcodedUrl ?? ''}
                 onChange={e => onHostChange({ strategy: 'hardcoded', hardcodedUrl: e.target.value })}
               />
@@ -96,7 +115,6 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             </button>
           </div>
 
-          {/* Search */}
           <input
             className="ceb-filter"
             type="text"
