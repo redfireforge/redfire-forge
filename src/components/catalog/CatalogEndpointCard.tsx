@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo, type MouseEvent, type ReactNode } from 'react';
-import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter } from '../../types/catalog';
+import { useState, useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../../types/catalog';
 import type { AuthConfig } from '../../types';
 import { generateStubJson } from '../../utils/schemaStubGenerator';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../../utils/catalogCurlGenerator';
 import { httpFetch } from '../../utils/httpClient';
+import { acquireOAuth2Token } from '../../engine/tokenManager';
 import { highlightJson } from '../../utils/jsonHighlighter';
 
 interface Props {
@@ -11,6 +12,9 @@ interface Props {
   servers: CatalogServer[];
   hostConfig: HostConfig;
   auth: AuthConfig;
+  savedValues?: SavedEndpointValues;
+  onValuesChange?: (vals: SavedEndpointValues) => void;
+  environments?: CatalogEnvironment[];
 }
 
 const MC: Record<string, string> = {
@@ -22,13 +26,13 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
-  const [paramValues, setParamValues] = useState<Record<string, string>>({});
-  const [headerValues, setHeaderValues] = useState<Record<string, string>>({});
-  const [bodyText, setBodyText] = useState('');
-  const [bodyInited, setBodyInited] = useState(false);
+  const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
+  const [headerValues, setHeaderValues] = useState<Record<string, string>>(() => savedValues?.headers ?? {});
+  const [bodyText, setBodyText] = useState(() => savedValues?.body ?? '');
+  const [bodyInited, setBodyInited] = useState(() => !!savedValues?.body);
   const [liveResponse, setLiveResponse] = useState<{
     status: number; statusText: string;
     headers: Record<string, string>; body: string; timeMs: number;
@@ -40,11 +44,36 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [copied, setCopied] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
+  const valuesChanged = useRef(false);
+  useEffect(() => {
+    if (!valuesChanged.current) return;
+    valuesChanged.current = false;
+    const hasData = Object.values(paramValues).some(v => v) || Object.values(headerValues).some(v => v) || bodyText;
+    if (hasData && onValuesChange) {
+      onValuesChange({ params: paramValues, headers: headerValues, body: bodyText });
+    }
+  }, [paramValues, headerValues, bodyText, onValuesChange]);
+
+  const updateParam = useCallback((name: string, val: string, isHeader: boolean) => {
+    valuesChanged.current = true;
+    if (isHeader) {
+      setHeaderValues(prev => ({ ...prev, [name]: val }));
+    } else {
+      setParamValues(prev => ({ ...prev, [name]: val }));
+    }
+  }, []);
+
+  const updateBody = useCallback((val: string) => {
+    valuesChanged.current = true;
+    setBodyText(val);
+  }, []);
+
   const jsonCT = endpoint.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
   const hasBody = !!(endpoint.requestBody && jsonCT);
 
   const initBody = useCallback(() => {
     if (!bodyInited && jsonCT?.schema) {
+      valuesChanged.current = true;
       setBodyText(generateStubJson(jsonCT.schema));
       setBodyInited(true);
     }
@@ -59,18 +88,34 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const handleExecute = useCallback(async () => {
     setLoading(true);
     setLiveResponse(null);
-    const baseUrl = resolveBaseUrl(hostConfig, servers);
+    const baseUrl = resolveBaseUrl(hostConfig, servers, environments);
     const url = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
     const hdrs: Record<string, string> = {};
     for (const [k, v] of Object.entries(headerValues)) {
       if (k.trim() && v.trim()) hdrs[k.trim()] = v.trim();
     }
-    if (auth.type === 'basic' && auth.username)
+
+    if (auth.type === 'oauth2' && auth.tokenUrl) {
+      try {
+        const token = await acquireOAuth2Token(auth);
+        hdrs['Authorization'] = `Bearer ${token}`;
+      } catch (err) {
+        setLiveResponse({ status: 0, statusText: '', headers: {}, body: '', timeMs: 0,
+          error: `OAuth2 token acquisition failed: ${err instanceof Error ? err.message : String(err)}` });
+        setLoading(false);
+        return;
+      }
+    } else if (auth.type === 'basic' && auth.username) {
       hdrs['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password ?? ''}`)}`;
-    else if (auth.type === 'bearer' && auth.token)
+    } else if (auth.type === 'bearer' && auth.token) {
       hdrs['Authorization'] = `${auth.prefix?.trim() || 'Bearer'} ${auth.token}`;
-    else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn !== 'query')
-      hdrs[auth.apiKeyName] = auth.apiKeyValue;
+    } else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn !== 'query') {
+      let val = auth.apiKeyValue;
+      if (auth.apiKeyName.toLowerCase() === 'authorization' && !val.match(/^(Bearer|Basic|Token)\s/i)) {
+        val = `Bearer ${val}`;
+      }
+      hdrs[auth.apiKeyName] = val;
+    }
     if (bodyText.trim() && endpoint.method !== 'GET')
       hdrs['Content-Type'] = hdrs['Content-Type'] || 'application/json';
 
@@ -79,13 +124,17 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
       bodyText.trim() && endpoint.method !== 'GET' ? bodyText : undefined);
     setLiveResponse({ ...r, timeMs: Math.round(performance.now() - t0) });
     setLoading(false);
-  }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth]);
+  }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth, environments]);
 
-  const curlCmd = useMemo(() => {
-    if (!showCurl) return '';
-    const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth };
-    return curlMultiline ? buildCatalogCurlCommand(params) : buildCatalogCurlSingleLine(params);
-  }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth]);
+  const [curlCmd, setCurlCmd] = useState('');
+  useEffect(() => {
+    if (!showCurl) { setCurlCmd(''); return; }
+    let cancelled = false;
+    const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments };
+    const builder = curlMultiline ? buildCatalogCurlCommand : buildCatalogCurlSingleLine;
+    builder(params).then(cmd => { if (!cancelled) setCurlCmd(cmd); });
+    return () => { cancelled = true; };
+  }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments]);
 
   const copy = useCallback(async (t: string) => {
     try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
@@ -99,7 +148,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   }, []);
 
   const handleCopyDefaultCurl = useCallback(async () => {
-    const cmd = buildDefaultCurlCommand(endpoint, hostConfig, servers, auth);
+    const cmd = await buildDefaultCurlCommand(endpoint, hostConfig, servers, auth, environments);
     await copy(cmd);
     setCtxMenu(null);
   }, [endpoint, hostConfig, servers, auth, copy]);
@@ -158,10 +207,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                     param={p}
                     tryItOpen={tryItOpen}
                     value={p.in === 'header' ? (headerValues[p.name] ?? '') : (paramValues[p.name] ?? '')}
-                    onChange={val => {
-                      if (p.in === 'header') setHeaderValues(prev => ({ ...prev, [p.name]: val }));
-                      else setParamValues(prev => ({ ...prev, [p.name]: val }));
-                    }}
+                    onChange={val => updateParam(p.name, val, p.in === 'header')}
                   />
                 ))}
               </div>
@@ -178,7 +224,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               </div>
               {tryItOpen ? (
                 <textarea className="sw-body-editor" rows={12} value={bodyText}
-                  onChange={e => setBodyText(e.target.value)} spellCheck={false} />
+                  onChange={e => updateBody(e.target.value)} spellCheck={false} />
               ) : (
                 <JsonBlock json={generateStubJson(jsonCT!.schema)} label="Example Value" />
               )}
@@ -195,6 +241,14 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               <button className="sw-curl-btn" onClick={() => setShowCurl(v => !v)}>
                 {showCurl ? 'Hide cURL' : 'cURL'}
               </button>
+              <span className="sw-auth-status">
+                {auth.type === 'none' ? '⚠ No auth' :
+                 auth.type === 'oauth2' ? (auth.tokenUrl ? `🔒 OAuth2 (${auth.clientId?.slice(0, 8) ?? '?'}…)` : '⚠ OAuth2 not configured') :
+                 auth.type === 'bearer' ? (auth.token ? `🔒 Bearer ${auth.token.slice(0, 8)}…` : '⚠ Bearer token empty') :
+                 auth.type === 'basic' ? (auth.username ? `🔒 Basic ${auth.username}` : '⚠ Basic creds empty') :
+                 auth.type === 'apikey' ? (auth.apiKeyValue ? `🔒 ${auth.apiKeyName}: ${auth.apiKeyValue.slice(0, 8)}…` : `⚠ ${auth.apiKeyName ?? 'API Key'} value empty`) :
+                 `? type=${auth.type}`}
+              </span>
             </div>
           )}
 

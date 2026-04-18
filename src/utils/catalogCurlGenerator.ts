@@ -1,6 +1,7 @@
-import type { CatalogEndpoint, HostConfig, CatalogServer } from '../types/catalog';
+import type { CatalogEndpoint, HostConfig, CatalogServer, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig } from '../types';
 import { generateStubJson } from './schemaStubGenerator';
+import { acquireOAuth2Token } from '../engine/tokenManager';
 
 interface CurlParams {
   endpoint: CatalogEndpoint;
@@ -10,11 +11,12 @@ interface CurlParams {
   headerValues: Record<string, string>;
   bodyText: string;
   auth: AuthConfig;
+  environments?: CatalogEnvironment[];
 }
 
-export function buildCatalogCurlCommand(params: CurlParams): string {
-  const { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth } = params;
-  const baseUrl = resolveBaseUrl(hostConfig, servers);
+export async function buildCatalogCurlCommand(params: CurlParams): Promise<string> {
+  const { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments } = params;
+  const baseUrl = resolveBaseUrl(hostConfig, servers, environments);
   const fullUrl = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
 
   const parts: string[] = ['curl'];
@@ -27,7 +29,14 @@ export function buildCatalogCurlCommand(params: CurlParams): string {
 
   const headers: { key: string; value: string }[] = [];
 
-  if (auth.type === 'basic' && auth.username) {
+  if (auth.type === 'oauth2' && auth.tokenUrl) {
+    try {
+      const token = await acquireOAuth2Token(auth);
+      headers.push({ key: 'Authorization', value: `Bearer ${token}` });
+    } catch {
+      headers.push({ key: 'Authorization', value: 'Bearer <TOKEN_ERROR: check OAuth2 config>' });
+    }
+  } else if (auth.type === 'basic' && auth.username) {
     const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
     headers.push({ key: 'Authorization', value: `Basic ${encoded}` });
   } else if (auth.type === 'bearer' && auth.token) {
@@ -42,7 +51,11 @@ export function buildCatalogCurlCommand(params: CurlParams): string {
         if (idx >= 0) parts[idx] = `'${url.toString()}'`;
       } catch { /* keep original */ }
     } else {
-      headers.push({ key: auth.apiKeyName, value: auth.apiKeyValue });
+      let val = auth.apiKeyValue;
+      if (auth.apiKeyName.toLowerCase() === 'authorization' && !val.match(/^(Bearer|Basic|Token)\s/i)) {
+        val = `Bearer ${val}`;
+      }
+      headers.push({ key: auth.apiKeyName, value: val });
     }
   }
 
@@ -68,16 +81,17 @@ export function buildCatalogCurlCommand(params: CurlParams): string {
   return parts.join(' ');
 }
 
-export function buildCatalogCurlSingleLine(params: CurlParams): string {
-  return buildCatalogCurlCommand(params).replace(/\\\n\s*/g, ' ');
+export async function buildCatalogCurlSingleLine(params: CurlParams): Promise<string> {
+  return (await buildCatalogCurlCommand(params)).replace(/\\\n\s*/g, ' ');
 }
 
-export function buildDefaultCurlCommand(
+export async function buildDefaultCurlCommand(
   endpoint: CatalogEndpoint,
   hostConfig: HostConfig,
   servers: CatalogServer[],
   auth: AuthConfig,
-): string {
+  environments?: CatalogEnvironment[],
+): Promise<string> {
   const paramValues: Record<string, string> = {};
   for (const p of endpoint.parameters) {
     if (p.example != null) paramValues[p.name] = String(p.example);
@@ -92,11 +106,15 @@ export function buildDefaultCurlCommand(
   }
 
   return buildCatalogCurlCommand({
-    endpoint, hostConfig, servers, paramValues, headerValues: {}, bodyText, auth,
+    endpoint, hostConfig, servers, paramValues, headerValues: {}, bodyText, auth, environments,
   });
 }
 
-export function resolveBaseUrl(hostConfig: HostConfig, servers: CatalogServer[]): string {
+export function resolveBaseUrl(hostConfig: HostConfig, servers: CatalogServer[], environments?: CatalogEnvironment[]): string {
+  if (hostConfig.strategy === 'environment' && hostConfig.environmentId && environments?.length) {
+    const env = environments.find(e => e.id === hostConfig.environmentId);
+    if (env) return env.baseUrl.replace(/\/+$/, '');
+  }
   if (hostConfig.strategy === 'hardcoded' && hostConfig.hardcodedUrl) {
     return hostConfig.hardcodedUrl.replace(/\/+$/, '');
   }

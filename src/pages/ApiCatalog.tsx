@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UseCatalogReturn } from '../hooks/useCatalog';
-import type { AuthConfig } from '../types';
+import type { AuthConfig, GlobalAuthProfile } from '../types';
 import CatalogWelcome from '../components/catalog/CatalogWelcome';
 import CatalogEndpointBrowser from '../components/catalog/CatalogEndpointBrowser';
 import CatalogOverview from '../components/catalog/CatalogOverview';
@@ -12,11 +12,12 @@ interface Props {
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
   onSendToWorkbench?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
 type View = 'overview' | 'endpoints';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, globalAuthProfiles }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
@@ -25,6 +26,19 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     const entry = catalog.selectedEntry;
     if (!entry || entry.id === prevEntryId.current) return;
     prevEntryId.current = entry.id;
+
+    if (entry.savedAuth && entry.savedAuth.type !== 'none') {
+      const saved = entry.savedAuth as any;
+      if (saved.__globalProfileId && globalAuthProfiles?.length) {
+        const liveProfile = globalAuthProfiles.find(p => p.id === saved.__globalProfileId);
+        if (liveProfile) {
+          setAuth({ ...liveProfile.auth, __globalProfileId: liveProfile.id, __globalProfileName: liveProfile.name } as any);
+          return;
+        }
+      }
+      setAuth({ ...entry.savedAuth });
+      return;
+    }
 
     const schemes = Object.entries(entry.securitySchemes);
     if (schemes.length > 0) {
@@ -41,7 +55,14 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     } else {
       setAuth({ type: 'none' });
     }
-  }, [catalog.selectedEntry]);
+  }, [catalog.selectedEntry, globalAuthProfiles]);
+
+  const handleAuthChange = useCallback((newAuth: AuthConfig) => {
+    setAuth(newAuth);
+    if (catalog.selectedEntry) {
+      catalog.updateEntry(catalog.selectedEntry.id, { savedAuth: newAuth });
+    }
+  }, [catalog]);
 
   const handleHostChange = useCallback((patch: Partial<typeof catalog.selectedEntry extends null ? never : NonNullable<typeof catalog.selectedEntry>['hostConfig']>) => {
     if (!catalog.selectedEntry) return;
@@ -76,21 +97,23 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
         )}
       </div>
 
-      {view === 'overview' ? (
+      <div className="cat-view-pane" style={{ display: view === 'overview' ? 'flex' : 'none' }}>
         <CatalogOverview
           entry={entry}
           onReimport={() => onReimport?.(entry.id)}
           onVersionHistory={() => onVersionHistory?.(entry.id)}
           onExportSpec={() => onExportSpec?.(entry.id)}
         />
-      ) : (
+      </div>
+      <div className="cat-view-pane" style={{ display: view === 'endpoints' ? 'flex' : 'none' }}>
         <CatalogEndpointBrowser
           entry={entry}
           auth={auth}
-          onAuthChange={setAuth}
+          onAuthChange={handleAuthChange}
           onHostChange={handleHostChange}
+          globalAuthProfiles={globalAuthProfiles}
         />
-      )}
+      </div>
     </div>
   );
 }

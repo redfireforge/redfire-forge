@@ -12,6 +12,12 @@ All types live in `src/types/catalog.ts`.
 ### Core Entry
 
 ```typescript
+export interface CatalogEnvironment {
+  id: string;
+  name: string;                         // e.g. "Test", "Staging", "Production"
+  baseUrl: string;                      // e.g. "https://api.test.example.com/v1"
+}
+
 export interface CatalogEntry {
   id: string;
   name: string;                         // from info.title
@@ -24,6 +30,9 @@ export interface CatalogEntry {
   endpoints: CatalogEndpoint[];         // untagged endpoints (no tag)
   hostConfig: HostConfig;               // how to resolve the base URL
   authConfig: CatalogAuthConfig;        // how to resolve auth
+  savedAuth?: AuthConfig;               // persisted auth configuration
+  environments?: CatalogEnvironment[];  // user-defined environments (Edit modal)
+  activeEnvironmentId?: string;         // currently selected environment
 }
 ```
 
@@ -156,13 +165,14 @@ export interface CatalogSecurityScheme {
 ### Host & Auth Configuration
 
 ```typescript
-export type ResolutionStrategy = 'global' | 'inherited' | 'hardcoded';
+export type ResolutionStrategy = 'global' | 'inherited' | 'hardcoded' | 'environment';
 
 export interface HostConfig {
   strategy: ResolutionStrategy;
   hardcodedUrl?: string;                // when strategy = 'hardcoded'
-  selectedServerId?: string;            // index into CatalogEntry.servers[]
+  selectedServerIndex?: number;         // index into CatalogEntry.servers[]
   globalEnvId?: string;                 // link to Workbench environment
+  environmentId?: string;               // link to CatalogEntry.environments[] (when strategy = 'environment')
 }
 
 export interface CatalogAuthConfig {
@@ -385,7 +395,10 @@ Catalog data is saved whenever:
 - A new spec is imported (entry + raw spec)
 - A spec is re-imported (new version + raw spec)
 - Host/auth config is changed (entry only)
-- An entry is deleted (entry + all its raw specs)
+- Auth config is changed (entry `savedAuth` updated)
+- Environments are added/edited/removed (entry `environments` updated)
+- Endpoint form values change (debounced, per-endpoint key)
+- An entry is deleted (entry + all its raw specs + endpoint values)
 - Version is restored (entry only)
 - Version is pruned (entry + pruned raw specs)
 
@@ -458,23 +471,35 @@ export interface CatalogSpecDiff {
 
 ---
 
-## 6. Runtime State (Not Persisted)
+## 6. Persisted & Runtime State
 
-Some state is session-only and not saved to storage:
+### Persisted (survives refresh / restart)
+
+| Data | Storage Key | Notes |
+|---|---|---|
+| Auth configuration | `savedAuth` field on `CatalogEntry` | Bearer tokens, OAuth2 credentials, API keys |
+| Endpoint form values | `perf-test-catalog-ep-{entryId}` | Parameter values, header values, request bodies per endpoint |
+| Environments | `environments` field on `CatalogEntry` | User-defined name + baseUrl pairs |
+| Active environment | `activeEnvironmentId` on `CatalogEntry` | Which environment is selected |
+| Host strategy | `hostConfig` field on `CatalogEntry` | From Spec / Environment / Custom URL selection |
+
+```typescript
+export interface SavedEndpointValues {
+  params: Record<string, string>;       // paramName → filled value
+  headers: Record<string, string>;      // headerName → filled value
+  body: string;                         // edited request body
+}
+```
+
+### Session-only (lost on refresh)
 
 ```typescript
 interface CatalogSessionState {
-  // Per-endpoint filled parameter values (lost on refresh)
-  filledParams: Map<string, Record<string, string>>;  // endpointId → paramName → value
-  filledBody: Map<string, string>;                      // endpointId → edited body string
-
-  // Last response per endpoint (lost on refresh)
   lastResponse: Map<string, CatalogTryItResponse>;
 
   // UI state
-  endpointNavCollapsed: boolean;
-  endpointNavWidth: number;
   expandedTags: Set<string>;
+  activeView: 'overview' | 'endpoints';
 }
 
 interface CatalogTryItResponse {
@@ -487,8 +512,8 @@ interface CatalogTryItResponse {
 }
 ```
 
-This state lives in the `useCatalog` hook as React state. It resets on page
-reload, which is acceptable for an interactive testing tool.
+Session-only state lives in React component state. Response data resets on
+page reload, which is acceptable for an interactive testing tool.
 
 ---
 

@@ -1,15 +1,17 @@
 import { useCallback, useMemo } from 'react';
-import type { AuthConfig } from '../../types';
+import type { AuthConfig, GlobalAuthProfile } from '../../types';
 import type { CatalogSecurityScheme } from '../../types/catalog';
+import { useAuthVerify } from '../../hooks/useAuthVerify';
 
 interface Props {
   auth: AuthConfig;
   onAuthChange: (auth: AuthConfig) => void;
   securitySchemes: Record<string, CatalogSecurityScheme>;
+  globalAuthProfiles?: GlobalAuthProfile[];
   onClose: () => void;
 }
 
-type AuthMode = 'inherit' | 'none' | 'bearer' | 'basic' | 'apikey';
+type AuthMode = 'inherit' | 'global' | 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2';
 
 function schemeToAuthType(scheme: CatalogSecurityScheme): AuthConfig['type'] {
   if (scheme.type === 'apiKey') return 'apikey';
@@ -31,11 +33,16 @@ function describeScheme(name: string, s: CatalogSecurityScheme): string {
   return parts.join(' ');
 }
 
-export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, onClose }: Props) {
+export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, globalAuthProfiles = [], onClose }: Props) {
   const schemeEntries = useMemo(() => Object.entries(securitySchemes), [securitySchemes]);
   const hasSchemes = schemeEntries.length > 0;
+  const hasGlobal = globalAuthProfiles.length > 0;
+  const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
 
-  const mode: AuthMode = (auth as any).__inherit ? 'inherit' : (auth.type === 'none' ? 'none' : auth.type as AuthMode);
+  const mode: AuthMode = (auth as any).__inherit ? 'inherit'
+    : (auth as any).__globalProfileId ? 'global'
+    : auth.type === 'none' ? 'none'
+    : auth.type as AuthMode;
 
   const handleModeChange = useCallback((newMode: string) => {
     if (newMode === 'inherit' && hasSchemes) {
@@ -50,12 +57,21 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
         base.type = 'basic';
       }
       onAuthChange({ ...base, __inherit: true, __schemeName: schemeName } as any);
+    } else if (newMode === 'global' && hasGlobal) {
+      const profile = globalAuthProfiles[0];
+      onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
     } else if (newMode === 'none') {
       onAuthChange({ type: 'none' });
     } else {
       onAuthChange({ type: newMode as AuthConfig['type'] });
     }
-  }, [hasSchemes, schemeEntries, onAuthChange]);
+  }, [hasSchemes, hasGlobal, schemeEntries, globalAuthProfiles, onAuthChange]);
+
+  const handleGlobalProfileChange = useCallback((profileId: string) => {
+    const profile = globalAuthProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+    onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
+  }, [globalAuthProfiles, onAuthChange]);
 
   const handleSchemeSwitch = useCallback((schemeName: string) => {
     const scheme = securitySchemes[schemeName];
@@ -85,6 +101,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
           <label className="cep-field-name">Type</label>
           <select className="cep-field-input" value={mode} onChange={e => handleModeChange(e.target.value)}>
             {hasSchemes && <option value="inherit">Inherit from Spec</option>}
+            {hasGlobal && <option value="global">Global Auth Profile</option>}
             <option value="none">No Auth</option>
             <option value="bearer">Bearer Token</option>
             <option value="basic">Basic Auth</option>
@@ -153,7 +170,8 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
                 </div>
                 <div className="cep-tryit-field">
                   <label className="cep-field-name">Value</label>
-                  <input className="cep-field-input" placeholder="Enter value"
+                  <input className="cep-field-input"
+                    placeholder={auth.apiKeyName?.toLowerCase() === 'authorization' ? 'Paste JWT token (Bearer prefix added automatically)' : 'Enter value'}
                     value={auth.apiKeyValue ?? ''} onChange={e => onAuthChange({ ...auth, apiKeyValue: e.target.value })} />
                 </div>
                 <div className="cep-tryit-field">
@@ -161,12 +179,53 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
                   <input className="cep-field-input" value={auth.apiKeyIn ?? 'header'} readOnly
                     title="Auto-detected from spec" />
                 </div>
+                {auth.apiKeyName?.toLowerCase() === 'authorization' && (
+                  <div className="cep-auth-hint">
+                    "Bearer" prefix is added automatically. Just paste the raw token.
+                  </div>
+                )}
               </>
             )}
           </>
         )}
 
-        {mode !== 'inherit' && auth.type === 'bearer' && (
+        {mode === 'global' && hasGlobal && (
+          <>
+            <div className="cep-tryit-field">
+              <label className="cep-field-name">Profile</label>
+              <select className="cep-field-input"
+                value={(auth as any).__globalProfileId ?? globalAuthProfiles[0]?.id}
+                onChange={e => handleGlobalProfileChange(e.target.value)}>
+                {globalAuthProfiles.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="ceb-auth-inherit-info">
+              <div className="ceb-scheme-badge">
+                <span className="ceb-scheme-type">{auth.type.toUpperCase()}</span>
+                <span className="ceb-scheme-detail">
+                  {(auth as any).__globalProfileName ?? 'Global profile'}
+                  {auth.type === 'oauth2' && ' — OAuth2 Client Credentials'}
+                  {auth.type === 'bearer' && ' — Bearer Token'}
+                  {auth.type === 'basic' && ' — Basic Auth'}
+                  {auth.type === 'apikey' && ` — API Key: ${auth.apiKeyName ?? ''}`}
+                </span>
+              </div>
+            </div>
+            {auth.type === 'oauth2' && (
+              <div className="cep-auth-hint">
+                Token will be acquired automatically via client credentials when executing a request.
+                {auth.tokenUrl && <><br />Token URL: <code>{auth.tokenUrl}</code></>}
+              </div>
+            )}
+            <div className="cep-global-readonly-note">
+              Credentials loaded from global profile. Edit in Settings → Global Auth.
+            </div>
+          </>
+        )}
+
+        {mode !== 'inherit' && mode !== 'global' && auth.type === 'bearer' && (
           <>
             <div className="cep-tryit-field">
               <label className="cep-field-name">Token</label>
@@ -180,7 +239,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             </div>
           </>
         )}
-        {mode !== 'inherit' && auth.type === 'basic' && (
+        {mode !== 'inherit' && mode !== 'global' && auth.type === 'basic' && (
           <>
             <div className="cep-tryit-field">
               <label className="cep-field-name">Username</label>
@@ -192,7 +251,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             </div>
           </>
         )}
-        {mode !== 'inherit' && auth.type === 'apikey' && (
+        {mode !== 'inherit' && mode !== 'global' && auth.type === 'apikey' && (
           <>
             <div className="cep-tryit-field">
               <label className="cep-field-name">Key Name</label>
@@ -210,6 +269,27 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
               </select>
             </div>
           </>
+        )}
+
+        {auth.type !== 'none' && (
+          <div className="ceb-auth-verify">
+            <button
+              className="ceb-verify-btn"
+              onClick={() => { setAuthVerifyResult(null); verifyAuth(auth); }}
+              disabled={authVerifying}
+            >
+              {authVerifying ? 'Verifying...' : 'Verify Auth'}
+            </button>
+            {authVerifyResult && (
+              <div className={`ceb-verify-result ${authVerifyResult.ok ? 'ceb-verify-ok' : 'ceb-verify-fail'}`}>
+                <span className="ceb-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
+                <div className="ceb-verify-body">
+                  <span className="ceb-verify-msg">{authVerifyResult.message}</span>
+                  {authVerifyResult.detail && <pre className="ceb-verify-detail">{authVerifyResult.detail}</pre>}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

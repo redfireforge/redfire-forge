@@ -160,18 +160,15 @@ src/
 │
 ├── components/catalog/ (NEW)
 │   ├── CatalogSidebar.tsx                — thin sidebar: API names + version badges
-│   ├── CatalogSidebarContextMenu.tsx     — right-click: versions, config, delete
+│   ├── CatalogSidebarContextMenu.tsx     — right-click: versions, config, edit, delete
 │   ├── CatalogMainPanel.tsx              — routes between welcome/overview/endpoint
 │   ├── CatalogWelcome.tsx                — empty state with import prompt
 │   ├── CatalogOverview.tsx               — API-level summary + stats
-│   ├── CatalogEndpointNav.tsx            — tag-grouped endpoint list (inside main panel)
-│   ├── CatalogEndpointView.tsx           — Swagger-UI-style interactive endpoint detail
-│   ├── CatalogParameterEditor.tsx        — editable path/query/header param forms
-│   ├── CatalogHostAuthBar.tsx            — host + auth strategy selector
-│   ├── CatalogResponseViewer.tsx         — live response after "Try It"
-│   ├── CatalogResponseSchemas.tsx        — spec-defined response schemas display
-│   ├── CurlPreview.tsx                   — cURL popover with copy button
-│   ├── CatalogImportModal.tsx            — file picker + preview + validation
+│   ├── CatalogEndpointBrowser.tsx        — tag-grouped endpoint list + host/auth bar
+│   ├── CatalogEndpointCard.tsx           — Swagger-UI-style interactive endpoint detail
+│   ├── CatalogAuthPanel.tsx              — auth strategy selector (inherit, global, manual)
+│   ├── CatalogEditModal.tsx              — edit entry: manage environments (CRUD)
+│   ├── CatalogImportModal.tsx            — file picker + paste YAML + preview + validation
 │   ├── CatalogVersionHistory.tsx         — version list + diff view
 │   └── CatalogVersionDiff.tsx            — endpoint-level changelog renderer
 │
@@ -331,14 +328,36 @@ restore that specific version, but saves significant space.
 
 Each `CatalogEntry` has a host and auth configuration with a **strategy** selector:
 
-| Strategy | Host Behavior | Auth Behavior |
-|---|---|---|
-| **Global** | Uses a Workbench environment's base URL | Uses an app-level `GlobalAuthProfile` |
-| **Inherited** | Uses the server URL from the spec's `servers[]` | Uses the spec's `securitySchemes` |
-| **Hardcoded** | User types a custom URL directly | User configures auth inline (bearer, basic, etc.) |
+### Host Strategies
 
-The strategy is set at the `CatalogEntry` level (applies to all endpoints) and
-can be overridden per-endpoint in a future phase.
+| Strategy | Host Behavior |
+|---|---|
+| **From Spec** (inherited) | Uses the server URL from the spec's `servers[]` |
+| **Environment** | Uses a base URL from a user-defined environment (configured via Edit modal) |
+| **Custom URL** (hardcoded) | User types a custom URL directly |
+
+Environments are configured per API entry via right-click → **Edit** in the sidebar.
+Each environment has a name (e.g., "Test", "Staging", "Production") and a base URL.
+When the "Environment" strategy is active, users select from a dropdown of their
+configured environments.
+
+### Auth Strategies
+
+| Strategy | Auth Behavior |
+|---|---|
+| **Inherit from Spec** | Uses the spec's `securitySchemes` with user-provided credentials |
+| **Global Auth Profile** | Uses an app-level `GlobalAuthProfile` (including OAuth2 client credentials) |
+| **None / Manual** | User configures auth inline (bearer, basic, API key, OAuth2) |
+
+Auth configuration is persisted per `CatalogEntry` and restored across sessions.
+OAuth2 tokens are acquired automatically at request execution time via client
+credentials flow.
+
+### Persistence
+
+Both host and auth configuration are saved on the `CatalogEntry` and survive
+browser refresh and server restart. Endpoint-level form values (parameters,
+headers, request body) are also persisted in a separate storage key per entry.
 
 ---
 

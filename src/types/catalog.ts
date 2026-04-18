@@ -1,5 +1,13 @@
 import type { AuthConfig, HttpMethod } from './index';
 
+// ─── Environments ────────────────────────────────────────
+
+export interface CatalogEnvironment {
+  id: string;
+  name: string;
+  baseUrl: string;
+}
+
 // ─── Core Entry ──────────────────────────────────────────
 
 export interface CatalogEntry {
@@ -14,6 +22,15 @@ export interface CatalogEntry {
   endpoints: CatalogEndpoint[];
   hostConfig: HostConfig;
   authConfig: CatalogAuthConfig;
+  savedAuth?: AuthConfig;
+  environments?: CatalogEnvironment[];
+  activeEnvironmentId?: string;
+}
+
+export interface SavedEndpointValues {
+  params: Record<string, string>;
+  headers: Record<string, string>;
+  body: string;
 }
 
 // ─── Versioning ──────────────────────────────────────────
@@ -123,13 +140,14 @@ export interface CatalogSecurityScheme {
 
 // ─── Host & Auth Configuration ───────────────────────────
 
-export type ResolutionStrategy = 'global' | 'inherited' | 'hardcoded';
+export type ResolutionStrategy = 'global' | 'inherited' | 'hardcoded' | 'environment';
 
 export interface HostConfig {
   strategy: ResolutionStrategy;
   hardcodedUrl?: string;
   selectedServerIndex?: number;
   globalEnvId?: string;
+  environmentId?: string;
 }
 
 export interface CatalogAuthConfig {
