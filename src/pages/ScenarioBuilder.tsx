@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, ExpectedField, GlobalAuthProfile, Project } from '../types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile, Project } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
 import CsvImportModal from '../components/CsvImportModal';
 import { useAuthVerify } from '../hooks/useAuthVerify';
@@ -9,6 +9,7 @@ import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport } from '../utils/
 import { buildSearchText, evaluateQuery, parseSearchQuery } from '../utils/scenarioSearch';
 import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
 import AuthConfigPanel from '../components/AuthConfigPanel';
+import CopyTestModal from '../components/CopyTestModal';
 
 const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },
@@ -318,19 +319,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     }));
   };
 
-  // Copy test — shows destination picker
   const [copyingTest, setCopyingTest] = useState<{ test: Scenario; sourceFeatureId: string; sourceScenarioId: string } | null>(null);
-  const [copyTargetFeature, setCopyTargetFeature] = useState('');
-  const [copyTargetScenario, setCopyTargetScenario] = useState('');
 
   const startCopyTest = (featureId: string, scenarioId: string, test: Scenario) => {
     setCopyingTest({ test, sourceFeatureId: featureId, sourceScenarioId: scenarioId });
-    setCopyTargetFeature(featureId);
-    setCopyTargetScenario(scenarioId);
   };
 
-  const confirmCopyTest = () => {
-    if (!copyingTest || !copyTargetFeature || !copyTargetScenario) return;
+  const confirmCopyTest = (targetFeatureId: string, targetScenarioId: string) => {
+    if (!copyingTest) return;
     const copy: Scenario = {
       ...copyingTest.test,
       id: uuidv4(),
@@ -339,45 +335,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       validation: { ...copyingTest.test.validation, expectedFields: copyingTest.test.validation.expectedFields?.map((f) => ({ ...f })) },
     };
     setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== copyTargetFeature) return fg;
+      if (fg.id !== targetFeatureId) return fg;
       return {
         ...fg,
         scenarios: fg.scenarios.map((sc) => {
-          if (sc.id !== copyTargetScenario) return sc;
+          if (sc.id !== targetScenarioId) return sc;
           return { ...sc, tests: [...sc.tests, copy] };
         }),
       };
     }));
     setCopyingTest(null);
   };
-
-  // Validation field helpers (kept for future use in manual field editing)
-  const _updateExpectedField = (index: number, field: keyof ExpectedField, val: string) => {
-    const fields = [...(draft.validation.expectedFields || [])];
-    fields[index] = { ...fields[index], [field]: val };
-    setDraft({ ...draft, validation: { ...draft.validation, expectedFields: fields } });
-  };
-  void _updateExpectedField;
-  const _addExpectedField = () => {
-    setDraft({
-      ...draft,
-      validation: {
-        ...draft.validation,
-        expectedFields: [...(draft.validation.expectedFields || []), { jsonPath: '', expectedValue: '' }],
-      },
-    });
-  };
-  void _addExpectedField;
-  const _removeExpectedField = (index: number) => {
-    setDraft({
-      ...draft,
-      validation: {
-        ...draft.validation,
-        expectedFields: (draft.validation.expectedFields || []).filter((_, i) => i !== index),
-      },
-    });
-  };
-  void _removeExpectedField;
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
@@ -1026,44 +994,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         </div>
       )}
 
-      {/* ===== Copy Test Destination Picker ===== */}
       {copyingTest && (
-        <div className="modal-overlay" onClick={() => setCopyingTest(null)}>
-          <div className="modal copy-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Copy Test To...</h3>
-            <p className="copy-test-name">Copying: <strong>{copyingTest.test.name}</strong></p>
-
-            <div className="form-row">
-              <label>Feature Group</label>
-              <select value={copyTargetFeature} onChange={(e) => {
-                setCopyTargetFeature(e.target.value);
-                const fg = featureGroups.find((f) => f.id === e.target.value);
-                setCopyTargetScenario(fg?.scenarios[0]?.id || '');
-              }}>
-                {featureGroups.map((fg) => (
-                  <option key={fg.id} value={fg.id}>{fg.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-row">
-              <label>Scenario</label>
-              <select value={copyTargetScenario} onChange={(e) => setCopyTargetScenario(e.target.value)}>
-                {featureGroups.find((f) => f.id === copyTargetFeature)?.scenarios.map((sc) => (
-                  <option key={sc.id} value={sc.id}>
-                    {sc.name}
-                    {sc.id === copyingTest.sourceScenarioId && copyTargetFeature === copyingTest.sourceFeatureId ? ' (current)' : ''}
-                  </option>
-                )) || <option value="">No scenarios</option>}
-              </select>
-            </div>
-
-            <div className="copy-modal-actions">
-              <button className="btn" onClick={() => setCopyingTest(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={confirmCopyTest} disabled={!copyTargetScenario}>Copy Here</button>
-            </div>
-          </div>
-        </div>
+        <CopyTestModal
+          test={copyingTest.test}
+          sourceFeatureId={copyingTest.sourceFeatureId}
+          sourceScenarioId={copyingTest.sourceScenarioId}
+          featureGroups={featureGroups}
+          onConfirm={confirmCopyTest}
+          onClose={() => setCopyingTest(null)}
+        />
       )}
 
       {editingTest && (
