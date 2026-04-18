@@ -243,6 +243,11 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 function ParamRow({ param: p, tryItOpen, value, onChange }: {
   param: CatalogParameter; tryItOpen: boolean; value: string; onChange: (v: string) => void;
 }) {
+  const enumVals = p.schema?.enum as string[] | undefined;
+  const hasEnum = enumVals && enumVals.length > 0;
+  const defaultVal = p.schema?.default != null ? String(p.schema.default) : undefined;
+  const exampleVal = p.example != null ? String(p.example) : (p.schema?.example != null ? String(p.schema.example) : undefined);
+
   return (
     <div className="sw-param-row">
       <div className="sw-param-col-name">
@@ -250,15 +255,31 @@ function ParamRow({ param: p, tryItOpen, value, onChange }: {
           {p.name}
           {p.required && <span className="sw-pname-req"> *<span className="sw-req-text"> required</span></span>}
         </div>
-        <div className="sw-ptype">{p.schema?.type ?? 'string'}{p.schema?.format ? `(${p.schema.format})` : ''}</div>
+        <div className="sw-ptype">
+          {p.schema?.type ?? 'string'}{p.schema?.format ? <span className="sw-pformat">(${ p.schema.format})</span> : ''}
+        </div>
         <div className={`sw-pin sw-pin-${p.in}`}>({p.in})</div>
       </div>
       <div className="sw-param-col-desc">
         {p.description && <div className="sw-pdesc">{p.description}</div>}
+        {hasEnum && !tryItOpen && (
+          <div className="sw-penum">Available values: {enumVals!.join(', ')}</div>
+        )}
+        {defaultVal && !tryItOpen && (
+          <div className="sw-pdefault">Default value: {defaultVal}</div>
+        )}
         {tryItOpen ? (
-          <input className="sw-pinput" placeholder={p.name} value={value} onChange={e => onChange(e.target.value)} />
+          hasEnum ? (
+            <select className="sw-pinput" value={value || defaultVal || ''} onChange={e => onChange(e.target.value)}>
+              <option value="">--</option>
+              {enumVals!.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          ) : (
+            <input className="sw-pinput" placeholder={exampleVal ?? defaultVal ?? p.name}
+              value={value} onChange={e => onChange(e.target.value)} />
+          )
         ) : (
-          <div className="sw-pinput-ro">{p.name}</div>
+          <div className="sw-pinput-ro">{exampleVal ?? defaultVal ?? p.name}</div>
         )}
       </div>
     </div>
