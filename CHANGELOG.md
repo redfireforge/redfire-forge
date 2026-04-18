@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **API Catalog**: Standalone top-level feature for importing, browsing, testing, and versioning OpenAPI/Swagger specifications
+- **Catalog Import**: Import OpenAPI 3.0/3.1 and Swagger 2.0 specs from file or paste YAML/JSON directly
+- **Catalog Endpoint Browser**: Swagger-UI-style interactive endpoint detail with parameter forms, request body editor, response schemas, and "Try It" execution
+- **Catalog cURL Integration**: Generate cURL commands per endpoint with real OAuth2 token acquisition, syntax highlighting, single/multi-line toggle, and copy to clipboard
+- **Catalog Versioning**: Re-import updated specs, version history with visual endpoint diff (added/removed/changed), version restore, and version cap (max 10)
+- **Catalog Auth Panel**: Auth configuration with Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), and manual options; "Verify Auth" button with token validation
+- **Catalog Environments**: Per-API environment configuration (right-click → Edit) with name + base URL pairs; "Environment" host strategy in the endpoint browser
+- **Catalog Persistence**: Auth tokens, endpoint form values (params, headers, body), environments, and host strategy survive browser refresh and server restart
+- **Catalog Overview Page**: API summary with endpoint stats by method/tag, server list, security schemes, and quick action buttons
+- **Catalog "Send to Workbench" Bridge**: Send individual or all endpoints to a Workbench collection
 - **CLI Runner** (`redfireforge run`): Execute API performance tests from YAML or JSON files via command line
 - **YAML/JSON test file format**: Declarative test definitions with `baseUrl`, `defaults`, `config`, and `tests` sections
 - **CLI validate command** (`redfireforge validate`): Validate test file structure without running

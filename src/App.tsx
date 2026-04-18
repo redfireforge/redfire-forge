@@ -1,15 +1,25 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { isTauri } from './utils/platform';
-import type { Project, TestRun } from './types';
+import type { Project, TestRun, WorkbenchCollection, WorkbenchRequest, KeyValue } from './types';
+import type { CatalogEntry, CatalogEndpoint } from './types/catalog';
+import { resolveBaseUrl } from './utils/catalogCurlGenerator';
+import { generateStubJson } from './utils/schemaStubGenerator';
 import { findFolderDeep } from './utils/workbenchTree';
 import { loadTestRuns, saveTheme } from './utils/storage';
 import { createEmptyProject } from './utils/helpers';
 import { useProjects } from './hooks/useProjects';
 import { useWorkbench } from './hooks/useWorkbench';
+import { useCatalog } from './hooks/useCatalog';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
 import Workbench from './pages/Workbench';
+import ApiCatalog from './pages/ApiCatalog';
+import CatalogSidebar from './components/catalog/CatalogSidebar';
+import CatalogImportModal from './components/catalog/CatalogImportModal';
+import CatalogVersionHistory from './components/catalog/CatalogVersionHistory';
+import CatalogEditModal from './components/catalog/CatalogEditModal';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
@@ -20,7 +30,7 @@ import WorkbenchEnvManager from './components/workbench/WorkbenchEnvManager';
 import SubCollectionModal from './components/workbench/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'scenarios' | 'runner' | 'results' | 'workbench';
+type Tab = 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
 
 declare const __APP_VERSION__: string;
 
@@ -36,6 +46,7 @@ export default function App() {
   } = useProjects();
 
   const wb = useWorkbench();
+  const catalog = useCatalog();
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>('workbench');
@@ -52,6 +63,10 @@ export default function App() {
   const [editingWbCollection, setEditingWbCollection] = useState<import('./types').WorkbenchCollection | null>(null);
   const [showWbEnvManager, setShowWbEnvManager] = useState(false);
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
+  const [showCatalogImport, setShowCatalogImport] = useState(false);
+  const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
+  const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
+  const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -187,6 +202,56 @@ export default function App() {
     setEditingSubCol({ colId, folderId });
   }, []);
 
+  const handleSendToWorkbench = useCallback((entry: CatalogEntry) => {
+    const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers);
+    const allEps: CatalogEndpoint[] = [...entry.endpoints];
+    const walk = (folders: CatalogEntry['folders']) => {
+      for (const f of folders) { allEps.push(...f.endpoints); walk(f.folders); }
+    };
+    walk(entry.folders);
+
+    const requests: WorkbenchRequest[] = allEps.map(ep => {
+      const headers: KeyValue[] = ep.parameters
+        .filter(p => p.in === 'header')
+        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '' }));
+
+      const queryParams = ep.parameters
+        .filter(p => p.in === 'query')
+        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '', enabled: true }));
+
+      let pathUrl = ep.path;
+      for (const p of ep.parameters.filter(pp => pp.in === 'path')) {
+        pathUrl = pathUrl.replace(`{${p.name}}`, p.example ? String(p.example) : `{${p.name}}`);
+      }
+
+      const jsonCT = ep.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
+      const body = jsonCT?.schema ? generateStubJson(jsonCT.schema) : '';
+
+      return {
+        id: uuidv4(),
+        name: ep.summary || `${ep.method} ${ep.path}`,
+        method: ep.method,
+        url: `${baseUrl}${pathUrl}`,
+        headers,
+        body,
+        bodyType: body ? 'json' as const : undefined,
+        auth: { type: 'none' as const },
+        savedQueryParams: queryParams,
+      };
+    });
+
+    const col: WorkbenchCollection = {
+      id: uuidv4(),
+      name: `${entry.name} (from Catalog)`,
+      mode: 'direct',
+      requests,
+      folders: [],
+    };
+
+    wb.importCollection(col);
+    setActiveTab('workbench');
+  }, [wb]);
+
   const handleImportProject = useCallback(async (imported: Project) => {
     setProjects((prev) => {
       const existing = prev.find((p) => p.id === imported.id);
@@ -230,14 +295,43 @@ export default function App() {
         <div className="usb-top-bar">
           <button className={`usb-top-tab ${activeTab === 'workbench' ? 'active' : ''}`}
             onClick={() => setActiveTab('workbench')}>Workbench</button>
-          <button className={`usb-top-tab ${activeTab !== 'workbench' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'workbench') setActiveTab('scenarios'); }}>Projects</button>
+          <button className={`usb-top-tab ${activeTab === 'catalog' ? 'active' : ''}`}
+            onClick={() => setActiveTab('catalog')}>Catalog</button>
+          <button className={`usb-top-tab ${activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Projects</button>
         </div>
 
         {/* ── Content area ── */}
         <div className="usb-content">
-          {activeTab === 'workbench' ? (
-            wb.loaded && (
+          <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
+            {catalog.loaded && (
+              <CatalogSidebar
+                entries={catalog.entries}
+                selectedEntryId={catalog.selectedEntryId}
+                onSelectEntry={(id) => { catalog.selectEntry(id); setActiveTab('catalog'); }}
+                onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
+                onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
+                onDeleteEntry={catalog.removeEntry}
+                onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
+                onEdit={(entryId) => setCatalogEditId(entryId)}
+                onExportSpec={async (entryId) => {
+                  const entry = catalog.entries.find(e => e.id === entryId);
+                  if (!entry) return;
+                  const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
+                  if (!raw) return;
+                  const blob = new Blob([raw], { type: 'text/yaml' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
+            )}
+          </div>
+          <div style={{ display: activeTab === 'workbench' ? 'contents' : 'none' }}>
+            {wb.loaded && (
               <WorkbenchSidebar
                 collections={wb.collections}
                 selectedCollectionId={wb.selectedCollection?.id}
@@ -268,8 +362,9 @@ export default function App() {
                 onImportCollection={wb.importCollection}
                 onImportFolder={wb.importFolder}
               />
-            )
-          ) : (
+            )}
+          </div>
+          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
             <>
               <Sidebar
                 projects={projects}
@@ -304,7 +399,7 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {activeTab !== 'workbench' && (
+          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
@@ -353,12 +448,35 @@ export default function App() {
               projectName={selectedProject?.name}
             />
           )}
-          {activeTab === 'workbench' && (
+          <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
+            <ApiCatalog
+              catalog={catalog}
+              onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
+              onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
+              onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
+              onExportSpec={async (entryId) => {
+                const entry = catalog.entries.find(e => e.id === entryId);
+                if (!entry) return;
+                const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
+                if (!raw) return;
+                const blob = new Blob([raw], { type: 'text/yaml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              onSendToWorkbench={handleSendToWorkbench}
+              globalAuthProfiles={appGlobalAuthProfiles}
+            />
+          </div>
+          <div className="app-tab-pane" style={{ display: activeTab === 'workbench' ? 'flex' : 'none' }}>
             <Workbench
               wb={wb}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
             />
-          )}
+          </div>
         </main>
       </div>
 
@@ -435,6 +553,42 @@ export default function App() {
           onClose={() => setEditingSubCol(null)}
         />
       )}
+
+      {showCatalogImport && (
+        <CatalogImportModal
+          existingEntries={catalog.entries}
+          reimportEntryId={catalogReimportId}
+          onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
+          onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
+          onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); }}
+        />
+      )}
+
+      {catalogVersionHistoryId && (() => {
+        const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
+        if (!vhEntry) return null;
+        return (
+          <CatalogVersionHistory
+            entry={vhEntry}
+            onClose={() => setCatalogVersionHistoryId(undefined)}
+            onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
+            onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
+            loadRawSpec={catalog.loadRawSpec}
+          />
+        );
+      })()}
+
+      {catalogEditId && (() => {
+        const editEntry = catalog.entries.find(e => e.id === catalogEditId);
+        if (!editEntry) return null;
+        return (
+          <CatalogEditModal
+            entry={editEntry}
+            onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
+            onClose={() => setCatalogEditId(undefined)}
+          />
+        );
+      })()}
 
       {confirmAction && (
         <div className="confirm-overlay">
