@@ -589,4 +589,120 @@ paths:
       expect(petsEndpoints.map(e => e.method).sort()).toEqual(['GET', 'POST']);
     });
   });
+
+  // ─── $ref resolution ─────────────────────────────────
+
+  describe('$ref resolution', () => {
+    const REF_SPEC = `
+swagger: "2.0"
+info:
+  title: Ref Test API
+  version: "1.0.0"
+host: api.example.com
+basePath: /v1
+schemes: [https]
+paths:
+  /items/{itemId}:
+    get:
+      summary: Get item
+      tags: [items]
+      parameters:
+        - $ref: '#/parameters/ItemId'
+        - $ref: '#/parameters/Lang'
+      responses:
+        "200":
+          $ref: '#/responses/OkItem'
+        "400":
+          $ref: '#/responses/BadReq'
+        "404":
+          description: Not found
+parameters:
+  ItemId:
+    name: itemId
+    in: path
+    type: string
+    required: true
+    description: The item identifier
+  Lang:
+    name: Accept-Language
+    in: header
+    type: string
+    required: false
+    description: Preferred language
+definitions:
+  Item:
+    type: object
+    properties:
+      id:
+        type: string
+        example: abc-123
+      name:
+        type: string
+        example: Widget
+  Error:
+    type: object
+    required: [code]
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+responses:
+  OkItem:
+    description: Successful item response
+    schema:
+      $ref: '#/definitions/Item'
+  BadReq:
+    description: Bad request
+    schema:
+      $ref: '#/definitions/Error'
+`;
+
+    it('resolves $ref parameters', async () => {
+      const result = await parseOpenApiSpec(REF_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const ep = folder.endpoints[0];
+
+      expect(ep.parameters).toHaveLength(2);
+      expect(ep.parameters[0].name).toBe('itemId');
+      expect(ep.parameters[0].in).toBe('path');
+      expect(ep.parameters[0].required).toBe(true);
+      expect(ep.parameters[0].description).toBe('The item identifier');
+
+      expect(ep.parameters[1].name).toBe('Accept-Language');
+      expect(ep.parameters[1].in).toBe('header');
+    });
+
+    it('resolves $ref responses with descriptions', async () => {
+      const result = await parseOpenApiSpec(REF_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const ep = folder.endpoints[0];
+
+      expect(ep.responses).toHaveLength(3);
+
+      const ok = ep.responses.find(r => r.statusCode === '200')!;
+      expect(ok.description).toBe('Successful item response');
+      expect(ok.schema).toBeDefined();
+      expect(ok.schema!.properties).toHaveProperty('id');
+      expect(ok.schema!.properties).toHaveProperty('name');
+
+      const bad = ep.responses.find(r => r.statusCode === '400')!;
+      expect(bad.description).toBe('Bad request');
+      expect(bad.schema).toBeDefined();
+      expect(bad.schema!.properties).toHaveProperty('code');
+
+      const notFound = ep.responses.find(r => r.statusCode === '404')!;
+      expect(notFound.description).toBe('Not found');
+    });
+
+    it('resolves nested $ref chains (response -> schema -> definition)', async () => {
+      const result = await parseOpenApiSpec(REF_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const ep = folder.endpoints[0];
+
+      const ok = ep.responses.find(r => r.statusCode === '200')!;
+      expect(ok.schema!.properties!.id.example).toBe('abc-123');
+      expect(ok.schema!.properties!.name.example).toBe('Widget');
+    });
+  });
 });

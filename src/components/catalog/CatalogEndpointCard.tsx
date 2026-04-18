@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse } from '../../types/catalog';
+import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter } from '../../types/catalog';
 import type { AuthConfig } from '../../types';
 import { generateStubJson } from '../../utils/schemaStubGenerator';
 import { buildCatalogCurlCommand, resolveBaseUrl, buildFullUrl } from '../../utils/catalogCurlGenerator';
 import { httpFetch } from '../../utils/httpClient';
+import { highlightJson } from '../../utils/jsonHighlighter';
 
 interface Props {
   endpoint: CatalogEndpoint;
@@ -12,16 +13,13 @@ interface Props {
   auth: AuthConfig;
 }
 
-const METHOD_COLORS: Record<string, string> = {
+const MC: Record<string, string> = {
   GET: '#49cc90', POST: '#fca130', PUT: '#61affe', PATCH: '#50e3c2', DELETE: '#f93e3e',
 };
-const METHOD_BG: Record<string, string> = {
+const MBG: Record<string, string> = {
   GET: 'rgba(73,204,144,0.1)', POST: 'rgba(252,161,48,0.1)',
   PUT: 'rgba(97,175,254,0.1)', PATCH: 'rgba(80,227,194,0.1)',
   DELETE: 'rgba(249,62,62,0.1)',
-};
-const METHOD_BORDER: Record<string, string> = {
-  GET: '#49cc90', POST: '#fca130', PUT: '#61affe', PATCH: '#50e3c2', DELETE: '#f93e3e',
 };
 
 export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth }: Props) {
@@ -31,7 +29,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [headerValues, setHeaderValues] = useState<Record<string, string>>({});
   const [bodyText, setBodyText] = useState('');
   const [bodyInited, setBodyInited] = useState(false);
-  const [response, setResponse] = useState<{
+  const [liveResponse, setLiveResponse] = useState<{
     status: number; statusText: string;
     headers: Record<string, string>; body: string; timeMs: number;
   } | null>(null);
@@ -39,281 +37,195 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [showCurl, setShowCurl] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const jsonContentType = endpoint.requestBody?.contentTypes.find(
-    ct => ct.mediaType.includes('json')
-  );
-  const hasBody = endpoint.requestBody && jsonContentType;
+  const jsonCT = endpoint.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
+  const hasBody = !!(endpoint.requestBody && jsonCT);
 
   const initBody = useCallback(() => {
-    if (!bodyInited && jsonContentType?.schema) {
-      setBodyText(generateStubJson(jsonContentType.schema));
+    if (!bodyInited && jsonCT?.schema) {
+      setBodyText(generateStubJson(jsonCT.schema));
       setBodyInited(true);
     }
-  }, [bodyInited, jsonContentType]);
+  }, [bodyInited, jsonCT]);
 
   const handleTryIt = useCallback(() => {
     if (!tryItOpen) initBody();
-    setTryItOpen(!tryItOpen);
-    setResponse(null);
+    setTryItOpen(v => !v);
+    setLiveResponse(null);
   }, [tryItOpen, initBody]);
 
   const handleExecute = useCallback(async () => {
     setLoading(true);
-    setResponse(null);
+    setLiveResponse(null);
     const baseUrl = resolveBaseUrl(hostConfig, servers);
-    const fullUrl = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
-
-    const reqHeaders: Record<string, string> = {};
+    const url = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
+    const hdrs: Record<string, string> = {};
     for (const [k, v] of Object.entries(headerValues)) {
-      if (k.trim() && v.trim()) reqHeaders[k.trim()] = v.trim();
+      if (k.trim() && v.trim()) hdrs[k.trim()] = v.trim();
     }
+    if (auth.type === 'basic' && auth.username)
+      hdrs['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password ?? ''}`)}`;
+    else if (auth.type === 'bearer' && auth.token)
+      hdrs['Authorization'] = `${auth.prefix?.trim() || 'Bearer'} ${auth.token}`;
+    else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn !== 'query')
+      hdrs[auth.apiKeyName] = auth.apiKeyValue;
+    if (bodyText.trim() && endpoint.method !== 'GET')
+      hdrs['Content-Type'] = hdrs['Content-Type'] || 'application/json';
 
-    if (auth.type === 'basic' && auth.username) {
-      reqHeaders['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password ?? ''}`)}`;
-    } else if (auth.type === 'bearer' && auth.token) {
-      reqHeaders['Authorization'] = `${auth.prefix?.trim() || 'Bearer'} ${auth.token}`;
-    } else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue) {
-      if (auth.apiKeyIn !== 'query') {
-        reqHeaders[auth.apiKeyName] = auth.apiKeyValue;
-      }
-    }
-
-    if (bodyText.trim() && endpoint.method !== 'GET') {
-      reqHeaders['Content-Type'] = reqHeaders['Content-Type'] || 'application/json';
-    }
-
-    const start = performance.now();
-    const resp = await httpFetch(
-      fullUrl, endpoint.method, reqHeaders,
-      bodyText.trim() && endpoint.method !== 'GET' ? bodyText : undefined,
-    );
-    const timeMs = Math.round(performance.now() - start);
-    setResponse({ ...resp, timeMs });
+    const t0 = performance.now();
+    const r = await httpFetch(url, endpoint.method, hdrs,
+      bodyText.trim() && endpoint.method !== 'GET' ? bodyText : undefined);
+    setLiveResponse({ ...r, timeMs: Math.round(performance.now() - t0) });
     setLoading(false);
   }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth]);
 
-  const curlCommand = useMemo(() => {
-    if (!showCurl) return '';
-    return buildCatalogCurlCommand({ endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth });
-  }, [showCurl, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth]);
+  const curlCmd = useMemo(() =>
+    showCurl ? buildCatalogCurlCommand({ endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth }) : '',
+    [showCurl, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth],
+  );
 
-  const handleCopy = useCallback(async (text: string) => {
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+  const copy = useCallback(async (t: string) => {
+    try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
   }, []);
 
-  const allParams = endpoint.parameters;
-  const hasSecurity = endpoint.security && endpoint.security.length > 0;
-  const borderColor = METHOD_BORDER[endpoint.method] ?? '#888';
+  const hasSec = endpoint.security && endpoint.security.length > 0;
+  const color = MC[endpoint.method] ?? '#888';
 
   return (
-    <div className="cep-card" style={{ border: `1px solid ${borderColor}` }}>
-      {/* ── Header row ────────────────────────────── */}
-      <div
-        className="cep-header"
-        style={{ background: METHOD_BG[endpoint.method] }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span className="cep-method" style={{ background: METHOD_COLORS[endpoint.method] }}>
-          {endpoint.method}
-        </span>
-        <span className="cep-path">{endpoint.path}</span>
-        <span className="cep-summary">{endpoint.summary}</span>
-        {endpoint.deprecated && <span className="cep-deprecated">deprecated</span>}
-        {hasSecurity && <span className="cep-lock" title="Requires authentication">🔒</span>}
-        <span className={`cep-chevron ${expanded ? 'open' : ''}`}>▾</span>
+    <div className="sw-card" style={{ borderColor: color }}>
+      {/* ── HEADER ────────────────────────────────── */}
+      <div className="sw-header" style={{ background: MBG[endpoint.method] }} onClick={() => setExpanded(v => !v)}>
+        <span className="sw-method" style={{ background: color }}>{endpoint.method}</span>
+        <span className="sw-path">{endpoint.path}</span>
+        <span className="sw-summary">{endpoint.summary}</span>
+        {endpoint.deprecated && <span className="sw-deprecated">deprecated</span>}
+        {hasSec && <span className="sw-lock">🔒</span>}
+        <span className={`sw-chevron ${expanded ? 'open' : ''}`}>&#9662;</span>
       </div>
 
-      {/* ── Expanded body ─────────────────────────── */}
       {expanded && (
-        <div className="cep-body">
-          {endpoint.description && (
-            <p className="cep-description">{endpoint.description}</p>
-          )}
+        <div className="sw-body">
+          {endpoint.description && <p className="sw-desc">{endpoint.description}</p>}
 
-          {/* ── Parameters section (Swagger UI style) ── */}
-          {allParams.length > 0 && (
-            <div className="cep-section">
-              <div className="cep-section-header">
-                <h4 className="cep-section-title">Parameters</h4>
-                <button className={`cep-tryit-toggle ${tryItOpen ? 'active' : ''}`} onClick={handleTryIt}>
-                  {tryItOpen ? 'Cancel' : 'Try it out'}
-                </button>
-              </div>
+          {/* ── PARAMETERS ────────────────────────── */}
+          <div className="sw-section">
+            <div className="sw-section-bar">
+              <span className="sw-section-title">Parameters</span>
+              <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} onClick={handleTryIt}>
+                {tryItOpen ? 'Cancel' : 'Try it out'}
+              </button>
+            </div>
 
-              <div className="cep-params-grid">
-                <div className="cep-params-grid-header">
-                  <span>Name</span>
-                  <span>Description</span>
+            {endpoint.parameters.length === 0 ? (
+              <div className="sw-no-params">No parameters</div>
+            ) : (
+              <div className="sw-param-table">
+                <div className="sw-param-thead">
+                  <div className="sw-param-col-name">Name</div>
+                  <div className="sw-param-col-desc">Description</div>
                 </div>
-                {allParams.map(p => (
-                  <div key={`${p.in}-${p.name}`} className="cep-param-row">
-                    <div className="cep-param-left">
-                      <span className="cep-param-name">
-                        {p.name}
-                        {p.required && <span className="cep-required-star"> *</span>}
-                        {p.required && <span className="cep-required-label">required</span>}
-                      </span>
-                      <span className="cep-param-meta">
-                        {p.schema?.type ?? 'string'}
-                        {p.schema?.format ? <span className="cep-param-format">(${p.schema.format})</span> : ''}
-                      </span>
-                      <span className={`cep-param-in cep-in-${p.in}`}>({p.in})</span>
-                    </div>
-                    <div className="cep-param-right">
-                      <div className="cep-param-description">{p.description || ''}</div>
-                      {tryItOpen ? (
-                        <input
-                          className="cep-param-input"
-                          placeholder={p.schema?.example?.toString() || p.name}
-                          value={
-                            p.in === 'header'
-                              ? (headerValues[p.name] ?? '')
-                              : (paramValues[p.name] ?? '')
-                          }
-                          onChange={e => {
-                            if (p.in === 'header') {
-                              setHeaderValues(prev => ({ ...prev, [p.name]: e.target.value }));
-                            } else {
-                              setParamValues(prev => ({ ...prev, [p.name]: e.target.value }));
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="cep-param-placeholder">{p.name}</div>
-                      )}
-                    </div>
-                  </div>
+                {endpoint.parameters.map(p => (
+                  <ParamRow
+                    key={`${p.in}:${p.name}`}
+                    param={p}
+                    tryItOpen={tryItOpen}
+                    value={p.in === 'header' ? (headerValues[p.name] ?? '') : (paramValues[p.name] ?? '')}
+                    onChange={val => {
+                      if (p.in === 'header') setHeaderValues(prev => ({ ...prev, [p.name]: val }));
+                      else setParamValues(prev => ({ ...prev, [p.name]: val }));
+                    }}
+                  />
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* ── No-parameter endpoint: still show Try it out ── */}
-          {allParams.length === 0 && (
-            <div className="cep-section">
-              <div className="cep-section-header">
-                <h4 className="cep-section-title">Parameters</h4>
-                <button className={`cep-tryit-toggle ${tryItOpen ? 'active' : ''}`} onClick={handleTryIt}>
-                  {tryItOpen ? 'Cancel' : 'Try it out'}
-                </button>
-              </div>
-              <div className="cep-no-params">No parameters</div>
-            </div>
-          )}
-
-          {/* ── Request body ──────────────────────────── */}
+          {/* ── REQUEST BODY ──────────────────────── */}
           {hasBody && (
-            <div className="cep-section">
-              <div className="cep-section-header">
-                <h4 className="cep-section-title">Request body</h4>
-                <span className="cep-content-type-badge">{jsonContentType!.mediaType}</span>
-                {endpoint.requestBody!.required && <span className="cep-required-label">required</span>}
+            <div className="sw-section">
+              <div className="sw-section-bar">
+                <span className="sw-section-title">Request body</span>
+                <span className="sw-ct-badge">{jsonCT!.mediaType}</span>
+                {endpoint.requestBody!.required && <span className="sw-req-label">required</span>}
               </div>
               {tryItOpen ? (
-                <textarea
-                  className="cep-tryit-body"
-                  rows={12}
-                  value={bodyText}
-                  onChange={e => setBodyText(e.target.value)}
-                  spellCheck={false}
-                />
+                <textarea className="sw-body-editor" rows={12} value={bodyText}
+                  onChange={e => setBodyText(e.target.value)} spellCheck={false} />
               ) : (
-                <div className="cep-example-block">
-                  <div className="cep-example-tabs">
-                    <span className="cep-example-tab active">Example Value</span>
-                    <span className="cep-example-tab">Model</span>
-                  </div>
-                  <pre className="cep-json-block">{generateStubJson(jsonContentType!.schema)}</pre>
-                </div>
+                <JsonBlock json={generateStubJson(jsonCT!.schema)} label="Example Value" />
               )}
             </div>
           )}
 
-          {/* ── Execute + cURL (when try-it-out is open) ── */}
+          {/* ── EXECUTE BAR ───────────────────────── */}
           {tryItOpen && (
-            <div className="cep-execute-bar">
-              <button
-                className="cep-execute-btn"
-                style={{ background: METHOD_COLORS[endpoint.method] }}
-                onClick={handleExecute}
-                disabled={loading}
-              >
+            <div className="sw-exec-bar">
+              <button className="sw-exec-btn" style={{ background: color }}
+                onClick={handleExecute} disabled={loading}>
                 {loading ? 'Executing...' : 'Execute'}
               </button>
-              <button className="cep-curl-toggle" onClick={() => setShowCurl(!showCurl)}>
+              <button className="sw-curl-btn" onClick={() => setShowCurl(v => !v)}>
                 {showCurl ? 'Hide cURL' : 'cURL'}
               </button>
             </div>
           )}
 
-          {/* ── cURL preview ──────────────────────────── */}
           {showCurl && tryItOpen && (
-            <div className="cep-curl-section">
-              <div className="cep-curl-header">
+            <div className="sw-curl-box">
+              <div className="sw-curl-bar">
                 <span>Curl</span>
-                <button className="cep-copy-btn" onClick={() => handleCopy(curlCommand)}>
-                  {copied ? '✓ Copied' : 'Copy'}
-                </button>
+                <button className="sw-copy-btn" onClick={() => copy(curlCmd)}>{copied ? '✓ Copied' : 'Copy'}</button>
               </div>
-              <pre className="cep-json-block cep-curl-code">{curlCommand}</pre>
+              <pre className="sw-code-block">{curlCmd}</pre>
             </div>
           )}
 
-          {/* ── Live response (when executed) ─────────── */}
-          {response && tryItOpen && (
-            <div className="cep-section">
-              <h4 className="cep-section-title">Server response</h4>
-              <div className="cep-live-response">
-                <div className="cep-live-response-header">
-                  <div className="cep-live-response-meta">
-                    <span className="cep-live-status-label">Code</span>
-                    <span className="cep-live-desc-label">Details</span>
-                  </div>
-                  <div className="cep-live-response-row">
-                    <span className={`cep-status-code cep-status-${String(response.status)[0]}`}>
-                      {response.status}
-                    </span>
-                    <div className="cep-live-response-detail">
-                      <div className="cep-live-response-badges">
-                        <span className="cep-live-time">{response.timeMs}ms</span>
-                        <button className="cep-copy-btn" onClick={() => handleCopy(response.body)}>
-                          Copy
-                        </button>
-                      </div>
-                      {Object.keys(response.headers).length > 0 && (
-                        <details className="cep-response-headers-detail">
-                          <summary className="cep-response-headers-toggle">
-                            Response headers
-                          </summary>
-                          <pre className="cep-json-block cep-headers-block">
-                            {Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}
-                          </pre>
-                        </details>
-                      )}
-                      <div className="cep-example-block">
-                        <div className="cep-example-tabs">
-                          <span className="cep-example-tab active">Response body</span>
-                        </div>
-                        <pre className="cep-json-block">{formatBody(response.body)}</pre>
-                      </div>
+          {/* ── LIVE RESPONSE ─────────────────────── */}
+          {liveResponse && tryItOpen && (
+            <div className="sw-section">
+              <div className="sw-section-bar">
+                <span className="sw-section-title">Server response</span>
+              </div>
+              <div className="sw-resp-table">
+                <div className="sw-resp-thead">
+                  <div className="sw-resp-col-code">Code</div>
+                  <div className="sw-resp-col-desc">Details</div>
+                </div>
+                <div className="sw-resp-row">
+                  <div className={`sw-resp-code sw-sc-${String(liveResponse.status)[0]}`}>{liveResponse.status}</div>
+                  <div className="sw-resp-detail">
+                    <div className="sw-resp-description">
+                      {liveResponse.statusText}
+                      <span className="sw-resp-time">{liveResponse.timeMs}ms</span>
+                      <button className="sw-copy-btn" onClick={() => copy(liveResponse.body)}>Copy</button>
                     </div>
+                    {Object.keys(liveResponse.headers).length > 0 && (
+                      <details className="sw-resp-headers-details">
+                        <summary>Response headers</summary>
+                        <pre className="sw-code-block sw-code-sm">
+                          {Object.entries(liveResponse.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}
+                        </pre>
+                      </details>
+                    )}
+                    <JsonBlock json={fmtBody(liveResponse.body)} label="Response body" />
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Responses section (spec-defined) ──────── */}
+          {/* ── RESPONSES (spec-defined) ──────────── */}
           {endpoint.responses.length > 0 && (
-            <div className="cep-section">
-              <h4 className="cep-section-title">Responses</h4>
-              <div className="cep-responses-table">
-                <div className="cep-responses-header-row">
-                  <span className="cep-resp-col-code">Code</span>
-                  <span className="cep-resp-col-desc">Description</span>
+            <div className="sw-section">
+              <div className="sw-section-bar">
+                <span className="sw-section-title">Responses</span>
+              </div>
+              <div className="sw-resp-table">
+                <div className="sw-resp-thead">
+                  <div className="sw-resp-col-code">Code</div>
+                  <div className="sw-resp-col-desc">Description</div>
                 </div>
                 {endpoint.responses.map(r => (
-                  <ResponseBlock key={r.statusCode} resp={r} />
+                  <RespRow key={r.statusCode} resp={r} />
                 ))}
               </div>
             </div>
@@ -324,87 +236,112 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   );
 }
 
-function ResponseBlock({ resp }: { resp: CatalogResponse }) {
-  const [tab, setTab] = useState<'example' | 'model'>('example');
-  const hasSchema = !!resp.schema;
-  const exampleJson = resp.example
-    ? JSON.stringify(resp.example, null, 2)
-    : (resp.schema ? generateStubJson(resp.schema) : null);
-  const modelView = resp.schema ? buildModelView(resp.schema, 0) : null;
+/* ── Parameter row ────────────────────────────────── */
 
+function ParamRow({ param: p, tryItOpen, value, onChange }: {
+  param: CatalogParameter; tryItOpen: boolean; value: string; onChange: (v: string) => void;
+}) {
   return (
-    <div className="cep-resp-block">
-      <div className="cep-resp-row">
-        <span className={`cep-status-code cep-status-${resp.statusCode[0]}`}>
-          {resp.statusCode}
-        </span>
-        <div className="cep-resp-detail">
-          <div className="cep-resp-description">{resp.description}</div>
-          {(exampleJson || hasSchema) && (
-            <div className="cep-example-block">
-              <div className="cep-example-tabs">
-                <span
-                  className={`cep-example-tab ${tab === 'example' ? 'active' : ''}`}
-                  onClick={() => setTab('example')}
-                >Example Value</span>
-                {hasSchema && (
-                  <span
-                    className={`cep-example-tab ${tab === 'model' ? 'active' : ''}`}
-                    onClick={() => setTab('model')}
-                  >Model</span>
-                )}
-              </div>
-              {tab === 'example' && exampleJson && (
-                <pre className="cep-json-block">{exampleJson}</pre>
-              )}
-              {tab === 'model' && modelView && (
-                <pre className="cep-json-block cep-model-block">{modelView}</pre>
-              )}
-            </div>
-          )}
+    <div className="sw-param-row">
+      <div className="sw-param-col-name">
+        <div className="sw-pname">
+          {p.name}
+          {p.required && <span className="sw-pname-req"> *<span className="sw-req-text"> required</span></span>}
         </div>
+        <div className="sw-ptype">{p.schema?.type ?? 'string'}{p.schema?.format ? `(${p.schema.format})` : ''}</div>
+        <div className={`sw-pin sw-pin-${p.in}`}>({p.in})</div>
+      </div>
+      <div className="sw-param-col-desc">
+        {p.description && <div className="sw-pdesc">{p.description}</div>}
+        {tryItOpen ? (
+          <input className="sw-pinput" placeholder={p.name} value={value} onChange={e => onChange(e.target.value)} />
+        ) : (
+          <div className="sw-pinput-ro">{p.name}</div>
+        )}
       </div>
     </div>
   );
 }
 
-function buildModelView(schema: NonNullable<CatalogResponse['schema']>, depth: number): string {
-  if (depth > 6) return '...';
-  const lines: string[] = [];
-  const indent = '  '.repeat(depth);
+/* ── Response row (spec-defined) ──────────────────── */
 
-  if (schema.type === 'object' || schema.properties) {
-    lines.push(`${indent}{`);
-    for (const [key, propSchema] of Object.entries(schema.properties ?? {})) {
-      const req = schema.required?.includes(key) ? '' : '?';
-      const type = propSchema.type ?? 'any';
-      const desc = propSchema.description ? `  // ${propSchema.description}` : '';
-      if (propSchema.type === 'object' || propSchema.properties) {
-        lines.push(`${indent}  ${key}${req}: ${buildModelView(propSchema, depth + 1).trim()}${desc}`);
-      } else if (propSchema.type === 'array') {
-        const itemType = propSchema.items
-          ? (propSchema.items.type === 'object' || propSchema.items.properties
-            ? buildModelView(propSchema.items, depth + 2).trim()
-            : propSchema.items.type ?? 'any')
-          : 'any';
-        lines.push(`${indent}  ${key}${req}: [${itemType}]${desc}`);
-      } else {
-        const enumStr = propSchema.enum ? ` enum: [${propSchema.enum.join(', ')}]` : '';
-        lines.push(`${indent}  ${key}${req}: ${type}${propSchema.format ? `($${propSchema.format})` : ''}${enumStr}${desc}`);
-      }
-    }
-    lines.push(`${indent}}`);
-  } else if (schema.type === 'array') {
-    const itemView = schema.items
-      ? buildModelView(schema.items, depth + 1).trim()
-      : 'any';
-    lines.push(`[${itemView}]`);
-  } else {
-    lines.push(`${schema.type ?? 'any'}${schema.format ? ` (${schema.format})` : ''}`);
-  }
-  return lines.join('\n');
+function RespRow({ resp: r }: { resp: CatalogResponse }) {
+  const [tab, setTab] = useState<'example' | 'model'>('example');
+  const hasSchema = !!r.schema;
+  const exJson = r.example
+    ? JSON.stringify(r.example, null, 2)
+    : (r.schema ? generateStubJson(r.schema) : null);
+
+  return (
+    <div className="sw-resp-row">
+      <div className={`sw-resp-code sw-sc-${r.statusCode[0]}`}>{r.statusCode}</div>
+      <div className="sw-resp-detail">
+        <div className="sw-resp-description">{r.description}</div>
+        {(exJson || hasSchema) && (
+          <div className="sw-example-box">
+            <div className="sw-example-tabs">
+              <button className={`sw-etab ${tab === 'example' ? 'active' : ''}`} onClick={() => setTab('example')}>
+                Example Value
+              </button>
+              {hasSchema && (
+                <button className={`sw-etab ${tab === 'model' ? 'active' : ''}`} onClick={() => setTab('model')}>
+                  Model
+                </button>
+              )}
+            </div>
+            {tab === 'example' && exJson && (
+              <pre className="sw-code-block sw-json">{highlightJson(exJson)}</pre>
+            )}
+            {tab === 'model' && hasSchema && (
+              <pre className="sw-code-block sw-model">{buildModel(r.schema!, 0)}</pre>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function formatBody(body: string): string {
-  try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+/* ── JSON example block ───────────────────────────── */
+
+function JsonBlock({ json, label }: { json: string; label: string }) {
+  return (
+    <div className="sw-example-box">
+      <div className="sw-example-tabs">
+        <button className="sw-etab active">{label}</button>
+      </div>
+      <pre className="sw-code-block sw-json">{highlightJson(json)}</pre>
+    </div>
+  );
+}
+
+/* ── Model view builder ───────────────────────────── */
+
+function buildModel(s: NonNullable<CatalogResponse['schema']>, d: number): string {
+  if (d > 6) return '...';
+  const pad = '  '.repeat(d);
+  if (s.type === 'object' || s.properties) {
+    const lines = [`${pad}{`];
+    for (const [k, v] of Object.entries(s.properties ?? {})) {
+      const opt = s.required?.includes(k) ? '' : '?';
+      const desc = v.description ? `  // ${v.description}` : '';
+      if (v.type === 'object' || v.properties)
+        lines.push(`${pad}  ${k}${opt}: ${buildModel(v, d + 1).trim()}${desc}`);
+      else if (v.type === 'array')
+        lines.push(`${pad}  ${k}${opt}: [${v.items ? (v.items.properties ? buildModel(v.items, d + 2).trim() : v.items.type ?? 'any') : 'any'}]${desc}`);
+      else {
+        const enm = v.enum ? ` enum:[${v.enum.join(',')}]` : '';
+        lines.push(`${pad}  ${k}${opt}: ${v.type ?? 'any'}${v.format ? `(${v.format})` : ''}${enm}${desc}`);
+      }
+    }
+    lines.push(`${pad}}`);
+    return lines.join('\n');
+  }
+  if (s.type === 'array')
+    return `[${s.items ? buildModel(s.items, d + 1).trim() : 'any'}]`;
+  return `${s.type ?? 'any'}${s.format ? `(${s.format})` : ''}`;
+}
+
+function fmtBody(b: string): string {
+  try { return JSON.stringify(JSON.parse(b), null, 2); } catch { return b; }
 }
