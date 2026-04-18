@@ -43,7 +43,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 ### Risks to Address
 
 - ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 306 unit/integration tests (Vitest) + 17 E2E tests (Playwright) = 323 total
-- **No CLI / CI** — without pipeline integration, adoption is limited to manual QA
+- ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
 - ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
@@ -126,22 +126,20 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unified Sidebar** — Tabbed Workbench | Projects toggle with resize, collapse, and persistent Settings
 - [x] **Context Menus & Confirmation Dialogs** — Full right-click menus with duplicate/move/rename/delete and confirmation
 
----
-
-## Upcoming Phases
-
-### Phase 0.7.0 — CLI Runner ⬆️ PRIORITY
+### Phase 0.7.0 — CLI Runner ✅
 
 > Without a CLI, the tool is limited to manual use. This is the single most important feature for adoption.
 
-- [ ] **File-Based Projects** — Store test definitions as `.yaml` or `.json` files committable to git
-- [ ] **CLI Runner** — `redfireforge run ./tests/checkout-flow.yaml --env t01 --concurrency 10 --duration 60s`
-- [ ] **CI Exit Codes** — Exit code 1 if assertions fail or error rate exceeds threshold
-- [ ] **JUnit XML Output** — For CI/CD integration (GitHub Actions, Jenkins, GitLab CI)
-- [ ] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports
+- [x] **File-Based Projects** — Store test definitions as `.yaml` or `.json` files committable to git
+- [x] **CLI Runner** — `redfireforge run ./tests/checkout-flow.yaml --env t01 --concurrency 10 --duration 60s`
+- [x] **CI Exit Codes** — Exit code 1 if assertions fail or error rate exceeds threshold (`--fail-on-error`, `--fail-threshold`)
+- [x] **JUnit XML Output** — For CI/CD integration (GitHub Actions, Jenkins, GitLab CI) (`--junit report.xml`)
+- [x] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports (`-o`, `--markdown`)
 - [ ] **npm Package** — Publish CLI as `npm install -g redfireforge`
 
 ---
+
+## Upcoming Phases
 
 ### Phase 0.7.5 — CI/CD Pipeline
 
@@ -244,7 +242,7 @@ Post-launch features driven by community feedback.
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | Data-Driven & Resilience | 8 | 8 |
 | 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
-| 0.7.0 | CLI Runner | 6 | 0 |
+| 0.7.0 | CLI Runner | 6 | 5 |
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
 | 0.8.5 | Workbench (Ad-Hoc API Testing) | 12 | 12 |
@@ -253,7 +251,7 @@ Post-launch features driven by community feedback.
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **99** | **46** |
+| **Total** | | **99** | **51** |
 
 ### Adoption Forecast
 
@@ -266,8 +264,8 @@ Post-launch features driven by community feedback.
 ### Critical Path to Open-Source (minimum viable launch)
 
 ```
-Phase 0.7.0 (CLI)  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
-     ↑ MUST HAVE          ↑ MUST HAVE              ↑ MUST HAVE
+Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
+                                  ↑ MUST HAVE              ↑ MUST HAVE
 
 Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
 Phase 0.8.5 (Workbench) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
@@ -277,4 +275,4 @@ Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launc
 
 ---
 
-_Last updated: 2026-04-18 (v0.5.0 — Phase 0.8.5 complete)_
+_Last updated: 2026-04-17 (v0.7.0 — CLI Runner complete)_

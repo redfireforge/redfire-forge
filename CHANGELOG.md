@@ -8,7 +8,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
-_Changes merged into `develop` that haven't been released yet._
+### Added
+- **CLI Runner** (`redfireforge run`): Execute API performance tests from YAML or JSON files via command line
+- **YAML/JSON test file format**: Declarative test definitions with `baseUrl`, `defaults`, `config`, and `tests` sections
+- **CLI validate command** (`redfireforge validate`): Validate test file structure without running
+- **JUnit XML reporter**: `--junit report.xml` for CI/CD integration (GitHub Actions, Jenkins, GitLab CI)
+- **JSON report output**: `-o report.json` generates full `TestRun` report compatible with the UI
+- **Markdown report output**: `--markdown report.md` generates human-readable summary tables
+- **CI exit codes**: `--fail-on-error` (exit 1 on any failure) and `--fail-threshold <pct>` (exit 1 above error rate)
+- **CLI flags**: `--concurrency`, `--transactions`, `--mode`, `--timeout`, `--retries`, `--base-url`, `--env`, `--quiet`
+- **Corporate proxy support**: Auto-detects `HTTP_PROXY`/`HTTPS_PROXY` for Node.js environments
+- **Example test files**: `examples/sample-api-test.yaml`, `examples/load-profile-test.yaml`, `examples/auth-test.yaml`, `examples/sample-api-test.json`
+- **esbuild CLI build**: `npm run build:cli` bundles to a single distributable `dist-cli/redfireforge.mjs`
+
+### Changed
+- **Platform detection**: `isTauri()` now safe in non-browser environments; added `isNode()` for CLI mode
+- **HTTP client**: Added Node-native `fetch` path with `undici` proxy agent for corporate networks
 
 ---
 

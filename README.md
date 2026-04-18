@@ -9,6 +9,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [CLI Runner](#cli-runner)
 - [Architecture Overview](#architecture-overview)
 - [UI Configuration Guide](#ui-configuration-guide)
   - [Settings](#settings)
@@ -97,6 +98,113 @@ Press `Ctrl+C` in the terminal running the dev command.
 
 ---
 
+## CLI Runner
+
+Run API performance tests from the command line using YAML or JSON test files. The CLI reuses the same execution engine, validators, and reporters as the GUI — so tests behave identically in CI/CD and on your desktop.
+
+### Quick Example
+
+```bash
+# Run tests (development — uses tsx)
+npx tsx cli/index.ts run examples/sample-api-test.yaml -c 5 -t 20
+
+# Build distributable CLI, then run
+npm run build:cli
+node dist-cli/redfireforge.mjs run examples/sample-api-test.yaml -c 5 -t 20
+```
+
+### Test File Format (YAML)
+
+```yaml
+name: My API Tests
+baseUrl: https://api.example.com
+
+defaults:
+  headers:
+    Accept: application/json
+  timeout: 10
+  retries: 1
+
+config:
+  concurrency: 5
+  transactions: 50
+  mode: batch                  # sequential | batch | pool | load-profile
+
+tests:
+  - name: List Users
+    url: /users
+    method: GET
+    weight: 2
+    validation:
+      mode: selective
+      expectedFields:
+        - jsonPath: "$.data[0].name"
+          expectedValue: "Alice"
+
+  - name: Create User
+    url: /users
+    method: POST
+    headers:
+      Content-Type: application/json
+    body: '{"name": "Test User"}'
+    auth:
+      type: bearer
+      token: my-jwt-token
+```
+
+### CLI Commands
+
+```bash
+# Run a test file
+redfireforge run <file> [options]
+
+# Validate a test file without running
+redfireforge validate <file>
+```
+
+### Run Options
+
+| Flag | Description |
+|---|---|
+| `-c, --concurrency <n>` | Number of concurrent requests |
+| `-t, --transactions <n>` | Total number of requests |
+| `-m, --mode <mode>` | `sequential`, `batch`, `pool`, `load-profile` |
+| `--timeout <sec>` | Per-request timeout |
+| `--retries <n>` | Retry count on failure |
+| `--base-url <url>` | Override the base URL for all tests |
+| `--env <name>` | Environment name (metadata for reports) |
+| `--duration <sec>` | Duration in seconds (load-profile mode) |
+| `-o, --output <path>` | Write JSON report |
+| `--junit <path>` | Write JUnit XML report |
+| `--markdown <path>` | Write Markdown report |
+| `--fail-on-error` | Exit code 1 if any request fails |
+| `--fail-threshold <pct>` | Exit code 1 if error rate exceeds % |
+| `-q, --quiet` | Suppress progress output |
+
+### Report Outputs
+
+**JSON** (`-o report.json`) — Full `TestRun` object compatible with the GUI's import format.
+
+**JUnit XML** (`--junit report.xml`) — Standard JUnit format for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI).
+
+**Markdown** (`--markdown report.md`) — Human-readable summary table with TPS, percentiles, error rates.
+
+### CI/CD Usage
+
+```bash
+# In GitHub Actions, Jenkins, etc.
+npx tsx cli/index.ts run tests/smoke.yaml \
+  --concurrency 10 \
+  --transactions 100 \
+  --fail-on-error \
+  --junit results/junit.xml \
+  --markdown results/summary.md
+```
+
+Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid file or runtime error.
+
+---
+
 ## Architecture Overview
 
 ```
@@ -153,8 +261,8 @@ src/
 │       └── MultiEnvResultRow.tsx      # Multi-environment result row
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
-│   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
+│   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
+│   ├── platform.ts          # Runtime platform detection (Tauri / browser / Node)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
 │   ├── curlGenerator.ts     # Test config → cURL command builder
@@ -174,6 +282,17 @@ src/
 │   └── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
 └── types/
     └── index.ts             # Shared TypeScript interfaces
+
+cli/                            # CLI Runner (headless, Node.js)
+├── index.ts                 # Entry point: `run` and `validate` commands (commander)
+├── loader.ts                # YAML/JSON test file parser → engine Scenario/TestConfig
+└── reporters.ts             # JSON, JUnit XML, Markdown report generators
+
+examples/                       # Example test files for CLI
+├── sample-api-test.yaml     # Basic YAML test with validation
+├── sample-api-test.json     # Same tests in JSON format
+├── load-profile-test.yaml   # Ramp-up load profile example
+└── auth-test.yaml           # Authentication scenarios (bearer, basic, apikey)
 
 src-tauri/
 ├── tauri.conf.json          # Tauri app configuration (window, bundle, plugins)
@@ -682,7 +801,15 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
+| **CLI Runner** | Execute tests from YAML/JSON files via `redfireforge run` — same engine as the GUI |
+| CLI validate | `redfireforge validate` checks file structure without executing |
+| JUnit XML reports | `--junit report.xml` for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI) |
+| JSON / Markdown reports | `-o report.json` and `--markdown report.md` for machine-readable and human-readable output |
+| CI exit codes | `--fail-on-error` and `--fail-threshold` for quality gates in pipelines |
+| YAML/JSON test files | Declarative test definitions with `baseUrl`, `defaults`, `config`, auth, validation |
+| CLI base URL override | `--base-url` flag replaces all relative URLs at runtime |
 | Native HTTP (desktop) | Tauri HTTP plugin bypasses CORS — no proxy needed |
+| Node.js HTTP (CLI) | Native `fetch` with auto-detected proxy support (`HTTP_PROXY`/`HTTPS_PROXY`) |
 | CORS proxy (web) | Built-in Vite server proxy for browser mode |
 | Cross-platform builds | macOS (ARM + Intel), Windows, Linux via GitHub Actions CI/CD |
 | Hot-reload development | `npm run tauri:dev` gives instant UI updates in the desktop window |
