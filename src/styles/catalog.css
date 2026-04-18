@@ -617,6 +617,23 @@
 .sw-resp-headers-details { margin-bottom: 8px; }
 .sw-resp-headers-details summary { font-size: 0.78rem; color: var(--text-muted); cursor: pointer; font-weight: 600; }
 
+/* ── Error block ───────────────────────────────── */
+.sw-error-block {
+  background: rgba(249,62,62,0.08); border: 1px solid rgba(249,62,62,0.3);
+  border-radius: var(--radius); padding: 16px 20px; margin-top: 8px;
+}
+.sw-error-title {
+  font-weight: 700; font-size: 0.88rem; color: #f93e3e; margin-bottom: 8px;
+}
+.sw-error-message {
+  font-family: 'SF Mono','Consolas','Menlo',monospace; font-size: 0.82rem;
+  color: var(--text); background: var(--surface); padding: 10px 14px;
+  border-radius: 4px; word-break: break-all; margin-bottom: 10px;
+}
+.sw-error-hint {
+  font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;
+}
+
 /* ── Auth panel field styles (shared) ──────────── */
 .cep-tryit-field { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .cep-field-name { min-width: 100px; font-size: 0.78rem; font-weight: 600; font-family: monospace; }
