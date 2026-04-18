@@ -93,7 +93,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   return (
     <div className="sw-card" style={{ borderColor: color }}>
       {/* ── HEADER ────────────────────────────────── */}
-      <div className="sw-header" style={{ background: MBG[endpoint.method] }} onClick={() => setExpanded(v => !v)}>
+      <div className="sw-header" role="button" tabIndex={0} style={{ background: MBG[endpoint.method] }}
+        onClick={() => setExpanded(v => !v)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(v => !v); } }}>
         <span className="sw-method" style={{ background: color }}>{endpoint.method}</span>
         <span className="sw-path">{endpoint.path}</span>
         <span className="sw-summary">{endpoint.summary}</span>

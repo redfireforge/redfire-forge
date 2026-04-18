@@ -10,11 +10,14 @@ interface Props {
 }
 
 type Step = 'pick' | 'preview' | 'error';
+type InputMode = 'file' | 'paste';
 
 export default function CatalogImportModal({ existingEntries, onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('pick');
+  const [inputMode, setInputMode] = useState<InputMode>('file');
   const [parsed, setParsed] = useState<ParsedSpec | null>(null);
   const [fileName, setFileName] = useState('');
+  const [pasteText, setPasteText] = useState('');
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +32,11 @@ export default function CatalogImportModal({ existingEntries, onImport, onClose 
       setStep('error');
     }
   }, []);
+
+  const handleParsePaste = useCallback(() => {
+    if (!pasteText.trim()) return;
+    handleFile(pasteText, 'pasted-spec.yaml');
+  }, [pasteText, handleFile]);
 
   const handleFileInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,39 +88,70 @@ export default function CatalogImportModal({ existingEntries, onImport, onClose 
 
         <div className="cat-modal-body">
           {step === 'pick' && (
-            <div
-              className="cat-import-dropzone"
-              onDragOver={e => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <div className="cat-dropzone-icon">📄</div>
-              <div className="cat-dropzone-text">
-                Drag & drop a .yaml or .json file
+            <>
+              <div className="cat-import-tabs">
+                <button className={`cat-import-tab ${inputMode === 'file' ? 'active' : ''}`}
+                  onClick={() => setInputMode('file')}>Upload File</button>
+                <button className={`cat-import-tab ${inputMode === 'paste' ? 'active' : ''}`}
+                  onClick={() => setInputMode('paste')}>Paste YAML / JSON</button>
               </div>
-              <div className="cat-dropzone-actions">
-                {isTauri() ? (
-                  <button className="cat-btn cat-btn-primary" onClick={handleTauriOpen}>
-                    Browse Files
-                  </button>
-                ) : (
-                  <>
-                    <button className="cat-btn cat-btn-primary" onClick={() => fileRef.current?.click()}>
-                      Browse Files
+
+              {inputMode === 'file' ? (
+                <div
+                  className="cat-import-dropzone"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={handleDrop}
+                >
+                  <div className="cat-dropzone-icon">📄</div>
+                  <div className="cat-dropzone-text">
+                    Drag & drop a .yaml or .json file
+                  </div>
+                  <div className="cat-dropzone-actions">
+                    {isTauri() ? (
+                      <button className="cat-btn cat-btn-primary" onClick={handleTauriOpen}>
+                        Browse Files
+                      </button>
+                    ) : (
+                      <>
+                        <button className="cat-btn cat-btn-primary" onClick={() => fileRef.current?.click()}>
+                          Browse Files
+                        </button>
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept=".yaml,.yml,.json"
+                          style={{ display: 'none' }}
+                          onChange={handleFileInput}
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="cat-dropzone-hint">
+                    Supported: OpenAPI 3.0, 3.1, Swagger 2.0
+                  </div>
+                </div>
+              ) : (
+                <div className="cat-import-paste">
+                  <textarea
+                    className="cat-paste-textarea"
+                    placeholder="Paste your OpenAPI / Swagger YAML or JSON here..."
+                    value={pasteText}
+                    onChange={e => setPasteText(e.target.value)}
+                    spellCheck={false}
+                    rows={14}
+                  />
+                  <div className="cat-paste-actions">
+                    <button className="cat-btn cat-btn-primary" onClick={handleParsePaste}
+                      disabled={!pasteText.trim()}>
+                      Parse
                     </button>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept=".yaml,.yml,.json"
-                      style={{ display: 'none' }}
-                      onChange={handleFileInput}
-                    />
-                  </>
-                )}
-              </div>
-              <div className="cat-dropzone-hint">
-                Supported: OpenAPI 3.0, 3.1, Swagger 2.0
-              </div>
-            </div>
+                    <span className="cat-dropzone-hint">
+                      Supported: OpenAPI 3.0, 3.1, Swagger 2.0
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {step === 'preview' && parsed && (
