@@ -92,42 +92,42 @@ export default function TestEditorValidationTab({
                   {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : 'REGEX'}
                 </span>
                 {a.type === 'status' && (
-                  <label className="assertion-field">
-                    Expected:
+                  <div className="assertion-field">
+                    <span className="assertion-field-label">Expected</span>
                     <input value={a.expected} onChange={(e) => updateAssertion(i, { expected: e.target.value })} placeholder="200, 2xx, 200-299" className="assertion-input" />
-                  </label>
+                  </div>
                 )}
                 {a.type === 'responseTime' && (
-                  <label className="assertion-field">
-                    Max:
+                  <div className="assertion-field">
+                    <span className="assertion-field-label">Max</span>
                     <input type="number" value={a.maxMs} onChange={(e) => updateAssertion(i, { maxMs: Number(e.target.value) || 0 })} className="assertion-input assertion-input-sm" min={0} />
                     <span className="assertion-unit">ms</span>
-                  </label>
+                  </div>
                 )}
                 {a.type === 'header' && (
-                  <>
-                    <input value={a.name} onChange={(e) => updateAssertion(i, { name: e.target.value })} placeholder="Header name" className="assertion-input" />
+                  <div className="assertion-field">
+                    <input value={a.name} onChange={(e) => updateAssertion(i, { name: e.target.value })} placeholder="Header name" className="assertion-input assertion-input-header-name" />
                     <select value={a.operator} onChange={(e) => updateAssertion(i, { operator: e.target.value as AssertionOperator })} className="assertion-select">
                       <option value="equals">equals</option>
                       <option value="contains">contains</option>
-                      <option value="regex">matches regex</option>
+                      <option value="regex">regex</option>
                       <option value="exists">exists</option>
                     </select>
                     {a.operator !== 'exists' && (
-                      <input value={a.value ?? ''} onChange={(e) => updateAssertion(i, { value: e.target.value })} placeholder="Expected value" className="assertion-input" />
+                      <input value={a.value ?? ''} onChange={(e) => updateAssertion(i, { value: e.target.value })} placeholder="Expected value" className="assertion-input assertion-input-header-val" />
                     )}
-                  </>
+                  </div>
                 )}
                 {a.type === 'regex' && (
-                  <>
-                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.path" className="assertion-input" />
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.path" className="assertion-input assertion-input-path" />
                     <span className="assertion-regex-slash">/</span>
                     <input value={a.pattern} onChange={(e) => updateAssertion(i, { pattern: e.target.value })} placeholder="pattern" className="assertion-input" />
                     <span className="assertion-regex-slash">/</span>
                     <button type="button" className="assertion-builder-btn" onClick={() => setRegexModalIdx(i)} title="Open Regex Builder">Builder</button>
-                  </>
+                  </div>
                 )}
-                <button type="button" className="btn btn-xs btn-danger" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
+                <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
               </div>
             ))}
           </div>
