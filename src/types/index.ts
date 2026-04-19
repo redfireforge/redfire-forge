@@ -133,12 +133,24 @@ export interface LoadProfileConfig {
 
 export type ErrorPolicy = 'continue' | 'stop-first' | 'stop-threshold';
 
+export type ThinkTimeMode = 'none' | 'constant' | 'uniform' | 'gaussian';
+
+export interface ThinkTimeConfig {
+  mode: ThinkTimeMode;
+  constantMs?: number;
+  minMs?: number;
+  maxMs?: number;
+  meanMs?: number;
+  stdDevMs?: number;
+}
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  thinkTime?: ThinkTimeConfig;
   timeoutSec?: number;
   retryCount?: number;
   retryDelayMs?: number;

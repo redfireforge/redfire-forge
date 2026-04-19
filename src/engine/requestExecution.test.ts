@@ -36,6 +36,7 @@ function makeRunOpts(overrides: Partial<RunOpts> = {}): RunOpts {
     retryDelayMs: 0,
     breaker: new CircuitBreaker('continue'),
     onProgress: vi.fn(),
+    getThinkTimeMs: () => 0,
     ...overrides,
   };
 }

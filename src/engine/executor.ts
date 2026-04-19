@@ -5,6 +5,7 @@ import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
+import { createThinkTimeDelay } from './thinkTime';
 
 export interface ProgressMeta {
   elapsedMs: number;
@@ -135,7 +136,8 @@ export async function runTest(
   }
 
   const mode = config.executionMode ?? 'batch';
-  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal };
+  const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
+  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
 
   if (mode === 'load-profile' && config.loadProfile) {
     return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts);
