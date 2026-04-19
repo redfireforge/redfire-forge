@@ -97,11 +97,11 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
     if (!linkedSvc) return [];
     const allEnvs = [...(appEnvironments ?? []), ...(linkedSvc.customEnvs ?? [])];
     return allEnvs
-      .filter(e => linkedSvc.baseUrls[e.id])
+      .filter(e => linkedSvc.baseUrls[e.id] || linkedSvc.authProfileIds?.[e.id])
       .map(e => ({
         envId: e.id,
         envName: e.name,
-        baseUrl: linkedSvc.baseUrls[e.id],
+        baseUrl: linkedSvc.baseUrls[e.id] ?? '',
       }));
   }, [linkedSvc, appEnvironments]);
 
@@ -176,7 +176,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               >
                 {linkedSvc ? svcEnvOptions.map(opt => (
                   <option key={opt.envId} value={opt.envId}>
-                    {opt.envName} — {opt.baseUrl}
+                    {opt.envName}{opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}
                   </option>
                 )) : entry.environments!.map(env => (
                   <option key={env.id} value={env.id}>
