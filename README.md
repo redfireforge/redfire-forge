@@ -215,11 +215,12 @@ src/
 ├── App.css                  # Root styles & imports
 ├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
 ├── pages/
-│   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
-│   ├── TestRunner.tsx       # Configure & execute performance runs
-│   ├── ResultsDashboard.tsx # View & analyze historical test results
-│   ├── Workbench.tsx        # Workbench: ad-hoc API testing (Insomnia/Postman-style)
-│   └── ApiCatalog.tsx       # API Catalog: OpenAPI/Swagger browser & interactive testing
+│   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
+│   ├── TestRunner.tsx          # Configure & execute performance runs
+│   ├── ResultsDashboard.tsx    # View & analyze historical test results
+│   ├── Workbench.tsx           # Workbench: ad-hoc API testing (Insomnia/Postman-style)
+│   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
+│   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
 ├── engine/
 │   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
 │   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
@@ -239,7 +240,6 @@ src/
 │   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
 │   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
 │   ├── SettingsModal.tsx        # Split-panel settings shell (delegates to tab components)
-│   ├── SettingsProjectsTab.tsx  # Projects tab: environments, microservices, auth profiles
 │   ├── SettingsStorageTab.tsx   # Storage usage tab
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
@@ -272,6 +272,7 @@ src/
 │       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
 │       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
 │       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
+│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Workbench
 │       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
@@ -295,6 +296,9 @@ src/
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   ├── export.ts            # JSON & CSV export utilities
 │   ├── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
+│   ├── workbenchAuthState.ts # Auth config ↔ UI state mapping for workbench collection modals
+│   ├── workbenchUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
+│   ├── catalogExport.ts     # Catalog-to-workbench export: build collections with env folders, requests, auth
 │   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
 │   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
 └── types/
@@ -337,9 +341,9 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 
 ## UI Configuration Guide
 
-### Settings
+### Settings & Environments
 
-Open **Settings** (⚙ button in the sidebar) to configure your testing infrastructure.
+Open **Settings** (⚙ button in the sidebar) or click **Environments** in the top-left sidebar to configure your testing infrastructure. Environments, microservices, and auth profiles are managed from a unified top-level page shared across Workbench, Catalog, and Harness.
 
 #### Environments & Microservices
 
@@ -351,11 +355,10 @@ Open **Settings** (⚙ button in the sidebar) to configure your testing infrastr
 
 **How to configure:**
 
-1. Click **⚙ Settings** at the bottom of the sidebar.
+1. Click the **Environments** section in the top-left sidebar, or open **⚙ Settings**.
 2. Under **Environments**, type a name and click **Add** to create environments.
 3. Under **Microservices**, type a name and click **Add** to create services.
 4. For each microservice, click **Configure** to expand the environment table. Mark environments as **Deployed** (checkbox), then click **Edit** next to each to enter the base URL. Press **Save** or hit Enter to confirm.
-5. Close the Settings modal when done.
 
 #### Global Auth Profiles
 

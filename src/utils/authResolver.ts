@@ -2,13 +2,16 @@ import type { AuthConfig, FeatureGroup, GlobalAuthProfile, Scenario, TestScenari
 
 /**
  * Walks the auth inheritance chain:
- *   Test → Scenario → Feature Group → Global Auth Profile → { type: 'none' }
+ *   Test → Scenario → Feature Group → Global Auth Profile → Env Auth → { type: 'none' }
+ *
+ * envFallbackAuth: resolved from Microservice.authProfileIds[envId] in the Environment config.
  */
 export function resolveAuth(
   test: Scenario,
   scenario: Pick<TestScenario, 'auth'>,
   featureGroup: Pick<FeatureGroup, 'auth' | 'globalAuthProfileId'>,
   globalAuthProfiles: Pick<GlobalAuthProfile, 'id' | 'auth'>[],
+  envFallbackAuth?: AuthConfig,
 ): AuthConfig {
   if (test.auth.type !== 'inherit' && test.auth.type !== 'none') return test.auth;
 
@@ -22,6 +25,8 @@ export function resolveAuth(
     const profile = globalAuthProfiles.find((p) => p.id === featureGroup.globalAuthProfileId);
     if (profile && profile.auth.type !== 'none') return profile.auth;
   }
+
+  if (envFallbackAuth && envFallbackAuth.type !== 'none') return envFallbackAuth;
 
   return { type: 'none' };
 }

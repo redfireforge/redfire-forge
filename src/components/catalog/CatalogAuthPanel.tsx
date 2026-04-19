@@ -101,7 +101,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
           <label className="cep-field-name">Type</label>
           <select className="cep-field-input" value={mode} onChange={e => handleModeChange(e.target.value)}>
             {hasSchemes && <option value="inherit">Inherit from Spec</option>}
-            {hasGlobal && <option value="global">Global Auth Profile</option>}
+            {hasGlobal && <option value="global">From Environment</option>}
             <option value="none">No Auth</option>
             <option value="bearer">Bearer Token</option>
             <option value="basic">Basic Auth</option>

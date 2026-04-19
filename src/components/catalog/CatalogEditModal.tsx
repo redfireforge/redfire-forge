@@ -1,73 +1,60 @@
-import { useState, useCallback } from 'react';
-import type { CatalogEntry, CatalogEnvironment } from '../../types/catalog';
+import { useState, useCallback, useMemo } from 'react';
+import type { CatalogEntry } from '../../types/catalog';
+import type { Environment, Microservice } from '../../types';
 
 interface Props {
   entry: CatalogEntry;
+  microservices: Microservice[];
+  environments: Environment[];
   onSave: (patch: Partial<CatalogEntry>) => void;
   onClose: () => void;
 }
 
-function newId() {
-  return `env-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
+export default function CatalogEditModal({ entry, microservices, environments, onSave, onClose }: Props) {
+  const [selectedSvcId, setSelectedSvcId] = useState<string>(entry.microserviceId ?? '');
 
-export default function CatalogEditModal({ entry, onSave, onClose }: Props) {
-  const [envs, setEnvs] = useState<CatalogEnvironment[]>(() => entry.environments ?? []);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: '', baseUrl: '' });
+  const linkedSvc = useMemo(
+    () => microservices.find(s => s.id === selectedSvcId),
+    [microservices, selectedSvcId],
+  );
 
-  const startAdd = useCallback(() => {
-    const id = newId();
-    setDraft({ name: '', baseUrl: '' });
-    setEditingId(id);
-    setEnvs(prev => [...prev, { id, name: '', baseUrl: '' }]);
-  }, []);
-
-  const startEdit = useCallback((env: CatalogEnvironment) => {
-    setEditingId(env.id);
-    setDraft({ name: env.name, baseUrl: env.baseUrl });
-  }, []);
-
-  const cancelEdit = useCallback(() => {
-    if (editingId) {
-      setEnvs(prev => prev.filter(e => !(e.id === editingId && !e.name && !e.baseUrl)));
-    }
-    setEditingId(null);
-    setDraft({ name: '', baseUrl: '' });
-  }, [editingId]);
-
-  const confirmEdit = useCallback(() => {
-    if (!editingId || !draft.name.trim() || !draft.baseUrl.trim()) return;
-    setEnvs(prev => prev.map(e => e.id === editingId ? { ...e, name: draft.name.trim(), baseUrl: draft.baseUrl.trim() } : e));
-    setEditingId(null);
-    setDraft({ name: '', baseUrl: '' });
-  }, [editingId, draft]);
-
-  const removeEnv = useCallback((id: string) => {
-    setEnvs(prev => prev.filter(e => e.id !== id));
-    if (editingId === id) {
-      setEditingId(null);
-      setDraft({ name: '', baseUrl: '' });
-    }
-  }, [editingId]);
+  const envRows = useMemo(() => {
+    if (!linkedSvc) return [];
+    const allEnvs = [...environments, ...(linkedSvc.customEnvs ?? [])];
+    return allEnvs
+      .filter(e => linkedSvc.baseUrls[e.id])
+      .map(e => ({
+        envId: e.id,
+        envName: e.name,
+        baseUrl: linkedSvc.baseUrls[e.id],
+      }));
+  }, [linkedSvc, environments]);
 
   const handleSave = useCallback(() => {
-    const validEnvs = envs.filter(e => e.name.trim() && e.baseUrl.trim());
-    const activeId = entry.activeEnvironmentId;
-    const stillValid = validEnvs.some(e => e.id === activeId);
-    onSave({
-      environments: validEnvs,
-      activeEnvironmentId: stillValid ? activeId : undefined,
-      ...(entry.hostConfig.strategy === 'environment' && !stillValid
-        ? { hostConfig: { ...entry.hostConfig, strategy: 'inherited', environmentId: undefined } }
-        : {}),
-    });
+    const patch: Partial<CatalogEntry> = {
+      microserviceId: selectedSvcId || undefined,
+      environments: undefined,
+      activeEnvironmentId: undefined,
+    };
+
+    if (!selectedSvcId && entry.hostConfig.strategy === 'environment') {
+      patch.hostConfig = { ...entry.hostConfig, strategy: 'inherited', environmentId: undefined };
+    }
+    if (selectedSvcId && entry.hostConfig.strategy === 'environment' && entry.hostConfig.environmentId) {
+      const svc = microservices.find(s => s.id === selectedSvcId);
+      if (svc && !svc.baseUrls[entry.hostConfig.environmentId]) {
+        const firstEnvId = Object.keys(svc.baseUrls).find(k => svc.baseUrls[k]);
+        patch.hostConfig = { ...entry.hostConfig, environmentId: firstEnvId };
+      }
+    }
+
+    onSave(patch);
     onClose();
-  }, [envs, entry, onSave, onClose]);
+  }, [selectedSvcId, entry, microservices, onSave, onClose]);
 
   return (
     <div className="cat-modal-overlay" onClick={onClose}>
-      <div className="cat-modal" onClick={e => e.stopPropagation()}>
+      <div className="cat-modal cat-modal-wide" onClick={e => e.stopPropagation()}>
         <div className="cat-modal-header">
           <h3>Edit — {entry.name}</h3>
           <button className="cat-modal-close" onClick={onClose}>×</button>
@@ -75,72 +62,56 @@ export default function CatalogEditModal({ entry, onSave, onClose }: Props) {
 
         <div className="cat-modal-body">
           <div className="cat-edit-section">
-            <div className="cat-edit-section-header">
-              <h4 className="cat-edit-section-title">Environments</h4>
-              <button className="cat-btn-sm" onClick={startAdd} disabled={editingId !== null}>
-                + Add
-              </button>
-            </div>
+            <h4 className="cat-edit-section-title">Link to Microservice</h4>
             <p className="cat-edit-hint">
-              Define environments with base URLs. Select one in the host bar to use it for requests.
+              Associate this API spec with a microservice from your Environments.
+              The host bar will resolve base URLs automatically.
             </p>
 
-            {envs.length === 0 && !editingId && (
-              <div className="cat-edit-empty">
-                No environments configured. Click "+ Add" to create one.
+            <select
+              className="ceb-server-select"
+              value={selectedSvcId}
+              onChange={e => setSelectedSvcId(e.target.value)}
+              style={{ width: '100%', marginTop: 8 }}
+            >
+              <option value="">— None (use From Spec / Custom URL) —</option>
+              {microservices.map(svc => (
+                <option key={svc.id} value={svc.id}>{svc.name}</option>
+              ))}
+            </select>
+
+            {linkedSvc && envRows.length > 0 && (
+              <div className="cat-edit-env-preview" style={{ marginTop: 12 }}>
+                <table className="cat-env-table">
+                  <thead>
+                    <tr>
+                      <th>Environment</th>
+                      <th>Base URL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {envRows.map(row => (
+                      <tr key={row.envId}>
+                        <td>{row.envName}</td>
+                        <td><code>{row.baseUrl}</code></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            <div className="cat-edit-env-list">
-              {envs.map(env => (
-                <div key={env.id} className={`cat-edit-env-item ${editingId === env.id ? 'editing' : ''}`}>
-                  {editingId === env.id ? (
-                    <div className="cat-edit-env-form">
-                      <div className="cat-edit-env-field">
-                        <label>Name</label>
-                        <input
-                          className="cep-field-input"
-                          placeholder="e.g. Test, Staging, Production"
-                          value={draft.name}
-                          onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
-                          autoFocus
-                        />
-                      </div>
-                      <div className="cat-edit-env-field">
-                        <label>Base URL</label>
-                        <input
-                          className="cep-field-input"
-                          placeholder="https://api.example.com/v1"
-                          value={draft.baseUrl}
-                          onChange={e => setDraft(d => ({ ...d, baseUrl: e.target.value }))}
-                        />
-                      </div>
-                      <div className="cat-edit-env-actions">
-                        <button className="cat-btn cat-btn-primary" onClick={confirmEdit} disabled={!draft.name.trim() || !draft.baseUrl.trim()}>
-                          Save
-                        </button>
-                        <button className="cat-btn" onClick={cancelEdit}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="cat-edit-env-row">
-                      <div className="cat-edit-env-info">
-                        <span className="cat-edit-env-name">{env.name}</span>
-                        <code className="cat-edit-env-url">{env.baseUrl}</code>
-                      </div>
-                      <div className="cat-edit-env-btns">
-                        <button className="cat-btn-xs" onClick={() => startEdit(env)} disabled={editingId !== null}>
-                          Edit
-                        </button>
-                        <button className="cat-btn-xs cat-btn-xs-danger" onClick={() => removeEnv(env.id)} disabled={editingId !== null}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            {linkedSvc && envRows.length === 0 && (
+              <div className="cat-edit-empty" style={{ marginTop: 12 }}>
+                This microservice has no base URLs configured. Go to Environments to add them.
+              </div>
+            )}
+
+            {!selectedSvcId && (
+              <div className="cat-edit-empty" style={{ marginTop: 12 }}>
+                No microservice linked. You can still use "From Spec" or "Custom URL" in the host bar.
+              </div>
+            )}
           </div>
         </div>
 

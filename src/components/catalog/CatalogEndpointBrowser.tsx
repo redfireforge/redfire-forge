@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { CatalogEntry, SavedEndpointValues } from '../../types/catalog';
-import type { AuthConfig, GlobalAuthProfile } from '../../types';
+import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../types';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../../utils/catalogCurlGenerator';
@@ -12,9 +12,11 @@ interface Props {
   onAuthChange: (auth: AuthConfig) => void;
   onHostChange: (patch: Partial<CatalogEntry['hostConfig']>) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
+  appEnvironments?: Environment[];
+  appMicroservices?: Microservice[];
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -30,7 +32,11 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
       setEpValues({});
       setEpLoaded(false);
     }
-    loadCatalogEndpointValues(entry.id).then(v => { setEpValues(v); setEpLoaded(true); });
+    let cancelled = false;
+    loadCatalogEndpointValues(entry.id).then(v => {
+      if (!cancelled) { setEpValues(v); setEpLoaded(true); }
+    });
+    return () => { cancelled = true; };
   }, [entry.id]);
 
   const pendingEpValues = useRef<Record<string, SavedEndpointValues>>({});
@@ -82,8 +88,27 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
     return check(entry.endpoints) || entry.folders.some(f => check(f.endpoints));
   }, [entry]);
 
+  const linkedSvc = useMemo(
+    () => entry.microserviceId ? appMicroservices?.find(s => s.id === entry.microserviceId) : undefined,
+    [entry.microserviceId, appMicroservices],
+  );
+
+  const svcEnvOptions = useMemo(() => {
+    if (!linkedSvc) return [];
+    const allEnvs = [...(appEnvironments ?? []), ...(linkedSvc.customEnvs ?? [])];
+    return allEnvs
+      .filter(e => linkedSvc.baseUrls[e.id])
+      .map(e => ({
+        envId: e.id,
+        envName: e.name,
+        baseUrl: linkedSvc.baseUrls[e.id],
+      }));
+  }, [linkedSvc, appEnvironments]);
+
+  const hasEnvOptions = linkedSvc ? svcEnvOptions.length > 0 : (entry.environments?.length ?? 0) > 0;
+
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
-  const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments);
+  const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments, linkedSvc);
 
   return (
     <div className="ceb-container">
@@ -106,11 +131,16 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               >
                 From Spec
               </button>
-              {(entry.environments?.length ?? 0) > 0 && (
+              {hasEnvOptions && (
                 <button
                   className={`ceb-strat-btn ${entry.hostConfig.strategy === 'environment' ? 'active' : ''}`}
-                  onClick={() => onHostChange({ strategy: 'environment', environmentId: entry.hostConfig.environmentId ?? entry.environments?.[0]?.id })}
-                  title="Use a configured environment"
+                  onClick={() => {
+                    const firstId = linkedSvc
+                      ? svcEnvOptions[0]?.envId
+                      : entry.environments?.[0]?.id;
+                    onHostChange({ strategy: 'environment', environmentId: entry.hostConfig.environmentId ?? firstId });
+                  }}
+                  title={linkedSvc ? `Use environment from ${linkedSvc.name}` : 'Use a configured environment'}
                 >
                   Environment
                 </button>
@@ -138,13 +168,17 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               </select>
             )}
 
-            {entry.hostConfig.strategy === 'environment' && (entry.environments?.length ?? 0) > 0 && (
+            {entry.hostConfig.strategy === 'environment' && hasEnvOptions && (
               <select
                 className="ceb-server-select"
                 value={entry.hostConfig.environmentId ?? ''}
                 onChange={e => onHostChange({ strategy: 'environment', environmentId: e.target.value })}
               >
-                {entry.environments!.map(env => (
+                {linkedSvc ? svcEnvOptions.map(opt => (
+                  <option key={opt.envId} value={opt.envId}>
+                    {opt.envName} — {opt.baseUrl}
+                  </option>
+                )) : entry.environments!.map(env => (
                   <option key={env.id} value={env.id}>
                     {env.name} — {env.baseUrl}
                   </option>
@@ -224,6 +258,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     savedValues={epValues[ep.id]}
                     onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
                     environments={entry.environments}
+                    linkedMicroservice={linkedSvc}
                   />
                 ))}
               </div>
@@ -250,6 +285,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     savedValues={epValues[ep.id]}
                     onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
                     environments={entry.environments}
+                    linkedMicroservice={linkedSvc}
                   />
                 ))}
               </div>

@@ -177,4 +177,83 @@ describe('diffCatalogEntries', () => {
     expect(diff.fromVersion).toBe('1.0.0');
     expect(diff.toVersion).toBe('2.0.0');
   });
+
+  it('detects description change', () => {
+    const oldEntry = makeEntry({ endpoints: [makeEp({ description: 'Old desc' })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ description: 'New desc' })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('Description changed');
+  });
+
+  it('detects un-deprecation', () => {
+    const oldEntry = makeEntry({ endpoints: [makeEp({ deprecated: true })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ deprecated: false })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('No longer deprecated');
+  });
+
+  it('detects parameter required change', () => {
+    const param = { name: 'id', in: 'path' as const, required: false, schema: { type: 'string' } };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ parameters: [param] })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ parameters: [{ ...param, required: true }] })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('required')]));
+  });
+
+  it('detects parameter schema change', () => {
+    const oldParam = { name: 'id', in: 'path' as const, required: true, schema: { type: 'string' } };
+    const newParam = { name: 'id', in: 'path' as const, required: true, schema: { type: 'integer' } };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ parameters: [oldParam] })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ parameters: [newParam] })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('schema changed')]));
+  });
+
+  it('detects request body removal', () => {
+    const oldEntry = makeEntry({
+      endpoints: [makeEp({
+        method: 'POST',
+        requestBody: { required: true, contentTypes: [{ mediaType: 'application/json', schema: { type: 'object' } }] },
+      })],
+    });
+    const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST' })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('Request body removed');
+  });
+
+  it('detects request body content type change', () => {
+    const oldBody = { required: true, contentTypes: [{ mediaType: 'application/json', schema: { type: 'object' } }] };
+    const newBody = { required: true, contentTypes: [{ mediaType: 'application/xml', schema: { type: 'object' } }] };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('Request body content types changed');
+  });
+
+  it('detects request body required change', () => {
+    const oldBody = { required: true, contentTypes: [{ mediaType: 'application/json', schema: {} }] };
+    const newBody = { required: false, contentTypes: [{ mediaType: 'application/json', schema: {} }] };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('Request body required changed');
+  });
+
+  it('detects security changes', () => {
+    const oldEntry = makeEntry({ endpoints: [makeEp({ security: [{ bearerAuth: [] }] })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ security: [{ apiKeyAuth: [] }] })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toContain('Security requirements changed');
+  });
+
+  it('detects removed response codes', () => {
+    const oldEntry = makeEntry({
+      endpoints: [makeEp({ responses: [{ statusCode: '200', description: 'OK' }, { statusCode: '404', description: 'NF' }] })],
+    });
+    const newEntry = makeEntry({
+      endpoints: [makeEp({ responses: [{ statusCode: '200', description: 'OK' }] })],
+    });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Removed response codes: 404')]));
+  });
 });

@@ -9,10 +9,9 @@ import { buildGroups, type GroupByLevel, type GroupNode } from '../utils/results
 interface Props {
   envName?: string;
   svcName?: string;
-  projectName?: string;
 }
 
-export default function ResultsDashboard({ envName, svcName, projectName }: Props) {
+export default function ResultsDashboard({ envName, svcName }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
 
   useEffect(() => {
@@ -28,7 +27,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
-  const [filterScenario] = useState<string>('all');
   const [filterPassed, setFilterPassed] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<GroupByLevel>('feature');
   const [subGroupBy, setSubGroupBy] = useState<GroupByLevel>('group');
@@ -88,7 +86,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     if (!selectedRun) return [];
     const q = searchTerm.toLowerCase().trim();
     return selectedRun.results.filter((r) => {
-      if (filterScenario !== 'all' && r.scenarioId !== filterScenario) return false;
       if (filterPassed === 'passed' && !r.passed) return false;
       if (filterPassed === 'failed' && r.passed) return false;
       if (q && !(
@@ -100,7 +97,7 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
       )) return false;
       return true;
     });
-  }, [selectedRun, filterScenario, filterPassed, searchTerm]);
+  }, [selectedRun, filterPassed, searchTerm]);
 
 
   const groupLevels: GroupByLevel[] = useMemo(() => {
@@ -122,6 +119,12 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
     if (isFlat) return 0;
     return groupTree.reduce((n, g) => n + 1 + g.children.length, 0);
   }, [groupTree, isFlat]);
+
+  useEffect(() => {
+    if (groupTree.length > 0) {
+      setExpanded(new Set(groupTree.map((g) => g.key)));
+    }
+  }, [groupTree]);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -247,7 +250,6 @@ export default function ResultsDashboard({ envName, svcName, projectName }: Prop
           <h2>Results</h2>
           {selectedRun && (
             <div className="context-tags">
-              {projectName && <span className="context-tag project-tag">{projectName}</span>}
               {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
               {selectedRun.baseUrl
