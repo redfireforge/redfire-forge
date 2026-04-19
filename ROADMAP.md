@@ -84,7 +84,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 | ~~3~~ | ~~**Think time & pacing**~~ | ~~No delay between requests per virtual user → unrealistic flood~~ | ~~0.9.1~~ ✅ |
 | ~~4~~ | ~~**Worker thread execution**~~ | ~~Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput~~ | ~~0.9.1~~ ✅ |
 | ~~5~~ | ~~**Connection pooling**~~ | ~~New TCP connection per request adds latency; `keep-alive` reuse = massive improvement~~ | ~~0.9.1~~ ✅ |
-| 6 | **Request timing breakdown** | No DNS/TLS/TTFB/download waterfall → can't diagnose *why* something is slow | 0.10.0 |
+| ~~6~~ | ~~**Request timing breakdown**~~ | ~~No DNS/TLS/TTFB/download waterfall → can't diagnose *why* something is slow~~ | ~~0.10.0~~ ✅ |
 
 #### Gap analysis: Good → Excellent
 
@@ -105,7 +105,7 @@ Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
   ③ ~~Worker thread execution~~ → ✅ Web Worker offloading (done)
   ④ ~~Connection pooling~~       → ✅ keep-alive reuse via undici.Agent (done)
   ⑤ ~~Rich assertions~~         → ✅ status code, SLA, header, regex (done)
-  ⑥ Request timing breakdown    → DNS/TLS/TTFB waterfall
+  ⑥ ~~Request timing breakdown~~  → ✅ TTFB/download waterfall bar, aggregated dashboard, CLI reports (done)
 
 Priority 2 — Reach "Excellent" (Phases 0.11.0 + 1.x)
   ⑦ Run comparison & trends     → CI/CD regression detection
@@ -330,7 +330,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Regex Assertions** — Match JSONPath-extracted values against regular expressions (`$.name matches /^[A-Z].*/`)
 - [ ] **Response Headers in Results** — Capture and display response headers (currently only body)
 - [ ] **Request Log** — Show the exact request sent including resolved auth headers
-- [ ] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
+- [x] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
 
 ---
 
@@ -411,11 +411,11 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
 | 0.9.0 | Variables & Chaining | → Good | 6 | 0 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
-| 0.10.0 | Assertions & Observability | → Good | 7 | 4 |
+| 0.10.0 | Assertions & Observability | → Good | 7 | 5 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **148** | **96** |
+| **Total** | | | **148** | **97** |
 
 ### Load Testing Level Milestones
 
@@ -428,7 +428,7 @@ CURRENT: Moderate (~100-300 RPS)
 TARGET: Good (~500-2,000 RPS)
   ├── Phase 0.9.0     Variables, chaining, workflow mode
   ├── Phase 0.9.1     Worker threads, connection pooling, think time, constant rate
-  └── Phase 0.10.0    Rich assertions, timing breakdown
+  └── Phase 0.10.0    Rich assertions ✅, timing breakdown ✅
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
@@ -465,4 +465,4 @@ Phases 0.9.0–0.10.0 elevate load testing from **Moderate** to **Good**. Phase 
 
 ---
 
-_Last updated: 2026-04-19 (v0.5.2 — Added Load Testing Maturity Levels & Engine Performance roadmap)_
+_Last updated: 2026-04-19 (v0.5.2 — Request timing breakdown complete; 97/148 items done)_
