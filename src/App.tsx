@@ -25,11 +25,15 @@ import Sidebar from './components/Sidebar';
 import RequestsSidebar from './components/requests/RequestsSidebar';
 import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
+import WorkflowDesigner from './pages/WorkflowDesigner';
 import RequestCollectionModal from './components/requests/RequestCollectionModal';
 import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'environments' | 'requests' | 'catalog' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'scenarios' | 'runner' | 'results';
+
+const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
+const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
 
 declare const __APP_VERSION__: string;
 
@@ -298,8 +302,10 @@ export default function App() {
             onClick={() => setActiveTab('requests')}>Requests</button>
           <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
             onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-nav-btn ${activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'environments' || activeTab === 'requests' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
+          <button className={`usb-nav-btn ${activeTab === 'workflow' ? 'active' : ''}`}
+            onClick={() => setActiveTab('workflow')}>Workflow</button>
+          <button className={`usb-nav-btn ${isHarnessTab(activeTab) ? 'active' : ''}`}
+            onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}>Harness</button>
         </nav>
 
         <div className="usb-content">
@@ -368,7 +374,7 @@ export default function App() {
               />
             )}
           </div>
-          {activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' && (
+          {isHarnessTab(activeTab) && (
             <Sidebar
               environments={environments}
               microservices={microservices}
@@ -396,12 +402,18 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' && (
+          {isHarnessTab(activeTab) && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
               <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
             </div>
+          )}
+          {activeTab === 'workflow' && (
+            <WorkflowDesigner
+              collections={wb.collections}
+              catalogEntries={catalog.entries}
+            />
           )}
           {activeTab === 'environments' && (
             <EnvironmentManager

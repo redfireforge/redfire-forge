@@ -1,0 +1,330 @@
+# Workflow Designer — Architecture & Design
+
+> Visual workflow builder for designing, configuring, and testing multi-step API workflows.
+
+---
+
+## 1. Problem Statement
+
+RedfireForge has three sections today:
+
+| Section | Purpose |
+|---|---|
+| **REQUESTS** | Build & organize individual API requests |
+| **CATALOG** | Import & browse OpenAPI specs |
+| **HARNESS** | Load-test collections with configurable concurrency |
+
+**Missing capability**: There is no way to chain multiple requests into a multi-step workflow where step outputs feed into step inputs (e.g., `POST /orders` → extract `orderId` → `GET /orders/{{orderId}}` → verify status). Users need this for regression testing, integration testing, and realistic load scenarios.
+
+---
+
+## 2. Solution: WORKFLOW — A 4th Top-Level Section
+
+**WORKFLOW** sits alongside REQUESTS, CATALOG, and HARNESS in the sidebar nav rail.
+
+### User Flow
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  1. DESIGN         Visual canvas — drag, connect, config │
+│  ────────────                                            │
+│  • Import steps from REQUESTS or CATALOG                 │
+│  • Connect steps with edges (sequential, conditional)    │
+│  • Configure per-step: extractions, assertions, delays   │
+│  • Configure flow: if/else, parallel, loops, aggregation │
+│  • Define initial variables                              │
+│                                                          │
+│  2. QUICK TEST     Run from the designer to validate     │
+│  ──────────────                                          │
+│  • Single-pass execution with live node animation        │
+│  • Variable panel updates in real-time                   │
+│  • See pass/fail per step directly on the canvas         │
+│                                                          │
+│  3. HARNESS        Run the workflow at scale              │
+│  ──────────────                                          │
+│  • Select a saved workflow in HARNESS Test Runner        │
+│  • Configure iterations, concurrency, think time         │
+│  • Each iteration gets its own variable context          │
+│  • Results appear in the standard Results Dashboard      │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Key Principle
+
+> **Design first, test second.**
+> All workflow configuration (variables, extraction, branching, parallelism) happens in the WORKFLOW designer UI. HARNESS only controls *how many times* and *how fast* to run it.
+
+---
+
+## 3. UI Layout
+
+The WORKFLOW section is a full-width page (no sidebar tree needed):
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ WORKFLOW toolbar                                                  │
+│ [+ New] [Open ▾] [Save] [Rename] [Delete]  │  [▶ Quick Test]    │
+├─────────────┬────────────────────────────────┬───────────────────┤
+│  PALETTE    │       CANVAS (React Flow)      │  CONFIG PANEL     │
+│             │                                │                   │
+│  ┌───────┐  │    ┌──────┐    ┌──────┐       │  Step: POST /api  │
+│  │ HTTP  │  │    │ POST │───▶│ GET  │       │  ─────────────    │
+│  ├───────┤  │    │/order│    │/order│       │  [Extract] tab    │
+│  │ Cond  │  │    └──────┘    └──┬───┘       │  [Headers] tab    │
+│  ├───────┤  │                   │           │  [Assert] tab     │
+│  │ Delay │  │              ┌────▼────┐      │  [Auth] tab       │
+│  ├───────┤  │              │ IF 200  │      │                   │
+│  │ Loop  │  │              └─┬─────┬─┘      │  Extractions:     │
+│  ├───────┤  │             Yes│     │No      │  orderId = $.id   │
+│  │ Fork  │  │            ┌───▼┐  ┌─▼──┐    │  token = header   │
+│  ├───────┤  │            │ OK │  │Fail│    │                   │
+│  │ Join  │  │            └────┘  └────┘    │                   │
+│  └───────┘  │                               │                   │
+│             │  ── Variable Context Bar ──── │                   │
+│  REQUESTS ▾ │  {{orderId}} = 42             │                   │
+│  CATALOG  ▾ │  {{token}} = eyJhbG...        │                   │
+├─────────────┴────────────────────────────────┴───────────────────┤
+│  Status: Ready │ Steps: 5 │ Variables: 3 │ Last run: 2.3s PASS  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Layout Components
+
+| Component | Purpose |
+|---|---|
+| **Toolbar** | Workflow CRUD + Quick Test button |
+| **Palette** (left) | Draggable node blocks + browse REQUESTS/CATALOG to import |
+| **Canvas** (center) | React Flow interactive diagram — nodes, edges, zoom, pan |
+| **Config Panel** (right) | Per-node configuration — reuses existing editor components |
+| **Variable Context Bar** (bottom of canvas) | Live variable state during execution |
+| **Status Bar** (footer) | Step count, variable count, last run summary |
+
+---
+
+## 4. Node Types
+
+| Node | Shape | Purpose | Config |
+|---|---|---|---|
+| **HTTP Request** | Rounded rect | Execute an API call | Method, URL, headers, body, auth, extractions, assertions |
+| **Condition (If/Else)** | Diamond | Branch based on variable/status | Expression, true edge, false edge |
+| **Delay** | Clock icon | Pause between steps | Duration (fixed or random) |
+| **Loop** | Cycle arrows | Repeat steps | For-each array, repeat N, while condition |
+| **Fork** | Split arrows | Start parallel branches | Fan-out to N children |
+| **Join** | Merge arrows | Wait for parallel branches | Wait-all or wait-any |
+| **Aggregate** | Sigma icon | Combine parallel results | Merge strategy (concat, first, custom) |
+| **Switch** | Multi-diamond | Multi-way branch | Multiple conditions → edges |
+
+---
+
+## 5. Data Model
+
+### Workflow (saved artifact)
+
+```typescript
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  variables: Record<string, string>;      // initial variables
+  nodes: WorkflowNode[];                  // React Flow nodes with our data
+  edges: WorkflowEdge[];                  // React Flow edges
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface WorkflowNode {
+  id: string;
+  type: 'http' | 'condition' | 'delay' | 'loop' | 'fork' | 'join' | 'aggregate' | 'switch';
+  position: { x: number; y: number };
+  data: HttpNodeData | ConditionNodeData | DelayNodeData | LoopNodeData | ForkJoinNodeData;
+}
+
+interface HttpNodeData {
+  label: string;
+  scenario: Scenario;                     // full request definition
+  sourceType?: 'requests' | 'catalog';    // where it came from
+  sourceId?: string;                      // original request/endpoint ID
+}
+
+interface ConditionNodeData {
+  label: string;
+  expression: string;                     // e.g. "{{status}} == 200"
+  operator: '==' | '!=' | '>' | '<' | 'contains' | 'regex';
+  left: string;                           // variable reference
+  right: string;                          // comparison value
+}
+
+interface DelayNodeData {
+  label: string;
+  delayMs: number;
+  mode: 'fixed' | 'random';
+  minMs?: number;
+  maxMs?: number;
+}
+
+interface LoopNodeData {
+  label: string;
+  loopType: 'count' | 'for-each' | 'while';
+  count?: number;
+  arrayVariable?: string;                 // variable containing array to iterate
+  whileCondition?: string;
+  maxIterations?: number;                 // safety limit
+}
+
+interface ForkJoinNodeData {
+  label: string;
+  strategy?: 'wait-all' | 'wait-any';
+}
+```
+
+### Where Requests Come From
+
+HTTP nodes are populated from two sources:
+
+1. **REQUESTS** — User browses their request collections in the palette, drags a request onto the canvas. The node stores a copy of the `RequestItem` converted to a `Scenario`.
+
+2. **CATALOG** — User browses catalog endpoints in the palette, drags an endpoint onto the canvas. The node stores a `Scenario` generated from the catalog endpoint definition.
+
+Both store a `sourceType` + `sourceId` reference back to the original, enabling sync indicators when the source changes.
+
+---
+
+## 6. Integration Points
+
+### REQUESTS → WORKFLOW
+- Palette shows collapsible REQUESTS tree
+- Drag a request onto canvas → creates HTTP node
+- "Add to Workflow" context menu on requests
+
+### CATALOG → WORKFLOW
+- Palette shows collapsible CATALOG tree
+- Drag an endpoint onto canvas → creates HTTP node with default params
+- "Add to Workflow" context menu on catalog endpoints
+
+### WORKFLOW → HARNESS
+- Saved workflows appear as selectable items in HARNESS Test Runner
+- "Run in Harness" button in workflow toolbar
+- HARNESS wraps the workflow: configures iterations, concurrency, think time
+- Each iteration runs the full workflow with an isolated variable context
+
+### WORKFLOW → CLI
+- Export workflow as YAML for `redfire run workflow.yaml`
+- CLI `mode: workflow` uses the same engine under the hood
+
+---
+
+## 7. Execution Architecture
+
+### Quick Test (from designer)
+
+```
+User clicks ▶ Quick Test
+    │
+    ▼
+WorkflowDesigner calls runWorkflow()
+    │
+    ├─ For each node in topological order:
+    │   ├─ HTTP node → resolveScenario(ctx) → httpFetch → extractVariables → update ctx
+    │   ├─ Condition → evaluate expression → choose true/false edge
+    │   ├─ Delay → applyThinkTime()
+    │   ├─ Fork → launch parallel branches
+    │   ├─ Join → await branches
+    │   └─ Loop → repeat sub-graph
+    │
+    ├─ Progress: animate node states (pending → running → pass/fail)
+    ├─ Variables: update Variable Context Bar in real-time
+    └─ Results: show per-step timing + pass/fail on canvas
+```
+
+### Load Test (from HARNESS)
+
+```
+User selects workflow in HARNESS → configures iterations/concurrency → Run
+    │
+    ▼
+executor.ts routes mode='workflow' → runWorkflowLoad()
+    │
+    ├─ Creates N child VariableContexts
+    ├─ Runs workflow N times (with concurrency pool)
+    ├─ Each iteration: full graph traversal with isolated variables
+    └─ Aggregated results → standard ResultsDashboard
+```
+
+### Engine Components (already built in Phase A)
+
+| Component | File | Status |
+|---|---|---|
+| `VariableContext` | `src/engine/workflow/variableContext.ts` | Done |
+| `resolveScenario()` | `src/engine/workflow/resolveScenario.ts` | Done |
+| `extractVariables()` | `src/engine/workflow/extractVariables.ts` | Done |
+| `runWorkflow()` | `src/engine/workflow/workflowRunner.ts` | Done |
+| `runWorkflowLoad()` | `src/engine/workflow/workflowRunner.ts` | Done |
+| `Extraction` type | `src/types/index.ts` | Done |
+| CLI support | `cli/loader.ts` | Done |
+
+---
+
+## 8. Storage
+
+Workflows are saved using the existing dual-mode storage layer (`src/utils/storage.ts`):
+
+- **Web**: `localStorage` key `workflows` → `Workflow[]`
+- **Tauri**: File system at `workflows.json`
+
+Each workflow is a self-contained document — all node data, edges, positions, and variables are serialized.
+
+---
+
+## 9. Technology Choice: React Flow
+
+[React Flow](https://reactflow.dev/) (`@xyflow/react`) for the canvas:
+
+- Mature, well-maintained library for node-based editors
+- Built-in: zoom, pan, minimap, drag-and-drop, edge routing
+- Custom node components (our HTTP/Condition/Delay nodes)
+- Controlled mode — we own the node/edge state
+- Works with React 18+, TypeScript-first
+
+---
+
+## 10. File Structure
+
+```
+src/
+├── types/
+│   └── workflow.ts              # Workflow, WorkflowNode, WorkflowEdge types
+├── pages/
+│   └── WorkflowDesigner.tsx     # Top-level page component
+├── components/workflow/
+│   ├── WorkflowCanvas.tsx       # React Flow canvas wrapper
+│   ├── WorkflowToolbar.tsx      # New/Open/Save/Run buttons
+│   ├── WorkflowPalette.tsx      # Left panel: node blocks + REQUESTS/CATALOG browser
+│   ├── WorkflowConfigPanel.tsx  # Right panel: per-node config editor
+│   ├── WorkflowStatusBar.tsx    # Footer: step count, variable count, status
+│   ├── VariableContextBar.tsx   # Live variable display during execution
+│   ├── VariablePanel.tsx        # Variable chip display (done)
+│   ├── WorkflowVariablesInput.tsx  # Initial variables editor (done)
+│   └── nodes/
+│       ├── HttpStepNode.tsx     # HTTP request node
+│       ├── ConditionNode.tsx    # If/Else diamond node
+│       ├── DelayNode.tsx        # Timer/delay node
+│       ├── LoopNode.tsx         # Loop node
+│       ├── ForkNode.tsx         # Parallel fork node
+│       ├── JoinNode.tsx         # Parallel join node
+│       └── SwitchNode.tsx       # Multi-branch node
+├── engine/workflow/
+│   ├── variableContext.ts       # Variable store (done)
+│   ├── resolveScenario.ts       # Template resolution (done)
+│   ├── extractVariables.ts      # Response extraction (done)
+│   ├── workflowRunner.ts        # Sequential execution (done)
+│   ├── graphRunner.ts           # Graph-based execution (traverses nodes/edges)
+│   └── index.ts                 # Barrel exports (done)
+├── hooks/
+│   └── useWorkflows.ts          # CRUD + storage for workflows
+└── styles/
+    └── workflow.css              # All workflow-specific styles
+```
+
+---
+
+_Last updated: 2026-04-19_
