@@ -76,8 +76,21 @@ function proxyPlugin(): Plugin {
           const dispatcher = await getDispatcher();
           if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
+          const t0 = performance.now();
           const response = await fetch(payload.url, fetchOpts as RequestInit);
+          const tFirstByte = performance.now();
           const responseBody = await response.text();
+          const tDone = performance.now();
+
+          const round2 = (n: number) => Math.round(n * 100) / 100;
+          const timing = {
+            dnsLookup: 0,
+            tcpConnect: 0,
+            tlsHandshake: 0,
+            ttfb: round2(tFirstByte - t0),
+            download: round2(tDone - tFirstByte),
+            total: round2(tDone - t0),
+          };
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
@@ -85,6 +98,7 @@ function proxyPlugin(): Plugin {
             statusText: response.statusText,
             headers: Object.fromEntries(response.headers.entries()),
             body: responseBody,
+            timing,
           }));
         } catch (err) {
           res.writeHead(200, { 'Content-Type': 'application/json' });

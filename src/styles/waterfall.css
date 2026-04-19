@@ -1,0 +1,52 @@
+/* ═══════════════════════════════════════════════════════
+   Waterfall timing breakdown bar
+   ═══════════════════════════════════════════════════════ */
+
+.wf-bar-container { margin: 8px 0; }
+
+.wf-bar-track {
+  display: flex; height: 18px; border-radius: 4px; overflow: hidden;
+  background: var(--surface-hover); gap: 1px;
+}
+.wf-bar-segment {
+  height: 100%; min-width: 3px; transition: width 0.3s;
+}
+.wf-bar-segment:first-child { border-radius: 4px 0 0 4px; }
+.wf-bar-segment:last-child  { border-radius: 0 4px 4px 0; }
+
+.wf-bar-labels {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+.wf-bar-label { display: flex; align-items: center; gap: 4px; }
+.wf-bar-label strong { color: var(--text); }
+.wf-bar-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.wf-bar-total {
+  margin-left: auto; font-weight: 600; color: var(--text);
+}
+.wf-bar-note {
+  font-size: 0.65rem; color: var(--text-muted); font-style: italic;
+  margin-top: 4px; opacity: 0.7;
+}
+
+/* ─── Aggregated timing table ─────────────────────── */
+
+.wf-agg-table {
+  margin-top: 12px; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+}
+.wf-agg-title {
+  margin: 0 0 8px; font-size: 0.78rem; color: var(--text-muted);
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.wf-agg-grid {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.wf-agg-cell {
+  display: flex; align-items: center; gap: 5px;
+}
+.wf-agg-cell strong { color: var(--text); }
+.wf-agg-label { min-width: 60px; }

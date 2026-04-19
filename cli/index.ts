@@ -102,7 +102,7 @@ program
         process.stdout.write('\r' + ' '.repeat(60) + '\r');
       }
 
-      printConsoleSummary(summary, config);
+      printConsoleSummary(summary, config, results);
 
       const suiteName = file.name || basename(absPath, '.yaml').replace(/\.yml$|\.json$/, '');
       const meta = { name: file.name, env: opts.env || file.env, file: basename(absPath) };
@@ -120,7 +120,7 @@ program
       }
 
       if (opts.markdown) {
-        const md = buildMarkdownReport(summary, config, meta);
+        const md = buildMarkdownReport(summary, config, meta, results);
         writeFileSync(resolve(opts.markdown), md);
         console.log(`  Markdown:    ${opts.markdown}`);
       }

@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Request Timing Breakdown**: DNS/TCP/TLS/TTFB/Download waterfall for every request — diagnose *why* something is slow, not just *how* slow
+  - New `TimingBreakdown` type with six phases: `dnsLookup`, `tcpConnect`, `tlsHandshake`, `ttfb`, `download`, `total`
+  - `timing?` field added to `RequestResult` — backward-compatible, absent for older saved runs
+  - **Vite proxy** (`/__proxy`): Server-side `performance.now()` timestamps capture TTFB and download time from the actual upstream request
+  - **Node CLI**: Same TTFB/download split via `performance.now()` around `fetch()` and `.text()`
+  - **Tauri desktop**: TTFB/download split via `performance.now()` (DNS/TCP/TLS granularity not yet available from `reqwest`)
+  - **WaterfallBar** UI component: Color-coded horizontal bar chart with per-phase labels and totals
+  - **Response Detail Modal**: Shows timing breakdown waterfall for each individual request
+  - **Results Dashboard**: Aggregated average timing table across all requests in a test run
+  - **CLI reporters**: Console summary and Markdown report include average timing breakdown table
 - **Rich Assertions**: Four new assertion types that run on every request regardless of JSON validation mode
   - **Status Code** — Assert specific codes (`200`), classes (`2xx`), ranges (`200-299`), or comma-separated lists (`200,201,204`)
   - **Response Time SLA** — Assert response completes within a threshold (`≤ 500ms`)
