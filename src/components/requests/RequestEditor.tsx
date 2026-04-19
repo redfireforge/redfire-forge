@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type {
-  WorkbenchCollection, WorkbenchRequest, WorkbenchEnv,
+  RequestCollection, RequestItem, RequestEnv,
   GlobalAuthProfile, KeyValue, HttpMethod, Scenario, AuthConfig,
 } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -11,8 +11,8 @@ import { acquireOAuth2Token } from '../../engine/tokenManager';
 import { pickJsonFile, unwrapImport } from '../../utils/testEditorUtils';
 import { useResponseCache } from '../../hooks/useResponseCache';
 import type { ConsoleLine } from '../../hooks/useResponseCache';
-import { buildDisplayUrl, resolveFullSendUrl } from '../../utils/workbenchUrlResolver';
-import type { UrlResolverContext } from '../../utils/workbenchUrlResolver';
+import { buildDisplayUrl, resolveFullSendUrl } from '../../utils/requestUrlResolver';
+import type { UrlResolverContext } from '../../utils/requestUrlResolver';
 import { BodyEditor } from '../BodyEditor';
 import { ParamsEditor, fromParamEntries } from '../ParamsEditor';
 import type { ParamEntry } from '../ParamsEditor';
@@ -38,15 +38,15 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  collection: WorkbenchCollection;
-  request: WorkbenchRequest;
-  parentSubCollection?: import('../../types').WorkbenchFolder;
-  environments: WorkbenchEnv[];
+  collection: RequestCollection;
+  request: RequestItem;
+  parentSubCollection?: import('../../types').RequestFolder;
+  environments: RequestEnv[];
   appMicroservices?: import('../../types').Microservice[];
   appEnvironments?: import('../../types').Environment[];
   selectedEnvId?: string;
   onEnvChange: (envId: string | undefined) => void;
-  onUpdateRequest: (patch: Partial<WorkbenchRequest>) => void;
+  onUpdateRequest: (patch: Partial<RequestItem>) => void;
   appGlobalAuthProfiles: GlobalAuthProfile[];
 }
 
@@ -76,7 +76,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function WorkbenchRequestEditor({
+export default function RequestEditor({
   collection, request, parentSubCollection, environments, appMicroservices, appEnvironments,
   selectedEnvId, onEnvChange, onUpdateRequest, appGlobalAuthProfiles,
 }: Props) {
@@ -340,7 +340,7 @@ export default function WorkbenchRequestEditor({
     pickJsonFile((raw) => {
       const data = unwrapImport(raw) as Record<string, unknown>;
       if (!data.name || !data.url || !data.method) { alert('Invalid file: expected a request with name, url, and method.'); return; }
-      const imported = data as unknown as WorkbenchRequest;
+      const imported = data as unknown as RequestItem;
       onUpdateRequest({ name: imported.name, method: imported.method, url: stripToRelative(imported.url),
         headers: imported.headers || [{ key: '', value: '' }], body: imported.body || '',
         bodyType: imported.bodyType, bodyForm: imported.bodyForm, auth: imported.auth || { type: 'inherit' },
@@ -350,7 +350,7 @@ export default function WorkbenchRequestEditor({
   }, [onUpdateRequest, stripToRelative]);
 
   const handleJsonExport = useCallback(() => {
-    const payload = { _exportMeta: { type: 'workbench-request', version: 1, exportedAt: new Date().toISOString() },
+    const payload = { _exportMeta: { type: 'requests-request', version: 1, exportedAt: new Date().toISOString() },
       data: { name: request.name, method: request.method, url: request.url, headers: request.headers,
         body: request.body, bodyType: request.bodyType, bodyForm: request.bodyForm, auth: request.auth },
     };
@@ -473,43 +473,43 @@ export default function WorkbenchRequestEditor({
   const responseHeaderCount = response ? Object.keys(response.headers).length : 0;
 
   return (
-    <div className="wb-editor">
+    <div className="req-editor">
       {/* ── Request name ── */}
-      <div className="wb-req-name-bar">
+      <div className="req-req-name-bar">
         {reqNameEditing ? (
-          <input ref={nameInputRef} className="wb-req-name-input" value={request.name}
+          <input ref={nameInputRef} className="req-req-name-input" value={request.name}
             onChange={(e) => onUpdateRequest({ name: e.target.value })}
             onBlur={() => setReqNameEditing(false)}
             onKeyDown={(e) => { if (e.key === 'Enter') setReqNameEditing(false); }} autoFocus />
         ) : (
-          <span className="wb-req-name-display" onClick={() => setReqNameEditing(true)}>
-            {request.name || 'Untitled Request'} <span className="wb-edit-hint">&#9998;</span>
+          <span className="req-req-name-display" onClick={() => setReqNameEditing(true)}>
+            {request.name || 'Untitled Request'} <span className="req-edit-hint">&#9998;</span>
           </span>
         )}
       </div>
 
       {/* ── URL bar + status ── */}
-      <div className="wb-url-row">
-        <select className="wb-method-select" value={request.method}
+      <div className="req-url-row">
+        <select className="req-method-select" value={request.method}
           onChange={(e) => handleMethodChange(e.target.value as HttpMethod)}
           style={{ color: METHOD_COLORS[request.method] }}>
           {METHODS.map((m) => <option key={m} value={m} style={{ color: METHOD_COLORS[m] }}>{m}</option>)}
         </select>
-        <input className="wb-url-input"
+        <input className="req-url-input"
           value={relativePath}
           onChange={(e) => handleUrlChange(e.target.value)}
           placeholder={collection.mode === 'multi-env' ? '/v1/endpoint' : 'https://api.example.com/v1/endpoint'} />
-        <button className="wb-send-btn" onClick={handleSend} disabled={sending}>
+        <button className="req-send-btn" onClick={handleSend} disabled={sending}>
           {sending ? '...' : 'Send'}
         </button>
-        <div className="wb-status-row">
+        <div className="req-status-row">
           {response && !sending && (
             <>
-              <span className={`wb-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
+              <span className={`req-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
                 {response.status} {response.statusText}
               </span>
-              <span className="wb-stat">{responseTime} ms</span>
-              <span className="wb-stat">{formatBytes(response.body?.length ?? 0)}</span>
+              <span className="req-stat">{responseTime} ms</span>
+              <span className="req-stat">{formatBytes(response.body?.length ?? 0)}</span>
             </>
           )}
           <ResponseHistoryDropdown
@@ -536,57 +536,57 @@ export default function WorkbenchRequestEditor({
         const hasBaseUrls = Object.keys(resolvedColBaseUrls).length > 0
           || Object.keys(parentSubCollection?.baseUrls ?? {}).length > 0;
         return (
-        <div className="wb-env-bar">
-          <span className="wb-env-bar-label">Env:</span>
+        <div className="req-env-bar">
+          <span className="req-env-bar-label">Env:</span>
           {parentSubCollection ? (
-            <span className="wb-env-pill active pinned">{envName ?? parentSubCollection.name}</span>
+            <span className="req-env-pill active pinned">{envName ?? parentSubCollection.name}</span>
           ) : (
-            <div className="wb-env-pills">
+            <div className="req-env-pills">
               {environments.filter(env => !linkedSvc || resolvedColBaseUrls[env.id]).map((env) => (
-                <button key={env.id} className={`wb-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
+                <button key={env.id} className={`req-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
                   onClick={() => onEnvChange(env.id)}>{env.name}</button>
               ))}
             </div>
           )}
           {displayUrl !== relativePath && (
             <>
-              <span className="wb-resolved-url-arrow">&#8594;</span>
-              <span className="wb-resolved-url-full" title={displayUrl}>{displayUrl}</span>
+              <span className="req-resolved-url-arrow">&#8594;</span>
+              <span className="req-resolved-url-full" title={displayUrl}>{displayUrl}</span>
             </>
           )}
           {!hasBaseUrls && (
-            <span className="wb-env-hint">Base URLs not configured — edit collection or sub-collection to add hostnames</span>
+            <span className="req-env-hint">Base URLs not configured — edit collection or sub-collection to add hostnames</span>
           )}
         </div>
         );
       })()}
 
       {/* ── Split pane: request (left) + response (right) ── */}
-      <div className="wb-split-pane">
+      <div className="req-split-pane">
 
         {/* LEFT: Request editor */}
-        <div className="wb-pane-left">
+        <div className="req-pane-left">
           {/* Tabs row with action menu */}
-          <div className="wb-tabs">
-            <button className={`wb-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => { setActiveTab('params'); setInputMode('builder'); }}>
+          <div className="req-tabs">
+            <button className={`req-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => { setActiveTab('params'); setInputMode('builder'); }}>
               Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
             </button>
-            <button className={`wb-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => { setActiveTab('body'); setInputMode('builder'); }}>Body</button>
-            <button className={`wb-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => { setActiveTab('auth'); setInputMode('builder'); }}>
-              Auth {request.auth.type !== 'none' && request.auth.type !== 'inherit' && <span className="wb-tab-dot" />}
+            <button className={`req-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => { setActiveTab('body'); setInputMode('builder'); }}>Body</button>
+            <button className={`req-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => { setActiveTab('auth'); setInputMode('builder'); }}>
+              Auth {request.auth.type !== 'none' && request.auth.type !== 'inherit' && <span className="req-tab-dot" />}
             </button>
-            <button className={`wb-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
+            <button className={`req-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
               Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
             </button>
 
-            <div className="wb-action-menu-wrapper">
-              <button className="wb-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
+            <div className="req-action-menu-wrapper">
+              <button className="req-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
                 title="Import / Export">&#9662;</button>
               {showActionMenu && (
-                <div className="wb-action-dropdown" onClick={() => setShowActionMenu(false)}>
+                <div className="req-action-dropdown" onClick={() => setShowActionMenu(false)}>
                   <button onClick={() => setInputMode('curlImport')}>cURL Import</button>
                   <button onClick={() => { setInputMode('curlExport'); void triggerCurlGeneration(); }}>cURL Export</button>
-                  <div className="wb-dropdown-divider" />
+                  <div className="req-dropdown-divider" />
                   <button onClick={handleJsonImport}>Import JSON</button>
                   <button onClick={handleJsonExport}>Export JSON</button>
                 </div>
@@ -595,17 +595,17 @@ export default function WorkbenchRequestEditor({
           </div>
 
           {/* Tab / cURL content */}
-          <div className="wb-tab-content">
+          <div className="req-tab-content">
             {/* cURL Import panel */}
             {inputMode === 'curlImport' && (
-              <div className="wb-curl-panel">
-                <label className="wb-curl-label">Paste your cURL command</label>
-                <textarea className="wb-curl-textarea" rows={8} autoFocus value={curlText}
+              <div className="req-curl-panel">
+                <label className="req-curl-label">Paste your cURL command</label>
+                <textarea className="req-curl-textarea" rows={8} autoFocus value={curlText}
                   onChange={(e) => setCurlText(e.target.value)}
                   placeholder={`curl -X POST https://api.example.com \\
   -H 'Authorization: Bearer token' \\
   -d '{"key": "value"}'`} />
-                <div className="wb-curl-actions">
+                <div className="req-curl-actions">
                   <button className="btn btn-primary" disabled={!curlText.trim()} onClick={handleCurlImport}>Import &amp; Apply</button>
                   <button className="btn btn-ghost" onClick={() => setInputMode('builder')}>Cancel</button>
                 </div>
@@ -614,19 +614,19 @@ export default function WorkbenchRequestEditor({
 
             {/* cURL Export panel */}
             {inputMode === 'curlExport' && (
-              <div className="wb-curl-panel">
-                <label className="wb-curl-label">Generated cURL command</label>
+              <div className="req-curl-panel">
+                <label className="req-curl-label">Generated cURL command</label>
                 {request.url.trim() ? (<>
-                  <textarea className="wb-curl-textarea wb-curl-export" rows={10} readOnly
+                  <textarea className="req-curl-textarea req-curl-export" rows={10} readOnly
                     value={curlGenerating ? 'Generating...' : generatedCurl}
                     onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
-                  <div className="wb-curl-actions">
+                  <div className="req-curl-actions">
                     <button className="btn btn-primary" disabled={curlGenerating || !generatedCurl} onClick={handleCopyToClipboard}>
                       {curlCopied ? 'Copied!' : 'Copy'}</button>
                     <button className="btn" disabled={curlGenerating} onClick={() => void triggerCurlGeneration()}>Refresh</button>
                     <button className="btn btn-ghost" onClick={() => setInputMode('builder')}>Close</button>
                   </div>
-                </>) : <div className="wb-curl-empty">Set a URL first.</div>}
+                </>) : <div className="req-curl-empty">Set a URL first.</div>}
               </div>
             )}
 
@@ -636,16 +636,16 @@ export default function WorkbenchRequestEditor({
               {activeTab === 'body' && <BodyEditor draft={draftScenario} onDraftChange={handleDraftChange} />}
 
               {activeTab === 'headers' && (
-                <div className="wb-headers-editor">
-                  <div className="wb-kv-toolbar">
+                <div className="req-headers-editor">
+                  <div className="req-kv-toolbar">
                     <button className="btn btn-sm" onClick={addHeader}>+ Add</button>
                     <button className="btn btn-sm btn-ghost" onClick={() => onUpdateRequest({ headers: [{ key: '', value: '' }] })}>Delete all</button>
                   </div>
                   {request.headers.map((h, i) => (
-                    <div key={i} className="wb-header-row">
-                      <input className="wb-input" value={h.key} onChange={(e) => handleHeaderChange(i, 'key', e.target.value)} placeholder="Header name" />
-                      <input className="wb-input" value={h.value} onChange={(e) => handleHeaderChange(i, 'value', e.target.value)} placeholder="Value" />
-                      <button className="wb-icon-btn danger" onClick={() => removeHeader(i)}>&times;</button>
+                    <div key={i} className="req-header-row">
+                      <input className="req-input" value={h.key} onChange={(e) => handleHeaderChange(i, 'key', e.target.value)} placeholder="Header name" />
+                      <input className="req-input" value={h.value} onChange={(e) => handleHeaderChange(i, 'value', e.target.value)} placeholder="Value" />
+                      <button className="req-icon-btn danger" onClick={() => removeHeader(i)}>&times;</button>
                     </div>
                   ))}
                 </div>
@@ -664,27 +664,27 @@ export default function WorkbenchRequestEditor({
         </div>
 
         {/* RIGHT: Response panel */}
-        <div className="wb-pane-right">
+        <div className="req-pane-right">
           {/* Response tabs */}
-          <div className="wb-tabs wb-resp-tabs">
-            <button className={`wb-tab ${responseTab === 'preview' ? 'active' : ''}`} onClick={() => setResponseTab('preview')}>Preview</button>
-            <button className={`wb-tab ${responseTab === 'headers' ? 'active' : ''}`} onClick={() => setResponseTab('headers')}>
+          <div className="req-tabs req-resp-tabs">
+            <button className={`req-tab ${responseTab === 'preview' ? 'active' : ''}`} onClick={() => setResponseTab('preview')}>Preview</button>
+            <button className={`req-tab ${responseTab === 'headers' ? 'active' : ''}`} onClick={() => setResponseTab('headers')}>
               Headers {responseHeaderCount > 0 && <span className="tab-badge">{responseHeaderCount}</span>}
             </button>
-            <button className={`wb-tab ${responseTab === 'console' ? 'active' : ''}`} onClick={() => setResponseTab('console')}>
+            <button className={`req-tab ${responseTab === 'console' ? 'active' : ''}`} onClick={() => setResponseTab('console')}>
               Console
             </button>
           </div>
 
           {responseTab === 'preview' && (
-            <div className="wb-resp-search">
+            <div className="req-resp-search">
               <button
-                className="wb-tree-toggle-btn"
+                className="req-tree-toggle-btn"
                 title={isAllCollapsed ? 'Expand All' : 'Collapse All'}
                 onClick={isAllCollapsed ? handleExpandAll : handleCollapseAll}
               >{isAllCollapsed ? '⊞' : '⊟'}</button>
               <input
-                className="wb-resp-search-input"
+                className="req-resp-search-input"
                 type="text"
                 placeholder="Search response..."
                 value={responseSearch}
@@ -692,26 +692,26 @@ export default function WorkbenchRequestEditor({
               />
               {responseSearch && (
                 <>
-                  <span className="wb-resp-search-count">
+                  <span className="req-resp-search-count">
                     {searchMatchCount > 0 ? `${searchMatchIdx + 1}/${searchMatchCount}` : 'No match'}
                   </span>
-                  <button className="wb-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
+                  <button className="req-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
                     onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}>&#9650;</button>
-                  <button className="wb-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
+                  <button className="req-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
                     onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}>&#9660;</button>
-                  <button className="wb-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
+                  <button className="req-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
                 </>
               )}
             </div>
           )}
 
-          <div className="wb-resp-content">
+          <div className="req-resp-content">
             {sending && (
-              <div className="wb-response-loading"><div className="wb-spinner" /> Sending...</div>
+              <div className="req-response-loading"><div className="req-spinner" /> Sending...</div>
             )}
 
             {!sending && !response && !sendAllResults && (
-              <div className="wb-response-placeholder">Click <strong>Send</strong> to get a response</div>
+              <div className="req-response-placeholder">Click <strong>Send</strong> to get a response</div>
             )}
 
             {!sending && response && !sendAllResults && responseTab === 'preview' && (
@@ -721,15 +721,15 @@ export default function WorkbenchRequestEditor({
             )}
 
             {!sending && response && !sendAllResults && responseTab === 'headers' && (
-              <div className="wb-resp-headers-list">
+              <div className="req-resp-headers-list">
                 {Object.entries(response.headers).map(([k, v]) => (
-                  <div key={k} className="wb-resp-header-row">
-                    <span className="wb-resp-header-key">{k}</span>
-                    <span className="wb-resp-header-val">{v}</span>
+                  <div key={k} className="req-resp-header-row">
+                    <span className="req-resp-header-key">{k}</span>
+                    <span className="req-resp-header-val">{v}</span>
                   </div>
                 ))}
                 {Object.keys(response.headers).length === 0 && (
-                  <div className="wb-response-placeholder">No response headers</div>
+                  <div className="req-response-placeholder">No response headers</div>
                 )}
               </div>
             )}
@@ -739,7 +739,7 @@ export default function WorkbenchRequestEditor({
             )}
 
             {!sending && sendAllResults && responseTab !== 'console' && (
-              <div className="wb-multi-results">
+              <div className="req-multi-results">
                 {sendAllResults.map((r, i) => <MultiEnvResultRow key={i} {...r} />)}
               </div>
             )}

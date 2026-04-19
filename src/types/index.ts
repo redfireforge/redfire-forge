@@ -199,11 +199,11 @@ export interface TestRun {
   baseUrl?: string;
 }
 
-// ─── Workbench types ─────────────────────────────────────────
+// ─── Requests types ──────────────────────────────────────────
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-export interface WorkbenchRequest {
+export interface RequestItem {
   id: string;
   name: string;
   method: HttpMethod;
@@ -216,18 +216,18 @@ export interface WorkbenchRequest {
   savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
 }
 
-export interface WorkbenchFolder {
+export interface RequestFolder {
   id: string;
   name: string;
-  requests: WorkbenchRequest[];
-  folders?: WorkbenchFolder[];
+  requests: RequestItem[];
+  folders?: RequestFolder[];
   isSubCollection?: boolean;
   auth?: AuthConfig;
   baseUrls?: Record<string, string>;
   selectedEnvId?: string;
 }
 
-export interface WorkbenchCollection {
+export interface RequestCollection {
   id: string;
   name: string;
   mode: 'direct' | 'multi-env';
@@ -235,18 +235,18 @@ export interface WorkbenchCollection {
   baseUrls?: Record<string, string>;
   auth?: AuthConfig;
   authPerEnv?: Record<string, AuthConfig>;
-  requests: WorkbenchRequest[];
-  folders?: WorkbenchFolder[];
+  requests: RequestItem[];
+  folders?: RequestFolder[];
 }
 
-export interface WorkbenchEnv {
+export interface RequestEnv {
   id: string;
   name: string;
 }
 
-export interface WorkbenchData {
-  environments: WorkbenchEnv[];
-  collections: WorkbenchCollection[];
+export interface RequestsData {
+  environments: RequestEnv[];
+  collections: RequestCollection[];
   selectedEnvId?: string;
   selectedCollectionId?: string;
   selectedRequestId?: string;

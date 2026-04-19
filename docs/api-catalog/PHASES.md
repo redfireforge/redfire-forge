@@ -13,7 +13,7 @@
 | 3 | Interactive Testing | Host & auth bar, "Try It" execution | Medium |
 | 4 | cURL Integration | Extend existing cURL generator, add popover | Small |
 | 5 | Versioning | Re-import, version history, endpoint diff | Medium |
-| 6 | Polish & Bridges | Overview page, "Send to Workbench", search UX | Medium |
+| 6 | Polish & Bridges | Overview page, "Send to Requests", search UX | Medium |
 
 ---
 
@@ -156,7 +156,7 @@
 - [ ] **Host & auth bar** (`src/components/catalog/CatalogHostAuthBar.tsx`)
   - Appears at top of endpoint detail view
   - Host strategy dropdown: `Global | Inherited | Hardcoded`
-    - Global: pick from Workbench environments
+    - Global: pick from Requests environments
     - Inherited: select from spec's `servers[]`
     - Hardcoded: text input for custom URL
   - Auth strategy dropdown: `Global | Inherited | Hardcoded`
@@ -309,7 +309,7 @@
 
 ## Phase 6 — Polish & Bridges
 
-> **Goal**: Complete the experience with overview stats, Workbench integration, and UX refinements.
+> **Goal**: Complete the experience with overview stats, Requests integration, and UX refinements.
 
 ### Deliverables
 
@@ -323,11 +323,11 @@
   - Quick links: "Re-import", "Export Spec", "Version History"
   - Host & auth status summary
 
-- [ ] **"Send to Workbench" bridge**
-  - Button on single endpoint → creates one `WorkbenchRequest` in a new or existing collection
-  - Button on overview page → "Send All to Workbench" → creates a collection with all endpoints
+- [ ] **"Send to Requests" bridge**
+  - Button on single endpoint → creates one `RequestItem` in a new or existing collection
+  - Button on overview page → "Send All to Requests" → creates a collection with all endpoints
   - Maps: method, path → URL, parameters → headers/query params, body stub, auth
-  - Opens Workbench tab with the new collection selected
+  - Opens Requests tab with the new collection selected
 
 - [ ] **Export original spec**
   - Right-click → "Export Original Spec"
@@ -365,7 +365,7 @@
 
 ### Acceptance Criteria
 - Overview page shows meaningful stats
-- "Send to Workbench" creates valid WorkbenchRequest objects
+- "Send to Requests" creates valid RequestItem objects
 - All spec formats (OpenAPI 3.0, 3.1, Swagger 2.0) work correctly
 - Test coverage for all new utilities
 

@@ -11,7 +11,7 @@ interface Props {
   onReimport?: (entryId: string) => void;
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
-  onSendToWorkbench?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
+  onSendToRequests?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
   onEditEntry?: (entryId: string) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   appEnvironments?: Environment[];
@@ -20,7 +20,7 @@ interface Props {
 
 type View = 'overview' | 'endpoints';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToRequests, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
@@ -133,8 +133,8 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
         <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} onClick={() => setView('endpoints')}>
           Endpoints
         </button>
-        {onSendToWorkbench && (
-          <button className="cat-view-tab cat-wb-send" onClick={() => onSendToWorkbench(entry)}>
+        {onSendToRequests && (
+          <button className="cat-view-tab cat-req-send" onClick={() => onSendToRequests(entry)}>
             Send All to Requests
           </button>
         )}

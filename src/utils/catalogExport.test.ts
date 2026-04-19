@@ -234,12 +234,12 @@ describe('buildCatalogExport', () => {
   it('maps existing wb environments by name', () => {
     const ctx = {
       ...baseContext,
-      existingWbEnvNames: new Map([['t01', 'wb-t01-id']]),
+      existingWbEnvNames: new Map([['t01', 'req-t01-id']]),
     };
     const { collection, newEnvironments } = buildCatalogExport(basePayload, ctx);
     expect(newEnvironments).toHaveLength(1);
     expect(newEnvironments[0].name).toBe('p01');
-    expect(collection.baseUrls!['wb-t01-id']).toBe('https://t01.example.com');
+    expect(collection.baseUrls!['req-t01-id']).toBe('https://t01.example.com');
   });
 
   it('creates new environments for unknown env names', () => {

@@ -19,7 +19,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
   - [API Catalog](#api-catalog)
-  - [Workbench](#workbench-ad-hoc-api-testing)
+  - [Requests](#requests-ad-hoc-api-testing)
 - [Feature Reference](#feature-reference)
 - [Branching Strategy & Versioning](#branching-strategy--versioning)
 - [Development Workflow](#development-workflow)
@@ -218,7 +218,7 @@ src/
 │   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
 │   ├── TestRunner.tsx          # Configure & execute performance runs
 │   ├── ResultsDashboard.tsx    # View & analyze historical test results
-│   ├── Workbench.tsx           # Workbench: ad-hoc API testing (Insomnia/Postman-style)
+│   ├── Requests.tsx            # Requests: ad-hoc API testing (Insomnia/Postman-style)
 │   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
 │   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
 ├── engine/
@@ -231,7 +231,7 @@ src/
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
-│   ├── useWorkbench.ts      # Workbench state management (collections, folders, requests, drag-and-drop)
+│   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
 │   ├── useCatalog.ts        # API Catalog CRUD, persistence, import, versioning
 │   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
 │   ├── useTestExecution.ts  # React hook wrapping the executor
@@ -253,10 +253,10 @@ src/
 │   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   ├── ImportCenter.tsx         # Import with per-item conflict resolution
-│   ├── workbench/              # Workbench (ad-hoc API testing) components
-│   │   ├── WorkbenchRequestEditor.tsx  # Request editor: URL, params, headers, body, auth, send
-│   │   ├── WorkbenchSidebar.tsx        # Collection/folder/request tree with drag-and-drop
-│   │   ├── WorkbenchCollectionModal.tsx # Collection create/edit modal
+│   ├── requests/               # Requests (ad-hoc API testing) components
+│   │   ├── RequestEditor.tsx           # Request editor: URL, params, headers, body, auth, send
+│   │   ├── RequestsSidebar.tsx         # Collection/folder/request tree with drag-and-drop
+│   │   ├── RequestCollectionModal.tsx  # Collection create/edit modal
 │   │   ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
 │   │   ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
 │   │   ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
@@ -272,7 +272,7 @@ src/
 │       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
 │       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
 │       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
-│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Workbench
+│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Requests
 │       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
@@ -295,10 +295,10 @@ src/
 │   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   ├── export.ts            # JSON & CSV export utilities
-│   ├── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
-│   ├── workbenchAuthState.ts # Auth config ↔ UI state mapping for workbench collection modals
-│   ├── workbenchUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
-│   ├── catalogExport.ts     # Catalog-to-workbench export: build collections with env folders, requests, auth
+│   ├── requestTree.ts       # Requests tree manipulation (find, map, clone, move, reorder)
+│   ├── requestAuthState.ts  # Auth config ↔ UI state mapping for request collection modals
+│   ├── requestUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
+│   ├── catalogExport.ts     # Catalog-to-requests export: build collections with env folders, requests, auth
 │   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
 │   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
 └── types/
@@ -343,7 +343,7 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 
 ### Settings & Environments
 
-Open **Settings** (⚙ button in the sidebar) or click **Environments** in the top-left sidebar to configure your testing infrastructure. Environments, microservices, and auth profiles are managed from a unified top-level page shared across Workbench, Catalog, and Harness.
+Open **Settings** (⚙ button in the sidebar) or click **Environments** in the top-left sidebar to configure your testing infrastructure. Environments, microservices, and auth profiles are managed from a unified top-level page shared across Requests, Catalog, and Harness.
 
 #### Environments & Microservices
 
@@ -658,11 +658,11 @@ The **Catalog** section is the third pillar of RedfireForge — an OpenAPI/Swagg
 - Right-click an API → **Edit** to configure per-API environments (name + base URL pairs), auth settings, and host strategy.
 - All settings — auth tokens, endpoint form values (params, headers, body), environments, host strategy — survive browser refresh and server restart.
 
-**Send to Workbench:**
+**Send to Requests:**
 
-- Send individual endpoints or all endpoints from an API into a Workbench collection for further ad-hoc testing.
+- Send individual endpoints or all endpoints from an API into a Requests collection for further ad-hoc testing.
 
-### Workbench (Ad-Hoc API Testing)
+### Requests (Ad-Hoc API Testing)
 
 The **Requests** section provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
 
@@ -855,15 +855,15 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Import conflict detection | Feature Group, Scenario, and Test imports warn on duplicates with confirmation dialogs |
 | Consistent export naming | All exports follow `{env}-{svc}-{level}-{name}-{timestamp}.json` naming convention |
 | Storage management | Monitor usage, configure max runs, auto-prune old data, graceful quota-exceeded recovery |
-| Workbench (ad-hoc testing) | Insomnia/Postman-style request editor with collections, folders, sub-collections, and drag-and-drop |
-| Workbench collection hierarchy | Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting |
-| Workbench drag-and-drop | Move requests, folders, and entire collections between any containers; drag collection onto another to merge as sub-collection |
-| Workbench per-env base URLs | Configure hostnames per environment; URLs dynamically resolve with relative path display |
-| Workbench sub-collection pinning | Sub-collections can pin to a specific environment with locked URL resolution |
-| Workbench console trace | Insomnia-style request/response trace with headers, timing, and body |
+| Requests (ad-hoc testing) | Insomnia/Postman-style request editor with collections, folders, sub-collections, and drag-and-drop |
+| Requests collection hierarchy | Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting |
+| Requests drag-and-drop | Move requests, folders, and entire collections between any containers; drag collection onto another to merge as sub-collection |
+| Requests per-env base URLs | Configure hostnames per environment; URLs dynamically resolve with relative path display |
+| Requests sub-collection pinning | Sub-collections can pin to a specific environment with locked URL resolution |
+| Requests console trace | Insomnia-style request/response trace with headers, timing, and body |
 | Collapsible JSON tree viewer | Response bodies as expandable tree with search, match count, prev/next navigation, and collapse/expand all |
-| Workbench response caching | Responses preserved per-request during navigation |
-| Workbench JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
+| Requests response caching | Responses preserved per-request during navigation |
+| Requests JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
 | Unified sidebar (Requests + Catalog + Harness) | Vertical nav rail with resizable width, collapse toggle, and persistent Settings access |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
@@ -877,7 +877,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Catalog auth panel | Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), Verify Auth with token validation |
 | Catalog persistence | Auth tokens, form values, environments, and host strategy survive refresh and restart |
 | Catalog overview page | API summary with endpoint stats by method/tag, server list, security schemes, quick actions |
-| Catalog "Send to Workbench" | Copy endpoint(s) as WorkbenchRequest objects into a Workbench collection |
+| Catalog "Send to Requests" | Copy endpoint(s) as RequestItem objects into a Requests collection |
 | **CLI Runner** | Execute tests from YAML/JSON files via `redfireforge run` — same engine as the GUI |
 | CLI validate | `redfireforge validate` checks file structure without executing |
 | JUnit XML reports | `--junit report.xml` for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI) |

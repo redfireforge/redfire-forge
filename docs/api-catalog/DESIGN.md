@@ -6,14 +6,14 @@
 
 ## 1. Problem Statement
 
-RedfireForge has two existing pillars: **Workbench** (ad-hoc request editor) and **Projects** (structured performance tests). Neither provides a way to:
+RedfireForge has two existing pillars: **Requests** (ad-hoc request editor) and **Harness** (structured performance tests). Neither provides a way to:
 
 - Import an OpenAPI/Swagger spec and immediately browse all its endpoints
 - Test endpoints interactively from the spec's own documentation
 - Track spec versions over time and see what changed between releases
 - Generate cURL commands from spec-defined endpoints
 
-Teams working with microservices frequently receive API specs (YAML/JSON). Today they must manually recreate each endpoint in Workbench. The API Catalog eliminates this entirely.
+Teams working with microservices frequently receive API specs (YAML/JSON). Today they must manually recreate each endpoint in Requests. The API Catalog eliminates this entirely.
 
 ---
 
@@ -29,7 +29,7 @@ Teams working with microservices frequently receive API specs (YAML/JSON). Today
 The name "API Catalog" was chosen because:
 - It implies a managed collection of APIs (not just one spec)
 - It's the standard enterprise term (Backstage, Kong, Apigee)
-- It's clearly distinct from "Workbench" and "Projects"
+- It's clearly distinct from "Requests" and "Harness"
 
 ---
 
@@ -96,13 +96,10 @@ out of the box, teams can import any spec they have.
 └────────────────┴───────────────────────────────────────────────┘
 ```
 
-The `Tab` type changes from:
+The `Tab` union covers the nav rail (Environments, Requests, Catalog, Harness) and harness sub-views:
+
 ```typescript
-type Tab = 'scenarios' | 'runner' | 'results' | 'workbench';
-```
-to:
-```typescript
-type Tab = 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'scenarios' | 'runner' | 'results';
 ```
 
 ---
@@ -144,7 +141,7 @@ there is room for it.
 | Large specs (100+ endpoints) | Endpoint Nav has its own scroll area + search/filter |
 | Context switching between APIs | Click different API in sidebar → Endpoint Nav refreshes |
 | Screen real estate | Endpoint Nav is collapsible → full-width detail view |
-| Consistency with Workbench | Workbench: sidebar=collections, main=editor. Catalog: sidebar=APIs, main=browser+detail |
+| Consistency with Requests | Requests: sidebar=collections, main=editor. Catalog: sidebar=APIs, main=browser+detail |
 
 ---
 
@@ -252,7 +249,7 @@ CatalogEntry { name, versions[], folders[], endpoints[], servers[], ... }
 ### What Gets Stored
 
 There is **no compilation**. The UI renders from pre-extracted plain JS objects
-at runtime — the same pattern Workbench uses for `WorkbenchRequest`. The only
+at runtime — the same pattern Requests uses for `RequestItem`. The only
 stored data is:
 
 | Data | Where | Purpose |
@@ -377,17 +374,17 @@ headers, request body) are also persisted in a separate storage key per entry.
 | `yaml` package | Already installed for raw YAML handling |
 
 Roughly 40–50% of UI components can be reused or lightly adapted from the
-existing Workbench implementation.
+existing Requests implementation.
 
 ---
 
-## 12. Bridge to Workbench (Future)
+## 12. Bridge to Requests (Future)
 
-A "Send to Workbench" button on any endpoint or entire catalog entry copies
-endpoint(s) as `WorkbenchRequest` objects into a Workbench collection. This
+A "Send to Requests" button on any endpoint or entire catalog entry copies
+endpoint(s) as `RequestItem` objects into a Requests collection. This
 gives users the full request editor experience for more advanced ad-hoc testing.
 
-The Catalog stays **spec-driven** (read from the imported YAML). The Workbench
+The Catalog stays **spec-driven** (read from the imported YAML). Requests
 stays **user-driven** (free-form editing). They complement each other.
 
 ---

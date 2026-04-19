@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { WorkbenchCollection, WorkbenchFolder } from '../../types';
+import type { RequestCollection, RequestFolder } from '../../types';
 
 interface CtxMenu {
   x: number; y: number;
@@ -9,14 +9,14 @@ interface CtxMenu {
 
 interface Props {
   contextMenu: CtxMenu;
-  collections: WorkbenchCollection[];
+  collections: RequestCollection[];
   showMoveMenu: boolean;
   showFolderMoveMenu: boolean;
   setShowMoveMenu: (v: boolean) => void;
   setShowFolderMoveMenu: (v: boolean) => void;
   dismiss: () => void;
   onNewRequest: (colId: string, folderId?: string) => void;
-  onEditCollection: (col: WorkbenchCollection) => void;
+  onEditCollection: (col: RequestCollection) => void;
   onDuplicateCollection: (colId: string) => void;
   onDeleteCollection: (colId: string) => void;
   onEditSubCollection: (colId: string, folderId: string) => void;
@@ -30,7 +30,7 @@ interface Props {
   onMoveRequestToCollection: (srcColId: string, reqId: string, destColId: string, destFolderId: string | null) => void;
   onMoveFolderToCollection: (srcColId: string, folderId: string, destColId: string, destParentFolderId: string | null) => void;
   onMergeCollectionInto: (srcColId: string, destColId: string) => void;
-  countAllRequests: (col: WorkbenchCollection) => number;
+  countAllRequests: (col: RequestCollection) => number;
   startAddFolder: (colId: string, parentFolderId: string | undefined, isSubCollection: boolean) => void;
   startRenameFolder: (colId: string, folderId: string, currentName: string) => void;
   handleExportCollection: (colId: string) => void;
@@ -40,7 +40,7 @@ interface Props {
   setConfirmDelete: (v: { message: string; onConfirm: () => void } | null) => void;
 }
 
-function findFolderInTree(folders: WorkbenchFolder[], folderId: string): WorkbenchFolder | null {
+function findFolderInTree(folders: RequestFolder[], folderId: string): RequestFolder | null {
   for (const f of folders) {
     if (f.id === folderId) return f;
     const deep = findFolderInTree(f.folders ?? [], folderId);
@@ -49,8 +49,8 @@ function findFolderInTree(folders: WorkbenchFolder[], folderId: string): Workben
   return null;
 }
 
-function collectAllFolders(folders: WorkbenchFolder[], depth = 0): { folder: WorkbenchFolder; depth: number }[] {
-  const result: { folder: WorkbenchFolder; depth: number }[] = [];
+function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
+  const result: { folder: RequestFolder; depth: number }[] = [];
   for (const f of folders) {
     result.push({ folder: f, depth });
     result.push(...collectAllFolders(f.folders ?? [], depth + 1));
@@ -58,7 +58,7 @@ function collectAllFolders(folders: WorkbenchFolder[], depth = 0): { folder: Wor
   return result;
 }
 
-function findSiblingFolders(folders: WorkbenchFolder[], folderId: string): WorkbenchFolder[] | null {
+function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
   for (let i = 0; i < folders.length; i++) {
     if (folders[i].id === folderId) return folders;
     const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
@@ -67,11 +67,11 @@ function findSiblingFolders(folders: WorkbenchFolder[], folderId: string): Workb
   return null;
 }
 
-function countFolderReqs(folder: WorkbenchFolder): number {
+function countFolderReqs(folder: RequestFolder): number {
   return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
 }
 
-function findReqInFoldersDeep(folders: WorkbenchFolder[], reqId: string): string | undefined {
+function findReqInFoldersDeep(folders: RequestFolder[], reqId: string): string | undefined {
   for (const f of folders) {
     if (f.requests.some(r => r.id === reqId)) return f.id;
     const deep = findReqInFoldersDeep(f.folders ?? [], reqId);
@@ -80,12 +80,12 @@ function findReqInFoldersDeep(folders: WorkbenchFolder[], reqId: string): string
   return undefined;
 }
 
-function findRequestLocation(col: WorkbenchCollection, reqId: string): string | null | undefined {
+function findRequestLocation(col: RequestCollection, reqId: string): string | null | undefined {
   if (col.requests.some(r => r.id === reqId)) return null;
   return findReqInFoldersDeep(col.folders ?? [], reqId);
 }
 
-function findParentFolderId(folders: WorkbenchFolder[], targetId: string): string | null | undefined {
+function findParentFolderId(folders: RequestFolder[], targetId: string): string | null | undefined {
   for (const f of folders) {
     if ((f.folders ?? []).some(sf => sf.id === targetId)) return f.id;
     const deep = findParentFolderId(f.folders ?? [], targetId);
@@ -94,21 +94,21 @@ function findParentFolderId(folders: WorkbenchFolder[], targetId: string): strin
   return undefined;
 }
 
-function getFolderLocation(col: WorkbenchCollection, folderId: string): string | null | undefined {
+function getFolderLocation(col: RequestCollection, folderId: string): string | null | undefined {
   if ((col.folders ?? []).some(f => f.id === folderId)) return null;
   return findParentFolderId(col.folders ?? [], folderId);
 }
 
-function isAncestorOf(folders: WorkbenchFolder[], ancestorId: string, descendantId: string): boolean {
+function isAncestorOf(folders: RequestFolder[], ancestorId: string, descendantId: string): boolean {
   const ancestor = findFolderInTree(folders, ancestorId);
   if (!ancestor) return false;
   return !!findFolderInTree(ancestor.folders ?? [], descendantId);
 }
 
-function findRequestName(col: WorkbenchCollection, reqId: string): string {
+function findRequestName(col: RequestCollection, reqId: string): string {
   const root = col.requests.find(r => r.id === reqId);
   if (root) return root.name || 'Untitled';
-  function findInFolders(folders: WorkbenchFolder[]): string | null {
+  function findInFolders(folders: RequestFolder[]): string | null {
     for (const f of folders) {
       const r = f.requests.find(r => r.id === reqId);
       if (r) return r.name || 'Untitled';
@@ -142,7 +142,7 @@ export default function SidebarContextMenu({
     ? getFolderLocation(ctxCol, contextMenu.folderId) : undefined;
 
   return (
-    <div className="wb-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
+    <div className="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
       onClick={(e) => e.stopPropagation()}>
 
       {contextMenu.type === 'collection' && (<>
@@ -152,12 +152,12 @@ export default function SidebarContextMenu({
         <button onClick={() => { const col = collections.find(c => c.id === contextMenu.colId); if (col) onEditCollection(col); dismiss(); }}>Edit Collection</button>
         <button onClick={() => { onDuplicateCollection(contextMenu.colId); dismiss(); }}>Duplicate Collection</button>
         {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-          <div className="wb-ctx-submenu-wrapper">
+          <div className="req-ctx-submenu-wrapper">
             <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
-              Move to... <span className="wb-ctx-arrow">▸</span>
+              Move to... <span className="req-ctx-arrow">▸</span>
             </button>
             {showColMoveMenu && (
-              <div className="wb-ctx-submenu">
+              <div className="req-ctx-submenu">
                 {collections.filter(c => c.id !== contextMenu.colId).map(c => (
                   <button key={c.id} onClick={() => { onMergeCollectionInto(contextMenu.colId, c.id); dismiss(); setShowColMoveMenu(false); }}>
                     📦 {c.name}
@@ -167,10 +167,10 @@ export default function SidebarContextMenu({
             )}
           </div>
         )}
-        <hr className="wb-ctx-divider" />
+        <hr className="req-ctx-divider" />
         <button onClick={() => handleExportCollection(contextMenu.colId)}>Export Collection</button>
         <button onClick={() => handleImportToCollection(contextMenu.colId)}>Import into Collection</button>
-        <hr className="wb-ctx-divider" />
+        <hr className="req-ctx-divider" />
         <button className="danger" onClick={() => {
           const colId = contextMenu.colId;
           const col = collections.find(c => c.id === colId);
@@ -207,12 +207,12 @@ export default function SidebarContextMenu({
             </>);
           })()}
           {ctxCol && (
-            <div className="wb-ctx-submenu-wrapper">
+            <div className="req-ctx-submenu-wrapper">
               <button onClick={() => setShowFolderMoveMenu(!showFolderMoveMenu)}>
-                Move to... <span className="wb-ctx-arrow">▸</span>
+                Move to... <span className="req-ctx-arrow">▸</span>
               </button>
               {showFolderMoveMenu && (
-                <div className="wb-ctx-submenu">
+                <div className="req-ctx-submenu">
                   {ctxFolderLocation !== null && (
                     <button onClick={() => { onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, null); dismiss(); setShowFolderMoveMenu(false); }}>
                       📋 Collection Root
@@ -233,7 +233,7 @@ export default function SidebarContextMenu({
                       </button>
                     ))}
                   {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-                    <div className="wb-dropdown-divider" />
+                    <div className="req-dropdown-divider" />
                   )}
                   {collections.filter(c => c.id !== contextMenu.colId).map((c) => (
                     <div key={c.id}>
@@ -254,14 +254,14 @@ export default function SidebarContextMenu({
           <button onClick={() => { onDuplicateFolder(contextMenu.colId, contextMenu.folderId!); dismiss(); }}>
             {isSub ? 'Duplicate Sub-Collection' : 'Duplicate Folder'}
           </button>
-          <hr className="wb-ctx-divider" />
+          <hr className="req-ctx-divider" />
           <button onClick={() => handleExportFolder(contextMenu.colId, contextMenu.folderId!)}>
             {isSub ? 'Export Sub-Collection' : 'Export Folder'}
           </button>
           <button onClick={() => handleImportToFolder(contextMenu.colId, contextMenu.folderId!)}>
             {isSub ? 'Import into Sub-Collection' : 'Import into Folder'}
           </button>
-          <hr className="wb-ctx-divider" />
+          <hr className="req-ctx-divider" />
           <button className="danger" onClick={() => {
             const colId = contextMenu.colId;
             const folderId = contextMenu.folderId!;
@@ -281,12 +281,12 @@ export default function SidebarContextMenu({
         <button onClick={() => { onDuplicateRequest(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Duplicate</button>
 
         {ctxCol && (
-          <div className="wb-ctx-submenu-wrapper">
+          <div className="req-ctx-submenu-wrapper">
             <button onClick={() => setShowMoveMenu(!showMoveMenu)}>
-              Move to... <span className="wb-ctx-arrow">▸</span>
+              Move to... <span className="req-ctx-arrow">▸</span>
             </button>
             {showMoveMenu && (
-              <div className="wb-ctx-submenu">
+              <div className="req-ctx-submenu">
                 {ctxReqLocation !== null && (
                   <button onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, null); dismiss(); setShowMoveMenu(false); }}>
                     📋 Collection Root
@@ -298,7 +298,7 @@ export default function SidebarContextMenu({
                   </button>
                 ))}
                 {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-                  <div className="wb-dropdown-divider" />
+                  <div className="req-dropdown-divider" />
                 )}
                 {collections.filter(c => c.id !== contextMenu.colId).map((c) => (
                   <div key={c.id}>

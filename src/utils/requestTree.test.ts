@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { WorkbenchFolder, WorkbenchRequest, WorkbenchCollection } from '../types';
+import type { RequestFolder, RequestItem, RequestCollection } from '../types';
 import {
   findFolderDeep,
   findReqInFolders,
@@ -24,20 +24,20 @@ import {
   findReqParentFolder,
   reorderInFolders,
   swapInFolders,
-} from './workbenchTree';
+} from './requestTree';
 
-function makeReq(id: string, name = ''): WorkbenchRequest {
+function makeReq(id: string, name = ''): RequestItem {
   return {
     id, name: name || id, method: 'GET', url: '/test', headers: [], body: '',
     auth: { type: 'none' },
   };
 }
 
-function makeFolder(id: string, requests: WorkbenchRequest[] = [], subfolders: WorkbenchFolder[] = []): WorkbenchFolder {
+function makeFolder(id: string, requests: RequestItem[] = [], subfolders: RequestFolder[] = []): RequestFolder {
   return { id, name: id, requests, folders: subfolders };
 }
 
-function makeCollection(overrides: Partial<WorkbenchCollection> = {}): WorkbenchCollection {
+function makeCollection(overrides: Partial<RequestCollection> = {}): RequestCollection {
   return {
     id: 'col-1', name: 'Test Collection', mode: 'direct',
     requests: [], folders: [], ...overrides,

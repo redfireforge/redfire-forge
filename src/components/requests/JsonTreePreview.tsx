@@ -41,7 +41,7 @@ function highlightSearch(text: string, search: string): ReactNode {
   let idx = lower.indexOf(term, last);
   while (idx !== -1) {
     if (idx > last) parts.push(text.slice(last, idx));
-    parts.push(<mark key={idx} className="wb-search-highlight">{text.slice(idx, idx + search.length)}</mark>);
+    parts.push(<mark key={idx} className="req-search-highlight">{text.slice(idx, idx + search.length)}</mark>);
     last = idx + search.length;
     idx = lower.indexOf(term, last);
   }
@@ -151,18 +151,18 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
 
   const activeNode = matchNodes[currentMatchIdx] ?? null;
 
-  if (error) return <div className="wb-json-preview-wrapper"><pre className="jt-error">{error}</pre></div>;
-  if (!body) return <div className="wb-json-preview-wrapper"><pre className="jt-error">(empty response)</pre></div>;
+  if (error) return <div className="req-json-preview-wrapper"><pre className="jt-error">{error}</pre></div>;
+  if (!body) return <div className="req-json-preview-wrapper"><pre className="jt-error">(empty response)</pre></div>;
   if (!tree) {
     return (
-      <div className="wb-json-preview-wrapper">
+      <div className="req-json-preview-wrapper">
         <pre className="jt-raw">{body}</pre>
       </div>
     );
   }
 
   return (
-    <div className="wb-json-preview-wrapper">
+    <div className="req-json-preview-wrapper">
       <div className="jt-tree">
         <JsonTreeNode node={tree} depth={0} search={search ?? ''}
           activeMatchNode={activeNode} activeMatchRef={activeMatchRef}
