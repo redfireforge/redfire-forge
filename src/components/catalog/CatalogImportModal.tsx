@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedSpec, CatalogEntry } from '../../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../../utils/openApiParser';
 import { isTauri } from '../../utils/platform';
@@ -21,7 +21,9 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const [fileName, setFileName] = useState('');
   const [pasteText, setPasteText] = useState('');
   const [error, setError] = useState('');
+  const [tauriDragHover, setTauriDragHover] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
   const handleFile = useCallback(async (text: string, name: string) => {
     setFileName(name);
@@ -33,6 +35,40 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
       setError(err instanceof Error ? err.message : String(err));
       setStep('error');
     }
+  }, []);
+
+  handleFileRef.current = handleFile;
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+
+    (async () => {
+      try {
+        const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+        const { readTextFile } = await import('@tauri-apps/plugin-fs');
+        unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
+          const { type } = event.payload;
+          if (type === 'over' || type === 'enter') {
+            setTauriDragHover(true);
+          } else if (type === 'leave') {
+            setTauriDragHover(false);
+          } else if (type === 'drop') {
+            setTauriDragHover(false);
+            const paths: string[] = (event.payload as { type: 'drop'; paths: string[] }).paths;
+            const filePath = paths[0];
+            if (!filePath) return;
+            const ext = filePath.split('.').pop()?.toLowerCase();
+            if (!ext || !['yaml', 'yml', 'json'].includes(ext)) return;
+            const text = await readTextFile(filePath);
+            const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'spec.yaml';
+            handleFileRef.current?.(text, name);
+          }
+        });
+      } catch { /* Tauri drag-drop not available */ }
+    })();
+
+    return () => { unlisten?.(); };
   }, []);
 
   const handleParsePaste = useCallback(() => {
@@ -115,13 +151,13 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
 
               {inputMode === 'file' ? (
                 <div
-                  className="cat-import-dropzone"
+                  className={`cat-import-dropzone${tauriDragHover ? ' cat-dropzone-hover' : ''}`}
                   onDragOver={e => e.preventDefault()}
                   onDrop={handleDrop}
                 >
                   <div className="cat-dropzone-icon">📄</div>
                   <div className="cat-dropzone-text">
-                    Drag & drop a .yaml or .json file
+                    {tauriDragHover ? 'Drop file here' : 'Drag & drop a .yaml or .json file'}
                   </div>
                   <div className="cat-dropzone-actions">
                     {isTauri() ? (
