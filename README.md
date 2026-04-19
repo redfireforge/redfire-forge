@@ -247,7 +247,8 @@ src/
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
 │   ├── TestEditorAuthTab.tsx    # Auth tab: auth type selector, credentials, verify
-│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder
+│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder, assertions
+│   ├── RegexAssertionModal.tsx    # Regex assertion builder: JSON tree picker, pattern library, live preview
 │   ├── AuthConfigPanel.tsx      # Shared auth config form (used by Feature & Scenario panels)
 │   ├── LiveCharts.tsx           # Live time-series charts (response time, TPS, error rate)
 │   ├── ProfilePreview.tsx       # SVG load profile shape preview
@@ -873,7 +874,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
-| Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation |
+| Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation; **Regex Builder modal** with JSON tree picker, pattern library (17 presets), and live match preview; assertion type badges on test cards |
 | Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
 | Worker thread execution | Test engine runs in a Web Worker for responsive UI at 60fps; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; incremental result transfer |
 | Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |

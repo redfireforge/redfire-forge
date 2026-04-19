@@ -19,7 +19,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - New `Assertion` discriminated union type and `evaluateAssertions()` engine function
   - UI: "Assertions" section in the Validation tab with type-specific input fields and color-coded badges
   - CLI: YAML/JSON test files support `assertions` array in the `validation` block
-  - 41 new tests (31 unit + 10 integration) covering all assertion types, combinations, and edge cases
+  - **Regex Assertion Builder modal** — interactive popup for building regex assertions: paste/fetch JSON → click fields in tree to pick JSONPath → choose from 17 pre-built patterns across 5 categories (Text, Identifiers, Formats, Numbers, Arrays) or write custom → live preview shows match/no-match result
+  - Assertion type badges shown on test cards in Scenario Builder (Status, SLA, Header, Regex) for at-a-glance identification
+  - 63 new tests (31 unit + 10 integration + 22 modal logic) covering all assertion types, combinations, and edge cases
 - **Connection Pooling**: HTTP connections are now reused via `keep-alive` instead of creating a new TCP/TLS connection per request
   - **Before**: Every outbound request opened a fresh TCP connection → DNS lookup + TCP handshake + TLS handshake overhead repeated thousands of times during a run
   - **After**: A shared `undici.Agent` pool keeps connections alive (30s idle timeout, up to 128 concurrent connections, pipelining) — subsequent requests to the same origin skip handshake overhead entirely

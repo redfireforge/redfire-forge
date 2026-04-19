@@ -73,7 +73,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
 - **Worker thread execution**: Engine runs in a Web Worker — UI stays responsive at 60fps during heavy runs; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback; incremental result transfer avoids serialization overhead
 - **Connection pooling**: Shared `undici.Agent` keeps HTTP connections alive (30s timeout, 128 connections) — eliminates TCP/TLS handshake overhead on repeated requests to the same origin; 2–3x latency reduction for HTTPS APIs in browser dev mode; Tauri mode already pooled via `reqwest`
-- **Rich assertions**: Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), response header (`equals`/`contains`/`regex`/`exists`), and regex match on JSONPath values — run on every request regardless of JSON validation mode; status assertions override default HTTP error handling
+- **Rich assertions**: Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), response header (`equals`/`contains`/`regex`/`exists`), and regex match on JSONPath values — run on every request regardless of JSON validation mode; status assertions override default HTTP error handling; **Regex Builder modal** with JSON tree picker, 17-pattern library, and live match preview; assertion type badges on test cards
 
 #### Gap analysis: Moderate → Good
 
