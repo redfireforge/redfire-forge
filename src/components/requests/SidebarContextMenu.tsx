@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import type { RequestCollection, RequestFolder } from '../../types';
-
-interface CtxMenu {
-  x: number; y: number;
-  type: 'collection' | 'folder' | 'request';
-  colId: string; folderId?: string; reqId?: string;
-}
+import { collectAllGroups, collectGroupIds, countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../../utils/requestTree';
+import type { CtxMenuData } from './RequestsSidebar';
 
 interface Props {
-  contextMenu: CtxMenu;
+  contextMenu: CtxMenuData;
   collections: RequestCollection[];
+  nonGroupCollections: RequestCollection[];
   showMoveMenu: boolean;
   showFolderMoveMenu: boolean;
   setShowMoveMenu: (v: boolean) => void;
@@ -35,18 +32,16 @@ interface Props {
   startRenameFolder: (colId: string, folderId: string, currentName: string) => void;
   handleExportCollection: (colId: string) => void;
   handleExportFolder: (colId: string, folderId: string) => void;
-  handleImportToCollection: (colId?: string) => void;
+  handleImportToCollection: (colId?: string, targetGroupId?: string) => void;
   handleImportToFolder: (colId: string, folderId: string) => void;
   setConfirmDelete: (v: { message: string; onConfirm: () => void } | null) => void;
-}
-
-function findFolderInTree(folders: RequestFolder[], folderId: string): RequestFolder | null {
-  for (const f of folders) {
-    if (f.id === folderId) return f;
-    const deep = findFolderInTree(f.folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
+  onNewCollection: (mode?: 'direct' | 'multi-env', groupId?: string) => void;
+  startAddGroup: (parentGroupId?: string) => void;
+  startRenameGroup: (groupId: string, currentName: string) => void;
+  onDeleteGroup: (groupId: string) => void;
+  onDuplicateGroup: (groupId: string) => void;
+  onMoveToGroup: (colId: string, targetGroupId: string | undefined) => void;
+  handleExportGroup: (groupId: string) => void;
 }
 
 function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
@@ -56,19 +51,6 @@ function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: Reque
     result.push(...collectAllFolders(f.folders ?? [], depth + 1));
   }
   return result;
-}
-
-function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
-  for (let i = 0; i < folders.length; i++) {
-    if (folders[i].id === folderId) return folders;
-    const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
-}
-
-function countFolderReqs(folder: RequestFolder): number {
-  return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
 }
 
 function findReqInFoldersDeep(folders: RequestFolder[], reqId: string): string | undefined {
@@ -100,9 +82,9 @@ function getFolderLocation(col: RequestCollection, folderId: string): string | n
 }
 
 function isAncestorOf(folders: RequestFolder[], ancestorId: string, descendantId: string): boolean {
-  const ancestor = findFolderInTree(folders, ancestorId);
+  const ancestor = findFolderDeep(folders, ancestorId);
   if (!ancestor) return false;
-  return !!findFolderInTree(ancestor.folders ?? [], descendantId);
+  return !!findFolderDeep(ancestor.folders ?? [], descendantId);
 }
 
 function findRequestName(col: RequestCollection, reqId: string): string {
@@ -121,7 +103,7 @@ function findRequestName(col: RequestCollection, reqId: string): string {
 }
 
 export default function SidebarContextMenu({
-  contextMenu, collections,
+  contextMenu, collections, nonGroupCollections,
   showMoveMenu, showFolderMoveMenu,
   setShowMoveMenu, setShowFolderMoveMenu, dismiss,
   onNewRequest, onEditCollection, onDuplicateCollection, onDeleteCollection,
@@ -133,6 +115,8 @@ export default function SidebarContextMenu({
   handleExportCollection, handleExportFolder,
   handleImportToCollection, handleImportToFolder,
   setConfirmDelete,
+  onNewCollection, startAddGroup, startRenameGroup,
+  onDeleteGroup, onDuplicateGroup, onMoveToGroup, handleExportGroup,
 }: Props) {
   const [showColMoveMenu, setShowColMoveMenu] = useState(false);
   const ctxCol = collections.find(c => c.id === contextMenu.colId) ?? null;
@@ -141,32 +125,102 @@ export default function SidebarContextMenu({
   const ctxFolderLocation = contextMenu.type === 'folder' && ctxCol && contextMenu.folderId
     ? getFolderLocation(ctxCol, contextMenu.folderId) : undefined;
 
+  const allGroupsFlat = collectAllGroups(collections);
+
   return (
     <div className="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
       onClick={(e) => e.stopPropagation()}>
 
+      {/* ── Group context menu ── */}
+      {contextMenu.type === 'group' && (() => {
+        const group = collections.find(c => c.id === contextMenu.colId);
+        if (!group) return null;
+        const groupReqCount = countGroupRequests(group.id, collections);
+        return (<>
+          <button onClick={() => { startAddGroup(contextMenu.colId); }}>Add Group</button>
+          <button onClick={() => { onNewCollection('direct', contextMenu.colId); dismiss(); }}>Add URL Collection</button>
+          <button onClick={() => { onNewCollection('multi-env', contextMenu.colId); dismiss(); }}>Add ENV Collection</button>
+          <hr className="req-ctx-divider" />
+          <button onClick={() => startRenameGroup(contextMenu.colId, group.name)}>Rename</button>
+          <button onClick={() => { onDuplicateGroup(contextMenu.colId); dismiss(); }}>Duplicate Group</button>
+
+          {(allGroupsFlat.length > (group.groupId ? 0 : 1) || group.groupId) && (() => {
+            const descendantIds = new Set(collectGroupIds(contextMenu.colId, collections));
+            return (
+            <div className="req-ctx-submenu-wrapper">
+              <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
+                Move to... <span className="req-ctx-arrow">&#9656;</span>
+              </button>
+              {showColMoveMenu && (
+                <div className="req-ctx-submenu">
+                  {group.groupId && (
+                    <button onClick={() => { onMoveToGroup(contextMenu.colId, undefined); dismiss(); setShowColMoveMenu(false); }}>
+                      &#128203; Root level
+                    </button>
+                  )}
+                  {allGroupsFlat
+                    .filter(({ group: g }) => !descendantIds.has(g.id) && g.id !== group.groupId)
+                    .map(({ group: g, depth }) => (
+                      <button key={g.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => { onMoveToGroup(contextMenu.colId, g.id); dismiss(); setShowColMoveMenu(false); }}>
+                        &#128450;&#65039; {g.name}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+            );
+          })()}
+
+          <hr className="req-ctx-divider" />
+          <button onClick={() => handleExportGroup(contextMenu.colId)}>Export Group</button>
+          <button onClick={() => handleImportToCollection(undefined, contextMenu.colId)}>Import into Group</button>
+          <hr className="req-ctx-divider" />
+          <button className="danger" onClick={() => {
+            dismiss();
+            setConfirmDelete({
+              message: `Delete group "${group.name}"? Its ${groupReqCount > 0 ? `${groupReqCount} request${groupReqCount !== 1 ? 's' : ''} and ` : ''}children will be moved to the parent level.`,
+              onConfirm: () => onDeleteGroup(contextMenu.colId),
+            });
+          }}>Delete Group</button>
+        </>);
+      })()}
+
+      {/* ── Collection context menu ── */}
       {contextMenu.type === 'collection' && (<>
         <button onClick={() => { onNewRequest(contextMenu.colId); dismiss(); }}>Add Request</button>
         <button onClick={() => startAddFolder(contextMenu.colId, undefined, false)}>Add Folder</button>
         <button onClick={() => startAddFolder(contextMenu.colId, undefined, true)}>Add Sub-Collection</button>
         <button onClick={() => { const col = collections.find(c => c.id === contextMenu.colId); if (col) onEditCollection(col); dismiss(); }}>Edit Collection</button>
         <button onClick={() => { onDuplicateCollection(contextMenu.colId); dismiss(); }}>Duplicate Collection</button>
-        {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-          <div className="req-ctx-submenu-wrapper">
-            <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
-              Move to... <span className="req-ctx-arrow">▸</span>
-            </button>
-            {showColMoveMenu && (
-              <div className="req-ctx-submenu">
-                {collections.filter(c => c.id !== contextMenu.colId).map(c => (
-                  <button key={c.id} onClick={() => { onMergeCollectionInto(contextMenu.colId, c.id); dismiss(); setShowColMoveMenu(false); }}>
-                    📦 {c.name}
+        <div className="req-ctx-submenu-wrapper">
+          <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
+            Move to... <span className="req-ctx-arrow">&#9656;</span>
+          </button>
+          {showColMoveMenu && (
+            <div className="req-ctx-submenu">
+              {ctxCol?.groupId && (
+                <button onClick={() => { onMoveToGroup(contextMenu.colId, undefined); dismiss(); setShowColMoveMenu(false); }}>
+                  &#128203; Root level
+                </button>
+              )}
+              {allGroupsFlat
+                .filter(({ group: g }) => g.id !== ctxCol?.groupId)
+                .map(({ group: g, depth }) => (
+                  <button key={g.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => { onMoveToGroup(contextMenu.colId, g.id); dismiss(); setShowColMoveMenu(false); }}>
+                    &#128450;&#65039; {g.name}
                   </button>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
+              {nonGroupCollections.filter(c => c.id !== contextMenu.colId).length > 0 && allGroupsFlat.length > 0 && (
+                <div className="req-dropdown-divider" />
+              )}
+              {nonGroupCollections.filter(c => c.id !== contextMenu.colId).map(c => (
+                <button key={c.id} onClick={() => { onMergeCollectionInto(contextMenu.colId, c.id); dismiss(); setShowColMoveMenu(false); }}>
+                  &#128230; {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <hr className="req-ctx-divider" />
         <button onClick={() => handleExportCollection(contextMenu.colId)}>Export Collection</button>
         <button onClick={() => handleImportToCollection(contextMenu.colId)}>Import into Collection</button>
@@ -181,8 +235,9 @@ export default function SidebarContextMenu({
         }}>Delete Collection</button>
       </>)}
 
+      {/* ── Folder context menu ── */}
       {contextMenu.type === 'folder' && contextMenu.folderId && (() => {
-        const ctxFolder = findFolderInTree(ctxCol?.folders ?? [], contextMenu.folderId!);
+        const ctxFolder = findFolderDeep(ctxCol?.folders ?? [], contextMenu.folderId!);
         const isSub = ctxFolder?.isSubCollection;
         return (<>
           <button onClick={() => { onNewRequest(contextMenu.colId, contextMenu.folderId); dismiss(); }}>Add Request</button>
@@ -193,7 +248,7 @@ export default function SidebarContextMenu({
           )}
           <button onClick={() => {
             const col = collections.find(c => c.id === contextMenu.colId);
-            const folder = findFolderInTree(col?.folders ?? [], contextMenu.folderId!);
+            const folder = findFolderDeep(col?.folders ?? [], contextMenu.folderId!);
             if (folder) startRenameFolder(contextMenu.colId, contextMenu.folderId!, folder.name);
           }}>Rename</button>
           {(() => {
@@ -209,13 +264,13 @@ export default function SidebarContextMenu({
           {ctxCol && (
             <div className="req-ctx-submenu-wrapper">
               <button onClick={() => setShowFolderMoveMenu(!showFolderMoveMenu)}>
-                Move to... <span className="req-ctx-arrow">▸</span>
+                Move to... <span className="req-ctx-arrow">&#9656;</span>
               </button>
               {showFolderMoveMenu && (
                 <div className="req-ctx-submenu">
                   {ctxFolderLocation !== null && (
                     <button onClick={() => { onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, null); dismiss(); setShowFolderMoveMenu(false); }}>
-                      📋 Collection Root
+                      &#128203; Collection Root
                     </button>
                   )}
                   {collectAllFolders(ctxCol.folders ?? [])
@@ -229,20 +284,20 @@ export default function SidebarContextMenu({
                         onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, f.id);
                         dismiss(); setShowFolderMoveMenu(false);
                       }}>
-                        📁 {f.name}
+                        &#128193; {f.name}
                       </button>
                     ))}
-                  {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
+                  {nonGroupCollections.filter(c => c.id !== contextMenu.colId).length > 0 && (
                     <div className="req-dropdown-divider" />
                   )}
-                  {collections.filter(c => c.id !== contextMenu.colId).map((c) => (
+                  {nonGroupCollections.filter(c => c.id !== contextMenu.colId).map((c) => (
                     <div key={c.id}>
                       <button onClick={() => { onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, c.id, null); dismiss(); setShowFolderMoveMenu(false); }}>
-                        📦 {c.name}
+                        &#128230; {c.name}
                       </button>
                       {collectAllFolders(c.folders ?? []).map(({ folder: f, depth }) => (
                         <button key={f.id} style={{ paddingLeft: 20 + depth * 12 }} onClick={() => { onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, c.id, f.id); dismiss(); setShowFolderMoveMenu(false); }}>
-                          📁 {f.name}
+                          &#128193; {f.name}
                         </button>
                       ))}
                     </div>
@@ -265,7 +320,7 @@ export default function SidebarContextMenu({
           <button className="danger" onClick={() => {
             const colId = contextMenu.colId;
             const folderId = contextMenu.folderId!;
-            const targetFolder = findFolderInTree(ctxCol?.folders ?? [], folderId);
+            const targetFolder = findFolderDeep(ctxCol?.folders ?? [], folderId);
             const folderReqs = targetFolder ? countFolderReqs(targetFolder) : 0;
             const label = isSub ? 'sub-collection' : 'folder';
             const msg = `Delete ${label} "${ctxFolder?.name ?? ''}"${folderReqs > 0 ? ` and its ${folderReqs} request${folderReqs > 1 ? 's' : ''}` : ''}?`;
@@ -277,37 +332,38 @@ export default function SidebarContextMenu({
         </>);
       })()}
 
+      {/* ── Request context menu ── */}
       {contextMenu.type === 'request' && contextMenu.reqId && (<>
         <button onClick={() => { onDuplicateRequest(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Duplicate</button>
 
         {ctxCol && (
           <div className="req-ctx-submenu-wrapper">
             <button onClick={() => setShowMoveMenu(!showMoveMenu)}>
-              Move to... <span className="req-ctx-arrow">▸</span>
+              Move to... <span className="req-ctx-arrow">&#9656;</span>
             </button>
             {showMoveMenu && (
               <div className="req-ctx-submenu">
                 {ctxReqLocation !== null && (
                   <button onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, null); dismiss(); setShowMoveMenu(false); }}>
-                    📋 Collection Root
+                    &#128203; Collection Root
                   </button>
                 )}
                 {collectAllFolders(ctxCol.folders ?? []).filter(({ folder: f }) => f.id !== ctxReqLocation).map(({ folder: f, depth }) => (
                   <button key={f.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, f.id); dismiss(); setShowMoveMenu(false); }}>
-                    📁 {f.name}
+                    &#128193; {f.name}
                   </button>
                 ))}
-                {collections.filter(c => c.id !== contextMenu.colId).length > 0 && (
+                {nonGroupCollections.filter(c => c.id !== contextMenu.colId).length > 0 && (
                   <div className="req-dropdown-divider" />
                 )}
-                {collections.filter(c => c.id !== contextMenu.colId).map((c) => (
+                {nonGroupCollections.filter(c => c.id !== contextMenu.colId).map((c) => (
                   <div key={c.id}>
                     <button onClick={() => { onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, c.id, null); dismiss(); setShowMoveMenu(false); }}>
-                      📦 {c.name}
+                      &#128230; {c.name}
                     </button>
                     {collectAllFolders(c.folders ?? []).map(({ folder: f, depth }) => (
                       <button key={f.id} style={{ paddingLeft: 20 + depth * 12 }} onClick={() => { onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, c.id, f.id); dismiss(); setShowMoveMenu(false); }}>
-                        📁 {f.name}
+                        &#128193; {f.name}
                       </button>
                     ))}
                   </div>
