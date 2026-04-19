@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../types';
+import type { Assertion, AssertionOperator, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../types';
 import JsonPathBuilder from './JsonPathBuilder';
 import ResponseVersionPanel from './ResponseVersionPanel';
 
@@ -39,8 +40,96 @@ export default function TestEditorValidationTab({
   setValidationResult,
   onValidateResponse,
 }: TestEditorValidationTabProps) {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const assertions = draft.validation.assertions ?? [];
+
+  function updateAssertion(idx: number, patch: Partial<Assertion>) {
+    const prev = draftRef.current;
+    const list = [...(prev.validation.assertions ?? [])];
+    list[idx] = { ...list[idx], ...patch } as Assertion;
+    onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
+  }
+  function removeAssertion(idx: number) {
+    const prev = draftRef.current;
+    const list = (prev.validation.assertions ?? []).filter((_, i) => i !== idx);
+    onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
+  }
+  function addAssertion(a: Assertion) {
+    const prev = draftRef.current;
+    const list = [...(prev.validation.assertions ?? []), a];
+    onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
+    setShowAddMenu(false);
+  }
+
   return (
     <div>
+      {/* ── Rich Assertions ────────────────────────────── */}
+      <div className="assertions-section">
+        <div className="assertions-header">
+          <span className="assertions-title">Assertions</span>
+          <span className="assertions-hint">Run on every request regardless of validation mode</span>
+          <div className="assertions-add-wrap">
+            <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
+            {showAddMenu && (
+              <div className="assertions-add-menu">
+                <button type="button" onClick={() => addAssertion({ type: 'status', expected: '200' })}>Status Code</button>
+                <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>Response Time SLA</button>
+                <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>Response Header</button>
+                <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>Regex Match</button>
+              </div>
+            )}
+          </div>
+        </div>
+        {assertions.length > 0 && (
+          <div className="assertions-list">
+            {assertions.map((a, i) => (
+              <div key={i} className="assertion-row">
+                <span className={`assertion-type-badge assertion-type-${a.type}`}>
+                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : 'REGEX'}
+                </span>
+                {a.type === 'status' && (
+                  <label className="assertion-field">
+                    Expected:
+                    <input value={a.expected} onChange={(e) => updateAssertion(i, { expected: e.target.value })} placeholder="200, 2xx, 200-299" className="assertion-input" />
+                  </label>
+                )}
+                {a.type === 'responseTime' && (
+                  <label className="assertion-field">
+                    Max:
+                    <input type="number" value={a.maxMs} onChange={(e) => updateAssertion(i, { maxMs: Number(e.target.value) || 0 })} className="assertion-input assertion-input-sm" min={0} />
+                    <span className="assertion-unit">ms</span>
+                  </label>
+                )}
+                {a.type === 'header' && (
+                  <>
+                    <input value={a.name} onChange={(e) => updateAssertion(i, { name: e.target.value })} placeholder="Header name" className="assertion-input" />
+                    <select value={a.operator} onChange={(e) => updateAssertion(i, { operator: e.target.value as AssertionOperator })} className="assertion-select">
+                      <option value="equals">equals</option>
+                      <option value="contains">contains</option>
+                      <option value="regex">matches regex</option>
+                      <option value="exists">exists</option>
+                    </select>
+                    {a.operator !== 'exists' && (
+                      <input value={a.value ?? ''} onChange={(e) => updateAssertion(i, { value: e.target.value })} placeholder="Expected value" className="assertion-input" />
+                    )}
+                  </>
+                )}
+                {a.type === 'regex' && (
+                  <>
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.path" className="assertion-input" />
+                    <span className="assertion-regex-slash">/</span>
+                    <input value={a.pattern} onChange={(e) => updateAssertion(i, { pattern: e.target.value })} placeholder="pattern" className="assertion-input" />
+                    <span className="assertion-regex-slash">/</span>
+                  </>
+                )}
+                <button type="button" className="btn btn-xs btn-danger" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── JSON Validation Mode ───────────────────────── */}
       <div className="radio-group">
         {(['none', 'full', 'selective'] as ValidationMode[]).map((m) => (
           <label key={m} className="radio-label">

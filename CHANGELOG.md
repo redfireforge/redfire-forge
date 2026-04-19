@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Rich Assertions**: Four new assertion types that run on every request regardless of JSON validation mode
+  - **Status Code** — Assert specific codes (`200`), classes (`2xx`), ranges (`200-299`), or comma-separated lists (`200,201,204`)
+  - **Response Time SLA** — Assert response completes within a threshold (`≤ 500ms`)
+  - **Response Header** — Assert header values with operators: `equals`, `contains`, `regex`, `exists` (case-insensitive header name lookup)
+  - **Regex Match** — Assert JSONPath-extracted values match a regular expression pattern
+  - Status code assertions override default HTTP error handling — asserting `404` makes a 404 response pass instead of failing
+  - Assertions combine with existing JSON validation: status OK (by assertion or default) → JSON validation runs → all failures merged
+  - New `Assertion` discriminated union type and `evaluateAssertions()` engine function
+  - UI: "Assertions" section in the Validation tab with type-specific input fields and color-coded badges
+  - CLI: YAML/JSON test files support `assertions` array in the `validation` block
+  - 41 new tests (31 unit + 10 integration) covering all assertion types, combinations, and edge cases
 - **Connection Pooling**: HTTP connections are now reused via `keep-alive` instead of creating a new TCP/TLS connection per request
   - **Before**: Every outbound request opened a fresh TCP connection → DNS lookup + TCP handshake + TLS handshake overhead repeated thousands of times during a run
   - **After**: A shared `undici.Agent` pool keeps connections alive (30s idle timeout, up to 128 concurrent connections, pipelining) — subsequent requests to the same origin skip handshake overhead entirely
@@ -44,7 +55,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
 
 ### Changed
-- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.4% statements, 90.4% branches, 98.9% functions, 98.2% lines) with 986 total tests across 46 test files
+- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.5% statements, 90.4% branches, 98.9% functions, 98.2% lines) with 1027 total tests across 48 test files
 
 ---
 

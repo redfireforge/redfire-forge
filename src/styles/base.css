@@ -460,6 +460,42 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .confirm-actions .btn-danger:hover { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #ef4444; }
 
+/* ── Rich Assertions ─────────────────────────────────── */
+.assertions-section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.assertions-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.assertions-title { font-weight: 600; font-size: 13px; }
+.assertions-hint { font-size: 11px; color: var(--text-muted); flex: 1; }
+.assertions-add-wrap { position: relative; }
+.assertions-add-menu {
+  position: absolute; right: 0; top: 100%; z-index: 20;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25); min-width: 170px; padding: 4px 0;
+}
+.assertions-add-menu button {
+  display: block; width: 100%; text-align: left; padding: 7px 14px;
+  background: none; border: none; color: var(--text); cursor: pointer; font-size: 12px;
+}
+.assertions-add-menu button:hover { background: var(--hover-bg); }
+.assertions-list { display: flex; flex-direction: column; gap: 6px; }
+.assertion-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+}
+.assertion-type-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  text-transform: uppercase; white-space: nowrap; letter-spacing: .5px;
+}
+.assertion-type-status { background: #2563eb22; color: #60a5fa; border: 1px solid #2563eb44; }
+.assertion-type-responseTime { background: #f59e0b22; color: #fbbf24; border: 1px solid #f59e0b44; }
+.assertion-type-header { background: #8b5cf622; color: #a78bfa; border: 1px solid #8b5cf644; }
+.assertion-type-regex { background: #10b98122; color: #34d399; border: 1px solid #10b98144; }
+.assertion-field { display: flex; align-items: center; gap: 5px; }
+.assertion-input { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; color: var(--text); font-size: 12px; min-width: 60px; }
+.assertion-input-sm { width: 80px; }
+.assertion-select { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--text); font-size: 12px; }
+.assertion-unit { font-size: 11px; color: var(--text-muted); }
+.assertion-regex-slash { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .app-header { padding: 12px 16px; }
