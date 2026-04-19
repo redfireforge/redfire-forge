@@ -174,6 +174,15 @@ export interface FailureDetail {
   actual: string;
 }
 
+export interface TimingBreakdown {
+  dnsLookup: number;
+  tcpConnect: number;
+  tlsHandshake: number;
+  ttfb: number;
+  download: number;
+  total: number;
+}
+
 export interface RequestResult {
   id: string;
   scenarioId: string;
@@ -190,6 +199,7 @@ export interface RequestResult {
   validationMode: ValidationMode;
   failureDetails: FailureDetail[];
   errorMessage?: string;
+  timing?: TimingBreakdown;
 }
 
 export interface TestSummary {

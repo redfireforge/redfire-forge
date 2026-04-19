@@ -1,4 +1,5 @@
 import { isTauri, isNode } from './platform';
+import type { TimingBreakdown } from '../types';
 
 export interface HttpResponse {
   status: number;
@@ -6,6 +7,7 @@ export interface HttpResponse {
   headers: Record<string, string>;
   body: string;
   error?: string;
+  timing?: TimingBreakdown;
 }
 
 export type HttpTransportFn = (
@@ -64,15 +66,27 @@ async function tauriFetch(
     if (body && method !== 'GET') {
       opts.body = body;
     }
+
+    const t0 = performance.now();
     const response = await tFetch(url, opts);
+    const tFirstByte = performance.now();
     const responseBody = await response.text();
+    const tDone = performance.now();
+
     const responseHeaders: Record<string, string> = {};
     response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+
     return {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders,
       body: responseBody,
+      timing: {
+        dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0,
+        ttfb: round2(tFirstByte - t0),
+        download: round2(tDone - tFirstByte),
+        total: round2(tDone - t0),
+      },
     };
   } catch (err) {
     return {
@@ -146,12 +160,30 @@ async function nodeFetch(
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     if (dispatcher) opts.dispatcher = dispatcher;
+
+    const t0 = performance.now();
     const response = await fetch(url, opts as RequestInit);
+    const tFirstByte = performance.now();
     const responseBody = await response.text();
+    const tDone = performance.now();
+
     const responseHeaders: Record<string, string> = {};
     response.headers.forEach((v, k) => { responseHeaders[k] = v; });
-    return { status: response.status, statusText: response.statusText, headers: responseHeaders, body: responseBody };
+
+    const total = round2(tDone - t0);
+    const download = round2(tDone - tFirstByte);
+    const ttfb = round2(tFirstByte - t0);
+
+    return {
+      status: response.status, statusText: response.statusText,
+      headers: responseHeaders, body: responseBody,
+      timing: { dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0, ttfb, download, total },
+    };
   } catch (err) {
     return { status: 0, statusText: '', headers: {}, body: '', error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
