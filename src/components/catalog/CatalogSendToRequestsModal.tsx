@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues } from '../../types/catalog';
-import type { Environment, Microservice } from '../../types';
+import type { Environment, Microservice, RequestCollection } from '../../types';
+import { collectAllGroups } from '../../utils/requestTree';
 
 interface EnvOption {
   envId: string;
@@ -20,6 +21,8 @@ export interface SendToRequestsPayload {
   customNames: Record<string, string>;
   sampleEpIds: Set<string>;
   savedEpValues: Record<string, SavedEndpointValues>;
+  targetGroupId?: string;
+  newGroupName?: string;
 }
 
 interface Props {
@@ -27,6 +30,7 @@ interface Props {
   appEnvironments: Environment[];
   appMicroservices: Microservice[];
   savedEpValues: Record<string, SavedEndpointValues>;
+  collections: RequestCollection[];
   onSend: (payload: SendToRequestsPayload) => void;
   onClose: () => void;
 }
@@ -35,7 +39,7 @@ const MC: Record<string, string> = {
   GET: '#49cc90', POST: '#fca130', PUT: '#61affe', PATCH: '#50e3c2', DELETE: '#f93e3e',
 };
 
-export default function CatalogSendToRequestsModal({ entry, appEnvironments, appMicroservices, savedEpValues, onSend, onClose }: Props) {
+export default function CatalogSendToRequestsModal({ entry, appEnvironments, appMicroservices, savedEpValues, collections, onSend, onClose }: Props) {
   const linkedSvc = useMemo(
     () => entry.microserviceId ? appMicroservices.find(s => s.id === entry.microserviceId) : undefined,
     [entry.microserviceId, appMicroservices],
@@ -115,6 +119,10 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
     });
   }, [sampleableIds]);
 
+  const [targetGroup, setTargetGroup] = useState<string>('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const groupsFlat = useMemo(() => collectAllGroups(collections), [collections]);
+
   const [collapsedPreviewEnvs, setCollapsedPreviewEnvs] = useState<Set<string>>(new Set());
   const [epColWidths, setEpColWidths] = useState([32, 150, 58, 200, 200, 52]);
   const resizeRef = useRef<{ colIdx: number; startX: number; startW: number } | null>(null);
@@ -193,8 +201,17 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
 
   const handleSend = useCallback(() => {
     if (!canSend) return;
-    onSend({ collectionName: colName.trim(), envs: selectedEnvs, endpoints: selectedEndpoints, customNames, sampleEpIds: sampleEps, savedEpValues });
-  }, [canSend, colName, selectedEnvs, selectedEndpoints, customNames, sampleEps, savedEpValues, onSend]);
+    const payload: SendToRequestsPayload = {
+      collectionName: colName.trim(), envs: selectedEnvs, endpoints: selectedEndpoints,
+      customNames, sampleEpIds: sampleEps, savedEpValues,
+    };
+    if (targetGroup === '__new__' && newGroupName.trim()) {
+      payload.newGroupName = newGroupName.trim();
+    } else if (targetGroup) {
+      payload.targetGroupId = targetGroup;
+    }
+    onSend(payload);
+  }, [canSend, colName, selectedEnvs, selectedEndpoints, customNames, sampleEps, savedEpValues, targetGroup, newGroupName, onSend]);
 
   return (
     <div className="cat-send-overlay" onClick={onClose}>
@@ -211,6 +228,24 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
             <div className="cat-send-card">
               <label className="cat-send-label">Collection Name</label>
               <input className="cep-field-input" value={colName} onChange={e => setColName(e.target.value)} style={{ marginTop: 6 }} />
+            </div>
+
+            {/* Target Group */}
+            <div className="cat-send-card">
+              <label className="cat-send-label">Target Group</label>
+              <select className="cep-field-input" value={targetGroup} onChange={e => setTargetGroup(e.target.value)} style={{ marginTop: 6 }}>
+                <option value="">None (root level)</option>
+                {groupsFlat.map(({ group: g, depth }) => (
+                  <option key={g.id} value={g.id}>
+                    {'\u00A0\u00A0'.repeat(depth)}&#128450;&#65039; {g.name}
+                  </option>
+                ))}
+                <option value="__new__">+ New Group...</option>
+              </select>
+              {targetGroup === '__new__' && (
+                <input className="cep-field-input" value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                  placeholder="New group name" style={{ marginTop: 6 }} autoFocus />
+              )}
             </div>
 
             {/* Environments */}

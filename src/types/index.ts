@@ -203,6 +203,27 @@ export interface TestRun {
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+export interface CatalogRequestMeta {
+  operationId?: string;
+  description?: string;
+  originalPath: string;
+  tags: string[];
+  deprecated?: boolean;
+  parameters?: {
+    name: string;
+    in: 'path' | 'query' | 'header' | 'cookie';
+    required: boolean;
+    description?: string;
+    type?: string;
+  }[];
+  expectedResponses?: {
+    statusCode: string;
+    description: string;
+  }[];
+  security?: string[];
+  sourceSpec?: string;
+}
+
 export interface RequestItem {
   id: string;
   name: string;
@@ -214,6 +235,7 @@ export interface RequestItem {
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
+  catalogMeta?: CatalogRequestMeta;
 }
 
 export interface RequestFolder {
@@ -230,7 +252,8 @@ export interface RequestFolder {
 export interface RequestCollection {
   id: string;
   name: string;
-  mode: 'direct' | 'multi-env';
+  mode: 'direct' | 'multi-env' | 'group';
+  groupId?: string;
   microserviceId?: string;
   baseUrls?: Record<string, string>;
   auth?: AuthConfig;

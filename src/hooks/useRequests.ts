@@ -4,7 +4,8 @@ import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpM
 import { loadRequests, saveRequests } from '../utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
-  countAllRequests, mapRequests, removeRequestFrom,
+  countAllRequests, collectGroupIds, collectGroupChildren,
+  mapRequests, removeRequestFrom,
   mapFolderDeep, addToFolderDeep, removeFolderDeep,
   cloneRequest, cloneFolder, extractFolderDeep,
   isDescendantOf, addReqToFolderDeep, addReqToFolderSafe,
@@ -411,6 +412,81 @@ export function useRequests() {
   }, []);
 
 
+  // ─── Groups ──────────────────────────────────────────
+
+  const addGroup = useCallback((name: string, parentGroupId?: string) => {
+    const id = uuidv4();
+    const group: RequestCollection = { id, name, mode: 'group', groupId: parentGroupId, requests: [], folders: [] };
+    setData((prev) => ({ ...prev, collections: [...prev.collections, group] }));
+    return id;
+  }, []);
+
+  const renameGroup = useCallback((groupId: string, name: string) => {
+    setData((prev) => ({
+      ...prev,
+      collections: prev.collections.map((c) => c.id === groupId ? { ...c, name } : c),
+    }));
+  }, []);
+
+  const deleteGroup = useCallback((groupId: string) => {
+    setData((prev) => {
+      const group = prev.collections.find(c => c.id === groupId);
+      if (!group || group.mode !== 'group') return prev;
+      const parentGroupId = group.groupId;
+      return {
+        ...prev,
+        collections: prev.collections
+          .filter(c => c.id !== groupId)
+          .map(c => c.groupId === groupId ? { ...c, groupId: parentGroupId } : c),
+        selectedCollectionId: prev.selectedCollectionId === groupId ? undefined : prev.selectedCollectionId,
+      };
+    });
+  }, []);
+
+  const moveToGroup = useCallback((colId: string, targetGroupId: string | undefined) => {
+    setData((prev) => {
+      const col = prev.collections.find(c => c.id === colId);
+      if (!col) return prev;
+      if (col.mode === 'group' && targetGroupId) {
+        const allDescendants = collectGroupIds(colId, prev.collections);
+        if (allDescendants.includes(targetGroupId)) return prev;
+      }
+      return {
+        ...prev,
+        collections: prev.collections.map(c => c.id === colId ? { ...c, groupId: targetGroupId } : c),
+      };
+    });
+  }, []);
+
+  const duplicateGroup = useCallback((groupId: string) => {
+    setData((prev) => {
+      const group = prev.collections.find(c => c.id === groupId);
+      if (!group || group.mode !== 'group') return prev;
+      const idMap = new Map<string, string>();
+      const allIds = collectGroupChildren(groupId, prev.collections);
+      for (const oldId of allIds) {
+        idMap.set(oldId, uuidv4());
+      }
+      const newCollections: RequestCollection[] = [];
+      for (const oldId of allIds) {
+        const orig = prev.collections.find(c => c.id === oldId);
+        if (!orig) continue;
+        const newId = idMap.get(oldId)!;
+        const newGroupId = orig.groupId ? idMap.get(orig.groupId) ?? orig.groupId : orig.groupId;
+        if (orig.mode === 'group') {
+          newCollections.push({ ...orig, id: newId, groupId: newGroupId, name: orig.id === groupId ? `${orig.name} (copy)` : orig.name });
+        } else {
+          newCollections.push({
+            ...orig, id: newId, groupId: newGroupId,
+            requests: orig.requests.map(cloneRequest),
+            folders: (orig.folders ?? []).map(cloneFolder),
+          });
+        }
+      }
+      return { ...prev, collections: [...prev.collections, ...newCollections] };
+    });
+  }, []);
+
   const addEnvironments = useCallback((envs: { id: string; name: string }[]) => {
     setData((prev) => {
       const existingNames = new Set(prev.environments.map((e) => e.name));
@@ -450,6 +526,7 @@ export function useRequests() {
     addFolder, addSubCollection, updateSubCollection, renameFolder, removeFolder, duplicateFolder, moveFolder, reorderFolder, moveFolderTo,
     addRequest, updateRequest, removeRequest, duplicateRequest, moveRequest, selectRequest,
     moveRequestToCollection, moveFolderToCollection, moveCollectionAsSubCollection,
+    addGroup, renameGroup, deleteGroup, moveToGroup, duplicateGroup,
     addEnvironments, countAllRequests, importCollection, importFolder,
   };
 }
