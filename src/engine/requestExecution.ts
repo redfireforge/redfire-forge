@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestResult } from '../types';
+import type { Scenario, RequestResult, TimingBreakdown } from '../types';
 import { validate, evaluateAssertions } from './validator';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
 import { serializeWithContentType } from '../utils/bodySerializer';
@@ -21,6 +21,7 @@ async function executeRequest(
   let responseObj: unknown = null;
   let responseHeaders: Record<string, string> = {};
   let errorMessage: string | undefined;
+  let timing: TimingBreakdown | undefined;
 
   try {
     const url = buildUrl(scenario);
@@ -35,6 +36,7 @@ async function executeRequest(
     }
 
     const result = await resultPromise;
+    timing = result.timing;
 
     if (result.error) {
       httpStatus = 0;
@@ -107,6 +109,7 @@ async function executeRequest(
     validationMode: scenario.validation.mode,
     failureDetails,
     errorMessage,
+    timing,
   };
 }
 

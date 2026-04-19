@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { RequestResult } from '../types';
+import WaterfallBar from './WaterfallBar';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -38,6 +39,13 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
             <div className="response-meta-url">{result.url}</div>
           </div>
+
+          {result.timing && (
+            <div className="response-detail-section">
+              <h4>Timing Breakdown</h4>
+              <WaterfallBar timing={result.timing} />
+            </div>
+          )}
 
           {result.errorMessage && (
             <div className="response-detail-section">
