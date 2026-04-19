@@ -252,7 +252,7 @@ export default function RegexAssertionModal({
         {/* Header */}
         <div className="ram-header">
           <h3>Regex Assertion Builder</h3>
-          <button className="btn btn-xs" onClick={onClose}>×</button>
+          <button className="ram-modal-close" onClick={onClose}>&times;</button>
         </div>
 
         <div className="ram-body">

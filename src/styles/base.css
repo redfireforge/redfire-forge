@@ -509,14 +509,23 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-builder-btn:hover { color: #34d399; border-color: #34d399; }
 
 /* ── Regex Assertion Modal ──────────────────────────── */
-.ram-modal { max-width: none; width: 100%; margin: 0; border-radius: 0; padding: 0; overflow: hidden; }
+.ram-modal {
+  max-width: none; width: 100%; margin: 0; border-radius: 0; padding: 0;
+  overflow: hidden; display: flex; flex-direction: column; height: 100%;
+}
 .ram-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  padding: 14px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.ram-header h3 { margin: 0; font-size: 15px; }
-.ram-body { display: grid; grid-template-columns: 1fr 1fr; min-height: 420px; }
-.ram-left { border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px; }
+.ram-header h3 { margin: 0; font-size: 1rem; font-weight: 700; }
+.ram-modal-close {
+  background: none; border: none; font-size: 1.4rem;
+  cursor: pointer; color: var(--text-muted); line-height: 1;
+  padding: 2px 6px; border-radius: 4px;
+}
+.ram-modal-close:hover { background: var(--hover-bg); color: var(--text); }
+.ram-body { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
+.ram-left { border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px; overflow: hidden; }
 .ram-right { display: flex; flex-direction: column; padding: 14px; gap: 12px; overflow-y: auto; }
 .ram-section-title {
   display: flex; align-items: center; justify-content: space-between;
@@ -534,7 +543,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .ram-tree-container {
   flex: 1; overflow-y: auto; border: 1px solid var(--border);
-  border-radius: 6px; background: var(--input-bg); max-height: 360px;
+  border-radius: 6px; background: var(--input-bg); min-height: 0;
 }
 .ram-tree-node { cursor: pointer; }
 .ram-tree-row {
@@ -607,7 +616,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 .ram-footer {
   display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border); flex-shrink: 0;
 }
 
 /* Responsive */
