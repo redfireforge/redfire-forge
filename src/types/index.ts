@@ -59,6 +59,14 @@ export interface ResponseVersion {
   unorderedArrays?: boolean;
 }
 
+export type AssertionOperator = 'equals' | 'contains' | 'regex' | 'exists';
+
+export type Assertion =
+  | { type: 'status'; expected: string }
+  | { type: 'responseTime'; maxMs: number }
+  | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
+  | { type: 'regex'; jsonPath: string; pattern: string };
+
 export interface ValidationConfig {
   mode: ValidationMode;
   expectedJson?: string;
@@ -68,6 +76,7 @@ export interface ValidationConfig {
   excludedPaths?: string[];
   unorderedArrays?: boolean;
   responseVersions?: ResponseVersion[];
+  assertions?: Assertion[];
 }
 
 export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'form-data' | 'file';

@@ -1,4 +1,4 @@
-import type { ValidationConfig, FailureDetail, ExpectedField } from '../types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../types';
 
 export function getByPath(obj: unknown, path: string): unknown {
   const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
@@ -287,6 +287,130 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
   }
 
   return null;
+}
+
+export function matchesStatusPattern(httpStatus: number, pattern: string): boolean {
+  const p = pattern.trim();
+  if (/^\d+$/.test(p)) return httpStatus === Number(p);
+  if (/^\d+\s*-\s*\d+$/.test(p)) {
+    const [lo, hi] = p.split('-').map(s => Number(s.trim()));
+    return httpStatus >= lo && httpStatus <= hi;
+  }
+  if (/^\dxx$/i.test(p)) {
+    const classDigit = Number(p[0]);
+    return Math.floor(httpStatus / 100) === classDigit;
+  }
+  return p.split(',').some(s => matchesStatusPattern(httpStatus, s));
+}
+
+export interface AssertionContext {
+  httpStatus: number;
+  responseTimeMs: number;
+  responseHeaders: Record<string, string>;
+  responseBody: unknown;
+}
+
+export function evaluateAssertions(
+  assertions: Assertion[],
+  ctx: AssertionContext,
+): { failures: FailureDetail[]; statusAsserted: boolean } {
+  const failures: FailureDetail[] = [];
+  let statusAsserted = false;
+
+  for (const a of assertions) {
+    switch (a.type) {
+      case 'status': {
+        statusAsserted = true;
+        if (!matchesStatusPattern(ctx.httpStatus, a.expected)) {
+          failures.push({
+            path: '(status)',
+            expected: a.expected,
+            actual: String(ctx.httpStatus),
+          });
+        }
+        break;
+      }
+      case 'responseTime': {
+        if (ctx.responseTimeMs > a.maxMs) {
+          failures.push({
+            path: '(responseTime)',
+            expected: `≤ ${a.maxMs}ms`,
+            actual: `${ctx.responseTimeMs}ms`,
+          });
+        }
+        break;
+      }
+      case 'header': {
+        const headerVal = findHeader(ctx.responseHeaders, a.name);
+        const opResult = evaluateHeaderOp(headerVal, a.operator, a.value);
+        if (!opResult.pass) {
+          failures.push({
+            path: `(header:${a.name})`,
+            expected: opResult.expected,
+            actual: opResult.actual,
+          });
+        }
+        break;
+      }
+      case 'regex': {
+        const val = getByPath(ctx.responseBody, a.jsonPath);
+        const str = val === undefined ? 'undefined' : typeof val === 'string' ? val : JSON.stringify(val);
+        try {
+          const re = new RegExp(a.pattern);
+          if (!re.test(str)) {
+            failures.push({
+              path: `(regex:${a.jsonPath})`,
+              expected: `matches /${a.pattern}/`,
+              actual: str.length > 200 ? str.slice(0, 200) + '…' : str,
+            });
+          }
+        } catch {
+          failures.push({
+            path: `(regex:${a.jsonPath})`,
+            expected: `valid regex /${a.pattern}/`,
+            actual: 'invalid regex pattern',
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return { failures, statusAsserted };
+}
+
+function findHeader(headers: Record<string, string>, name: string): string | undefined {
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return undefined;
+}
+
+function evaluateHeaderOp(
+  headerVal: string | undefined,
+  operator: string,
+  expected?: string,
+): { pass: boolean; expected: string; actual: string } {
+  const actual = headerVal ?? '(not present)';
+  switch (operator) {
+    case 'exists':
+      return { pass: headerVal !== undefined, expected: 'header exists', actual };
+    case 'equals':
+      return { pass: headerVal === expected, expected: expected ?? '', actual };
+    case 'contains':
+      return { pass: headerVal !== undefined && headerVal.includes(expected ?? ''), expected: `contains "${expected ?? ''}"`, actual };
+    case 'regex': {
+      try {
+        const re = new RegExp(expected ?? '');
+        return { pass: headerVal !== undefined && re.test(headerVal), expected: `matches /${expected}/`, actual };
+      } catch {
+        return { pass: false, expected: `valid regex /${expected}/`, actual: 'invalid regex pattern' };
+      }
+    }
+    default:
+      return { pass: false, expected: `operator "${operator}"`, actual: 'unknown operator' };
+  }
 }
 
 export function validate(
