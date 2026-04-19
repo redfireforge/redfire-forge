@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveValue, PATTERN_LIBRARY } from './RegexAssertionModal';
+import { resolveValue, testPattern, PATTERN_LIBRARY } from './RegexAssertionModal';
 
 const SAMPLE_JSON = JSON.stringify({
   id: 'abc-123',
@@ -150,6 +150,132 @@ describe('PATTERN_LIBRARY', () => {
     expect(cats.has('Formats')).toBe(true);
     expect(cats.has('Numbers')).toBe(true);
     expect(cats.has('Arrays')).toBe(true);
+  });
+});
+
+describe('testPattern', () => {
+  it('returns match for simple text', () => {
+    const r = testPattern('hello', 'say hello world');
+    expect(r.valid).toBe(true);
+    expect(r.matches).toBe(true);
+    expect(r.matchDetails?.[0]).toBe('hello');
+  });
+
+  it('returns no match when pattern does not match', () => {
+    const r = testPattern('xyz', 'hello world');
+    expect(r.valid).toBe(true);
+    expect(r.matches).toBe(false);
+  });
+
+  it('handles anchored patterns', () => {
+    expect(testPattern('^hello', 'hello world').matches).toBe(true);
+    expect(testPattern('^hello', 'say hello').matches).toBe(false);
+    expect(testPattern('world$', 'hello world').matches).toBe(true);
+    expect(testPattern('world$', 'world peace').matches).toBe(false);
+  });
+
+  it('handles exact match pattern', () => {
+    expect(testPattern('^exact$', 'exact').matches).toBe(true);
+    expect(testPattern('^exact$', 'not exact').matches).toBe(false);
+  });
+
+  it('returns invalid for bad regex', () => {
+    const r = testPattern('[invalid', 'test');
+    expect(r.valid).toBe(false);
+    expect(r.matches).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it('returns no match for empty pattern', () => {
+    const r = testPattern('', 'something');
+    expect(r.valid).toBe(true);
+    expect(r.matches).toBe(false);
+  });
+
+  it('matches with character classes', () => {
+    expect(testPattern('^\\d+$', '12345').matches).toBe(true);
+    expect(testPattern('^\\d+$', 'abc').matches).toBe(false);
+  });
+
+  it('matches alternation patterns', () => {
+    expect(testPattern('^(true|false)$', 'true').matches).toBe(true);
+    expect(testPattern('^(true|false)$', 'false').matches).toBe(true);
+    expect(testPattern('^(true|false)$', 'maybe').matches).toBe(false);
+  });
+
+  it('provides matchDetails with index', () => {
+    const r = testPattern('world', 'hello world');
+    expect(r.matchDetails?.index).toBe(6);
+  });
+
+  it('handles special regex characters in values', () => {
+    const r = testPattern('\\[1\\]', 'array[1]');
+    expect(r.valid).toBe(true);
+    expect(r.matches).toBe(true);
+  });
+
+  it('matches case-sensitive by default', () => {
+    expect(testPattern('^Hello$', 'Hello').matches).toBe(true);
+    expect(testPattern('^Hello$', 'hello').matches).toBe(false);
+  });
+
+  it('handles dot-star wildcard', () => {
+    expect(testPattern('he.*ld', 'hello world').matches).toBe(true);
+    expect(testPattern('he.*ld', 'hey world').matches).toBe(true);
+    expect(testPattern('he.*ld', 'xyz').matches).toBe(false);
+  });
+});
+
+describe('resolveValue edge cases', () => {
+  it('resolves null value as "null"', () => {
+    const json = JSON.stringify({ val: null });
+    expect(resolveValue(json, '$.val')).toBe('null');
+  });
+
+  it('resolves zero as "0"', () => {
+    const json = JSON.stringify({ val: 0 });
+    expect(resolveValue(json, '$.val')).toBe('0');
+  });
+
+  it('resolves false as "false"', () => {
+    const json = JSON.stringify({ val: false });
+    expect(resolveValue(json, '$.val')).toBe('false');
+  });
+
+  it('resolves empty string', () => {
+    const json = JSON.stringify({ val: '' });
+    expect(resolveValue(json, '$.val')).toBe('');
+  });
+
+  it('resolves nested array index', () => {
+    const json = JSON.stringify({ a: { b: [10, 20, 30] } });
+    expect(resolveValue(json, '$.a.b[2]')).toBe('30');
+  });
+
+  it('handles traversal through non-object', () => {
+    const json = JSON.stringify({ val: 'text' });
+    expect(resolveValue(json, '$.val.deep')).toBeUndefined();
+  });
+
+  it('handles path with just $', () => {
+    const json = JSON.stringify({ a: 1 });
+    const val = resolveValue(json, '$');
+    expect(val).toContain('"a":1');
+  });
+
+  it('resolves deeply nested path', () => {
+    const json = JSON.stringify({ a: { b: { c: { d: 'deep' } } } });
+    expect(resolveValue(json, '$.a.b.c.d')).toBe('deep');
+  });
+
+  it('resolves empty array as "[]"', () => {
+    const json = JSON.stringify({ arr: [] });
+    expect(resolveValue(json, '$.arr')).toBe('[]');
+  });
+
+  it('resolves empty object as "{}"', () => {
+    const json = JSON.stringify({ obj: {} });
+    expect(resolveValue(json, '$.obj')).toBe('{}');
   });
 });
 
