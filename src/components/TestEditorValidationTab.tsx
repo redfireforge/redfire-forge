@@ -338,7 +338,10 @@ export default function TestEditorValidationTab({
           <RegexAssertionModal
             initialJsonPath={regexA?.jsonPath || ''}
             initialPattern={regexA?.pattern || ''}
-            sampleJson={draftRef.current.validation.sampleJson || ''}
+            sampleJson={draft.validation.sampleJson || ''}
+            onFetchSampleResponse={onFetchSampleResponse}
+            fetchingResponse={fetchingResponse}
+            fetchError={fetchError}
             onApply={(result: RegexAssertionResult) => {
               updateAssertion(regexModalIdx, { jsonPath: result.jsonPath, pattern: result.pattern });
               setRegexModalIdx(null);

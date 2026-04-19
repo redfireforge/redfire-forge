@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
 
@@ -12,6 +12,9 @@ interface Props {
   initialJsonPath?: string;
   initialPattern?: string;
   sampleJson?: string;
+  onFetchSampleResponse?: () => void | Promise<void>;
+  fetchingResponse?: boolean;
+  fetchError?: string | null;
   onApply: (result: RegexAssertionResult) => void;
   onClose: () => void;
 }
@@ -173,7 +176,11 @@ export function resolveValue(json: string, path: string): string | undefined {
 
 /* ── Main Modal ─────────────────────────────────────── */
 
-export default function RegexAssertionModal({ initialJsonPath, initialPattern, sampleJson: externalJson, onApply, onClose }: Props) {
+export default function RegexAssertionModal({
+  initialJsonPath, initialPattern, sampleJson: externalJson,
+  onFetchSampleResponse, fetchingResponse, fetchError,
+  onApply, onClose,
+}: Props) {
   const [jsonPath, setJsonPath] = useState(initialJsonPath || '');
   const [pattern, setPattern] = useState(initialPattern || '');
   const [patternName, setPatternName] = useState('');
@@ -181,6 +188,14 @@ export default function RegexAssertionModal({ initialJsonPath, initialPattern, s
   const [treeSearch, setTreeSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showPatternLibrary, setShowPatternLibrary] = useState(false);
+
+  const prevExternalRef = useRef(externalJson);
+  useEffect(() => {
+    if (externalJson && externalJson !== prevExternalRef.current) {
+      setSampleJson(externalJson);
+    }
+    prevExternalRef.current = externalJson;
+  }, [externalJson]);
 
   const { parsedTree, parseError } = useMemo(() => {
     if (!sampleJson.trim()) return { parsedTree: null, parseError: null };
@@ -243,6 +258,20 @@ export default function RegexAssertionModal({ initialJsonPath, initialPattern, s
               <span>JSON Response</span>
               {parsedTree && <span className="ram-leaf-count">{leafCount} fields</span>}
             </div>
+
+            {onFetchSampleResponse && (
+              <div className="ram-fetch-row">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-accent"
+                  onClick={() => void onFetchSampleResponse()}
+                  disabled={fetchingResponse}
+                >
+                  {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
+                </button>
+                {fetchError && <span className="ram-fetch-error">{fetchError}</span>}
+              </div>
+            )}
 
             {!parsedTree && (
               <textarea
