@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { parse as parseYaml } from 'yaml';
 import { v4 as uuidv4 } from 'uuid';
 import type {
-  Scenario, TestConfig, AuthConfig, ValidationConfig,
+  Scenario, TestConfig, AuthConfig, ValidationConfig, Assertion,
   KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig,
 } from '../src/types';
 
@@ -43,6 +43,7 @@ interface TestFileValidation {
   selectiveMode?: 'include' | 'exclude';
   excludedPaths?: string[];
   unorderedArrays?: boolean;
+  assertions?: Assertion[];
 }
 
 export interface TestFile {
@@ -114,7 +115,7 @@ function toAuth(a?: TestFileAuth): AuthConfig {
 }
 
 function toValidation(v?: TestFileValidation): ValidationConfig {
-  if (!v || v.mode === 'none') return { mode: 'none' };
+  if (!v || v.mode === 'none') return { mode: 'none', assertions: v?.assertions };
   return {
     mode: v.mode,
     expectedJson: v.expectedJson,
@@ -122,6 +123,7 @@ function toValidation(v?: TestFileValidation): ValidationConfig {
     selectiveMode: v.selectiveMode,
     excludedPaths: v.excludedPaths,
     unorderedArrays: v.unorderedArrays,
+    assertions: v.assertions,
   };
 }
 
