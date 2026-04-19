@@ -8,8 +8,27 @@ export interface HttpResponse {
   error?: string;
 }
 
+export type HttpTransportFn = (
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+) => Promise<HttpResponse>;
+
+let _transportOverride: HttpTransportFn | null = null;
+
+/**
+ * Override the HTTP transport used by httpFetch.
+ * Pass `null` to restore the default auto-detection behaviour.
+ * Used by the execution worker to route requests via postMessage.
+ */
+export function setHttpTransport(fn: HttpTransportFn | null): void {
+  _transportOverride = fn;
+}
+
 /**
  * Makes an HTTP request using the best available transport:
+ * - Custom override (set via setHttpTransport — used by workers)
  * - Tauri native HTTP plugin (desktop app, no CORS)
  * - Node native fetch (CLI runner)
  * - Vite dev proxy (browser dev mode)
@@ -20,6 +39,7 @@ export async function httpFetch(
   headers: Record<string, string>,
   body?: string
 ): Promise<HttpResponse> {
+  if (_transportOverride) return _transportOverride(url, method, headers, body);
   if (isNode()) {
     return nodeFetch(url, method, headers, body);
   }
