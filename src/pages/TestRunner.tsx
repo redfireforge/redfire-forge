@@ -48,12 +48,11 @@ interface Props {
   onComplete: () => void;
   envName?: string;
   svcName?: string;
-  projectName?: string;
-  projectId?: string;
   envId?: string;
   svcId?: string;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
+  envFallbackAuth?: import('../types').AuthConfig;
 }
 
 function replaceHost(testUrl: string, baseUrl: string): string {
@@ -77,8 +76,8 @@ function replaceHost(testUrl: string, baseUrl: string): string {
 // TestRunner Component
 // ---------------------------------------------------------------------------
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, projectName, projectId, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [] }: Props) {
-  const configContextKey = [projectId, envId, svcId].filter(Boolean).join(':') || undefined;
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth }: Props) {
+  const configContextKey = [envId, svcId].filter(Boolean).join(':') || undefined;
   const progressKey = configContextKey || '_default';
 
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
@@ -210,14 +209,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             if (forceUnordered && !skipValidation && validation.mode === 'selective') {
               validation = { ...validation, unorderedArrays: true };
             }
-            const auth = resolveAuth(test, sc, fg, globalAuthProfiles);
+            const auth = resolveAuth(test, sc, fg, globalAuthProfiles, envFallbackAuth);
             tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
           }
         }
       }
     }
     return tests;
-  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles]);
+  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useMemo(() => {
@@ -287,7 +286,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       maxErrorRate,
     };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
-    execute(config, selectedTests, { projectName, envName, svcName, baseUrl: usedBaseUrl });
+    execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
   };
 
   const isTimeBased = isLoadProfile || (isRunning && total === -1);
@@ -319,7 +318,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       <div className="page-header">
         <h2>Test Runner</h2>
         <div className="context-tags">
-          {projectName && <span className="context-tag project-tag">{projectName}</span>}
           {svcName && <span className="context-tag svc-tag">{svcName}</span>}
           {envName && <span className="context-tag env-tag">{envName}</span>}
         </div>

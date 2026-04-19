@@ -1,232 +1,259 @@
-import { describe, it, expect } from 'vitest';
-import { buildHeaders, buildUrl } from './executor';
-import type { Scenario } from '../types';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Scenario, TestConfig } from '../types';
+import { buildHeaders, buildUrl, runTest } from './executor';
+
+vi.mock('../utils/httpClient', () => ({
+  httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
+}));
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
-    id: 's1',
-    name: 'Test',
-    url: 'http://example.com/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
+    id: 's1', name: 'Test', url: 'https://example.com/api',
+    method: 'POST', headers: [], body: '{}',
+    auth: { type: 'none' }, validation: { mode: 'none' },
     ...overrides,
   };
 }
 
-// ---------------------------------------------------------------------------
-// buildHeaders
-// ---------------------------------------------------------------------------
 describe('buildHeaders', () => {
-  it('returns empty headers for no-auth, no-headers scenario', () => {
-    const headers = buildHeaders(makeScenario());
-    expect(headers).toEqual({});
+  it('includes user headers', () => {
+    const s = makeScenario({ headers: [{ key: 'X-Custom', value: 'val' }] });
+    const h = buildHeaders(s);
+    expect(h['X-Custom']).toBe('val');
   });
 
-  it('includes custom headers', () => {
-    const scenario = makeScenario({
-      headers: [
-        { key: 'X-Custom', value: 'foo' },
-        { key: 'Accept', value: 'application/json' },
-      ],
-    });
-    const headers = buildHeaders(scenario);
-    expect(headers['X-Custom']).toBe('foo');
-    expect(headers['Accept']).toBe('application/json');
+  it('skips empty key headers', () => {
+    const s = makeScenario({ headers: [{ key: '', value: 'x' }, { key: 'Valid', value: 'y' }] });
+    const h = buildHeaders(s);
+    expect(Object.keys(h)).not.toContain('');
+    expect(h['Valid']).toBe('y');
   });
 
-  it('skips headers with empty keys', () => {
-    const scenario = makeScenario({
-      headers: [{ key: '', value: 'ignored' }, { key: 'Keep', value: 'yes' }],
+  it('skips Authorization header when auth type is not none', () => {
+    const s = makeScenario({
+      headers: [{ key: 'Authorization', value: 'Bearer old' }],
+      auth: { type: 'bearer', token: 'new', prefix: 'Bearer' },
     });
-    const headers = buildHeaders(scenario);
-    expect(Object.keys(headers)).toEqual(['Keep']);
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe('Bearer new');
   });
 
-  it('trims header keys', () => {
-    const scenario = makeScenario({
-      headers: [{ key: '  X-Trimmed  ', value: 'ok' }],
+  it('keeps Authorization header when auth type is none', () => {
+    const s = makeScenario({
+      headers: [{ key: 'Authorization', value: 'Bearer manual' }],
+      auth: { type: 'none' },
     });
-    const headers = buildHeaders(scenario);
-    expect(headers['X-Trimmed']).toBe('ok');
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe('Bearer manual');
   });
 
-  describe('Basic Auth', () => {
-    it('sets Authorization header with base64 credentials', () => {
-      const scenario = makeScenario({
-        auth: { type: 'basic', username: 'admin', password: 'secret' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe(`Basic ${btoa('admin:secret')}`);
-    });
-
-    it('handles missing password', () => {
-      const scenario = makeScenario({
-        auth: { type: 'basic', username: 'admin' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe(`Basic ${btoa('admin:')}`);
-    });
-
-    it('skips auth when username is missing', () => {
-      const scenario = makeScenario({
-        auth: { type: 'basic' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBeUndefined();
-    });
+  it('sets Basic auth header', () => {
+    const s = makeScenario({ auth: { type: 'basic', username: 'user', password: 'pass' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe(`Basic ${btoa('user:pass')}`);
   });
 
-  describe('Bearer Auth', () => {
-    it('sets Authorization with Bearer prefix', () => {
-      const scenario = makeScenario({
-        auth: { type: 'bearer', token: 'my-token' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe('Bearer my-token');
-    });
-
-    it('uses custom prefix', () => {
-      const scenario = makeScenario({
-        auth: { type: 'bearer', token: 'my-token', prefix: 'Token' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe('Token my-token');
-    });
-
-    it('skips when token is missing', () => {
-      const scenario = makeScenario({
-        auth: { type: 'bearer' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBeUndefined();
-    });
+  it('sets Bearer auth header', () => {
+    const s = makeScenario({ auth: { type: 'bearer', token: 'tok123', prefix: 'Bearer' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe('Bearer tok123');
   });
 
-  describe('API Key Auth', () => {
-    it('sets API key as header', () => {
-      const scenario = makeScenario({
-        auth: { type: 'apikey', apiKeyName: 'X-API-KEY', apiKeyValue: 'abc', apiKeyIn: 'header' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['X-API-KEY']).toBe('abc');
-    });
-
-    it('does not set header when apiKeyIn is query', () => {
-      const scenario = makeScenario({
-        auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'abc', apiKeyIn: 'query' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['key']).toBeUndefined();
-    });
+  it('uses custom bearer prefix', () => {
+    const s = makeScenario({ auth: { type: 'bearer', token: 'tok', prefix: 'Token' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe('Token tok');
   });
 
-  describe('Digest Auth', () => {
-    it('falls back to Basic header', () => {
-      const scenario = makeScenario({
-        auth: { type: 'digest', username: 'user', password: 'pass' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe(`Basic ${btoa('user:pass')}`);
-    });
+  it('defaults to Bearer prefix when none specified', () => {
+    const s = makeScenario({ auth: { type: 'bearer', token: 'tok' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe('Bearer tok');
   });
 
-  describe('OAuth2', () => {
-    it('sets Bearer header with provided token', () => {
-      const scenario = makeScenario({
-        auth: { type: 'oauth2', tokenUrl: 'http://auth.com', clientId: 'c', clientSecret: 's' },
-      });
-      const headers = buildHeaders(scenario, 'oauth-token-123');
-      expect(headers['Authorization']).toBe('Bearer oauth-token-123');
+  it('sets API Key in header', () => {
+    const s = makeScenario({
+      auth: { type: 'apikey', apiKeyName: 'X-Api-Key', apiKeyValue: 'key123', apiKeyIn: 'header' },
     });
-
-    it('does not set Authorization without token', () => {
-      const scenario = makeScenario({
-        auth: { type: 'oauth2', tokenUrl: 'http://auth.com', clientId: 'c', clientSecret: 's' },
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBeUndefined();
-    });
+    const h = buildHeaders(s);
+    expect(h['X-Api-Key']).toBe('key123');
   });
 
-  describe('Content-Type auto-detection', () => {
-    it('adds Content-Type for scenarios with body', () => {
-      const scenario = makeScenario({ body: '{"data":1}' });
-      const headers = buildHeaders(scenario, undefined, 'application/json');
-      expect(headers['Content-Type']).toBe('application/json');
+  it('does not set API Key in header when apiKeyIn is query', () => {
+    const s = makeScenario({
+      auth: { type: 'apikey', apiKeyName: 'X-Api-Key', apiKeyValue: 'key123', apiKeyIn: 'query' },
     });
-
-    it('does not override explicit Content-Type', () => {
-      const scenario = makeScenario({
-        body: '<xml>',
-        headers: [{ key: 'Content-Type', value: 'text/xml' }],
-      });
-      const headers = buildHeaders(scenario, undefined, 'application/xml');
-      expect(headers['Content-Type']).toBe('text/xml');
-    });
-
-    it('does not add Content-Type when body is empty', () => {
-      const scenario = makeScenario({ body: '' });
-      const headers = buildHeaders(scenario);
-      expect(headers['Content-Type']).toBeUndefined();
-    });
+    const h = buildHeaders(s);
+    expect(h['X-Api-Key']).toBeUndefined();
   });
 
-  describe('Authorization header override', () => {
-    it('skips manual Authorization header when auth type is set', () => {
-      const scenario = makeScenario({
-        auth: { type: 'bearer', token: 'auto-token' },
-        headers: [{ key: 'Authorization', value: 'Manual xyz' }],
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe('Bearer auto-token');
-    });
+  it('sets Digest auth as Basic encoding', () => {
+    const s = makeScenario({ auth: { type: 'digest', username: 'u', password: 'p' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe(`Basic ${btoa('u:p')}`);
+  });
 
-    it('keeps manual Authorization when auth type is none', () => {
-      const scenario = makeScenario({
-        auth: { type: 'none' },
-        headers: [{ key: 'Authorization', value: 'Custom xyz' }],
-      });
-      const headers = buildHeaders(scenario);
-      expect(headers['Authorization']).toBe('Custom xyz');
+  it('sets OAuth2 Bearer token from provided token', () => {
+    const s = makeScenario({ auth: { type: 'oauth2', tokenUrl: 'https://auth.com/token', clientId: 'c', clientSecret: 's' } });
+    const h = buildHeaders(s, 'oauth-token-123');
+    expect(h['Authorization']).toBe('Bearer oauth-token-123');
+  });
+
+  it('sets content type from argument', () => {
+    const s = makeScenario({ body: '{}', bodyType: 'json' });
+    const h = buildHeaders(s, undefined, 'application/json');
+    expect(h['Content-Type']).toBe('application/json');
+  });
+
+  it('does not overwrite existing Content-Type header for non-form-data', () => {
+    const s = makeScenario({
+      headers: [{ key: 'Content-Type', value: 'text/plain' }],
+      body: '{}', bodyType: 'json',
     });
+    const h = buildHeaders(s, undefined, 'application/json');
+    expect(h['Content-Type']).toBe('text/plain');
+  });
+
+  it('overwrites Content-Type for form-data', () => {
+    const s = makeScenario({
+      headers: [{ key: 'Content-Type', value: 'old' }],
+      body: 'data', bodyType: 'form-data',
+    });
+    const h = buildHeaders(s, undefined, 'multipart/form-data; boundary=xxx');
+    expect(h['Content-Type']).toBe('multipart/form-data; boundary=xxx');
+  });
+
+  it('handles basic auth with no password', () => {
+    const s = makeScenario({ auth: { type: 'basic', username: 'user' } });
+    const h = buildHeaders(s);
+    expect(h['Authorization']).toBe(`Basic ${btoa('user:')}`);
   });
 });
 
-// ---------------------------------------------------------------------------
-// buildUrl
-// ---------------------------------------------------------------------------
 describe('buildUrl', () => {
-  it('returns URL unchanged for non-apikey auth', () => {
-    const scenario = makeScenario();
-    expect(buildUrl(scenario)).toBe('http://example.com/api');
+  it('returns url as-is for non-apikey auth', () => {
+    const s = makeScenario({ auth: { type: 'none' } });
+    expect(buildUrl(s)).toBe('https://example.com/api');
   });
 
-  it('appends API key as query parameter when apiKeyIn=query', () => {
-    const scenario = makeScenario({
-      auth: { type: 'apikey', apiKeyName: 'api_key', apiKeyValue: 'secret123', apiKeyIn: 'query' },
-    });
-    const url = buildUrl(scenario);
-    expect(url).toContain('api_key=secret123');
-    expect(url.startsWith('http://example.com/api')).toBe(true);
-  });
-
-  it('does not modify URL when apiKeyIn=header', () => {
-    const scenario = makeScenario({
-      auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'val', apiKeyIn: 'header' },
-    });
-    expect(buildUrl(scenario)).toBe('http://example.com/api');
-  });
-
-  it('preserves existing query parameters', () => {
-    const scenario = makeScenario({
-      url: 'http://example.com/api?existing=1',
+  it('appends API key as query param', () => {
+    const s = makeScenario({
+      url: 'https://example.com/api',
       auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'query' },
     });
-    const url = buildUrl(scenario);
-    expect(url).toContain('existing=1');
-    expect(url).toContain('key=val');
+    const result = buildUrl(s);
+    expect(result).toContain('key=val');
+  });
+
+  it('does not add query param when apiKeyIn is header', () => {
+    const s = makeScenario({
+      url: 'https://example.com/api',
+      auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'header' },
+    });
+    expect(buildUrl(s)).toBe('https://example.com/api');
+  });
+
+  it('preserves existing query params', () => {
+    const s = makeScenario({
+      url: 'https://example.com/api?existing=1',
+      auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'query' },
+    });
+    const result = buildUrl(s);
+    expect(result).toContain('existing=1');
+    expect(result).toContain('key=val');
+  });
+});
+
+describe('runTest', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
+    return {
+      concurrency: 1,
+      totalTransactions: 2,
+      scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
+      executionMode: 'sequential',
+      ...overrides,
+    };
+  }
+
+  it('runs test with sequential mode', async () => {
+    const s = makeScenario();
+    const config = makeConfig();
+    const onProgress = vi.fn();
+    const results = await runTest(config, [s], onProgress);
+    expect(results.length).toBe(2);
+    expect(onProgress).toHaveBeenCalled();
+  });
+
+  it('runs test with batch mode', async () => {
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'batch', concurrency: 2 });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('runs test with pool mode', async () => {
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'pool', concurrency: 2, totalTransactions: 3 });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(3);
+  });
+
+  it('distributes scenarios by weight', async () => {
+    const s1 = makeScenario({ id: 's1', name: 'Scenario1' });
+    const s2 = makeScenario({ id: 's2', name: 'Scenario2' });
+    const config = makeConfig({
+      totalTransactions: 10,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 7 },
+        { scenarioId: 's2', weight: 3 },
+      ],
+    });
+    const results = await runTest(config, [s1, s2], vi.fn());
+    expect(results.length).toBe(10);
+    const s1Count = results.filter(r => r.scenarioName === 'Scenario1').length;
+    const s2Count = results.filter(r => r.scenarioName === 'Scenario2').length;
+    expect(s1Count).toBeGreaterThan(0);
+    expect(s2Count).toBeGreaterThan(0);
+  });
+
+  it('handles fewer transactions than scenarios', async () => {
+    const s1 = makeScenario({ id: 's1' });
+    const s2 = makeScenario({ id: 's2' });
+    const s3 = makeScenario({ id: 's3' });
+    const config = makeConfig({
+      totalTransactions: 2,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 3 },
+        { scenarioId: 's2', weight: 2 },
+        { scenarioId: 's3', weight: 1 },
+      ],
+    });
+    const results = await runTest(config, [s1, s2, s3], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('applies timeout config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({ timeoutSec: 5 });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('skips zero-weight scenarios', async () => {
+    const s1 = makeScenario({ id: 's1', name: 'Active' });
+    const s2 = makeScenario({ id: 's2', name: 'Inactive' });
+    const config = makeConfig({
+      totalTransactions: 3,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 1 },
+        { scenarioId: 's2', weight: 0 },
+      ],
+    });
+    const results = await runTest(config, [s1, s2], vi.fn());
+    expect(results.every(r => r.scenarioName === 'Active')).toBe(true);
   });
 });

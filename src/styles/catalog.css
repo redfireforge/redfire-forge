@@ -705,6 +705,9 @@
 }
 
 /* ── Large modal variant ─────────────────────── */
+.cat-modal-wide {
+  width: min(95vw, 720px);
+}
 .cat-modal-lg {
   width: min(95vw, 900px); max-height: 85vh;
 }
@@ -974,6 +977,23 @@
 }
 .cat-edit-env-actions { display: flex; gap: 8px; }
 
+.cat-env-table {
+  width: 100%; border-collapse: collapse; font-size: 0.82rem;
+}
+.cat-env-table th {
+  text-align: left; padding: 6px 10px; font-weight: 600; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.cat-env-table td {
+  padding: 6px 10px; border-bottom: 1px solid var(--border-light, var(--border));
+}
+.cat-env-table td code {
+  font-size: 0.75rem; color: var(--text-muted);
+  background: var(--surface-hover); padding: 2px 6px; border-radius: 3px;
+  word-break: break-all;
+}
+
 /* ── Verify Auth ──────────────────── */
 .ceb-auth-verify { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .ceb-verify-btn {
@@ -998,3 +1018,213 @@
   white-space: pre-wrap; word-break: break-all; font-family: var(--font-mono);
   background: rgba(0,0,0,0.15); padding: 6px 8px; border-radius: 4px;
 }
+
+/* ── Send to Requests Modal ────────── */
+
+.cat-send-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  z-index: 2000;
+}
+.cat-send-modal {
+  background: var(--surface);
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+}
+
+.cat-send-body {
+  display: flex; gap: 1px; flex: 1; min-height: 0;
+  background: var(--border);
+}
+.cat-send-left {
+  flex: 3; display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; padding: 20px;
+  background: var(--surface); min-width: 0;
+}
+.cat-send-right {
+  flex: 2; display: flex; flex-direction: column;
+  overflow-y: auto; padding: 20px;
+  background: var(--surface); min-width: 0;
+}
+
+/* ── Cards (each section in left panel) ── */
+
+.cat-send-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; background: var(--surface);
+}
+.cat-send-card-grow {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+
+.cat-send-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cat-send-label {
+  font-size: 0.78rem; font-weight: 700; color: var(--text);
+  text-transform: uppercase; letter-spacing: 0.03em;
+  display: flex; align-items: center; gap: 8px;
+}
+.cat-send-count {
+  font-weight: 500; color: var(--text-muted); font-size: 0.72rem;
+}
+.cat-send-toggle {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; color: var(--text-muted); cursor: pointer;
+  white-space: nowrap;
+}
+.cat-send-toggle input { cursor: pointer; }
+
+/* ── Environment table ── */
+
+.cat-send-env-table {
+  width: 100%; border-collapse: collapse; font-size: 0.82rem;
+  margin-top: 4px;
+}
+.cat-send-env-table th {
+  text-align: left; padding: 5px 8px; font-weight: 600; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.cat-send-env-table td {
+  padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.cat-send-env-table tr { cursor: pointer; transition: background 0.1s; }
+.cat-send-env-table tbody tr:hover { background: var(--surface-hover); }
+.cat-send-env-table tbody tr.selected { background: rgba(97,175,254,0.06); }
+.cat-send-env-table input[type="checkbox"] { cursor: pointer; }
+.cat-send-env-name {
+  font-weight: 700; color: var(--text); white-space: nowrap;
+}
+.cat-send-env-url-cell code {
+  font-size: 0.72rem; color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* ── Endpoint table ── */
+
+.cat-send-ep-table-wrap {
+  flex: 1; overflow-y: auto; min-height: 0;
+}
+.cat-send-ep-table {
+  width: 100%; border-collapse: collapse; font-size: 0.82rem;
+  table-layout: fixed;
+}
+.cat-send-ep-th {
+  text-align: left; padding: 5px 8px; font-weight: 600; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+  overflow: hidden; white-space: nowrap;
+}
+.cat-send-col-resize {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 5px;
+  cursor: col-resize; user-select: none;
+}
+.cat-send-col-resize:hover,
+.cat-send-col-resize:active {
+  background: var(--accent, #4f8cff);
+  opacity: 0.5;
+}
+.cat-send-ep-table td {
+  padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cat-send-ep-table tr { cursor: pointer; transition: background 0.1s; }
+.cat-send-ep-table tbody tr:hover { background: var(--surface-hover); }
+.cat-send-ep-table tbody tr.selected { background: rgba(97,175,254,0.06); }
+.cat-send-ep-table input[type="checkbox"] { cursor: pointer; }
+
+.cat-send-sample-cell { text-align: center; cursor: pointer; }
+.cat-send-sample-box {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 3px;
+  border: 2px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.08);
+  font-size: 13px; font-weight: 700; color: transparent;
+  transition: all 0.15s; cursor: pointer; user-select: none;
+}
+.cat-send-sample-box.checked {
+  background: var(--primary, #61affe); border-color: var(--primary, #61affe);
+  color: #fff;
+}
+.cat-send-sample-box.disabled {
+  opacity: 0.3; cursor: not-allowed; color: var(--text-muted); font-size: 11px;
+}
+
+.cat-send-ept-group {
+  font-weight: 600; color: var(--text-muted); white-space: nowrap;
+  font-size: 0.78rem;
+}
+.cat-send-ept-desc {
+  color: var(--text); font-size: 0.8rem;
+}
+.cat-send-ept-name { min-width: 140px; }
+.cat-send-name-input {
+  width: 100%; box-sizing: border-box;
+  background: var(--bg-input, #1a1d23); color: var(--text);
+  border: 1px solid var(--border, #333); border-radius: 4px;
+  padding: 3px 6px; font-size: 0.78rem;
+}
+.cat-send-name-input:focus { border-color: var(--accent, #4f8cff); outline: none; }
+.cat-send-name-input::placeholder { color: var(--text-muted, #666); font-style: italic; }
+
+.cat-send-method-badge {
+  font-weight: 700; font-size: 0.65rem; font-family: var(--font-mono, monospace);
+  padding: 2px 6px; border-radius: 3px;
+  text-align: center; display: inline-block; min-width: 42px;
+  letter-spacing: 0.02em;
+}
+.cat-send-m-get    { background: rgba(73,204,144,0.15); color: #49cc90; }
+.cat-send-m-post   { background: rgba(252,161,48,0.15); color: #fca130; }
+.cat-send-m-put    { background: rgba(97,175,254,0.15); color: #61affe; }
+.cat-send-m-patch  { background: rgba(80,227,194,0.15); color: #50e3c2; }
+.cat-send-m-delete { background: rgba(249,62,62,0.15);  color: #f93e3e; }
+
+.cat-send-chevron {
+  width: 14px; text-align: center; color: var(--text-muted);
+  font-size: 0.65rem; flex-shrink: 0; user-select: none;
+}
+
+/* ── Preview tree ── */
+
+.cat-send-preview {
+  flex: 1; overflow-y: auto; min-height: 0;
+  margin-top: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.1);
+}
+.cat-send-tree { font-size: 0.8rem; }
+
+.cat-send-tree-root {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0 6px; font-weight: 700; color: var(--text);
+}
+.cat-send-tree-pkg { font-size: 0.95rem; }
+.cat-send-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-send-tree-badge {
+  font-size: 0.6rem; font-weight: 700; padding: 1px 5px;
+  border-radius: 3px; background: #388e3c; color: #fff;
+  letter-spacing: 0.05em; flex-shrink: 0;
+}
+.cat-send-tree-total {
+  font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+  background: var(--surface); padding: 1px 7px; border-radius: 8px; flex-shrink: 0;
+}
+
+.cat-send-tree-env { padding-left: 18px; }
+.cat-send-tree-env-hdr {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 0; cursor: pointer; color: var(--text);
+  font-weight: 600;
+}
+.cat-send-tree-env-hdr:hover { color: var(--primary); }
+
+.cat-send-tree-eps { padding-left: 28px; }
+.cat-send-tree-ep {
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 0; color: var(--text-muted); font-size: 0.78rem;
+}
+.cat-send-tree-ep .cat-send-method { width: 34px; font-size: 0.68rem; }

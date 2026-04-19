@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from './catalogCurlGenerator';
+import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl, extractServerPathPrefix } from './catalogCurlGenerator';
 import type { CatalogEndpoint, CatalogServer, HostConfig } from '../types/catalog';
-import type { AuthConfig } from '../types';
+import type { AuthConfig, Microservice } from '../types';
 
 function makeEndpoint(overrides: Partial<CatalogEndpoint> = {}): CatalogEndpoint {
   return {
@@ -53,6 +53,46 @@ describe('resolveBaseUrl', () => {
     const hc: HostConfig = { strategy: 'hardcoded' };
     expect(resolveBaseUrl(hc, [])).toBe('');
   });
+
+  it('resolves environment URL from linked microservice', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env1' };
+    const svc: Microservice = {
+      id: 'svc1', name: 'MySvc',
+      baseUrls: { env1: 'https://mysvc.dev.example.com/' },
+    };
+    const result = resolveBaseUrl(hc, servers, undefined, svc);
+    expect(result).toBe('https://mysvc.dev.example.com/v1');
+  });
+
+  it('resolves environment URL from catalog environments', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env1' };
+    const envs = [{ id: 'env1', name: 'dev', baseUrl: 'https://dev.example.com/api/' }];
+    const result = resolveBaseUrl(hc, [], envs);
+    expect(result).toBe('https://dev.example.com/api');
+  });
+
+  it('defaults selectedServerIndex to 0', () => {
+    const hc: HostConfig = { strategy: 'inherited' };
+    expect(resolveBaseUrl(hc, servers)).toBe('https://api.example.com/v1');
+  });
+});
+
+describe('extractServerPathPrefix', () => {
+  it('extracts path from server URL', () => {
+    expect(extractServerPathPrefix([{ url: 'https://api.com/v1', description: '' }])).toBe('/v1');
+  });
+
+  it('returns empty for root path', () => {
+    expect(extractServerPathPrefix([{ url: 'https://api.com/', description: '' }])).toBe('');
+  });
+
+  it('returns empty for no servers', () => {
+    expect(extractServerPathPrefix([])).toBe('');
+  });
+
+  it('returns empty for invalid URL', () => {
+    expect(extractServerPathPrefix([{ url: 'not-a-url', description: '' }])).toBe('');
+  });
 });
 
 describe('buildFullUrl', () => {
@@ -98,8 +138,8 @@ describe('buildFullUrl', () => {
 describe('buildCatalogCurlCommand', () => {
   const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
 
-  it('builds simple GET request', () => {
-    const curl = buildCatalogCurlCommand({
+  it('builds simple GET request', async () => {
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint(),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth: noAuth,
     });
@@ -108,44 +148,44 @@ describe('buildCatalogCurlCommand', () => {
     expect(curl).not.toContain('-X');
   });
 
-  it('adds -X for non-GET methods', () => {
-    const curl = buildCatalogCurlCommand({
+  it('adds -X for non-GET methods', async () => {
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint({ method: 'POST' }),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth: noAuth,
     });
     expect(curl).toContain('-X POST');
   });
 
-  it('includes bearer auth header', () => {
+  it('includes bearer auth header', async () => {
     const auth: AuthConfig = { type: 'bearer', token: 'my-jwt-token' };
-    const curl = buildCatalogCurlCommand({
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint(),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
     });
     expect(curl).toContain("Authorization: Bearer my-jwt-token");
   });
 
-  it('includes basic auth header', () => {
+  it('includes basic auth header', async () => {
     const auth: AuthConfig = { type: 'basic', username: 'user', password: 'pass' };
-    const curl = buildCatalogCurlCommand({
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint(),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
     });
     expect(curl).toContain('Authorization: Basic');
   });
 
-  it('includes API key in header', () => {
+  it('includes API key in header', async () => {
     const auth: AuthConfig = { type: 'apikey', apiKeyName: 'X-API-Key', apiKeyValue: 'secret123', apiKeyIn: 'header' };
-    const curl = buildCatalogCurlCommand({
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint(),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
     });
     expect(curl).toContain('X-API-Key: secret123');
   });
 
-  it('includes request body with content-type', () => {
+  it('includes request body with content-type', async () => {
     const body = '{"name":"Fido"}';
-    const curl = buildCatalogCurlCommand({
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint({ method: 'POST' }),
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: body, auth: noAuth,
     });
@@ -154,8 +194,8 @@ describe('buildCatalogCurlCommand', () => {
     expect(curl).toContain('{"name":"Fido"}');
   });
 
-  it('includes custom headers', () => {
-    const curl = buildCatalogCurlCommand({
+  it('includes custom headers', async () => {
+    const curl = await buildCatalogCurlCommand({
       endpoint: makeEndpoint(),
       hostConfig, servers, paramValues: {},
       headerValues: { 'X-Custom': 'value1' }, bodyText: '', auth: noAuth,
@@ -163,12 +203,68 @@ describe('buildCatalogCurlCommand', () => {
     expect(curl).toContain('X-Custom: value1');
   });
 
-  it('substitutes path parameters in URL', () => {
+  it('adds API key as query parameter', async () => {
+    const auth: AuthConfig = { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val123', apiKeyIn: 'query' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).toContain('key=val123');
+  });
+
+  it('adds Bearer prefix for apikey auth with Authorization header name', async () => {
+    const auth: AuthConfig = { type: 'apikey', apiKeyName: 'Authorization', apiKeyValue: 'my-token', apiKeyIn: 'header' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).toContain('Authorization: Bearer my-token');
+  });
+
+  it('does not add Content-Type if already in headerValues', async () => {
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint({ method: 'POST' }),
+      hostConfig, servers, paramValues: {},
+      headerValues: { 'Content-Type': 'text/xml' },
+      bodyText: '<root/>', auth: noAuth,
+    });
+    expect(curl).toContain('Content-Type: text/xml');
+    const matches = curl.match(/Content-Type/g);
+    expect(matches?.length).toBe(1);
+  });
+
+  it('does not add body data for GET even if bodyText provided', async () => {
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint({ method: 'GET' }),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '{"x":1}', auth: noAuth,
+    });
+    expect(curl).not.toContain('-d');
+  });
+
+  it('uses custom bearer prefix', async () => {
+    const auth: AuthConfig = { type: 'bearer', token: 'tok', prefix: 'Token' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).toContain('Authorization: Token tok');
+  });
+
+  it('escapes single quotes in body', async () => {
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint({ method: 'POST' }),
+      hostConfig, servers, paramValues: {}, headerValues: {},
+      bodyText: "it's a test", auth: noAuth,
+    });
+    expect(curl).toContain("it'\\''s a test");
+  });
+
+  it('substitutes path parameters in URL', async () => {
     const ep = makeEndpoint({
       path: '/pets/{petId}',
       parameters: [{ name: 'petId', in: 'path', required: true, schema: { type: 'string' } }],
     });
-    const curl = buildCatalogCurlCommand({
+    const curl = await buildCatalogCurlCommand({
       endpoint: ep,
       hostConfig, servers, paramValues: { petId: '42' }, headerValues: {}, bodyText: '', auth: noAuth,
     });
@@ -179,9 +275,9 @@ describe('buildCatalogCurlCommand', () => {
 describe('buildCatalogCurlSingleLine', () => {
   const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
 
-  it('removes line continuations', () => {
+  it('removes line continuations', async () => {
     const auth: AuthConfig = { type: 'bearer', token: 'tok' };
-    const curl = buildCatalogCurlSingleLine({
+    const curl = await buildCatalogCurlSingleLine({
       endpoint: makeEndpoint({ method: 'POST' }),
       hostConfig, servers, paramValues: {}, headerValues: {},
       bodyText: '{"a":1}', auth,
@@ -197,24 +293,33 @@ describe('buildCatalogCurlSingleLine', () => {
 describe('buildDefaultCurlCommand', () => {
   const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
 
-  it('uses example values from parameters', () => {
+  it('uses example values from parameters', async () => {
     const ep = makeEndpoint({
       path: '/pets/{petId}',
       parameters: [{ name: 'petId', in: 'path', required: true, example: '99', schema: { type: 'string' } }],
     });
-    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
     expect(curl).toContain('/pets/99');
   });
 
-  it('uses schema default values', () => {
+  it('uses schema default values', async () => {
     const ep = makeEndpoint({
       parameters: [{ name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 20 } }],
     });
-    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
     expect(curl).toContain('limit=20');
   });
 
-  it('generates body from request body schema', () => {
+  it('uses schema.example when no top-level example', async () => {
+    const ep = makeEndpoint({
+      path: '/pets/{petId}',
+      parameters: [{ name: 'petId', in: 'path', required: true, schema: { type: 'string', example: 'abc' } }],
+    });
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).toContain('/pets/abc');
+  });
+
+  it('generates body from request body schema', async () => {
     const ep = makeEndpoint({
       method: 'POST',
       requestBody: {
@@ -225,7 +330,7 @@ describe('buildDefaultCurlCommand', () => {
         }],
       },
     });
-    const curl = buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
     expect(curl).toContain('-d');
     expect(curl).toContain('name');
   });

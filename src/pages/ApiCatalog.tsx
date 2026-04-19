@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { UseCatalogReturn } from '../hooks/useCatalog';
-import type { AuthConfig, GlobalAuthProfile } from '../types';
+import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../types';
 import CatalogWelcome from '../components/catalog/CatalogWelcome';
 import CatalogEndpointBrowser from '../components/catalog/CatalogEndpointBrowser';
 import CatalogOverview from '../components/catalog/CatalogOverview';
@@ -13,19 +13,23 @@ interface Props {
   onExportSpec?: (entryId: string) => void;
   onSendToWorkbench?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
+  appEnvironments?: Environment[];
+  appMicroservices?: Microservice[];
 }
 
 type View = 'overview' | 'endpoints';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, globalAuthProfiles }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
+  const prevEnvId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const entry = catalog.selectedEntry;
     if (!entry || entry.id === prevEntryId.current) return;
     prevEntryId.current = entry.id;
+    prevEnvId.current = entry.hostConfig.environmentId;
 
     if (entry.savedAuth && entry.savedAuth.type !== 'none') {
       const saved = entry.savedAuth as any;
@@ -38,6 +42,21 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       }
       setAuth({ ...entry.savedAuth });
       return;
+    }
+
+    if (entry.microserviceId && globalAuthProfiles?.length && appMicroservices?.length) {
+      const svc = appMicroservices.find(s => s.id === entry.microserviceId);
+      if (svc?.authProfileIds) {
+        const profileId = (entry.hostConfig.environmentId && svc.authProfileIds[entry.hostConfig.environmentId])
+          || Object.values(svc.authProfileIds).find(Boolean);
+        if (profileId) {
+          const profile = globalAuthProfiles.find(p => p.id === profileId);
+          if (profile) {
+            setAuth({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
+            return;
+          }
+        }
+      }
     }
 
     const schemes = Object.entries(entry.securitySchemes);
@@ -55,7 +74,30 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     } else {
       setAuth({ type: 'none' });
     }
-  }, [catalog.selectedEntry, globalAuthProfiles]);
+  }, [catalog.selectedEntry, globalAuthProfiles, appMicroservices]);
+
+  useEffect(() => {
+    const entry = catalog.selectedEntry;
+    if (!entry?.microserviceId || !globalAuthProfiles?.length || !appMicroservices?.length) return;
+    const envId = entry.hostConfig.environmentId;
+    if (envId === prevEnvId.current) return;
+    prevEnvId.current = envId;
+    if (!envId || entry.hostConfig.strategy !== 'environment') return;
+
+    const svc = appMicroservices.find(s => s.id === entry.microserviceId);
+    const profileId = svc?.authProfileIds?.[envId];
+    if (profileId) {
+      const profile = globalAuthProfiles.find(p => p.id === profileId);
+      if (profile) {
+        const newAuth = { ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any;
+        setAuth(newAuth);
+        catalog.updateEntry(entry.id, { savedAuth: newAuth });
+        return;
+      }
+    }
+    setAuth({ type: 'none' });
+    catalog.updateEntry(entry.id, { savedAuth: { type: 'none' } });
+  }, [catalog.selectedEntry, catalog, globalAuthProfiles, appMicroservices]);
 
   const handleAuthChange = useCallback((newAuth: AuthConfig) => {
     setAuth(newAuth);
@@ -112,6 +154,8 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onAuthChange={handleAuthChange}
           onHostChange={handleHostChange}
           globalAuthProfiles={globalAuthProfiles}
+          appEnvironments={appEnvironments}
+          appMicroservices={appMicroservices}
         />
       </div>
     </div>

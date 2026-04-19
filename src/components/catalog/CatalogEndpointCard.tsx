@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../../types/catalog';
-import type { AuthConfig } from '../../types';
+import type { AuthConfig, Microservice } from '../../types';
 import { generateStubJson } from '../../utils/schemaStubGenerator';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../../utils/catalogCurlGenerator';
 import { httpFetch } from '../../utils/httpClient';
@@ -15,6 +15,7 @@ interface Props {
   savedValues?: SavedEndpointValues;
   onValuesChange?: (vals: SavedEndpointValues) => void;
   environments?: CatalogEnvironment[];
+  linkedMicroservice?: Microservice;
 }
 
 const MC: Record<string, string> = {
@@ -26,7 +27,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -88,7 +89,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const handleExecute = useCallback(async () => {
     setLoading(true);
     setLiveResponse(null);
-    const baseUrl = resolveBaseUrl(hostConfig, servers, environments);
+    const baseUrl = resolveBaseUrl(hostConfig, servers, environments, linkedMicroservice);
     const url = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
     const hdrs: Record<string, string> = {};
     for (const [k, v] of Object.entries(headerValues)) {
@@ -124,17 +125,17 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
       bodyText.trim() && endpoint.method !== 'GET' ? bodyText : undefined);
     setLiveResponse({ ...r, timeMs: Math.round(performance.now() - t0) });
     setLoading(false);
-  }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth, environments]);
+  }, [endpoint, servers, hostConfig, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice]);
 
   const [curlCmd, setCurlCmd] = useState('');
   useEffect(() => {
     if (!showCurl) { setCurlCmd(''); return; }
     let cancelled = false;
-    const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments };
+    const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice };
     const builder = curlMultiline ? buildCatalogCurlCommand : buildCatalogCurlSingleLine;
     builder(params).then(cmd => { if (!cancelled) setCurlCmd(cmd); });
     return () => { cancelled = true; };
-  }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments]);
+  }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice]);
 
   const copy = useCallback(async (t: string) => {
     try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
@@ -148,10 +149,10 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   }, []);
 
   const handleCopyDefaultCurl = useCallback(async () => {
-    const cmd = await buildDefaultCurlCommand(endpoint, hostConfig, servers, auth, environments);
+    const cmd = await buildDefaultCurlCommand(endpoint, hostConfig, servers, auth, environments, linkedMicroservice);
     await copy(cmd);
     setCtxMenu(null);
-  }, [endpoint, hostConfig, servers, auth, copy]);
+  }, [endpoint, hostConfig, servers, auth, environments, linkedMicroservice, copy]);
 
   const hasSec = endpoint.security && endpoint.security.length > 0;
   const color = MC[endpoint.method] ?? '#888';

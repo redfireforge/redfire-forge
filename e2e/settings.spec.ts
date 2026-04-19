@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { seedProject } from './helpers';
+import { seedAppData } from './helpers';
 
 test.describe('Settings and navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await seedProject(page);
+    await seedAppData(page);
     await page.goto('/');
     await page.waitForSelector('.app-header');
   });
@@ -49,9 +49,8 @@ test.describe('Settings and navigation', () => {
     await expect(sidebar).toBeVisible();
   });
 
-  test('context tags show project, service, and environment', async ({ page }) => {
-    await expect(page.locator('.context-tag:has-text("E2E Test Project")')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.context-tag:has-text("test-service")')).toBeVisible();
+  test('context tags show service and environment', async ({ page }) => {
+    await expect(page.locator('.context-tag:has-text("test-service")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.context-tag:has-text("t01")')).toBeVisible();
   });
 });

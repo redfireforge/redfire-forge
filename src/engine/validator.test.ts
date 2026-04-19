@@ -337,4 +337,170 @@ describe('validate — path remapping', () => {
     );
     expect(failures).toEqual([]);
   });
+
+  it('remaps when response is array — strips common first segment', () => {
+    const response = [
+      { offerCode: 'X1', price: 100 },
+      { offerCode: 'X2', price: 50 },
+    ];
+    const failures = validate(
+      {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: 'offers[0].offerCode', expectedValue: '"X1"' },
+          { jsonPath: 'offers[0].price', expectedValue: '100' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
+
+  it('remaps with prefix strategy — paths need wrapping', () => {
+    const response = { result: [{ id: 1 }, { id: 2 }] };
+    const failures = validate(
+      {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: '[0].id', expectedValue: '1' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
+
+  it('remaps with direct nested value strategy', () => {
+    const response = { wrapper: { id: 42, name: 'ok' } };
+    const failures = validate(
+      {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: 'id', expectedValue: '42' },
+          { jsonPath: 'name', expectedValue: '"ok"' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
+
+  it('returns original failures when response is primitive', () => {
+    const failures = validate(
+      {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: '$.x', expectedValue: '1' },
+        ],
+      },
+      42
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].actual).toContain('undefined');
+  });
+
+  it('remaps array with unorderedArrays flag', () => {
+    const response = [
+      { code: 'A', name: 'Alpha' },
+      { code: 'B', name: 'Beta' },
+    ];
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: 'items[0].code', expectedValue: '"B"' },
+          { jsonPath: 'items[0].name', expectedValue: '"Beta"' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
+});
+
+describe('validate — unordered partial match details', () => {
+  it('reports best partial match index in failure message', () => {
+    const response = {
+      items: [
+        { code: 'A', name: 'Alpha', value: 100 },
+        { code: 'B', name: 'Beta', value: 200 },
+      ],
+    };
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.items[0].code', expectedValue: '"B"' },
+          { jsonPath: '$.items[0].name', expectedValue: '"Beta"' },
+          { jsonPath: '$.items[0].value', expectedValue: '999' },
+        ],
+      },
+      response
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].actual).toContain('matched by');
+  });
+
+  it('reports "no matching item" when no partial match exists', () => {
+    const response = { items: [{ code: 'A' }, { code: 'B' }] };
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.items[0].code', expectedValue: '"Z"' },
+        ],
+      },
+      response
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].actual).toContain('no matching item');
+  });
+
+  it('reports failures when array is empty in unordered mode', () => {
+    const response = { items: [] };
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.items[0].code', expectedValue: '"A"' },
+        ],
+      },
+      response
+    );
+    expect(failures.length).toBe(1);
+  });
+
+  it('validates non-array fields alongside unordered array fields', () => {
+    const response = { total: 5, items: [{ code: 'A' }] };
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.total', expectedValue: '5' },
+          { jsonPath: '$.items[0].code', expectedValue: '"A"' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
+
+  it('handles expectedValue parse fallback for non-JSON strings', () => {
+    const response = { items: [{ code: 'hello world' }] };
+    const failures = validate(
+      {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: '$.items[0].code', expectedValue: 'hello world' },
+        ],
+      },
+      response
+    );
+    expect(failures).toEqual([]);
+  });
 });

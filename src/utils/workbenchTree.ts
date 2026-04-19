@@ -130,11 +130,34 @@ export function isDescendantOf(folders: WorkbenchFolder[], ancestorId: string, d
   return !!findFolderDeep(ancestor.folders ?? [], descendantId);
 }
 
-export function addReqToFolderDeep(folders: WorkbenchFolder[], folderId: string, req: WorkbenchRequest): WorkbenchFolder[] {
+export function addReqToFolderDeep(folders: WorkbenchFolder[], folderId: string, req: WorkbenchRequest, beforeReqId?: string): WorkbenchFolder[] {
   return folders.map((f) => {
-    if (f.id === folderId) return { ...f, requests: [...f.requests, req] };
-    return { ...f, folders: addReqToFolderDeep(f.folders ?? [], folderId, req) };
+    if (f.id === folderId) {
+      if (beforeReqId) {
+        const idx = f.requests.findIndex(r => r.id === beforeReqId);
+        if (idx >= 0) {
+          const reqs = [...f.requests];
+          reqs.splice(idx, 0, req);
+          return { ...f, requests: reqs };
+        }
+      }
+      return { ...f, requests: [...f.requests, req] };
+    }
+    return { ...f, folders: addReqToFolderDeep(f.folders ?? [], folderId, req, beforeReqId) };
   });
+}
+
+export function addReqToFolderSafe(col: WorkbenchCollection, folderId: string, req: WorkbenchRequest, beforeReqId?: string): WorkbenchCollection {
+  const updatedFolders = addReqToFolderDeep(col.folders ?? [], folderId, req, beforeReqId);
+  const inserted = !!findReqInFolders(updatedFolders, req.id);
+  if (inserted) return { ...col, folders: updatedFolders };
+  return { ...col, requests: [...col.requests, req] };
+}
+
+export function addFolderToParentSafe(folders: WorkbenchFolder[], parentId: string, child: WorkbenchFolder): WorkbenchFolder[] {
+  const updated = addToFolderDeep(folders, parentId, child);
+  if (findFolderDeep(updated, child.id)) return updated;
+  return [...folders, child];
 }
 
 export function findReqParentFolder(folders: WorkbenchFolder[], reqId: string): WorkbenchFolder | null {

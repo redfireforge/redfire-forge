@@ -181,8 +181,23 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  transition: opacity .15s, box-shadow .15s, transform .15s;
 }
 .settings-svc-card.expanded { border-color: var(--primary); }
+.settings-svc-card.dragging {
+  opacity: 0.4;
+  box-shadow: 0 0 0 2px var(--primary);
+  transform: scale(0.98);
+}
+.svc-drag-grip {
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: grab;
+  user-select: none;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.svc-drag-grip:active { cursor: grabbing; }
 .settings-svc-header {
   display: flex;
   align-items: center;

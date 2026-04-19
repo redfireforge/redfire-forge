@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { WorkbenchData, WorkbenchCollection, WorkbenchRequest, WorkbenchFolder, WorkbenchEnv, HttpMethod, BodyType } from '../types';
+import type { WorkbenchData, WorkbenchCollection, WorkbenchRequest, WorkbenchFolder, HttpMethod, BodyType } from '../types';
 import { loadWorkbench, saveWorkbench } from '../utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
   countAllRequests, mapRequests, removeRequestFrom,
   mapFolderDeep, addToFolderDeep, removeFolderDeep,
   cloneRequest, cloneFolder, extractFolderDeep,
-  isDescendantOf, addReqToFolderDeep, findReqParentFolder,
+  isDescendantOf, addReqToFolderDeep, addReqToFolderSafe,
+  addFolderToParentSafe, findReqParentFolder,
   reorderInFolders, swapInFolders,
 } from '../utils/workbenchTree';
 
@@ -105,7 +106,7 @@ export function useWorkbench() {
       collections: prev.collections.map((c) => {
         if (c.id !== colId) return c;
         if (parentFolderId) {
-          return { ...c, folders: addToFolderDeep(c.folders ?? [], parentFolderId, folder) };
+          return { ...c, folders: addFolderToParentSafe(c.folders ?? [], parentFolderId, folder) };
         }
         return { ...c, folders: [...(c.folders ?? []), folder] };
       }),
@@ -124,7 +125,7 @@ export function useWorkbench() {
         ...prev,
         collections: prev.collections.map((c) => {
           if (c.id !== colId) return c;
-          if (parentFolderId) return { ...c, folders: addToFolderDeep(c.folders ?? [], parentFolderId, sub) };
+          if (parentFolderId) return { ...c, folders: addFolderToParentSafe(c.folders ?? [], parentFolderId, sub) };
           return { ...c, folders: [...(c.folders ?? []), sub] };
         }),
       };
@@ -227,7 +228,7 @@ export function useWorkbench() {
         if (targetParentFolderId === null) {
           return { ...c, folders: [...remaining, extracted] };
         }
-        return { ...c, folders: addToFolderDeep(remaining, targetParentFolderId, extracted) };
+        return { ...c, folders: addFolderToParentSafe(remaining, targetParentFolderId, extracted) };
       }),
     }));
   }, []);
@@ -241,7 +242,7 @@ export function useWorkbench() {
       collections: prev.collections.map((c) => {
         if (c.id !== colId) return c;
         if (folderId) {
-          return { ...c, folders: addReqToFolderDeep(c.folders ?? [], folderId, req) };
+          return addReqToFolderSafe(c, folderId, req);
         }
         return { ...c, requests: [...c.requests, req] };
       }),
@@ -291,7 +292,7 @@ export function useWorkbench() {
     });
   }, []);
 
-  const moveRequest = useCallback((colId: string, reqId: string, targetFolderId: string | null) => {
+  const moveRequest = useCallback((colId: string, reqId: string, targetFolderId: string | null, beforeReqId?: string) => {
     setData((prev) => {
       const col = prev.collections.find((c) => c.id === colId);
       if (!col) return prev;
@@ -300,9 +301,20 @@ export function useWorkbench() {
       const cleaned = removeRequestFrom(col, reqId);
       let updated: WorkbenchCollection;
       if (targetFolderId === null) {
-        updated = { ...cleaned, requests: [...cleaned.requests, req] };
+        if (beforeReqId) {
+          const idx = cleaned.requests.findIndex(r => r.id === beforeReqId);
+          if (idx >= 0) {
+            const reqs = [...cleaned.requests];
+            reqs.splice(idx, 0, req);
+            updated = { ...cleaned, requests: reqs };
+          } else {
+            updated = { ...cleaned, requests: [...cleaned.requests, req] };
+          }
+        } else {
+          updated = { ...cleaned, requests: [...cleaned.requests, req] };
+        }
       } else {
-        updated = { ...cleaned, folders: addReqToFolderDeep(cleaned.folders ?? [], targetFolderId, req) };
+        updated = addReqToFolderSafe(cleaned, targetFolderId, req, beforeReqId);
       }
       return { ...prev, collections: prev.collections.map((c) => c.id === colId ? updated : c) };
     });
@@ -322,7 +334,7 @@ export function useWorkbench() {
       if (srcColId === destColId) {
         let updated: WorkbenchCollection;
         if (destFolderId) {
-          updated = { ...cleanedSrc, folders: addReqToFolderDeep(cleanedSrc.folders ?? [], destFolderId, req) };
+          updated = addReqToFolderSafe(cleanedSrc, destFolderId, req);
         } else {
           updated = { ...cleanedSrc, requests: [...cleanedSrc.requests, req] };
         }
@@ -333,7 +345,7 @@ export function useWorkbench() {
         collections: prev.collections.map((c) => {
           if (c.id === srcColId) return cleanedSrc;
           if (c.id === destColId) {
-            if (destFolderId) return { ...c, folders: addReqToFolderDeep(c.folders ?? [], destFolderId, req) };
+            if (destFolderId) return addReqToFolderSafe(c, destFolderId, req);
             return { ...c, requests: [...c.requests, req] };
           }
           return c;
@@ -353,7 +365,7 @@ export function useWorkbench() {
       if (srcColId === destColId) {
         let newFolders = remaining;
         if (destParentFolderId) {
-          newFolders = addToFolderDeep(remaining, destParentFolderId, extracted);
+          newFolders = addFolderToParentSafe(remaining, destParentFolderId, extracted);
         } else {
           newFolders = [...remaining, extracted];
         }
@@ -364,7 +376,7 @@ export function useWorkbench() {
         collections: prev.collections.map((c) => {
           if (c.id === srcColId) return { ...c, folders: remaining };
           if (c.id === destColId) {
-            if (destParentFolderId) return { ...c, folders: addToFolderDeep(c.folders ?? [], destParentFolderId, extracted) };
+            if (destParentFolderId) return { ...c, folders: addFolderToParentSafe(c.folders ?? [], destParentFolderId, extracted) };
             return { ...c, folders: [...(c.folders ?? []), extracted] };
           }
           return c;
@@ -398,15 +410,6 @@ export function useWorkbench() {
     });
   }, []);
 
-  // ─── Bulk environment import from project ──────────────
-
-  const importEnvsFromProject = useCallback((envs: { name: string }[]) => {
-    setData((prev) => {
-      const existingNames = new Set(prev.environments.map((e) => e.name));
-      const newEnvs: WorkbenchEnv[] = envs.filter((e) => !existingNames.has(e.name)).map((e) => ({ id: uuidv4(), name: e.name }));
-      return { ...prev, environments: [...prev.environments, ...newEnvs] };
-    });
-  }, []);
 
   const addEnvironments = useCallback((envs: { id: string; name: string }[]) => {
     setData((prev) => {
@@ -434,13 +437,7 @@ export function useWorkbench() {
         if (!parentFolderId) {
           return { ...c, folders: [...(c.folders ?? []), folder] };
         }
-        return {
-          ...c,
-          folders: mapFolderDeep(c.folders ?? [], parentFolderId, (f) => ({
-            ...f,
-            folders: [...(f.folders ?? []), folder],
-          })),
-        };
+        return { ...c, folders: addFolderToParentSafe(c.folders ?? [], parentFolderId, folder) };
       }),
     }));
   }, []);
@@ -453,6 +450,6 @@ export function useWorkbench() {
     addFolder, addSubCollection, updateSubCollection, renameFolder, removeFolder, duplicateFolder, moveFolder, reorderFolder, moveFolderTo,
     addRequest, updateRequest, removeRequest, duplicateRequest, moveRequest, selectRequest,
     moveRequestToCollection, moveFolderToCollection, moveCollectionAsSubCollection,
-    importEnvsFromProject, addEnvironments, countAllRequests, importCollection, importFolder,
+    addEnvironments, countAllRequests, importCollection, importFolder,
   };
 }
