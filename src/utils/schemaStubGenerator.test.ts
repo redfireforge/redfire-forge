@@ -49,6 +49,15 @@ describe('schemaStubGenerator', () => {
       expect(generateStub({ type: 'string', format: 'uri' })).toBe('https://example.com');
     });
 
+    it('stubs url format like uri', () => {
+      expect(generateStub({ type: 'string', format: 'url' })).toBe('https://example.com');
+    });
+
+    it('stubs ipv4 and ipv6 formats', () => {
+      expect(generateStub({ type: 'string', format: 'ipv4' })).toBe('127.0.0.1');
+      expect(generateStub({ type: 'string', format: 'ipv6' })).toBe('::1');
+    });
+
     // Numeric types
     it('stubs integer', () => {
       expect(generateStub({ type: 'integer' })).toBe(0);
@@ -171,6 +180,17 @@ describe('schemaStubGenerator', () => {
         ],
       };
       expect(generateStub(schema)).toEqual({ id: 'string', name: 'string' });
+    });
+
+    it('merges allOf required lists and honors non-object type fragments', () => {
+      const schema: SchemaObject = {
+        allOf: [
+          { type: 'object', properties: { code: { type: 'integer' } } },
+          { required: ['code'] },
+          { type: 'string' },
+        ],
+      };
+      expect(generateStub(schema)).toBe('string');
     });
 
     // Depth guard

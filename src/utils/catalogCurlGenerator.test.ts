@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl, extractServerPathPrefix } from './catalogCurlGenerator';
+
+vi.mock('../engine/tokenManager', () => ({
+  acquireOAuth2Token: vi.fn(),
+}));
+
+import { acquireOAuth2Token } from '../engine/tokenManager';
 import type { CatalogEndpoint, CatalogServer, HostConfig } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../types';
 
@@ -172,6 +178,46 @@ describe('buildCatalogCurlCommand', () => {
       hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
     });
     expect(curl).toContain('Authorization: Basic');
+  });
+
+  it('emits OAuth2 token error placeholder when token acquisition fails', async () => {
+    vi.mocked(acquireOAuth2Token).mockRejectedValueOnce(new Error('token failed'));
+    const auth: AuthConfig = {
+      type: 'oauth2',
+      tokenUrl: 'https://idp/oauth/token',
+      clientId: 'cid',
+      clientSecret: 'sec',
+    };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig,
+      servers,
+      paramValues: {},
+      headerValues: {},
+      bodyText: '',
+      auth,
+    });
+    expect(curl).toContain('Bearer <TOKEN_ERROR: check OAuth2 config>');
+  });
+
+  it('includes Bearer from OAuth2 when token acquisition succeeds', async () => {
+    vi.mocked(acquireOAuth2Token).mockResolvedValueOnce('oauth-access-token');
+    const auth: AuthConfig = {
+      type: 'oauth2',
+      tokenUrl: 'https://idp/oauth/token',
+      clientId: 'cid',
+      clientSecret: 'sec',
+    };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig,
+      servers,
+      paramValues: {},
+      headerValues: {},
+      bodyText: '',
+      auth,
+    });
+    expect(curl).toContain('Authorization: Bearer oauth-access-token');
   });
 
   it('includes API key in header', async () => {

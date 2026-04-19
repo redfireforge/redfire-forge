@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi } from 'vitest';
 import { escapeCsv, exportCsv, exportJson } from './export';
 import * as fileSaver from './fileSaver';
@@ -69,6 +72,19 @@ describe('exportCsv', () => {
     expect(call[0]).toContain('true');
   });
 
+  it('uses validation mode none when validationMode is missing on success row', () => {
+    const result = {
+      scenarioName: 'no-mode', url: 'http://a.com', method: 'GET',
+      httpStatus: 204, responseTimeMs: 10,
+      passed: true, failureDetails: [], errorMessage: undefined,
+      timestamp: Date.now(),
+    };
+    exportCsv([result as any]);
+    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    const dataLine = csv.split('\n')[1] ?? '';
+    expect(dataLine).toMatch(/(^|,)none(,|$)/);
+  });
+
   it('creates rows for each failure detail', () => {
     const result = {
       scenarioName: 'test', url: 'http://a.com', method: 'POST',
@@ -83,5 +99,33 @@ describe('exportCsv', () => {
     const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
     const lines = csv.split('\n');
     expect(lines.length).toBe(3); // header + 2 failure rows
+  });
+
+  it('maps failure path, expected, and actual into CSV columns', () => {
+    const result = {
+      scenarioName: 'f1', url: 'http://x', method: 'GET',
+      httpStatus: 422, responseTimeMs: 5,
+      passed: false, timestamp: Date.now(), errorMessage: 'bad',
+      failureDetails: [{ path: '$.code', expected: '0', actual: '9' }],
+    };
+    exportCsv([result as any]);
+    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    expect(csv).toContain('$.code');
+    expect(csv).toContain(',0,');
+    expect(csv).toContain(',9,');
+  });
+
+  it('defaults validation mode to none on failure rows when absent', () => {
+    const result = {
+      scenarioName: 'f2', url: 'http://y', method: 'PUT',
+      httpStatus: 400, responseTimeMs: 3,
+      passed: false, timestamp: Date.now(),
+      failureDetails: [{ path: 'p', expected: 'e', actual: 'a' }],
+    };
+    exportCsv([result as any]);
+    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    const cols = (csv.split('\n')[1] ?? '').split(',');
+    const validationCol = cols[5];
+    expect(validationCol).toBe('none');
   });
 });

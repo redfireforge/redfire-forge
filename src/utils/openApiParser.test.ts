@@ -242,6 +242,91 @@ describe('parseOpenApiSpec', () => {
       expect(listPets.responses[0].description).toBe('A list of pets');
     });
 
+    it('picks first non-json media type when application/json is absent', async () => {
+      const spec = `
+openapi: "3.0.0"
+info:
+  title: Media Test
+  version: "1.0.0"
+paths:
+  /doc:
+    get:
+      operationId: getDoc
+      summary: Doc
+      responses:
+        "200":
+          description: Plain text body
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: hello
+`;
+      const result = await parseOpenApiSpec(spec);
+      const ep = result.entry.endpoints[0];
+      const res = ep.responses.find(r => r.statusCode === '200')!;
+      expect(res.schema).toEqual({ type: 'string' });
+      expect(res.example).toBe('hello');
+    });
+
+    it('uses top-level schema on response when content is missing', async () => {
+      const spec = `
+openapi: "3.0.0"
+info:
+  title: Schema Test
+  version: "1.0.0"
+paths:
+  /legacy:
+    get:
+      operationId: legacy
+      summary: Legacy
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+          example:
+            id: "x"
+`;
+      const result = await parseOpenApiSpec(spec);
+      const res = result.entry.endpoints[0].responses[0];
+      expect(res.schema?.properties).toHaveProperty('id');
+      expect(res.example).toEqual({ id: 'x' });
+    });
+
+    it('omits schema when json media exists but schema is not an object', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'S', version: '1.0.0' },
+        paths: {
+          '/x': {
+            get: {
+              operationId: 'x',
+              summary: 'X',
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': {
+                      schema: 'not-an-object',
+                      example: 1,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      const result = await parseOpenApiSpec(spec);
+      const res = result.entry.endpoints[0].responses[0];
+      expect(res.schema).toBeUndefined();
+      expect(res.example).toBe(1);
+    });
+
     it('parses JSON input', async () => {
       const result = await parseOpenApiSpec(OPENAPI_3_JSON);
       expect(result.entry.name).toBe('JSON API');
@@ -304,6 +389,85 @@ paths:
 `;
       const result = await parseOpenApiSpec(spec);
       expect(result.warnings.some(w => w.includes('no operationId'))).toBe(true);
+    });
+
+    it('extracts operation-level security scheme names', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'Sec API', version: '1.0.0' },
+        paths: {
+          '/admin': {
+            get: {
+              operationId: 'adminPing',
+              summary: 'Ping',
+              security: [{ bearerAuth: [] }, null, { oauth2: ['read'] }],
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+        components: {
+          securitySchemes: {
+            bearerAuth: { type: 'http', scheme: 'bearer' },
+            oauth2: { type: 'oauth2', flows: {} },
+          },
+        },
+      });
+      const result = await parseOpenApiSpec(spec);
+      const ep = result.entry.endpoints[0];
+      expect(ep?.security?.sort()).toEqual(['bearerAuth', 'oauth2']);
+    });
+
+    it('parses specs that contain unresolvable $ref under extension keys (resolveRefs keeps stub)', async () => {
+      const spec = `
+openapi: "3.0.0"
+info:
+  title: Ext Ref
+  version: "1.0.0"
+paths: {}
+x-meta:
+  item:
+    $ref: "#/this/does/not/exist"
+`;
+      const result = await parseOpenApiSpec(spec);
+      expect(result.entry.name).toBe('Ext Ref');
+    });
+
+    it('returns undefined security when operation security is empty or non-array', async () => {
+      const emptySec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'E', version: '1.0.0' },
+        paths: {
+          '/a': {
+            get: {
+              operationId: 'a',
+              summary: 'A',
+              security: [],
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      });
+      const r1 = await parseOpenApiSpec(emptySec);
+      const ep1 = r1.entry.endpoints[0];
+      expect(ep1.security).toBeUndefined();
+
+      const badType = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'E', version: '1.0.0' },
+        paths: {
+          '/b': {
+            get: {
+              operationId: 'b',
+              summary: 'B',
+              security: 'not-an-array',
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      });
+      const r2 = await parseOpenApiSpec(badType);
+      const ep2 = r2.entry.endpoints[0];
+      expect(ep2.security).toBeUndefined();
     });
 
     it('handles missing title with warning', async () => {
@@ -503,6 +667,20 @@ securityDefinitions:
       const r1 = await parseOpenApiSpec(OPENAPI_3_MINIMAL);
       const r2 = await parseOpenApiSpec(SWAGGER_2_MINIMAL);
       expect(r1.entry.versions[0].specHash).not.toBe(r2.entry.versions[0].specHash);
+    });
+
+    it('falls back to non-crypto string hash when subtle is unavailable', async () => {
+      const prevCrypto = globalThis.crypto;
+      Object.defineProperty(globalThis, 'crypto', {
+        value: { subtle: undefined as SubtleCrypto | undefined },
+        configurable: true,
+      });
+      try {
+        const r = await parseOpenApiSpec(OPENAPI_3_MINIMAL);
+        expect(r.entry.versions[0].specHash).toMatch(/^[0-9a-f]{8,}$/);
+      } finally {
+        Object.defineProperty(globalThis, 'crypto', { value: prevCrypto, configurable: true });
+      }
     });
   });
 

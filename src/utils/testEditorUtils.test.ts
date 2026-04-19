@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest';
-import { emptyTest, canonicalize, stripPaths, jsonEqual, parseQueryParams, rebuildUrl, getBaseUrl, unwrapImport } from './testEditorUtils';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  emptyTest,
+  canonicalize,
+  stripPaths,
+  jsonEqual,
+  parseQueryParams,
+  rebuildUrl,
+  getBaseUrl,
+  unwrapImport,
+  pickJsonFile,
+} from './testEditorUtils';
 
 // ---------------------------------------------------------------------------
 // emptyTest
@@ -228,5 +239,80 @@ describe('unwrapImport', () => {
   it('returns primitives as-is', () => {
     expect(unwrapImport('hello')).toBe('hello');
     expect(unwrapImport(null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pickJsonFile
+// ---------------------------------------------------------------------------
+describe('pickJsonFile', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reads a selected JSON file and passes parsed data to onLoad', async () => {
+    const onLoad = vi.fn();
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag) as HTMLInputElement;
+      if (tag === 'input') {
+        vi.spyOn(el, 'click').mockImplementation(function (this: HTMLInputElement) {
+          const file = new File(['{"loaded":true}'], 'data.json', { type: 'application/json' });
+          Object.defineProperty(this, 'files', { value: [file], configurable: true });
+          queueMicrotask(() => {
+            this.onchange?.({ target: this } as unknown as Event);
+          });
+        });
+      }
+      return el;
+    });
+
+    pickJsonFile(onLoad);
+    await vi.waitFor(() => {
+      expect(onLoad).toHaveBeenCalledWith({ loaded: true });
+    });
+  });
+
+  it('does nothing when the file input has no file', () => {
+    const onLoad = vi.fn();
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag) as HTMLInputElement;
+      if (tag === 'input') {
+        vi.spyOn(el, 'click').mockImplementation(function (this: HTMLInputElement) {
+          Object.defineProperty(this, 'files', { value: [], configurable: true });
+          this.onchange?.({ target: this } as unknown as Event);
+        });
+      }
+      return el;
+    });
+
+    pickJsonFile(onLoad);
+    expect(onLoad).not.toHaveBeenCalled();
+  });
+
+  it('alerts when the file is not valid JSON', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const onLoad = vi.fn();
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag) as HTMLInputElement;
+      if (tag === 'input') {
+        vi.spyOn(el, 'click').mockImplementation(function (this: HTMLInputElement) {
+          const file = new File(['{not-json'], 'bad.json', { type: 'application/json' });
+          Object.defineProperty(this, 'files', { value: [file], configurable: true });
+          queueMicrotask(() => {
+            this.onchange?.({ target: this } as unknown as Event);
+          });
+        });
+      }
+      return el;
+    });
+
+    pickJsonFile(onLoad);
+    await vi.waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Failed to parse JSON file.');
+    });
+    expect(onLoad).not.toHaveBeenCalled();
   });
 });
