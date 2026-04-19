@@ -885,6 +885,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                                 return <span className={`tag auth-badge ${cls}`}>Auth: {resolved.label} ({resolved.source})</span>;
                               })()}
                               <span className="tag">Validation: {t.validation.mode}</span>
+                              {(t.validation.assertions ?? []).length > 0 && (() => {
+                                const types = new Set((t.validation.assertions ?? []).map(a => a.type));
+                                return (
+                                  <>
+                                    {types.has('status') && <span className="tag assertion-badge assertion-badge-status">Status</span>}
+                                    {types.has('responseTime') && <span className="tag assertion-badge assertion-badge-time">SLA</span>}
+                                    {types.has('header') && <span className="tag assertion-badge assertion-badge-header">Header</span>}
+                                    {types.has('regex') && <span className="tag assertion-badge assertion-badge-regex">Regex</span>}
+                                  </>
+                                );
+                              })()}
                             </div>
                             <div className="test-card-actions">
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
