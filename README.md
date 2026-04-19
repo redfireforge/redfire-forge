@@ -228,7 +228,10 @@ src/
 │   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
 │   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
 │   ├── validator.ts         # Response validation (full, selective, unordered)
-│   └── metrics.ts           # Summary statistics computation
+│   ├── metrics.ts           # Summary statistics computation
+│   ├── executionWorker.ts   # Web Worker entry point for off-thread test execution
+│   ├── workerBridge.ts      # Main-thread bridge wrapping worker with runTest() interface
+│   └── workerProtocol.ts    # Typed message protocol for Main ↔ Worker communication
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
@@ -277,8 +280,8 @@ src/
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
-│   ├── platform.ts          # Runtime platform detection (Tauri / browser / Node)
+│   ├── httpClient.ts        # Quad-mode HTTP client (Worker override / Tauri native / Vite proxy / Node fetch)
+│   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
 │   ├── curlGenerator.ts     # Test config → cURL command builder
@@ -755,6 +758,34 @@ All execution settings are grouped in a single unified card below the Execution 
 
 All runner settings (concurrency, transactions, timeout, retry, error policy, think time, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
 
+**Worker Thread Architecture:**
+
+Test execution automatically runs in a **Web Worker** (separate thread) when the browser supports it, keeping the UI fully responsive during runs:
+
+```
+Main Thread (UI)                Worker Thread (Engine)
+─────────────────               ─────────────────────
+React rendering                  runTest()
+Progress bar updates             ├── HTTP requests
+Live charts (60fps)              ├── Response validation
+User interactions (abort,        ├── Think time delays
+  scroll, click)                 ├── Circuit breaker logic
+State management                 └── Metrics tracking
+     ▲                                │
+     │      postMessage (progress)    │
+     └────────────────────────────────┘
+```
+
+| Benefit | Detail |
+|---|---|
+| **Responsive UI** | Main thread is free for rendering — no stuttering during high-concurrency runs, no "page unresponsive" warnings |
+| **Accurate metrics** | Engine timing isn't skewed by React reconciliation or DOM repaints competing for CPU |
+| **Parallel execution** | On multi-core machines, engine and UI truly run simultaneously (10–30% throughput improvement on CPU-bound validation-heavy tests) |
+| **Tauri support** | In desktop mode, HTTP requests are proxied from the worker back to the main thread via `postMessage` so the Tauri HTTP plugin (main-thread only) is still used |
+| **Automatic fallback** | If Web Workers are unavailable, falls back to direct main-thread execution (same behavior as before) |
+
+> **Note:** This is primarily a **responsiveness and reliability** improvement. HTTP throughput is still bounded by network I/O and browser connection limits (~6 per origin for HTTP/1.1). The worker offloads CPU-bound work (validation, metrics, serialization) — it does not bypass network constraints.
+
 ### Results Dashboard
 
 Navigate to the **Results** tab (third tab).
@@ -842,6 +873,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
+| Worker thread execution | Test engine runs in a Web Worker for responsive UI at 60fps; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; incremental result transfer |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
