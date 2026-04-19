@@ -502,7 +502,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-builder-btn:hover { color: #34d399; border-color: #34d399; }
 
 /* ── Regex Assertion Modal ──────────────────────────── */
-.ram-modal { max-width: 960px; margin: 20px auto; border-radius: 10px; padding: 0; overflow: hidden; }
+.ram-modal { max-width: none; width: 100%; margin: 0; border-radius: 0; padding: 0; overflow: hidden; }
 .ram-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px; border-bottom: 1px solid var(--border);
