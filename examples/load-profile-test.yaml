@@ -1,0 +1,36 @@
+# RedfireForge CLI — load profile example
+# Run: npx redfireforge run examples/load-profile-test.yaml --duration 30
+
+name: Load Profile - Ramp Up
+baseUrl: https://jsonplaceholder.typicode.com
+
+defaults:
+  timeout: 15
+
+config:
+  concurrency: 10
+  transactions: 100
+  mode: load-profile
+  errorPolicy: stop-threshold
+  maxErrorRate: 25
+  loadProfile:
+    type: ramp-up
+    duration: 30
+    maxConcurrency: 10
+    rampUp: 10
+
+tests:
+  - name: Get Users
+    url: /users
+    method: GET
+    weight: 3
+
+  - name: Get Posts
+    url: /posts
+    method: GET
+    weight: 2
+
+  - name: Get Comments
+    url: /comments?postId=1
+    method: GET
+    weight: 1

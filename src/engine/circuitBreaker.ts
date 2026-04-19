@@ -42,6 +42,7 @@ export class CircuitBreaker {
   get reason(): string {
     if (this.policy === 'stop-first') return 'Stopped: first error encountered';
     if (this.errorCount >= this.maxErrors) return `Stopped: ${this.errorCount} errors reached max (${this.maxErrors})`;
+    if (this.totalCount === 0) return 'Stopped: no requests recorded';
     return `Stopped: error rate ${((this.errorCount / this.totalCount) * 100).toFixed(1)}% exceeded ${this.maxErrorRate}%`;
   }
 }

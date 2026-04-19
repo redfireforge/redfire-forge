@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-cli
 dist-ssr
 *.local
 
@@ -25,3 +26,6 @@ dist-ssr
 
 # Heap dumps
 *.hprof
+
+# Test coverage
+coverage/

@@ -1,0 +1,59 @@
+# RedfireForge CLI — sample test file
+# Run: npx redfireforge run examples/sample-api-test.yaml -c 5 -t 20
+
+name: Sample API Smoke Test
+baseUrl: https://jsonplaceholder.typicode.com
+
+defaults:
+  headers:
+    Accept: application/json
+  timeout: 10
+  retries: 1
+
+config:
+  concurrency: 3
+  transactions: 10
+  mode: batch
+
+tests:
+  - name: List Users
+    url: /users
+    method: GET
+    validation:
+      mode: selective
+      expectedFields:
+        - jsonPath: "$[0].name"
+          expectedValue: "Leanne Graham"
+
+  - name: Get Single User
+    url: /users/1
+    method: GET
+    validation:
+      mode: selective
+      expectedFields:
+        - jsonPath: "$.name"
+          expectedValue: "Leanne Graham"
+        - jsonPath: "$.email"
+          expectedValue: "Sincere@april.biz"
+
+  - name: List Posts
+    url: /posts
+    method: GET
+    weight: 2
+
+  - name: Create Post
+    url: /posts
+    method: POST
+    headers:
+      Content-Type: application/json
+    body: |
+      {
+        "title": "Performance Test",
+        "body": "Created by RedfireForge CLI",
+        "userId": 1
+      }
+    validation:
+      mode: selective
+      expectedFields:
+        - jsonPath: "$.title"
+          expectedValue: "Performance Test"

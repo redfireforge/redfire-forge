@@ -8,7 +8,97 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
-_Changes merged into `develop` that haven't been released yet._
+---
+
+## [0.5.2] — 2026-04-19
+
+### Added
+- **Group Collections**: New `group` collection type that acts as a parent container for Direct URL and Multi-Environment collections, enabling hierarchical organization with recursive nesting (groups inside groups)
+- **Group Sidebar UI**: Visual distinction between Group, Direct URL, and Multi-Environment collections with unique icons and badges; recursive expand/collapse rendering; group-specific context menu (add child group/collection, rename, duplicate, move, export/import, delete)
+- **Group Drag-and-Drop**: Move collections into and out of groups via drag-and-drop in the sidebar
+- **Group Import/Export**: Export a group and all its child collections as a single JSON file; import recognizes group format and restores the hierarchy
+- **Catalog "Send to Group"**: "Send All to Requests" modal now includes a "Target Group" dropdown to place exported collections into a new or existing group
+- **Catalog Request Metadata**: When sending endpoints from the API Catalog to Requests, each `RequestItem` now carries a `catalogMeta` field with operation ID, description, original path, tags, deprecated flag, parameters, expected responses, security requirements, and source spec info
+- **API Info Drawer**: On-demand side panel in the Request Editor (toggle via "ℹ API Info" button) that displays catalog metadata for requests originating from the API Catalog — replaces the response panel when open
+- **Catalog Origin Indicators**: Sidebar shows a clipboard icon for catalog-origin requests and a warning icon with strikethrough styling for deprecated endpoints
+- **API Catalog**: Standalone top-level feature for importing, browsing, testing, and versioning OpenAPI/Swagger specifications
+- **Catalog Import**: Import OpenAPI 3.0/3.1 and Swagger 2.0 specs from file or paste YAML/JSON directly
+- **Catalog Endpoint Browser**: Swagger-UI-style interactive endpoint detail with parameter forms, request body editor, response schemas, and "Try It" execution
+- **Catalog cURL Integration**: Generate cURL commands per endpoint with real OAuth2 token acquisition, syntax highlighting, single/multi-line toggle, and copy to clipboard
+- **Catalog Versioning**: Re-import updated specs, version history with visual endpoint diff (added/removed/changed), version restore, and version cap (max 10)
+- **Catalog Auth Panel**: Auth configuration with Inherit from Spec, From Environment (OAuth2/Bearer/Basic/API Key), and manual options; "Verify Auth" button with token validation
+- **Catalog Environments**: Unified with global Environments; microservice linking provides base URLs and auth per environment
+- **Catalog Persistence**: Auth tokens, endpoint form values (params, headers, body), environments, and host strategy survive browser refresh and server restart
+- **Catalog Overview Page**: API summary with endpoint stats by method/tag, server list, security schemes, and quick action buttons
+- **Catalog "Send to Requests" Modal**: Two-panel modal with environment/endpoint selection, custom name column, sample inclusion checkboxes, resizable columns, and live collection preview tree
+- **Catalog Export with Samples**: Selectively export user-entered "Try It" values (params, headers, body) as pre-filled request data
+- **Catalog Version in Collection Name**: Exported collections include the YAML spec version, e.g., "sales-product-autoassign (1.0.0)"
+- **Requests Linked Microservices**: Collections can link to a Microservice to inherit base URLs and auth from Environments config
+- **Dynamic Catalog Auth Switching**: Authorization automatically updates when switching environments for linked microservices
+- **Unified Environment Management**: Top-level Environments section replaces per-project configuration; all features pull from a single source of truth
+- **CLI Runner** (`redfireforge run`): Execute API performance tests from YAML or JSON files via command line
+- **YAML/JSON test file format**: Declarative test definitions with `baseUrl`, `defaults`, `config`, and `tests` sections
+- **CLI validate command** (`redfireforge validate`): Validate test file structure without running
+- **JUnit XML reporter**: `--junit report.xml` for CI/CD integration (GitHub Actions, Jenkins, GitLab CI)
+- **JSON report output**: `-o report.json` generates full `TestRun` report compatible with the UI
+- **Markdown report output**: `--markdown report.md` generates human-readable summary tables
+- **CI exit codes**: `--fail-on-error` (exit 1 on any failure) and `--fail-threshold <pct>` (exit 1 above error rate)
+- **CLI flags**: `--concurrency`, `--transactions`, `--mode`, `--timeout`, `--retries`, `--base-url`, `--env`, `--quiet`
+- **Corporate proxy support**: Auto-detects `HTTP_PROXY`/`HTTPS_PROXY` for Node.js environments
+- **Example test files**: `examples/sample-api-test.yaml`, `examples/load-profile-test.yaml`, `examples/auth-test.yaml`, `examples/sample-api-test.json`
+- **esbuild CLI build**: `npm run build:cli` bundles to a single distributable `dist-cli/redfireforge.mjs`
+- **Response History Dropdown**: Requests Send button now shows response history with timestamps, status, and restore/delete/clear actions
+- **Unit tests (117 initial + 146 + 45 = 308 new tests)**: Comprehensive test coverage bringing total to 728 tests at 91.5%+ line coverage; new test files for `bodySerializer`, `export`, `scenarioImportExport`, `executor`, `tokenManager`, `requestExecution`, `loadProfileRunner`, `platform`, `fileSaver`, `httpClient`, `tauriStore`, `requestUrlResolver`; expanded tests for `curlParser`, `catalogCurlGenerator`, `testEditorUtils`, `storage`, `requestTree`, `circuitBreaker`, `validator`, `catalogSpecDiff`
+- **Safe request insertion (`addReqToFolderSafe`)**: Utility in `requestTree.ts` that falls back to collection root if target folder ID is invalid, preventing silent data loss during drag-and-drop
+- **Safe folder insertion (`addFolderToParentSafe`)**: Utility in `requestTree.ts` that falls back to root level if parent folder ID is invalid, preventing silent folder loss during moves and imports
+- **URL resolver module (`requestUrlResolver.ts`)**: Extracted base URL resolution, display URL building, and send URL resolution from `RequestEditor` into a testable utility module
+
+### Changed
+- **Renamed Workbench → Requests throughout codebase**: All types (`RequestItem`, `RequestCollection`, `RequestFolder`, `RequestEnv`, `RequestsData`), files (`useRequests.ts`, `requestTree.ts`, `requestUrlResolver.ts`, `requestAuthState.ts`, `Requests.tsx`, `requests.css`, `components/requests/`), functions (`useRequests`, `loadRequests`, `saveRequests`), CSS class prefix (`wb-` → `req-`), tab ID, export format types, and storage key (`perf-test-requests`) now use consistent "Requests" naming; storage includes one-time migration from legacy `perf-test-workbench` key
+- **Sidebar nav rail**: Replaced horizontal tab bar with vertical nav rail; renamed sections to **Requests** (was Workbench), **Catalog** (unchanged), **Harness** (was Projects) to better reflect their purpose
+- **Platform detection**: `isTauri()` now safe in non-browser environments; added `isNode()` for CLI mode
+- **HTTP client**: Added Node-native `fetch` path with `undici` proxy agent for corporate networks
+- **Requests Send button**: Reduced height, added border-radius for a cleaner look
+- **Requests status row**: Always visible with consistent min-width so Send button position stays stable with or without a response
+- **Response history dropdown**: Aligned to right edge of trigger button; status pills sit tight against Send button
+- **Refactored App.tsx**: Extracted catalog-to-requests export logic into `catalogExport.ts` (~120 lines), reducing App.tsx by ~80 lines
+- **Refactored RequestCollectionModal.tsx**: Extracted auth state mapping helpers (`getAuthType`, `authToState`, `stateToAuth`, `emptyAuthState`) into shared `requestAuthState.ts` (~65 lines)
+- **Typed `globalProfileId` on `AuthConfig`**: Added optional `globalProfileId?: string` field to `AuthConfig` interface, eliminating `Record<string, unknown>` casts and `as any` assertions throughout auth resolution code
+- **Safe request moves**: `useRequests.moveRequest` and `moveRequestToCollection` now use `addReqToFolderSafe` to prevent silent request loss when target folder ID is invalid
+- **Safe folder moves**: `addFolder`, `addSubCollection`, `moveFolderTo`, `moveFolderToCollection`, and `importFolder` now use `addFolderToParentSafe` to prevent silent data loss with invalid parent IDs
+- **Duplicate path param replacement**: `catalogExport.ts` and `catalogCurlGenerator.ts` now use `replaceAll` for path parameter substitution to handle duplicate `{id}` segments in OpenAPI paths
+- **Refactored URL resolution**: Extracted duplicated base URL resolution logic from `RequestEditor` `displayUrl` and `handleSend` into shared `requestUrlResolver.ts`, reducing the component by ~35 lines
+- **Auth type label**: Renamed "Global Auth Profile" to "From Environment" in Catalog auth dropdown
+
+### Fixed
+- **API Key auth type mismatch**: `RequestCollectionModal` was saving `api-key` instead of canonical `apikey`, causing API Key auth to silently fail when sending requests
+- **Stale auth resolution**: `resolveEffectiveAuth` in `RequestEditor` was missing `environments` and `appEnvironments` in its dependency array, causing stale auth when switching environments
+- **cURL export missing environment auth**: `triggerCurlGeneration` was calling `resolveEffectiveAuth()` without the current environment ID, producing incorrect auth headers in exported cURL commands
+- **Malformed saved data crash**: `hasSample` in `CatalogSendToRequestsModal` could throw on malformed persisted endpoint values (missing `params`, `headers`, or `body` properties)
+- **Missing RequestFolder import**: `App.tsx` used `RequestFolder` type in a cast without importing it
+- **URL path joining**: Catalog export could produce malformed URLs when OpenAPI paths lacked a leading `/` (e.g., `…/apiv1/users` instead of `…/api/v1/users`)
+- **"Sample" column header not clickable**: `toggleAllSamples` was defined but never wired to the Sample column header in the Send to Requests modal
+- **Pre-existing async test failures**: Fixed 12 tests in `catalogCurlGenerator.test.ts` that were calling async functions without `await`
+- **Stale auth on environment switch**: `ApiCatalog` now clears auth to `{ type: 'none' }` when switching to an environment that has no `authProfileId`, instead of keeping the previous environment's credentials
+- **Async sample sync in Send to Requests**: `sampleEps` state now syncs when `savedEpValues` loads asynchronously, ensuring all sampleable endpoints are pre-checked
+- **Missing `resolvedColBaseUrls` in `handleSend` deps**: Added to `useCallback` dependency array in `RequestEditor`, fixing stale base URL mapping after environment changes
+- **Move request data loss**: `moveRequest` and `moveRequestToCollection` could silently drop a request if the target folder ID was stale or invalid; now falls back to collection root via `addReqToFolderSafe`
+- **Add request to invalid folder**: `addRequest` could set `selectedRequestId` to a request that was never stored when `folderId` was invalid; now uses `addReqToFolderSafe` for safe fallback
+- **Move folder data loss**: `moveFolderToCollection` and `moveFolderTo` could silently drop a folder when `destParentFolderId` was invalid; now uses `addFolderToParentSafe` for safe fallback to root level
+- **Import folder to invalid parent**: `importFolder` silently discarded the folder when `parentFolderId` didn't exist; now falls back to collection root level
+- **Move scenario data loss**: `moveScenario` in `useProjects` could silently delete a scenario if `targetFgId` didn't exist; now validates target feature group before mutating
+- **Move test data loss**: `moveTest` in `useProjects` could silently drop a test if target feature group or scenario didn't exist; now validates both targets before mutating; also skips unnecessary work for same-source/target scenario moves
+- **CircuitBreaker NaN in reason**: `circuitBreaker.reason` returned `NaN%` when no requests were recorded (division by zero); now returns descriptive message
+- **Validator path remapping discards success**: `tryRemapPaths` in `validator.ts` would discard a successful remapped result (empty failures array) because `[].every()` is vacuously true; fixed condition to also accept empty result arrays
+- **Catalog version removal corrupts currentVersionId**: `removeVersion` in `useCatalog` left `currentVersionId` pointing at the removed version; now auto-selects the first remaining version
+- **CatalogEndpointBrowser race condition**: Fast catalog entry switching could overwrite endpoint values for the wrong entry due to missing cancellation guard; added cleanup with `cancelled` flag
+- **stateToAuth returns undefined**: `stateToAuth` in `requestAuthState` returned `undefined` for missing profile or default case, which could clear auth unexpectedly; now returns `{ type: 'none' }` for safety
+- **cURL generator path param replace**: `buildFullUrl` in `catalogCurlGenerator` used `replace` instead of `replaceAll` for path parameters, only replacing the first occurrence of duplicate `{param}` segments
+- **Load profile runner hangs on error**: Added `.catch()` to `launchOne()` promise chain — unhandled rejections (e.g., dev server down) no longer permanently stall execution at 0 requests
+- **Pool runner hangs on error**: Same `.catch()` fix for `runPool()` which had the identical missing error handler
+- **React crash on object error messages**: Non-string `errorMessage` and `failureDetails` values are now JSON-stringified before rendering in ResponseDetailModal, ResultsDashboard, and requestExecution
+- **Stale chart display during active runs**: Live charts now show only current run data instead of falling back to previous run's saved time series
+- **Thick scrollbar in Response Detail modal**: Added thin scrollbar styling (5px) to modal body and response body pre block
 
 ---
 
@@ -30,7 +120,7 @@ _Changes merged into `develop` that haven't been released yet._
 - **Collapsible JSON tree response viewer**: Response bodies rendered as expandable/collapsible tree with search, match count, prev/next navigation, highlight, and collapse/expand all toggles
 - **Response preservation**: Response data cached per-request and restored when navigating between requests
 - **Query parameter management**: Enable/disable parameters via checkbox without deleting; order preserved across toggle
-- **Unified sidebar**: Tabbed Workbench | Projects toggle with resizable width, collapse toggle, and persistent Settings button
+- **Unified sidebar**: Vertical Requests | Catalog | Harness nav rail with resizable width, collapse toggle, and persistent Settings button
 - **Confirmation dialogs**: All delete actions require confirmation with item count
 - **Duplicate name prevention**: Collection, folder, and sub-collection names validated for uniqueness at the same level
 

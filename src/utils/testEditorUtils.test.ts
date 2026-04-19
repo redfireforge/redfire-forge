@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalize, stripPaths, jsonEqual, parseQueryParams, rebuildUrl, getBaseUrl, unwrapImport } from './testEditorUtils';
+import { emptyTest, canonicalize, stripPaths, jsonEqual, parseQueryParams, rebuildUrl, getBaseUrl, unwrapImport } from './testEditorUtils';
+
+// ---------------------------------------------------------------------------
+// emptyTest
+// ---------------------------------------------------------------------------
+describe('emptyTest', () => {
+  it('returns a scenario with unique id', () => {
+    const a = emptyTest();
+    const b = emptyTest();
+    expect(a.id).toBeTruthy();
+    expect(b.id).toBeTruthy();
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('returns defaults', () => {
+    const t = emptyTest();
+    expect(t.name).toBe('');
+    expect(t.url).toBe('');
+    expect(t.method).toBe('GET');
+    expect(t.body).toBe('');
+    expect(t.bodyType).toBe('none');
+    expect(t.auth.type).toBe('inherit');
+    expect(t.validation.mode).toBe('none');
+    expect(t.headers).toEqual([{ key: '', value: '' }]);
+    expect(t.bodyForm).toEqual([{ key: '', value: '' }]);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // canonicalize
@@ -68,6 +94,31 @@ describe('stripPaths', () => {
   it('handles null/undefined input', () => {
     expect(stripPaths(null, ['$.x'])).toBeNull();
     expect(stripPaths(undefined, ['$.x'])).toBeUndefined();
+  });
+
+  it('handles array bracket notation in paths', () => {
+    const obj = { items: [{ a: 1, b: 2 }, { a: 3, b: 4 }] };
+    const result = stripPaths(obj, ['$.items[0].b']);
+    expect(result.items[0].b).toBeUndefined();
+    expect(result.items[0].a).toBe(1);
+  });
+
+  it('handles path with only $', () => {
+    const obj = { a: 1 };
+    const result = stripPaths(obj, ['$']);
+    expect(result).toEqual({ a: 1 });
+  });
+
+  it('handles path with primitives mid-walk without crashing', () => {
+    const obj = { a: 42, b: 1 };
+    const result = stripPaths(obj, ['$.a.b.c']);
+    expect(result.b).toBe(1);
+  });
+
+  it('removes from arrays', () => {
+    const arr = [{ x: 1, y: 2 }];
+    const result = stripPaths(arr, ['$[0].y']);
+    expect(Array.isArray(result)).toBe(true);
   });
 });
 

@@ -7,4 +7,6 @@
 @import './import-export.css';
 @import './move-dialog.css';
 @import './csv-import.css';
-@import './workbench.css';
+@import './requests.css';
+@import './catalog.css';
+@import './environment-manager.css';

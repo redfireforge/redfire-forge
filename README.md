@@ -9,6 +9,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [CLI Runner](#cli-runner)
 - [Architecture Overview](#architecture-overview)
 - [UI Configuration Guide](#ui-configuration-guide)
   - [Settings](#settings)
@@ -17,6 +18,8 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Test Editor](#test-editor)
   - [Test Runner](#test-runner)
   - [Results Dashboard](#results-dashboard)
+  - [API Catalog](#api-catalog)
+  - [Requests](#requests-ad-hoc-api-testing)
 - [Feature Reference](#feature-reference)
 - [Branching Strategy & Versioning](#branching-strategy--versioning)
 - [Development Workflow](#development-workflow)
@@ -97,6 +100,113 @@ Press `Ctrl+C` in the terminal running the dev command.
 
 ---
 
+## CLI Runner
+
+Run API performance tests from the command line using YAML or JSON test files. The CLI reuses the same execution engine, validators, and reporters as the GUI — so tests behave identically in CI/CD and on your desktop.
+
+### Quick Example
+
+```bash
+# Run tests (development — uses tsx)
+npx tsx cli/index.ts run examples/sample-api-test.yaml -c 5 -t 20
+
+# Build distributable CLI, then run
+npm run build:cli
+node dist-cli/redfireforge.mjs run examples/sample-api-test.yaml -c 5 -t 20
+```
+
+### Test File Format (YAML)
+
+```yaml
+name: My API Tests
+baseUrl: https://api.example.com
+
+defaults:
+  headers:
+    Accept: application/json
+  timeout: 10
+  retries: 1
+
+config:
+  concurrency: 5
+  transactions: 50
+  mode: batch                  # sequential | batch | pool | load-profile
+
+tests:
+  - name: List Users
+    url: /users
+    method: GET
+    weight: 2
+    validation:
+      mode: selective
+      expectedFields:
+        - jsonPath: "$.data[0].name"
+          expectedValue: "Alice"
+
+  - name: Create User
+    url: /users
+    method: POST
+    headers:
+      Content-Type: application/json
+    body: '{"name": "Test User"}'
+    auth:
+      type: bearer
+      token: my-jwt-token
+```
+
+### CLI Commands
+
+```bash
+# Run a test file
+redfireforge run <file> [options]
+
+# Validate a test file without running
+redfireforge validate <file>
+```
+
+### Run Options
+
+| Flag | Description |
+|---|---|
+| `-c, --concurrency <n>` | Number of concurrent requests |
+| `-t, --transactions <n>` | Total number of requests |
+| `-m, --mode <mode>` | `sequential`, `batch`, `pool`, `load-profile` |
+| `--timeout <sec>` | Per-request timeout |
+| `--retries <n>` | Retry count on failure |
+| `--base-url <url>` | Override the base URL for all tests |
+| `--env <name>` | Environment name (metadata for reports) |
+| `--duration <sec>` | Duration in seconds (load-profile mode) |
+| `-o, --output <path>` | Write JSON report |
+| `--junit <path>` | Write JUnit XML report |
+| `--markdown <path>` | Write Markdown report |
+| `--fail-on-error` | Exit code 1 if any request fails |
+| `--fail-threshold <pct>` | Exit code 1 if error rate exceeds % |
+| `-q, --quiet` | Suppress progress output |
+
+### Report Outputs
+
+**JSON** (`-o report.json`) — Full `TestRun` object compatible with the GUI's import format.
+
+**JUnit XML** (`--junit report.xml`) — Standard JUnit format for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI).
+
+**Markdown** (`--markdown report.md`) — Human-readable summary table with TPS, percentiles, error rates.
+
+### CI/CD Usage
+
+```bash
+# In GitHub Actions, Jenkins, etc.
+npx tsx cli/index.ts run tests/smoke.yaml \
+  --concurrency 10 \
+  --transactions 100 \
+  --fail-on-error \
+  --junit results/junit.xml \
+  --markdown results/summary.md
+```
+
+Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid file or runtime error.
+
+---
+
 ## Architecture Overview
 
 ```
@@ -105,10 +215,12 @@ src/
 ├── App.css                  # Root styles & imports
 ├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
 ├── pages/
-│   ├── ScenarioBuilder.tsx  # Feature Groups → Scenarios → Tests editor
-│   ├── TestRunner.tsx       # Configure & execute performance runs
-│   ├── ResultsDashboard.tsx # View & analyze historical test results
-│   └── Workbench.tsx        # Workbench: ad-hoc API testing (Insomnia/Postman-style)
+│   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
+│   ├── TestRunner.tsx          # Configure & execute performance runs
+│   ├── ResultsDashboard.tsx    # View & analyze historical test results
+│   ├── Requests.tsx            # Requests: ad-hoc API testing (Insomnia/Postman-style)
+│   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
+│   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
 ├── engine/
 │   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
 │   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
@@ -119,7 +231,8 @@ src/
 │   └── metrics.ts           # Summary statistics computation
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
-│   ├── useWorkbench.ts      # Workbench state management (collections, folders, requests, drag-and-drop)
+│   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
+│   ├── useCatalog.ts        # API Catalog CRUD, persistence, import, versioning
 │   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
 │   ├── useTestExecution.ts  # React hook wrapping the executor
 │   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
@@ -127,7 +240,6 @@ src/
 │   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
 │   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
 │   ├── SettingsModal.tsx        # Split-panel settings shell (delegates to tab components)
-│   ├── SettingsProjectsTab.tsx  # Projects tab: environments, microservices, auth profiles
 │   ├── SettingsStorageTab.tsx   # Storage usage tab
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
@@ -141,20 +253,32 @@ src/
 │   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
 │   ├── ExportCenter.tsx         # Multi-select data export modal
 │   ├── ImportCenter.tsx         # Import with per-item conflict resolution
-│   └── workbench/              # Workbench (ad-hoc API testing) components
-│       ├── WorkbenchRequestEditor.tsx  # Request editor: URL, params, headers, body, auth, send
-│       ├── WorkbenchSidebar.tsx        # Collection/folder/request tree with drag-and-drop
-│       ├── WorkbenchCollectionModal.tsx # Collection create/edit modal
-│       ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
-│       ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
-│       ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
-│       ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
-│       ├── ConsoleLog.tsx             # Request/response trace console
-│       └── MultiEnvResultRow.tsx      # Multi-environment result row
+│   ├── requests/               # Requests (ad-hoc API testing) components
+│   │   ├── RequestEditor.tsx           # Request editor: URL, params, headers, body, auth, send
+│   │   ├── RequestsSidebar.tsx         # Collection/folder/request tree with drag-and-drop
+│   │   ├── RequestCollectionModal.tsx  # Collection create/edit modal
+│   │   ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
+│   │   ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
+│   │   ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
+│   │   ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
+│   │   ├── ConsoleLog.tsx             # Request/response trace console
+│   │   └── MultiEnvResultRow.tsx      # Multi-environment result row
+│   └── catalog/                # API Catalog (OpenAPI/Swagger browser) components
+│       ├── CatalogSidebar.tsx         # API list with version badges and endpoint counts
+│       ├── CatalogImportModal.tsx     # OpenAPI/Swagger spec import with preview
+│       ├── CatalogOverview.tsx        # API summary: endpoint stats, servers, security schemes
+│       ├── CatalogEndpointBrowser.tsx # Tag-grouped endpoint list with search/filter
+│       ├── CatalogEndpointCard.tsx    # Swagger-UI-style endpoint detail with "Try It"
+│       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
+│       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
+│       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
+│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Requests
+│       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
+│       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Dual-mode HTTP client (Tauri native / Vite proxy)
-│   ├── platform.ts          # Runtime platform detection (Tauri vs browser)
+│   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
+│   ├── platform.ts          # Runtime platform detection (Tauri / browser / Node)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
 │   ├── curlGenerator.ts     # Test config → cURL command builder
@@ -171,9 +295,26 @@ src/
 │   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
 │   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
 │   ├── export.ts            # JSON & CSV export utilities
-│   └── workbenchTree.ts     # Workbench tree manipulation (find, map, clone, move, reorder)
+│   ├── requestTree.ts       # Requests tree manipulation (find, map, clone, move, reorder)
+│   ├── requestAuthState.ts  # Auth config ↔ UI state mapping for request collection modals
+│   ├── requestUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
+│   ├── catalogExport.ts     # Catalog-to-requests export: build collections with env folders, requests, auth
+│   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
+│   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
 └── types/
-    └── index.ts             # Shared TypeScript interfaces
+    ├── index.ts             # Shared TypeScript interfaces
+    └── catalog.ts           # API Catalog types (CatalogEntry, CatalogEndpoint, CatalogVersion)
+
+cli/                            # CLI Runner (headless, Node.js)
+├── index.ts                 # Entry point: `run` and `validate` commands (commander)
+├── loader.ts                # YAML/JSON test file parser → engine Scenario/TestConfig
+└── reporters.ts             # JSON, JUnit XML, Markdown report generators
+
+examples/                       # Example test files for CLI
+├── sample-api-test.yaml     # Basic YAML test with validation
+├── sample-api-test.json     # Same tests in JSON format
+├── load-profile-test.yaml   # Ramp-up load profile example
+└── auth-test.yaml           # Authentication scenarios (bearer, basic, apikey)
 
 src-tauri/
 ├── tauri.conf.json          # Tauri app configuration (window, bundle, plugins)
@@ -200,9 +341,9 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 
 ## UI Configuration Guide
 
-### Settings
+### Settings & Environments
 
-Open **Settings** (⚙ button in the sidebar) to configure your testing infrastructure.
+Open **Settings** (⚙ button in the sidebar) or click **Environments** in the top-left sidebar to configure your testing infrastructure. Environments, microservices, and auth profiles are managed from a unified top-level page shared across Requests, Catalog, and Harness.
 
 #### Environments & Microservices
 
@@ -214,11 +355,10 @@ Open **Settings** (⚙ button in the sidebar) to configure your testing infrastr
 
 **How to configure:**
 
-1. Click **⚙ Settings** at the bottom of the sidebar.
+1. Click the **Environments** section in the top-left sidebar, or open **⚙ Settings**.
 2. Under **Environments**, type a name and click **Add** to create environments.
 3. Under **Microservices**, type a name and click **Add** to create services.
 4. For each microservice, click **Configure** to expand the environment table. Mark environments as **Deployed** (checkbox), then click **Edit** next to each to enter the base URL. Press **Save** or hit Enter to confirm.
-5. Close the Settings modal when done.
 
 #### Global Auth Profiles
 
@@ -477,9 +617,54 @@ Above the sample JSON area, a single row provides:
 - **Fetch Response** button — sends the current test request and populates the sample JSON with the actual API response. Auth credentials are applied automatically based on the inheritance chain.
 - **Host Override** checkbox + input — when enabled, replaces the hostname in the test URL with a different base URL for the fetch only (does not modify the test). Click **Use Settings** to quickly fill in the configured base URL. The override value is preserved when toggling off/on.
 
-### Workbench (Ad-Hoc API Testing)
+### API Catalog
 
-The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
+The **Catalog** section is the third pillar of RedfireForge — an OpenAPI/Swagger specification browser with interactive testing, cURL generation, and version tracking.
+
+**Import & Browse:**
+
+1. Click **Catalog** in the sidebar, then **Import API** to add an OpenAPI 3.0/3.1 or Swagger 2.0 spec (file upload or paste YAML/JSON).
+2. The import modal previews the spec: title, version, servers, endpoints grouped by tag, and any warnings.
+3. Imported APIs appear in the catalog sidebar with version badges and endpoint counts.
+4. Select an API to see the **Overview** page: endpoint stats by method/tag, server list, security schemes, and quick action buttons.
+
+**Endpoint Browser:**
+
+- Endpoints are grouped by tag with a search/filter bar and method-colored badges (GET, POST, PUT, DELETE, PATCH).
+- Click an endpoint to open the **Swagger-UI-style detail view**: summary, parameters with type hints/enums/required badges, request body schema, and response schemas.
+- Edit parameter values, headers, and body directly in the forms.
+
+**Interactive Testing ("Try It"):**
+
+- Click **Try It** to execute the endpoint against a real server. Results display in a JSON tree viewer.
+- **Host Strategy**: Choose "From Spec" (use servers from the spec), "Custom URL" (type any base URL), or "Environment" (per-API named environments configured via Edit).
+- **Auth**: Configure authentication per API — Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), or manual credentials.
+- **Verify Auth**: Test OAuth2 token acquisition with a single click.
+
+**cURL Integration:**
+
+- **Generate cURL** for any endpoint with real OAuth2 token acquisition, syntax highlighting, and single/multi-line toggle.
+- Copy to clipboard with one click.
+
+**Versioning:**
+
+- Re-import updated specs to create new versions. The import flow detects existing APIs by title and offers "Update existing" or "Import as new".
+- **Version History**: View all past imports with timestamps. Restore any previous version.
+- **Visual Diff**: See added, removed, and changed endpoints between any two spec versions.
+- Version history is capped at 10 per API (oldest auto-pruned).
+
+**Environments & Persistence:**
+
+- Right-click an API → **Edit** to configure per-API environments (name + base URL pairs), auth settings, and host strategy.
+- All settings — auth tokens, endpoint form values (params, headers, body), environments, host strategy — survive browser refresh and server restart.
+
+**Send to Requests:**
+
+- Send individual endpoints or all endpoints from an API into a Requests collection for further ad-hoc testing.
+
+### Requests (Ad-Hoc API Testing)
+
+The **Requests** section provides an Insomnia/Postman-style interface for ad-hoc API testing, independent of the project-based test hierarchy.
 
 **Key Concepts:**
 
@@ -509,9 +694,10 @@ The **Workbench** tab provides an Insomnia/Postman-style interface for ad-hoc AP
 
 **Unified Sidebar:**
 
-The left sidebar uses a **Workbench | Projects** tab toggle at the top:
-- **Workbench** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
-- **Projects** shows project-based navigation (Feature Groups, Environments, Microservices).
+The left sidebar uses a vertical **Requests | Catalog | Harness** nav rail:
+- **Requests** shows the collection tree with drag-and-drop, context menus, and inline folder creation.
+- **Catalog** shows imported API specs with version badges and endpoint counts.
+- **Harness** shows project-based navigation (Feature Groups, Environments, Microservices) for regression and performance testing.
 - The sidebar is resizable (drag the right edge) and collapsible (toggle button).
 - **Settings** is always accessible at the bottom of the sidebar.
 
@@ -669,20 +855,38 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Import conflict detection | Feature Group, Scenario, and Test imports warn on duplicates with confirmation dialogs |
 | Consistent export naming | All exports follow `{env}-{svc}-{level}-{name}-{timestamp}.json` naming convention |
 | Storage management | Monitor usage, configure max runs, auto-prune old data, graceful quota-exceeded recovery |
-| Workbench (ad-hoc testing) | Insomnia/Postman-style request editor with collections, folders, sub-collections, and drag-and-drop |
-| Workbench collection hierarchy | Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting |
-| Workbench drag-and-drop | Move requests, folders, and entire collections between any containers; drag collection onto another to merge as sub-collection |
-| Workbench per-env base URLs | Configure hostnames per environment; URLs dynamically resolve with relative path display |
-| Workbench sub-collection pinning | Sub-collections can pin to a specific environment with locked URL resolution |
-| Workbench console trace | Insomnia-style request/response trace with headers, timing, and body |
+| Requests (ad-hoc testing) | Insomnia/Postman-style request editor with collections, folders, sub-collections, and drag-and-drop |
+| Requests collection hierarchy | Collections → Folders (📁) / Sub-Collections (📦) → Requests with unlimited nesting |
+| Requests drag-and-drop | Move requests, folders, and entire collections between any containers; drag collection onto another to merge as sub-collection |
+| Requests per-env base URLs | Configure hostnames per environment; URLs dynamically resolve with relative path display |
+| Requests sub-collection pinning | Sub-collections can pin to a specific environment with locked URL resolution |
+| Requests console trace | Insomnia-style request/response trace with headers, timing, and body |
 | Collapsible JSON tree viewer | Response bodies as expandable tree with search, match count, prev/next navigation, and collapse/expand all |
-| Workbench response caching | Responses preserved per-request during navigation |
-| Workbench JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
-| Unified sidebar (Workbench + Projects) | Tabbed sidebar with resizable width, collapse toggle, and persistent Settings access |
+| Requests response caching | Responses preserved per-request during navigation |
+| Requests JSON import/export | Export/import collections and folders as JSON with duplicate name validation |
+| Unified sidebar (Requests + Catalog + Harness) | Vertical nav rail with resizable width, collapse toggle, and persistent Settings access |
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
+| **API Catalog** | Import OpenAPI 3.0/3.1 and Swagger 2.0 specs; browse endpoints in Swagger-UI-style detail view |
+| Catalog endpoint browser | Tag-grouped endpoint list with search/filter, parameter forms, request body editor, response schemas |
+| Catalog "Try It" testing | Execute endpoints interactively with host strategy (From Spec / Custom URL / Environment) and auth config |
+| Catalog cURL generation | Generate cURL commands per endpoint with real OAuth2 token acquisition, syntax highlighting, copy to clipboard |
+| Catalog versioning | Re-import updated specs with version history, visual endpoint diff (added/removed/changed), and restore |
+| Catalog environments | Per-API environment configuration with name + base URL pairs; "Environment" host strategy |
+| Catalog auth panel | Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), Verify Auth with token validation |
+| Catalog persistence | Auth tokens, form values, environments, and host strategy survive refresh and restart |
+| Catalog overview page | API summary with endpoint stats by method/tag, server list, security schemes, quick actions |
+| Catalog "Send to Requests" | Copy endpoint(s) as RequestItem objects into a Requests collection |
+| **CLI Runner** | Execute tests from YAML/JSON files via `redfireforge run` — same engine as the GUI |
+| CLI validate | `redfireforge validate` checks file structure without executing |
+| JUnit XML reports | `--junit report.xml` for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI) |
+| JSON / Markdown reports | `-o report.json` and `--markdown report.md` for machine-readable and human-readable output |
+| CI exit codes | `--fail-on-error` and `--fail-threshold` for quality gates in pipelines |
+| YAML/JSON test files | Declarative test definitions with `baseUrl`, `defaults`, `config`, auth, validation |
+| CLI base URL override | `--base-url` flag replaces all relative URLs at runtime |
 | Native HTTP (desktop) | Tauri HTTP plugin bypasses CORS — no proxy needed |
+| Node.js HTTP (CLI) | Native `fetch` with auto-detected proxy support (`HTTP_PROXY`/`HTTPS_PROXY`) |
 | CORS proxy (web) | Built-in Vite server proxy for browser mode |
 | Cross-platform builds | macOS (ARM + Intel), Windows, Linux via GitHub Actions CI/CD |
 | Hot-reload development | `npm run tauri:dev` gives instant UI updates in the desktop window |
