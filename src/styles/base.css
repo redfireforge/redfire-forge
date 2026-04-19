@@ -240,6 +240,11 @@
   color: #4299e1;
   border: 1px solid rgba(66, 153, 225, 0.3);
 }
+.think-time-tag {
+  background: rgba(237, 137, 54, 0.15);
+  color: #ed8936;
+  border: 1px solid rgba(237, 137, 54, 0.3);
+}
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 /* Buttons */
