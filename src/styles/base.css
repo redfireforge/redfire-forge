@@ -495,6 +495,13 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-select { background: var(--card-bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--text); font-size: 12px; }
 .assertion-unit { font-size: 11px; color: var(--text-muted); }
 .assertion-regex-slash { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+/* Assertion badges on test cards */
+.assertion-badge { font-size: 9px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; }
+.assertion-badge-status { background: #2563eb22; color: #60a5fa; border: 1px solid #2563eb44; }
+.assertion-badge-time   { background: #f59e0b22; color: #fbbf24; border: 1px solid #f59e0b44; }
+.assertion-badge-header  { background: #8b5cf622; color: #a78bfa; border: 1px solid #8b5cf644; }
+.assertion-badge-regex   { background: #10b98122; color: #34d399; border: 1px solid #10b98144; }
+
 .assertion-builder-btn {
   background: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px;
   color: var(--text-muted); font-size: 11px; cursor: pointer; white-space: nowrap;
