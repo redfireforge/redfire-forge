@@ -40,6 +40,7 @@ alwaysApply: true
 | `src/engine/executor.ts` | HTTP test execution engine |
 | `src/engine/thinkTime.ts` | Think time delay factory and apply function |
 | `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) |
+| `src/components/RegexAssertionModal.tsx` | Regex assertion builder modal: JSON tree picker, pattern library, live preview |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
 | `src/engine/workerProtocol.ts` | Typed message protocol for Main ↔ Worker comms |
