@@ -452,6 +452,7 @@ export default function App() {
                 URL.revokeObjectURL(url);
               }}
               onSendToWorkbench={handleSendToWorkbench}
+              onEditEntry={(entryId) => setCatalogEditId(entryId)}
               globalAuthProfiles={appGlobalAuthProfiles}
               appEnvironments={environments}
               appMicroservices={microservices}

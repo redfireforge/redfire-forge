@@ -12,6 +12,7 @@ interface Props {
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
   onSendToWorkbench?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
+  onEditEntry?: (entryId: string) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   appEnvironments?: Environment[];
   appMicroservices?: Microservice[];
@@ -19,7 +20,7 @@ interface Props {
 
 type View = 'overview' | 'endpoints';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToWorkbench, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
@@ -156,6 +157,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           globalAuthProfiles={globalAuthProfiles}
           appEnvironments={appEnvironments}
           appMicroservices={appMicroservices}
+          onEditEntry={onEditEntry ? () => onEditEntry(entry.id) : undefined}
         />
       </div>
     </div>
