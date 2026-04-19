@@ -81,6 +81,15 @@ export interface ValidationConfig {
 
 export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'form-data' | 'file';
 
+export type ExtractionSource = 'body' | 'header' | 'status';
+
+export interface Extraction {
+  name: string;
+  source: ExtractionSource;
+  expression: string;
+  fallback?: string;
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -92,6 +101,7 @@ export interface Scenario {
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   validation: ValidationConfig;
+  extractions?: Extraction[];
   fetchHostOverride?: string;
   fetchHostEnabled?: boolean;
   featureGroupName?: string;
@@ -126,7 +136,7 @@ export interface ScenarioWeight {
   weight: number;
 }
 
-export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile';
+export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile' | 'workflow';
 
 export type LoadProfileType = 'ramp-up' | 'sustained' | 'spike';
 
@@ -166,6 +176,7 @@ export interface TestConfig {
   errorPolicy?: ErrorPolicy;
   maxErrors?: number;
   maxErrorRate?: number;
+  workflowVariables?: Record<string, string>;
 }
 
 export interface FailureDetail {

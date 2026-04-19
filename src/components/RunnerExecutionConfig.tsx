@@ -76,6 +76,10 @@ export default function RunnerExecutionConfig({
             <input type="radio" name="execMode" checked={executionMode === 'load-profile'} onChange={() => onExecutionModeChange('load-profile')} disabled={isRunning} />
             Load Profile
           </label>
+          <label className="radio-label" title="Multi-step workflow with variable chaining between requests">
+            <input type="radio" name="execMode" checked={executionMode === 'workflow'} onChange={() => onExecutionModeChange('workflow')} disabled={isRunning} />
+            Workflow
+          </label>
           <span className="exec-mode-hint">
             {executionMode === 'sequential'
               ? 'Executes one request at a time in order — no parallelism'
@@ -83,7 +87,9 @@ export default function RunnerExecutionConfig({
                 ? 'Fires N requests, waits for all to complete, then fires next N'
                 : executionMode === 'pool'
                   ? 'Keeps N requests in-flight at all times — a new request starts as soon as one finishes'
-                  : 'Time-based execution with dynamic concurrency shaping'}
+                  : executionMode === 'workflow'
+                    ? 'Multi-step chain: each request can extract values for the next step'
+                    : 'Time-based execution with dynamic concurrency shaping'}
           </span>
         </div>
       </div>

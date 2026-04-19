@@ -5,6 +5,7 @@ import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../
 import { resolveAuth } from '../utils/authResolver';
 import { LiveCharts } from '../components/LiveCharts';
 import RunnerExecutionConfig, { profileLabel } from '../components/RunnerExecutionConfig';
+import WorkflowVariablesInput from '../components/workflow/WorkflowVariablesInput';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from '../utils/runnerProgressStorage';
 
 type HostMode = 'hardcoded' | 'settings' | 'custom';
@@ -100,6 +101,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [errorPolicy, setErrorPolicy] = useState<ErrorPolicy>('continue');
   const [maxErrors, setMaxErrors] = useState(10);
   const [maxErrorRate, setMaxErrorRate] = useState(50);
+  const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [configLoaded, setConfigLoaded] = useState(false);
   const [weightsExpanded, setWeightsExpanded] = useState(true);
@@ -280,6 +282,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
+    const isWorkflow = executionMode === 'workflow';
     const config: TestConfig = {
       concurrency: isLoadProfile ? loadProfile.maxConcurrency : concurrency,
       totalTransactions: isLoadProfile ? 0 : totalTransactions,
@@ -293,6 +296,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       errorPolicy,
       maxErrors,
       maxErrorRate,
+      ...(isWorkflow && Object.keys(workflowVariables).length > 0 ? { workflowVariables } : {}),
     };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
@@ -389,6 +393,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         activeTestCount={activeTestCount}
         isRunning={isRunning}
       />
+
+      {executionMode === 'workflow' && (
+        <WorkflowVariablesInput
+          variables={workflowVariables}
+          onChange={setWorkflowVariables}
+          disabled={isRunning}
+        />
+      )}
 
       {!hasAnyTests ? (
         <div className="empty-state">No tests defined. Go to Feature Groups tab to add some first.</div>

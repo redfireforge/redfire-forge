@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Variables & Chaining Engine (Phase A)**: Multi-step workflow execution with variable extraction and template resolution
+  - New `VariableContext` class: layered variable store (environment → manual → extracted) with built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt(1,100)}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(16)}}`)
+  - `resolveScenario()`: Pure preprocessor that substitutes `{{varName}}` placeholders in URL, headers, body, form fields, and auth credentials
+  - `Extraction` type + `extractVariables()`: Extract values from response body (JSONPath), headers, or status code into the variable context for downstream steps
+  - `runWorkflow()` execution mode: Sequential chaining where each step can extract and pass values to the next; `runWorkflowLoad()` for repeated iterations with isolated per-run contexts
+  - New `'workflow'` execution mode added to `ExecutionMode` type, integrated into executor routing and Web Worker
+  - **UI: Extract tab** in TestEditorModal — configure per-request extractions with variable name, source, expression, and fallback
+  - **UI: Workflow radio button** in Runner execution config with mode hint
+  - **UI: Initial Variables editor** — shown when Workflow mode is selected, define key-value pairs for `{{var}}` templates
+  - **CLI support**: `extract` array on test steps and `variables` object in test files for YAML/JSON workflow definitions
 - **Request Timing Breakdown**: DNS/TCP/TLS/TTFB/Download waterfall for every request — diagnose *why* something is slow, not just *how* slow
   - New `TimingBreakdown` type with six phases: `dnsLookup`, `tcpConnect`, `tlsHandshake`, `ttfb`, `download`, `total`
   - `timing?` field added to `RequestResult` — backward-compatible, absent for older saved runs

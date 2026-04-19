@@ -6,6 +6,7 @@ import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
+import { runWorkflow, runWorkflowLoad, VariableContext } from './workflow';
 
 export interface ProgressMeta {
   elapsedMs: number;
@@ -139,6 +140,14 @@ export async function runTest(
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
   const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
 
+  if (mode === 'workflow') {
+    const ctx = new VariableContext(config.workflowVariables);
+    const iterations = config.totalTransactions || 1;
+    if (iterations <= 1) {
+      return runWorkflow(scenarios, opts, ctx);
+    }
+    return runWorkflowLoad(scenarios, iterations, config.concurrency, opts, ctx);
+  }
   if (mode === 'load-profile' && config.loadProfile) {
     return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts);
   }
