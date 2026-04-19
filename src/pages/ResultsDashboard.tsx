@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { TestRun, RequestResult } from '../types';
 import ResponseDetailModal from '../components/ResponseDetailModal';
+import { AggregatedTimingTable } from '../components/WaterfallBar';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
 import { exportJson, exportCsv } from '../utils/export';
 import { buildGroups, type GroupByLevel, type GroupNode } from '../utils/resultsGrouping';
@@ -413,6 +414,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
           </div>
         </div>
       )}
+
+      {/* Timing Breakdown */}
+      {selectedRun && <AggregatedTimingTable results={selectedRun.results} />}
 
       {/* Request Details */}
       <div className="section">

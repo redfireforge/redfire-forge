@@ -1,4 +1,4 @@
-import type { RequestResult, TestSummary, TestConfig, TestRun } from '../src/types';
+import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
 
 // ── JSON report ─────────────────────────────────────────────
 
@@ -57,12 +57,26 @@ export function buildJunitXml(
   return lines.join('\n');
 }
 
+// ── Timing aggregation helper ────────────────────────────────
+
+function aggregateTiming(results: RequestResult[]): Record<keyof TimingBreakdown, number> | null {
+  const withTiming = results.filter((r): r is RequestResult & { timing: TimingBreakdown } => !!r.timing);
+  if (withTiming.length === 0) return null;
+  const keys: (keyof TimingBreakdown)[] = ['dnsLookup', 'tcpConnect', 'tlsHandshake', 'ttfb', 'download', 'total'];
+  const avg = {} as Record<keyof TimingBreakdown, number>;
+  for (const k of keys) {
+    avg[k] = Math.round(withTiming.reduce((s, r) => s + r.timing[k], 0) / withTiming.length * 100) / 100;
+  }
+  return avg;
+}
+
 // ── Markdown report ─────────────────────────────────────────
 
 export function buildMarkdownReport(
   summary: TestSummary,
   config: TestConfig,
   meta: { name?: string; env?: string; file?: string },
+  results?: RequestResult[],
 ): string {
   const lines: string[] = [];
   const title = meta.name || meta.file || 'RedfireForge Test Run';
@@ -90,6 +104,23 @@ export function buildMarkdownReport(
   lines.push(`| **Duration** | ${(summary.totalDurationMs / 1000).toFixed(2)}s |`);
   lines.push('');
 
+  if (results) {
+    const avg = aggregateTiming(results);
+    if (avg) {
+      lines.push('## Timing Breakdown (avg)');
+      lines.push('');
+      lines.push('| Phase | Avg (ms) |');
+      lines.push('|---|---|');
+      lines.push(`| **DNS Lookup** | ${avg.dnsLookup} |`);
+      lines.push(`| **TCP Connect** | ${avg.tcpConnect} |`);
+      lines.push(`| **TLS Handshake** | ${avg.tlsHandshake} |`);
+      lines.push(`| **TTFB** | ${avg.ttfb} |`);
+      lines.push(`| **Download** | ${avg.download} |`);
+      lines.push(`| **Total** | ${avg.total} |`);
+      lines.push('');
+    }
+  }
+
   if (summary.failedRequests > 0 || summary.failedValidations > 0) {
     lines.push('## Errors');
     lines.push('');
@@ -112,7 +143,7 @@ export function buildMarkdownReport(
 
 // ── Console summary (printed to terminal) ───────────────────
 
-export function printConsoleSummary(summary: TestSummary, config: TestConfig): void {
+export function printConsoleSummary(summary: TestSummary, config: TestConfig, results?: RequestResult[]): void {
   const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
   const bar = '─'.repeat(50);
 
@@ -127,6 +158,20 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig): v
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
   console.log(`  Min / Max:    ${summary.minResponseTime} ms / ${summary.maxResponseTime} ms`);
+
+  if (results) {
+    const avg = aggregateTiming(results);
+    if (avg) {
+      console.log(bar);
+      console.log('  Timing Breakdown (avg)');
+      console.log(`  DNS Lookup:   ${avg.dnsLookup} ms`);
+      console.log(`  TCP Connect:  ${avg.tcpConnect} ms`);
+      console.log(`  TLS Handshake:${avg.tlsHandshake} ms`);
+      console.log(`  TTFB:         ${avg.ttfb} ms`);
+      console.log(`  Download:     ${avg.download} ms`);
+    }
+  }
+
   console.log(bar);
   console.log(`  Total:        ${summary.totalRequests}`);
   console.log(`  Passed:       ${summary.successfulRequests}`);
