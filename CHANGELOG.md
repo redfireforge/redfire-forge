@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+---
+
+## [0.5.2] — 2026-04-19
+
 ### Added
 - **Group Collections**: New `group` collection type that acts as a parent container for Direct URL and Multi-Environment collections, enabling hierarchical organization with recursive nesting (groups inside groups)
 - **Group Sidebar UI**: Visual distinction between Group, Direct URL, and Multi-Environment collections with unique icons and badges; recursive expand/collapse rendering; group-specific context menu (add child group/collection, rename, duplicate, move, export/import, delete)
