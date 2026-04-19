@@ -22,11 +22,11 @@ export default function CatalogEditModal({ entry, microservices, environments, o
     if (!linkedSvc) return [];
     const allEnvs = [...environments, ...(linkedSvc.customEnvs ?? [])];
     return allEnvs
-      .filter(e => linkedSvc.baseUrls[e.id])
+      .filter(e => linkedSvc.baseUrls[e.id] || linkedSvc.authProfileIds?.[e.id])
       .map(e => ({
         envId: e.id,
         envName: e.name,
-        baseUrl: linkedSvc.baseUrls[e.id],
+        baseUrl: linkedSvc.baseUrls[e.id] ?? '',
       }));
   }, [linkedSvc, environments]);
 
@@ -93,7 +93,7 @@ export default function CatalogEditModal({ entry, microservices, environments, o
                     {envRows.map(row => (
                       <tr key={row.envId}>
                         <td>{row.envName}</td>
-                        <td><code>{row.baseUrl}</code></td>
+                        <td>{row.baseUrl ? <code>{row.baseUrl}</code> : <span style={{ opacity: 0.5 }}>Not configured</span>}</td>
                       </tr>
                     ))}
                   </tbody>

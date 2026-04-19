@@ -14,9 +14,10 @@ interface Props {
   globalAuthProfiles?: GlobalAuthProfile[];
   appEnvironments?: Environment[];
   appMicroservices?: Microservice[];
+  onEditEntry?: () => void;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -106,6 +107,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   }, [linkedSvc, appEnvironments]);
 
   const hasEnvOptions = linkedSvc ? svcEnvOptions.length > 0 : (entry.environments?.length ?? 0) > 0;
+  const showEnvButton = hasEnvOptions || (appMicroservices?.length ?? 0) > 0;
 
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
   const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments, linkedSvc);
@@ -131,16 +133,24 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               >
                 From Spec
               </button>
-              {hasEnvOptions && (
+              {showEnvButton && (
                 <button
                   className={`ceb-strat-btn ${entry.hostConfig.strategy === 'environment' ? 'active' : ''}`}
                   onClick={() => {
+                    if (!hasEnvOptions) {
+                      onEditEntry?.();
+                      return;
+                    }
                     const firstId = linkedSvc
                       ? svcEnvOptions[0]?.envId
                       : entry.environments?.[0]?.id;
                     onHostChange({ strategy: 'environment', environmentId: entry.hostConfig.environmentId ?? firstId });
                   }}
-                  title={linkedSvc ? `Use environment from ${linkedSvc.name}` : 'Use a configured environment'}
+                  title={
+                    !hasEnvOptions
+                      ? 'Link a microservice to enable environment switching'
+                      : linkedSvc ? `Use environment from ${linkedSvc.name}` : 'Use a configured environment'
+                  }
                 >
                   Environment
                 </button>
