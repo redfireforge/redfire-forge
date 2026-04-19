@@ -8,6 +8,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Think Time & Pacing**: Configurable delays between requests for realistic virtual user simulation
+  - Four modes: None, Constant (fixed delay), Uniform (random min–max range), Gaussian (normal distribution with mean/stdDev)
+  - New `src/engine/thinkTime.ts` module with `createThinkTimeDelay()` factory and `applyThinkTime()` with abort-signal awareness
+  - Integrated into all four execution strategies: Sequential, Batch, Continuous Pool, and Load Profile
+  - Think Time UI controls in Test Runner execution config with mode-specific input fields and descriptive hints
+  - Think time config displayed in Progress header and Results dashboard context tags (orange "Think:" badge)
+  - Think time persisted in runner config and progress storage for session continuity
+  - New types: `ThinkTimeMode`, `ThinkTimeConfig`; `TestConfig` extended with optional `thinkTime` field
+
+### Fixed
+- **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
+
+### Changed
+- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.3% statements, 90.1% branches, 98.8% functions, 98.1% lines) with 948 total tests across 41 test files
+
 ---
 
 ## [0.5.2] — 2026-04-19

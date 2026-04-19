@@ -13,6 +13,11 @@ describe('parseCurl', () => {
     expect(s.name).toBe('api');
   });
 
+  it('treats repeated spaces as a single token boundary', () => {
+    const s = parseCurl('curl   http://example.com/api');
+    expect(s.url).toBe('http://example.com/api');
+  });
+
   it('parses explicit method with -X POST', () => {
     const s = parseCurl('curl -X POST http://example.com/api');
     expect(s.method).toBe('POST');
@@ -157,6 +162,11 @@ describe('parseCurl', () => {
 
   it('sets bodyType xml when content-type is xml', () => {
     const s = parseCurl("curl -H 'Content-Type: application/xml' -d '<root/>' http://example.com");
+    expect(s.bodyType).toBe('xml');
+  });
+
+  it('sets bodyType xml when content-type is text/xml', () => {
+    const s = parseCurl("curl -H 'Content-Type: text/xml; charset=utf-8' -d '<r/>' http://example.com");
     expect(s.bodyType).toBe('xml');
   });
 

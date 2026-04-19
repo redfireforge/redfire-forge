@@ -5,6 +5,7 @@ import ResponseDetailModal from '../components/ResponseDetailModal';
 import { loadTestRuns, deleteTestRun } from '../utils/storage';
 import { exportJson, exportCsv } from '../utils/export';
 import { buildGroups, type GroupByLevel, type GroupNode } from '../utils/resultsGrouping';
+import { thinkTimeLabel } from '../utils/runnerProgressStorage';
 
 interface Props {
   envName?: string;
@@ -122,7 +123,16 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
 
   useEffect(() => {
     if (groupTree.length > 0) {
-      setExpanded(new Set(groupTree.map((g) => g.key)));
+      const allKeys: string[] = [];
+      const collect = (nodes: GroupNode[], parentKey: string) => {
+        for (const g of nodes) {
+          const nodeKey = parentKey ? `${parentKey}/${g.key}` : g.key;
+          allKeys.push(nodeKey);
+          if (g.children.length > 0) collect(g.children, nodeKey);
+        }
+      };
+      collect(groupTree, '');
+      setExpanded(new Set(allKeys));
     }
   }, [groupTree]);
 
@@ -271,6 +281,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
                   </>
                 )}
               </span>
+              {thinkTimeLabel(selectedRun.config.thinkTime) && (
+                <span className="context-tag think-time-tag">{thinkTimeLabel(selectedRun.config.thinkTime)}</span>
+              )}
             </div>
           )}
           <div className="results-top-actions">

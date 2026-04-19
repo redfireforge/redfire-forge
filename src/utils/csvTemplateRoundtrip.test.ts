@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateCsvTemplate, parseCsvToScenarios } from './csvTemplateCsv';
 import type { Scenario } from '../types';
-import type { ExportOptions } from './csvTemplateTypes';
+import { META_LINE_PREFIX, type ExportOptions } from './csvTemplateTypes';
 
 function makeTest(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -182,5 +182,35 @@ describe('CSV template generate → parse roundtrip', () => {
     const csv = generateCsvTemplate(opts);
     const result = parseCsvToScenarios(csv);
     expect(result.rows[0].scenario!.auth).toEqual({ type: 'basic', username: 'admin', password: 'secret' });
+  });
+});
+
+describe('parseCsvToScenarios — metadata line', () => {
+  it('ignores invalid JSON on the metadata line and still parses the CSV body', () => {
+    const csv = `${META_LINE_PREFIX}{not valid json\nname,url\nT,https://z.example/`;
+    const result = parseCsvToScenarios(csv);
+    expect(result.fileErrors).toEqual([]);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.name).toBe('T');
+    expect(result.rows[0].scenario!.url).toBe('https://z.example/');
+  });
+});
+
+describe('parseCsvToScenarios — legacy URL without metadata', () => {
+  it('reports error when url is missing and there is no template metadata', () => {
+    const csv = 'name,url\nMy test,';
+    const result = parseCsvToScenarios(csv);
+    expect(result.errorRows).toBe(1);
+    expect(result.rows[0].errors).toContain('Missing url (no template metadata found)');
+  });
+
+  it('appends query string from param columns when using raw url', () => {
+    const csv = 'name,url,param:q,param:src\nT,https://api.example.com/items,,x';
+    const result = parseCsvToScenarios(csv);
+    expect(result.fileErrors).toEqual([]);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.url).toBe(
+      'https://api.example.com/items?q=&src=x',
+    );
   });
 });
