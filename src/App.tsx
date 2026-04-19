@@ -173,7 +173,10 @@ export default function App() {
   // ---- Helpers ----
   const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
 
-  const handleWbNewCollection = useCallback(() => {
+  const [newColGroupId, setNewColGroupId] = useState<string | undefined>();
+  const [newColMode, setNewColMode] = useState<'direct' | 'multi-env' | undefined>();
+  const handleWbNewCollection = useCallback((mode?: 'direct' | 'multi-env', groupId?: string) => {
+    setNewColMode(mode); setNewColGroupId(groupId);
     setEditingWbCollection(null); setShowWbCollectionModal(true);
   }, []);
   const handleWbEditCollection = useCallback((col: RequestCollection) => {
@@ -183,10 +186,10 @@ export default function App() {
     if (col.id) {
       wb.updateCollection(col.id, { name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
     } else {
-      wb.addCollection({ name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
+      wb.addCollection({ name: col.name, mode: col.mode, groupId: newColGroupId, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
     }
-    setShowWbCollectionModal(false); setEditingWbCollection(null);
-  }, [wb]);
+    setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined);
+  }, [wb, newColGroupId]);
   const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
     wb.addRequest(colId, folderId);
     if (activeTab !== 'requests') setActiveTab('requests');
@@ -204,6 +207,13 @@ export default function App() {
       catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
     }
 
+    let groupId: string | undefined;
+    if (payload.newGroupName) {
+      groupId = wb.addGroup(payload.newGroupName);
+    } else if (payload.targetGroupId) {
+      groupId = payload.targetGroupId;
+    }
+
     const currentVersion = sendToReqEntry?.versions.find(v => v.id === sendToReqEntry.currentVersionId);
     const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
 
@@ -212,6 +222,8 @@ export default function App() {
       microserviceId: sendToReqEntry?.microserviceId,
       versionLabel: currentVersion?.version,
       existingWbEnvNames,
+      groupId,
+      catalogEntryName: sendToReqEntry?.name,
     });
 
     if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
@@ -348,6 +360,11 @@ export default function App() {
                 countAllRequests={wb.countAllRequests}
                 onImportCollection={wb.importCollection}
                 onImportFolder={wb.importFolder}
+                onAddGroup={wb.addGroup}
+                onRenameGroup={wb.renameGroup}
+                onDeleteGroup={wb.deleteGroup}
+                onMoveToGroup={wb.moveToGroup}
+                onDuplicateGroup={wb.duplicateGroup}
               />
             )}
           </div>
@@ -472,6 +489,7 @@ export default function App() {
               appEnvironments={environments}
               appMicroservices={microservices}
               savedEpValues={sendToReqEpValues}
+              collections={wb.collections}
               onSend={handleSendToReqConfirm}
               onClose={() => setSendToReqEntry(undefined)}
             />
@@ -520,9 +538,10 @@ export default function App() {
           appEnvironments={environments}
           appMicroservices={microservices}
           globalAuthProfiles={appGlobalAuthProfiles}
+          defaultMode={newColMode}
           onSave={handleWbSaveCollection}
           onAddEnv={wb.addEnv}
-          onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); }}
+          onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined); }}
         />
       )}
 

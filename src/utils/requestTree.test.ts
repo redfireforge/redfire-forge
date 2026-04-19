@@ -24,6 +24,9 @@ import {
   findReqParentFolder,
   reorderInFolders,
   swapInFolders,
+  countGroupRequests,
+  collectGroupIds,
+  collectAllGroups,
 } from './requestTree';
 
 function makeReq(id: string, name = ''): RequestItem {
@@ -548,5 +551,157 @@ describe('addFolderToParentSafe', () => {
     const result = addFolderToParentSafe([root], 'deep', child);
     expect(findFolderDeep(result, 'child')).toBeTruthy();
     expect(result).toHaveLength(1);
+  });
+});
+
+// ─── countGroupRequests ─────────────────────────────────
+
+describe('countGroupRequests', () => {
+  it('counts requests in direct child collections', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'grp-1', requests: [makeReq('r1'), makeReq('r2')] }),
+      makeCollection({ id: 'col-2', mode: 'direct', groupId: 'grp-1', requests: [makeReq('r3')] }),
+    ];
+    expect(countGroupRequests('grp-1', collections)).toBe(3);
+  });
+
+  it('counts requests in nested groups recursively', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'outer-grp', mode: 'group' }),
+      makeCollection({ id: 'inner-grp', mode: 'group', groupId: 'outer-grp' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'inner-grp', requests: [makeReq('r1')] }),
+    ];
+    expect(countGroupRequests('outer-grp', collections)).toBe(1);
+  });
+
+  it('returns 0 for an empty group', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+    ];
+    expect(countGroupRequests('grp-1', collections)).toBe(0);
+  });
+
+  it('includes folder requests in the count', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({
+        id: 'col-1', mode: 'direct', groupId: 'grp-1',
+        requests: [makeReq('r1')],
+        folders: [makeFolder('f1', [makeReq('r2'), makeReq('r3')])],
+      }),
+    ];
+    expect(countGroupRequests('grp-1', collections)).toBe(3);
+  });
+
+  it('does not count collections outside the group', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-in', mode: 'direct', groupId: 'grp-1', requests: [makeReq('r1')] }),
+      makeCollection({ id: 'col-out', mode: 'direct', requests: [makeReq('r2'), makeReq('r3')] }),
+    ];
+    expect(countGroupRequests('grp-1', collections)).toBe(1);
+  });
+});
+
+// ─── collectGroupIds ────────────────────────────────────
+
+describe('collectGroupIds', () => {
+  it('returns only the root group id when no nested groups', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'grp-1' }),
+    ];
+    expect(collectGroupIds('grp-1', collections)).toEqual(['grp-1']);
+  });
+
+  it('collects nested group ids recursively', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-root', mode: 'group' }),
+      makeCollection({ id: 'grp-child', mode: 'group', groupId: 'grp-root' }),
+      makeCollection({ id: 'grp-grandchild', mode: 'group', groupId: 'grp-child' }),
+    ];
+    const ids = collectGroupIds('grp-root', collections);
+    expect(ids).toContain('grp-root');
+    expect(ids).toContain('grp-child');
+    expect(ids).toContain('grp-grandchild');
+    expect(ids).toHaveLength(3);
+  });
+
+  it('does not include non-group children', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'grp-1' }),
+      makeCollection({ id: 'col-2', mode: 'multi-env', groupId: 'grp-1' }),
+    ];
+    expect(collectGroupIds('grp-1', collections)).toEqual(['grp-1']);
+  });
+
+  it('does not include groups from other branches', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-a', mode: 'group' }),
+      makeCollection({ id: 'grp-b', mode: 'group' }),
+      makeCollection({ id: 'grp-a1', mode: 'group', groupId: 'grp-a' }),
+      makeCollection({ id: 'grp-b1', mode: 'group', groupId: 'grp-b' }),
+    ];
+    expect(collectGroupIds('grp-a', collections)).toEqual(['grp-a', 'grp-a1']);
+  });
+});
+
+// ─── collectAllGroups ───────────────────────────────────
+
+describe('collectAllGroups', () => {
+  it('returns empty array when no groups exist', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'col-1', mode: 'direct' }),
+    ];
+    expect(collectAllGroups(collections)).toEqual([]);
+  });
+
+  it('returns top-level groups at depth 0', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', name: 'Group A', mode: 'group' }),
+      makeCollection({ id: 'grp-2', name: 'Group B', mode: 'group' }),
+    ];
+    const result = collectAllGroups(collections);
+    expect(result).toHaveLength(2);
+    expect(result[0].group.id).toBe('grp-1');
+    expect(result[0].depth).toBe(0);
+    expect(result[1].group.id).toBe('grp-2');
+    expect(result[1].depth).toBe(0);
+  });
+
+  it('returns nested groups with correct depth', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-root', mode: 'group' }),
+      makeCollection({ id: 'grp-child', mode: 'group', groupId: 'grp-root' }),
+      makeCollection({ id: 'grp-grandchild', mode: 'group', groupId: 'grp-child' }),
+    ];
+    const result = collectAllGroups(collections);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({ group: expect.objectContaining({ id: 'grp-root' }), depth: 0 });
+    expect(result[1]).toEqual({ group: expect.objectContaining({ id: 'grp-child' }), depth: 1 });
+    expect(result[2]).toEqual({ group: expect.objectContaining({ id: 'grp-grandchild' }), depth: 2 });
+  });
+
+  it('filters by parentGroupId when provided', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-root', mode: 'group' }),
+      makeCollection({ id: 'grp-child', mode: 'group', groupId: 'grp-root' }),
+      makeCollection({ id: 'grp-other', mode: 'group' }),
+    ];
+    const result = collectAllGroups(collections, 'grp-root');
+    expect(result).toHaveLength(1);
+    expect(result[0].group.id).toBe('grp-child');
+  });
+
+  it('does not include non-group collections', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'grp-1' }),
+    ];
+    const result = collectAllGroups(collections);
+    expect(result).toHaveLength(1);
+    expect(result[0].group.id).toBe('grp-1');
   });
 });

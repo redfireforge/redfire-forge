@@ -1,6 +1,40 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { RequestFolder, RequestItem, RequestCollection } from '../types';
 
+export function countGroupRequests(groupId: string, collections: RequestCollection[]): number {
+  let total = 0;
+  for (const c of collections) {
+    if (c.groupId !== groupId) continue;
+    if (c.mode === 'group') {
+      total += countGroupRequests(c.id, collections);
+    } else {
+      total += countAllRequests(c);
+    }
+  }
+  return total;
+}
+
+export function collectGroupIds(groupId: string, collections: RequestCollection[]): string[] {
+  const ids: string[] = [groupId];
+  for (const c of collections) {
+    if (c.groupId === groupId && c.mode === 'group') {
+      ids.push(...collectGroupIds(c.id, collections));
+    }
+  }
+  return ids;
+}
+
+export function collectAllGroups(collections: RequestCollection[], parentGroupId?: string, depth = 0): { group: RequestCollection; depth: number }[] {
+  const result: { group: RequestCollection; depth: number }[] = [];
+  for (const c of collections) {
+    if (c.mode !== 'group') continue;
+    if ((c.groupId ?? undefined) !== parentGroupId) continue;
+    result.push({ group: c, depth });
+    result.push(...collectAllGroups(collections, c.id, depth + 1));
+  }
+  return result;
+}
+
 export function findFolderDeep(folders: RequestFolder[], folderId: string): RequestFolder | null {
   for (const f of folders) {
     if (f.id === folderId) return f;

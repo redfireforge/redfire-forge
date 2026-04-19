@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Group Collections**: New `group` collection type that acts as a parent container for Direct URL and Multi-Environment collections, enabling hierarchical organization with recursive nesting (groups inside groups)
+- **Group Sidebar UI**: Visual distinction between Group, Direct URL, and Multi-Environment collections with unique icons and badges; recursive expand/collapse rendering; group-specific context menu (add child group/collection, rename, duplicate, move, export/import, delete)
+- **Group Drag-and-Drop**: Move collections into and out of groups via drag-and-drop in the sidebar
+- **Group Import/Export**: Export a group and all its child collections as a single JSON file; import recognizes group format and restores the hierarchy
+- **Catalog "Send to Group"**: "Send All to Requests" modal now includes a "Target Group" dropdown to place exported collections into a new or existing group
+- **Catalog Request Metadata**: When sending endpoints from the API Catalog to Requests, each `RequestItem` now carries a `catalogMeta` field with operation ID, description, original path, tags, deprecated flag, parameters, expected responses, security requirements, and source spec info
+- **API Info Drawer**: On-demand side panel in the Request Editor (toggle via "ℹ API Info" button) that displays catalog metadata for requests originating from the API Catalog — replaces the response panel when open
+- **Catalog Origin Indicators**: Sidebar shows a clipboard icon for catalog-origin requests and a warning icon with strikethrough styling for deprecated endpoints
 - **API Catalog**: Standalone top-level feature for importing, browsing, testing, and versioning OpenAPI/Swagger specifications
 - **Catalog Import**: Import OpenAPI 3.0/3.1 and Swagger 2.0 specs from file or paste YAML/JSON directly
 - **Catalog Endpoint Browser**: Swagger-UI-style interactive endpoint detail with parameter forms, request body editor, response schemas, and "Try It" execution

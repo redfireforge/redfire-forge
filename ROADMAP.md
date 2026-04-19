@@ -196,6 +196,20 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Catalog Export Module** — Extracted `catalogExport.ts` for catalog-to-requests data transformation
 - [x] **728 Unit Tests** — 91.5% line coverage, 94.5% function coverage across 35 test files; 3 rounds of thorough code review with 25+ bugs found and fixed
 
+### Phase 0.9.0-alpha.2 — Group Collections & Catalog Metadata ✅
+
+> Hierarchical collection organization and rich metadata from API Catalog specs embedded in exported requests.
+
+- [x] **Group Collections** — New `group` collection mode as a parent container for Direct URL and Multi-Environment collections; recursive nesting (groups inside groups)
+- [x] **Group Sidebar UI** — Visual distinction (icons/badges) for Group, Direct URL, and Multi-Environment; recursive expand/collapse; group-specific context menu
+- [x] **Group Drag-and-Drop** — Move collections into and out of groups via drag-and-drop
+- [x] **Group Import/Export** — Export a group and all its children as one JSON file; import restores hierarchy
+- [x] **Catalog "Send to Group"** — Target Group dropdown in "Send All to Requests" modal to place collections into a group
+- [x] **Catalog Request Metadata** — `CatalogRequestMeta` interface attached to each `RequestItem` on export from Catalog with operationId, description, originalPath, tags, deprecated, parameters, expectedResponses, security, sourceSpec
+- [x] **API Info Drawer** — On-demand side panel in Request Editor toggled via "ℹ API Info" button; displays all catalog metadata in a structured format, replacing the response panel when open
+- [x] **Catalog Origin Indicators** — Clipboard icon (📋) for catalog-origin requests and warning icon (⚠️) with strikethrough for deprecated endpoints in sidebar
+- [x] **Group Tree Utilities** — `countGroupRequests`, `collectGroupIds`, `collectAllGroups` functions in `requestTree.ts` with full test coverage
+
 ---
 
 ## Upcoming Phases
@@ -306,12 +320,14 @@ Post-launch features driven by community feedback.
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
 | 0.8.5 | Requests (Ad-Hoc API Testing) | 13 | 13 |
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
+| 0.9.0-α | Unified Environments & Catalog Export | 12 | 12 |
+| 0.9.0-α2 | Group Collections & Catalog Metadata | 9 | 9 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **118** | **70** |
+| **Total** | | **139** | **91** |
 
 ### Adoption Forecast
 
@@ -336,4 +352,4 @@ Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launc
 
 ---
 
-_Last updated: 2026-04-18 (v0.5.0 — Completed API Catalog phase)_
+_Last updated: 2026-04-19 (v0.5.0 — Completed Group Collections & Catalog Metadata)_
