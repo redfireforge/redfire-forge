@@ -1,4 +1,4 @@
-import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary } from '../types';
+import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig } from '../types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import type { ProgressMeta } from '../engine/executor';
 
@@ -12,8 +12,19 @@ export interface PersistedProgress {
   executionMode: ExecutionMode;
   concurrency: number;
   loadProfile: LoadProfileConfig;
+  thinkTime?: ThinkTimeConfig;
   resultCount: number;
   durationMs: number;
+}
+
+export function thinkTimeLabel(cfg?: ThinkTimeConfig): string | null {
+  if (!cfg || cfg.mode === 'none') return null;
+  switch (cfg.mode) {
+    case 'constant': return `Think: ${cfg.constantMs ?? 1000}ms`;
+    case 'uniform': return `Think: ${cfg.minMs ?? 500}–${cfg.maxMs ?? 2000}ms`;
+    case 'gaussian': return `Think: μ${cfg.meanMs ?? 1000}ms σ${cfg.stdDevMs ?? 300}ms`;
+    default: return null;
+  }
 }
 
 export const profileDescriptions: Record<LoadProfileType, string> = {

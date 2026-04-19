@@ -5,7 +5,7 @@ import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../
 import { resolveAuth } from '../utils/authResolver';
 import { LiveCharts } from '../components/LiveCharts';
 import RunnerExecutionConfig, { profileLabel } from '../components/RunnerExecutionConfig';
-import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from '../utils/runnerProgressStorage';
+import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from '../utils/runnerProgressStorage';
 
 type HostMode = 'hardcoded' | 'settings' | 'custom';
 
@@ -123,6 +123,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         executionMode,
         concurrency,
         loadProfile,
+        thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
         resultCount: finalRun.results.length,
         durationMs: finalRun.summary.totalDurationMs,
       };
@@ -315,6 +316,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
+  const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
+  const displayThinkLabel = thinkTimeLabel(displayThinkTime);
   const hasAnyTests = featureGroups.some((fg) => fg.scenarios.some((sc) => sc.tests.length > 0));
 
   const updateProfile = (patch: Partial<LoadProfileConfig>) => {
@@ -548,6 +551,9 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                     </>
                   )}
                 </span>
+                {displayThinkLabel && (
+                  <span className="progress-mode-tag think-time-tag">{displayThinkLabel}</span>
+                )}
                 <span className="progress-host-tag">
                   {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
                 </span>
