@@ -48,9 +48,17 @@
 /* ── Palette (left panel) ────────────────────────────── */
 
 .wf-palette {
-  width: 220px; flex-shrink: 0; display: flex; flex-direction: column;
-  border-right: 1px solid var(--border); background: var(--surface);
-  overflow: hidden;
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  background: var(--surface); overflow: hidden;
+}
+
+.wf-resize-handle {
+  width: 5px; flex-shrink: 0; cursor: col-resize;
+  background: var(--border); transition: background 0.15s;
+  position: relative; z-index: 5;
+}
+.wf-resize-handle:hover, .wf-resize-handle:active {
+  background: var(--primary);
 }
 
 .wf-palette-tabs {
@@ -124,8 +132,8 @@
 /* ── Config Panel (right panel) ──────────────────────── */
 
 .wf-config-panel {
-  width: 300px; flex-shrink: 0; display: flex; flex-direction: column;
-  border-left: 1px solid var(--border); background: var(--surface);
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  background: var(--surface);
   overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 
