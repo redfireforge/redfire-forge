@@ -4,7 +4,7 @@ import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpM
 import { loadRequests, saveRequests } from '../utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
-  countAllRequests, collectGroupIds,
+  countAllRequests, collectGroupIds, collectGroupChildren,
   mapRequests, removeRequestFrom,
   mapFolderDeep, addToFolderDeep, removeFolderDeep,
   cloneRequest, cloneFolder, extractFolderDeep,
@@ -463,12 +463,12 @@ export function useRequests() {
       const group = prev.collections.find(c => c.id === groupId);
       if (!group || group.mode !== 'group') return prev;
       const idMap = new Map<string, string>();
-      const allDescendantIds = collectGroupIds(groupId, prev.collections);
-      for (const oldId of allDescendantIds) {
+      const allIds = collectGroupChildren(groupId, prev.collections);
+      for (const oldId of allIds) {
         idMap.set(oldId, uuidv4());
       }
       const newCollections: RequestCollection[] = [];
-      for (const oldId of allDescendantIds) {
+      for (const oldId of allIds) {
         const orig = prev.collections.find(c => c.id === oldId);
         if (!orig) continue;
         const newId = idMap.get(oldId)!;
