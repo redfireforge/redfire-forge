@@ -10,6 +10,7 @@ interface Props {
   appEnvironments: Environment[];
   appMicroservices: Microservice[];
   globalAuthProfiles: GlobalAuthProfile[];
+  defaultMode?: 'direct' | 'multi-env';
   onSave: (col: Omit<RequestCollection, 'id' | 'requests'> & { id?: string }) => void;
   onAddEnv: (name: string) => void;
   onClose: () => void;
@@ -98,9 +99,9 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
   );
 }
 
-export default function RequestCollectionModal({ collection, collections, environments, appEnvironments, appMicroservices, globalAuthProfiles, onSave, onAddEnv, onClose }: Props) {
+export default function RequestCollectionModal({ collection, collections, environments, appEnvironments, appMicroservices, globalAuthProfiles, defaultMode, onSave, onAddEnv, onClose }: Props) {
   const [name, setName] = useState(collection?.name ?? '');
-  const [mode, setMode] = useState<'direct' | 'multi-env'>(collection?.mode ?? 'direct');
+  const [mode, setMode] = useState<'direct' | 'multi-env'>(collection?.mode === 'group' ? 'direct' : (collection?.mode ?? defaultMode ?? 'direct'));
   const [microserviceId, setMicroserviceId] = useState<string | undefined>(collection?.microserviceId);
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>(collection?.baseUrls ?? {});
   const [newEnvName, setNewEnvName] = useState('');

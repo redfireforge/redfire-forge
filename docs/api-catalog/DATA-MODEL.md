@@ -428,18 +428,68 @@ The `HttpMethod` type is reused for endpoint methods.
 
 ### Bridge Types (Phase 6)
 
-When "Send to Requests" is implemented, a mapper function converts:
+When "Send to Requests" exports catalog endpoints, each `RequestItem` receives
+a `catalogMeta` field carrying metadata from the original OpenAPI spec. This
+is populated by `buildExportRequests()` in `src/utils/catalogExport.ts`.
 
 ```typescript
-function catalogEndpointToRequestItem(
-  endpoint: CatalogEndpoint,
-  hostConfig: HostConfig,
-  authConfig: CatalogAuthConfig,
-  servers: CatalogServer[],
-): RequestItem
+export interface CatalogRequestMeta {
+  operationId?: string;                 // from endpoint.operationId
+  description?: string;                 // from endpoint.description
+  originalPath: string;                 // the OpenAPI path, e.g. "/v1/users/{id}"
+  tags: string[];                       // from endpoint.tags
+  deprecated?: boolean;                 // set only when true
+  parameters?: {
+    name: string;
+    in: 'path' | 'query' | 'header' | 'cookie';
+    required: boolean;
+    description?: string;
+    type?: string;                      // from parameter.schema.type
+  }[];
+  expectedResponses?: {
+    statusCode: string;                 // "200", "404", "default"
+    description: string;
+  }[];
+  security?: string[];                  // security scheme names required
+  sourceSpec?: string;                  // e.g. "Payment API v2.3.1"
+}
 ```
 
+The `sourceSpec` string is composed from the catalog entry name and version
+label at export time (e.g., `"Sales Product API 1.0.0"`).
+
+This metadata is displayed in the **API Info Drawer** — an on-demand side
+panel in the Request Editor toggled via the "ℹ API Info" button. The drawer
+replaces the response panel when active and shows operation details,
+parameter tables, response tables, security requirements, and source info.
+
+Sidebar indicators: catalog-origin requests show a clipboard icon (📋) and
+deprecated endpoints show a warning icon (⚠️) with strikethrough styling.
+
 This is a one-way copy — changes in Requests do not flow back to the Catalog.
+
+### Group Collections
+
+Collections support a `groupId` field that links a collection to a parent
+group collection (`mode: 'group'`). Groups are stored in the same flat
+`RequestsData.collections[]` array and rendered hierarchically at display time.
+
+```typescript
+export interface RequestCollection {
+  // ...existing fields...
+  mode: 'direct' | 'multi-env' | 'group';  // 'group' is a container-only collection
+  groupId?: string;                          // links to parent group's id
+}
+```
+
+Groups support recursive nesting — a group can contain other groups.
+Utility functions in `src/utils/requestTree.ts`:
+
+| Function | Purpose |
+|---|---|
+| `countGroupRequests(groupId, collections)` | Recursively count all requests under a group |
+| `collectGroupIds(groupId, collections)` | Collect all nested group IDs (for cascading deletes) |
+| `collectAllGroups(collections, parentGroupId?, depth?)` | Build a flat list of groups with depth for dropdown rendering |
 
 ---
 
@@ -517,4 +567,4 @@ page reload, which is acceptable for an interactive testing tool.
 
 ---
 
-_Created: 2026-04-18_
+_Created: 2026-04-18 · Updated: 2026-04-19_

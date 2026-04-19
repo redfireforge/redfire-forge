@@ -303,4 +303,108 @@ describe('buildCatalogExport', () => {
     const result2 = buildCatalogExport(basePayload, baseContext);
     expect(result1.collection.id).not.toBe(result2.collection.id);
   });
+
+  it('sets groupId on collection when provided in context', () => {
+    const ctx = { ...baseContext, groupId: 'grp-1' };
+    const { collection } = buildCatalogExport(basePayload, ctx);
+    expect(collection.groupId).toBe('grp-1');
+  });
+
+  it('sets sourceSpec on requests from catalogEntryName and versionLabel', () => {
+    const ctx = { ...baseContext, catalogEntryName: 'Payment API', versionLabel: 'v2.1' };
+    const { collection } = buildCatalogExport(basePayload, ctx);
+    const req = collection.folders![0].requests[0];
+    expect(req.catalogMeta).toBeDefined();
+    expect(req.catalogMeta!.sourceSpec).toBe('Payment API v2.1');
+  });
+
+  it('sets sourceSpec without version when versionLabel is undefined', () => {
+    const ctx = { ...baseContext, versionLabel: undefined, catalogEntryName: 'My API' };
+    const { collection } = buildCatalogExport(basePayload, ctx);
+    const req = collection.folders![0].requests[0];
+    expect(req.catalogMeta!.sourceSpec).toBe('My API');
+  });
+});
+
+// ─── catalogMeta population ─────────────────────────────
+
+describe('catalogMeta on exported requests', () => {
+  it('populates basic metadata from endpoint', () => {
+    const ep = makeEndpoint({
+      operationId: 'getUsers',
+      description: 'Returns a list of users',
+      path: '/users',
+      tags: ['users', 'admin'],
+    });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    const meta = reqs[0].catalogMeta;
+    expect(meta).toBeDefined();
+    expect(meta!.operationId).toBe('getUsers');
+    expect(meta!.description).toBe('Returns a list of users');
+    expect(meta!.originalPath).toBe('/users');
+    expect(meta!.tags).toEqual(['users', 'admin']);
+  });
+
+  it('includes deprecated flag when set', () => {
+    const ep = makeEndpoint({ deprecated: true });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    expect(reqs[0].catalogMeta!.deprecated).toBe(true);
+  });
+
+  it('omits deprecated flag when not set', () => {
+    const ep = makeEndpoint({ deprecated: false });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    expect(reqs[0].catalogMeta!.deprecated).toBeUndefined();
+  });
+
+  it('includes parameter metadata', () => {
+    const ep = makeEndpoint({
+      parameters: [
+        { name: 'id', in: 'path', required: true, description: 'User ID', schema: { type: 'string' } },
+        { name: 'q', in: 'query', required: false, description: 'Search query', schema: { type: 'string' } },
+      ],
+    });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    const params = reqs[0].catalogMeta!.parameters!;
+    expect(params).toHaveLength(2);
+    expect(params[0]).toEqual({ name: 'id', in: 'path', required: true, description: 'User ID', type: 'string' });
+    expect(params[1]).toEqual({ name: 'q', in: 'query', required: false, description: 'Search query', type: 'string' });
+  });
+
+  it('includes expected responses', () => {
+    const ep = makeEndpoint({
+      responses: [
+        { statusCode: '200', description: 'Success' },
+        { statusCode: '404', description: 'Not found' },
+      ],
+    });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    const resp = reqs[0].catalogMeta!.expectedResponses!;
+    expect(resp).toHaveLength(2);
+    expect(resp[0]).toEqual({ statusCode: '200', description: 'Success' });
+    expect(resp[1]).toEqual({ statusCode: '404', description: 'Not found' });
+  });
+
+  it('includes security requirements', () => {
+    const ep = makeEndpoint({ security: ['bearerAuth', 'apiKey'] });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    expect(reqs[0].catalogMeta!.security).toEqual(['bearerAuth', 'apiKey']);
+  });
+
+  it('passes sourceSpec label through', () => {
+    const ep = makeEndpoint();
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, 'Payment API v3');
+    expect(reqs[0].catalogMeta!.sourceSpec).toBe('Payment API v3');
+  });
+
+  it('handles endpoint with minimal fields', () => {
+    const ep = makeEndpoint({ operationId: undefined, description: undefined, security: undefined });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    const meta = reqs[0].catalogMeta!;
+    expect(meta.operationId).toBeUndefined();
+    expect(meta.description).toBeUndefined();
+    expect(meta.security).toBeUndefined();
+    expect(meta.tags).toEqual([]);
+    expect(meta.originalPath).toBe('/users');
+  });
 });
