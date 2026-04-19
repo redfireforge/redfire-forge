@@ -42,12 +42,74 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 728 unit/integration tests (Vitest, 91.5% line coverage) + 17 E2E tests (Playwright) = 745 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 730 unit/integration tests (Vitest, 91.5% line coverage) + 17 E2E tests (Playwright) = 747 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
 - ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
+
+### Load Testing Maturity Levels
+
+RedfireForge's load testing is currently rated **Moderate**. The path to **Good** and **Excellent** is mapped below.
+
+#### What each level means
+
+| Level | Description | Throughput | Examples |
+|---|---|---|---|
+| **Moderate** (current) | Single-thread JS executor, fixed/duration profiles, basic retry/circuit-breaker | ~100-300 RPS | RedfireForge today, Postman |
+| **Good** | Variables & chaining, rich assertions, worker-thread execution, connection pooling, think time | ~500-2,000 RPS | Artillery, JMeter |
+| **Excellent** | Native async executor (Rust), distributed multi-machine, constant arrival rate, streaming percentiles | 5,000-50,000+ RPS | k6, Gatling |
+
+#### Current capabilities (Moderate)
+
+- Duration-based profiles: sustained, ramp-up, spike
+- Fixed transaction count: sequential, batch, pool concurrency
+- Circuit breaker (error count/rate threshold), retry with delay, per-request timeout
+- CSV/Excel parameterized data-driven testing
+- Live streaming charts (TPS, response time, error rate, active connections)
+- OAuth2 token manager with JWT expiry detection
+- Weighted scenario distribution in load profiles
+
+#### Gap analysis: Moderate → Good
+
+| # | Gap | Why it matters | Phase |
+|---|---|---|---|
+| 1 | **Variables & chaining** | Can't test multi-step workflows (create → get ID → verify) | 0.9.0 |
+| 2 | **Rich assertions** | No status code, response time SLA, header, or regex assertions | 0.10.0 |
+| 3 | **Think time & pacing** | No delay between requests per virtual user → unrealistic flood | 0.9.1 |
+| 4 | **Worker thread execution** | Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput | 0.9.1 |
+| 5 | **Connection pooling** | New TCP connection per request adds latency; `keep-alive` reuse = massive improvement | 0.9.1 |
+| 6 | **Request timing breakdown** | No DNS/TLS/TTFB/download waterfall → can't diagnose *why* something is slow | 0.10.0 |
+
+#### Gap analysis: Good → Excellent
+
+| # | Gap | Why it matters | Phase |
+|---|---|---|---|
+| 7 | **Native Rust executor** | Move HTTP engine to Rust backend (`hyper`/`reqwest` + `tokio`) → 10-50x throughput | 1.x |
+| 8 | **Constant arrival rate** | "Send 100 RPS regardless of response time" (open model) — k6's killer feature | 1.x |
+| 9 | **Streaming percentiles** | T-Digest/HDR Histogram for P50/P95/P99 without storing every datapoint → scales past 100K results | 1.x |
+| 10 | **Distributed execution** | Coordinate load across multiple machines/processes → break single-machine limits | 1.x |
+| 11 | **Pre/post-request scripts** | JS hooks for dynamic data transformation — power users need programmability | 1.x |
+
+#### Recommended implementation order
+
+```
+Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
+  ① Variables & Chaining        → unblocks real-world multi-step testing
+  ② Think time & pacing         → realistic virtual user simulation
+  ③ Worker thread execution     → 2-5x throughput boost
+  ④ Connection pooling           → reduced latency at scale
+  ⑤ Rich assertions             → status code, SLA, header, regex
+  ⑥ Request timing breakdown    → DNS/TLS/TTFB waterfall
+
+Priority 2 — Reach "Excellent" (Phases 0.11.0 + 1.x)
+  ⑦ Run comparison & trends     → CI/CD regression detection
+  ⑧ Native Rust executor        → the architectural leap to 10K+ RPS
+  ⑨ Constant arrival rate       → open-model load generation
+  ⑩ Streaming percentiles       → memory-efficient metrics at scale
+  ⑪ Distributed execution       → enterprise-scale multi-machine coordination
+```
 
 ---
 
@@ -241,9 +303,22 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
+### Phase 0.9.1 — Engine Performance (Moderate → Good)
+
+> Upgrade the execution engine from browser-limited single-thread to a performant multi-threaded architecture. This is the core engineering work that moves load testing from **Moderate** to **Good**.
+
+- [ ] **Think Time & Pacing** — Configurable delay between requests per virtual user (constant, random uniform, random gaussian); prevents unrealistic request flooding and enables realistic user simulation
+- [ ] **Connection Pooling** — Reuse HTTP connections via `keep-alive` instead of creating a new TCP connection per request; dramatically reduces latency overhead at scale
+- [ ] **Worker Thread Execution (Web)** — Move HTTP execution to Web Workers in the browser, bypassing the single main-thread bottleneck; each worker manages its own connection pool and reports results back via `postMessage`
+- [ ] **Tauri Sidecar Executor** — In desktop mode, offload HTTP execution to a Rust sidecar process using `reqwest` + `tokio` async runtime; communicates with the UI via Tauri IPC events for 5-10x throughput improvement
+- [ ] **Constant Request Rate Mode** — "Send exactly N requests/second regardless of response time" (open model); complements existing closed model where concurrency = in-flight connections
+- [ ] **Graceful Drain** — When a load profile ends or is aborted, wait for in-flight requests to complete (with configurable timeout) instead of dropping them; ensures accurate final metrics
+
+---
+
 ### Phase 0.10.0 — Assertions & Observability
 
-Richer assertions and deeper visibility into what happened during a run.
+> Richer assertions and deeper visibility into what happened during a run. Combined with Phase 0.9.1, this completes the transition to **Good** load testing.
 
 - [ ] **Status Code Assertions** — Assert specific status codes (e.g., "expect 201", "expect 4xx range")
 - [ ] **Response Time Assertions** — "Must respond under 500ms" per-test SLA threshold
@@ -293,49 +368,76 @@ The public release — polished, documented, community-ready.
 
 ---
 
-### Phase 1.x — Future
+### Phase 1.x — Future (Good → Excellent)
 
-Post-launch features driven by community feedback.
+Post-launch features driven by community feedback. Completing the engine items below moves load testing from **Good** to **Excellent**.
 
-- [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
+#### Engine — Excellent Tier
+- [ ] **Native Rust Executor** — Full HTTP engine in Rust (`hyper`/`reqwest` + `tokio` async runtime) invoked via Tauri commands; eliminates JS overhead entirely for 10-50x throughput (5,000-50,000+ RPS)
+- [ ] **Streaming Percentiles** — T-Digest or HDR Histogram for P50/P95/P99 calculation without storing every datapoint in memory; enables accurate metrics at 100K+ results without OOM
+- [ ] **Distributed Execution** — Coordinate load generation across multiple machines/processes via a controller/worker architecture; break past single-machine limits for enterprise-scale testing
+- [ ] **Constant Arrival Rate (Advanced)** — Automatic worker scaling to maintain target RPS even when responses are slow; queue-based request dispatching with backpressure
+
+#### Protocol & Format Support
 - [ ] **GraphQL Support** — Query/mutation builder with introspection
 - [ ] **gRPC Support** — Protobuf definition import, unary and streaming calls
 - [ ] **WebSocket Support** — Connect, send messages, assert on received messages
-- [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 - [ ] **JSON Schema Validation** — Validate response against JSON Schema (draft 2020-12)
+
+#### Extensibility & Organization
+- [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
 - [ ] **Pre/Post-Request Scripts** — JS snippets for dynamic data transformation
-- [ ] **Distributed Execution** — Coordinate load generation across multiple machines (stretch goal)
+- [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---
 
 ## Progress Summary
 
-| Phase | Target | Items | Done |
-|---|---|---|---|
-| 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
-| 0.6.0 | Data-Driven & Resilience | 8 | 8 |
-| 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
-| 0.7.0 | CLI Runner | 6 | 5 |
-| 0.7.5 | CI/CD Pipeline | 7 | 0 |
-| 0.8.0 | Test Suite & Code Quality | 10 | 10 |
-| 0.8.5 | Requests (Ad-Hoc API Testing) | 13 | 13 |
-| 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
-| 0.9.0-α | Unified Environments & Catalog Export | 12 | 12 |
-| 0.9.0-α2 | Group Collections & Catalog Metadata | 9 | 9 |
-| 0.9.0 | Variables & Chaining | 6 | 0 |
-| 0.10.0 | Assertions & Observability | 7 | 0 |
-| 0.11.0 | Run Comparison & Trends | 5 | 0 |
-| 1.0.0 | Open-Source Launch | 14 | 0 |
-| 1.x | Future | 8 | 0 |
-| **Total** | | **139** | **91** |
+| Phase | Target | Load Level | Items | Done |
+|---|---|---|---|---|
+| 0.5.0 | Load Profiles & Live Monitoring | Moderate | 8 | 8 |
+| 0.6.0 | Data-Driven & Resilience | Moderate | 8 | 8 |
+| 0.6.5 | Excel Templates & Error Visibility | Moderate | 8 | 8 |
+| 0.7.0 | CLI Runner | — | 6 | 5 |
+| 0.7.5 | CI/CD Pipeline | — | 7 | 0 |
+| 0.8.0 | Test Suite & Code Quality | — | 10 | 10 |
+| 0.8.5 | Requests (Ad-Hoc API Testing) | — | 13 | 13 |
+| 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
+| 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
+| 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
+| 0.9.0 | Variables & Chaining | → Good | 6 | 0 |
+| **0.9.1** | **Engine Performance** | **→ Good** | **6** | **0** |
+| 0.10.0 | Assertions & Observability | → Good | 7 | 0 |
+| 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
+| 1.0.0 | Open-Source Launch | — | 14 | 0 |
+| 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
+| **Total** | | | **148** | **91** |
+
+### Load Testing Level Milestones
+
+```
+CURRENT: Moderate (~100-300 RPS)
+  ├── Phase 0.5.0 ✅  Duration profiles, ramp-up, spike
+  ├── Phase 0.6.0 ✅  CSV data, retry, circuit breaker, timeout
+  └── Phase 0.6.5 ✅  Excel templates, live charts
+
+TARGET: Good (~500-2,000 RPS)
+  ├── Phase 0.9.0     Variables, chaining, workflow mode
+  ├── Phase 0.9.1     Worker threads, connection pooling, think time, constant rate
+  └── Phase 0.10.0    Rich assertions, timing breakdown
+
+FUTURE: Excellent (5,000-50,000+ RPS)
+  └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
+```
 
 ### Adoption Forecast
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (no CLI, no CI pipeline, no demo) | 50–200 | ❌ Not recommended |
+| Launch now (no CLI, no CI pipeline, no demo) | 50–200 | Not recommended |
 | Launch with CLI + CI pipeline + live demo | 500–2,000 | Phases 0.7.0 + 0.7.5 complete |
-| Viral launch (HN front page, YouTube) | 2,000–5,000+ | All of above + great branding + luck |
+| Launch with "Good" load testing + demo | 2,000–5,000 | Phases 0.9.0 + 0.9.1 + 0.10.0 + 1.0.0 |
+| Viral launch (HN front page, YouTube) | 5,000–10,000+ | All of above + great branding + luck |
 
 ### Critical Path to Open-Source (minimum viable launch)
 
@@ -343,13 +445,20 @@ Post-launch features driven by community feedback.
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
+Phase 0.8.0 (Tests) ✅ DONE — 730 unit/integration + 17 E2E = 747 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
 
-Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launch but not blockers. They can ship as post-launch updates to sustain momentum.
+### Critical Path to "Good" Load Testing
+
+```
+Phase 0.9.0 (Variables & Chaining)  →  Phase 0.9.1 (Engine Performance)  →  Phase 0.10.0 (Assertions)
+  ↑ unblocks real workflows              ↑ 2-5x throughput boost                ↑ actionable results
+```
+
+Phases 0.9.0–0.10.0 elevate load testing from **Moderate** to **Good**. Phase 0.11.0 (trends) and 1.x (Rust executor, distributed) are post-launch paths to **Excellent**.
 
 ---
 
-_Last updated: 2026-04-19 (v0.5.0 — Completed Group Collections & Catalog Metadata)_
+_Last updated: 2026-04-19 (v0.5.2 — Added Load Testing Maturity Levels & Engine Performance roadmap)_
