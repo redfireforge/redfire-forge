@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Assertion, AssertionOperator, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../types';
 import JsonPathBuilder from './JsonPathBuilder';
 import ResponseVersionPanel from './ResponseVersionPanel';
+import RegexAssertionModal from './RegexAssertionModal';
+import type { RegexAssertionResult } from './RegexAssertionModal';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -41,6 +43,7 @@ export default function TestEditorValidationTab({
   onValidateResponse,
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
   const assertions = draft.validation.assertions ?? [];
 
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
@@ -76,6 +79,7 @@ export default function TestEditorValidationTab({
                 <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>Response Time SLA</button>
                 <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>Response Header</button>
                 <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>Regex Match</button>
+                <button type="button" onClick={() => { addAssertion({ type: 'regex', jsonPath: '', pattern: '' }); setRegexModalIdx((draft.validation.assertions ?? []).length); }}>Regex Builder...</button>
               </div>
             )}
           </div>
@@ -120,6 +124,7 @@ export default function TestEditorValidationTab({
                     <span className="assertion-regex-slash">/</span>
                     <input value={a.pattern} onChange={(e) => updateAssertion(i, { pattern: e.target.value })} placeholder="pattern" className="assertion-input" />
                     <span className="assertion-regex-slash">/</span>
+                    <button type="button" className="assertion-builder-btn" onClick={() => setRegexModalIdx(i)} title="Open Regex Builder">Builder</button>
                   </>
                 )}
                 <button type="button" className="btn btn-xs btn-danger" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
@@ -325,6 +330,23 @@ export default function TestEditorValidationTab({
           />
         </>
       )}
+
+      {regexModalIdx !== null && (() => {
+        const a = (draftRef.current.validation.assertions ?? [])[regexModalIdx];
+        const regexA = a?.type === 'regex' ? a : undefined;
+        return (
+          <RegexAssertionModal
+            initialJsonPath={regexA?.jsonPath || ''}
+            initialPattern={regexA?.pattern || ''}
+            sampleJson={draftRef.current.validation.sampleJson || ''}
+            onApply={(result: RegexAssertionResult) => {
+              updateAssertion(regexModalIdx, { jsonPath: result.jsonPath, pattern: result.pattern });
+              setRegexModalIdx(null);
+            }}
+            onClose={() => setRegexModalIdx(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
