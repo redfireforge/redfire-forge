@@ -110,6 +110,17 @@
 
 .wf-method-mini { font-size: 0.6rem; font-weight: 700; font-family: 'SF Mono', monospace; flex-shrink: 0; width: 36px; }
 
+.wf-palette-children { }
+.wf-palette-folder { }
+.wf-palette-folder-header {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  padding: 4px 8px; background: none; border: none; color: var(--text);
+  font-size: 0.73rem; font-weight: 600; cursor: pointer; text-align: left;
+}
+.wf-palette-folder-header:hover { background: var(--surface-hover); border-radius: 4px; }
+.wf-palette-folder-icon { font-size: 0.65rem; color: var(--text-muted); width: 12px; text-align: center; }
+.wf-palette-folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
 /* ── Config Panel (right panel) ──────────────────────── */
 
 .wf-config-panel {
