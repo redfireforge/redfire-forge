@@ -109,11 +109,11 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
-### Phase 0.8.5 — Workbench (Ad-Hoc API Testing) ✅
+### Phase 0.8.5 — Requests (Ad-Hoc API Testing) ✅
 
 > Insomnia/Postman-style ad-hoc request editor integrated into the app, independent of the project test hierarchy.
 
-- [x] **Workbench Collections** — Organize requests in collections with folders, sub-collections, and unlimited nesting
+- [x] **Requests collections** — Organize requests in collections with folders, sub-collections, and unlimited nesting
 - [x] **Drag-and-Drop** — Move requests, folders, and collections between containers; convert collections to sub-collections via drag
 - [x] **Per-Environment Base URLs** — Configure hostnames per environment; dynamic URL resolution with relative/full path display
 - [x] **Sub-Collection Environment Pinning** — Lock sub-collections to a specific environment with isolated auth and URL resolution
@@ -140,7 +140,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ### Phase 0.8.8 — API Catalog (OpenAPI/Swagger Browser) ✅
 
-> **Third pillar of RedfireForge.** Import OpenAPI/Swagger specs, browse endpoints with Swagger-UI-style documentation, test them interactively, generate cURL commands, and track spec versions over time. Sits alongside Workbench and Projects as a top-level feature.
+> **Third pillar of RedfireForge.** Import OpenAPI/Swagger specs, browse endpoints with Swagger-UI-style documentation, test them interactively, generate cURL commands, and track spec versions over time. Sits alongside Requests and Harness as a top-level feature.
 
 > Full design docs: [`docs/api-catalog/`](docs/api-catalog/) — [Design](docs/api-catalog/DESIGN.md) · [Data Model](docs/api-catalog/DATA-MODEL.md) · [UI Wireframes](docs/api-catalog/UI-WIREFRAMES.md) · [Phases](docs/api-catalog/PHASES.md)
 
@@ -176,24 +176,24 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 **Phase 6 — Polish & Bridges**
 - [x] **Overview page** — API summary with endpoint stats by tag/method, server list, config status
-- [x] **"Send to Workbench"** — Copy endpoint(s) as `WorkbenchRequest` objects into a collection
+- [x] **"Send to Requests"** — Copy endpoint(s) as `RequestItem` objects into a collection
 - [x] **Swagger 2.0 verification** — End-to-end test with real Swagger 2.0 specs
 - [x] **Unit + E2E tests** — Parser, stub generator, diff engine, import flow, endpoint browsing
 
 ### Phase 0.9.0-alpha — Unified Environments & Catalog Export ✅
 
-> Flatten the data model (remove per-project duplication), unify environment management across all features, and enhance Catalog → Workbench export workflow.
+> Flatten the data model (remove per-project duplication), unify environment management across all features, and enhance Catalog → Requests export workflow.
 
-- [x] **Unified Environment Manager** — Top-level `EnvironmentManager.tsx` page replaces the old Settings Projects tab; single source of truth for environments, microservices, and auth profiles shared by Workbench, Catalog, and Harness
+- [x] **Unified Environment Manager** — Top-level `EnvironmentManager.tsx` page replaces the old Settings Projects tab; single source of truth for environments, microservices, and auth profiles shared by Requests, Catalog, and Harness
 - [x] **Catalog Environment Association** — Catalog entries link to globally configured Environments via microservice; base URLs and auth resolve dynamically per environment
 - [x] **"Send to Requests" Modal** — Two-panel modal with environment selection, endpoint selection, custom name column, sample inclusion checkboxes, resizable columns, and live collection preview tree
 - [x] **Exported Sub-Collections** — Environment folders exported as sub-collections (📦 icon) with inherited base URLs and auth from linked microservice
 - [x] **Spec Version in Collection Name** — Exported collections include the YAML spec version, e.g., "sales-product-autoassign (1.0.0)"
 - [x] **Dynamic Auth on Env Switch** — Catalog auth automatically updates when switching environments for linked microservices; resets to none when env has no auth profile
 - [x] **Safe Tree Operations** — `addReqToFolderSafe` and `addFolderToParentSafe` utilities prevent silent data loss on invalid folder/parent IDs during drag-and-drop and import
-- [x] **URL Resolver Module** — Extracted `workbenchUrlResolver.ts` for testable base URL resolution, display URL building, and send URL resolution
-- [x] **Auth State Module** — Extracted `workbenchAuthState.ts` for auth config ↔ UI state mapping with `globalProfileId` typing
-- [x] **Catalog Export Module** — Extracted `catalogExport.ts` for catalog-to-workbench data transformation
+- [x] **URL Resolver Module** — Extracted `requestUrlResolver.ts` for testable base URL resolution, display URL building, and send URL resolution
+- [x] **Auth State Module** — Extracted `requestAuthState.ts` for auth config ↔ UI state mapping with `globalProfileId` typing
+- [x] **Catalog Export Module** — Extracted `catalogExport.ts` for catalog-to-requests data transformation
 - [x] **728 Unit Tests** — 91.5% line coverage, 94.5% function coverage across 35 test files; 3 rounds of thorough code review with 25+ bugs found and fixed
 
 ---
@@ -304,7 +304,7 @@ Post-launch features driven by community feedback.
 | 0.7.0 | CLI Runner | 6 | 5 |
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
-| 0.8.5 | Workbench (Ad-Hoc API Testing) | 13 | 13 |
+| 0.8.5 | Requests (Ad-Hoc API Testing) | 13 | 13 |
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
@@ -328,7 +328,7 @@ Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
 Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
-Phase 0.8.5 (Workbench) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
+Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
 

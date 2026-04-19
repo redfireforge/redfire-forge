@@ -1,9 +1,9 @@
-import type { WorkbenchCollection, WorkbenchFolder } from '../types';
+import type { RequestCollection, RequestFolder } from '../types';
 
 export interface UrlResolverContext {
-  collectionMode: WorkbenchCollection['mode'];
+  collectionMode: RequestCollection['mode'];
   resolvedColBaseUrls: Record<string, string>;
-  parentSubCollection?: Pick<WorkbenchFolder, 'baseUrls'>;
+  parentSubCollection?: Pick<RequestFolder, 'baseUrls'>;
   subColEnvId?: string;
   selectedEnvId?: string;
 }

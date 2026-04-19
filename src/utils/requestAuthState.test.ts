@@ -5,8 +5,8 @@ import {
   authToState,
   stateToAuth,
   emptyAuthState,
-} from './workbenchAuthState';
-import type { EnvAuthState, ModalAuthType } from './workbenchAuthState';
+} from './requestAuthState';
+import type { EnvAuthState, ModalAuthType } from './requestAuthState';
 
 function makeProfile(id: string, authType: AuthConfig['type'] = 'bearer'): GlobalAuthProfile {
   return { id, name: `Profile ${id}`, auth: { type: authType, token: 'tok-' + id } };

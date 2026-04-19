@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { WorkbenchCollection, WorkbenchRequest, WorkbenchFolder, KeyValue } from '../types';
+import type { RequestCollection, RequestItem, RequestFolder, KeyValue } from '../types';
 import type { CatalogEndpoint, CatalogEntry, CatalogServer, SavedEndpointValues } from '../types/catalog';
 import { extractServerPathPrefix } from './catalogCurlGenerator';
 
@@ -26,7 +26,7 @@ export interface CatalogExportContext {
 }
 
 export interface CatalogExportResult {
-  collection: WorkbenchCollection;
+  collection: RequestCollection;
   newEnvironments: { id: string; name: string }[];
 }
 
@@ -37,7 +37,7 @@ export function buildExportRequests(
   customNames: Record<string, string>,
   sampleEpIds: Set<string>,
   epVals: Record<string, SavedEndpointValues>,
-): WorkbenchRequest[] {
+): RequestItem[] {
   return endpoints.map(ep => {
     const reqName = customNames[ep.id]?.trim() || ep.summary || `${ep.method} ${ep.path}`;
     const useSample = sampleEpIds.has(ep.id);
@@ -105,11 +105,11 @@ export function buildCatalogExport(
 
   const serverPathPrefix = extractServerPathPrefix(servers);
 
-  const folders: WorkbenchFolder[] = envs.map(env => ({
+  const folders: RequestFolder[] = envs.map(env => ({
     id: uuidv4(),
     name: env.envName,
     requests: buildExportRequests(endpoints, env.baseUrl, serverPathPrefix, customNames, sampleEpIds, epVals),
-    folders: [] as WorkbenchFolder[],
+    folders: [] as RequestFolder[],
     isSubCollection: true,
     selectedEnvId: envIdMap[env.envId],
     baseUrls: { [envIdMap[env.envId]]: env.baseUrl },
@@ -117,7 +117,7 @@ export function buildCatalogExport(
 
   const versionSuffix = versionLabel ? ` (${versionLabel})` : '';
 
-  const collection: WorkbenchCollection = {
+  const collection: RequestCollection = {
     id: uuidv4(),
     name: `${collectionName}${versionSuffix}`,
     mode: 'multi-env' as const,

@@ -1,18 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { WorkbenchCollection, WorkbenchFolder } from '../../types';
+import type { RequestCollection, RequestFolder } from '../../types';
 import { saveJsonFile, openJsonFile } from '../../utils/fileSaver';
 import { isTauri } from '../../utils/platform';
 import { v4 as uuidv4 } from 'uuid';
 import SidebarContextMenu from './SidebarContextMenu';
 
 interface Props {
-  collections: WorkbenchCollection[];
+  collections: RequestCollection[];
   selectedCollectionId?: string;
   selectedRequestId?: string;
   onSelectCollection: (colId: string) => void;
   onSelectRequest: (colId: string, reqId: string) => void;
   onNewCollection: () => void;
-  onEditCollection: (col: WorkbenchCollection) => void;
+  onEditCollection: (col: RequestCollection) => void;
   onDeleteCollection: (colId: string) => void;
   onDuplicateCollection: (colId: string) => void;
   onNewRequest: (colId: string, folderId?: string) => void;
@@ -30,20 +30,20 @@ interface Props {
   onMoveRequestToCollection: (srcColId: string, reqId: string, destColId: string, destFolderId: string | null) => void;
   onMoveFolderToCollection: (srcColId: string, folderId: string, destColId: string, destParentFolderId: string | null) => void;
   onMergeCollectionInto: (srcColId: string, destColId: string) => void;
-  countAllRequests: (col: WorkbenchCollection) => number;
-  onImportCollection: (col: WorkbenchCollection) => void;
-  onImportFolder: (colId: string, folder: WorkbenchFolder, parentFolderId?: string) => void;
+  countAllRequests: (col: RequestCollection) => number;
+  onImportCollection: (col: RequestCollection) => void;
+  onImportFolder: (colId: string, folder: RequestFolder, parentFolderId?: string) => void;
 }
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#f59e0b', PUT: '#3b82f6', PATCH: '#8b5cf6', DELETE: '#ef4444',
 };
 
-function hasAuth(col: WorkbenchCollection): boolean {
+function hasAuth(col: RequestCollection): boolean {
   return !!col.auth && col.auth.type !== 'none' && col.auth.type !== 'inherit';
 }
 
-function authLabel(col: WorkbenchCollection): string {
+function authLabel(col: RequestCollection): string {
   if (!col.auth) return '';
   switch (col.auth.type) {
     case 'bearer': return 'Bearer'; case 'basic': return 'Basic';
@@ -51,7 +51,7 @@ function authLabel(col: WorkbenchCollection): string {
   }
 }
 
-function findFolderInTree(folders: WorkbenchFolder[], folderId: string): WorkbenchFolder | null {
+function findFolderInTree(folders: RequestFolder[], folderId: string): RequestFolder | null {
   for (const f of folders) {
     if (f.id === folderId) return f;
     const deep = findFolderInTree(f.folders ?? [], folderId);
@@ -60,7 +60,7 @@ function findFolderInTree(folders: WorkbenchFolder[], folderId: string): Workben
   return null;
 }
 
-function findSiblingFolders(folders: WorkbenchFolder[], folderId: string): WorkbenchFolder[] | null {
+function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
   for (let i = 0; i < folders.length; i++) {
     if (folders[i].id === folderId) return folders;
     const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
@@ -69,7 +69,7 @@ function findSiblingFolders(folders: WorkbenchFolder[], folderId: string): Workb
   return null;
 }
 
-function countFolderReqs(folder: WorkbenchFolder): number {
+function countFolderReqs(folder: RequestFolder): number {
   return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
 }
 
@@ -82,7 +82,7 @@ type CtxMenu = CtxMenuData | null;
 
 type DragItem = { kind: 'request'; reqId: string; colId: string } | { kind: 'folder'; folderId: string; colId: string } | { kind: 'collection'; colId: string } | null;
 
-function regenIds(folder: WorkbenchFolder): WorkbenchFolder {
+function regenIds(folder: RequestFolder): RequestFolder {
   return {
     ...folder, id: uuidv4(),
     requests: folder.requests.map(r => ({ ...r, id: uuidv4() })),
@@ -118,7 +118,7 @@ async function pickImportFile(): Promise<string | null> {
   });
 }
 
-export default function WorkbenchSidebar({
+export default function RequestsSidebar({
   collections, selectedCollectionId, selectedRequestId,
   onSelectCollection, onSelectRequest, onNewCollection,
   onEditCollection, onDeleteCollection, onDuplicateCollection, onNewRequest, onDeleteRequest,
@@ -214,14 +214,14 @@ export default function WorkbenchSidebar({
 
   const handleExportAll = async () => {
     if (collections.length === 0) return;
-    const payload = buildExportPayload('workbench-all', { collections });
-    await saveJsonFile(payload, `workbench-all-collections.json`);
+    const payload = buildExportPayload('requests-all', { collections });
+    await saveJsonFile(payload, `requests-all-collections.json`);
   };
 
   const handleExportCollection = async (colId: string) => {
     const col = collections.find(c => c.id === colId);
     if (!col) return;
-    await saveJsonFile(buildExportPayload('workbench-collection', col), `collection-${slugify(col.name)}.json`);
+    await saveJsonFile(buildExportPayload('requests-collection', col), `collection-${slugify(col.name)}.json`);
     setContextMenu(null);
   };
 
@@ -229,7 +229,7 @@ export default function WorkbenchSidebar({
     const col = collections.find(c => c.id === colId);
     const folder = col ? findFolderInTree(col.folders ?? [], folderId) : null;
     if (!folder) return;
-    await saveJsonFile(buildExportPayload('workbench-folder', folder), `folder-${slugify(folder.name)}.json`);
+    await saveJsonFile(buildExportPayload('requests-folder', folder), `folder-${slugify(folder.name)}.json`);
     setContextMenu(null);
   };
 
@@ -239,13 +239,13 @@ export default function WorkbenchSidebar({
     if (!content) return;
     try {
       const json = JSON.parse(content);
-      if (json.type === 'workbench-collection' && json.data) {
-        const incoming = json.data as WorkbenchCollection;
+      if (json.type === 'requests-collection' && json.data) {
+        const incoming = json.data as RequestCollection;
         if (!incoming.name || !incoming.requests) {
           alert('Invalid collection format: missing required fields.'); return;
         }
         const nameExists = collections.some(c => c.name.toLowerCase() === incoming.name.toLowerCase());
-        const imported: WorkbenchCollection = {
+        const imported: RequestCollection = {
           ...incoming,
           id: uuidv4(),
           name: nameExists ? `${incoming.name} (imported)` : incoming.name,
@@ -253,8 +253,8 @@ export default function WorkbenchSidebar({
           folders: (incoming.folders ?? []).map(regenIds),
         };
         onImportCollection(imported);
-      } else if (json.type === 'workbench-folder' && json.data && colId) {
-        const incoming = json.data as WorkbenchFolder;
+      } else if (json.type === 'requests-folder' && json.data && colId) {
+        const incoming = json.data as RequestFolder;
         if (!incoming.name || !incoming.requests) {
           alert('Invalid folder format: missing required fields.'); return;
         }
@@ -266,13 +266,13 @@ export default function WorkbenchSidebar({
           name: nameExists ? `${incoming.name} (imported)` : incoming.name,
         });
         onImportFolder(colId, imported);
-      } else if (json.type === 'workbench-all' && json.data?.collections) {
-        const incoming = json.data.collections as WorkbenchCollection[];
+      } else if (json.type === 'requests-all' && json.data?.collections) {
+        const incoming = json.data.collections as RequestCollection[];
         let importedCount = 0;
         for (const inc of incoming) {
           if (!inc.name || !inc.requests) continue;
           const nameExists = collections.some(c => c.name.toLowerCase() === inc.name.toLowerCase());
-          const imported: WorkbenchCollection = {
+          const imported: RequestCollection = {
             ...inc,
             id: uuidv4(),
             name: nameExists ? `${inc.name} (imported)` : inc.name,
@@ -284,7 +284,7 @@ export default function WorkbenchSidebar({
         }
         if (importedCount === 0) alert('No valid collections found in the file.');
       } else {
-        alert('Unrecognized file format. Expected a workbench collection, folder, or all-collections export.');
+        alert('Unrecognized file format. Expected a Requests collection, folder, or all-collections export.');
       }
     } catch {
       alert('Invalid JSON file. Please select a valid export file.');
@@ -297,8 +297,8 @@ export default function WorkbenchSidebar({
     if (!content) return;
     try {
       const json = JSON.parse(content);
-      if (json.type === 'workbench-folder' && json.data) {
-        const incoming = json.data as WorkbenchFolder;
+      if (json.type === 'requests-folder' && json.data) {
+        const incoming = json.data as RequestFolder;
         if (!incoming.name || !incoming.requests) {
           alert('Invalid folder format: missing required fields.'); return;
         }
@@ -439,25 +439,25 @@ export default function WorkbenchSidebar({
     const showBefore = dropInsert?.beforeReqId === reqId;
     const showAfter = dropInsert?.beforeReqId === reqId + ':after';
     return (
-      <div key={reqId} className="wb-req-drop-wrapper">
-        {showBefore && <div className="wb-drop-indicator" />}
+      <div key={reqId} className="req-req-drop-wrapper">
+        {showBefore && <div className="req-drop-indicator" />}
         <div
-          className={`wb-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
+          className={`req-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
           onClick={() => onSelectRequest(colId, reqId)}
           onContextMenu={(e) => handleContext(e, 'request', colId, inFolderId, reqId)}
           onDragOver={(e) => handleReqDragOver(e, colId, reqId, inFolderId)}
           onDragLeave={() => setDropInsert(null)}
           onDrop={(e) => handleReqDrop(e, colId, inFolderId, siblingRequests ?? [])}
           draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
-          <span className="wb-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
-          <span className="wb-req-name" title={name || url}>{name || url || 'Untitled'}</span>
+          <span className="req-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
+          <span className="req-req-name" title={name || url}>{name || url || 'Untitled'}</span>
         </div>
-        {showAfter && <div className="wb-drop-indicator" />}
+        {showAfter && <div className="req-drop-indicator" />}
       </div>
     );
   };
 
-  const renderFolder = (col: WorkbenchCollection, folder: WorkbenchFolder, depth: number) => {
+  const renderFolder = (col: RequestCollection, folder: RequestFolder, depth: number) => {
     const isExpanded = expandedFolders.has(folder.id);
     const isRenaming = renamingFolder?.folderId === folder.id;
     const isDropTgt = dropTarget === folder.id;
@@ -467,35 +467,35 @@ export default function WorkbenchSidebar({
 
     return (
       <div key={folder.id}
-        className={`wb-folder-group ${isDropTgt ? 'drop-target' : ''} ${isDraggingThis ? 'dragging' : ''}`}
+        className={`req-folder-group ${isDropTgt ? 'drop-target' : ''} ${isDraggingThis ? 'dragging' : ''}`}
         style={{ paddingLeft: depth > 0 ? 8 : 0 }}
         onDragOver={(e) => handleDragOver(e, folder.id)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleFolderDrop(e, col.id, folder.id)}>
-        <div className="wb-folder-header"
+        <div className="req-folder-header"
           onClick={() => toggleFolder(folder.id)}
           onContextMenu={(e) => handleContext(e, 'folder', col.id, folder.id)}
           draggable onDragStart={(e) => handleFolderDragStart(e, col.id, folder.id)} onDragEnd={handleDragEnd}>
-          <span className="wb-folder-arrow">{isExpanded ? '▾' : '▸'}</span>
-          <span className="wb-folder-icon">{folder.isSubCollection ? '📦' : '📁'}</span>
+          <span className="req-folder-arrow">{isExpanded ? '▾' : '▸'}</span>
+          <span className="req-folder-icon">{folder.isSubCollection ? '📦' : '📁'}</span>
           {isRenaming ? (
-            <input ref={renameRef} className="wb-inline-input" value={renameVal}
+            <input ref={renameRef} className="req-inline-input" value={renameVal}
               onChange={(e) => setRenameVal(e.target.value)} onBlur={commitRenameFolder}
               onKeyDown={(e) => { if (e.key === 'Enter') commitRenameFolder(); if (e.key === 'Escape') setRenamingFolder(null); }}
               onClick={(e) => e.stopPropagation()} autoFocus />
           ) : (
-            <span className="wb-folder-name" title={folder.name}>{folder.name}</span>
+            <span className="req-folder-name" title={folder.name}>{folder.name}</span>
           )}
-          <span className="wb-folder-count">{countFolderReqs(folder)}</span>
+          <span className="req-folder-count">{countFolderReqs(folder)}</span>
         </div>
         {isExpanded && (
-          <div className="wb-folder-requests">
+          <div className="req-folder-requests">
             {folder.requests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, folder.id, folder.requests))}
             {subFolders.map((sf) => renderFolder(col, sf, depth + 1))}
             {isNewFolderHere && (
-              <div className="wb-new-folder-row">
-                <span className="wb-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                <input className="wb-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
+              <div className="req-new-folder-row">
+                <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
+                <input className="req-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
                   onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
                   onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
               </div>
@@ -507,25 +507,25 @@ export default function WorkbenchSidebar({
   };
 
   return (
-    <div className="wb-sidebar">
-      <div className="wb-sidebar-header">
-        <span className="wb-sidebar-title">COLLECTIONS</span>
-        <div className="wb-sidebar-actions">
-          <button className="wb-icon-btn" onClick={handleExportAll} title="Export All Collections">&#8613;</button>
-          <button className="wb-icon-btn" onClick={() => handleImportToCollection()} title="Import Collection">&#8615;</button>
-          <button className="wb-icon-btn" onClick={onNewCollection} title="New Collection">+</button>
+    <div className="req-sidebar">
+      <div className="req-sidebar-header">
+        <span className="req-sidebar-title">COLLECTIONS</span>
+        <div className="req-sidebar-actions">
+          <button className="req-icon-btn" onClick={handleExportAll} title="Export All Collections">&#8613;</button>
+          <button className="req-icon-btn" onClick={() => handleImportToCollection()} title="Import Collection">&#8615;</button>
+          <button className="req-icon-btn" onClick={onNewCollection} title="New Collection">+</button>
         </div>
       </div>
 
-      <div className="wb-sidebar-list" onClick={() => { setContextMenu(null); setShowMoveMenu(false); setShowFolderMoveMenu(false); }}>
+      <div className="req-sidebar-list" onClick={() => { setContextMenu(null); setShowMoveMenu(false); setShowFolderMoveMenu(false); }}>
         {collections.length === 0 && (
-          <div className="wb-sidebar-empty">No collections yet. <button className="btn-link-sm" onClick={onNewCollection}>Create one</button></div>
+          <div className="req-sidebar-empty">No collections yet. <button className="btn-link-sm" onClick={onNewCollection}>Create one</button></div>
         )}
 
         {collections.map((col) => {
           const isRootDropTarget = dropTarget === `root-${col.id}` || dropTarget === `col-header-${col.id}`;
           return (
-            <div key={col.id} className={`wb-col-group ${dropTarget === `col-header-${col.id}` ? 'col-drop-target' : ''}`}
+            <div key={col.id} className={`req-col-group ${dropTarget === `col-header-${col.id}` ? 'col-drop-target' : ''}`}
               onDragOver={(e) => {
                 const di = dragItemRef.current;
                 if (!di) return;
@@ -553,24 +553,24 @@ export default function WorkbenchSidebar({
                 if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
                 handleDrop(e, col.id, null);
               }}>
-              <div className={`wb-col-header ${selectedCollectionId === col.id && !selectedRequestId ? 'selected' : ''} ${dropTarget === `col-header-${col.id}` ? 'drop-target' : ''} ${dragItem?.kind === 'collection' && dragItem.colId === col.id ? 'dragging' : ''}`}
+              <div className={`req-col-header ${selectedCollectionId === col.id && !selectedRequestId ? 'selected' : ''} ${dropTarget === `col-header-${col.id}` ? 'drop-target' : ''} ${dragItem?.kind === 'collection' && dragItem.colId === col.id ? 'dragging' : ''}`}
                 onClick={() => { toggleCol(col.id); onSelectCollection(col.id); }}
                 onContextMenu={(e) => handleContext(e, 'collection', col.id)}
                 draggable onDragStart={(e) => handleCollectionDragStart(e, col.id)} onDragEnd={handleDragEnd}>
-                <span className="wb-col-arrow">{expandedCols.has(col.id) ? '▾' : '▸'}</span>
-                <span className="wb-col-name" title={col.name}>{col.name}</span>
-                <span className={`wb-col-mode-badge ${col.mode}`}>{col.mode === 'multi-env' ? 'ENV' : 'URL'}</span>
-                {hasAuth(col) && <span className="wb-col-auth-badge" title={`Auth: ${authLabel(col)}`}>&#128274;</span>}
-                <span className="wb-col-count">{countAllRequests(col)}</span>
-                <button className="wb-col-edit-btn" title="Edit collection settings"
+                <span className="req-col-arrow">{expandedCols.has(col.id) ? '▾' : '▸'}</span>
+                <span className="req-col-name" title={col.name}>{col.name}</span>
+                <span className={`req-col-mode-badge ${col.mode}`}>{col.mode === 'multi-env' ? 'ENV' : 'URL'}</span>
+                {hasAuth(col) && <span className="req-col-auth-badge" title={`Auth: ${authLabel(col)}`}>&#128274;</span>}
+                <span className="req-col-count">{countAllRequests(col)}</span>
+                <button className="req-col-edit-btn" title="Edit collection settings"
                   onClick={(e) => { e.stopPropagation(); onEditCollection(col); }}>&#9998;</button>
               </div>
 
               {expandedCols.has(col.id) && (
-                <div className="wb-req-list"
+                <div className="req-req-list"
                   onDragOver={(e) => { if (dragItemRef.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
                   onDrop={(e) => { e.preventDefault(); handleDrop(e, col.id, null); }}>
-                  <div className={`wb-root-drop ${isRootDropTarget ? 'drop-target' : ''}`}
+                  <div className={`req-root-drop ${isRootDropTarget ? 'drop-target' : ''}`}
                     onDragOver={(e) => handleDragOver(e, `root-${col.id}`)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, col.id, null)}>
@@ -578,9 +578,9 @@ export default function WorkbenchSidebar({
                   </div>
                   {(col.folders ?? []).map((folder) => renderFolder(col, folder, 0))}
                   {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && (
-                    <div className="wb-new-folder-row">
-                      <span className="wb-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                      <input className="wb-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
+                    <div className="req-new-folder-row">
+                      <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
+                      <input className="req-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
                         onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
                         onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
                     </div>
@@ -628,12 +628,12 @@ export default function WorkbenchSidebar({
       )}
 
       {confirmDelete && (
-        <div className="wb-confirm-overlay" onClick={() => setConfirmDelete(null)}>
-          <div className="wb-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="req-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <p>{confirmDelete.message}</p>
-            <div className="wb-confirm-actions">
-              <button className="wb-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button className="wb-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
+            <div className="req-confirm-actions">
+              <button className="req-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="req-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
             </div>
           </div>
         </div>

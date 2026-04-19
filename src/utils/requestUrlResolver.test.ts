@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveBaseUrl, buildDisplayUrl, resolveFullSendUrl } from './workbenchUrlResolver';
-import type { UrlResolverContext } from './workbenchUrlResolver';
+import { resolveBaseUrl, buildDisplayUrl, resolveFullSendUrl } from './requestUrlResolver';
+import type { UrlResolverContext } from './requestUrlResolver';
 
 function ctx(overrides: Partial<UrlResolverContext> = {}): UrlResolverContext {
   return {

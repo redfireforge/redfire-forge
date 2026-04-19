@@ -171,7 +171,7 @@ export interface HostConfig {
   strategy: ResolutionStrategy;
   hardcodedUrl?: string;                // when strategy = 'hardcoded'
   selectedServerIndex?: number;         // index into CatalogEntry.servers[]
-  globalEnvId?: string;                 // link to Workbench environment
+  globalEnvId?: string;                 // link to global environment (Requests / shared config)
   environmentId?: string;               // link to CatalogEntry.environments[] (when strategy = 'environment')
 }
 
@@ -260,7 +260,7 @@ The parser auto-detects the spec format:
 ```
 
 Uses the same `loadData<T>(key)` / `saveData<T>(key, value)` abstraction that
-powers Projects and Workbench. Works in both web (localStorage) and desktop
+powers Harness and Requests. Works in both web (localStorage) and desktop
 (Tauri FS plugin).
 
 ### Lazy-Loaded Raw Specs
@@ -410,7 +410,7 @@ import).
 
 ## 4. Relationship to Existing Types
 
-The Catalog types are deliberately **separate** from Workbench and Project types.
+The Catalog types are deliberately **separate** from Requests and Harness project types.
 They share some primitives:
 
 ```
@@ -428,18 +428,18 @@ The `HttpMethod` type is reused for endpoint methods.
 
 ### Bridge Types (Phase 6)
 
-When "Send to Workbench" is implemented, a mapper function converts:
+When "Send to Requests" is implemented, a mapper function converts:
 
 ```typescript
-function catalogEndpointToWorkbenchRequest(
+function catalogEndpointToRequestItem(
   endpoint: CatalogEndpoint,
   hostConfig: HostConfig,
   authConfig: CatalogAuthConfig,
   servers: CatalogServer[],
-): WorkbenchRequest
+): RequestItem
 ```
 
-This is a one-way copy — changes in Workbench do not flow back to the Catalog.
+This is a one-way copy — changes in Requests do not flow back to the Catalog.
 
 ---
 

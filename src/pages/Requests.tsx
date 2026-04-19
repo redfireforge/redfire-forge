@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import type { GlobalAuthProfile, WorkbenchRequest, WorkbenchFolder, Microservice, Environment } from '../types';
-import type { UseWorkbenchReturn } from '../hooks/useWorkbench';
-import WorkbenchRequestEditor from '../components/workbench/WorkbenchRequestEditor';
+import type { GlobalAuthProfile, RequestItem, RequestFolder, Microservice, Environment } from '../types';
+import type { UseRequestsReturn } from '../hooks/useRequests';
+import RequestEditor from '../components/requests/RequestEditor';
 
-function findAncestorSubCollection(folders: WorkbenchFolder[], reqId: string, ancestors: WorkbenchFolder[] = []): WorkbenchFolder | null {
+function findAncestorSubCollection(folders: RequestFolder[], reqId: string, ancestors: RequestFolder[] = []): RequestFolder | null {
   for (const f of folders) {
     const newAncestors = [...ancestors, f];
     if (f.requests.some(r => r.id === reqId)) {
@@ -19,14 +19,14 @@ function findAncestorSubCollection(folders: WorkbenchFolder[], reqId: string, an
 }
 
 interface Props {
-  wb: UseWorkbenchReturn;
+  wb: UseRequestsReturn;
   appGlobalAuthProfiles: GlobalAuthProfile[];
   appMicroservices: Microservice[];
   appEnvironments: Environment[];
 }
 
-export default function Workbench({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments }: Props) {
-  const handleUpdateRequest = useCallback((reqPatch: Partial<WorkbenchRequest>) => {
+export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments }: Props) {
+  const handleUpdateRequest = useCallback((reqPatch: Partial<RequestItem>) => {
     if (wb.selectedCollection && wb.selectedRequest) {
       wb.updateRequest(wb.selectedCollection.id, wb.selectedRequest.id, reqPatch);
     }
@@ -38,14 +38,14 @@ export default function Workbench({ wb, appGlobalAuthProfiles, appMicroservices,
   }, [wb.selectedCollection, wb.selectedRequest]);
 
   if (!wb.loaded) {
-    return <div className="wb-loading">Loading Requests...</div>;
+    return <div className="req-loading">Loading Requests...</div>;
   }
 
   return (
-    <div className="wb-container wb-no-sidebar">
-      <div className="wb-main">
+    <div className="req-container req-no-sidebar">
+      <div className="req-main">
         {wb.selectedCollection && wb.selectedRequest ? (
-          <WorkbenchRequestEditor
+          <RequestEditor
             collection={wb.selectedCollection}
             request={wb.selectedRequest}
             parentSubCollection={parentSubCollection ?? undefined}
@@ -58,8 +58,8 @@ export default function Workbench({ wb, appGlobalAuthProfiles, appMicroservices,
             appGlobalAuthProfiles={appGlobalAuthProfiles}
           />
         ) : (
-          <div className="wb-empty-state">
-            <div className="wb-empty-icon">&#128269;</div>
+          <div className="req-empty-state">
+            <div className="req-empty-icon">&#128269;</div>
             <h3>No Request Selected</h3>
             <p>
               {wb.collections.length === 0
