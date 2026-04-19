@@ -108,4 +108,107 @@ describe('parseCurl', () => {
     const s = parseCurl('curl http://example.com');
     expect(s.id).toBe('00000000-0000-4000-8000-000000000001');
   });
+
+  it('keeps Authorization as header for bearer values', () => {
+    const s = parseCurl("curl -H 'Authorization: Bearer tok123' http://example.com");
+    const authHeader = s.headers?.find(h => h.key === 'Authorization');
+    expect(authHeader?.value).toBe('Bearer tok123');
+  });
+
+  it('keeps Authorization as header for unknown schemes', () => {
+    const s = parseCurl("curl -H 'Authorization: CustomScheme abc' http://example.com");
+    const authHeader = s.headers?.find(h => h.key === 'Authorization');
+    expect(authHeader?.value).toBe('CustomScheme abc');
+  });
+
+  it('handles --data-urlencode with key=value pairs', () => {
+    const s = parseCurl("curl --data-urlencode 'name=John' --data-urlencode 'city=NYC' http://example.com");
+    expect(s.method).toBe('POST');
+    expect(s.bodyType).toBe('form-urlencoded');
+    expect(s.bodyForm).toEqual([
+      { key: 'name', value: 'John' },
+      { key: 'city', value: 'NYC' },
+    ]);
+  });
+
+  it('handles --data-urlencode without = as body data', () => {
+    const s = parseCurl("curl --data-urlencode 'rawdata' http://example.com");
+    expect(s.body).toContain('rawdata');
+  });
+
+  it('handles -F / --form for form-data fields', () => {
+    const s = parseCurl("curl -F 'field1=value1' -F 'field2=value2' http://example.com");
+    expect(s.bodyType).toBe('form-data');
+    expect(s.bodyForm).toEqual([
+      { key: 'field1', value: 'value1' },
+      { key: 'field2', value: 'value2' },
+    ]);
+  });
+
+  it('handles -u without colon (username only)', () => {
+    const s = parseCurl('curl -u onlyuser http://example.com');
+    expect(s.auth).toEqual({ type: 'basic', username: 'onlyuser', password: '' });
+  });
+
+  it('handles --data-binary body', () => {
+    const s = parseCurl("curl --data-binary 'binarydata' http://example.com/upload");
+    expect(s.body).toBe('binarydata');
+  });
+
+  it('sets bodyType xml when content-type is xml', () => {
+    const s = parseCurl("curl -H 'Content-Type: application/xml' -d '<root/>' http://example.com");
+    expect(s.bodyType).toBe('xml');
+  });
+
+  it('sets bodyType text when content-type is text/plain', () => {
+    const s = parseCurl("curl -H 'Content-Type: text/plain' -d 'hello' http://example.com");
+    expect(s.bodyType).toBe('text');
+  });
+
+  it('sets bodyType form-urlencoded with matching content-type', () => {
+    const s = parseCurl("curl -H 'Content-Type: application/x-www-form-urlencoded' -d 'a=1&b=2' http://example.com");
+    expect(s.bodyType).toBe('form-urlencoded');
+    expect(s.bodyForm).toBeDefined();
+  });
+
+  it('sets bodyType form-data with multipart content-type', () => {
+    const s = parseCurl("curl -H 'Content-Type: multipart/form-data' -d 'data' http://example.com");
+    expect(s.bodyType).toBe('form-data');
+  });
+
+  it('maps unsupported methods to GET', () => {
+    const s = parseCurl('curl -X OPTIONS http://example.com');
+    expect(s.method).toBe('GET');
+  });
+
+  it('handles escaped characters in quoted strings', () => {
+    const s = parseCurl('curl -d "key=val\\"ue" http://example.com');
+    expect(s.body).toContain('val"ue');
+  });
+
+  it('uses hostname as name for root URL', () => {
+    const s = parseCurl('curl http://example.com/');
+    expect(s.name).toBe('example.com');
+  });
+
+  it('handles invalid Authorization: Basic base64 gracefully', () => {
+    const s = parseCurl("curl -H 'Authorization: Basic not!valid!base64~' http://example.com");
+    const authHeaders = s.headers?.filter(h => h.key === 'Authorization');
+    expect(authHeaders?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles --request as alias for -X', () => {
+    const s = parseCurl('curl --request DELETE http://example.com/item');
+    expect(s.method).toBe('DELETE');
+  });
+
+  it('handles --user as alias for -u', () => {
+    const s = parseCurl('curl --user admin:pass http://example.com');
+    expect(s.auth).toEqual({ type: 'basic', username: 'admin', password: 'pass' });
+  });
+
+  it('names scenario "Imported Scenario" for invalid URL', () => {
+    const s = parseCurl('curl not-a-valid-url');
+    expect(s.name).toBe('Imported Scenario');
+  });
 });

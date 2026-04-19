@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { isTauri } from './utils/platform';
-import type { Project, TestRun, WorkbenchCollection, WorkbenchRequest, KeyValue } from './types';
-import type { CatalogEntry, CatalogEndpoint } from './types/catalog';
-import { generateStubJson } from './utils/schemaStubGenerator';
+import type { TestRun, WorkbenchCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from './types';
+import type { CatalogEntry, SavedEndpointValues } from './types/catalog';
+import { buildCatalogExport } from './utils/catalogExport';
 import { findFolderDeep } from './utils/workbenchTree';
-import { loadTestRuns, saveTheme } from './utils/storage';
-import { createEmptyProject } from './utils/helpers';
+import { loadTestRuns, saveTheme, loadCatalogEndpointValues } from './utils/storage';
 import { useProjects } from './hooks/useProjects';
 import { useWorkbench } from './hooks/useWorkbench';
 import { useCatalog } from './hooks/useCatalog';
@@ -19,28 +17,32 @@ import CatalogSidebar from './components/catalog/CatalogSidebar';
 import CatalogImportModal from './components/catalog/CatalogImportModal';
 import CatalogVersionHistory from './components/catalog/CatalogVersionHistory';
 import CatalogEditModal from './components/catalog/CatalogEditModal';
+import CatalogSendToRequestsModal from './components/catalog/CatalogSendToRequestsModal';
+import type { SendToRequestsPayload } from './components/catalog/CatalogSendToRequestsModal';
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
 import WorkbenchSidebar from './components/workbench/WorkbenchSidebar';
 import SettingsModal from './components/SettingsModal';
+import EnvironmentManager from './pages/EnvironmentManager';
 import WorkbenchCollectionModal from './components/workbench/WorkbenchCollectionModal';
-import WorkbenchEnvManager from './components/workbench/WorkbenchEnvManager';
 import SubCollectionModal from './components/workbench/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
 
 declare const __APP_VERSION__: string;
 
 export default function App() {
   const {
-    loading, projects, setProjects, selectedProjectId, setSelectedProjectId,
-    selectedProject, appGlobalAuthProfiles, setAppGlobalAuthProfiles,
-    environments, microservices, globalAuthProfiles, featureGroups,
-    selectedEnvId, selectedSvcId,
-    setFeatureGroups, setSelectedEnvId, setSelectedSvcId, modifyProject,
-    moveFeatureGroup, moveScenario, moveTest,
+    loading,
+    environments, setEnvironments,
+    microservices, setMicroservices,
+    featureGroups, setFeatureGroups,
+    appGlobalAuthProfiles, setAppGlobalAuthProfiles,
+    selectedEnvId, setSelectedEnvId,
+    selectedSvcId, setSelectedSvcId,
+    moveScenario, moveTest,
     initialTheme, initialTestRuns,
   } = useProjects();
 
@@ -59,13 +61,22 @@ export default function App() {
   const [testRunsCache, setTestRunsCache] = useState<TestRun[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
-  const [editingWbCollection, setEditingWbCollection] = useState<import('./types').WorkbenchCollection | null>(null);
-  const [showWbEnvManager, setShowWbEnvManager] = useState(false);
+  const [editingWbCollection, setEditingWbCollection] = useState<WorkbenchCollection | null>(null);
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
+  const [sendToWbEntry, setSendToWbEntry] = useState<CatalogEntry | undefined>();
+  const [sendToWbEpValues, setSendToWbEpValues] = useState<Record<string, SavedEndpointValues>>({});
+
+  useEffect(() => {
+    if (sendToWbEntry) {
+      loadCatalogEndpointValues(sendToWbEntry.id).then(setSendToWbEpValues);
+    } else {
+      setSendToWbEpValues({});
+    }
+  }, [sendToWbEntry]);
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -131,6 +142,11 @@ export default function App() {
   const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
   const resolvedBaseUrl = selectedEnv && selectedSvc ? (selectedSvc.baseUrls[selectedEnv.id] ?? '') : '';
 
+  const envAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId];
+  const envFallbackAuth = envAuthProfileId
+    ? appGlobalAuthProfiles.find((p) => p.id === envAuthProfileId)?.auth
+    : undefined;
+
   const filteredFeatureGroups = (selectedSvcId && selectedEnvId)
     ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && fg.environmentId === selectedEnvId)
     : selectedSvcId
@@ -157,39 +173,17 @@ export default function App() {
   // ---- Helpers ----
   const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
 
-
-  const addProject = (name: string, desc?: string) => {
-    const project = createEmptyProject(name, desc);
-    setProjects((prev) => [...prev, project]);
-    setSelectedProjectId(project.id);
-  };
-
-  const removeProject = (id: string) => {
-    setProjects((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      if (selectedProjectId === id) {
-        const newSel = next.length > 0 ? next[0].id : '';
-        setTimeout(() => setSelectedProjectId(newSel), 0);
-      }
-      return next;
-    });
-  };
-
-  const updateProjectMeta = (id: string, updates: { name?: string; description?: string }) => {
-    setProjects((prev) => prev.map((p) => p.id === id ? { ...p, ...updates } : p));
-  };
-
   const handleWbNewCollection = useCallback(() => {
     setEditingWbCollection(null); setShowWbCollectionModal(true);
   }, []);
-  const handleWbEditCollection = useCallback((col: import('./types').WorkbenchCollection) => {
+  const handleWbEditCollection = useCallback((col: WorkbenchCollection) => {
     setEditingWbCollection(col); setShowWbCollectionModal(true);
   }, []);
-  const handleWbSaveCollection = useCallback((col: Omit<import('./types').WorkbenchCollection, 'id' | 'requests'> & { id?: string }) => {
+  const handleWbSaveCollection = useCallback((col: Omit<WorkbenchCollection, 'id' | 'requests'> & { id?: string }) => {
     if (col.id) {
-      wb.updateCollection(col.id, { name: col.name, mode: col.mode, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
+      wb.updateCollection(col.id, { name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
     } else {
-      wb.addCollection({ name: col.name, mode: col.mode, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
+      wb.addCollection({ name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
     }
     setShowWbCollectionModal(false); setEditingWbCollection(null);
   }, [wb]);
@@ -202,82 +196,60 @@ export default function App() {
   }, []);
 
   const handleSendToWorkbench = useCallback((entry: CatalogEntry) => {
-    const allEps: CatalogEndpoint[] = [...entry.endpoints];
-    const walk = (folders: CatalogEntry['folders']) => {
-      for (const f of folders) { allEps.push(...f.endpoints); walk(f.folders); }
-    };
-    walk(entry.folders);
+    setSendToWbEntry(entry);
+  }, []);
 
-    const requests: WorkbenchRequest[] = allEps.map(ep => {
-      const headers: KeyValue[] = ep.parameters
-        .filter(p => p.in === 'header')
-        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '' }));
+  const handleSendToWbConfirm = useCallback((payload: SendToRequestsPayload) => {
+    if (sendToWbEntry) {
+      catalog.updateEntry(sendToWbEntry.id, { customEndpointNames: payload.customNames });
+    }
 
-      const queryParams = ep.parameters
-        .filter(p => p.in === 'query')
-        .map(p => ({ key: p.name, value: p.example ? String(p.example) : '', enabled: true }));
+    const currentVersion = sendToWbEntry?.versions.find(v => v.id === sendToWbEntry.currentVersionId);
+    const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
 
-      let pathUrl = ep.path;
-      for (const p of ep.parameters.filter(pp => pp.in === 'path')) {
-        pathUrl = pathUrl.replace(`{${p.name}}`, p.example ? String(p.example) : `{${p.name}}`);
-      }
-
-      const jsonCT = ep.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
-      const body = jsonCT?.schema ? generateStubJson(jsonCT.schema) : '';
-
-      return {
-        id: uuidv4(),
-        name: ep.summary || `${ep.method} ${ep.path}`,
-        method: ep.method,
-        url: pathUrl,
-        headers,
-        body,
-        bodyType: body ? 'json' as const : undefined,
-        auth: { type: 'none' as const },
-        savedQueryParams: queryParams,
-      };
+    const { collection, newEnvironments } = buildCatalogExport(payload, {
+      servers: sendToWbEntry?.servers ?? [],
+      microserviceId: sendToWbEntry?.microserviceId,
+      versionLabel: currentVersion?.version,
+      existingWbEnvNames,
     });
 
-    const envSources = entry.environments?.length
-      ? entry.environments
-      : entry.servers.map((s, i) => ({ id: uuidv4(), name: s.description || `Server ${i + 1}`, baseUrl: s.url }));
-
-    const baseUrls: Record<string, string> = {};
-    const newEnvs: { id: string; name: string }[] = [];
-    for (const src of envSources) {
-      const existing = wb.environments.find(e => e.name === src.name);
-      const envId = existing?.id ?? src.id;
-      baseUrls[envId] = src.baseUrl;
-      if (!existing) newEnvs.push({ id: envId, name: src.name });
-    }
-
-    if (newEnvs.length > 0) {
-      wb.addEnvironments(newEnvs);
-    }
-
-    const col: WorkbenchCollection = {
-      id: uuidv4(),
-      name: `${entry.name} (from Catalog)`,
-      mode: 'multi-env',
-      baseUrls,
-      requests,
-      folders: [],
-    };
-
-    wb.importCollection(col);
+    if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
+    wb.importCollection(collection);
+    setSendToWbEntry(undefined);
     setActiveTab('workbench');
-  }, [wb]);
+  }, [wb, sendToWbEntry, catalog]);
 
-  const handleImportProject = useCallback(async (imported: Project) => {
-    setProjects((prev) => {
-      const existing = prev.find((p) => p.id === imported.id);
-      if (existing) return prev.map((p) => p.id === imported.id ? imported : p);
-      return [...prev, imported];
-    });
-    setSelectedProjectId(imported.id);
+  const handleImportData = useCallback(async (data: {
+    environments?: Environment[];
+    microservices?: Microservice[];
+    featureGroups?: FeatureGroup[];
+    globalAuthProfiles?: GlobalAuthProfile[];
+  }) => {
+    if (data.environments?.length) {
+      setEnvironments((prev) => {
+        const ids = new Set(prev.map(e => e.id));
+        return [...prev, ...data.environments!.filter(e => !ids.has(e.id))];
+      });
+    }
+    if (data.microservices?.length) {
+      setMicroservices((prev) => {
+        const ids = new Set(prev.map(s => s.id));
+        return [...prev, ...data.microservices!.filter(s => !ids.has(s.id))];
+      });
+    }
+    if (data.featureGroups?.length) {
+      setFeatureGroups((prev) => [...prev, ...data.featureGroups!]);
+    }
+    if (data.globalAuthProfiles?.length) {
+      setAppGlobalAuthProfiles((prev) => {
+        const ids = new Set(prev.map(a => a.id));
+        return [...prev, ...data.globalAuthProfiles!.filter(a => !ids.has(a.id))];
+      });
+    }
     setShowImportCenter(false);
-    setShowSettings(true);
-  }, [setProjects, setSelectedProjectId]);
+    setActiveTab('environments');
+  }, [setEnvironments, setMicroservices, setFeatureGroups, setAppGlobalAuthProfiles]);
 
   // ---- Loading screen ----
   if (loading) {
@@ -307,17 +279,17 @@ export default function App() {
       <div className="app-body">
       {!sidebarCollapsed && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
-        {/* ── Nav rail: vertical section switcher ── */}
         <nav className="usb-nav-rail">
+          <button className={`usb-nav-btn ${activeTab === 'environments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('environments')}>Environments</button>
           <button className={`usb-nav-btn ${activeTab === 'workbench' ? 'active' : ''}`}
             onClick={() => setActiveTab('workbench')}>Requests</button>
           <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
             onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-nav-btn ${activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
+          <button className={`usb-nav-btn ${activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'environments' || activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
         </nav>
 
-        {/* ── Content area ── */}
         <div className="usb-content">
           <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
             {catalog.loaded && (
@@ -373,33 +345,25 @@ export default function App() {
                 onMoveRequestToCollection={wb.moveRequestToCollection}
                 onMoveFolderToCollection={wb.moveFolderToCollection}
                 onMergeCollectionInto={wb.moveCollectionAsSubCollection}
-                onManageEnvs={() => setShowWbEnvManager(true)}
                 countAllRequests={wb.countAllRequests}
                 onImportCollection={wb.importCollection}
                 onImportFolder={wb.importFolder}
               />
             )}
           </div>
-          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
-            <>
-              <Sidebar
-                projects={projects}
-                selectedProjectId={selectedProjectId}
-                environments={environments}
-                microservices={microservices}
-                featureGroups={featureGroups}
-                selectedEnvId={selectedEnvId}
-                selectedSvcId={selectedSvcId}
-                onProjectSwitch={setSelectedProjectId}
-                onEnvSelect={setSelectedEnvId}
-                onSvcSelect={setSelectedSvcId}
-                onOpenSettings={() => setShowSettings(true)}
-              />
-            </>
+          {activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' && (
+            <Sidebar
+              environments={environments}
+              microservices={microservices}
+              featureGroups={featureGroups}
+              selectedEnvId={selectedEnvId}
+              selectedSvcId={selectedSvcId}
+              onEnvSelect={setSelectedEnvId}
+              onSvcSelect={setSelectedSvcId}
+            />
           )}
         </div>
 
-        {/* ── Shared Settings button ── */}
         <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
       </aside>
       )}
@@ -415,12 +379,22 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {activeTab !== 'workbench' && activeTab !== 'catalog' && (
+          {activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
               <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
             </div>
+          )}
+          {activeTab === 'environments' && (
+            <EnvironmentManager
+              environments={environments}
+              setEnvironments={setEnvironments}
+              microservices={microservices}
+              setMicroservices={setMicroservices}
+              appGlobalAuthProfiles={appGlobalAuthProfiles}
+              confirm={confirm}
+            />
           )}
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
@@ -435,10 +409,6 @@ export default function App() {
               microservices={microservices}
               environments={environments}
               globalAuthProfiles={appGlobalAuthProfiles}
-              projectAuthProfiles={globalAuthProfiles}
-              projects={projects}
-              currentProjectId={selectedProjectId}
-              onMoveFeatureGroup={moveFeatureGroup}
               onMoveScenario={moveScenario}
               onMoveTest={moveTest}
             />
@@ -449,19 +419,17 @@ export default function App() {
               onComplete={() => setActiveTab('results')}
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
-              projectName={selectedProject?.name}
-              projectId={selectedProject?.id}
               envId={selectedEnvId}
               svcId={selectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
-              globalAuthProfiles={[...appGlobalAuthProfiles, ...globalAuthProfiles]}
+              globalAuthProfiles={appGlobalAuthProfiles}
+              envFallbackAuth={envFallbackAuth}
             />
           )}
           {activeTab === 'results' && (
             <ResultsDashboard
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
-              projectName={selectedProject?.name}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
@@ -485,40 +453,47 @@ export default function App() {
               }}
               onSendToWorkbench={handleSendToWorkbench}
               globalAuthProfiles={appGlobalAuthProfiles}
+              appEnvironments={environments}
+              appMicroservices={microservices}
             />
           </div>
           <div className="app-tab-pane" style={{ display: activeTab === 'workbench' ? 'flex' : 'none' }}>
             <Workbench
               wb={wb}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
+              appMicroservices={microservices}
+              appEnvironments={environments}
             />
           </div>
+          {sendToWbEntry && (
+            <CatalogSendToRequestsModal
+              entry={sendToWbEntry}
+              appEnvironments={environments}
+              appMicroservices={microservices}
+              savedEpValues={sendToWbEpValues}
+              onSend={handleSendToWbConfirm}
+              onClose={() => setSendToWbEntry(undefined)}
+            />
+          )}
         </main>
       </div>
 
       {showSettings && (
         <SettingsModal
-          projects={projects}
-          setProjects={setProjects}
-          selectedProjectId={selectedProjectId}
           appGlobalAuthProfiles={appGlobalAuthProfiles}
           setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-          modifyProject={modifyProject}
           onClose={() => setShowSettings(false)}
-          onProjectSwitch={setSelectedProjectId}
-          onAddProject={addProject}
-          onRemoveProject={removeProject}
-          onUpdateProjectMeta={updateProjectMeta}
           onOpenExport={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowExportCenter(true); }}
           onOpenImport={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowImportCenter(true); }}
           confirm={confirm}
         />
       )}
 
-      {showExportCenter && selectedProject && (
+      {showExportCenter && (
         <ExportCenter
-          project={selectedProject}
-          projects={projects}
+          environments={environments}
+          microservices={microservices}
+          featureGroups={featureGroups}
           appGlobalAuthProfiles={appGlobalAuthProfiles}
           testRuns={testRunsCache}
           onClose={() => { setShowExportCenter(false); setShowSettings(true); }}
@@ -527,10 +502,11 @@ export default function App() {
 
       {showImportCenter && (
         <ImportCenter
-          projects={projects}
+          environments={environments}
+          microservices={microservices}
+          featureGroups={featureGroups}
           appGlobalAuthProfiles={appGlobalAuthProfiles}
-          onImport={handleImportProject}
-          onImportGlobalAuth={(profiles) => setAppGlobalAuthProfiles((prev) => [...prev, ...profiles])}
+          onImport={handleImportData}
           onClose={() => { setShowImportCenter(false); setShowSettings(true); }}
         />
       )}
@@ -540,22 +516,12 @@ export default function App() {
           collection={editingWbCollection}
           collections={wb.collections}
           environments={wb.environments}
-          projects={projects}
+          appEnvironments={environments}
+          appMicroservices={microservices}
           globalAuthProfiles={appGlobalAuthProfiles}
           onSave={handleWbSaveCollection}
           onAddEnv={wb.addEnv}
           onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); }}
-        />
-      )}
-
-      {showWbEnvManager && (
-        <WorkbenchEnvManager
-          environments={wb.environments}
-          projects={projects}
-          onAdd={wb.addEnv}
-          onRemove={wb.removeEnv}
-          onImport={wb.importEnvsFromProject}
-          onClose={() => setShowWbEnvManager(false)}
         />
       )}
 
@@ -600,6 +566,8 @@ export default function App() {
         return (
           <CatalogEditModal
             entry={editEntry}
+            microservices={microservices}
+            environments={environments}
             onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
             onClose={() => setCatalogEditId(undefined)}
           />

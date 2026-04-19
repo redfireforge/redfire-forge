@@ -6,7 +6,9 @@ export interface Environment {
 export interface Microservice {
   id: string;
   name: string;
-  baseUrls: Record<string, string>; // environmentId -> base URL
+  baseUrls: Record<string, string>;        // environmentId -> base URL
+  authProfileIds?: Record<string, string>; // environmentId -> GlobalAuthProfile id
+  customEnvs?: Environment[];              // microservice-specific environments
 }
 
 export interface KeyValue {
@@ -32,6 +34,8 @@ export interface AuthConfig {
   tokenUrl?: string;
   clientId?: string;
   clientSecret?: string;
+  // Links to a GlobalAuthProfile by id
+  globalProfileId?: string;
 }
 
 export type ValidationMode = 'none' | 'full' | 'selective';
@@ -106,19 +110,6 @@ export interface FeatureGroup {
   auth?: AuthConfig;
   globalAuthProfileId?: string;
   scenarios: TestScenario[];
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: number;
-  environments: Environment[];
-  microservices: Microservice[];
-  globalAuthProfiles: GlobalAuthProfile[];
-  featureGroups: FeatureGroup[];
-  selectedEnvId?: string;
-  selectedSvcId?: string;
 }
 
 export interface ScenarioWeight {
@@ -240,6 +231,7 @@ export interface WorkbenchCollection {
   id: string;
   name: string;
   mode: 'direct' | 'multi-env';
+  microserviceId?: string;
   baseUrls?: Record<string, string>;
   auth?: AuthConfig;
   authPerEnv?: Record<string, AuthConfig>;

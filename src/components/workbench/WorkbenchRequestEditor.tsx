@@ -11,6 +11,8 @@ import { acquireOAuth2Token } from '../../engine/tokenManager';
 import { pickJsonFile, unwrapImport } from '../../utils/testEditorUtils';
 import { useResponseCache } from '../../hooks/useResponseCache';
 import type { ConsoleLine } from '../../hooks/useResponseCache';
+import { buildDisplayUrl, resolveFullSendUrl } from '../../utils/workbenchUrlResolver';
+import type { UrlResolverContext } from '../../utils/workbenchUrlResolver';
 import { BodyEditor } from '../BodyEditor';
 import { ParamsEditor, fromParamEntries } from '../ParamsEditor';
 import type { ParamEntry } from '../ParamsEditor';
@@ -40,6 +42,8 @@ interface Props {
   request: WorkbenchRequest;
   parentSubCollection?: import('../../types').WorkbenchFolder;
   environments: WorkbenchEnv[];
+  appMicroservices?: import('../../types').Microservice[];
+  appEnvironments?: import('../../types').Environment[];
   selectedEnvId?: string;
   onEnvChange: (envId: string | undefined) => void;
   onUpdateRequest: (patch: Partial<WorkbenchRequest>) => void;
@@ -73,8 +77,8 @@ function formatBytes(bytes: number): string {
 }
 
 export default function WorkbenchRequestEditor({
-  collection, request, parentSubCollection, environments, selectedEnvId, onEnvChange,
-  onUpdateRequest, appGlobalAuthProfiles,
+  collection, request, parentSubCollection, environments, appMicroservices, appEnvironments,
+  selectedEnvId, onEnvChange, onUpdateRequest, appGlobalAuthProfiles,
 }: Props) {
   const [activeTab, setActiveTab] = useState<EditorTab>('params');
   const [inputMode, setInputMode] = useState<InputMode>('builder');
@@ -178,14 +182,34 @@ export default function WorkbenchRequestEditor({
     return matched?.id;
   }, [parentSubCollection, environments]);
 
+  const linkedSvc = useMemo(
+    () => collection.microserviceId ? appMicroservices?.find(s => s.id === collection.microserviceId) : undefined,
+    [collection.microserviceId, appMicroservices],
+  );
+
+  const resolvedColBaseUrls = useMemo(() => {
+    if (linkedSvc) {
+      const allSvcEnvs = [...(appEnvironments ?? []), ...(linkedSvc.customEnvs ?? [])];
+      const mapped: Record<string, string> = {};
+      for (const [appEnvId, url] of Object.entries(linkedSvc.baseUrls)) {
+        const appEnv = allSvcEnvs.find(e => e.id === appEnvId);
+        if (!appEnv) continue;
+        const wbEnv = environments.find(e => e.name === appEnv.name);
+        if (wbEnv) mapped[wbEnv.id] = url;
+      }
+      return mapped;
+    }
+    return collection.baseUrls ?? {};
+  }, [linkedSvc, collection.baseUrls, environments, appEnvironments]);
+
   const allKnownBaseUrls = useMemo(() => {
     const urls: string[] = [];
-    for (const u of Object.values(collection.baseUrls ?? {})) urls.push(u.replace(/\/+$/, ''));
+    for (const u of Object.values(resolvedColBaseUrls)) urls.push(u.replace(/\/+$/, ''));
     if (parentSubCollection?.baseUrls) {
       for (const u of Object.values(parentSubCollection.baseUrls)) urls.push(u.replace(/\/+$/, ''));
     }
     return urls.sort((a, b) => b.length - a.length);
-  }, [collection.baseUrls, parentSubCollection?.baseUrls]);
+  }, [resolvedColBaseUrls, parentSubCollection?.baseUrls]);
 
   const stripToRelative = useCallback((url: string): string => {
     if (collection.mode !== 'multi-env') return url;
@@ -217,29 +241,18 @@ export default function WorkbenchRequestEditor({
 
   const relativePath = useMemo(() => stripToRelative(request.url), [request.url, stripToRelative]);
 
-  const displayUrl = useMemo(() => {
-    if (collection.mode === 'direct') return relativePath;
-    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
-    const effectiveEnvId = subColEnvId || selectedEnvId;
+  const urlCtx: UrlResolverContext = useMemo(() => ({
+    collectionMode: collection.mode,
+    resolvedColBaseUrls,
+    parentSubCollection,
+    subColEnvId,
+    selectedEnvId,
+  }), [collection.mode, resolvedColBaseUrls, parentSubCollection, subColEnvId, selectedEnvId]);
 
-    let targetBase: string | null = null;
-    if (parentSubCollection?.baseUrls) {
-      const subBaseUrls = parentSubCollection.baseUrls;
-      if (subColEnvId && subBaseUrls[subColEnvId]) {
-        targetBase = subBaseUrls[subColEnvId].replace(/\/+$/, '');
-      } else {
-        const firstBase = Object.values(subBaseUrls)[0];
-        if (firstBase) targetBase = firstBase.replace(/\/+$/, '');
-      }
-    }
-    if (!targetBase && effectiveEnvId && collection.baseUrls?.[effectiveEnvId]) {
-      targetBase = collection.baseUrls[effectiveEnvId].replace(/\/+$/, '');
-    }
-
-    if (!targetBase) return relativePath;
-    const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-    return `${targetBase}${path}`;
-  }, [relativePath, collection.mode, collection.baseUrls, selectedEnvId, subColEnvId, parentSubCollection]);
+  const displayUrl = useMemo(
+    () => buildDisplayUrl(relativePath, urlCtx),
+    [relativePath, urlCtx],
+  );
 
   const asDraftScenario = useCallback((): Scenario => ({
     id: request.id, name: request.name, url: displayUrl,
@@ -258,8 +271,18 @@ export default function WorkbenchRequestEditor({
       if (envAuth.type && envAuth.type !== 'none') return envAuth;
     }
     if (collection.auth?.type && collection.auth.type !== 'none') return collection.auth;
+    if (linkedSvc?.authProfileIds && envId) {
+      const wbEnv = environments.find(e => e.id === envId);
+      const appEnv = wbEnv ? appEnvironments?.find(ae => ae.name === wbEnv.name) : undefined;
+      const lookupId = appEnv?.id ?? envId;
+      const profileId = linkedSvc.authProfileIds[lookupId];
+      if (profileId) {
+        const profile = appGlobalAuthProfiles.find(p => p.id === profileId);
+        if (profile) return { ...profile.auth, globalProfileId: profile.id };
+      }
+    }
     return { type: 'none' };
-  }, [request.auth, parentSubCollection?.auth, collection.auth, collection.authPerEnv]);
+  }, [request.auth, parentSubCollection?.auth, collection.auth, collection.authPerEnv, linkedSvc, appGlobalAuthProfiles, environments, appEnvironments]);
 
   const buildRequestHeaders = useCallback(async (scenario: Scenario, contentType: string | null, envId?: string): Promise<Record<string, string>> => {
     const h: Record<string, string> = {};
@@ -301,11 +324,12 @@ export default function WorkbenchRequestEditor({
     if (!request.url.trim()) { setGeneratedCurl(''); return; }
     setCurlGenerating(true);
     try {
-      const cmd = await buildCurlCommand(asDraftScenario(), resolveEffectiveAuth());
+      const effectiveEnvId = subColEnvId || selectedEnvId;
+      const cmd = await buildCurlCommand(asDraftScenario(), resolveEffectiveAuth(effectiveEnvId));
       setGeneratedCurl(cmd);
     } catch (err) { setGeneratedCurl(`# Error: ${err instanceof Error ? err.message : String(err)}`); }
     finally { setCurlGenerating(false); }
-  }, [asDraftScenario, resolveEffectiveAuth, request.url]);
+  }, [asDraftScenario, resolveEffectiveAuth, request.url, subColEnvId, selectedEnvId]);
 
   const handleCopyToClipboard = useCallback(async () => {
     await navigator.clipboard.writeText(generatedCurl);
@@ -350,34 +374,16 @@ export default function WorkbenchRequestEditor({
       const scenario = asDraftScenario();
       sendMethod = scenario.method;
 
-      if (!scenario.url.startsWith('http://') && !scenario.url.startsWith('https://')) {
-        const envId = subColEnvId || selectedEnvId;
-        let base: string | null = null;
-        if (parentSubCollection?.baseUrls) {
-          const subBaseUrls = parentSubCollection.baseUrls;
-          if (envId && subBaseUrls[envId]) {
-            base = subBaseUrls[envId].replace(/\/+$/, '');
-          } else {
-            const firstBase = Object.values(subBaseUrls)[0];
-            if (firstBase) base = firstBase.replace(/\/+$/, '');
-          }
-        }
-        if (!base && envId && collection.baseUrls?.[envId]) {
-          base = collection.baseUrls[envId].replace(/\/+$/, '');
-        }
-        if (base) {
-          const path = scenario.url.startsWith('/') ? scenario.url : `/${scenario.url}`;
-          scenario.url = `${base}${path}`;
-        } else {
-          const errMsg = collection.mode === 'multi-env'
-            ? 'Cannot send: no base URL configured for the selected environment. Edit collection settings to add hostnames.'
-            : 'Cannot send: URL must be a full URL (e.g. https://api.example.com/...).';
-          info(`ERROR: ${errMsg}`);
+      {
+        const { url: resolved, error: urlError } = resolveFullSendUrl(scenario.url, urlCtx);
+        if (urlError) {
+          info(`ERROR: ${urlError}`);
           setConsoleLines(log);
-          setResponse({ status: 0, statusText: 'Error', headers: {}, body: errMsg, error: errMsg });
+          setResponse({ status: 0, statusText: 'Error', headers: {}, body: urlError, error: urlError });
           setSending(false);
           return;
         }
+        scenario.url = resolved;
       }
       sendUrl = scenario.url;
 
@@ -457,7 +463,7 @@ export default function WorkbenchRequestEditor({
       setActiveHistoryId(hid);
     }
     setSending(false);
-  }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, subColEnvId, selectedEnvId, collection, parentSubCollection, pushHistory, request.url]);
+  }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, urlCtx, pushHistory, request.url]);
 
   const handleDraftChange = useCallback((draft: Scenario) => {
     onUpdateRequest({ body: draft.body, bodyType: draft.bodyType, bodyForm: draft.bodyForm });
@@ -527,7 +533,7 @@ export default function WorkbenchRequestEditor({
         const envName = subColEnvId
           ? environments.find(e => e.id === subColEnvId)?.name
           : parentSubCollection?.name ?? null;
-        const hasBaseUrls = Object.keys(collection.baseUrls ?? {}).length > 0
+        const hasBaseUrls = Object.keys(resolvedColBaseUrls).length > 0
           || Object.keys(parentSubCollection?.baseUrls ?? {}).length > 0;
         return (
         <div className="wb-env-bar">
@@ -536,7 +542,7 @@ export default function WorkbenchRequestEditor({
             <span className="wb-env-pill active pinned">{envName ?? parentSubCollection.name}</span>
           ) : (
             <div className="wb-env-pills">
-              {environments.map((env) => (
+              {environments.filter(env => !linkedSvc || resolvedColBaseUrls[env.id]).map((env) => (
                 <button key={env.id} className={`wb-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
                   onClick={() => onEnvChange(env.id)}>{env.name}</button>
               ))}

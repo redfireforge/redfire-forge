@@ -143,7 +143,12 @@ export function useCatalog() {
     setEntries(prev => prev.map(e => {
       if (e.id !== entryId) return e;
       const newVersions = e.versions.filter(v => v.id !== versionId);
-      return { ...e, versions: newVersions };
+      const currentStale = e.currentVersionId === versionId;
+      return {
+        ...e,
+        versions: newVersions,
+        currentVersionId: currentStale ? (newVersions[0]?.id ?? '') : e.currentVersionId,
+      };
     }));
   }, []);
 

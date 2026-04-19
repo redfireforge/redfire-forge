@@ -42,7 +42,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 306 unit/integration tests (Vitest) + 17 E2E tests (Playwright) = 323 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 728 unit/integration tests (Vitest, 91.5% line coverage) + 17 E2E tests (Playwright) = 745 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -104,8 +104,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (306 tests, <1s) + Playwright E2E (17 tests, <10s)
-- [x] **Refactor Large Components** — 8 monoliths broken into 25 focused modules + shared useAuthVerify hook + AuthConfigPanel
+- [x] **`npm test` Script** — Vitest (728 tests, 91.5% line coverage, <2s) + Playwright E2E (17 tests, <10s)
+- [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
 
@@ -180,6 +180,22 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Swagger 2.0 verification** — End-to-end test with real Swagger 2.0 specs
 - [x] **Unit + E2E tests** — Parser, stub generator, diff engine, import flow, endpoint browsing
 
+### Phase 0.9.0-alpha — Unified Environments & Catalog Export ✅
+
+> Flatten the data model (remove per-project duplication), unify environment management across all features, and enhance Catalog → Workbench export workflow.
+
+- [x] **Unified Environment Manager** — Top-level `EnvironmentManager.tsx` page replaces the old Settings Projects tab; single source of truth for environments, microservices, and auth profiles shared by Workbench, Catalog, and Harness
+- [x] **Catalog Environment Association** — Catalog entries link to globally configured Environments via microservice; base URLs and auth resolve dynamically per environment
+- [x] **"Send to Requests" Modal** — Two-panel modal with environment selection, endpoint selection, custom name column, sample inclusion checkboxes, resizable columns, and live collection preview tree
+- [x] **Exported Sub-Collections** — Environment folders exported as sub-collections (📦 icon) with inherited base URLs and auth from linked microservice
+- [x] **Spec Version in Collection Name** — Exported collections include the YAML spec version, e.g., "sales-product-autoassign (1.0.0)"
+- [x] **Dynamic Auth on Env Switch** — Catalog auth automatically updates when switching environments for linked microservices; resets to none when env has no auth profile
+- [x] **Safe Tree Operations** — `addReqToFolderSafe` and `addFolderToParentSafe` utilities prevent silent data loss on invalid folder/parent IDs during drag-and-drop and import
+- [x] **URL Resolver Module** — Extracted `workbenchUrlResolver.ts` for testable base URL resolution, display URL building, and send URL resolution
+- [x] **Auth State Module** — Extracted `workbenchAuthState.ts` for auth config ↔ UI state mapping with `globalProfileId` typing
+- [x] **Catalog Export Module** — Extracted `catalogExport.ts` for catalog-to-workbench data transformation
+- [x] **728 Unit Tests** — 91.5% line coverage, 94.5% function coverage across 35 test files; 3 rounds of thorough code review with 25+ bugs found and fixed
+
 ---
 
 ## Upcoming Phases
@@ -188,7 +204,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 306 tests) on every push/PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 728 tests) on every push/PR
 - [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 17 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
