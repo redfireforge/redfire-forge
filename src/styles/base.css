@@ -160,14 +160,14 @@
 }
 .config-sidebar-inner .sidebar-close-btn { display: none; }
 
-/* Workbench sidebar within unified sidebar */
-.unified-sidebar .wb-sidebar {
+/* Requests sidebar within unified sidebar */
+.unified-sidebar .req-sidebar {
   border-right: none; height: auto;
 }
 
-/* Workbench container without own sidebar */
-.wb-no-sidebar { padding-left: 0; }
-.wb-no-sidebar .wb-main { flex: 1; }
+/* Requests container without own sidebar */
+.req-no-sidebar { padding-left: 0; }
+.req-no-sidebar .req-main { flex: 1; }
 
 /* Tabs */
 .tab-nav { display: flex; gap: 4px; }

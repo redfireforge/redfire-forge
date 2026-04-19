@@ -1,4 +1,4 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, WorkbenchData } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData } from '../types';
 import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
@@ -8,7 +8,8 @@ const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
 const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
-const WORKBENCH_KEY = 'perf-test-workbench';
+const REQUESTS_KEY = 'perf-test-requests';
+const LEGACY_WORKBENCH_KEY = 'perf-test-workbench';
 const CATALOG_KEY = 'perf-test-catalog';
 const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
 const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
@@ -384,23 +385,31 @@ export async function loadTheme(): Promise<string> {
   return (await readKey(THEME_KEY)) ?? 'dark';
 }
 
-// ---------- Workbench ----------
+// ---------- Requests ----------
 
-const EMPTY_WORKBENCH: WorkbenchData = {
+const EMPTY_REQUESTS: RequestsData = {
   environments: [],
   collections: [],
 };
 
-export async function loadWorkbench(): Promise<WorkbenchData> {
+export async function loadRequests(): Promise<RequestsData> {
   try {
-    const raw = await readKey(WORKBENCH_KEY);
-    if (raw) return JSON.parse(raw) as WorkbenchData;
+    const raw = await readKey(REQUESTS_KEY);
+    if (raw) return JSON.parse(raw) as RequestsData;
+
+    const legacy = await readKey(LEGACY_WORKBENCH_KEY);
+    if (legacy) {
+      const data = JSON.parse(legacy) as RequestsData;
+      await writeKey(REQUESTS_KEY, legacy);
+      await removeKey(LEGACY_WORKBENCH_KEY);
+      return data;
+    }
   } catch { /* ignore */ }
-  return { ...EMPTY_WORKBENCH, environments: [], collections: [] };
+  return { ...EMPTY_REQUESTS, environments: [], collections: [] };
 }
 
-export async function saveWorkbench(data: WorkbenchData): Promise<void> {
-  await writeKey(WORKBENCH_KEY, JSON.stringify(data));
+export async function saveRequests(data: RequestsData): Promise<void> {
+  await writeKey(REQUESTS_KEY, JSON.stringify(data));
 }
 
 // ---------- Catalog ----------

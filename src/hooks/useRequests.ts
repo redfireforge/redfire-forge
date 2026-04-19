@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { WorkbenchData, WorkbenchCollection, WorkbenchRequest, WorkbenchFolder, HttpMethod, BodyType } from '../types';
-import { loadWorkbench, saveWorkbench } from '../utils/storage';
+import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpMethod, BodyType } from '../types';
+import { loadRequests, saveRequests } from '../utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
   countAllRequests, mapRequests, removeRequestFrom,
@@ -10,9 +10,9 @@ import {
   isDescendantOf, addReqToFolderDeep, addReqToFolderSafe,
   addFolderToParentSafe, findReqParentFolder,
   reorderInFolders, swapInFolders,
-} from '../utils/workbenchTree';
+} from '../utils/requestTree';
 
-const EMPTY_REQUEST: () => WorkbenchRequest = () => ({
+const EMPTY_REQUEST: () => RequestItem = () => ({
   id: uuidv4(),
   name: 'New Request',
   method: 'GET' as HttpMethod,
@@ -24,14 +24,14 @@ const EMPTY_REQUEST: () => WorkbenchRequest = () => ({
   auth: { type: 'inherit' },
 });
 
-export type UseWorkbenchReturn = ReturnType<typeof useWorkbench>;
+export type UseRequestsReturn = ReturnType<typeof useRequests>;
 
-export function useWorkbench() {
-  const [data, setData] = useState<WorkbenchData>({ environments: [], collections: [] });
+export function useRequests() {
+  const [data, setData] = useState<RequestsData>({ environments: [], collections: [] });
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => { loadWorkbench().then((d) => { setData(d); setLoaded(true); }); }, []);
-  useEffect(() => { if (loaded) saveWorkbench(data); }, [data, loaded]);
+  useEffect(() => { loadRequests().then((d) => { setData(d); setLoaded(true); }); }, []);
+  useEffect(() => { if (loaded) saveRequests(data); }, [data, loaded]);
 
   const selectedCollection = useMemo(
     () => data.collections.find((c) => c.id === data.selectedCollectionId) ?? null,
@@ -62,13 +62,13 @@ export function useWorkbench() {
 
   // ─── Collections ───────────────────────────────────────
 
-  const addCollection = useCallback((col: Omit<WorkbenchCollection, 'id' | 'requests'>) => {
-    const newCol: WorkbenchCollection = { ...col, id: uuidv4(), requests: [], folders: [] };
+  const addCollection = useCallback((col: Omit<RequestCollection, 'id' | 'requests'>) => {
+    const newCol: RequestCollection = { ...col, id: uuidv4(), requests: [], folders: [] };
     setData((prev) => ({ ...prev, collections: [...prev.collections, newCol], selectedCollectionId: newCol.id, selectedRequestId: undefined }));
     return newCol.id;
   }, []);
 
-  const updateCollection = useCallback((colId: string, patch: Partial<Omit<WorkbenchCollection, 'id' | 'requests' | 'folders'>>) => {
+  const updateCollection = useCallback((colId: string, patch: Partial<Omit<RequestCollection, 'id' | 'requests' | 'folders'>>) => {
     setData((prev) => ({ ...prev, collections: prev.collections.map((c) => c.id === colId ? { ...c, ...patch } : c) }));
   }, []);
 
@@ -84,7 +84,7 @@ export function useWorkbench() {
     setData((prev) => {
       const col = prev.collections.find(c => c.id === colId);
       if (!col) return prev;
-      const dup: WorkbenchCollection = {
+      const dup: RequestCollection = {
         ...col, id: uuidv4(), name: `${col.name} (copy)`,
         requests: col.requests.map(cloneRequest),
         folders: (col.folders ?? []).map(cloneFolder),
@@ -100,7 +100,7 @@ export function useWorkbench() {
   // ─── Folders ───────────────────────────────────────────
 
   const addFolder = useCallback((colId: string, name: string, parentFolderId?: string) => {
-    const folder: WorkbenchFolder = { id: uuidv4(), name, requests: [], folders: [] };
+    const folder: RequestFolder = { id: uuidv4(), name, requests: [], folders: [] };
     setData((prev) => ({
       ...prev,
       collections: prev.collections.map((c) => {
@@ -117,7 +117,7 @@ export function useWorkbench() {
   const addSubCollection = useCallback((colId: string, name: string, parentFolderId?: string) => {
     setData((prev) => {
       const matchedEnv = prev.environments.find(e => e.name.toLowerCase() === name.toLowerCase());
-      const sub: WorkbenchFolder = {
+      const sub: RequestFolder = {
         id: uuidv4(), name, requests: [], folders: [], isSubCollection: true,
         selectedEnvId: matchedEnv?.id,
       };
@@ -132,7 +132,7 @@ export function useWorkbench() {
     });
   }, []);
 
-  const updateSubCollection = useCallback((colId: string, folderId: string, patch: Partial<Pick<WorkbenchFolder, 'name' | 'auth' | 'baseUrls' | 'selectedEnvId'>>) => {
+  const updateSubCollection = useCallback((colId: string, folderId: string, patch: Partial<Pick<RequestFolder, 'name' | 'auth' | 'baseUrls' | 'selectedEnvId'>>) => {
     setData((prev) => ({
       ...prev,
       collections: prev.collections.map((c) =>
@@ -178,7 +178,7 @@ export function useWorkbench() {
         if (!orig) return c;
         const dup = cloneFolder({ ...orig, name: `${orig.name} (copy)` });
         const parentId = (() => {
-          function findParent(folders: WorkbenchFolder[], targetId: string): string | null {
+          function findParent(folders: RequestFolder[], targetId: string): string | null {
             for (const f of folders) {
               if ((f.folders ?? []).some(sf => sf.id === targetId)) return f.id;
               const deep = findParent(f.folders ?? [], targetId);
@@ -252,7 +252,7 @@ export function useWorkbench() {
     return req.id;
   }, []);
 
-  const updateRequest = useCallback((colId: string, reqId: string, patch: Partial<WorkbenchRequest>) => {
+  const updateRequest = useCallback((colId: string, reqId: string, patch: Partial<RequestItem>) => {
     setData((prev) => ({
       ...prev,
       collections: prev.collections.map((c) =>
@@ -275,7 +275,7 @@ export function useWorkbench() {
       if (!col) return prev;
       const orig = findRequestInCollection(col, reqId);
       if (!orig) return prev;
-      const dup: WorkbenchRequest = { ...orig, id: uuidv4(), name: `${orig.name || 'Request'} (copy)` };
+      const dup: RequestItem = { ...orig, id: uuidv4(), name: `${orig.name || 'Request'} (copy)` };
       const parentFolder = findReqParentFolder(col.folders ?? [], reqId);
       return {
         ...prev,
@@ -299,7 +299,7 @@ export function useWorkbench() {
       const req = findRequestInCollection(col, reqId);
       if (!req) return prev;
       const cleaned = removeRequestFrom(col, reqId);
-      let updated: WorkbenchCollection;
+      let updated: RequestCollection;
       if (targetFolderId === null) {
         if (beforeReqId) {
           const idx = cleaned.requests.findIndex(r => r.id === beforeReqId);
@@ -332,7 +332,7 @@ export function useWorkbench() {
       if (!req) return prev;
       const cleanedSrc = removeRequestFrom(srcCol, reqId);
       if (srcColId === destColId) {
-        let updated: WorkbenchCollection;
+        let updated: RequestCollection;
         if (destFolderId) {
           updated = addReqToFolderSafe(cleanedSrc, destFolderId, req);
         } else {
@@ -390,7 +390,7 @@ export function useWorkbench() {
       const srcCol = prev.collections.find(c => c.id === srcColId);
       const destCol = prev.collections.find(c => c.id === destColId);
       if (!srcCol || !destCol || srcColId === destColId) return prev;
-      const subCol: WorkbenchFolder = {
+      const subCol: RequestFolder = {
         id: uuidv4(),
         name: srcCol.name,
         requests: srcCol.requests,
@@ -420,7 +420,7 @@ export function useWorkbench() {
     });
   }, []);
 
-  const importCollection = useCallback((col: WorkbenchCollection) => {
+  const importCollection = useCallback((col: RequestCollection) => {
     setData((prev) => ({
       ...prev,
       collections: [...prev.collections, col],
@@ -429,7 +429,7 @@ export function useWorkbench() {
     }));
   }, []);
 
-  const importFolder = useCallback((colId: string, folder: WorkbenchFolder, parentFolderId?: string) => {
+  const importFolder = useCallback((colId: string, folder: RequestFolder, parentFolderId?: string) => {
     setData((prev) => ({
       ...prev,
       collections: prev.collections.map((c) => {

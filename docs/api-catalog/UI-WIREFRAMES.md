@@ -25,16 +25,16 @@
 
 ## 1. App-Level Layout
 
-The sidebar gains a third tab. The `Catalog` tab sits between `Workbench` and `Projects`.
+The sidebar gains a third tab. The `Catalog` tab sits between `Requests` and `Harness`.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  🔥 RedfireForge — Redfire Performance Workbench              v0.x  │
 ├──────────────────┬───────────────────────────────────────────────────┤
 │ ┌──────────────┐ │                                                   │
-│ │  Workbench   │ │                                                   │
+│ │  Requests    │ │                                                   │
 │ │  Catalog  ●  │ │        Main Content Area                         │
-│ │  Projects    │ │        (depends on active tab)                    │
+│ │  Harness     │ │        (depends on active tab)                    │
 │ └──────────────┘ │                                                   │
 │                  │                                                   │
 │ (sidebar content │                                                   │
@@ -55,7 +55,7 @@ endpoint count badges. No endpoint trees in the sidebar.
 
 ```
 ┌──────────────────────────┐
-│ [Workbench] [Catalog] [Projects]
+│ [Requests] [Catalog] [Harness]
 ├──────────────────────────┤
 │ 🔍 Filter APIs...        │
 │                          │
@@ -113,7 +113,7 @@ Right-click on any API entry:
 │ Export Original Spec       │
 │ ─────────────────────────  │
 │ Host & Auth Config         │
-│ Send All → Workbench       │
+│ Send All → Requests        │
 │ ─────────────────────────  │
 │ Rename                     │
 │ Delete                     │
@@ -238,7 +238,7 @@ The internal navigation for browsing endpoints within one API:
 └────────────────────────────────┘
 ```
 
-Method badges use the same color scheme as Workbench:
+Method badges use the same color scheme as Requests:
 - `GET` = green (#22c55e)
 - `POST` = amber (#f59e0b)
 - `PUT` = blue (#3b82f6)
@@ -343,7 +343,7 @@ Detailed view of the strategy selection bar:
 │  │ Inherited ▾ │  │ https://api.sales.example.com/v1              │  │
 │  └─────────────┘  └────────────────────────────────────────────────┘  │
 │  ┌─────────────────────────────────────┐                              │
-│  │ ○ Global     (pick Workbench env)   │  ← dropdown options         │
+│  │ ○ Global     (pick Requests env)    │  ← dropdown options         │
 │  │ ● Inherited  (from spec servers)    │                              │
 │  │ ○ Hardcoded  (type custom URL)      │                              │
 │  └─────────────────────────────────────┘                              │
@@ -638,7 +638,7 @@ Shown when an API entry is selected but no specific endpoint:
 │  │  Auth: Global → "sales-api-profile" (OAuth2 Client Creds)     │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │                                                                     │
-│  [Re-import]  [Export Spec]  [Version History]  [Send → Workbench] │
+│  [Re-import]  [Export Spec]  [Version History]  [Send → Requests] │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```

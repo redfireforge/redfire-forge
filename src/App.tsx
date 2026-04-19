@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { isTauri } from './utils/platform';
-import type { TestRun, WorkbenchCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from './types';
+import type { TestRun, RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from './types';
 import type { CatalogEntry, SavedEndpointValues } from './types/catalog';
 import { buildCatalogExport } from './utils/catalogExport';
-import { findFolderDeep } from './utils/workbenchTree';
+import { findFolderDeep } from './utils/requestTree';
 import { loadTestRuns, saveTheme, loadCatalogEndpointValues } from './utils/storage';
 import { useProjects } from './hooks/useProjects';
-import { useWorkbench } from './hooks/useWorkbench';
+import { useRequests } from './hooks/useRequests';
 import { useCatalog } from './hooks/useCatalog';
 import ScenarioBuilder from './pages/ScenarioBuilder';
 import TestRunner from './pages/TestRunner';
 import ResultsDashboard from './pages/ResultsDashboard';
-import Workbench from './pages/Workbench';
+import Requests from './pages/Requests';
 import ApiCatalog from './pages/ApiCatalog';
 import CatalogSidebar from './components/catalog/CatalogSidebar';
 import CatalogImportModal from './components/catalog/CatalogImportModal';
@@ -22,14 +22,14 @@ import type { SendToRequestsPayload } from './components/catalog/CatalogSendToRe
 import ExportCenter from './components/ExportCenter';
 import ImportCenter from './components/ImportCenter';
 import Sidebar from './components/Sidebar';
-import WorkbenchSidebar from './components/workbench/WorkbenchSidebar';
+import RequestsSidebar from './components/requests/RequestsSidebar';
 import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
-import WorkbenchCollectionModal from './components/workbench/WorkbenchCollectionModal';
-import SubCollectionModal from './components/workbench/SubCollectionModal';
+import RequestCollectionModal from './components/requests/RequestCollectionModal';
+import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'environments' | 'workbench' | 'catalog' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'scenarios' | 'runner' | 'results';
 
 declare const __APP_VERSION__: string;
 
@@ -46,11 +46,11 @@ export default function App() {
     initialTheme, initialTestRuns,
   } = useProjects();
 
-  const wb = useWorkbench();
+  const wb = useRequests();
   const catalog = useCatalog();
 
   // ---- App shell state ----
-  const [activeTab, setActiveTab] = useState<Tab>('workbench');
+  const [activeTab, setActiveTab] = useState<Tab>('requests');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -61,22 +61,22 @@ export default function App() {
   const [testRunsCache, setTestRunsCache] = useState<TestRun[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
-  const [editingWbCollection, setEditingWbCollection] = useState<WorkbenchCollection | null>(null);
+  const [editingWbCollection, setEditingWbCollection] = useState<RequestCollection | null>(null);
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
-  const [sendToWbEntry, setSendToWbEntry] = useState<CatalogEntry | undefined>();
-  const [sendToWbEpValues, setSendToWbEpValues] = useState<Record<string, SavedEndpointValues>>({});
+  const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
+  const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
 
   useEffect(() => {
-    if (sendToWbEntry) {
-      loadCatalogEndpointValues(sendToWbEntry.id).then(setSendToWbEpValues);
+    if (sendToReqEntry) {
+      loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
     } else {
-      setSendToWbEpValues({});
+      setSendToReqEpValues({});
     }
-  }, [sendToWbEntry]);
+  }, [sendToReqEntry]);
 
   const subColForEdit = useMemo(() => {
     if (!editingSubCol) return null;
@@ -176,10 +176,10 @@ export default function App() {
   const handleWbNewCollection = useCallback(() => {
     setEditingWbCollection(null); setShowWbCollectionModal(true);
   }, []);
-  const handleWbEditCollection = useCallback((col: WorkbenchCollection) => {
+  const handleWbEditCollection = useCallback((col: RequestCollection) => {
     setEditingWbCollection(col); setShowWbCollectionModal(true);
   }, []);
-  const handleWbSaveCollection = useCallback((col: Omit<WorkbenchCollection, 'id' | 'requests'> & { id?: string }) => {
+  const handleWbSaveCollection = useCallback((col: Omit<RequestCollection, 'id' | 'requests'> & { id?: string }) => {
     if (col.id) {
       wb.updateCollection(col.id, { name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
     } else {
@@ -189,36 +189,36 @@ export default function App() {
   }, [wb]);
   const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
     wb.addRequest(colId, folderId);
-    if (activeTab !== 'workbench') setActiveTab('workbench');
+    if (activeTab !== 'requests') setActiveTab('requests');
   }, [wb, activeTab]);
   const handleEditSubCollection = useCallback((colId: string, folderId: string) => {
     setEditingSubCol({ colId, folderId });
   }, []);
 
-  const handleSendToWorkbench = useCallback((entry: CatalogEntry) => {
-    setSendToWbEntry(entry);
+  const handleSendToRequests = useCallback((entry: CatalogEntry) => {
+    setSendToReqEntry(entry);
   }, []);
 
-  const handleSendToWbConfirm = useCallback((payload: SendToRequestsPayload) => {
-    if (sendToWbEntry) {
-      catalog.updateEntry(sendToWbEntry.id, { customEndpointNames: payload.customNames });
+  const handleSendToReqConfirm = useCallback((payload: SendToRequestsPayload) => {
+    if (sendToReqEntry) {
+      catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
     }
 
-    const currentVersion = sendToWbEntry?.versions.find(v => v.id === sendToWbEntry.currentVersionId);
+    const currentVersion = sendToReqEntry?.versions.find(v => v.id === sendToReqEntry.currentVersionId);
     const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
 
     const { collection, newEnvironments } = buildCatalogExport(payload, {
-      servers: sendToWbEntry?.servers ?? [],
-      microserviceId: sendToWbEntry?.microserviceId,
+      servers: sendToReqEntry?.servers ?? [],
+      microserviceId: sendToReqEntry?.microserviceId,
       versionLabel: currentVersion?.version,
       existingWbEnvNames,
     });
 
     if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
     wb.importCollection(collection);
-    setSendToWbEntry(undefined);
-    setActiveTab('workbench');
-  }, [wb, sendToWbEntry, catalog]);
+    setSendToReqEntry(undefined);
+    setActiveTab('requests');
+  }, [wb, sendToReqEntry, catalog]);
 
   const handleImportData = useCallback(async (data: {
     environments?: Environment[];
@@ -282,12 +282,12 @@ export default function App() {
         <nav className="usb-nav-rail">
           <button className={`usb-nav-btn ${activeTab === 'environments' ? 'active' : ''}`}
             onClick={() => setActiveTab('environments')}>Environments</button>
-          <button className={`usb-nav-btn ${activeTab === 'workbench' ? 'active' : ''}`}
-            onClick={() => setActiveTab('workbench')}>Requests</button>
+          <button className={`usb-nav-btn ${activeTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setActiveTab('requests')}>Requests</button>
           <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
             onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-nav-btn ${activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' ? 'active' : ''}`}
-            onClick={() => { if (activeTab === 'environments' || activeTab === 'workbench' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
+          <button className={`usb-nav-btn ${activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' ? 'active' : ''}`}
+            onClick={() => { if (activeTab === 'environments' || activeTab === 'requests' || activeTab === 'catalog') setActiveTab('scenarios'); }}>Harness</button>
         </nav>
 
         <div className="usb-content">
@@ -318,14 +318,14 @@ export default function App() {
               />
             )}
           </div>
-          <div style={{ display: activeTab === 'workbench' ? 'contents' : 'none' }}>
+          <div style={{ display: activeTab === 'requests' ? 'contents' : 'none' }}>
             {wb.loaded && (
-              <WorkbenchSidebar
+              <RequestsSidebar
                 collections={wb.collections}
                 selectedCollectionId={wb.selectedCollection?.id}
                 selectedRequestId={wb.selectedRequest?.id}
-                onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('workbench'); }}
-                onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('workbench'); }}
+                onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('requests'); }}
+                onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
                 onNewCollection={handleWbNewCollection}
                 onEditCollection={handleWbEditCollection}
                 onDeleteCollection={wb.removeCollection}
@@ -351,7 +351,7 @@ export default function App() {
               />
             )}
           </div>
-          {activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' && (
+          {activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' && (
             <Sidebar
               environments={environments}
               microservices={microservices}
@@ -379,7 +379,7 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {activeTab !== 'environments' && activeTab !== 'workbench' && activeTab !== 'catalog' && (
+          {activeTab !== 'environments' && activeTab !== 'requests' && activeTab !== 'catalog' && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
@@ -451,29 +451,29 @@ export default function App() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              onSendToWorkbench={handleSendToWorkbench}
+              onSendToRequests={handleSendToRequests}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
               globalAuthProfiles={appGlobalAuthProfiles}
               appEnvironments={environments}
               appMicroservices={microservices}
             />
           </div>
-          <div className="app-tab-pane" style={{ display: activeTab === 'workbench' ? 'flex' : 'none' }}>
-            <Workbench
+          <div className="app-tab-pane" style={{ display: activeTab === 'requests' ? 'flex' : 'none' }}>
+            <Requests
               wb={wb}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
               appMicroservices={microservices}
               appEnvironments={environments}
             />
           </div>
-          {sendToWbEntry && (
+          {sendToReqEntry && (
             <CatalogSendToRequestsModal
-              entry={sendToWbEntry}
+              entry={sendToReqEntry}
               appEnvironments={environments}
               appMicroservices={microservices}
-              savedEpValues={sendToWbEpValues}
-              onSend={handleSendToWbConfirm}
-              onClose={() => setSendToWbEntry(undefined)}
+              savedEpValues={sendToReqEpValues}
+              onSend={handleSendToReqConfirm}
+              onClose={() => setSendToReqEntry(undefined)}
             />
           )}
         </main>
@@ -513,7 +513,7 @@ export default function App() {
       )}
 
       {showWbCollectionModal && (
-        <WorkbenchCollectionModal
+        <RequestCollectionModal
           collection={editingWbCollection}
           collections={wb.collections}
           environments={wb.environments}
