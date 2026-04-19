@@ -228,7 +228,10 @@ src/
 │   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
 │   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
 │   ├── validator.ts         # Response validation (full, selective, unordered)
-│   └── metrics.ts           # Summary statistics computation
+│   ├── metrics.ts           # Summary statistics computation
+│   ├── executionWorker.ts   # Web Worker entry point for off-thread test execution
+│   ├── workerBridge.ts      # Main-thread bridge wrapping worker with runTest() interface
+│   └── workerProtocol.ts    # Typed message protocol for Main ↔ Worker communication
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
@@ -277,8 +280,8 @@ src/
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
-│   ├── platform.ts          # Runtime platform detection (Tauri / browser / Node)
+│   ├── httpClient.ts        # Quad-mode HTTP client (Worker override / Tauri native / Vite proxy / Node fetch)
+│   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
 │   ├── curlGenerator.ts     # Test config → cURL command builder
@@ -842,6 +845,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
+| Worker thread execution | Test engine runs in a Web Worker for UI responsiveness; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |

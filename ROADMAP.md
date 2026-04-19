@@ -71,6 +71,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - OAuth2 token manager with JWT expiry detection
 - Weighted scenario distribution in load profiles
 - **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
+- **Worker thread execution**: Web Worker offloading for test execution; Tauri HTTP proxy via postMessage; automatic fallback to main-thread when Workers unavailable
 
 #### Gap analysis: Moderate → Good
 
@@ -79,7 +80,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 | 1 | **Variables & chaining** | Can't test multi-step workflows (create → get ID → verify) | 0.9.0 |
 | 2 | **Rich assertions** | No status code, response time SLA, header, or regex assertions | 0.10.0 |
 | ~~3~~ | ~~**Think time & pacing**~~ | ~~No delay between requests per virtual user → unrealistic flood~~ | ~~0.9.1~~ ✅ |
-| 4 | **Worker thread execution** | Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput | 0.9.1 |
+| ~~4~~ | ~~**Worker thread execution**~~ | ~~Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput~~ | ~~0.9.1~~ ✅ |
 | 5 | **Connection pooling** | New TCP connection per request adds latency; `keep-alive` reuse = massive improvement | 0.9.1 |
 | 6 | **Request timing breakdown** | No DNS/TLS/TTFB/download waterfall → can't diagnose *why* something is slow | 0.10.0 |
 
@@ -99,7 +100,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
   ① Variables & Chaining        → unblocks real-world multi-step testing
   ② ~~Think time & pacing~~      → ✅ realistic virtual user simulation (done)
-  ③ Worker thread execution     → 2-5x throughput boost
+  ③ ~~Worker thread execution~~ → ✅ Web Worker offloading (done)
   ④ Connection pooling           → reduced latency at scale
   ⑤ Rich assertions             → status code, SLA, header, regex
   ⑥ Request timing breakdown    → DNS/TLS/TTFB waterfall
@@ -308,9 +309,9 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Upgrade the execution engine from browser-limited single-thread to a performant multi-threaded architecture. This is the core engineering work that moves load testing from **Moderate** to **Good**.
 
-- [ ] **Think Time & Pacing** — Configurable delay between requests per virtual user (constant, random uniform, random gaussian); prevents unrealistic request flooding and enables realistic user simulation
+- [x] **Think Time & Pacing** — Configurable delay between requests per virtual user (constant, random uniform, random gaussian); prevents unrealistic request flooding and enables realistic user simulation
 - [ ] **Connection Pooling** — Reuse HTTP connections via `keep-alive` instead of creating a new TCP connection per request; dramatically reduces latency overhead at scale
-- [ ] **Worker Thread Execution (Web)** — Move HTTP execution to Web Workers in the browser, bypassing the single main-thread bottleneck; each worker manages its own connection pool and reports results back via `postMessage`
+- [x] **Worker Thread Execution (Web)** — Move HTTP execution to Web Workers in the browser, bypassing the single main-thread bottleneck; worker manages engine execution and reports results back via `postMessage` with incremental transfer; Tauri HTTP proxied through main thread
 - [ ] **Tauri Sidecar Executor** — In desktop mode, offload HTTP execution to a Rust sidecar process using `reqwest` + `tokio` async runtime; communicates with the UI via Tauri IPC events for 5-10x throughput improvement
 - [ ] **Constant Request Rate Mode** — "Send exactly N requests/second regardless of response time" (open model); complements existing closed model where concurrency = in-flight connections
 - [ ] **Graceful Drain** — When a load profile ends or is aborted, wait for in-flight requests to complete (with configurable timeout) instead of dropping them; ensures accurate final metrics
@@ -407,7 +408,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
 | 0.9.0 | Variables & Chaining | → Good | 6 | 0 |
-| **0.9.1** | **Engine Performance** | **→ Good** | **6** | **0** |
+| **0.9.1** | **Engine Performance** | **→ Good** | **6** | **2** |
 | 0.10.0 | Assertions & Observability | → Good | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
