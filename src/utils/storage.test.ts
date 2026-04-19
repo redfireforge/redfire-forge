@@ -30,8 +30,8 @@ import {
   loadTheme,
   getStorageUsage,
   migrateToFlat,
-  loadWorkbench,
-  saveWorkbench,
+  loadRequests,
+  saveRequests,
   loadCatalogEntries,
   saveCatalogEntries,
   loadCatalogRawSpec,
@@ -331,19 +331,43 @@ describe('storage — migration', () => {
   });
 });
 
-describe('storage — workbench', () => {
-  it('returns empty workbench when nothing stored', async () => {
-    const wb = await loadWorkbench();
-    expect(wb.environments).toEqual([]);
-    expect(wb.collections).toEqual([]);
+describe('storage — requests', () => {
+  it('returns empty requests data when nothing stored', async () => {
+    const result = await loadRequests();
+    expect(result.environments).toEqual([]);
+    expect(result.collections).toEqual([]);
   });
 
-  it('saves and loads workbench data', async () => {
+  it('saves and loads requests data', async () => {
     const data = { environments: [{ id: 'e1', name: 'dev' }], collections: [] };
-    await saveWorkbench(data as any);
-    const loaded = await loadWorkbench();
+    await saveRequests(data as any);
+    const loaded = await loadRequests();
     expect(loaded.environments).toHaveLength(1);
     expect(loaded.environments[0].name).toBe('dev');
+  });
+
+  it('migrates data from legacy workbench key to requests key', async () => {
+    const legacy = { environments: [{ id: 'e1', name: 'staging' }], collections: [{ id: 'c1', name: 'Col' }] };
+    localStorage.setItem('perf-test-workbench', JSON.stringify(legacy));
+
+    const loaded = await loadRequests();
+    expect(loaded.environments).toHaveLength(1);
+    expect(loaded.environments[0].name).toBe('staging');
+    expect(loaded.collections).toHaveLength(1);
+
+    expect(localStorage.getItem('perf-test-workbench')).toBeNull();
+    expect(localStorage.getItem('perf-test-requests')).toBeTruthy();
+  });
+
+  it('prefers new key over legacy key', async () => {
+    const legacy = { environments: [{ id: 'e1', name: 'old' }], collections: [] };
+    const current = { environments: [{ id: 'e2', name: 'new' }], collections: [] };
+    localStorage.setItem('perf-test-workbench', JSON.stringify(legacy));
+    localStorage.setItem('perf-test-requests', JSON.stringify(current));
+
+    const loaded = await loadRequests();
+    expect(loaded.environments[0].name).toBe('new');
+    expect(localStorage.getItem('perf-test-workbench')).toBeTruthy();
   });
 });
 

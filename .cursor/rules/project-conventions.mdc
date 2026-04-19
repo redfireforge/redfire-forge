@@ -29,10 +29,10 @@ alwaysApply: true
 | `src/utils/tauriStore.ts` | Tauri file-system storage |
 | `src/utils/httpClient.ts` | Dual-mode HTTP client |
 | `src/utils/platform.ts` | Platform detection |
-| `src/utils/workbenchTree.ts` | Workbench tree manipulation with safe insert helpers |
-| `src/utils/workbenchUrlResolver.ts` | Base URL resolution for multi-env collections |
-| `src/utils/workbenchAuthState.ts` | Auth config ↔ UI state mapping |
-| `src/utils/catalogExport.ts` | Catalog → Workbench export transformation |
+| `src/utils/requestTree.ts` | Requests tree manipulation with safe insert helpers |
+| `src/utils/requestUrlResolver.ts` | Base URL resolution for multi-env collections |
+| `src/utils/requestAuthState.ts` | Auth config ↔ UI state mapping |
+| `src/utils/catalogExport.ts` | Catalog → Requests export transformation |
 | `src/engine/executor.ts` | HTTP test execution engine |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |

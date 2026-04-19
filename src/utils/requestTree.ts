@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { WorkbenchFolder, WorkbenchRequest, WorkbenchCollection } from '../types';
+import type { RequestFolder, RequestItem, RequestCollection } from '../types';
 
-export function findFolderDeep(folders: WorkbenchFolder[], folderId: string): WorkbenchFolder | null {
+export function findFolderDeep(folders: RequestFolder[], folderId: string): RequestFolder | null {
   for (const f of folders) {
     if (f.id === folderId) return f;
     const deep = findFolderDeep(f.folders ?? [], folderId);
@@ -10,7 +10,7 @@ export function findFolderDeep(folders: WorkbenchFolder[], folderId: string): Wo
   return null;
 }
 
-export function findReqInFolders(folders: WorkbenchFolder[], reqId: string): WorkbenchRequest | null {
+export function findReqInFolders(folders: RequestFolder[], reqId: string): RequestItem | null {
   for (const f of folders) {
     const r = f.requests.find((r) => r.id === reqId);
     if (r) return r;
@@ -20,19 +20,19 @@ export function findReqInFolders(folders: WorkbenchFolder[], reqId: string): Wor
   return null;
 }
 
-export function findRequestInCollection(col: WorkbenchCollection, reqId: string): WorkbenchRequest | null {
+export function findRequestInCollection(col: RequestCollection, reqId: string): RequestItem | null {
   return col.requests.find((r) => r.id === reqId) ?? findReqInFolders(col.folders ?? [], reqId);
 }
 
-export function countReqsInFolders(folders: WorkbenchFolder[]): number {
+export function countReqsInFolders(folders: RequestFolder[]): number {
   return folders.reduce((sum, f) => sum + f.requests.length + countReqsInFolders(f.folders ?? []), 0);
 }
 
-export function countAllRequests(col: WorkbenchCollection): number {
+export function countAllRequests(col: RequestCollection): number {
   return col.requests.length + countReqsInFolders(col.folders ?? []);
 }
 
-export function mapReqInFolders(folders: WorkbenchFolder[], reqId: string, fn: (r: WorkbenchRequest) => WorkbenchRequest): WorkbenchFolder[] {
+export function mapReqInFolders(folders: RequestFolder[], reqId: string, fn: (r: RequestItem) => RequestItem): RequestFolder[] {
   return folders.map((f) => ({
     ...f,
     requests: f.requests.map((r) => r.id === reqId ? fn(r) : r),
@@ -40,7 +40,7 @@ export function mapReqInFolders(folders: WorkbenchFolder[], reqId: string, fn: (
   }));
 }
 
-export function mapRequests(col: WorkbenchCollection, reqId: string, fn: (r: WorkbenchRequest) => WorkbenchRequest): WorkbenchCollection {
+export function mapRequests(col: RequestCollection, reqId: string, fn: (r: RequestItem) => RequestItem): RequestCollection {
   return {
     ...col,
     requests: col.requests.map((r) => r.id === reqId ? fn(r) : r),
@@ -48,7 +48,7 @@ export function mapRequests(col: WorkbenchCollection, reqId: string, fn: (r: Wor
   };
 }
 
-export function removeReqFromFolders(folders: WorkbenchFolder[], reqId: string): WorkbenchFolder[] {
+export function removeReqFromFolders(folders: RequestFolder[], reqId: string): RequestFolder[] {
   return folders.map((f) => ({
     ...f,
     requests: f.requests.filter((r) => r.id !== reqId),
@@ -56,7 +56,7 @@ export function removeReqFromFolders(folders: WorkbenchFolder[], reqId: string):
   }));
 }
 
-export function removeRequestFrom(col: WorkbenchCollection, reqId: string): WorkbenchCollection {
+export function removeRequestFrom(col: RequestCollection, reqId: string): RequestCollection {
   return {
     ...col,
     requests: col.requests.filter((r) => r.id !== reqId),
@@ -64,23 +64,23 @@ export function removeRequestFrom(col: WorkbenchCollection, reqId: string): Work
   };
 }
 
-export function mapFolderDeep(folders: WorkbenchFolder[], folderId: string, fn: (f: WorkbenchFolder) => WorkbenchFolder): WorkbenchFolder[] {
+export function mapFolderDeep(folders: RequestFolder[], folderId: string, fn: (f: RequestFolder) => RequestFolder): RequestFolder[] {
   return folders.map((f) => {
     if (f.id === folderId) return fn(f);
     return { ...f, folders: mapFolderDeep(f.folders ?? [], folderId, fn) };
   });
 }
 
-export function addToFolderDeep(folders: WorkbenchFolder[], parentId: string, child: WorkbenchFolder): WorkbenchFolder[] {
+export function addToFolderDeep(folders: RequestFolder[], parentId: string, child: RequestFolder): RequestFolder[] {
   return folders.map((f) => {
     if (f.id === parentId) return { ...f, folders: [...(f.folders ?? []), child] };
     return { ...f, folders: addToFolderDeep(f.folders ?? [], parentId, child) };
   });
 }
 
-export function removeFolderDeep(folders: WorkbenchFolder[], folderId: string): { folders: WorkbenchFolder[]; orphaned: WorkbenchRequest[] } {
-  const result: WorkbenchFolder[] = [];
-  let orphaned: WorkbenchRequest[] = [];
+export function removeFolderDeep(folders: RequestFolder[], folderId: string): { folders: RequestFolder[]; orphaned: RequestItem[] } {
+  const result: RequestFolder[] = [];
+  let orphaned: RequestItem[] = [];
   for (const f of folders) {
     if (f.id === folderId) {
       orphaned = collectAllRequests(f);
@@ -93,15 +93,15 @@ export function removeFolderDeep(folders: WorkbenchFolder[], folderId: string): 
   return { folders: result, orphaned };
 }
 
-export function collectAllRequests(folder: WorkbenchFolder): WorkbenchRequest[] {
+export function collectAllRequests(folder: RequestFolder): RequestItem[] {
   return [...folder.requests, ...(folder.folders ?? []).flatMap(collectAllRequests)];
 }
 
-export function cloneRequest(r: WorkbenchRequest): WorkbenchRequest {
+export function cloneRequest(r: RequestItem): RequestItem {
   return { ...r, id: uuidv4() };
 }
 
-export function cloneFolder(f: WorkbenchFolder): WorkbenchFolder {
+export function cloneFolder(f: RequestFolder): RequestFolder {
   return {
     ...f, id: uuidv4(),
     requests: f.requests.map(cloneRequest),
@@ -109,9 +109,9 @@ export function cloneFolder(f: WorkbenchFolder): WorkbenchFolder {
   };
 }
 
-export function extractFolderDeep(folders: WorkbenchFolder[], folderId: string): { remaining: WorkbenchFolder[]; extracted: WorkbenchFolder | null } {
-  const remaining: WorkbenchFolder[] = [];
-  let extracted: WorkbenchFolder | null = null;
+export function extractFolderDeep(folders: RequestFolder[], folderId: string): { remaining: RequestFolder[]; extracted: RequestFolder | null } {
+  const remaining: RequestFolder[] = [];
+  let extracted: RequestFolder | null = null;
   for (const f of folders) {
     if (f.id === folderId) {
       extracted = f;
@@ -124,13 +124,13 @@ export function extractFolderDeep(folders: WorkbenchFolder[], folderId: string):
   return { remaining, extracted };
 }
 
-export function isDescendantOf(folders: WorkbenchFolder[], ancestorId: string, descendantId: string): boolean {
+export function isDescendantOf(folders: RequestFolder[], ancestorId: string, descendantId: string): boolean {
   const ancestor = findFolderDeep(folders, ancestorId);
   if (!ancestor) return false;
   return !!findFolderDeep(ancestor.folders ?? [], descendantId);
 }
 
-export function addReqToFolderDeep(folders: WorkbenchFolder[], folderId: string, req: WorkbenchRequest, beforeReqId?: string): WorkbenchFolder[] {
+export function addReqToFolderDeep(folders: RequestFolder[], folderId: string, req: RequestItem, beforeReqId?: string): RequestFolder[] {
   return folders.map((f) => {
     if (f.id === folderId) {
       if (beforeReqId) {
@@ -147,20 +147,20 @@ export function addReqToFolderDeep(folders: WorkbenchFolder[], folderId: string,
   });
 }
 
-export function addReqToFolderSafe(col: WorkbenchCollection, folderId: string, req: WorkbenchRequest, beforeReqId?: string): WorkbenchCollection {
+export function addReqToFolderSafe(col: RequestCollection, folderId: string, req: RequestItem, beforeReqId?: string): RequestCollection {
   const updatedFolders = addReqToFolderDeep(col.folders ?? [], folderId, req, beforeReqId);
   const inserted = !!findReqInFolders(updatedFolders, req.id);
   if (inserted) return { ...col, folders: updatedFolders };
   return { ...col, requests: [...col.requests, req] };
 }
 
-export function addFolderToParentSafe(folders: WorkbenchFolder[], parentId: string, child: WorkbenchFolder): WorkbenchFolder[] {
+export function addFolderToParentSafe(folders: RequestFolder[], parentId: string, child: RequestFolder): RequestFolder[] {
   const updated = addToFolderDeep(folders, parentId, child);
   if (findFolderDeep(updated, child.id)) return updated;
   return [...folders, child];
 }
 
-export function findReqParentFolder(folders: WorkbenchFolder[], reqId: string): WorkbenchFolder | null {
+export function findReqParentFolder(folders: RequestFolder[], reqId: string): RequestFolder | null {
   for (const f of folders) {
     if (f.requests.some((r) => r.id === reqId)) return f;
     const deep = findReqParentFolder(f.folders ?? [], reqId);
@@ -169,7 +169,7 @@ export function findReqParentFolder(folders: WorkbenchFolder[], reqId: string): 
   return null;
 }
 
-export function reorderInFolders(folders: WorkbenchFolder[], folderId: string, beforeId: string | null): WorkbenchFolder[] {
+export function reorderInFolders(folders: RequestFolder[], folderId: string, beforeId: string | null): RequestFolder[] {
   const flat = [...folders];
   const srcIdx = flat.findIndex((f) => f.id === folderId);
   if (srcIdx < 0) {
@@ -181,7 +181,7 @@ export function reorderInFolders(folders: WorkbenchFolder[], folderId: string, b
   return flat;
 }
 
-export function swapInFolders(folders: WorkbenchFolder[], folderId: string, direction: 'up' | 'down'): WorkbenchFolder[] {
+export function swapInFolders(folders: RequestFolder[], folderId: string, direction: 'up' | 'down'): RequestFolder[] {
   const arr = [...folders];
   const idx = arr.findIndex((f) => f.id === folderId);
   if (idx >= 0) {

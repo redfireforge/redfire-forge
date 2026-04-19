@@ -840,10 +840,10 @@
 }
 .cat-view-tab:hover { color: var(--text); }
 .cat-view-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-.cat-wb-send {
+.cat-req-send {
   margin-left: auto; color: #61affe; font-size: 0.72rem;
 }
-.cat-wb-send:hover { color: #fff; background: rgba(97,175,254,0.15); border-radius: var(--radius) var(--radius) 0 0; }
+.cat-req-send:hover { color: #fff; background: rgba(97,175,254,0.15); border-radius: var(--radius) var(--radius) 0 0; }
 
 /* ── Filter row with deprecation toggle ──────── */
 .ceb-filter-row { display: flex; align-items: center; gap: 10px; }
