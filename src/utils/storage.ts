@@ -1,21 +1,34 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, Project, WorkbenchData } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData } from '../types';
+import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 
 const STORAGE_KEY = 'perf-test-runs';
-const PROJECTS_KEY = 'perf-test-projects';
-const SELECTED_PROJECT_KEY = 'perf-test-selected-project';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
 const MAX_RUNS_KEY = 'perf-test-max-runs';
 const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
-const WORKBENCH_KEY = 'perf-test-workbench';
+const REQUESTS_KEY = 'perf-test-requests';
+const LEGACY_WORKBENCH_KEY = 'perf-test-workbench';
+const CATALOG_KEY = 'perf-test-catalog';
+const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
+const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
+
+// Flat app-level data keys (v3)
+const FLAT_ENVS_KEY = 'perf-test-v3-environments';
+const FLAT_SVCS_KEY = 'perf-test-v3-microservices';
+const FLAT_FGS_KEY = 'perf-test-v3-feature-groups';
+const FLAT_SEL_ENV_KEY = 'perf-test-v3-selected-env';
+const FLAT_SEL_SVC_KEY = 'perf-test-v3-selected-svc';
+const FLAT_MIGRATED_KEY = 'perf-test-v3-migrated';
 
 // Legacy keys (used only for migration)
 const LEGACY_FEATURES_KEY = 'perf-test-features';
 const LEGACY_ENVS_KEY = 'perf-test-environments';
 const LEGACY_SERVICES_KEY = 'perf-test-microservices';
 const LEGACY_GLOBAL_AUTH_KEY = 'perf-test-global-auth';
+const PROJECTS_KEY = 'perf-test-projects';
+const SELECTED_PROJECT_KEY = 'perf-test-selected-project';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -121,7 +134,7 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
   return { usedBytes: total, entries };
 }
 
-// ---------- Test runs (global, not per-project) ----------
+// ---------- Test runs ----------
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = capAndTruncateResults(run);
@@ -180,29 +193,33 @@ export async function deleteTestRun(runId: string): Promise<void> {
   await writeKey(STORAGE_KEY, JSON.stringify(runs));
 }
 
-// ---------- Projects ----------
+// ---------- Flat app-level data (v3) ----------
 
-export async function saveProjects(projects: Project[]): Promise<void> {
-  await writeKey(PROJECTS_KEY, JSON.stringify(projects));
+export interface AppData {
+  environments: Environment[];
+  microservices: Microservice[];
+  featureGroups: FeatureGroup[];
+  globalAuthProfiles: GlobalAuthProfile[];
+  selectedEnvId: string;
+  selectedSvcId: string;
 }
 
-export async function loadProjects(): Promise<Project[]> {
-  try {
-    const raw = await readKey(PROJECTS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Project[];
-  } catch { return []; }
-}
+export async function saveEnvironments(envs: Environment[]): Promise<void> { await writeKey(FLAT_ENVS_KEY, JSON.stringify(envs)); }
+export async function loadEnvironments(): Promise<Environment[]> { try { const r = await readKey(FLAT_ENVS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-export async function saveSelectedProject(projectId: string): Promise<void> {
-  await writeKey(SELECTED_PROJECT_KEY, projectId);
-}
+export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await writeKey(FLAT_SVCS_KEY, JSON.stringify(svcs)); }
+export async function loadMicroservices(): Promise<Microservice[]> { try { const r = await readKey(FLAT_SVCS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-export async function loadSelectedProject(): Promise<string> {
-  return (await readKey(SELECTED_PROJECT_KEY)) ?? '';
-}
+export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> { await writeKey(FLAT_FGS_KEY, JSON.stringify(fgs)); }
+export async function loadFeatureGroups(): Promise<FeatureGroup[]> { try { const r = await readKey(FLAT_FGS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-// ---------- Global Auth Profiles (app-level, shared across projects) ----------
+export async function saveSelectedEnvId(id: string): Promise<void> { await writeKey(FLAT_SEL_ENV_KEY, id); }
+export async function loadSelectedEnvId(): Promise<string> { return (await readKey(FLAT_SEL_ENV_KEY)) ?? ''; }
+
+export async function saveSelectedSvcId(id: string): Promise<void> { await writeKey(FLAT_SEL_SVC_KEY, id); }
+export async function loadSelectedSvcId(): Promise<string> { return (await readKey(FLAT_SEL_SVC_KEY)) ?? ''; }
+
+// ---------- Global Auth Profiles ----------
 
 export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
   await writeKey(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
@@ -216,9 +233,80 @@ export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
   } catch { return []; }
 }
 
-// ---------- Legacy migration ----------
+// ---------- Migration (v1 legacy + v2 projects → v3 flat) ----------
 
-export async function migrateLegacyData(): Promise<Project | null> {
+export async function migrateToFlat(): Promise<AppData | null> {
+  const alreadyMigrated = await readKey(FLAT_MIGRATED_KEY);
+  if (alreadyMigrated === 'true') return null;
+
+  // Try v2 (project-based) migration first
+  const rawProjects = await readKey(PROJECTS_KEY);
+  if (rawProjects) {
+    try {
+      const projects = JSON.parse(rawProjects) as Array<{
+        id: string; environments?: Environment[]; microservices?: Microservice[];
+        globalAuthProfiles?: GlobalAuthProfile[]; featureGroups?: FeatureGroup[];
+        selectedEnvId?: string; selectedSvcId?: string;
+      }>;
+      const rawSelId = await readKey(SELECTED_PROJECT_KEY);
+      const sel = projects.find((p) => p.id === rawSelId) ?? projects[0];
+      if (sel) {
+        // Merge all project data (selected first, then others for envs/svcs/auth)
+        let envs = [...(sel.environments ?? [])];
+        let svcs = [...(sel.microservices ?? [])];
+        let fgs = [...(sel.featureGroups ?? [])];
+        let auth = [...(sel.globalAuthProfiles ?? [])];
+
+        const envIds = new Set(envs.map(e => e.id));
+        const svcIds = new Set(svcs.map(s => s.id));
+        const authIds = new Set(auth.map(a => a.id));
+        for (const p of projects) {
+          if (p.id === sel.id) continue;
+          for (const e of (p.environments ?? [])) if (!envIds.has(e.id)) { envs.push(e); envIds.add(e.id); }
+          for (const s of (p.microservices ?? [])) if (!svcIds.has(s.id)) { svcs.push(s); svcIds.add(s.id); }
+          for (const a of (p.globalAuthProfiles ?? [])) if (!authIds.has(a.id)) { auth.push(a); authIds.add(a.id); }
+          fgs.push(...(p.featureGroups ?? []));
+        }
+
+        // Strip any projectId from FGs
+        fgs = fgs.map((fg) => {
+          const copy = { ...fg };
+          if ('projectId' in copy) delete (copy as Record<string, unknown>).projectId;
+          return copy;
+        });
+
+        // Merge project-level auth profiles into app global
+        const existingGlobal = await loadGlobalAuthProfiles();
+        const existingGlobalIds = new Set(existingGlobal.map(a => a.id));
+        const mergedGlobal = [...existingGlobal];
+        for (const a of auth) {
+          if (!existingGlobalIds.has(a.id)) { mergedGlobal.push(a); existingGlobalIds.add(a.id); }
+        }
+
+        const data: AppData = {
+          environments: envs,
+          microservices: svcs,
+          featureGroups: fgs,
+          globalAuthProfiles: mergedGlobal,
+          selectedEnvId: sel.selectedEnvId ?? '',
+          selectedSvcId: sel.selectedSvcId ?? '',
+        };
+
+        await Promise.all([
+          saveEnvironments(data.environments),
+          saveMicroservices(data.microservices),
+          saveFeatureGroups(data.featureGroups),
+          saveGlobalAuthProfiles(data.globalAuthProfiles),
+          saveSelectedEnvId(data.selectedEnvId),
+          saveSelectedSvcId(data.selectedSvcId),
+          writeKey(FLAT_MIGRATED_KEY, 'true'),
+        ]);
+        return data;
+      }
+    } catch { /* fall through to v1 */ }
+  }
+
+  // Try v1 (legacy flat keys) migration
   const [legacyEnvs, legacySvcs, legacyAuth, legacyFgs] = await Promise.all([
     readKey(LEGACY_ENVS_KEY),
     readKey(LEGACY_SERVICES_KEY),
@@ -227,47 +315,48 @@ export async function migrateLegacyData(): Promise<Project | null> {
   ]);
 
   const hasLegacy = legacyEnvs || legacySvcs || legacyAuth || legacyFgs;
-  if (!hasLegacy) return null;
+  if (!hasLegacy) {
+    await writeKey(FLAT_MIGRATED_KEY, 'true');
+    return null;
+  }
 
   const environments: Environment[] = legacyEnvs ? JSON.parse(legacyEnvs) : [];
   const microservices: Microservice[] = legacySvcs ? JSON.parse(legacySvcs) : [];
   const globalAuthProfiles: GlobalAuthProfile[] = legacyAuth ? JSON.parse(legacyAuth) : [];
   let featureGroups: FeatureGroup[] = legacyFgs ? JSON.parse(legacyFgs) : [];
-
-  // Strip any projectId from legacy FGs
   featureGroups = featureGroups.map((fg) => {
-    const { ...rest } = fg;
-    if ('projectId' in rest) delete (rest as Record<string, unknown>).projectId;
-    return rest;
+    const copy = { ...fg };
+    if ('projectId' in copy) delete (copy as Record<string, unknown>).projectId;
+    return copy;
   });
 
   if (environments.length === 0 && microservices.length === 0 && globalAuthProfiles.length === 0 && featureGroups.length === 0) {
+    await writeKey(FLAT_MIGRATED_KEY, 'true');
     return null;
   }
 
-  const project: Project = {
-    id: crypto.randomUUID ? crypto.randomUUID() : `legacy-${Date.now()}`,
-    name: 'Default Project',
-    description: 'Migrated from previous version',
-    createdAt: Date.now(),
-    environments,
-    microservices,
-    globalAuthProfiles,
-    featureGroups,
-  };
+  const existingGlobal = await loadGlobalAuthProfiles();
+  const merged = [...existingGlobal];
+  const ids = new Set(existingGlobal.map(a => a.id));
+  for (const a of globalAuthProfiles) if (!ids.has(a.id)) merged.push(a);
 
-  // Clean up legacy keys
+  const data: AppData = { environments, microservices, featureGroups, globalAuthProfiles: merged, selectedEnvId: '', selectedSvcId: '' };
   await Promise.all([
-    removeKey(LEGACY_ENVS_KEY),
-    removeKey(LEGACY_SERVICES_KEY),
-    removeKey(LEGACY_GLOBAL_AUTH_KEY),
-    removeKey(LEGACY_FEATURES_KEY),
-    removeKey('perf-test-selected-env'),
-    removeKey('perf-test-selected-svc'),
+    saveEnvironments(data.environments),
+    saveMicroservices(data.microservices),
+    saveFeatureGroups(data.featureGroups),
+    saveGlobalAuthProfiles(data.globalAuthProfiles),
+    writeKey(FLAT_MIGRATED_KEY, 'true'),
+  ]);
+
+  await Promise.all([
+    removeKey(LEGACY_ENVS_KEY), removeKey(LEGACY_SERVICES_KEY),
+    removeKey(LEGACY_GLOBAL_AUTH_KEY), removeKey(LEGACY_FEATURES_KEY),
+    removeKey('perf-test-selected-env'), removeKey('perf-test-selected-svc'),
     removeKey('perf-test-scenarios'),
   ]);
 
-  return project;
+  return data;
 }
 
 // ---------- Runner config ----------
@@ -296,21 +385,80 @@ export async function loadTheme(): Promise<string> {
   return (await readKey(THEME_KEY)) ?? 'dark';
 }
 
-// ---------- Workbench ----------
+// ---------- Requests ----------
 
-const EMPTY_WORKBENCH: WorkbenchData = {
+const EMPTY_REQUESTS: RequestsData = {
   environments: [],
   collections: [],
 };
 
-export async function loadWorkbench(): Promise<WorkbenchData> {
+export async function loadRequests(): Promise<RequestsData> {
   try {
-    const raw = await readKey(WORKBENCH_KEY);
-    if (raw) return JSON.parse(raw) as WorkbenchData;
+    const raw = await readKey(REQUESTS_KEY);
+    if (raw) return JSON.parse(raw) as RequestsData;
+
+    const legacy = await readKey(LEGACY_WORKBENCH_KEY);
+    if (legacy) {
+      const data = JSON.parse(legacy) as RequestsData;
+      await writeKey(REQUESTS_KEY, legacy);
+      await removeKey(LEGACY_WORKBENCH_KEY);
+      return data;
+    }
   } catch { /* ignore */ }
-  return { ...EMPTY_WORKBENCH, environments: [], collections: [] };
+  return { ...EMPTY_REQUESTS, environments: [], collections: [] };
 }
 
-export async function saveWorkbench(data: WorkbenchData): Promise<void> {
-  await writeKey(WORKBENCH_KEY, JSON.stringify(data));
+export async function saveRequests(data: RequestsData): Promise<void> {
+  await writeKey(REQUESTS_KEY, JSON.stringify(data));
+}
+
+// ---------- Catalog ----------
+
+export async function loadCatalogEntries(): Promise<CatalogEntry[]> {
+  try {
+    const raw = await readKey(CATALOG_KEY);
+    if (raw) return JSON.parse(raw) as CatalogEntry[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+export async function saveCatalogEntries(entries: CatalogEntry[]): Promise<void> {
+  await writeKey(CATALOG_KEY, JSON.stringify(entries));
+}
+
+export async function loadCatalogRawSpec(entryId: string, versionId: string): Promise<string | null> {
+  try {
+    const raw = await readKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
+    return raw || null;
+  } catch { return null; }
+}
+
+export async function saveCatalogRawSpec(entryId: string, versionId: string, rawSpec: string): Promise<void> {
+  await writeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`, rawSpec);
+}
+
+export async function removeCatalogRawSpec(entryId: string, versionId: string): Promise<void> {
+  await removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
+}
+
+export async function removeAllCatalogRawSpecs(entryId: string, versionIds: string[]): Promise<void> {
+  await Promise.all(versionIds.map(vid => removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${vid}`)));
+}
+
+// ---------- Catalog Endpoint Values ----------
+
+export async function loadCatalogEndpointValues(entryId: string): Promise<Record<string, SavedEndpointValues>> {
+  try {
+    const raw = await readKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return {};
+}
+
+export async function saveCatalogEndpointValues(entryId: string, values: Record<string, SavedEndpointValues>): Promise<void> {
+  await writeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`, JSON.stringify(values));
+}
+
+export async function removeCatalogEndpointValues(entryId: string): Promise<void> {
+  await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
 }

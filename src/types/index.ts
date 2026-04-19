@@ -6,7 +6,9 @@ export interface Environment {
 export interface Microservice {
   id: string;
   name: string;
-  baseUrls: Record<string, string>; // environmentId -> base URL
+  baseUrls: Record<string, string>;        // environmentId -> base URL
+  authProfileIds?: Record<string, string>; // environmentId -> GlobalAuthProfile id
+  customEnvs?: Environment[];              // microservice-specific environments
 }
 
 export interface KeyValue {
@@ -32,6 +34,8 @@ export interface AuthConfig {
   tokenUrl?: string;
   clientId?: string;
   clientSecret?: string;
+  // Links to a GlobalAuthProfile by id
+  globalProfileId?: string;
 }
 
 export type ValidationMode = 'none' | 'full' | 'selective';
@@ -106,19 +110,6 @@ export interface FeatureGroup {
   auth?: AuthConfig;
   globalAuthProfileId?: string;
   scenarios: TestScenario[];
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: number;
-  environments: Environment[];
-  microservices: Microservice[];
-  globalAuthProfiles: GlobalAuthProfile[];
-  featureGroups: FeatureGroup[];
-  selectedEnvId?: string;
-  selectedSvcId?: string;
 }
 
 export interface ScenarioWeight {
@@ -208,11 +199,32 @@ export interface TestRun {
   baseUrl?: string;
 }
 
-// ─── Workbench types ─────────────────────────────────────────
+// ─── Requests types ──────────────────────────────────────────
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-export interface WorkbenchRequest {
+export interface CatalogRequestMeta {
+  operationId?: string;
+  description?: string;
+  originalPath: string;
+  tags: string[];
+  deprecated?: boolean;
+  parameters?: {
+    name: string;
+    in: 'path' | 'query' | 'header' | 'cookie';
+    required: boolean;
+    description?: string;
+    type?: string;
+  }[];
+  expectedResponses?: {
+    statusCode: string;
+    description: string;
+  }[];
+  security?: string[];
+  sourceSpec?: string;
+}
+
+export interface RequestItem {
   id: string;
   name: string;
   method: HttpMethod;
@@ -223,38 +235,41 @@ export interface WorkbenchRequest {
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
+  catalogMeta?: CatalogRequestMeta;
 }
 
-export interface WorkbenchFolder {
+export interface RequestFolder {
   id: string;
   name: string;
-  requests: WorkbenchRequest[];
-  folders?: WorkbenchFolder[];
+  requests: RequestItem[];
+  folders?: RequestFolder[];
   isSubCollection?: boolean;
   auth?: AuthConfig;
   baseUrls?: Record<string, string>;
   selectedEnvId?: string;
 }
 
-export interface WorkbenchCollection {
+export interface RequestCollection {
   id: string;
   name: string;
-  mode: 'direct' | 'multi-env';
+  mode: 'direct' | 'multi-env' | 'group';
+  groupId?: string;
+  microserviceId?: string;
   baseUrls?: Record<string, string>;
   auth?: AuthConfig;
   authPerEnv?: Record<string, AuthConfig>;
-  requests: WorkbenchRequest[];
-  folders?: WorkbenchFolder[];
+  requests: RequestItem[];
+  folders?: RequestFolder[];
 }
 
-export interface WorkbenchEnv {
+export interface RequestEnv {
   id: string;
   name: string;
 }
 
-export interface WorkbenchData {
-  environments: WorkbenchEnv[];
-  collections: WorkbenchCollection[];
+export interface RequestsData {
+  environments: RequestEnv[];
+  collections: RequestCollection[];
   selectedEnvId?: string;
   selectedCollectionId?: string;
   selectedRequestId?: string;

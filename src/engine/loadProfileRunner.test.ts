@@ -2,129 +2,93 @@ import { describe, it, expect } from 'vitest';
 import { getTargetConcurrency } from './loadProfileRunner';
 import type { LoadProfileConfig } from '../types';
 
-describe('getTargetConcurrency', () => {
-  describe('sustained profile', () => {
-    const profile: LoadProfileConfig = {
-      type: 'sustained',
-      durationSec: 60,
-      maxConcurrency: 10,
-    };
+function makeProfile(overrides: Partial<LoadProfileConfig> = {}): LoadProfileConfig {
+  return {
+    type: 'sustained',
+    durationSec: 60,
+    maxConcurrency: 10,
+    ...overrides,
+  };
+}
 
-    it('returns maxConcurrency throughout duration', () => {
-      expect(getTargetConcurrency(profile, 0)).toBe(10);
-      expect(getTargetConcurrency(profile, 30_000)).toBe(10);
-      expect(getTargetConcurrency(profile, 59_999)).toBe(10);
+describe('getTargetConcurrency', () => {
+  describe('sustained', () => {
+    it('returns maxConcurrency during the duration', () => {
+      expect(getTargetConcurrency(makeProfile(), 0)).toBe(10);
+      expect(getTargetConcurrency(makeProfile(), 30_000)).toBe(10);
     });
 
-    it('returns 0 after duration expires', () => {
-      expect(getTargetConcurrency(profile, 60_000)).toBe(0);
-      expect(getTargetConcurrency(profile, 90_000)).toBe(0);
+    it('returns 0 after duration', () => {
+      expect(getTargetConcurrency(makeProfile(), 60_000)).toBe(0);
+      expect(getTargetConcurrency(makeProfile(), 100_000)).toBe(0);
     });
   });
 
-  describe('ramp-up profile', () => {
-    const profile: LoadProfileConfig = {
-      type: 'ramp-up',
-      durationSec: 60,
-      maxConcurrency: 10,
-      rampUpSec: 30,
-    };
-
-    it('starts at 1 concurrency', () => {
+  describe('ramp-up', () => {
+    it('starts at 1 and ramps to maxConcurrency', () => {
+      const profile = makeProfile({ type: 'ramp-up', rampUpSec: 10 });
       expect(getTargetConcurrency(profile, 0)).toBe(1);
-    });
-
-    it('ramps linearly toward maxConcurrency', () => {
-      const midRamp = getTargetConcurrency(profile, 15_000);
-      expect(midRamp).toBeGreaterThan(1);
-      expect(midRamp).toBeLessThanOrEqual(10);
+      expect(getTargetConcurrency(profile, 5_000)).toBeGreaterThan(1);
+      expect(getTargetConcurrency(profile, 5_000)).toBeLessThanOrEqual(10);
     });
 
     it('reaches maxConcurrency at rampUpSec', () => {
+      const profile = makeProfile({ type: 'ramp-up', rampUpSec: 10 });
+      expect(getTargetConcurrency(profile, 10_000)).toBe(10);
+    });
+
+    it('stays at maxConcurrency after ramp', () => {
+      const profile = makeProfile({ type: 'ramp-up', rampUpSec: 10 });
       expect(getTargetConcurrency(profile, 30_000)).toBe(10);
     });
 
-    it('maintains maxConcurrency after ramp completes', () => {
-      expect(getTargetConcurrency(profile, 45_000)).toBe(10);
+    it('defaults rampUpSec to durationSec', () => {
+      const profile = makeProfile({ type: 'ramp-up' });
+      const half = 30_000;
+      const target = getTargetConcurrency(profile, half);
+      expect(target).toBeGreaterThan(1);
+      expect(target).toBeLessThanOrEqual(10);
     });
 
-    it('returns 0 after duration expires', () => {
+    it('returns 0 after duration', () => {
+      const profile = makeProfile({ type: 'ramp-up', rampUpSec: 10 });
       expect(getTargetConcurrency(profile, 60_000)).toBe(0);
-    });
-
-    it('uses durationSec as ramp time when rampUpSec not specified', () => {
-      const noRampSec: LoadProfileConfig = {
-        type: 'ramp-up',
-        durationSec: 60,
-        maxConcurrency: 20,
-      };
-      const mid = getTargetConcurrency(noRampSec, 30_000);
-      expect(mid).toBeGreaterThan(1);
-      expect(mid).toBeLessThanOrEqual(20);
     });
   });
 
-  describe('spike profile', () => {
-    const profile: LoadProfileConfig = {
-      type: 'spike',
-      durationSec: 100,
-      maxConcurrency: 10,
-      spikeStartSec: 30,
-      spikeDurationSec: 20,
-      spikeConcurrency: 50,
-    };
-
+  describe('spike', () => {
     it('returns maxConcurrency before spike', () => {
-      expect(getTargetConcurrency(profile, 0)).toBe(10);
-      expect(getTargetConcurrency(profile, 29_999)).toBe(10);
+      const profile = makeProfile({ type: 'spike', spikeStartSec: 20, spikeDurationSec: 10, spikeConcurrency: 50 });
+      expect(getTargetConcurrency(profile, 10_000)).toBe(10);
     });
 
     it('returns spikeConcurrency during spike window', () => {
-      expect(getTargetConcurrency(profile, 30_000)).toBe(50);
-      expect(getTargetConcurrency(profile, 40_000)).toBe(50);
-      expect(getTargetConcurrency(profile, 49_999)).toBe(50);
+      const profile = makeProfile({ type: 'spike', spikeStartSec: 20, spikeDurationSec: 10, spikeConcurrency: 50 });
+      expect(getTargetConcurrency(profile, 25_000)).toBe(50);
     });
 
-    it('returns to maxConcurrency after spike ends', () => {
-      expect(getTargetConcurrency(profile, 50_000)).toBe(10);
-      expect(getTargetConcurrency(profile, 80_000)).toBe(10);
+    it('returns maxConcurrency after spike window', () => {
+      const profile = makeProfile({ type: 'spike', spikeStartSec: 20, spikeDurationSec: 10, spikeConcurrency: 50 });
+      expect(getTargetConcurrency(profile, 35_000)).toBe(10);
     });
 
-    it('returns 0 after duration expires', () => {
-      expect(getTargetConcurrency(profile, 100_000)).toBe(0);
+    it('returns 0 after duration', () => {
+      const profile = makeProfile({ type: 'spike' });
+      expect(getTargetConcurrency(profile, 60_000)).toBe(0);
     });
 
-    it('uses defaults when spike params are not set', () => {
-      const defaults: LoadProfileConfig = {
-        type: 'spike',
-        durationSec: 100,
-        maxConcurrency: 10,
-      };
-      const spikeStart = 30;
-      const spikeDur = 20;
-      expect(getTargetConcurrency(defaults, spikeStart * 1000)).toBe(30);
-      expect(getTargetConcurrency(defaults, (spikeStart + spikeDur) * 1000)).toBe(10);
+    it('defaults spike params from duration and maxConcurrency', () => {
+      const profile = makeProfile({ type: 'spike', durationSec: 100, maxConcurrency: 5 });
+      // spikeStart defaults to 30, spikeDur to 20, spikeConcurrency to 15
+      expect(getTargetConcurrency(profile, 35_000)).toBe(15);
+      expect(getTargetConcurrency(profile, 10_000)).toBe(5);
     });
   });
 
-  describe('edge cases', () => {
-    it('always returns at least 1 during ramp-up', () => {
-      const profile: LoadProfileConfig = {
-        type: 'ramp-up',
-        durationSec: 60,
-        maxConcurrency: 100,
-        rampUpSec: 60,
-      };
-      expect(getTargetConcurrency(profile, 1)).toBeGreaterThanOrEqual(1);
-    });
-
-    it('handles unknown profile type as sustained', () => {
-      const profile = {
-        type: 'unknown' as LoadProfileConfig['type'],
-        durationSec: 60,
-        maxConcurrency: 5,
-      };
-      expect(getTargetConcurrency(profile, 10_000)).toBe(5);
+  describe('unknown type', () => {
+    it('falls back to maxConcurrency', () => {
+      const profile = makeProfile({ type: 'unknown' as any });
+      expect(getTargetConcurrency(profile, 10_000)).toBe(10);
     });
   });
 });

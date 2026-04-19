@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Mock platform to always return false (browser mode) so we use localStorage
 vi.mock('./platform', () => ({ isTauri: () => false }));
 
 import {
@@ -11,12 +10,18 @@ import {
   loadTestRuns,
   deleteTestRun,
   saveTestRunsBulk,
-  saveProjects,
-  loadProjects,
-  saveSelectedProject,
-  loadSelectedProject,
+  saveEnvironments,
+  loadEnvironments,
+  saveMicroservices,
+  loadMicroservices,
+  saveFeatureGroups,
+  loadFeatureGroups,
   saveGlobalAuthProfiles,
   loadGlobalAuthProfiles,
+  saveSelectedEnvId,
+  loadSelectedEnvId,
+  saveSelectedSvcId,
+  loadSelectedSvcId,
   getMaxRuns,
   setMaxRuns,
   saveRunnerConfig,
@@ -24,9 +29,20 @@ import {
   saveTheme,
   loadTheme,
   getStorageUsage,
-  migrateLegacyData,
+  migrateToFlat,
+  loadRequests,
+  saveRequests,
+  loadCatalogEntries,
+  saveCatalogEntries,
+  loadCatalogRawSpec,
+  saveCatalogRawSpec,
+  removeCatalogRawSpec,
+  removeAllCatalogRawSpecs,
+  loadCatalogEndpointValues,
+  saveCatalogEndpointValues,
+  removeCatalogEndpointValues,
 } from './storage';
-import type { TestRun, Project, GlobalAuthProfile } from '../types';
+import type { TestRun, GlobalAuthProfile } from '../types';
 
 function makeRun(id: string, results: number = 1): TestRun {
   return {
@@ -56,16 +72,6 @@ function makeRun(id: string, results: number = 1): TestRun {
       validationMode: 'none' as const,
       failureDetails: [],
     })),
-  };
-}
-
-function makeProject(id: string, name: string): Project {
-  return {
-    id, name, createdAt: Date.now(),
-    environments: [{ id: 'env1', name: 't01' }],
-    microservices: [{ id: 'svc1', name: 'vehicle-svc', baseUrls: { env1: 'http://api' } }],
-    globalAuthProfiles: [],
-    featureGroups: [],
   };
 }
 
@@ -133,35 +139,39 @@ describe('storage — test runs', () => {
   });
 });
 
-describe('storage — projects', () => {
-  it('saves and loads projects', async () => {
-    const projects = [makeProject('p1', 'Project 1'), makeProject('p2', 'Project 2')];
-    await saveProjects(projects);
-    const loaded = await loadProjects();
+describe('storage — flat data', () => {
+  it('saves and loads environments', async () => {
+    await saveEnvironments([{ id: 'e1', name: 't01' }, { id: 'e2', name: 'p01' }]);
+    const loaded = await loadEnvironments();
     expect(loaded).toHaveLength(2);
-    expect(loaded[0].name).toBe('Project 1');
-    expect(loaded[1].name).toBe('Project 2');
+    expect(loaded[0].name).toBe('t01');
   });
 
-  it('returns empty array when no projects', async () => {
-    expect(await loadProjects()).toEqual([]);
-  });
-
-  it('saves and loads selected project', async () => {
-    await saveSelectedProject('p1');
-    expect(await loadSelectedProject()).toBe('p1');
-  });
-
-  it('returns empty string when no selected project', async () => {
-    expect(await loadSelectedProject()).toBe('');
-  });
-
-  it('overwrites projects on re-save', async () => {
-    await saveProjects([makeProject('p1', 'V1')]);
-    await saveProjects([makeProject('p1', 'V2')]);
-    const loaded = await loadProjects();
+  it('saves and loads microservices', async () => {
+    await saveMicroservices([{ id: 's1', name: 'svc-1', baseUrls: { e1: 'http://api' } }]);
+    const loaded = await loadMicroservices();
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].name).toBe('V2');
+    expect(loaded[0].baseUrls.e1).toBe('http://api');
+  });
+
+  it('saves and loads feature groups', async () => {
+    await saveFeatureGroups([{ id: 'fg1', name: 'FG1', scenarios: [] }]);
+    const loaded = await loadFeatureGroups();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].name).toBe('FG1');
+  });
+
+  it('saves and loads selected env/svc ids', async () => {
+    await saveSelectedEnvId('e1');
+    await saveSelectedSvcId('s1');
+    expect(await loadSelectedEnvId()).toBe('e1');
+    expect(await loadSelectedSvcId()).toBe('s1');
+  });
+
+  it('returns empty arrays when nothing stored', async () => {
+    expect(await loadEnvironments()).toEqual([]);
+    expect(await loadMicroservices()).toEqual([]);
+    expect(await loadFeatureGroups()).toEqual([]);
   });
 });
 
@@ -220,11 +230,11 @@ describe('storage — runner config', () => {
   });
 
   it('saves and loads with context key', async () => {
-    await saveRunnerConfig({ concurrency: 5 }, 'project-1:env-1:svc-1');
-    await saveRunnerConfig({ concurrency: 10 }, 'project-2:env-2:svc-2');
+    await saveRunnerConfig({ concurrency: 5 }, 'env-1:svc-1');
+    await saveRunnerConfig({ concurrency: 10 }, 'env-2:svc-2');
 
-    expect(await loadRunnerConfig('project-1:env-1:svc-1')).toEqual({ concurrency: 5 });
-    expect(await loadRunnerConfig('project-2:env-2:svc-2')).toEqual({ concurrency: 10 });
+    expect(await loadRunnerConfig('env-1:svc-1')).toEqual({ concurrency: 5 });
+    expect(await loadRunnerConfig('env-2:svc-2')).toEqual({ concurrency: 10 });
   });
 
   it('returns null when no config stored', async () => {
@@ -251,53 +261,182 @@ describe('storage — usage', () => {
   });
 
   it('counts bytes for stored data', async () => {
-    await saveProjects([makeProject('p1', 'Test')]);
+    await saveEnvironments([{ id: 'e1', name: 't01' }]);
     const { usedBytes, entries } = await getStorageUsage();
     expect(usedBytes).toBeGreaterThan(0);
-    expect(entries['perf-test-projects']).toBeGreaterThan(0);
+    expect(entries['perf-test-v3-environments']).toBeGreaterThan(0);
   });
 });
 
-describe('storage — legacy migration', () => {
-  it('returns null when no legacy data', async () => {
-    expect(await migrateLegacyData()).toBeNull();
+describe('storage — migration', () => {
+  it('returns null when no legacy data and marks as migrated', async () => {
+    expect(await migrateToFlat()).toBeNull();
   });
 
-  it('migrates legacy keys into a project', async () => {
+  it('migrates v2 project data to flat', async () => {
+    const project = {
+      id: 'p1', name: 'Test Project', createdAt: Date.now(),
+      environments: [{ id: 'e1', name: 't01' }],
+      microservices: [{ id: 's1', name: 'svc', baseUrls: { e1: 'http://api' } }],
+      globalAuthProfiles: [{ id: 'a1', name: 'Auth', auth: { type: 'basic' } }],
+      featureGroups: [{ id: 'f1', name: 'Feature', scenarios: [] }],
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([project]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result).toBeTruthy();
+    expect(result!.environments).toHaveLength(1);
+    expect(result!.microservices).toHaveLength(1);
+    expect(result!.featureGroups).toHaveLength(1);
+    expect(result!.globalAuthProfiles).toHaveLength(1);
+    expect(result!.selectedEnvId).toBe('e1');
+    expect(result!.selectedSvcId).toBe('s1');
+
+    const envs = await loadEnvironments();
+    expect(envs).toHaveLength(1);
+    expect(envs[0].name).toBe('t01');
+  });
+
+  it('migrates v1 legacy keys to flat', async () => {
     localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 't01' }]));
     localStorage.setItem('perf-test-microservices', JSON.stringify([{ id: 's1', name: 'svc', baseUrls: {} }]));
     localStorage.setItem('perf-test-global-auth', JSON.stringify([{ id: 'g1', name: 'Auth', auth: { type: 'basic' } }]));
     localStorage.setItem('perf-test-features', JSON.stringify([{ id: 'f1', name: 'Feature', scenarios: [] }]));
 
-    const project = await migrateLegacyData();
-    expect(project).toBeTruthy();
-    expect(project!.name).toBe('Default Project');
-    expect(project!.environments).toHaveLength(1);
-    expect(project!.microservices).toHaveLength(1);
-    expect(project!.globalAuthProfiles).toHaveLength(1);
-    expect(project!.featureGroups).toHaveLength(1);
+    const result = await migrateToFlat();
+    expect(result).toBeTruthy();
+    expect(result!.environments).toHaveLength(1);
+    expect(result!.microservices).toHaveLength(1);
+    expect(result!.featureGroups).toHaveLength(1);
+    expect(result!.globalAuthProfiles).toHaveLength(1);
   });
 
-  it('cleans up legacy keys after migration', async () => {
+  it('does not re-migrate after first migration', async () => {
     localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 't01' }]));
-    await migrateLegacyData();
-
-    expect(localStorage.getItem('perf-test-environments')).toBeNull();
+    await migrateToFlat();
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e2', name: 'p01' }]));
+    const result = await migrateToFlat();
+    expect(result).toBeNull();
   });
 
   it('strips projectId from legacy feature groups', async () => {
     localStorage.setItem('perf-test-features', JSON.stringify([
       { id: 'f1', name: 'FG', scenarios: [], projectId: 'old-project' },
     ]));
-    const project = await migrateLegacyData();
-    expect(project!.featureGroups[0]).not.toHaveProperty('projectId');
+    const result = await migrateToFlat();
+    expect(result!.featureGroups[0]).not.toHaveProperty('projectId');
+  });
+});
+
+describe('storage — requests', () => {
+  it('returns empty requests data when nothing stored', async () => {
+    const result = await loadRequests();
+    expect(result.environments).toEqual([]);
+    expect(result.collections).toEqual([]);
   });
 
-  it('returns null when all legacy keys are empty arrays', async () => {
-    localStorage.setItem('perf-test-environments', '[]');
-    localStorage.setItem('perf-test-microservices', '[]');
-    localStorage.setItem('perf-test-global-auth', '[]');
-    localStorage.setItem('perf-test-features', '[]');
-    expect(await migrateLegacyData()).toBeNull();
+  it('saves and loads requests data', async () => {
+    const data = { environments: [{ id: 'e1', name: 'dev' }], collections: [] };
+    await saveRequests(data as any);
+    const loaded = await loadRequests();
+    expect(loaded.environments).toHaveLength(1);
+    expect(loaded.environments[0].name).toBe('dev');
+  });
+
+  it('migrates data from legacy workbench key to requests key', async () => {
+    const legacy = { environments: [{ id: 'e1', name: 'staging' }], collections: [{ id: 'c1', name: 'Col' }] };
+    localStorage.setItem('perf-test-workbench', JSON.stringify(legacy));
+
+    const loaded = await loadRequests();
+    expect(loaded.environments).toHaveLength(1);
+    expect(loaded.environments[0].name).toBe('staging');
+    expect(loaded.collections).toHaveLength(1);
+
+    expect(localStorage.getItem('perf-test-workbench')).toBeNull();
+    expect(localStorage.getItem('perf-test-requests')).toBeTruthy();
+  });
+
+  it('prefers new key over legacy key', async () => {
+    const legacy = { environments: [{ id: 'e1', name: 'old' }], collections: [] };
+    const current = { environments: [{ id: 'e2', name: 'new' }], collections: [] };
+    localStorage.setItem('perf-test-workbench', JSON.stringify(legacy));
+    localStorage.setItem('perf-test-requests', JSON.stringify(current));
+
+    const loaded = await loadRequests();
+    expect(loaded.environments[0].name).toBe('new');
+    expect(localStorage.getItem('perf-test-workbench')).toBeTruthy();
+  });
+});
+
+describe('storage — catalog entries', () => {
+  it('returns empty array when no catalog entries', async () => {
+    const entries = await loadCatalogEntries();
+    expect(entries).toEqual([]);
+  });
+
+  it('saves and loads catalog entries', async () => {
+    const entries = [{ id: 'c1', name: 'API1' }] as any;
+    await saveCatalogEntries(entries);
+    const loaded = await loadCatalogEntries();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].name).toBe('API1');
+  });
+});
+
+describe('storage — catalog raw specs', () => {
+  it('returns null when no spec stored', async () => {
+    expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+  });
+
+  it('saves and loads raw spec', async () => {
+    await saveCatalogRawSpec('c1', 'v1', '{"openapi":"3.0"}');
+    const spec = await loadCatalogRawSpec('c1', 'v1');
+    expect(spec).toBe('{"openapi":"3.0"}');
+  });
+
+  it('removes raw spec', async () => {
+    await saveCatalogRawSpec('c1', 'v1', 'spec-data');
+    await removeCatalogRawSpec('c1', 'v1');
+    expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+  });
+
+  it('removes all raw specs for an entry', async () => {
+    await saveCatalogRawSpec('c1', 'v1', 'spec1');
+    await saveCatalogRawSpec('c1', 'v2', 'spec2');
+    await removeAllCatalogRawSpecs('c1', ['v1', 'v2']);
+    expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+    expect(await loadCatalogRawSpec('c1', 'v2')).toBeNull();
+  });
+});
+
+describe('storage — catalog endpoint values', () => {
+  it('returns empty object when no values stored', async () => {
+    expect(await loadCatalogEndpointValues('c1')).toEqual({});
+  });
+
+  it('saves and loads endpoint values', async () => {
+    const values = { ep1: { params: { id: '123' }, headers: {}, body: '{}' } };
+    await saveCatalogEndpointValues('c1', values as any);
+    const loaded = await loadCatalogEndpointValues('c1');
+    expect(loaded.ep1.params).toEqual({ id: '123' });
+  });
+
+  it('removes endpoint values', async () => {
+    await saveCatalogEndpointValues('c1', { ep1: {} as any });
+    await removeCatalogEndpointValues('c1');
+    expect(await loadCatalogEndpointValues('c1')).toEqual({});
+  });
+});
+
+describe('storage — cap and truncate results', () => {
+  it('caps results to 2000 and samples passed results', async () => {
+    const run = makeRun('big-run', 3000);
+    const { ok } = await saveTestRun(run);
+    expect(ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].results.length).toBeLessThanOrEqual(2000);
   });
 });

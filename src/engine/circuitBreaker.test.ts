@@ -103,4 +103,21 @@ describe('CircuitBreaker', () => {
       expect(breaker.shouldStop).toBe(false);
     });
   });
+
+  describe('reason edge cases', () => {
+    it('returns safe message when totalCount is 0', () => {
+      const breaker = new CircuitBreaker('stop-threshold');
+      expect(breaker.reason).toBe('Stopped: no requests recorded');
+    });
+
+    it('returns error rate message for threshold policy with samples', () => {
+      const breaker = new CircuitBreaker('stop-threshold', 100, 50, 4);
+      breaker.record(makeResult(false));
+      breaker.record(makeResult(false));
+      breaker.record(makeResult(false));
+      breaker.record(makeResult(false));
+      expect(breaker.reason).toContain('error rate');
+      expect(breaker.reason).toContain('100.0%');
+    });
+  });
 });

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { seedProjectWithTest } from './helpers';
+import { seedAppDataWithTest } from './helpers';
 
 test.describe('Run Test flow', () => {
   test.beforeEach(async ({ page }) => {
-    await seedProjectWithTest(page);
+    await seedAppDataWithTest(page);
     await page.goto('/');
     await page.waitForSelector('.app-header');
   });

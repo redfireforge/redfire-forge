@@ -255,7 +255,7 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
         jsonPath: f.jsonPath.slice(firstSegment.length).replace(/^\./, ''),
       }));
       const result = doValidate(stripped, responseBody);
-      if (!result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
+      if (result.length === 0 || !result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
         return result;
       }
     }
@@ -273,13 +273,13 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
           jsonPath: `${key}.${f.jsonPath}`.replace(/\.\[/g, '['),
         }));
         const result = doValidate(prefixed, responseBody);
-        if (!result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
+        if (result.length === 0 || !result.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
           return result;
         }
 
         // Also try resolving directly against the nested value
         const direct = doValidate(fields, val);
-        if (!direct.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
+        if (direct.length === 0 || !direct.every((f) => f.actual === 'undefined' || f.actual === undefined)) {
           return direct;
         }
       }

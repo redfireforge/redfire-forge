@@ -1,0 +1,178 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { AuthConfig, Scenario } from '../types';
+import { TokenManager } from './tokenManager';
+
+vi.mock('../utils/httpClient', () => ({
+  httpFetch: vi.fn(),
+}));
+
+import { httpFetch } from '../utils/httpClient';
+
+const mockedFetch = vi.mocked(httpFetch);
+
+function makeOAuth2Auth(overrides: Partial<AuthConfig> = {}): AuthConfig {
+  return {
+    type: 'oauth2',
+    tokenUrl: 'https://auth.example.com/token',
+    clientId: 'my-client',
+    clientSecret: 'my-secret',
+    ...overrides,
+  };
+}
+
+function makeScenario(auth: AuthConfig): Scenario {
+  return {
+    id: 's1', name: 'Test', url: 'https://example.com',
+    method: 'GET', headers: [], body: '', auth,
+    validation: { mode: 'none' },
+  };
+}
+
+function makeJwt(payload: Record<string, unknown>): string {
+  const header = btoa(JSON.stringify({ alg: 'HS256' }));
+  const body = btoa(JSON.stringify(payload));
+  return `${header}.${body}.signature`;
+}
+
+describe('TokenManager', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns undefined for non-oauth2 auth', async () => {
+    const tm = new TokenManager();
+    const result = await tm.getToken(makeScenario({ type: 'bearer', token: 'x' }));
+    expect(result).toBeUndefined();
+  });
+
+  it('acquires token from token URL', async () => {
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: token }),
+    });
+
+    const tm = new TokenManager();
+    const result = await tm.getToken(makeScenario(makeOAuth2Auth()));
+    expect(result).toBe(token);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches token and does not refetch within expiry', async () => {
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: token }),
+    });
+
+    const tm = new TokenManager();
+    const auth = makeOAuth2Auth();
+    await tm.getToken(makeScenario(auth));
+    const result2 = await tm.getToken(makeScenario(auth));
+    expect(result2).toBe(token);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates concurrent requests for same credentials', async () => {
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: token }),
+    });
+
+    const tm = new TokenManager();
+    const auth = makeOAuth2Auth();
+    const [r1, r2] = await Promise.all([
+      tm.getToken(makeScenario(auth)),
+      tm.getToken(makeScenario(auth)),
+    ]);
+    expect(r1).toBe(token);
+    expect(r2).toBe(token);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refetches expired token', async () => {
+    const expiredToken = makeJwt({ exp: Math.floor(Date.now() / 1000) - 100 });
+    const freshToken = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+
+    mockedFetch
+      .mockResolvedValueOnce({
+        status: 200, statusText: 'OK', headers: {},
+        body: JSON.stringify({ access_token: expiredToken }),
+      })
+      .mockResolvedValueOnce({
+        status: 200, statusText: 'OK', headers: {},
+        body: JSON.stringify({ access_token: freshToken }),
+      });
+
+    const tm = new TokenManager();
+    const auth = makeOAuth2Auth();
+    const r1 = await tm.getToken(makeScenario(auth));
+    expect(r1).toBe(expiredToken);
+    const r2 = await tm.getToken(makeScenario(auth));
+    expect(r2).toBe(freshToken);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when token request fails with error', async () => {
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: 'tok' }),
+      error: 'Connection refused',
+    });
+
+    const tm = new TokenManager();
+    await expect(tm.getToken(makeScenario(makeOAuth2Auth()))).rejects.toThrow('OAuth2 token request failed');
+  });
+
+  it('throws when token request returns 400+', async () => {
+    mockedFetch.mockResolvedValueOnce({
+      status: 401, statusText: 'Unauthorized', headers: {},
+      body: 'invalid_client',
+    });
+
+    const tm = new TokenManager();
+    await expect(tm.getToken(makeScenario(makeOAuth2Auth()))).rejects.toThrow('401');
+  });
+
+  it('throws when missing tokenUrl', async () => {
+    const tm = new TokenManager();
+    await expect(
+      tm.getToken(makeScenario({ type: 'oauth2', clientId: 'c', clientSecret: 's' }))
+    ).rejects.toThrow('tokenUrl');
+  });
+
+  it('throws when missing clientId', async () => {
+    const tm = new TokenManager();
+    await expect(
+      tm.getToken(makeScenario({ type: 'oauth2', tokenUrl: 'https://a.com', clientSecret: 's' }))
+    ).rejects.toThrow('clientId');
+  });
+
+  it('handles token without exp claim, defaults to 30 min', async () => {
+    const token = makeJwt({ sub: 'test' }); // no exp
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: token }),
+    });
+
+    const tm = new TokenManager();
+    const result = await tm.getToken(makeScenario(makeOAuth2Auth()));
+    expect(result).toBe(token);
+    const result2 = await tm.getToken(makeScenario(makeOAuth2Auth()));
+    expect(result2).toBe(token);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles malformed JWT token gracefully', async () => {
+    const token = 'not-a-jwt';
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK', headers: {},
+      body: JSON.stringify({ access_token: token }),
+    });
+
+    const tm = new TokenManager();
+    const result = await tm.getToken(makeScenario(makeOAuth2Auth()));
+    expect(result).toBe(token);
+  });
+});

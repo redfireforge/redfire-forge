@@ -1,3 +1,10 @@
+/* Thin scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,0.35) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.55); }
+
 /* Layout */
 .app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .app-header {
@@ -40,11 +47,15 @@
   flex: 1;
   display: flex; flex-direction: column;
   overflow: hidden;
-  width: 100%;
+  min-width: 0;
+  position: relative;
   transition: margin-left 0.25s ease;
 }
-.app-main > *:not(.main-top-nav) {
+.app-main > *:not(.main-top-nav):not(.app-tab-pane) {
   flex: 1; overflow-y: auto; padding: 24px 32px;
+}
+.app-tab-pane {
+  flex: 1; overflow: hidden; padding: 0; min-height: 0; width: 100%;
 }
 .main-top-nav {
   display: flex; gap: 4px; padding: 6px 16px; flex-shrink: 0;
@@ -68,21 +79,23 @@
   overflow: hidden;
 }
 
-/* Top tab bar */
-.usb-top-bar {
-  display: flex; flex-shrink: 0;
+/* Vertical nav rail */
+.usb-nav-rail {
+  display: flex; flex-direction: column; flex-shrink: 0;
+  gap: 2px; padding: 8px 8px 6px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-.usb-top-tab {
-  flex: 1; padding: 8px 6px; font-size: 0.72rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.5px; text-align: center;
-  background: none; border: none; border-bottom: 2px solid transparent;
+.usb-nav-btn {
+  padding: 7px 12px; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; text-align: left;
+  background: none; border: none; border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
   color: var(--text-muted); cursor: pointer; transition: all 0.15s;
 }
-.usb-top-tab:hover { color: var(--text); background: var(--surface-hover); }
-.usb-top-tab.active {
-  color: var(--primary); border-bottom-color: var(--primary);
+.usb-nav-btn:hover { color: var(--text); background: var(--surface-hover); }
+.usb-nav-btn.active {
+  color: var(--primary); border-left-color: var(--primary);
   background: rgba(var(--primary-rgb, 99,102,241), 0.06);
 }
 
@@ -147,14 +160,14 @@
 }
 .config-sidebar-inner .sidebar-close-btn { display: none; }
 
-/* Workbench sidebar within unified sidebar */
-.unified-sidebar .wb-sidebar {
+/* Requests sidebar within unified sidebar */
+.unified-sidebar .req-sidebar {
   border-right: none; height: auto;
 }
 
-/* Workbench container without own sidebar */
-.wb-no-sidebar { padding-left: 0; }
-.wb-no-sidebar .wb-main { flex: 1; }
+/* Requests container without own sidebar */
+.req-no-sidebar { padding-left: 0; }
+.req-no-sidebar .req-main { flex: 1; }
 
 /* Tabs */
 .tab-nav { display: flex; gap: 4px; }

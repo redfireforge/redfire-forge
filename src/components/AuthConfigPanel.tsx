@@ -10,8 +10,6 @@ export interface AuthConfigPanelProps {
   showProfileSelector?: boolean;
   globalAuthProfileId?: string;
   onProfileChange?: (profileId: string | undefined) => void;
-  globalAuthProfiles?: GlobalAuthProfile[];
-  projectAuthProfiles?: GlobalAuthProfile[];
   allAuthProfiles?: GlobalAuthProfile[];
   inheritHint?: string | null;
   inheritedAuth?: AuthConfig | null;
@@ -34,8 +32,6 @@ export default function AuthConfigPanel({
   showProfileSelector,
   globalAuthProfileId,
   onProfileChange,
-  globalAuthProfiles = [],
-  projectAuthProfiles = [],
   allAuthProfiles = [],
   inheritHint,
   inheritedAuth,
@@ -81,25 +77,13 @@ export default function AuthConfigPanel({
               onChange={(e) => onProfileChange?.(e.target.value || undefined)}
             >
               <option value="">— Select a profile —</option>
-              {globalAuthProfiles.length > 0 && (
-                <optgroup label="Global (shared across projects)">
-                  {globalAuthProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                  ))}
-                </optgroup>
-              )}
-              {projectAuthProfiles.length > 0 && (
-                <optgroup label="Project-level">
-                  {projectAuthProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                  ))}
-                </optgroup>
-              )}
+              {allAuthProfiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
+              ))}
             </select>
             {selectedProfile && (
               <span className="auth-inherit-hint">
                 Using <strong>{selectedProfile.name}</strong> — {selectedProfile.auth.type.toUpperCase()}
-                {globalAuthProfiles.some((g) => g.id === selectedProfile.id) ? ' (global)' : ' (project)'}
               </span>
             )}
             {!selectedProfile && globalAuthProfileId && (

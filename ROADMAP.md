@@ -42,8 +42,8 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 306 unit/integration tests (Vitest) + 17 E2E tests (Playwright) = 323 total
-- **No CLI / CI** — without pipeline integration, adoption is limited to manual QA
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 728 unit/integration tests (Vitest, 91.5% line coverage) + 17 E2E tests (Playwright) = 745 total
+- ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
 - ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
@@ -104,16 +104,16 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (306 tests, <1s) + Playwright E2E (17 tests, <10s)
-- [x] **Refactor Large Components** — 8 monoliths broken into 25 focused modules + shared useAuthVerify hook + AuthConfigPanel
+- [x] **`npm test` Script** — Vitest (728 tests, 91.5% line coverage, <2s) + Playwright E2E (17 tests, <10s)
+- [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
 
-### Phase 0.8.5 — Workbench (Ad-Hoc API Testing) ✅
+### Phase 0.8.5 — Requests (Ad-Hoc API Testing) ✅
 
 > Insomnia/Postman-style ad-hoc request editor integrated into the app, independent of the project test hierarchy.
 
-- [x] **Workbench Collections** — Organize requests in collections with folders, sub-collections, and unlimited nesting
+- [x] **Requests collections** — Organize requests in collections with folders, sub-collections, and unlimited nesting
 - [x] **Drag-and-Drop** — Move requests, folders, and collections between containers; convert collections to sub-collections via drag
 - [x] **Per-Environment Base URLs** — Configure hostnames per environment; dynamic URL resolution with relative/full path display
 - [x] **Sub-Collection Environment Pinning** — Lock sub-collections to a specific environment with isolated auth and URL resolution
@@ -123,31 +123,102 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Console Trace** — Insomnia-style request/response trace with headers, timing, and body
 - [x] **Collapsible JSON Tree Viewer** — Expandable response tree with search, match navigation, and collapse/expand all
 - [x] **Response Caching** — Preserve responses per-request during navigation
-- [x] **Unified Sidebar** — Tabbed Workbench | Projects toggle with resize, collapse, and persistent Settings
+- [x] **Response History** — Per-request history dropdown with timestamps, restore, delete, and clear actions
+- [x] **Unified Sidebar** — Vertical Requests | Catalog | Harness nav rail with resize, collapse, and persistent Settings
 - [x] **Context Menus & Confirmation Dialogs** — Full right-click menus with duplicate/move/rename/delete and confirmation
+
+### Phase 0.7.0 — CLI Runner ✅
+
+> Without a CLI, the tool is limited to manual use. This is the single most important feature for adoption.
+
+- [x] **File-Based Projects** — Store test definitions as `.yaml` or `.json` files committable to git
+- [x] **CLI Runner** — `redfireforge run ./tests/checkout-flow.yaml --env t01 --concurrency 10 --duration 60s`
+- [x] **CI Exit Codes** — Exit code 1 if assertions fail or error rate exceeds threshold (`--fail-on-error`, `--fail-threshold`)
+- [x] **JUnit XML Output** — For CI/CD integration (GitHub Actions, Jenkins, GitLab CI) (`--junit report.xml`)
+- [x] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports (`-o`, `--markdown`)
+- [ ] **npm Package** — Publish CLI as `npm install -g redfireforge`
+
+### Phase 0.8.8 — API Catalog (OpenAPI/Swagger Browser) ✅
+
+> **Third pillar of RedfireForge.** Import OpenAPI/Swagger specs, browse endpoints with Swagger-UI-style documentation, test them interactively, generate cURL commands, and track spec versions over time. Sits alongside Requests and Harness as a top-level feature.
+
+> Full design docs: [`docs/api-catalog/`](docs/api-catalog/) — [Design](docs/api-catalog/DESIGN.md) · [Data Model](docs/api-catalog/DATA-MODEL.md) · [UI Wireframes](docs/api-catalog/UI-WIREFRAMES.md) · [Phases](docs/api-catalog/PHASES.md)
+
+**Phase 1 — Foundation**
+- [x] **Catalog types** — `CatalogEntry`, `CatalogEndpoint`, `CatalogVersion`, `CatalogFolder`, host/auth config types
+- [x] **OpenAPI parser** — Parse + validate + dereference specs via `@apidevtools/swagger-parser`; group endpoints by tag
+- [x] **Schema stub generator** — Convert JSON Schema → sample request body (uses `example`/`default`/type fallback)
+- [x] **Catalog sidebar** — Thin sidebar tab showing API names + version badges + endpoint count (no endpoint trees)
+- [x] **Import modal** — File picker → validate → preview (title, version, servers, endpoints by tag, warnings) → import
+- [x] **Storage hook** (`useCatalog`) — CRUD for catalog entries, persist via existing storage abstraction
+- [x] **App integration** — Third nav rail section (`Requests | Catalog | Harness`), welcome page
+
+**Phase 2 — Endpoint Browser**
+- [x] **Endpoint nav strip** — Tag-grouped endpoint list inside main panel (not sidebar); search/filter, collapse, resize
+- [x] **Endpoint detail view** — Swagger-UI-style: method badge, path, summary, parameters, request body schema, response schemas
+- [x] **Main panel orchestrator** — Three modes: welcome (empty), overview (API selected), endpoint detail (endpoint selected)
+
+**Phase 3 — Interactive Testing**
+- [x] **Host & auth bar** — Strategy selector (From Spec / Custom URL / Environment) for base URL and authentication
+- [x] **Parameter editor** — Editable forms for path, query, header params with type hints, enums, required badges
+- [x] **"Try It" execution** — Build URL + headers + body → `httpFetch()` → display response (reuse `JsonTreePreview`)
+
+**Phase 4 — cURL Integration**
+- [x] **cURL generation** — Extend existing `buildCurlCommand` for catalog endpoint shape
+- [x] **cURL preview popover** — Formatted command with single/multi-line toggle + copy to clipboard
+- [x] **Context menu cURL** — Right-click endpoint in nav → "Copy as cURL" with schema defaults
+
+**Phase 5 — Versioning**
+- [x] **Version storage** — Each entry stores version history with raw spec + hash for change detection
+- [x] **Re-import flow** — Detect existing API by title, compute diff, offer "Update existing" vs "Import as new"
+- [x] **Spec diff engine** — Detect added/removed/changed endpoints between versions
+- [x] **Version history modal** — List past imports, view diffs, restore previous versions
+
+**Phase 6 — Polish & Bridges**
+- [x] **Overview page** — API summary with endpoint stats by tag/method, server list, config status
+- [x] **"Send to Requests"** — Copy endpoint(s) as `RequestItem` objects into a collection
+- [x] **Swagger 2.0 verification** — End-to-end test with real Swagger 2.0 specs
+- [x] **Unit + E2E tests** — Parser, stub generator, diff engine, import flow, endpoint browsing
+
+### Phase 0.9.0-alpha — Unified Environments & Catalog Export ✅
+
+> Flatten the data model (remove per-project duplication), unify environment management across all features, and enhance Catalog → Requests export workflow.
+
+- [x] **Unified Environment Manager** — Top-level `EnvironmentManager.tsx` page replaces the old Settings Projects tab; single source of truth for environments, microservices, and auth profiles shared by Requests, Catalog, and Harness
+- [x] **Catalog Environment Association** — Catalog entries link to globally configured Environments via microservice; base URLs and auth resolve dynamically per environment
+- [x] **"Send to Requests" Modal** — Two-panel modal with environment selection, endpoint selection, custom name column, sample inclusion checkboxes, resizable columns, and live collection preview tree
+- [x] **Exported Sub-Collections** — Environment folders exported as sub-collections (📦 icon) with inherited base URLs and auth from linked microservice
+- [x] **Spec Version in Collection Name** — Exported collections include the YAML spec version, e.g., "sales-product-autoassign (1.0.0)"
+- [x] **Dynamic Auth on Env Switch** — Catalog auth automatically updates when switching environments for linked microservices; resets to none when env has no auth profile
+- [x] **Safe Tree Operations** — `addReqToFolderSafe` and `addFolderToParentSafe` utilities prevent silent data loss on invalid folder/parent IDs during drag-and-drop and import
+- [x] **URL Resolver Module** — Extracted `requestUrlResolver.ts` for testable base URL resolution, display URL building, and send URL resolution
+- [x] **Auth State Module** — Extracted `requestAuthState.ts` for auth config ↔ UI state mapping with `globalProfileId` typing
+- [x] **Catalog Export Module** — Extracted `catalogExport.ts` for catalog-to-requests data transformation
+- [x] **728 Unit Tests** — 91.5% line coverage, 94.5% function coverage across 35 test files; 3 rounds of thorough code review with 25+ bugs found and fixed
+
+### Phase 0.9.0-alpha.2 — Group Collections & Catalog Metadata ✅
+
+> Hierarchical collection organization and rich metadata from API Catalog specs embedded in exported requests.
+
+- [x] **Group Collections** — New `group` collection mode as a parent container for Direct URL and Multi-Environment collections; recursive nesting (groups inside groups)
+- [x] **Group Sidebar UI** — Visual distinction (icons/badges) for Group, Direct URL, and Multi-Environment; recursive expand/collapse; group-specific context menu
+- [x] **Group Drag-and-Drop** — Move collections into and out of groups via drag-and-drop
+- [x] **Group Import/Export** — Export a group and all its children as one JSON file; import restores hierarchy
+- [x] **Catalog "Send to Group"** — Target Group dropdown in "Send All to Requests" modal to place collections into a group
+- [x] **Catalog Request Metadata** — `CatalogRequestMeta` interface attached to each `RequestItem` on export from Catalog with operationId, description, originalPath, tags, deprecated, parameters, expectedResponses, security, sourceSpec
+- [x] **API Info Drawer** — On-demand side panel in Request Editor toggled via "ℹ API Info" button; displays all catalog metadata in a structured format, replacing the response panel when open
+- [x] **Catalog Origin Indicators** — Clipboard icon (📋) for catalog-origin requests and warning icon (⚠️) with strikethrough for deprecated endpoints in sidebar
+- [x] **Group Tree Utilities** — `countGroupRequests`, `collectGroupIds`, `collectAllGroups` functions in `requestTree.ts` with full test coverage
 
 ---
 
 ## Upcoming Phases
 
-### Phase 0.7.0 — CLI Runner ⬆️ PRIORITY
-
-> Without a CLI, the tool is limited to manual use. This is the single most important feature for adoption.
-
-- [ ] **File-Based Projects** — Store test definitions as `.yaml` or `.json` files committable to git
-- [ ] **CLI Runner** — `redfireforge run ./tests/checkout-flow.yaml --env t01 --concurrency 10 --duration 60s`
-- [ ] **CI Exit Codes** — Exit code 1 if assertions fail or error rate exceeds threshold
-- [ ] **JUnit XML Output** — For CI/CD integration (GitHub Actions, Jenkins, GitLab CI)
-- [ ] **JSON/Markdown Report Output** — Machine-readable and human-readable summary reports
-- [ ] **npm Package** — Publish CLI as `npm install -g redfireforge`
-
----
-
 ### Phase 0.7.5 — CI/CD Pipeline
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 306 tests) on every push/PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 728 tests) on every push/PR
 - [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 17 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
@@ -244,16 +315,19 @@ Post-launch features driven by community feedback.
 | 0.5.0 | Load Profiles & Live Monitoring | 8 | 8 |
 | 0.6.0 | Data-Driven & Resilience | 8 | 8 |
 | 0.6.5 | Excel Templates & Error Visibility | 8 | 8 |
-| 0.7.0 | CLI Runner | 6 | 0 |
+| 0.7.0 | CLI Runner | 6 | 5 |
 | 0.7.5 | CI/CD Pipeline | 7 | 0 |
 | 0.8.0 | Test Suite & Code Quality | 10 | 10 |
-| 0.8.5 | Workbench (Ad-Hoc API Testing) | 12 | 12 |
+| 0.8.5 | Requests (Ad-Hoc API Testing) | 13 | 13 |
+| 0.8.8 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
+| 0.9.0-α | Unified Environments & Catalog Export | 12 | 12 |
+| 0.9.0-α2 | Group Collections & Catalog Metadata | 9 | 9 |
 | 0.9.0 | Variables & Chaining | 6 | 0 |
 | 0.10.0 | Assertions & Observability | 7 | 0 |
 | 0.11.0 | Run Comparison & Trends | 5 | 0 |
 | 1.0.0 | Open-Source Launch | 14 | 0 |
 | 1.x | Future | 8 | 0 |
-| **Total** | | **99** | **46** |
+| **Total** | | **139** | **91** |
 
 ### Adoption Forecast
 
@@ -266,15 +340,16 @@ Post-launch features driven by community feedback.
 ### Critical Path to Open-Source (minimum viable launch)
 
 ```
-Phase 0.7.0 (CLI)  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
-     ↑ MUST HAVE          ↑ MUST HAVE              ↑ MUST HAVE
+Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
+                                  ↑ MUST HAVE              ↑ MUST HAVE
 
 Phase 0.8.0 (Tests) ✅ DONE — 306 unit/integration + 17 E2E = 323 tests
-Phase 0.8.5 (Workbench) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
+Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
+Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
 
 Phases 0.9–0.11 (variables, assertions, trends) are **nice to have** for launch but not blockers. They can ship as post-launch updates to sustain momentum.
 
 ---
 
-_Last updated: 2026-04-18 (v0.5.0 — Phase 0.8.5 complete)_
+_Last updated: 2026-04-19 (v0.5.0 — Completed Group Collections & Catalog Metadata)_
