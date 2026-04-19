@@ -256,4 +256,51 @@ describe('runTest', () => {
     const results = await runTest(config, [s1, s2], vi.fn());
     expect(results.every(r => r.scenarioName === 'Active')).toBe(true);
   });
+
+  it('applies constant think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      thinkTime: { mode: 'constant', constantMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('applies uniform think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'batch',
+      concurrency: 2,
+      thinkTime: { mode: 'uniform', minMs: 0, maxMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('applies gaussian think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'pool',
+      concurrency: 2,
+      totalTransactions: 3,
+      thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(3);
+  });
+
+  it('works without thinkTime config (backward compatible)', async () => {
+    const s = makeScenario();
+    const config = makeConfig();
+    expect(config.thinkTime).toBeUndefined();
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('treats mode none same as no thinkTime', async () => {
+    const s = makeScenario();
+    const config = makeConfig({ thinkTime: { mode: 'none' } });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
 });
