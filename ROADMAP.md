@@ -57,11 +57,11 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 
 | Level | Description | Throughput | Examples |
 |---|---|---|---|
-| **Moderate** (current) | Single-thread JS executor, fixed/duration profiles, basic retry/circuit-breaker | ~100-300 RPS | RedfireForge today, Postman |
+| **Moderate** (current — 5/6 gaps to Good closed) | Worker threads, connection pooling, think time, rich assertions, timing breakdown; missing Variables & Chaining | ~100-300 RPS → approaching 500+ | RedfireForge today |
 | **Good** | Variables & chaining, rich assertions, worker-thread execution, connection pooling, think time | ~500-2,000 RPS | Artillery, JMeter |
 | **Excellent** | Native async executor (Rust), distributed multi-machine, constant arrival rate, streaming percentiles | 5,000-50,000+ RPS | k6, Gatling |
 
-#### Current capabilities (Moderate → approaching Good)
+#### Current capabilities (Moderate → Good: 5/6 gaps closed, Variables & Chaining remaining)
 
 - Duration-based profiles: sustained, ramp-up, spike
 - Fixed transaction count: sequential, batch, pool concurrency
@@ -74,6 +74,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - **Worker thread execution**: Engine runs in a Web Worker — UI stays responsive at 60fps during heavy runs; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback; incremental result transfer avoids serialization overhead
 - **Connection pooling**: Shared `undici.Agent` keeps HTTP connections alive (30s timeout, 128 connections) — eliminates TCP/TLS handshake overhead on repeated requests to the same origin; 2–3x latency reduction for HTTPS APIs in browser dev mode; Tauri mode already pooled via `reqwest`
 - **Rich assertions**: Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), response header (`equals`/`contains`/`regex`/`exists`), and regex match on JSONPath values — run on every request regardless of JSON validation mode; status assertions override default HTTP error handling; **Regex Builder modal** with JSON tree picker, 17-pattern library, and live match preview; assertion type badges on test cards
+- **Request timing breakdown**: Per-request TTFB/download waterfall bar in Response Detail modal; aggregated average timing table in Results Dashboard; timing columns in CLI console summary and Markdown reports; DNS/TCP/TLS phases ready for future granularity
 
 #### Gap analysis: Moderate → Good
 
