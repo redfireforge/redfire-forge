@@ -1,12 +1,28 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-vi.mock('./platform', () => ({ isTauri: () => false }));
+const { isTauriMock, tauriGetItem, tauriSetItem, tauriGetUsage } = vi.hoisted(() => ({
+  isTauriMock: vi.fn(() => false),
+  tauriGetItem: vi.fn(async (): Promise<string | null> => null),
+  tauriSetItem: vi.fn(async () => {}),
+  tauriGetUsage: vi.fn(async () => ({ usedBytes: 0, entries: {} as Record<string, number> })),
+}));
+
+vi.mock('./platform', () => ({
+  isTauri: () => isTauriMock(),
+}));
+
+vi.mock('./tauriStore', () => ({
+  getItem: (key: string) => tauriGetItem(key),
+  setItem: (key: string, value: string) => tauriSetItem(key, value),
+  getUsageBytes: () => tauriGetUsage(),
+}));
 
 import {
   saveTestRun,
+  forceSaveTestRun,
   loadTestRuns,
   deleteTestRun,
   saveTestRunsBulk,
@@ -77,6 +93,13 @@ function makeRun(id: string, results: number = 1): TestRun {
 
 beforeEach(() => {
   localStorage.clear();
+  isTauriMock.mockReturnValue(false);
+  tauriGetItem.mockReset();
+  tauriGetItem.mockResolvedValue(null);
+  tauriSetItem.mockReset();
+  tauriSetItem.mockResolvedValue(undefined);
+  tauriGetUsage.mockReset();
+  tauriGetUsage.mockResolvedValue({ usedBytes: 0, entries: {} });
 });
 
 describe('storage — test runs', () => {
@@ -166,6 +189,11 @@ describe('storage — flat data', () => {
     await saveSelectedSvcId('s1');
     expect(await loadSelectedEnvId()).toBe('e1');
     expect(await loadSelectedSvcId()).toBe('s1');
+  });
+
+  it('returns empty string for selected ids when keys are absent', async () => {
+    expect(await loadSelectedEnvId()).toBe('');
+    expect(await loadSelectedSvcId()).toBe('');
   });
 
   it('returns empty arrays when nothing stored', async () => {
@@ -438,5 +466,545 @@ describe('storage — cap and truncate results', () => {
     expect(ok).toBe(true);
     const loaded = await loadTestRuns();
     expect(loaded[0].results.length).toBeLessThanOrEqual(2000);
+  });
+
+  it('does not sample passed results when there are no passing rows over budget', async () => {
+    const run = makeRun('all-fail', 2001);
+    run.results = Array.from({ length: 2001 }, (_, i) => ({
+      id: `f${i}`,
+      scenarioId: 's1',
+      scenarioName: 'Test',
+      url: 'http://api/test',
+      method: 'GET' as const,
+      httpStatus: 500,
+      responseTimeMs: 100,
+      responseBody: '{}',
+      timestamp: Date.now(),
+      passed: false,
+      validationMode: 'none' as const,
+      failureDetails: [] as string[],
+    }));
+    await saveTestRun(run);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].results).toHaveLength(2001);
+  });
+
+  it('keeps all failed results when failures alone exceed the cap budget', async () => {
+    const run = makeRun('mixed', 2100);
+    run.results = [
+      ...Array.from({ length: 2000 }, (_, i) => ({
+        id: `f${i}`,
+        scenarioId: 's1',
+        scenarioName: 'Test',
+        url: 'http://api/test',
+        method: 'GET' as const,
+        httpStatus: 500,
+        responseTimeMs: 100,
+        responseBody: '{}',
+        timestamp: Date.now(),
+        passed: false,
+        validationMode: 'none' as const,
+        failureDetails: [] as string[],
+      })),
+      ...Array.from({ length: 100 }, (_, i) => ({
+        id: `p${i}`,
+        scenarioId: 's1',
+        scenarioName: 'Test',
+        url: 'http://api/test',
+        method: 'GET' as const,
+        httpStatus: 200,
+        responseTimeMs: 100,
+        responseBody: '{}',
+        timestamp: Date.now(),
+        passed: true,
+        validationMode: 'none' as const,
+        failureDetails: [] as string[],
+      })),
+    ];
+    await saveTestRun(run);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].results.filter((r) => !r.passed)).toHaveLength(2000);
+    expect(loaded[0].results.length).toBeLessThanOrEqual(2000);
+  });
+});
+
+describe('storage — save errors & force save', () => {
+  const nativeSetItem = Storage.prototype.setItem;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    isTauriMock.mockReset();
+    isTauriMock.mockReturnValue(false);
+    tauriGetItem.mockReset();
+    tauriGetItem.mockResolvedValue(null);
+    tauriSetItem.mockReset();
+    tauriSetItem.mockResolvedValue(undefined);
+    tauriGetUsage.mockReset();
+    tauriGetUsage.mockResolvedValue({ usedBytes: 0, entries: {} });
+  });
+
+  it('returns quotaError when saveTestRun cannot persist', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+    });
+    const { ok, quotaError } = await saveTestRun(makeRun('q1'));
+    expect(ok).toBe(false);
+    expect(quotaError).toBe(true);
+  });
+
+  it('forceSaveTestRun succeeds on first write when storage is healthy', async () => {
+    const result = await forceSaveTestRun(makeRun('fs1'));
+    expect(result.ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded.some((r) => r.id === 'fs1')).toBe(true);
+  });
+
+  it('forceSaveTestRun shrinks runs and succeeds after transient quota errors', async () => {
+    await saveTestRunsBulk([makeRun('a'), makeRun('b'), makeRun('c'), makeRun('d')]);
+    let n = 0;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'perf-test-runs' && n++ < 2) {
+        throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+      }
+      return nativeSetItem.call(this, key, value);
+    });
+    const result = await forceSaveTestRun(makeRun('new-run'));
+    expect(result.ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded.length).toBeGreaterThanOrEqual(1);
+    expect(loaded.some((r) => r.id === 'new-run')).toBe(true);
+  });
+
+  it('forceSaveTestRun returns ok false when all writes fail', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+    });
+    const result = await forceSaveTestRun(makeRun('dead'));
+    expect(result.ok).toBe(false);
+  });
+
+  it('forceSaveTestRun uses the final single-run path when the loop never completes setMaxRuns', async () => {
+    let maxRunsWrites = 0;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'perf-test-max-runs' && maxRunsWrites++ < 10) {
+        throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+      }
+      return nativeSetItem.call(this, key, value);
+    });
+    const result = await forceSaveTestRun(makeRun('final-path'));
+    expect(result.ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded.some((r) => r.id === 'final-path')).toBe(true);
+  });
+});
+
+describe('storage — parse / catch fallbacks', () => {
+  it('getMaxRuns falls back to default when stored value is not a number', async () => {
+    localStorage.setItem('perf-test-max-runs', 'NaNish');
+    expect(await getMaxRuns()).toBe(50);
+  });
+
+  it('getMaxRuns falls back to default when stored value is empty string', async () => {
+    localStorage.setItem('perf-test-max-runs', '');
+    expect(await getMaxRuns()).toBe(50);
+  });
+
+  it('getMaxRuns treats stored zero as invalid and uses default', async () => {
+    localStorage.setItem('perf-test-max-runs', '0');
+    expect(await getMaxRuns()).toBe(50);
+  });
+
+  it('getMaxRuns falls back when localStorage.getItem throws', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(await getMaxRuns()).toBe(50);
+    vi.restoreAllMocks();
+  });
+
+  it('loadTestRuns returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-runs', '{');
+    expect(await loadTestRuns()).toEqual([]);
+  });
+
+  it('loadEnvironments returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-v3-environments', '{');
+    expect(await loadEnvironments()).toEqual([]);
+  });
+
+  it('loadMicroservices returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-v3-microservices', '{');
+    expect(await loadMicroservices()).toEqual([]);
+  });
+
+  it('loadFeatureGroups returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-v3-feature-groups', '{');
+    expect(await loadFeatureGroups()).toEqual([]);
+  });
+
+  it('loadGlobalAuthProfiles returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-global-auth-profiles', '{');
+    expect(await loadGlobalAuthProfiles()).toEqual([]);
+  });
+
+  it('loadRunnerConfig returns null when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-runner-config', '{');
+    expect(await loadRunnerConfig()).toBeNull();
+  });
+
+  it('loadRequests returns empty shape when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-requests', '{');
+    const loaded = await loadRequests();
+    expect(loaded.environments).toEqual([]);
+    expect(loaded.collections).toEqual([]);
+  });
+
+  it('loadCatalogEntries returns empty array when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-catalog', '{');
+    expect(await loadCatalogEntries()).toEqual([]);
+  });
+
+  it('loadCatalogRawSpec returns null when stored value is empty string', async () => {
+    localStorage.setItem('perf-test-catalog-spec-c1-v1', '');
+    expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+  });
+
+  it('loadCatalogRawSpec returns null when read throws', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
+      if (key === 'perf-test-catalog-spec-c1-v1') throw new Error('io');
+      return null;
+    });
+    expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('loadCatalogEndpointValues returns empty object when JSON is invalid', async () => {
+    localStorage.setItem('perf-test-catalog-ep-c1', '{');
+    expect(await loadCatalogEndpointValues('c1')).toEqual({});
+  });
+});
+
+describe('storage — migration edge cases', () => {
+  it('returns null for v1 legacy keys that only contain empty arrays', async () => {
+    localStorage.setItem('perf-test-environments', '[]');
+    localStorage.setItem('perf-test-microservices', '[]');
+    localStorage.setItem('perf-test-global-auth', '[]');
+    localStorage.setItem('perf-test-features', '[]');
+    expect(await migrateToFlat()).toBeNull();
+    expect(localStorage.getItem('perf-test-v3-migrated')).toBe('true');
+  });
+
+  it('merges unique data from multiple v2 projects (selected first)', async () => {
+    const p1 = {
+      id: 'p1',
+      name: 'A',
+      createdAt: 1,
+      environments: [{ id: 'e1', name: 'only-p1' }],
+      microservices: [{ id: 's1', name: 'svc1', baseUrls: {} }],
+      globalAuthProfiles: [{ id: 'a1', name: 'auth1', auth: { type: 'basic' as const } }],
+      featureGroups: [{ id: 'f1', name: 'FG1', scenarios: [] }],
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+    };
+    const p2 = {
+      id: 'p2',
+      name: 'B',
+      createdAt: 2,
+      environments: [
+        { id: 'e1', name: 'dup' },
+        { id: 'e2', name: 'from-p2' },
+      ],
+      microservices: [
+        { id: 's1', name: 'dup', baseUrls: {} },
+        { id: 's2', name: 'svc2', baseUrls: {} },
+      ],
+      globalAuthProfiles: [
+        { id: 'a1', name: 'dup', auth: { type: 'basic' as const } },
+        { id: 'a2', name: 'auth2', auth: { type: 'basic' as const } },
+      ],
+      featureGroups: [{ id: 'f2', name: 'FG2', scenarios: [] }],
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([p1, p2]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result).toBeTruthy();
+    expect(result!.environments.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
+    expect(result!.microservices.map((s) => s.id).sort()).toEqual(['s1', 's2']);
+    expect(result!.globalAuthProfiles.map((a) => a.id).sort()).toEqual(['a1', 'a2']);
+    expect(result!.featureGroups).toHaveLength(2);
+    expect(result!.environments.find((e) => e.id === 'e1')!.name).toBe('only-p1');
+  });
+
+  it('falls back to first project when selected id is missing', async () => {
+    const p2 = {
+      id: 'p2',
+      name: 'Second',
+      createdAt: 2,
+      environments: [{ id: 'e2', name: 't02' }],
+      microservices: [{ id: 's2', name: 'svc', baseUrls: { e2: 'http://x' } }],
+      featureGroups: [],
+      selectedEnvId: 'e2',
+      selectedSvcId: 's2',
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([p2]));
+    localStorage.setItem('perf-test-selected-project', 'missing-id');
+
+    const result = await migrateToFlat();
+    expect(result!.selectedEnvId).toBe('e2');
+    expect(result!.selectedSvcId).toBe('s2');
+  });
+
+  it('falls through to v1 when v2 projects JSON is invalid', async () => {
+    localStorage.setItem('perf-test-projects', '{');
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 'legacy' }]));
+    localStorage.setItem('perf-test-microservices', '[]');
+    localStorage.setItem('perf-test-global-auth', '[]');
+    localStorage.setItem('perf-test-features', '[]');
+
+    const result = await migrateToFlat();
+    expect(result).toBeTruthy();
+    expect(result!.environments[0].name).toBe('legacy');
+  });
+
+  it('falls through to v1 when projects array is empty', async () => {
+    localStorage.setItem('perf-test-projects', '[]');
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 'legacy' }]));
+    localStorage.setItem('perf-test-microservices', '[]');
+    localStorage.setItem('perf-test-global-auth', '[]');
+    localStorage.setItem('perf-test-features', '[]');
+
+    const result = await migrateToFlat();
+    expect(result!.environments[0].name).toBe('legacy');
+  });
+
+  it('strips projectId from feature groups during v2 migration', async () => {
+    const project = {
+      id: 'p1',
+      name: 'P',
+      createdAt: 1,
+      environments: [],
+      microservices: [],
+      featureGroups: [{ id: 'f1', name: 'FG', scenarios: [], projectId: 'x' }],
+      selectedEnvId: '',
+      selectedSvcId: '',
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([project]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result!.featureGroups[0]).not.toHaveProperty('projectId');
+  });
+
+  it('v1 migration reads only environments when other legacy keys are absent', async () => {
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 'solo' }]));
+
+    const result = await migrateToFlat();
+    expect(result).toBeTruthy();
+    expect(result!.environments).toHaveLength(1);
+    expect(result!.microservices).toEqual([]);
+    expect(result!.featureGroups).toEqual([]);
+    expect(result!.globalAuthProfiles).toEqual([]);
+  });
+
+  it('v1 migration merges legacy global auth with existing app global profiles', async () => {
+    localStorage.setItem(
+      'perf-test-global-auth-profiles',
+      JSON.stringify([{ id: 'app-g', name: 'Already saved', auth: { type: 'basic', username: 'u', password: 'p' } }]),
+    );
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 't01' }]));
+    localStorage.setItem('perf-test-microservices', '[]');
+    localStorage.setItem(
+      'perf-test-global-auth',
+      JSON.stringify([{ id: 'legacy-g', name: 'From legacy key', auth: { type: 'basic', username: 'a', password: 'b' } }]),
+    );
+    localStorage.setItem('perf-test-features', '[]');
+
+    const result = await migrateToFlat();
+    expect(result!.globalAuthProfiles.map((a) => a.id).sort()).toEqual(['app-g', 'legacy-g']);
+  });
+
+  it('v1 migration skips legacy auth ids that already exist in app global storage', async () => {
+    localStorage.setItem(
+      'perf-test-global-auth-profiles',
+      JSON.stringify([{ id: 'same-id', name: 'Kept', auth: { type: 'basic', username: 'u', password: 'p' } }]),
+    );
+    localStorage.setItem('perf-test-environments', JSON.stringify([{ id: 'e1', name: 't01' }]));
+    localStorage.setItem('perf-test-microservices', '[]');
+    localStorage.setItem(
+      'perf-test-global-auth',
+      JSON.stringify([{ id: 'same-id', name: 'Skipped dup', auth: { type: 'basic', username: 'a', password: 'b' } }]),
+    );
+    localStorage.setItem('perf-test-features', '[]');
+
+    const result = await migrateToFlat();
+    expect(result!.globalAuthProfiles).toHaveLength(1);
+    expect(result!.globalAuthProfiles[0].name).toBe('Kept');
+  });
+
+  it('v2 merge skips duplicate env/svc/auth ids from other projects', async () => {
+    const p1 = {
+      id: 'p1',
+      name: 'A',
+      createdAt: 1,
+      environments: [{ id: 'e1', name: 'first' }],
+      microservices: [{ id: 's1', name: 'm1', baseUrls: {} }],
+      globalAuthProfiles: [{ id: 'a1', name: 'auth', auth: { type: 'basic' as const, username: 'u', password: 'p' } }],
+      featureGroups: [{ id: 'f1', name: 'OnlySel', scenarios: [] }],
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+    };
+    const p2 = {
+      id: 'p2',
+      name: 'B',
+      createdAt: 2,
+      environments: [{ id: 'e1', name: 'dup-env' }],
+      microservices: [{ id: 's1', name: 'dup-svc', baseUrls: {} }],
+      globalAuthProfiles: [{ id: 'a1', name: 'dup-auth', auth: { type: 'basic' as const, username: 'x', password: 'y' } }],
+      featureGroups: [{ id: 'f2', name: 'FromOther', scenarios: [] }],
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([p1, p2]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result!.environments).toHaveLength(1);
+    expect(result!.environments[0].name).toBe('first');
+    expect(result!.microservices).toHaveLength(1);
+    expect(result!.globalAuthProfiles).toHaveLength(1);
+    expect(result!.featureGroups).toHaveLength(2);
+  });
+
+  it('v2 migration merges project auth into existing app global profiles', async () => {
+    localStorage.setItem(
+      'perf-test-global-auth-profiles',
+      JSON.stringify([{ id: 'pre', name: 'Preloaded', auth: { type: 'basic', username: 'u', password: 'p' } }]),
+    );
+    const project = {
+      id: 'p1',
+      name: 'P',
+      createdAt: 1,
+      environments: [{ id: 'e1', name: 't01' }],
+      microservices: [{ id: 's1', name: 'svc', baseUrls: {} }],
+      globalAuthProfiles: [{ id: 'from-proj', name: 'Proj', auth: { type: 'basic', username: 'x', password: 'y' } }],
+      featureGroups: [{ id: 'f1', name: 'FG', scenarios: [] }],
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([project]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    const ids = result!.globalAuthProfiles.map((a) => a.id).sort();
+    expect(ids).toEqual(['from-proj', 'pre']);
+  });
+
+  it('v2 migration uses defaults when selected project omits optional fields', async () => {
+    const minimalSel: Record<string, unknown> = {
+      id: 'p1',
+      name: 'Minimal',
+      createdAt: 1,
+    };
+    const p2 = {
+      id: 'p2',
+      name: 'Full-other',
+      createdAt: 2,
+      environments: [{ id: 'e2', name: 'from-other' }],
+      microservices: [{ id: 's2', name: 'svc2', baseUrls: { e2: 'http://z' } }],
+      globalAuthProfiles: [{ id: 'a2', name: 'auth2', auth: { type: 'basic', username: 'u', password: 'p' } }],
+      featureGroups: [{ id: 'f2', name: 'FG2', scenarios: [] }],
+    };
+    const bareOther: Record<string, unknown> = { id: 'p3', name: 'Bare', createdAt: 3 };
+    localStorage.setItem('perf-test-projects', JSON.stringify([minimalSel, p2, bareOther]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result!.environments.map((e) => e.id)).toContain('e2');
+    expect(result!.microservices.map((s) => s.id)).toContain('s2');
+    expect(result!.globalAuthProfiles.map((a) => a.id)).toContain('a2');
+    expect(result!.featureGroups.map((f) => f.id)).toContain('f2');
+    expect(result!.selectedEnvId).toBe('');
+    expect(result!.selectedSvcId).toBe('');
+  });
+
+  it('v2 merge skips auth profiles already present in app global storage', async () => {
+    localStorage.setItem(
+      'perf-test-global-auth-profiles',
+      JSON.stringify([{ id: 'shared', name: 'Existing', auth: { type: 'basic', username: 'u', password: 'p' } }]),
+    );
+    const project = {
+      id: 'p1',
+      name: 'P',
+      createdAt: 1,
+      environments: [{ id: 'e1', name: 't01' }],
+      microservices: [{ id: 's1', name: 'svc', baseUrls: {} }],
+      globalAuthProfiles: [{ id: 'shared', name: 'Dup', auth: { type: 'basic', username: 'x', password: 'y' } }],
+      featureGroups: [],
+      selectedEnvId: 'e1',
+      selectedSvcId: 's1',
+    };
+    localStorage.setItem('perf-test-projects', JSON.stringify([project]));
+    localStorage.setItem('perf-test-selected-project', 'p1');
+
+    const result = await migrateToFlat();
+    expect(result!.globalAuthProfiles).toHaveLength(1);
+    expect(result!.globalAuthProfiles[0].name).toBe('Existing');
+  });
+});
+
+describe('storage — usage key filter', () => {
+  it('ignores localStorage keys that do not start with perf-test', async () => {
+    localStorage.setItem('other-app', 'yyyy');
+    await saveTheme('dark');
+    const { entries } = await getStorageUsage();
+    expect(Object.keys(entries).every((k) => k.startsWith('perf-test'))).toBe(true);
+    expect(entries['other-app']).toBeUndefined();
+  });
+
+  it('treats missing values for enumerated perf-test keys as empty string', async () => {
+    const nativeGet = Storage.prototype.getItem;
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === 'perf-test-orphan') return null;
+      return nativeGet.call(this, key);
+    });
+    localStorage.setItem('perf-test-orphan', 'ignored');
+    const { entries, usedBytes } = await getStorageUsage();
+    expect(entries['perf-test-orphan']).toBe(0);
+    expect(usedBytes).toBe(0);
+    vi.restoreAllMocks();
+    isTauriMock.mockReset();
+    isTauriMock.mockReturnValue(false);
+    tauriGetItem.mockReset();
+    tauriGetItem.mockResolvedValue(null);
+    tauriSetItem.mockReset();
+    tauriSetItem.mockResolvedValue(undefined);
+    tauriGetUsage.mockReset();
+    tauriGetUsage.mockResolvedValue({ usedBytes: 0, entries: {} });
+  });
+});
+
+describe('storage — tauri backend', () => {
+  beforeEach(() => {
+    isTauriMock.mockReturnValue(true);
+  });
+
+  it('getMaxRuns reads from tauriStore', async () => {
+    tauriGetItem.mockResolvedValue('42');
+    expect(await getMaxRuns()).toBe(42);
+    expect(tauriGetItem).toHaveBeenCalledWith('perf-test-max-runs');
+  });
+
+  it('saveTheme writes via tauriStore', async () => {
+    await saveTheme('light');
+    expect(tauriSetItem).toHaveBeenCalledWith('perf-test-theme', 'light');
+  });
+
+  it('getStorageUsage delegates to tauriStore', async () => {
+    tauriGetUsage.mockResolvedValue({ usedBytes: 999, entries: { 'perf-test-theme': 999 } });
+    expect(await getStorageUsage()).toEqual({ usedBytes: 999, entries: { 'perf-test-theme': 999 } });
+  });
+
+  it('removeCatalogRawSpec clears the key via tauriStore setItem empty string', async () => {
+    await removeCatalogRawSpec('c1', 'v1');
+    expect(tauriSetItem).toHaveBeenCalledWith('perf-test-catalog-spec-c1-v1', '');
   });
 });

@@ -226,3 +226,102 @@ describe('buildColumnDefs', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 });
+
+function writeWorkbook(dataAoa: string[][], metaAoa: (string | number | boolean)[][]): ArrayBuffer {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dataAoa), 'Data');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaAoa), 'Metadata');
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}
+
+describe('parseExcelToScenarios — warnings and error rows', () => {
+  function baseMetaRows(overrides: { urlPattern?: string; extraColumnRows?: string[][] } = {}) {
+    const urlPattern = overrides.urlPattern ?? 'https://api.example.com/items';
+    const extra = overrides.extraColumnRows ?? [];
+    return [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ...extra,
+      [],
+      ['CONFIG', ''],
+      ['key', 'value'],
+      ['version', 2],
+      ['method', 'GET'],
+      ['urlPattern', urlPattern],
+      ['body', ''],
+      ['bodyType', 'json'],
+      ['auth', JSON.stringify({ type: 'none' })],
+      ['validationMode', 'none'],
+      ['selectiveMode', 'include'],
+      ['unorderedArrays', 'false'],
+      ['excludedPaths', ''],
+      [],
+      ['HEADERS', ''],
+      ['header', 'value'],
+    ];
+  }
+
+  it('warns when metadata maps a column that is absent from the Data sheet', () => {
+    const meta = baseMetaRows({
+      extraColumnRows: [['ghost_only_in_meta', 'validate', '$.ghost']],
+    });
+    const data: string[][] = [
+      ['Request', ''],
+      ['name'],
+      ['Ok row'],
+    ];
+    const result = parseExcelToScenarios(writeWorkbook(data, meta));
+    expect(result.fileErrors).toEqual([]);
+    expect(result.warnings.some(w => w.includes('Metadata defines columns not present in Data sheet'))).toBe(true);
+    expect(result.validRows).toBe(1);
+  });
+
+  it('warns when urlPattern has a placeholder with no matching path column', () => {
+    const meta = baseMetaRows({ urlPattern: 'https://api.example.com/{{orphanId}}/x' });
+    const data: string[][] = [
+      ['Request', ''],
+      ['name'],
+      ['Test'],
+    ];
+    const result = parseExcelToScenarios(writeWorkbook(data, meta));
+    expect(result.fileErrors).toEqual([]);
+    expect(result.warnings.some(w => w.includes('{{orphanId}}'))).toBe(true);
+  });
+
+  it('records error rows with raw cell values when path variable is empty', () => {
+    const meta = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ['vin', 'path', 'vin'],
+      [],
+      ['CONFIG', ''],
+      ['key', 'value'],
+      ['version', 2],
+      ['method', 'GET'],
+      ['urlPattern', 'https://api.example.com/{{vin}}/status'],
+      ['body', ''],
+      ['bodyType', 'json'],
+      ['auth', JSON.stringify({ type: 'none' })],
+      ['validationMode', 'none'],
+      ['selectiveMode', 'include'],
+      ['unorderedArrays', 'false'],
+      ['excludedPaths', ''],
+      [],
+      ['HEADERS', ''],
+      ['header', 'value'],
+    ];
+    const data: string[][] = [
+      ['Request', ''],
+      ['name', 'vin'],
+      ['Has name', ''],
+    ];
+    const result = parseExcelToScenarios(writeWorkbook(data, meta));
+    expect(result.fileErrors).toEqual([]);
+    expect(result.errorRows).toBe(1);
+    expect(result.rows[0].scenario).toBeNull();
+    expect(result.rows[0].errors.some(e => e.includes('Empty path variable'))).toBe(true);
+    expect(result.rows[0].raw).toMatchObject({ name: 'Has name', vin: '' });
+  });
+});

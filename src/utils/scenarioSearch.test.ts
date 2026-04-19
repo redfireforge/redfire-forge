@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { parseSearchQuery, evaluateQuery } from './scenarioSearch';
+import type { ExpectedField, Scenario } from '../types';
+import { parseSearchQuery, evaluateQuery, buildSearchText } from './scenarioSearch';
+
+function scenarioBase(over: Partial<Scenario> = {}): Scenario {
+  return {
+    id: 's1',
+    name: 'My Test',
+    url: 'https://api.example/v1',
+    method: 'POST',
+    headers: [{ key: 'X-Trace', value: 'abc' }],
+    body: '{"x":1}',
+    auth: { type: 'none' },
+    validation: { mode: 'none' },
+    ...over,
+  };
+}
 
 describe('parseSearchQuery', () => {
   it('returns null for empty string', () => {
@@ -20,6 +35,11 @@ describe('parseSearchQuery', () => {
   it('parses quoted exact match', () => {
     const node = parseSearchQuery('"hello world"');
     expect(node).toEqual({ type: 'term', value: 'hello world', exact: true });
+  });
+
+  it('treats unclosed double quote as a single token (no closing quote)', () => {
+    const node = parseSearchQuery('"hello');
+    expect(node).toEqual({ type: 'term', value: '"hello', exact: false });
   });
 
   it('parses NOT prefix', () => {
@@ -155,5 +175,46 @@ describe('evaluateQuery', () => {
   it('case-insensitive matching', () => {
     expect(evaluateQuery(parseSearchQuery('GET')!, text)).toBe(true);
     expect(evaluateQuery(parseSearchQuery('get')!, text)).toBe(true);
+  });
+});
+
+describe('buildSearchText', () => {
+  it('joins core fields and header key/value pairs', () => {
+    const t = scenarioBase();
+    const s = buildSearchText(t);
+    expect(s).toContain('My Test');
+    expect(s).toContain('https://api.example/v1');
+    expect(s).toContain('POST');
+    expect(s).toContain('{"x":1}');
+    expect(s).toContain('X-Trace');
+    expect(s).toContain('abc');
+    expect(s).toContain('none');
+  });
+
+  it('includes optional auth and validation fields when present', () => {
+    const t = scenarioBase({
+      auth: {
+        type: 'oauth2',
+        tokenUrl: 'https://idp/token',
+        clientId: 'cid',
+        username: 'user@example.com',
+      },
+      validation: {
+        mode: 'selective',
+        expectedJson: '{"ok":true}',
+        expectedFields: [
+          { jsonPath: '$.id', expectedValue: '42' },
+          { jsonPath: undefined, expectedValue: undefined } as ExpectedField,
+        ],
+      },
+    });
+    const s = buildSearchText(t);
+    expect(s).toContain('https://idp/token');
+    expect(s).toContain('cid');
+    expect(s).toContain('user@example.com');
+    expect(s).toContain('selective');
+    expect(s).toContain('$.id');
+    expect(s).toContain('42');
+    expect(s).toContain('{"ok":true}');
   });
 });

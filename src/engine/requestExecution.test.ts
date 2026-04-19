@@ -169,6 +169,17 @@ describe('executeWithRetry', () => {
     expect(result.passed).toBe(true);
     expect(result.responseBody).toBe('<html>Not JSON</html>');
   });
+
+  it('uses truncated body when error field extraction throws', async () => {
+    mockedFetch.mockResolvedValueOnce(errorResponse(500, '{"error":{"nested":1}}'));
+    const stringifySpy = vi.spyOn(JSON, 'stringify').mockImplementationOnce(() => {
+      throw new TypeError('stringify blocked');
+    });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    stringifySpy.mockRestore();
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toBe('{"error":{"nested":1}}'.slice(0, 300));
+  });
 });
 
 describe('runSequential', () => {
@@ -253,5 +264,23 @@ describe('runPool', () => {
     const results = await runPool([makeScenario()], 1, makeRunOpts({ onProgress }));
     expect(results).toHaveLength(1);
     expect(onProgress).toHaveBeenCalled();
+  });
+
+  it('records pool error when token acquisition rejects', async () => {
+    mockedFetch.mockResolvedValue(successResponse());
+    const tokenManager = {
+      getToken: vi.fn().mockRejectedValue(new Error('token pool fail')),
+    } as unknown as TokenManager;
+    const results = await runPool([makeScenario()], 1, makeRunOpts({ tokenManager }));
+    expect(results).toHaveLength(1);
+    expect(results[0].passed).toBe(false);
+    expect(results[0].errorMessage).toBe('token pool fail');
+    expect(results[0].failureDetails[0].path).toBe('(error)');
+  });
+
+  it('resolves immediately for an empty queue', async () => {
+    mockedFetch.mockResolvedValue(successResponse());
+    const results = await runPool([], 2, makeRunOpts());
+    expect(results).toEqual([]);
   });
 });

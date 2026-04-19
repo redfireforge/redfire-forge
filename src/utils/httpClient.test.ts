@@ -3,10 +3,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockedIsTauri = vi.fn(() => false);
 const mockedIsNode = vi.fn(() => false);
 
+const envHttpProxyAgentCtor = vi.hoisted(() =>
+  vi.fn(function (this: unknown) {
+    return { __kind: 'EnvHttpProxyAgent' };
+  }),
+);
+
 vi.mock('./platform', () => ({
   isTauri: () => mockedIsTauri(),
   isNode: () => mockedIsNode(),
 }));
+
+/** Track EnvHttpProxyAgent usage; keep real ProxyAgent for fallback tests in `httpClient.proxyAgent.test.ts`. */
+vi.mock('undici', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('undici')>();
+  return { ...mod, EnvHttpProxyAgent: envHttpProxyAgentCtor };
+});
 
 const mockTFetch = vi.fn();
 vi.mock('@tauri-apps/plugin-http', () => ({
@@ -102,8 +114,19 @@ describe('httpFetch', () => {
   });
 
   describe('node mode', () => {
-    beforeEach(() => {
+    let nodeHttpFetch: typeof import('./httpClient').httpFetch;
+
+    beforeEach(async () => {
+      for (const k of ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy'] as const) {
+        delete process.env[k];
+      }
+      vi.resetModules();
       mockedIsNode.mockReturnValue(true);
+      mockedIsTauri.mockReturnValue(false);
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+      nodeHttpFetch = mod.httpFetch;
     });
 
     it('uses global fetch in node mode', async () => {
@@ -114,7 +137,7 @@ describe('httpFetch', () => {
         text: () => Promise.resolve('node-response'),
       });
 
-      const result = await httpFetch('http://example.com/api', 'GET', { 'Accept': 'application/json' });
+      const result = await nodeHttpFetch('http://example.com/api', 'GET', { 'Accept': 'application/json' });
       expect(result.status).toBe(200);
       expect(result.body).toBe('node-response');
     });
@@ -122,9 +145,32 @@ describe('httpFetch', () => {
     it('handles node fetch errors', async () => {
       (globalThis.fetch as any).mockRejectedValueOnce(new Error('DNS lookup failed'));
 
-      const result = await httpFetch('http://example.com', 'GET', {});
+      const result = await nodeHttpFetch('http://example.com', 'GET', {});
       expect(result.status).toBe(0);
       expect(result.error).toBe('DNS lookup failed');
+    });
+
+    it('uses EnvHttpProxyAgent when undici provides it and proxy env is set', async () => {
+      process.env.HTTP_PROXY = 'http://proxy.local:8888';
+      vi.resetModules();
+      const mod = await import('./httpClient');
+      const fetchSpy = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: { forEach: (_fn: (v: string, k: string) => void) => { /* empty */ } },
+        text: () => Promise.resolve('via-env-agent'),
+      });
+      globalThis.fetch = fetchSpy;
+
+      const result = await mod.httpFetch('https://api.example/data', 'GET', {});
+      expect(envHttpProxyAgentCtor).toHaveBeenCalled();
+      expect(result.body).toBe('via-env-agent');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://api.example/data',
+        expect.objectContaining({
+          dispatcher: expect.objectContaining({ __kind: 'EnvHttpProxyAgent' }),
+        }),
+      );
     });
   });
 });
