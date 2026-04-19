@@ -462,3 +462,15 @@ export async function saveCatalogEndpointValues(entryId: string, values: Record<
 export async function removeCatalogEndpointValues(entryId: string): Promise<void> {
   await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
 }
+
+// ── Workflows ──────────────────────────────────────────────
+
+const WORKFLOWS_KEY = 'workflows';
+
+export async function loadWorkflows(): Promise<import('../types/workflow').Workflow[]> {
+  try { const r = await readKey(WORKFLOWS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+}
+
+export async function saveWorkflows(workflows: import('../types/workflow').Workflow[]): Promise<void> {
+  await writeKey(WORKFLOWS_KEY, JSON.stringify(workflows));
+}
