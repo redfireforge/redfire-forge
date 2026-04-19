@@ -26,7 +26,10 @@ import {
   swapInFolders,
   countGroupRequests,
   collectGroupIds,
+  collectGroupChildren,
   collectAllGroups,
+  countFolderReqs,
+  findSiblingFolders,
 } from './requestTree';
 
 function makeReq(id: string, name = ''): RequestItem {
@@ -703,5 +706,96 @@ describe('collectAllGroups', () => {
     const result = collectAllGroups(collections);
     expect(result).toHaveLength(1);
     expect(result[0].group.id).toBe('grp-1');
+  });
+});
+
+// ─── collectGroupChildren ───────────────────────────────
+
+describe('collectGroupChildren', () => {
+  it('includes both group and non-group children', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-root', mode: 'group' }),
+      makeCollection({ id: 'col-1', mode: 'direct', groupId: 'grp-root' }),
+      makeCollection({ id: 'col-2', mode: 'multi-env', groupId: 'grp-root' }),
+      makeCollection({ id: 'grp-child', mode: 'group', groupId: 'grp-root' }),
+    ];
+    const ids = collectGroupChildren('grp-root', collections);
+    expect(ids).toContain('grp-root');
+    expect(ids).toContain('col-1');
+    expect(ids).toContain('col-2');
+    expect(ids).toContain('grp-child');
+    expect(ids).toHaveLength(4);
+  });
+
+  it('recursively collects from nested groups', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-root', mode: 'group' }),
+      makeCollection({ id: 'grp-child', mode: 'group', groupId: 'grp-root' }),
+      makeCollection({ id: 'col-deep', mode: 'direct', groupId: 'grp-child' }),
+    ];
+    const ids = collectGroupChildren('grp-root', collections);
+    expect(ids).toContain('grp-root');
+    expect(ids).toContain('grp-child');
+    expect(ids).toContain('col-deep');
+    expect(ids).toHaveLength(3);
+  });
+
+  it('returns only root when group has no children', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+    ];
+    expect(collectGroupChildren('grp-1', collections)).toEqual(['grp-1']);
+  });
+
+  it('does not include collections outside the group', () => {
+    const collections: RequestCollection[] = [
+      makeCollection({ id: 'grp-1', mode: 'group' }),
+      makeCollection({ id: 'col-in', mode: 'direct', groupId: 'grp-1' }),
+      makeCollection({ id: 'col-out', mode: 'direct' }),
+    ];
+    const ids = collectGroupChildren('grp-1', collections);
+    expect(ids).not.toContain('col-out');
+    expect(ids).toHaveLength(2);
+  });
+});
+
+// ─── countFolderReqs ────────────────────────────────────
+
+describe('countFolderReqs', () => {
+  it('counts requests in a flat folder', () => {
+    const f = makeFolder('f1', [makeReq('r1'), makeReq('r2')]);
+    expect(countFolderReqs(f)).toBe(2);
+  });
+
+  it('counts requests in nested folders', () => {
+    const inner = makeFolder('inner', [makeReq('r1')]);
+    const outer = makeFolder('outer', [makeReq('r2'), makeReq('r3')], [inner]);
+    expect(countFolderReqs(outer)).toBe(3);
+  });
+
+  it('returns 0 for empty folder', () => {
+    expect(countFolderReqs(makeFolder('empty'))).toBe(0);
+  });
+});
+
+// ─── findSiblingFolders ─────────────────────────────────
+
+describe('findSiblingFolders', () => {
+  it('returns top-level siblings', () => {
+    const f1 = makeFolder('f1');
+    const f2 = makeFolder('f2');
+    expect(findSiblingFolders([f1, f2], 'f1')).toEqual([f1, f2]);
+  });
+
+  it('returns nested siblings', () => {
+    const inner1 = makeFolder('inner1');
+    const inner2 = makeFolder('inner2');
+    const outer = makeFolder('outer', [], [inner1, inner2]);
+    expect(findSiblingFolders([outer], 'inner1')).toEqual([inner1, inner2]);
+  });
+
+  it('returns null when not found', () => {
+    const f = makeFolder('f1');
+    expect(findSiblingFolders([f], 'nonexistent')).toBeNull();
   });
 });

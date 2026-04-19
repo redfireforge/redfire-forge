@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { RequestCollection, RequestFolder, CatalogRequestMeta } from '../../types';
-import { countGroupRequests, collectGroupIds } from '../../utils/requestTree';
+import { countGroupRequests, collectGroupIds, findFolderDeep, findSiblingFolders, countFolderReqs } from '../../utils/requestTree';
 import { saveJsonFile, openJsonFile } from '../../utils/fileSaver';
 import { isTauri } from '../../utils/platform';
 import { v4 as uuidv4 } from 'uuid';
@@ -57,27 +57,6 @@ function authLabel(col: RequestCollection): string {
   }
 }
 
-function findFolderInTree(folders: RequestFolder[], folderId: string): RequestFolder | null {
-  for (const f of folders) {
-    if (f.id === folderId) return f;
-    const deep = findFolderInTree(f.folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
-}
-
-function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
-  for (let i = 0; i < folders.length; i++) {
-    if (folders[i].id === folderId) return folders;
-    const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
-}
-
-function countFolderReqs(folder: RequestFolder): number {
-  return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
-}
 
 export type CtxMenuData = {
   x: number; y: number;
@@ -215,7 +194,7 @@ export default function RequestsSidebar({
     if (newFolderTarget && newFolderName.trim()) {
       const col = collections.find(c => c.id === newFolderTarget.colId);
       const siblings = newFolderTarget.parentFolderId
-        ? findFolderInTree(col?.folders ?? [], newFolderTarget.parentFolderId)?.folders ?? []
+        ? findFolderDeep(col?.folders ?? [], newFolderTarget.parentFolderId)?.folders ?? []
         : col?.folders ?? [];
       const nameExists = siblings.some(f => f.name.toLowerCase() === newFolderName.trim().toLowerCase());
       if (nameExists) {
@@ -288,7 +267,7 @@ export default function RequestsSidebar({
 
   const handleExportFolder = async (colId: string, folderId: string) => {
     const col = collections.find(c => c.id === colId);
-    const folder = col ? findFolderInTree(col.folders ?? [], folderId) : null;
+    const folder = col ? findFolderDeep(col.folders ?? [], folderId) : null;
     if (!folder) return;
     await saveJsonFile(buildExportPayload('requests-folder', folder), `folder-${slugify(folder.name)}.json`);
     setContextMenu(null);
@@ -341,15 +320,22 @@ export default function RequestsSidebar({
         importGroupData(json.data.group, json.data.children ?? [], targetGroupId);
       } else if (json.type === 'requests-all' && json.data?.collections) {
         const incoming = json.data.collections as RequestCollection[];
+        const idMap = new Map<string, string>();
+        for (const inc of incoming) {
+          idMap.set(inc.id, uuidv4());
+        }
         let importedCount = 0;
         for (const inc of incoming) {
           if (!inc.name || (!inc.requests && inc.mode !== 'group')) continue;
           const nameExists = collections.some(c => c.name.toLowerCase() === inc.name.toLowerCase());
+          const resolvedGroupId = inc.groupId
+            ? idMap.get(inc.groupId) ?? targetGroupId
+            : targetGroupId;
           const imported: RequestCollection = {
             ...inc,
-            id: uuidv4(),
+            id: idMap.get(inc.id)!,
             name: nameExists ? `${inc.name} (imported)` : inc.name,
-            groupId: targetGroupId,
+            groupId: resolvedGroupId,
             requests: (inc.requests ?? []).map(r => ({ ...r, id: uuidv4() })),
             folders: (inc.folders ?? []).map(regenIds),
           };
@@ -403,7 +389,7 @@ export default function RequestsSidebar({
         if (!incoming.name || !incoming.requests) {
           alert('Invalid folder format: missing required fields.'); return;
         }
-        const parent = findFolderInTree(collections.find(c => c.id === colId)?.folders ?? [], parentFolderId);
+        const parent = findFolderDeep(collections.find(c => c.id === colId)?.folders ?? [], parentFolderId);
         const siblings = parent?.folders ?? [];
         const nameExists = siblings.some(f => f.name.toLowerCase() === incoming.name.toLowerCase());
         const imported = regenIds({

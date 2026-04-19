@@ -24,6 +24,19 @@ export function collectGroupIds(groupId: string, collections: RequestCollection[
   return ids;
 }
 
+export function collectGroupChildren(groupId: string, collections: RequestCollection[]): string[] {
+  const ids: string[] = [groupId];
+  for (const c of collections) {
+    if (c.groupId !== groupId) continue;
+    if (c.mode === 'group') {
+      ids.push(...collectGroupChildren(c.id, collections));
+    } else {
+      ids.push(c.id);
+    }
+  }
+  return ids;
+}
+
 export function collectAllGroups(collections: RequestCollection[], parentGroupId?: string, depth = 0): { group: RequestCollection; depth: number }[] {
   const result: { group: RequestCollection; depth: number }[] = [];
   for (const c of collections) {
@@ -60,6 +73,19 @@ export function findRequestInCollection(col: RequestCollection, reqId: string): 
 
 export function countReqsInFolders(folders: RequestFolder[]): number {
   return folders.reduce((sum, f) => sum + f.requests.length + countReqsInFolders(f.folders ?? []), 0);
+}
+
+export function countFolderReqs(folder: RequestFolder): number {
+  return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
+}
+
+export function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
+  for (let i = 0; i < folders.length; i++) {
+    if (folders[i].id === folderId) return folders;
+    const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
+    if (deep) return deep;
+  }
+  return null;
 }
 
 export function countAllRequests(col: RequestCollection): number {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { RequestCollection, RequestFolder } from '../../types';
-import { collectAllGroups, countGroupRequests } from '../../utils/requestTree';
+import { collectAllGroups, collectGroupIds, countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../../utils/requestTree';
 import type { CtxMenuData } from './RequestsSidebar';
 
 interface Props {
@@ -44,15 +44,6 @@ interface Props {
   handleExportGroup: (groupId: string) => void;
 }
 
-function findFolderInTree(folders: RequestFolder[], folderId: string): RequestFolder | null {
-  for (const f of folders) {
-    if (f.id === folderId) return f;
-    const deep = findFolderInTree(f.folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
-}
-
 function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
   const result: { folder: RequestFolder; depth: number }[] = [];
   for (const f of folders) {
@@ -60,19 +51,6 @@ function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: Reque
     result.push(...collectAllFolders(f.folders ?? [], depth + 1));
   }
   return result;
-}
-
-function findSiblingFolders(folders: RequestFolder[], folderId: string): RequestFolder[] | null {
-  for (let i = 0; i < folders.length; i++) {
-    if (folders[i].id === folderId) return folders;
-    const deep = findSiblingFolders(folders[i].folders ?? [], folderId);
-    if (deep) return deep;
-  }
-  return null;
-}
-
-function countFolderReqs(folder: RequestFolder): number {
-  return folder.requests.length + (folder.folders ?? []).reduce((s, f) => s + countFolderReqs(f), 0);
 }
 
 function findReqInFoldersDeep(folders: RequestFolder[], reqId: string): string | undefined {
@@ -104,9 +82,9 @@ function getFolderLocation(col: RequestCollection, folderId: string): string | n
 }
 
 function isAncestorOf(folders: RequestFolder[], ancestorId: string, descendantId: string): boolean {
-  const ancestor = findFolderInTree(folders, ancestorId);
+  const ancestor = findFolderDeep(folders, ancestorId);
   if (!ancestor) return false;
-  return !!findFolderInTree(ancestor.folders ?? [], descendantId);
+  return !!findFolderDeep(ancestor.folders ?? [], descendantId);
 }
 
 function findRequestName(col: RequestCollection, reqId: string): string {
@@ -166,7 +144,9 @@ export default function SidebarContextMenu({
           <button onClick={() => startRenameGroup(contextMenu.colId, group.name)}>Rename</button>
           <button onClick={() => { onDuplicateGroup(contextMenu.colId); dismiss(); }}>Duplicate Group</button>
 
-          {(allGroupsFlat.length > (group.groupId ? 0 : 1) || group.groupId) && (
+          {(allGroupsFlat.length > (group.groupId ? 0 : 1) || group.groupId) && (() => {
+            const descendantIds = new Set(collectGroupIds(contextMenu.colId, collections));
+            return (
             <div className="req-ctx-submenu-wrapper">
               <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
                 Move to... <span className="req-ctx-arrow">&#9656;</span>
@@ -179,7 +159,7 @@ export default function SidebarContextMenu({
                     </button>
                   )}
                   {allGroupsFlat
-                    .filter(({ group: g }) => g.id !== contextMenu.colId && g.id !== group.groupId)
+                    .filter(({ group: g }) => !descendantIds.has(g.id) && g.id !== group.groupId)
                     .map(({ group: g, depth }) => (
                       <button key={g.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => { onMoveToGroup(contextMenu.colId, g.id); dismiss(); setShowColMoveMenu(false); }}>
                         &#128450;&#65039; {g.name}
@@ -188,7 +168,8 @@ export default function SidebarContextMenu({
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           <hr className="req-ctx-divider" />
           <button onClick={() => handleExportGroup(contextMenu.colId)}>Export Group</button>
@@ -256,7 +237,7 @@ export default function SidebarContextMenu({
 
       {/* ── Folder context menu ── */}
       {contextMenu.type === 'folder' && contextMenu.folderId && (() => {
-        const ctxFolder = findFolderInTree(ctxCol?.folders ?? [], contextMenu.folderId!);
+        const ctxFolder = findFolderDeep(ctxCol?.folders ?? [], contextMenu.folderId!);
         const isSub = ctxFolder?.isSubCollection;
         return (<>
           <button onClick={() => { onNewRequest(contextMenu.colId, contextMenu.folderId); dismiss(); }}>Add Request</button>
@@ -267,7 +248,7 @@ export default function SidebarContextMenu({
           )}
           <button onClick={() => {
             const col = collections.find(c => c.id === contextMenu.colId);
-            const folder = findFolderInTree(col?.folders ?? [], contextMenu.folderId!);
+            const folder = findFolderDeep(col?.folders ?? [], contextMenu.folderId!);
             if (folder) startRenameFolder(contextMenu.colId, contextMenu.folderId!, folder.name);
           }}>Rename</button>
           {(() => {
@@ -339,7 +320,7 @@ export default function SidebarContextMenu({
           <button className="danger" onClick={() => {
             const colId = contextMenu.colId;
             const folderId = contextMenu.folderId!;
-            const targetFolder = findFolderInTree(ctxCol?.folders ?? [], folderId);
+            const targetFolder = findFolderDeep(ctxCol?.folders ?? [], folderId);
             const folderReqs = targetFolder ? countFolderReqs(targetFolder) : 0;
             const label = isSub ? 'sub-collection' : 'folder';
             const msg = `Delete ${label} "${ctxFolder?.name ?? ''}"${folderReqs > 0 ? ` and its ${folderReqs} request${folderReqs > 1 ? 's' : ''}` : ''}?`;
