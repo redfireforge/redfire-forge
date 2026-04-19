@@ -177,7 +177,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   /* ── Render helpers ── */
 
   const renderDetailRow = (r: RequestResult) => (
-    <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'}`}>
+    <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
       <td></td>
       <td className="group-detail-name">
         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
@@ -498,7 +498,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               </thead>
               <tbody>
                 {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
-                  <tr key={r.id} className={r.passed ? '' : 'row-failed'}>
+                  <tr key={r.id} className={`${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
                     <td>{r.scenarioName}</td>
                     <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
                     <td className="url-cell">{r.url}</td>
