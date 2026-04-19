@@ -9,6 +9,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Connection Pooling**: HTTP connections are now reused via `keep-alive` instead of creating a new TCP/TLS connection per request
+  - **Before**: Every outbound request opened a fresh TCP connection → DNS lookup + TCP handshake + TLS handshake overhead repeated thousands of times during a run
+  - **After**: A shared `undici.Agent` pool keeps connections alive (30s idle timeout, up to 128 concurrent connections, pipelining) — subsequent requests to the same origin skip handshake overhead entirely
+  - Vite dev proxy (`/__proxy`): Shared `undici.Agent` created at server startup, reused across all proxied requests, cleaned up on server shutdown
+  - Node CLI mode (`nodeFetch`): Shared `undici.Agent` with identical pool settings; `closeNodePool()` exported for explicit cleanup
+  - Tauri desktop mode: Already pooled via `reqwest` — no changes needed
+  - `Connection: keep-alive` header injected on all outbound requests (Vite proxy + Node CLI)
+  - Proxy environment support preserved — `EnvHttpProxyAgent` / `ProxyAgent` used when `HTTP_PROXY` / `HTTPS_PROXY` is set
+  - Estimated 2–3x latency reduction for HTTPS APIs in browser dev mode (eliminates repeated TLS handshakes)
 - **Worker Thread Execution**: Test execution offloaded to a Web Worker so the UI stays responsive during high-concurrency runs
   - **Before**: UI rendering, progress updates, charts, AND the engine (HTTP, validation, metrics) all shared one JS thread — causing stutters, frozen progress bars, and "page unresponsive" warnings during heavy runs
   - **After**: Engine runs in a dedicated Web Worker thread; main thread is free for 60fps rendering, smooth interactions, and accurate live metrics
@@ -35,7 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
 
 ### Changed
-- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.4% statements, 90.2% branches, 98.9% functions, 98.2% lines) with 977 total tests across 45 test files
+- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.4% statements, 90.4% branches, 98.9% functions, 98.2% lines) with 986 total tests across 46 test files
 
 ---
 

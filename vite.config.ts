@@ -5,9 +5,38 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 function proxyPlugin(): Plugin {
+  let pooledDispatcher: import('undici').Dispatcher | undefined;
+
+  async function getDispatcher(): Promise<import('undici').Dispatcher | undefined> {
+    if (pooledDispatcher) return pooledDispatcher;
+    try {
+      const undici = await import('undici');
+      const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
+        || process.env.HTTP_PROXY || process.env.http_proxy;
+      if (proxy) {
+        pooledDispatcher = undici.EnvHttpProxyAgent
+          ? new undici.EnvHttpProxyAgent()
+          : new undici.ProxyAgent(proxy);
+      } else {
+        pooledDispatcher = new undici.Agent({
+          keepAliveTimeout: 30_000,
+          keepAliveMaxTimeout: 60_000,
+          connections: 128,
+          pipelining: 1,
+        });
+      }
+    } catch { /* undici not available — fall back to default dispatcher */ }
+    return pooledDispatcher;
+  }
+
   return {
     name: 'api-proxy',
     configureServer(server) {
+      server.httpServer?.on('close', () => {
+        pooledDispatcher?.close?.();
+        pooledDispatcher = undefined;
+      });
+
       server.middlewares.use('/__proxy', async (req, res) => {
         if (req.method !== 'POST') {
           res.writeHead(405);
@@ -35,26 +64,17 @@ function proxyPlugin(): Plugin {
         }
 
         try {
+          const headers = { ...payload.headers, 'Connection': 'keep-alive' };
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
-            headers: payload.headers,
+            headers,
           };
           if (payload.body && payload.method !== 'GET') {
             fetchOpts.body = payload.body;
           }
 
-          const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
-            || process.env.HTTP_PROXY || process.env.http_proxy;
-          if (proxy) {
-            try {
-              const undici = await import('undici');
-              if (undici.EnvHttpProxyAgent) {
-                fetchOpts.dispatcher = new undici.EnvHttpProxyAgent();
-              } else if (undici.ProxyAgent) {
-                fetchOpts.dispatcher = new undici.ProxyAgent(proxy);
-              }
-            } catch { /* undici not available */ }
-          }
+          const dispatcher = await getDispatcher();
+          if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
           const response = await fetch(payload.url, fetchOpts as RequestInit);
           const responseBody = await response.text();

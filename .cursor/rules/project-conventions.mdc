@@ -18,6 +18,7 @@ alwaysApply: true
 - Use `supportsWorkers()` from `src/utils/platform.ts` to detect Web Worker support.
 - Use `httpFetch()` from `src/utils/httpClient.ts` for all HTTP requests.
 - Use `setHttpTransport()` from `src/utils/httpClient.ts` to override HTTP transport (used by workers).
+- Use `closeNodePool()` from `src/utils/httpClient.ts` for explicit Node CLI pool cleanup after test runs.
 - Use async functions from `src/utils/storage.ts` for all persistence.
 - Never use `localStorage` directly — always go through the storage abstraction.
 - Test execution automatically uses Web Workers when available; falls back to direct execution otherwise.
@@ -30,7 +31,7 @@ alwaysApply: true
 | `src/pages/EnvironmentManager.tsx` | Unified env/microservice/auth config page |
 | `src/utils/storage.ts` | Dual-mode persistence layer |
 | `src/utils/tauriStore.ts` | Tauri file-system storage |
-| `src/utils/httpClient.ts` | Dual-mode HTTP client |
+| `src/utils/httpClient.ts` | Dual-mode HTTP client with connection pooling (undici.Agent) |
 | `src/utils/platform.ts` | Platform detection |
 | `src/utils/requestTree.ts` | Requests tree manipulation with safe insert helpers |
 | `src/utils/requestUrlResolver.ts` | Base URL resolution for multi-env collections |
