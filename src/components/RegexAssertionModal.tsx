@@ -160,6 +160,25 @@ const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelec
 
 /* ── Value resolver ─────────────────────────────────── */
 
+export interface MatchResult {
+  valid: boolean;
+  matches: boolean;
+  matchDetails?: RegExpMatchArray | null;
+  error?: string;
+}
+
+export function testPattern(pattern: string, value: string): MatchResult {
+  if (!pattern) return { valid: true, matches: false };
+  try {
+    const re = new RegExp(pattern);
+    const matches = re.test(value);
+    const matchDetails = value.match(re);
+    return { valid: true, matches, matchDetails };
+  } catch (e) {
+    return { valid: false, matches: false, error: e instanceof Error ? e.message : 'Invalid regex' };
+  }
+}
+
 export function resolveValue(json: string, path: string): string | undefined {
   if (!json || !path) return undefined;
   try {
@@ -217,14 +236,7 @@ export default function RegexAssertionModal({
 
   const matchResult = useMemo(() => {
     if (!pattern || resolvedValue === undefined) return null;
-    try {
-      const re = new RegExp(pattern);
-      const matches = re.test(resolvedValue);
-      const matchDetails = resolvedValue.match(re);
-      return { valid: true, matches, matchDetails };
-    } catch (e) {
-      return { valid: false, matches: false, error: e instanceof Error ? e.message : 'Invalid regex' };
-    }
+    return testPattern(pattern, resolvedValue);
   }, [pattern, resolvedValue]);
 
   const handleSelectPath = useCallback((path: string) => {
