@@ -1,11 +1,24 @@
 import { useState } from 'react';
-import type { RequestCollection } from '../../types';
+import type { RequestCollection, RequestFolder, RequestItem } from '../../types';
 import type { CatalogEntry } from '../../types/catalog';
 import type { WorkflowNodeType } from '../../types/workflow';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
 };
+
+function collectAllRequests(col: RequestCollection): RequestItem[] {
+  const all: RequestItem[] = [...col.requests];
+  const walkFolders = (folders?: RequestFolder[]) => {
+    if (!folders) return;
+    for (const f of folders) {
+      all.push(...f.requests);
+      walkFolders(f.folders);
+    }
+  };
+  walkFolders(col.folders);
+  return all;
+}
 
 interface Props {
   collections: RequestCollection[];
@@ -65,28 +78,31 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
         {section === 'requests' && (
           <div className="wf-palette-tree">
             {collections.length === 0 && <p className="wf-palette-empty">No request collections</p>}
-            {collections.map(col => (
-              <div key={col.id} className="wf-palette-group">
-                <button className="wf-palette-group-header" onClick={() => toggleCol(col.id)}>
-                  <span className="wf-palette-caret">{expandedCols.has(col.id) ? '▾' : '▸'}</span>
-                  {col.name}
-                  <span className="wf-palette-count">{col.requests.length}</span>
-                </button>
-                {expandedCols.has(col.id) && col.requests.map(req => (
-                  <button
-                    key={req.id}
-                    className="wf-palette-item"
-                    onClick={() => onAddFromRequest(col.id, req.id)}
-                    title={`${req.method} ${req.url}`}
-                  >
-                    <span className="wf-method-mini" style={{ color: METHOD_COLORS[req.method] ?? '#6b7280' }}>
-                      {req.method}
-                    </span>
-                    <span className="wf-palette-item-name">{req.name}</span>
+            {collections.map(col => {
+              const allReqs = collectAllRequests(col);
+              return (
+                <div key={col.id} className="wf-palette-group">
+                  <button className="wf-palette-group-header" onClick={() => toggleCol(col.id)}>
+                    <span className="wf-palette-caret">{expandedCols.has(col.id) ? '▾' : '▸'}</span>
+                    {col.name}
+                    <span className="wf-palette-count">{allReqs.length}</span>
                   </button>
-                ))}
-              </div>
-            ))}
+                  {expandedCols.has(col.id) && allReqs.map(req => (
+                    <button
+                      key={req.id}
+                      className="wf-palette-item"
+                      onClick={() => onAddFromRequest(col.id, req.id)}
+                      title={`${req.method} ${req.url}`}
+                    >
+                      <span className="wf-method-mini" style={{ color: METHOD_COLORS[req.method] ?? '#6b7280' }}>
+                        {req.method}
+                      </span>
+                      <span className="wf-palette-item-name">{req.name}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 

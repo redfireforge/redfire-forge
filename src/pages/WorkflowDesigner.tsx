@@ -179,7 +179,22 @@ export default function WorkflowDesigner({ collections, catalogEntries }: Props)
 
   const handleAddFromRequest = useCallback((collectionId: string, requestId: string) => {
     const col = collections.find(c => c.id === collectionId);
-    const req = col?.requests.find(r => r.id === requestId);
+    if (!col) return;
+
+    let req = col.requests.find(r => r.id === requestId);
+    if (!req) {
+      const searchFolders = (folders?: import('../types').RequestFolder[]): import('../types').RequestItem | undefined => {
+        if (!folders) return undefined;
+        for (const f of folders) {
+          const found = f.requests.find(r => r.id === requestId);
+          if (found) return found;
+          const deeper = searchFolders(f.folders);
+          if (deeper) return deeper;
+        }
+        return undefined;
+      };
+      req = searchFolders(col.folders);
+    }
     if (!req) return;
 
     const scenario: Scenario = {
