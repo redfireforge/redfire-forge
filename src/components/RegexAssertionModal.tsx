@@ -64,10 +64,11 @@ interface PickerNodeProps {
   selectedPath: string;
   onSelect: (path: string) => void;
   searchTerm: string;
+  expandAll?: boolean;
 }
 
-const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm }: PickerNodeProps) {
-  const [expanded, setExpanded] = useState(depth < 2);
+const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll }: PickerNodeProps) {
+  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
 
   const matchesSelf = useMemo(() => {
@@ -85,8 +86,10 @@ const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelec
 
   const effectiveExpanded = useMemo(() => {
     if (searchTerm && hasMatchingDescendant) return true;
-    return expanded;
-  }, [searchTerm, hasMatchingDescendant, expanded]);
+    if (manualExpanded !== null) return manualExpanded;
+    if (expandAll) return true;
+    return depth < 2;
+  }, [searchTerm, hasMatchingDescendant, manualExpanded, expandAll, depth]);
 
   const valuePreview = useMemo(() => {
     if (node.type === 'object') return `{ ${node.children?.length || 0} keys }`;
@@ -124,7 +127,7 @@ const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelec
         {hasChildren ? (
           <span
             className="json-tree-toggle"
-            onClick={(e) => { e.stopPropagation(); setExpanded(!effectiveExpanded); }}
+            onClick={(e) => { e.stopPropagation(); setManualExpanded(!effectiveExpanded); }}
           >
             {effectiveExpanded ? '▾' : '▸'}
           </span>
@@ -146,6 +149,7 @@ const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelec
               selectedPath={selectedPath}
               onSelect={onSelect}
               searchTerm={searchTerm}
+              expandAll={expandAll}
             />
           ))}
         </div>
@@ -302,6 +306,7 @@ export default function RegexAssertionModal({
                     selectedPath={jsonPath.replace(/^\$\.?/, '')}
                     onSelect={handleSelectPath}
                     searchTerm={treeSearch}
+                    expandAll
                   />
                 </div>
               </>
