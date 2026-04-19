@@ -42,7 +42,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 730 unit/integration tests (Vitest, 91.5% line coverage) + 17 E2E tests (Playwright) = 747 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 948 unit/integration tests (Vitest, 98% line coverage, 90% branch coverage) + 17 E2E tests (Playwright) = 965 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - **No request chaining** — can't test multi-step workflows (create → read → update → delete)
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -61,7 +61,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 | **Good** | Variables & chaining, rich assertions, worker-thread execution, connection pooling, think time | ~500-2,000 RPS | Artillery, JMeter |
 | **Excellent** | Native async executor (Rust), distributed multi-machine, constant arrival rate, streaming percentiles | 5,000-50,000+ RPS | k6, Gatling |
 
-#### Current capabilities (Moderate)
+#### Current capabilities (Moderate → approaching Good)
 
 - Duration-based profiles: sustained, ramp-up, spike
 - Fixed transaction count: sequential, batch, pool concurrency
@@ -70,6 +70,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - Live streaming charts (TPS, response time, error rate, active connections)
 - OAuth2 token manager with JWT expiry detection
 - Weighted scenario distribution in load profiles
+- **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
 
 #### Gap analysis: Moderate → Good
 
@@ -77,7 +78,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 |---|---|---|---|
 | 1 | **Variables & chaining** | Can't test multi-step workflows (create → get ID → verify) | 0.9.0 |
 | 2 | **Rich assertions** | No status code, response time SLA, header, or regex assertions | 0.10.0 |
-| 3 | **Think time & pacing** | No delay between requests per virtual user → unrealistic flood | 0.9.1 |
+| ~~3~~ | ~~**Think time & pacing**~~ | ~~No delay between requests per virtual user → unrealistic flood~~ | ~~0.9.1~~ ✅ |
 | 4 | **Worker thread execution** | Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput | 0.9.1 |
 | 5 | **Connection pooling** | New TCP connection per request adds latency; `keep-alive` reuse = massive improvement | 0.9.1 |
 | 6 | **Request timing breakdown** | No DNS/TLS/TTFB/download waterfall → can't diagnose *why* something is slow | 0.10.0 |
@@ -97,7 +98,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 ```
 Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
   ① Variables & Chaining        → unblocks real-world multi-step testing
-  ② Think time & pacing         → realistic virtual user simulation
+  ② ~~Think time & pacing~~      → ✅ realistic virtual user simulation (done)
   ③ Worker thread execution     → 2-5x throughput boost
   ④ Connection pooling           → reduced latency at scale
   ⑤ Rich assertions             → status code, SLA, header, regex
