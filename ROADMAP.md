@@ -13,26 +13,27 @@
 
 RedfireForge is a **visual API testing workbench** — not a raw load generator. Its strength is the intersection of **GUI-driven test building**, **response validation**, and **moderate load testing** in one tool. No competitor occupies this exact niche:
 
-| Tool | GUI | Load Testing | Response Validation | Desktop Native |
-|---|---|---|---|---|
-| **k6** | No (code-only) | Excellent | Basic `check()` | No |
-| **Gatling** | No (Scala DSL) | Excellent | Basic | No |
-| **Locust** | Minimal web UI | Good | Manual (Python) | No |
-| **JMeter** | Yes (dated Java Swing) | Good | Verbose XML assertions | No |
-| **Artillery** | No (YAML + JS) | Good | Basic | No |
-| **Bruno** | Yes (modern) | No | Manual | Yes (Electron) |
-| **Hoppscotch** | Yes (modern, web) | No | Manual | No |
-| **Postman** | Yes (proprietary) | Limited (paid) | Good | Yes (Electron) |
-| **RedfireForge** | Yes (modern) | Moderate | Excellent (visual) | Yes (Tauri) |
+| Tool | GUI | Load Testing | Response Validation | API Catalog | Desktop Native |
+|---|---|---|---|---|---|
+| **k6** | No (code-only) | Excellent | Basic `check()` | No | No |
+| **Gatling** | No (Scala DSL) | Excellent | Basic | No | No |
+| **Locust** | Minimal web UI | Good | Manual (Python) | No | No |
+| **JMeter** | Yes (dated Java Swing) | Good | Verbose XML assertions | No | No |
+| **Artillery** | No (YAML + JS) | Good | Basic | No | No |
+| **Bruno** | Yes (modern) | No | Manual | No | Yes (Electron) |
+| **Hoppscotch** | Yes (modern, web) | No | Manual | No | No |
+| **Postman** | Yes (proprietary) | Limited (paid) | Good | Partial (paid) | Yes (Electron) |
+| **RedfireForge** | Yes (modern) | Moderate | Excellent (visual) | **Yes (OpenAPI)** | Yes (Tauri) |
 
 ### Key Differentiators (Lean Into These)
 
 1. **Visual load testing with a modern UI** — the JMeter replacement the world needs
 2. **Sophisticated validation engine** — JSONPath builder, unordered arrays, selective/full modes, visual diff
-3. **Excel template workflow** — enterprise QA teams work in spreadsheets, no competitor supports this
-4. **Auth inheritance chain** — Global → Feature → Scenario → Test with visual badges
-5. **Tauri-based desktop** — lighter than Electron (Bruno, Postman), native performance
-6. **Web mode with zero install** — instant try-it-out on Vercel/Netlify
+3. **API Catalog with OpenAPI import** — browse, search, and send endpoints to load tests; multi-environment aware; no other load testing tool has an integrated catalog-to-test workflow
+4. **Excel template workflow** — enterprise QA teams work in spreadsheets, no competitor supports this
+5. **Auth inheritance chain** — Global → Feature → Scenario → Test with visual badges
+6. **Tauri-based desktop** — lighter than Electron (Bruno, Postman), native performance
+7. **Web mode with zero install** — instant try-it-out on Vercel/Netlify
 
 ### Positioning Recommendation
 
