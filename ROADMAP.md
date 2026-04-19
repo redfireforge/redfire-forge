@@ -73,13 +73,14 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
 - **Worker thread execution**: Engine runs in a Web Worker — UI stays responsive at 60fps during heavy runs; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback; incremental result transfer avoids serialization overhead
 - **Connection pooling**: Shared `undici.Agent` keeps HTTP connections alive (30s timeout, 128 connections) — eliminates TCP/TLS handshake overhead on repeated requests to the same origin; 2–3x latency reduction for HTTPS APIs in browser dev mode; Tauri mode already pooled via `reqwest`
+- **Rich assertions**: Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), response header (`equals`/`contains`/`regex`/`exists`), and regex match on JSONPath values — run on every request regardless of JSON validation mode; status assertions override default HTTP error handling
 
 #### Gap analysis: Moderate → Good
 
 | # | Gap | Why it matters | Phase |
 |---|---|---|---|
 | 1 | **Variables & chaining** | Can't test multi-step workflows (create → get ID → verify) | 0.9.0 |
-| 2 | **Rich assertions** | No status code, response time SLA, header, or regex assertions | 0.10.0 |
+| ~~2~~ | ~~**Rich assertions**~~ | ~~No status code, response time SLA, header, or regex assertions~~ | ~~0.10.0~~ ✅ |
 | ~~3~~ | ~~**Think time & pacing**~~ | ~~No delay between requests per virtual user → unrealistic flood~~ | ~~0.9.1~~ ✅ |
 | ~~4~~ | ~~**Worker thread execution**~~ | ~~Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput~~ | ~~0.9.1~~ ✅ |
 | ~~5~~ | ~~**Connection pooling**~~ | ~~New TCP connection per request adds latency; `keep-alive` reuse = massive improvement~~ | ~~0.9.1~~ ✅ |
@@ -103,7 +104,7 @@ Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
   ② ~~Think time & pacing~~      → ✅ realistic virtual user simulation (done)
   ③ ~~Worker thread execution~~ → ✅ Web Worker offloading (done)
   ④ ~~Connection pooling~~       → ✅ keep-alive reuse via undici.Agent (done)
-  ⑤ Rich assertions             → status code, SLA, header, regex
+  ⑤ ~~Rich assertions~~         → ✅ status code, SLA, header, regex (done)
   ⑥ Request timing breakdown    → DNS/TLS/TTFB waterfall
 
 Priority 2 — Reach "Excellent" (Phases 0.11.0 + 1.x)
@@ -323,10 +324,10 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Richer assertions and deeper visibility into what happened during a run. Combined with Phase 0.9.1, this completes the transition to **Good** load testing.
 
-- [ ] **Status Code Assertions** — Assert specific status codes (e.g., "expect 201", "expect 4xx range")
-- [ ] **Response Time Assertions** — "Must respond under 500ms" per-test SLA threshold
-- [ ] **Response Header Assertions** — Validate `Content-Type`, `Cache-Control`, custom headers
-- [ ] **Regex Assertions** — `$.name matches /^[A-Z].*/`
+- [x] **Status Code Assertions** — Assert specific codes (`200`), classes (`2xx`), ranges (`200-299`), comma-separated lists; overrides default HTTP error handling so asserting `404` makes a 404 pass
+- [x] **Response Time Assertions** — Per-test SLA threshold (`≤ Nms`); fails requests exceeding the configured maximum
+- [x] **Response Header Assertions** — Validate any response header with `equals`, `contains`, `regex`, or `exists` operators; case-insensitive header name lookup
+- [x] **Regex Assertions** — Match JSONPath-extracted values against regular expressions (`$.name matches /^[A-Z].*/`)
 - [ ] **Response Headers in Results** — Capture and display response headers (currently only body)
 - [ ] **Request Log** — Show the exact request sent including resolved auth headers
 - [ ] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
@@ -410,11 +411,11 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
 | 0.9.0 | Variables & Chaining | → Good | 6 | 0 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
-| 0.10.0 | Assertions & Observability | → Good | 7 | 0 |
+| 0.10.0 | Assertions & Observability | → Good | 7 | 4 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **148** | **92** |
+| **Total** | | | **148** | **96** |
 
 ### Load Testing Level Milestones
 

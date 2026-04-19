@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestResult } from '../types';
-import { validate } from './validator';
+import { validate, evaluateAssertions } from './validator';
 import { httpFetch, type HttpResponse } from '../utils/httpClient';
 import { serializeWithContentType } from '../utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
@@ -19,6 +19,7 @@ async function executeRequest(
   let httpStatus = 0;
   let responseBody = '';
   let responseObj: unknown = null;
+  let responseHeaders: Record<string, string> = {};
   let errorMessage: string | undefined;
 
   try {
@@ -41,6 +42,7 @@ async function executeRequest(
     } else {
       httpStatus = result.status;
       responseBody = result.body;
+      responseHeaders = result.headers;
       try {
         responseObj = JSON.parse(responseBody);
       } catch {
@@ -54,11 +56,23 @@ async function executeRequest(
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
 
-  let failureDetails = scenario.validation.mode !== 'none' && httpStatus > 0 && httpStatus < 400
+  const assertions = scenario.validation.assertions ?? [];
+  const { failures: assertionFailures, statusAsserted } = assertions.length > 0
+    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
+    : { failures: [], statusAsserted: false };
+
+  const httpOk = httpStatus > 0 && httpStatus < 400;
+  const statusOk = statusAsserted
+    ? assertionFailures.every(f => f.path !== '(status)')
+    : httpOk;
+
+  const jsonFailures = scenario.validation.mode !== 'none' && statusOk
     ? validate(scenario.validation, responseObj)
     : [];
 
-  const httpFailed = httpStatus >= 400 || httpStatus === 0;
+  let failureDetails = [...assertionFailures, ...jsonFailures];
+
+  const httpFailed = !statusAsserted && (httpStatus >= 400 || httpStatus === 0);
   if (httpFailed && !errorMessage && responseBody) {
     try {
       const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
@@ -71,10 +85,11 @@ async function executeRequest(
     }
   }
   if (httpFailed && errorMessage) {
-    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }];
+    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }, ...assertionFailures];
   }
 
-  const passed = !httpFailed && failureDetails.length === 0;
+  const networkError = httpStatus === 0 && !statusAsserted;
+  const passed = !networkError && failureDetails.length === 0;
 
   return {
     id,

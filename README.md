@@ -751,7 +751,8 @@ All execution settings are grouped in a single unified card below the Execution 
 1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
 2. Configure concurrency, transactions, timeout, retry, and error policy.
 3. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
-4. Click **▶ Run Test**.
+4. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
+5. Click **▶ Run Test**.
 5. A live progress bar shows completion percentage, current TPS, average response time, and error rate. Tags next to "Progress" show the execution mode, concurrency, total transactions, think time config (if active), and active host.
 6. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
 7. When complete, results auto-navigate to the Results tab.
@@ -872,6 +873,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
+| Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation |
 | Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
 | Worker thread execution | Test engine runs in a Web Worker for responsive UI at 60fps; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; incremental result transfer |
 | Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |
