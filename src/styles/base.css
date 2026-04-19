@@ -517,6 +517,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   letter-spacing: .4px; color: var(--text-muted);
 }
 .ram-leaf-count { font-weight: 400; font-size: 11px; }
+.ram-fetch-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ram-fetch-error { font-size: 11px; color: #f87171; }
 .ram-json-textarea { flex: 1; min-height: 200px; font-size: 12px; resize: vertical; }
 .ram-tree-controls { display: flex; gap: 6px; margin-bottom: 6px; }
 .ram-search-input {
