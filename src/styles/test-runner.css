@@ -357,6 +357,13 @@ tr:hover td { background: var(--surface-hover); }
   border-radius: 0;
   margin-bottom: 0;
 }
+.execution-group .think-time-section {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+}
+.execution-group .think-time-section .exec-mode-hint {
+  margin-top: 4px;
+}
 .execution-group .load-profile-section {
   border-top: 1px solid var(--border);
   padding: 10px 14px;

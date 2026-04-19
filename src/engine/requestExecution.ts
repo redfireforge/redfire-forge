@@ -6,6 +6,7 @@ import { serializeWithContentType } from '../utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
+import { applyThinkTime } from './thinkTime';
 
 async function executeRequest(
   scenario: Scenario,
@@ -125,10 +126,11 @@ export interface RunOpts {
   breaker: CircuitBreaker;
   onProgress: (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;
   abortSignal?: AbortSignal;
+  getThinkTimeMs: () => number;
 }
 
 export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
 
   for (const scenario of queue) {
@@ -140,13 +142,14 @@ export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<R
     allResults.push(result);
     breaker.record(result);
     onProgress(allResults.length, queue.length, allResults);
+    await applyThinkTime(getThinkTimeMs, abortSignal);
   }
 
   return allResults;
 }
 
 export async function runBatch(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
   let completed = 0;
 
@@ -166,13 +169,14 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
     batchResults.forEach((r) => breaker.record(r));
     completed += batchResults.length;
     onProgress(completed, queue.length, allResults);
+    await applyThinkTime(getThinkTimeMs, abortSignal);
   }
 
   return allResults;
 }
 
 export async function runPool(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
   let nextIdx = 0;
   let inFlight = 0;
@@ -217,7 +221,7 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
           if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
             resolve(allResults);
           } else {
-            launch();
+            applyThinkTime(getThinkTimeMs, abortSignal).then(launch);
           }
         });
       }
