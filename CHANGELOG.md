@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Worker Thread Execution**: Test execution offloaded to a Web Worker to keep the UI responsive during high-concurrency runs
+  - New `src/engine/executionWorker.ts` — Web Worker entry point that runs the full engine in a separate thread
+  - New `src/engine/workerBridge.ts` — main-thread bridge with same interface as `runTest()` (drop-in replacement)
+  - New `src/engine/workerProtocol.ts` — typed message protocol for Main ↔ Worker communication
+  - Incremental result transfer: only new results are sent per progress update (avoids serializing full array)
+  - Tauri HTTP proxy: in desktop mode, HTTP requests are forwarded from worker to main thread via `postMessage` so the Tauri HTTP plugin (main-thread only) is still used
+  - Browser mode: worker uses `fetch(/__proxy)` directly — no main-thread involvement for HTTP
+  - Automatic fallback: if Web Workers are unavailable (e.g., test environment), falls back to direct main-thread execution
+  - `setHttpTransport()` API in `httpClient.ts` for injectable HTTP transport (used by worker, also useful for testing)
+  - `supportsWorkers()` detection in `platform.ts`
 - **Think Time & Pacing**: Configurable delays between requests for realistic virtual user simulation
   - Four modes: None, Constant (fixed delay), Uniform (random min–max range), Gaussian (normal distribution with mean/stdDev)
   - New `src/engine/thinkTime.ts` module with `createThinkTimeDelay()` factory and `applyThinkTime()` with abort-signal awareness
@@ -22,7 +32,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
 
 ### Changed
-- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.3% statements, 90.1% branches, 98.8% functions, 98.1% lines) with 948 total tests across 41 test files
+- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.4% statements, 90.2% branches, 98.9% functions, 98.2% lines) with 977 total tests across 45 test files
 
 ---
 
