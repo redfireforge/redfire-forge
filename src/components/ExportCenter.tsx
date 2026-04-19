@@ -1,17 +1,17 @@
 import { useState, useMemo } from 'react';
-import type { TestRun, Project, GlobalAuthProfile } from '../types';
+import type { TestRun, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../types';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 
 interface Props {
-  project: Project;
-  projects: Project[];
+  environments: Environment[];
+  microservices: Microservice[];
+  featureGroups: FeatureGroup[];
   appGlobalAuthProfiles: GlobalAuthProfile[];
   testRuns: TestRun[];
   onClose: () => void;
 }
 
-export default function ExportCenter({ project, projects, appGlobalAuthProfiles, testRuns, onClose }: Props) {
-  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set([project.id]));
+export default function ExportCenter({ environments, microservices, featureGroups, appGlobalAuthProfiles, testRuns, onClose }: Props) {
   const [includeGlobalAuth, setIncludeGlobalAuth] = useState(appGlobalAuthProfiles.length > 0);
   const [includeRuns, setIncludeRuns] = useState(false);
   const [selectedRuns, setSelectedRuns] = useState<Set<string>>(new Set());
@@ -23,28 +23,20 @@ export default function ExportCenter({ project, projects, appGlobalAuthProfiles,
     setter(next);
   };
 
-  const selectedProjects = useMemo(
-    () => projects.filter((p) => selectedProjectIds.has(p.id)),
-    [projects, selectedProjectIds],
-  );
-
   const summary = useMemo(() => {
-    const totalEnvs = selectedProjects.reduce((s, p) => s + p.environments.length, 0);
-    const totalSvcs = selectedProjects.reduce((s, p) => s + p.microservices.length, 0);
-    const totalAuth = selectedProjects.reduce((s, p) => s + p.globalAuthProfiles.length, 0);
-    const totalFGs = selectedProjects.reduce((s, p) => s + p.featureGroups.length, 0);
-    const totalScenarios = selectedProjects.reduce((s, p) =>
-      s + p.featureGroups.reduce((fs, fg) => fs + fg.scenarios.length, 0), 0);
-    const totalTests = selectedProjects.reduce((s, p) =>
-      s + p.featureGroups.reduce((fs, fg) => fs + fg.scenarios.reduce((ts, sc) => ts + sc.tests.length, 0), 0), 0);
-    return { totalEnvs, totalSvcs, totalAuth, totalFGs, totalScenarios, totalTests };
-  }, [selectedProjects]);
+    const totalScenarios = featureGroups.reduce((s, fg) => s + fg.scenarios.length, 0);
+    const totalTests = featureGroups.reduce((s, fg) =>
+      s + fg.scenarios.reduce((ts, sc) => ts + sc.tests.length, 0), 0);
+    return { totalScenarios, totalTests };
+  }, [featureGroups]);
 
   const handleExport = async () => {
     const data: Record<string, unknown> = {
-      projects: selectedProjects,
+      environments,
+      microservices,
+      featureGroups,
       exportedAt: new Date().toISOString(),
-      version: '2.0',
+      version: '3.0',
     };
 
     if (includeGlobalAuth && appGlobalAuthProfiles.length > 0) {
@@ -55,10 +47,7 @@ export default function ExportCenter({ project, projects, appGlobalAuthProfiles,
       data.testRuns = testRuns.filter((r) => selectedRuns.has(r.id));
     }
 
-    const name = selectedProjects.length === 1
-      ? selectedProjects[0].name.toLowerCase().replace(/\s+/g, '-')
-      : `${selectedProjects.length}-projects`;
-    const filename = buildExportFilename({ level: 'project', name });
+    const filename = buildExportFilename({ level: 'data', name: 'redfire-export' });
     await saveJsonFile(data, filename);
   };
 
@@ -66,54 +55,29 @@ export default function ExportCenter({ project, projects, appGlobalAuthProfiles,
     <div className="modal-overlay settings-overlay" onClick={onClose}>
       <div className="modal settings-modal export-center-modal" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
-          <h3>Export Project</h3>
+          <h3>Export Data</h3>
           <button className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
 
         <div className="export-center-body">
           <div className="export-section">
             <div className="export-section-header">
-              <strong>Select Project(s) to Export</strong>
-              <span className="export-count">{selectedProjectIds.size}/{projects.length}</span>
+              <strong>Export Summary</strong>
             </div>
-            <div className="export-items">
-              {projects.map((prj) => (
-                <label key={prj.id} className="export-item">
-                  <input
-                    type="checkbox"
-                    checked={selectedProjectIds.has(prj.id)}
-                    onChange={() => toggle(selectedProjectIds, prj.id, setSelectedProjectIds)}
-                  />
-                  <span>{prj.name}</span>
-                  <span className="export-item-meta">
-                    {prj.environments.length} envs · {prj.microservices.length} svcs · {prj.globalAuthProfiles.length} auth · {prj.featureGroups.length} features
-                  </span>
-                </label>
-              ))}
+            <div className="export-items" style={{ padding: '8px 16px', opacity: 0.8, fontSize: '0.9em' }}>
+              <div>{environments.length} environment{environments.length !== 1 ? 's' : ''}</div>
+              <div>{microservices.length} microservice{microservices.length !== 1 ? 's' : ''}</div>
+              <div>{appGlobalAuthProfiles.length} auth profile{appGlobalAuthProfiles.length !== 1 ? 's' : ''}</div>
+              <div>{featureGroups.length} feature group{featureGroups.length !== 1 ? 's' : ''} ({summary.totalScenarios} scenarios, {summary.totalTests} tests)</div>
             </div>
           </div>
-
-          {selectedProjectIds.size > 0 && (
-            <div className="export-section">
-              <div className="export-section-header">
-                <strong>Export Summary</strong>
-              </div>
-              <div className="export-items" style={{ padding: '8px 16px', opacity: 0.8, fontSize: '0.9em' }}>
-                <div>{selectedProjectIds.size} project{selectedProjectIds.size > 1 ? 's' : ''}</div>
-                <div>{summary.totalEnvs} environment{summary.totalEnvs !== 1 ? 's' : ''}</div>
-                <div>{summary.totalSvcs} microservice{summary.totalSvcs !== 1 ? 's' : ''}</div>
-                <div>{summary.totalAuth} auth profile{summary.totalAuth !== 1 ? 's' : ''}</div>
-                <div>{summary.totalFGs} feature group{summary.totalFGs !== 1 ? 's' : ''} ({summary.totalScenarios} scenarios, {summary.totalTests} tests)</div>
-              </div>
-            </div>
-          )}
 
           {appGlobalAuthProfiles.length > 0 && (
             <div className="export-section">
               <div className="export-section-header">
                 <label className="export-item" style={{ margin: 0, padding: 0 }}>
                   <input type="checkbox" checked={includeGlobalAuth} onChange={(e) => setIncludeGlobalAuth(e.target.checked)} />
-                  <strong>Include Global Auth Profiles</strong>
+                  <strong>Include Auth Profiles</strong>
                 </label>
                 <span className="export-count">{appGlobalAuthProfiles.length} profile{appGlobalAuthProfiles.length !== 1 ? 's' : ''}</span>
               </div>
@@ -161,7 +125,7 @@ export default function ExportCenter({ project, projects, appGlobalAuthProfiles,
         </div>
 
         <div className="export-center-footer">
-          <button className="btn btn-primary" onClick={handleExport} disabled={selectedProjectIds.size === 0}>
+          <button className="btn btn-primary" onClick={handleExport}>
             Export JSON
           </button>
         </div>

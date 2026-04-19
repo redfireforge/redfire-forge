@@ -26,11 +26,10 @@ interface Props {
   onDuplicateFolder: (colId: string, folderId: string) => void;
   onMoveFolder: (colId: string, folderId: string, direction: 'up' | 'down') => void;
   onMoveFolderTo: (colId: string, folderId: string, targetParentFolderId: string | null) => void;
-  onMoveRequest: (colId: string, reqId: string, targetFolderId: string | null) => void;
+  onMoveRequest: (colId: string, reqId: string, targetFolderId: string | null, beforeReqId?: string) => void;
   onMoveRequestToCollection: (srcColId: string, reqId: string, destColId: string, destFolderId: string | null) => void;
   onMoveFolderToCollection: (srcColId: string, folderId: string, destColId: string, destParentFolderId: string | null) => void;
   onMergeCollectionInto: (srcColId: string, destColId: string) => void;
-  onManageEnvs: () => void;
   countAllRequests: (col: WorkbenchCollection) => number;
   onImportCollection: (col: WorkbenchCollection) => void;
   onImportFolder: (colId: string, folder: WorkbenchFolder, parentFolderId?: string) => void;
@@ -124,7 +123,7 @@ export default function WorkbenchSidebar({
   onSelectCollection, onSelectRequest, onNewCollection,
   onEditCollection, onDeleteCollection, onDuplicateCollection, onNewRequest, onDeleteRequest,
   onDuplicateRequest, onAddFolder, onAddSubCollection, onEditSubCollection, onRenameFolder, onDeleteFolder, onDuplicateFolder, onMoveFolder,
-  onMoveFolderTo, onMoveRequest, onMoveRequestToCollection, onMoveFolderToCollection, onMergeCollectionInto, onManageEnvs, countAllRequests,
+  onMoveFolderTo, onMoveRequest, onMoveRequestToCollection, onMoveFolderToCollection, onMergeCollectionInto, countAllRequests,
   onImportCollection, onImportFolder,
 }: Props) {
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set(collections.map(c => c.id)));
@@ -140,6 +139,7 @@ export default function WorkbenchSidebar({
   const dragItemRef = useRef<DragItem>(null);
   const setDragItem = useCallback((v: DragItem) => { dragItemRef.current = v; _setDragItem(v); }, []);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dropInsert, setDropInsert] = useState<{ beforeReqId: string; folderId: string | null } | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
   const autoExpandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -393,20 +393,69 @@ export default function WorkbenchSidebar({
   }, [onMoveRequest, onMoveRequestToCollection, onMoveFolderTo, onMoveFolderToCollection, setDragItem]);
 
   const handleDragEnd = useCallback(() => {
-    setDragItem(null); setDropTarget(null);
+    setDragItem(null); setDropTarget(null); setDropInsert(null);
     if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
   }, [setDragItem]);
 
-  const renderRequest = (colId: string, reqId: string, method: string, name: string, url: string, inFolderId?: string) => (
-    <div key={reqId}
-      className={`wb-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${dragItem?.kind === 'request' && (dragItem as any).reqId === reqId ? 'dragging' : ''}`}
-      onClick={() => onSelectRequest(colId, reqId)}
-      onContextMenu={(e) => handleContext(e, 'request', colId, inFolderId, reqId)}
-      draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
-      <span className="wb-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
-      <span className="wb-req-name" title={name || url}>{name || url || 'Untitled'}</span>
-    </div>
-  );
+  const handleReqDragOver = useCallback((e: React.DragEvent, colId: string, reqId: string, folderId: string | undefined) => {
+    const di = dragItemRef.current;
+    if (!di || di.kind !== 'request') return;
+    if (di.kind === 'request' && (di as any).reqId === reqId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      setDropInsert({ beforeReqId: reqId, folderId: folderId ?? null });
+    } else {
+      setDropInsert({ beforeReqId: reqId + ':after', folderId: folderId ?? null });
+    }
+  }, []);
+
+  const handleReqDrop = useCallback((e: React.DragEvent, colId: string, folderId: string | undefined, requests: { id: string }[]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const di = dragItemRef.current;
+    if (!di || di.kind !== 'request') return;
+    const ins = dropInsert;
+    setDragItem(null); setDropTarget(null); setDropInsert(null);
+    if (!ins) {
+      if (di.colId === colId) onMoveRequest(colId, (di as any).reqId, folderId ?? null);
+      else onMoveRequestToCollection(di.colId, (di as any).reqId, colId, folderId ?? null);
+      return;
+    }
+    const isAfter = ins.beforeReqId.endsWith(':after');
+    const actualId = isAfter ? ins.beforeReqId.replace(':after', '') : ins.beforeReqId;
+    const idx = requests.findIndex(r => r.id === actualId);
+    const nextReq = isAfter ? requests[idx + 1] : requests[idx];
+    const beforeId = nextReq?.id;
+    if (di.colId === colId) onMoveRequest(colId, (di as any).reqId, folderId ?? null, beforeId);
+    else onMoveRequestToCollection(di.colId, (di as any).reqId, colId, folderId ?? null);
+  }, [dropInsert, onMoveRequest, onMoveRequestToCollection, setDragItem]);
+
+  const renderRequest = (colId: string, reqId: string, method: string, name: string, url: string, inFolderId?: string, siblingRequests?: { id: string }[]) => {
+    const isDragging = dragItem?.kind === 'request' && (dragItem as any).reqId === reqId;
+    const showBefore = dropInsert?.beforeReqId === reqId;
+    const showAfter = dropInsert?.beforeReqId === reqId + ':after';
+    return (
+      <div key={reqId} className="wb-req-drop-wrapper">
+        {showBefore && <div className="wb-drop-indicator" />}
+        <div
+          className={`wb-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
+          onClick={() => onSelectRequest(colId, reqId)}
+          onContextMenu={(e) => handleContext(e, 'request', colId, inFolderId, reqId)}
+          onDragOver={(e) => handleReqDragOver(e, colId, reqId, inFolderId)}
+          onDragLeave={() => setDropInsert(null)}
+          onDrop={(e) => handleReqDrop(e, colId, inFolderId, siblingRequests ?? [])}
+          draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
+          <span className="wb-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
+          <span className="wb-req-name" title={name || url}>{name || url || 'Untitled'}</span>
+        </div>
+        {showAfter && <div className="wb-drop-indicator" />}
+      </div>
+    );
+  };
 
   const renderFolder = (col: WorkbenchCollection, folder: WorkbenchFolder, depth: number) => {
     const isExpanded = expandedFolders.has(folder.id);
@@ -441,7 +490,7 @@ export default function WorkbenchSidebar({
         </div>
         {isExpanded && (
           <div className="wb-folder-requests">
-            {folder.requests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, folder.id))}
+            {folder.requests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, folder.id, folder.requests))}
             {subFolders.map((sf) => renderFolder(col, sf, depth + 1))}
             {isNewFolderHere && (
               <div className="wb-new-folder-row">
@@ -462,7 +511,6 @@ export default function WorkbenchSidebar({
       <div className="wb-sidebar-header">
         <span className="wb-sidebar-title">COLLECTIONS</span>
         <div className="wb-sidebar-actions">
-          <button className="wb-icon-btn" onClick={onManageEnvs} title="Manage Environments">&#9881;</button>
           <button className="wb-icon-btn" onClick={handleExportAll} title="Export All Collections">&#8613;</button>
           <button className="wb-icon-btn" onClick={() => handleImportToCollection()} title="Import Collection">&#8615;</button>
           <button className="wb-icon-btn" onClick={onNewCollection} title="New Collection">+</button>
@@ -481,9 +529,9 @@ export default function WorkbenchSidebar({
               onDragOver={(e) => {
                 const di = dragItemRef.current;
                 if (!di) return;
-                if (di.colId === col.id) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
+                if (di.colId === col.id) return;
                 setDropTarget(`col-header-${col.id}`);
                 if (!expandedCols.has(col.id) && !autoExpandTimer.current) {
                   autoExpandTimer.current = setTimeout(() => {
@@ -499,6 +547,7 @@ export default function WorkbenchSidebar({
                 }
               }}
               onDrop={(e) => {
+                e.preventDefault();
                 const di = dragItemRef.current;
                 if (!di || di.colId === col.id) return;
                 if (autoExpandTimer.current) { clearTimeout(autoExpandTimer.current); autoExpandTimer.current = null; }
@@ -518,12 +567,14 @@ export default function WorkbenchSidebar({
               </div>
 
               {expandedCols.has(col.id) && (
-                <div className="wb-req-list">
+                <div className="wb-req-list"
+                  onDragOver={(e) => { if (dragItemRef.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
+                  onDrop={(e) => { e.preventDefault(); handleDrop(e, col.id, null); }}>
                   <div className={`wb-root-drop ${isRootDropTarget ? 'drop-target' : ''}`}
                     onDragOver={(e) => handleDragOver(e, `root-${col.id}`)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, col.id, null)}>
-                    {col.requests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url))}
+                    {col.requests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, undefined, col.requests))}
                   </div>
                   {(col.folders ?? []).map((folder) => renderFolder(col, folder, 0))}
                   {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && (

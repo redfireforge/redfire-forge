@@ -23,6 +23,9 @@ export interface CatalogEntry {
   hostConfig: HostConfig;
   authConfig: CatalogAuthConfig;
   savedAuth?: AuthConfig;
+  microserviceId?: string;
+  customEndpointNames?: Record<string, string>;
+  /** @deprecated Use microserviceId + global environments instead */
   environments?: CatalogEnvironment[];
   activeEnvironmentId?: string;
 }

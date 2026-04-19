@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile, Project } from '../types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile } from '../types';
 import MoveDialog, { type MoveType, type MoveTarget } from '../components/MoveDialog';
 import CsvImportModal from '../components/CsvImportModal';
 import { useAuthVerify } from '../hooks/useAuthVerify';
@@ -69,16 +69,12 @@ interface Props {
   microservices?: Microservice[];
   environments?: { id: string; name: string }[];
   globalAuthProfiles?: GlobalAuthProfile[];
-  projectAuthProfiles?: GlobalAuthProfile[];
-  projects?: Project[];
-  currentProjectId?: string;
-  onMoveFeatureGroup?: (fgId: string, sourceProjectId: string, targetProjectId: string) => void;
-  onMoveScenario?: (scenarioId: string, sourceFgId: string, sourceProjectId: string, targetFgId: string, targetProjectId: string) => void;
-  onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, sourceProjectId: string, targetScenarioId: string, targetFgId: string, targetProjectId: string) => void;
+  onMoveScenario?: (scenarioId: string, sourceFgId: string, targetFgId: string) => void;
+  onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, targetScenarioId: string, targetFgId: string) => void;
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], projectAuthProfiles = [], projects = [], currentProjectId = '', onMoveFeatureGroup, onMoveScenario, onMoveTest }: Props) {
-  const allAuthProfiles = [...globalAuthProfiles, ...projectAuthProfiles];
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest }: Props) {
+  const allAuthProfiles = globalAuthProfiles;
 
   const featureAuthTypeOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
@@ -94,7 +90,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       { value: 'oauth2', label: 'OAuth2 Client Credentials' },
     );
     return opts;
-  }, [globalAuthProfiles, projectAuthProfiles]);
+  }, [globalAuthProfiles]);
 
   const resolveEffectiveAuth = useCallback((t: Scenario, sc: TestScenario, fg: FeatureGroup): { label: string; source: string } | null => {
     if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
@@ -563,27 +559,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   }, [dragScenario, dragTest, dropTarget, moveScenario, moveTest]);
 
   const handleMoveConfirm = useCallback((target: MoveTarget) => {
-    if (!moveDialog || !currentProjectId) return;
+    if (!moveDialog) return;
     const { type, fgId, scenarioId, testId } = moveDialog;
 
-    if (type === 'featureGroup' && onMoveFeatureGroup) {
-      onMoveFeatureGroup(fgId, currentProjectId, target.projectId);
-    } else if (type === 'scenario' && scenarioId && target.fgId && onMoveScenario) {
-      if (target.projectId === currentProjectId) {
-        moveScenario(scenarioId, fgId, target.fgId);
-      } else {
-        onMoveScenario(scenarioId, fgId, currentProjectId, target.fgId, target.projectId);
-      }
+    if (type === 'scenario' && scenarioId && target.fgId && onMoveScenario) {
+      onMoveScenario(scenarioId, fgId, target.fgId);
     } else if (type === 'test' && testId && scenarioId && target.fgId && target.scenarioId && onMoveTest) {
-      if (target.projectId === currentProjectId) {
-        moveTest(testId, fgId, scenarioId, target.fgId, target.scenarioId);
-      } else {
-        onMoveTest(testId, scenarioId, fgId, currentProjectId, target.scenarioId, target.fgId, target.projectId);
-      }
+      onMoveTest(testId, scenarioId, fgId, target.scenarioId, target.fgId);
     }
 
     setMoveDialog(null);
-  }, [moveDialog, currentProjectId, onMoveFeatureGroup, onMoveScenario, onMoveTest, moveScenario, moveTest]);
+  }, [moveDialog, onMoveScenario, onMoveTest]);
 
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const isSearching = parsedQuery !== null;
@@ -624,7 +610,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <div className="page-title-block">
           <h2>Feature Groups</h2>
           <div className="context-tags">
-            {currentProjectId && projects.length > 0 && <span className="context-tag project-tag">{projects.find((p) => p.id === currentProjectId)?.name ?? 'Unknown'}</span>}
             {selectedSvcName && <span className="context-tag svc-tag">{selectedSvcName}</span>}
             {selectedEnvName && <span className="context-tag env-tag">{selectedEnvName}</span>}
           </div>
@@ -721,7 +706,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   onClick={() => toggleFeatureAuth(fg.id)}
                 >Auth</button>
                 <button className="btn btn-sm" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
-                {projects.length > 1 && <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'featureGroup', itemName: fg.name, fgId: fg.id, fgEnvironmentId: fg.environmentId, fgMicroserviceId: fg.microserviceId, fgAuthProfileId: fg.globalAuthProfileId })} title="Move to another project">Move</button>}
+
                 <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
                 <button className="btn btn-sm" onClick={() => exportFeatureGroup(fg)} title="Export this feature group">Export</button>
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
@@ -739,8 +724,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                 showProfileSelector
                 globalAuthProfileId={fg.globalAuthProfileId}
                 onProfileChange={(profileId) => updateFeatureAuth(fg.id, fg.auth || { type: 'none' }, profileId)}
-                globalAuthProfiles={globalAuthProfiles}
-                projectAuthProfiles={projectAuthProfiles}
                 allAuthProfiles={allAuthProfiles}
                 authVerifying={authVerifying}
                 authVerifyResult={authVerifyResult}
@@ -821,7 +804,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           onClick={() => toggleScenarioAuth(fg.id, sc.id)}
                         >Auth</button>
                         <button className="btn btn-sm" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
-                        <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'scenario', itemName: sc.name, fgId: fg.id, scenarioId: sc.id })} title="Move to another feature group or project">Move</button>
+                        <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'scenario', itemName: sc.name, fgId: fg.id, scenarioId: sc.id })} title="Move to another feature group">Move</button>
                         <button className="btn btn-sm" onClick={() => importTestsInto(fg.id, sc.id)} title="Import tests into this scenario">Import</button>
                         <button className="btn btn-sm" onClick={() => exportScenario(sc)} title="Export this scenario">Export</button>
                         <button className="btn btn-sm btn-danger" onClick={() => removeScenario(fg.id, sc.id)}>Delete</button>
@@ -986,7 +969,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                     }}>Assign</button>
                   </>
                 )}
-                {projects.length > 1 && <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'featureGroup', itemName: fg.name, fgId: fg.id, fgEnvironmentId: fg.environmentId, fgMicroserviceId: fg.microserviceId, fgAuthProfileId: fg.globalAuthProfileId })} title="Move to another project">Move</button>}
+
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
               </div>
             </div>
@@ -1029,14 +1012,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
         <MoveDialog
           type={moveDialog.type}
           itemName={moveDialog.itemName}
-          projects={projects}
-          currentProjectId={currentProjectId}
+          featureGroups={featureGroups}
           currentFgId={moveDialog.fgId}
           currentScenarioId={moveDialog.scenarioId}
-          fgEnvironmentId={moveDialog.fgEnvironmentId}
-          fgMicroserviceId={moveDialog.fgMicroserviceId}
-          fgAuthProfileId={moveDialog.fgAuthProfileId}
-          appGlobalAuthProfileIds={new Set(globalAuthProfiles.map((p) => p.id))}
           onMove={handleMoveConfirm}
           onClose={() => setMoveDialog(null)}
         />

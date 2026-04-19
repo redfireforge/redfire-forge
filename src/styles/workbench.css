@@ -301,6 +301,13 @@
 .wb-req-item.dragging { opacity: 0.4; }
 .wb-req-item { cursor: grab; }
 .wb-req-item:active { cursor: grabbing; }
+.wb-req-drop-wrapper { position: relative; }
+.wb-drop-indicator {
+  height: 2px; background: var(--primary, #3b82f6);
+  border-radius: 1px; margin: 0 4px;
+  pointer-events: none;
+  box-shadow: 0 0 4px var(--primary, #3b82f6);
+}
 
 /* Context menu */
 .wb-context-menu {

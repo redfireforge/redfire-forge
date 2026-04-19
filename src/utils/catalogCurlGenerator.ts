@@ -1,5 +1,5 @@
 import type { CatalogEndpoint, HostConfig, CatalogServer, CatalogEnvironment } from '../types/catalog';
-import type { AuthConfig } from '../types';
+import type { AuthConfig, Microservice, Environment } from '../types';
 import { generateStubJson } from './schemaStubGenerator';
 import { acquireOAuth2Token } from '../engine/tokenManager';
 
@@ -12,11 +12,13 @@ interface CurlParams {
   bodyText: string;
   auth: AuthConfig;
   environments?: CatalogEnvironment[];
+  linkedMicroservice?: Microservice;
+  appEnvironments?: Environment[];
 }
 
 export async function buildCatalogCurlCommand(params: CurlParams): Promise<string> {
-  const { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments } = params;
-  const baseUrl = resolveBaseUrl(hostConfig, servers, environments);
+  const { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice } = params;
+  const baseUrl = resolveBaseUrl(hostConfig, servers, environments, linkedMicroservice);
   const fullUrl = buildFullUrl(baseUrl, endpoint.path, paramValues, endpoint.parameters);
 
   const parts: string[] = ['curl'];
@@ -91,6 +93,7 @@ export async function buildDefaultCurlCommand(
   servers: CatalogServer[],
   auth: AuthConfig,
   environments?: CatalogEnvironment[],
+  linkedMicroservice?: Microservice,
 ): Promise<string> {
   const paramValues: Record<string, string> = {};
   for (const p of endpoint.parameters) {
@@ -106,14 +109,40 @@ export async function buildDefaultCurlCommand(
   }
 
   return buildCatalogCurlCommand({
-    endpoint, hostConfig, servers, paramValues, headerValues: {}, bodyText, auth, environments,
+    endpoint, hostConfig, servers, paramValues, headerValues: {}, bodyText, auth, environments, linkedMicroservice,
   });
 }
 
-export function resolveBaseUrl(hostConfig: HostConfig, servers: CatalogServer[], environments?: CatalogEnvironment[]): string {
-  if (hostConfig.strategy === 'environment' && hostConfig.environmentId && environments?.length) {
-    const env = environments.find(e => e.id === hostConfig.environmentId);
-    if (env) return env.baseUrl.replace(/\/+$/, '');
+export function extractServerPathPrefix(servers: CatalogServer[]): string {
+  if (servers.length === 0) return '';
+  try {
+    const parsed = new URL(servers[0].url);
+    const p = parsed.pathname.replace(/\/+$/, '');
+    return p === '/' ? '' : p;
+  } catch {
+    return '';
+  }
+}
+
+export function resolveBaseUrl(
+  hostConfig: HostConfig,
+  servers: CatalogServer[],
+  environments?: CatalogEnvironment[],
+  linkedMicroservice?: Microservice,
+): string {
+  if (hostConfig.strategy === 'environment' && hostConfig.environmentId) {
+    if (linkedMicroservice) {
+      const url = linkedMicroservice.baseUrls[hostConfig.environmentId];
+      if (url) {
+        const base = url.replace(/\/+$/, '');
+        const pathPrefix = extractServerPathPrefix(servers);
+        return pathPrefix ? `${base}${pathPrefix}` : base;
+      }
+    }
+    if (environments?.length) {
+      const env = environments.find(e => e.id === hostConfig.environmentId);
+      if (env) return env.baseUrl.replace(/\/+$/, '');
+    }
   }
   if (hostConfig.strategy === 'hardcoded' && hostConfig.hardcodedUrl) {
     return hostConfig.hardcodedUrl.replace(/\/+$/, '');
@@ -135,7 +164,7 @@ export function buildFullUrl(
   let resolvedPath = path;
   for (const p of parameters.filter(p => p.in === 'path')) {
     const value = paramValues[p.name] || `{${p.name}}`;
-    resolvedPath = resolvedPath.replace(`{${p.name}}`, encodeURIComponent(value));
+    resolvedPath = resolvedPath.replaceAll(`{${p.name}}`, encodeURIComponent(value));
   }
 
   const queryParams = parameters.filter(p => p.in === 'query');

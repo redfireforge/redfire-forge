@@ -1,23 +1,19 @@
 import { useState } from 'react';
-import type { Project, Environment, Microservice, FeatureGroup } from '../types';
+import type { Environment, Microservice, FeatureGroup } from '../types';
 
 interface Props {
-  projects: Project[];
-  selectedProjectId: string;
   environments: Environment[];
   microservices: Microservice[];
   featureGroups: FeatureGroup[];
   selectedEnvId: string;
   selectedSvcId: string;
-  onProjectSwitch: (projectId: string) => void;
   onEnvSelect: (envId: string) => void;
   onSvcSelect: (svcId: string) => void;
-  onOpenSettings: () => void;
 }
 
 export default function Sidebar({
-  projects, selectedProjectId, environments, microservices, featureGroups,
-  selectedEnvId, selectedSvcId, onProjectSwitch, onEnvSelect, onSvcSelect,
+  environments, microservices, featureGroups,
+  selectedEnvId, selectedSvcId, onEnvSelect, onSvcSelect,
 }: Props) {
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -42,25 +38,6 @@ export default function Sidebar({
 
   return (
     <div className="config-sidebar-inner">
-      <div className="sidebar-project-list">
-        {projects.map((prj) => {
-          const isActive = prj.id === selectedProjectId;
-          return (
-            <div
-              key={prj.id}
-              className={`sidebar-project-item ${isActive ? 'active' : ''}`}
-              onClick={() => { if (!isActive) { onProjectSwitch(prj.id); setExpandedNodes(new Set()); } }}
-            >
-              <span className="sidebar-project-icon">{isActive ? '▾' : '▸'}</span>
-              <span className="sidebar-project-name">{prj.name}</span>
-              <span className="sidebar-project-meta">{prj.featureGroups.length}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="sidebar-divider" />
-
       <div className="sidebar-toggle">
         <button className={`sidebar-toggle-btn ${sidebarView === 'env' ? 'active' : ''}`} onClick={() => { setSidebarView('env'); setExpandedNodes(new Set()); }}>Environments</button>
         <button className={`sidebar-toggle-btn ${sidebarView === 'svc' ? 'active' : ''}`} onClick={() => { setSidebarView('svc'); setExpandedNodes(new Set()); }}>Microservices</button>
@@ -73,7 +50,7 @@ export default function Sidebar({
 
       {sidebarView === 'env' && (
         <div className="sidebar-list">
-          {environments.length === 0 && <div className="empty-hint">No environments. Open Settings to add.</div>}
+          {environments.length === 0 && <div className="empty-hint">No environments. Go to Environments to add.</div>}
           {environments.map((env) => {
             const svcsInEnv = microservices.filter((s) => env.id in s.baseUrls);
             const isExpanded = expandedNodes.has(env.id);
@@ -111,7 +88,7 @@ export default function Sidebar({
 
       {sidebarView === 'svc' && (
         <div className="sidebar-list">
-          {microservices.length === 0 && <div className="empty-hint">No microservices. Open Settings to add.</div>}
+          {microservices.length === 0 && <div className="empty-hint">No microservices. Go to Environments to add.</div>}
           {microservices.map((svc) => {
             const envsForSvc = environments.filter((e) => e.id in svc.baseUrls);
             const isExpanded = expandedNodes.has(svc.id);

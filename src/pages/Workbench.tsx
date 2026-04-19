@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { GlobalAuthProfile, WorkbenchRequest, WorkbenchFolder } from '../types';
+import type { GlobalAuthProfile, WorkbenchRequest, WorkbenchFolder, Microservice, Environment } from '../types';
 import type { UseWorkbenchReturn } from '../hooks/useWorkbench';
 import WorkbenchRequestEditor from '../components/workbench/WorkbenchRequestEditor';
 
@@ -21,9 +21,11 @@ function findAncestorSubCollection(folders: WorkbenchFolder[], reqId: string, an
 interface Props {
   wb: UseWorkbenchReturn;
   appGlobalAuthProfiles: GlobalAuthProfile[];
+  appMicroservices: Microservice[];
+  appEnvironments: Environment[];
 }
 
-export default function Workbench({ wb, appGlobalAuthProfiles }: Props) {
+export default function Workbench({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments }: Props) {
   const handleUpdateRequest = useCallback((reqPatch: Partial<WorkbenchRequest>) => {
     if (wb.selectedCollection && wb.selectedRequest) {
       wb.updateRequest(wb.selectedCollection.id, wb.selectedRequest.id, reqPatch);
@@ -48,6 +50,8 @@ export default function Workbench({ wb, appGlobalAuthProfiles }: Props) {
             request={wb.selectedRequest}
             parentSubCollection={parentSubCollection ?? undefined}
             environments={wb.environments}
+            appMicroservices={appMicroservices}
+            appEnvironments={appEnvironments}
             selectedEnvId={wb.selectedEnvId}
             onEnvChange={wb.setSelectedEnvId}
             onUpdateRequest={handleUpdateRequest}
