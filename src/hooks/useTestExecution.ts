@@ -3,8 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../types';
 import { runTest } from '../engine/executor';
 import type { ProgressMeta } from '../engine/executor';
+import { runTestInWorker } from '../engine/workerBridge';
 import { computeMetrics } from '../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../utils/storage';
+import { supportsWorkers } from '../utils/platform';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -222,9 +224,10 @@ export function useTestExecution() {
     });
 
     let lastTrackedCount = 0;
+    const executeFn = supportsWorkers() ? runTestInWorker : runTest;
 
     try {
-      const results = await runTest(
+      const results = await executeFn(
         config,
         scenarios,
         (completed, total, allResults, profileMeta) => {

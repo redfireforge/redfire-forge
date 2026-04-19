@@ -12,3 +12,10 @@ export function isTauri(): boolean {
 export function isNode(): boolean {
   return typeof process !== 'undefined' && !!process.versions?.node;
 }
+
+/**
+ * Returns true when the current environment supports Web Workers.
+ */
+export function supportsWorkers(): boolean {
+  return typeof Worker !== 'undefined';
+}
