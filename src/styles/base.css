@@ -645,3 +645,63 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   .settings-columns { grid-template-columns: 1fr; }
 }
 
+/* ═══ Extraction Editor ═══ */
+
+.extraction-editor { padding: 4px 0; }
+.extraction-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; }
+.extraction-hint code { color: #f59e0b; background: var(--surface); padding: 1px 4px; border-radius: 3px; }
+.extraction-empty { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
+.extraction-row {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 8px;
+}
+.extraction-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.extraction-row-num { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+.extraction-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.extraction-field label { display: block; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.extraction-field input, .extraction-field select {
+  width: 100%; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.8rem;
+}
+.extraction-var-input {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px;
+}
+.extraction-var-input input { border: none; background: transparent; padding: 5px 2px; flex: 1; }
+.extraction-brace { color: #f59e0b; font-weight: 700; font-size: 0.85rem; font-family: 'SF Mono', monospace; }
+
+/* ═══ Variable Panel ═══ */
+
+.var-panel { padding: 8px 0; }
+.var-panel-title { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 8px; }
+.var-panel-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
+.var-panel-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.var-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  font-size: 0.72rem;
+}
+.var-chip-name { color: #f59e0b; font-family: 'SF Mono', monospace; font-weight: 600; }
+.var-chip-eq { color: var(--text-muted); }
+.var-chip-val { color: #22c55e; font-family: 'SF Mono', monospace; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ═══ Workflow Variables Input ═══ */
+
+.wf-vars-input { margin-bottom: 12px; }
+.wf-vars-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.wf-var-row {
+  display: flex; align-items: center; gap: 4px; padding: 4px 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.8rem;
+}
+.wf-var-key { color: #f59e0b; font-family: 'SF Mono', monospace; font-weight: 600; }
+.wf-var-value-input {
+  flex: 1; padding: 3px 6px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 0.78rem;
+}
+.wf-var-add-row { display: flex; gap: 4px; align-items: center; }
+.wf-var-add-key, .wf-var-add-value {
+  flex: 1; padding: 4px 8px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.78rem;
+}
+.wf-var-add-key { max-width: 140px; }

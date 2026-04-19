@@ -20,10 +20,11 @@ import { validate } from '../engine/validator';
 import CsvTemplateExportModal from './CsvTemplateExportModal';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import TestEditorValidationTab from './TestEditorValidationTab';
+import ExtractionEditor from './ExtractionEditor';
 
 export { emptyTest } from '../utils/testEditorUtils';
 
-export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation';
+export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
 
 export type TestEditingContext = { fgId: string; scenarioId: string; testId: string | 'new' };
@@ -591,6 +592,9 @@ export default function TestEditorModal({
               <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
                 Validation {draft.validation.mode !== 'none' && <span className="tab-badge-dot" />}
               </button>
+              <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
+                Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
+              </button>
             </div>
 
             <div className="builder-tab-content">
@@ -652,6 +656,13 @@ export default function TestEditorModal({
                   validationResult={validationResult}
                   setValidationResult={setValidationResult}
                   onValidateResponse={handleValidateResponse}
+                />
+              )}
+
+              {activeTab === 'extract' && (
+                <ExtractionEditor
+                  extractions={draft.extractions ?? []}
+                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
                 />
               )}
             </div>
