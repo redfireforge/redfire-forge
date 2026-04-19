@@ -426,6 +426,13 @@ describe('findReqParentFolder', () => {
     expect(findReqParentFolder([outer], 'r1')?.id).toBe('inner');
   });
 
+  it('skips earlier root folders when the request lives in a later sibling', () => {
+    const req = makeReq('r-target');
+    const first = makeFolder('first', [], [makeFolder('deep', [makeReq('other')])]);
+    const second = makeFolder('second', [req]);
+    expect(findReqParentFolder([first, second], 'r-target')?.id).toBe('second');
+  });
+
   it('returns null when not found', () => {
     expect(findReqParentFolder([makeFolder('f1')], 'missing')).toBeNull();
   });
@@ -463,6 +470,15 @@ describe('reorderInFolders', () => {
     const result = reorderInFolders([outer], 'inner2', 'inner1');
     expect(result[0].folders!.map(f => f.id)).toEqual(['inner2', 'inner1']);
   });
+
+  it('reorders nested siblings when beforeId is the first folder', () => {
+    const a = makeFolder('a');
+    const b = makeFolder('b');
+    const c = makeFolder('c');
+    const outer = makeFolder('outer', [], [a, b, c]);
+    const result = reorderInFolders([outer], 'c', 'a');
+    expect(result[0].folders!.map(f => f.id)).toEqual(['c', 'a', 'b']);
+  });
 });
 
 // ─── swapInFolders ───────────────────────────────────────
@@ -498,6 +514,14 @@ describe('swapInFolders', () => {
     const result = swapInFolders([outer], 'inner2', 'up');
     expect(result[0].folders!.map(f => f.id)).toEqual(['inner2', 'inner1']);
   });
+
+  it('recurses twice when the folder is two levels below the root list', () => {
+    const leaf = makeFolder('leaf');
+    const mid = makeFolder('mid', [], [leaf]);
+    const top = makeFolder('top', [], [mid]);
+    const result = swapInFolders([top], 'leaf', 'up');
+    expect(result[0].folders![0].folders![0].id).toBe('leaf');
+  });
 });
 
 describe('addReqToFolderSafe', () => {
@@ -526,6 +550,15 @@ describe('addReqToFolderSafe', () => {
     const col = makeCollection({ folders: [folder] });
     const result = addReqToFolderSafe(col, 'f1', newReq, 'r-existing');
     expect(result.folders![0].requests.map(r => r.id)).toEqual(['r-new', 'r-existing']);
+  });
+
+  it('appends to folder when beforeReqId is not found', () => {
+    const existing = makeReq('r-existing');
+    const newReq = makeReq('r-new');
+    const folder = makeFolder('f1', [existing]);
+    const col = makeCollection({ folders: [folder] });
+    const result = addReqToFolderSafe(col, 'f1', newReq, 'no-such-req');
+    expect(result.folders![0].requests.map(r => r.id)).toEqual(['r-existing', 'r-new']);
   });
 });
 

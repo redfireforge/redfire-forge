@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '../types';
+import type { ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig, ThinkTimeConfig } from '../types';
 import { useTestExecution } from '../hooks/useTestExecution';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../utils/storage';
 import { resolveAuth } from '../utils/authResolver';
 import { LiveCharts } from '../components/LiveCharts';
 import RunnerExecutionConfig, { profileLabel } from '../components/RunnerExecutionConfig';
-import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from '../utils/runnerProgressStorage';
+import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from '../utils/runnerProgressStorage';
 
 type HostMode = 'hardcoded' | 'settings' | 'custom';
 
@@ -19,6 +19,8 @@ const defaultLoadProfile: LoadProfileConfig = {
   spikeDurationSec: 10,
 };
 
+const defaultThinkTime: ThinkTimeConfig = { mode: 'none' };
+
 interface RunnerConfig {
   concurrency: number;
   totalTransactions: number;
@@ -30,6 +32,7 @@ interface RunnerConfig {
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  thinkTime?: ThinkTimeConfig;
   timeoutSec?: number;
   retryCount?: number;
   retryDelayMs?: number;
@@ -90,6 +93,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
+  const [thinkTime, setThinkTime] = useState<ThinkTimeConfig>({ ...defaultThinkTime });
   const [timeoutSec, setTimeoutSec] = useState(10);
   const [retryCount, setRetryCount] = useState(0);
   const [retryDelayMs, setRetryDelayMs] = useState(1000);
@@ -119,6 +123,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         executionMode,
         concurrency,
         loadProfile,
+        thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
         resultCount: finalRun.results.length,
         durationMs: finalRun.summary.totalDurationMs,
       };
@@ -147,6 +152,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(saved.customBaseUrl ?? '');
         setExecutionMode(saved.executionMode ?? 'batch');
         if (saved.loadProfile) setLoadProfile(saved.loadProfile);
+        if (saved.thinkTime) setThinkTime(saved.thinkTime);
         setTimeoutSec(saved.timeoutSec ?? 10);
         setRetryCount(saved.retryCount ?? 0);
         setRetryDelayMs(saved.retryDelayMs ?? 1000);
@@ -164,6 +170,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         setCustomBaseUrl(defaultConfig.customBaseUrl);
         setExecutionMode(defaultConfig.executionMode);
         setLoadProfile({ ...defaultLoadProfile });
+        setThinkTime({ ...defaultThinkTime });
         setTimeoutSec(10);
         setRetryCount(0);
         setRetryDelayMs(1000);
@@ -188,6 +195,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       customBaseUrl,
       executionMode,
       loadProfile,
+      thinkTime,
       timeoutSec,
       retryCount,
       retryDelayMs,
@@ -195,7 +203,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       maxErrors,
       maxErrorRate,
     }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, forceUnordered, hostMode, customBaseUrl, executionMode, loadProfile, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
+  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, forceUnordered, hostMode, customBaseUrl, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
 
   const selectedTests: Scenario[] = useMemo(() => {
     const tests: Scenario[] = [];
@@ -278,6 +286,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioWeights,
       executionMode,
       ...(isLoadProfile ? { loadProfile } : {}),
+      thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
       timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
       retryCount: retryCount > 0 ? retryCount : 0,
       retryDelayMs,
@@ -307,6 +316,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
+  const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
+  const displayThinkLabel = thinkTimeLabel(displayThinkTime);
   const hasAnyTests = featureGroups.some((fg) => fg.scenarios.some((sc) => sc.tests.length > 0));
 
   const updateProfile = (patch: Partial<LoadProfileConfig>) => {
@@ -373,6 +384,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         onMaxErrorRateChange={setMaxErrorRate}
         loadProfile={loadProfile}
         onLoadProfileChange={updateProfile}
+        thinkTime={thinkTime}
+        onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
         activeTestCount={activeTestCount}
         isRunning={isRunning}
       />
@@ -538,6 +551,9 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                     </>
                   )}
                 </span>
+                {displayThinkLabel && (
+                  <span className="progress-mode-tag think-time-tag">{displayThinkLabel}</span>
+                )}
                 <span className="progress-host-tag">
                   {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
                 </span>

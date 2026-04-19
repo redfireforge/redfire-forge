@@ -747,12 +747,13 @@ All execution settings are grouped in a single unified card below the Execution 
 
 1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
 2. Configure concurrency, transactions, timeout, retry, and error policy.
-3. Click **▶ Run Test**.
-4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`). The active host is displayed alongside.
-5. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
-6. When complete, results auto-navigate to the Results tab.
+3. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
+4. Click **▶ Run Test**.
+5. A live progress bar shows completion percentage, current TPS, average response time, and error rate. Tags next to "Progress" show the execution mode, concurrency, total transactions, think time config (if active), and active host.
+6. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
+7. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, timeout, retry, error policy, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, transactions, timeout, retry, error policy, think time, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
 
 ### Results Dashboard
 
@@ -840,6 +841,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
+| Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |

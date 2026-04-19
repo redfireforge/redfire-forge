@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Scenario, ScenarioWeight, LoadProfileConfig } from '../types';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
@@ -25,6 +25,7 @@ function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
     retryDelayMs: 0,
     breaker: new CircuitBreaker('continue'),
     onProgress: vi.fn(),
+    getThinkTimeMs: () => 0,
     ...overrides,
   };
 }
@@ -32,6 +33,11 @@ function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
 describe('runLoadProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('runs a very short sustained profile', async () => {
@@ -95,5 +101,88 @@ describe('runLoadProfile', () => {
     const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
     const results = await runLoadProfile(profile, scenarios, weights, makeOpts({ abortSignal: controller.signal }));
     expect(results.length).toBeLessThanOrEqual(1);
+  });
+
+  it('records breaker and failure when token acquisition rejects', async () => {
+    const breaker = new CircuitBreaker('continue');
+    const controller = new AbortController();
+    const tokenManager = {
+      getToken: vi.fn().mockRejectedValue(new Error('token unavailable')),
+    } as unknown as TokenManager;
+    const onProgress = vi.fn(() => {
+      controller.abort();
+    });
+    const profile: LoadProfileConfig = { type: 'sustained', durationSec: 60, maxConcurrency: 1 };
+    const scenarios = [makeScenario('s1')];
+    const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
+    const results = await runLoadProfile(profile, scenarios, weights, makeOpts({
+      tokenManager,
+      breaker,
+      abortSignal: controller.signal,
+      onProgress,
+    }));
+    expect(results).toHaveLength(1);
+    expect(results[0].passed).toBe(false);
+    expect(results[0].errorMessage).toBe('token unavailable');
+    expect(results[0].failureDetails[0].path).toBe('(error)');
+  });
+
+  it('finishes in-flight work after duration elapses on ticker while requests are pending', async () => {
+    vi.useFakeTimers();
+    const releases: Array<() => void> = [];
+    const httpMod = vi.mocked(await import('../utils/httpClient'));
+    httpMod.httpFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(() =>
+            resolve({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' })
+          );
+        })
+    );
+    const profile: LoadProfileConfig = { type: 'sustained', durationSec: 0.5, maxConcurrency: 2 };
+    const scenarios = [makeScenario('s1')];
+    const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
+    const runPromise = runLoadProfile(profile, scenarios, weights, makeOpts());
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(501);
+    for (const r of releases) r();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+    const results = await runPromise;
+    vi.useRealTimers();
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('runs ticker fillPool and onProgress while profile is still active', async () => {
+    vi.useFakeTimers();
+    const releases: Array<() => void> = [];
+    const httpMod = vi.mocked(await import('../utils/httpClient'));
+    httpMod.httpFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(() =>
+            resolve({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' })
+          );
+        })
+    );
+    const controller = new AbortController();
+    const onProgress = vi.fn();
+    const profile: LoadProfileConfig = { type: 'sustained', durationSec: 120, maxConcurrency: 1 };
+    const scenarios = [makeScenario('s1')];
+    const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
+    const runPromise = runLoadProfile(profile, scenarios, weights, makeOpts({ onProgress, abortSignal: controller.signal }));
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+    const callsAfterStart = onProgress.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(onProgress.mock.calls.length).toBeGreaterThan(callsAfterStart);
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(500);
+    for (const r of releases) r();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+    await runPromise;
+    vi.useRealTimers();
   });
 });
