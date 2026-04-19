@@ -280,7 +280,7 @@ src/
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Quad-mode HTTP client (Worker override / Tauri native / Vite proxy / Node fetch)
+│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling (Worker override / Tauri native / Vite proxy / Node fetch)
 │   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
@@ -336,7 +336,7 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 | Capability | Desktop (Tauri) | Web (Browser) |
 |---|---|---|
 | **Storage** | JSON files in `$APPDATA/redfireforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
-| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS | Vite dev proxy (`/__proxy`) |
+| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS, pooled via `reqwest` | Vite dev proxy (`/__proxy`) with `undici.Agent` connection pooling |
 | **File save dialogs** | Native OS file picker via Tauri `dialog` plugin | File System Access API / browser download |
 | **Cross-browser data** | Shared — data lives on disk | Isolated per browser |
 
@@ -874,6 +874,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
 | Worker thread execution | Test engine runs in a Web Worker for responsive UI at 60fps; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; incremental result transfer |
+| Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |

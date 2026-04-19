@@ -105,18 +105,33 @@ let _nodeDispatcherInited = false;
 async function getNodeDispatcher(): Promise<unknown> {
   if (_nodeDispatcherInited) return _nodeDispatcher;
   _nodeDispatcherInited = true;
-  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
-    || process.env.HTTP_PROXY || process.env.http_proxy;
-  if (!proxy) return undefined;
   try {
     const undici = await import('undici');
-    if (undici.EnvHttpProxyAgent) {
-      _nodeDispatcher = new undici.EnvHttpProxyAgent();
-    } else if (undici.ProxyAgent) {
-      _nodeDispatcher = new undici.ProxyAgent(proxy);
+    const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
+      || process.env.HTTP_PROXY || process.env.http_proxy;
+    if (proxy) {
+      _nodeDispatcher = undici.EnvHttpProxyAgent
+        ? new undici.EnvHttpProxyAgent()
+        : new undici.ProxyAgent(proxy);
+    } else {
+      _nodeDispatcher = new undici.Agent({
+        keepAliveTimeout: 30_000,
+        keepAliveMaxTimeout: 60_000,
+        connections: 128,
+        pipelining: 1,
+      });
     }
-  } catch { /* undici not available, proceed without proxy */ }
+  } catch { /* undici not available — use default global dispatcher */ }
   return _nodeDispatcher;
+}
+
+/** Closes the shared Node dispatcher and resets the cache. */
+export async function closeNodePool(): Promise<void> {
+  if (_nodeDispatcher && typeof (_nodeDispatcher as any).close === 'function') {
+    await (_nodeDispatcher as any).close();
+  }
+  _nodeDispatcher = undefined;
+  _nodeDispatcherInited = false;
 }
 
 async function nodeFetch(
@@ -127,7 +142,8 @@ async function nodeFetch(
 ): Promise<HttpResponse> {
   try {
     const dispatcher = await getNodeDispatcher();
-    const opts: Record<string, unknown> = { method, headers };
+    const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
+    const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     if (dispatcher) opts.dispatcher = dispatcher;
     const response = await fetch(url, opts as RequestInit);
