@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -70,6 +70,28 @@ export default function WorkflowDesigner({ collections, catalogEntries }: Props)
   const [lastRunTime, setLastRunTime] = useState<number | undefined>();
   const abortRef = useRef<AbortController | null>(null);
   const nextNodeY = useRef(100);
+
+  // Resizable panels
+  const [paletteWidth, setPaletteWidth] = useState(260);
+  const [configWidth, setConfigWidth] = useState(320);
+  const dragRef = useRef<{ side: 'left' | 'right'; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const { side, startX, startW } = dragRef.current;
+      const delta = e.clientX - startX;
+      if (side === 'left') {
+        setPaletteWidth(Math.max(180, Math.min(500, startW + delta)));
+      } else {
+        setConfigWidth(Math.max(220, Math.min(600, startW - delta)));
+      }
+    };
+    const onMouseUp = () => { dragRef.current = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+  }, []);
 
   // Sync React Flow state when a workflow is selected
   const loadWorkflow = useCallback((wf: Workflow) => {
@@ -336,12 +358,19 @@ export default function WorkflowDesigner({ collections, catalogEntries }: Props)
       />
 
       <div className="wf-body">
-        <WorkflowPalette
-          collections={collections}
-          catalogEntries={catalogEntries}
-          onAddNode={handleAddNode}
-          onAddFromRequest={handleAddFromRequest}
-          onAddFromCatalog={handleAddFromCatalog}
+        <div style={{ width: paletteWidth, flexShrink: 0 }}>
+          <WorkflowPalette
+            collections={collections}
+            catalogEntries={catalogEntries}
+            onAddNode={handleAddNode}
+            onAddFromRequest={handleAddFromRequest}
+            onAddFromCatalog={handleAddFromCatalog}
+          />
+        </div>
+
+        <div
+          className="wf-resize-handle"
+          onMouseDown={(e) => { dragRef.current = { side: 'left', startX: e.clientX, startW: paletteWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}
         />
 
         <div className="wf-canvas-area">
@@ -367,13 +396,20 @@ export default function WorkflowDesigner({ collections, catalogEntries }: Props)
           )}
         </div>
 
-        <WorkflowConfigPanel
-          node={selectedNode}
-          variables={liveVariables}
-          onUpdateNode={handleUpdateNode}
-          onDeleteNode={handleDeleteNode}
-          onUpdateVariables={handleUpdateVariables}
+        <div
+          className="wf-resize-handle"
+          onMouseDown={(e) => { dragRef.current = { side: 'right', startX: e.clientX, startW: configWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}
         />
+
+        <div style={{ width: configWidth, flexShrink: 0 }}>
+          <WorkflowConfigPanel
+            node={selectedNode}
+            variables={liveVariables}
+            onUpdateNode={handleUpdateNode}
+            onDeleteNode={handleDeleteNode}
+            onUpdateVariables={handleUpdateVariables}
+          />
+        </div>
       </div>
 
       <WorkflowStatusBar
