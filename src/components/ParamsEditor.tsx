@@ -9,6 +9,8 @@ export interface ParamEntry extends KeyValue {
 interface ParamsEditorProps {
   params: ParamEntry[];
   onChange: (params: ParamEntry[]) => void;
+  /** Per row: open variable picker; parent appends `{{…}}` to this row’s value. */
+  onInsertVariable?: (rowIndex: number) => void;
 }
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
@@ -22,7 +24,7 @@ export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
   return entries.filter((e) => e.enabled && e.key.trim()).map(({ key, value }) => ({ key, value }));
 }
 
-export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
+export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEditorProps) {
   const [bulkEdit, setBulkEdit] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
 
@@ -148,13 +150,26 @@ export function ParamsEditor({ params, onChange }: ParamsEditorProps) {
                 placeholder="name"
                 disabled={!p.enabled}
               />
-              <input
-                className="params-input"
-                value={p.value}
-                onChange={(e) => update(i, { value: e.target.value })}
-                placeholder="value"
-                disabled={!p.enabled}
-              />
+              <div className="params-value-with-insert">
+                <input
+                  className="params-input"
+                  value={p.value}
+                  onChange={(e) => update(i, { value: e.target.value })}
+                  placeholder="value"
+                  disabled={!p.enabled}
+                />
+                {onInsertVariable && (
+                  <button
+                    type="button"
+                    className="btn btn-sm params-insert-var-btn"
+                    disabled={!p.enabled}
+                    title="Insert variable from workflow or upstream step"
+                    onClick={() => onInsertVariable(i)}
+                  >
+                    Insert…
+                  </button>
+                )}
+              </div>
               {showDesc && (
                 <input
                   className="params-input params-desc-input"

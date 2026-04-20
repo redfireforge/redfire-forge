@@ -4,6 +4,8 @@ interface Props {
   workflows: Workflow[];
   selected: Workflow | null;
   isRunning: boolean;
+  /** Brief confirmation after Save persisted (cleared by parent). */
+  saveAcknowledged?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
   onSave: () => void;
@@ -14,7 +16,7 @@ interface Props {
 }
 
 export default function WorkflowToolbar({
-  workflows, selected, isRunning,
+  workflows, selected, isRunning, saveAcknowledged,
   onNew, onSelect, onSave, onRename, onDelete, onDuplicate, onQuickTest,
 }: Props) {
   return (
@@ -38,7 +40,16 @@ export default function WorkflowToolbar({
 
         {selected && (
           <>
-            <button className="btn btn-sm" onClick={onSave} disabled={isRunning} title="Save">Save</button>
+            <span className="wf-toolbar-save-wrap">
+              <button className="btn btn-sm" onClick={onSave} disabled={isRunning} title="Save canvas and variables to this workflow">
+                Save
+              </button>
+              {saveAcknowledged && (
+                <span className="wf-toolbar-saved-msg" role="status">
+                  Saved
+                </span>
+              )}
+            </span>
             <button className="btn btn-sm" onClick={onRename} disabled={isRunning} title="Rename">Rename</button>
             <button className="btn btn-sm" onClick={onDuplicate} disabled={isRunning} title="Duplicate">Duplicate</button>
             <button className="btn btn-sm btn-danger" onClick={onDelete} disabled={isRunning} title="Delete">Delete</button>

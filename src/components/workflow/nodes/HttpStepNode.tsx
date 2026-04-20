@@ -1,27 +1,32 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { HttpNodeData } from '../../../types/workflow';
-import type { NodeRunStatus } from '../../../types/workflow';
+import { useWorkflowInspect } from '../WorkflowInspectContext';
+import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
 };
 
 interface Props extends NodeProps {
-  data: HttpNodeData & { runStatus?: NodeRunStatus };
+  data: HttpNodeData;
 }
 
-export default function HttpStepNode({ data, selected }: Props) {
+export default function HttpStepNode({ id, data, selected }: Props) {
+  const { openStepDetail } = useWorkflowInspect();
+  const rs = useWorkflowNodeRunStatus(id);
   const method = data.scenario?.method ?? 'GET';
   const url = data.scenario?.url ?? '';
   const extractCount = data.scenario?.extractions?.length ?? 0;
-  const rs = data.runStatus;
 
   const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
 
+  const openDetail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (rs?.state === 'pass' || rs?.state === 'fail') openStepDetail(id);
+  };
+
   return (
     <div className={`wf-node wf-node-http ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
-      <Handle type="target" position={Position.Top} className="wf-handle" />
-
       <div className="wf-node-header">
         <span className="wf-method-badge" style={{ background: METHOD_COLORS[method] ?? '#6b7280' }}>
           {method}
@@ -36,12 +41,42 @@ export default function HttpStepNode({ data, selected }: Props) {
 
       <div className="wf-node-footer">
         {extractCount > 0 && <span className="wf-extract-badge">{extractCount} extract{extractCount > 1 ? 's' : ''}</span>}
-        {rs?.state === 'pass' && <span className="wf-status-badge wf-status-pass">{rs.statusCode} · {rs.responseTimeMs}ms</span>}
-        {rs?.state === 'fail' && <span className="wf-status-badge wf-status-fail">{rs.statusCode || 'ERR'}{rs.responseTimeMs ? ` · ${rs.responseTimeMs}ms` : ''}</span>}
+        {rs?.state === 'pass' && (
+          <button
+            type="button"
+            className="wf-status-badge wf-status-pass wf-status-badge-btn"
+            title="Click for full response details"
+            onClick={openDetail}
+          >
+            {rs.statusCode} · {rs.responseTimeMs}ms
+          </button>
+        )}
+        {rs?.state === 'fail' && (
+          <button
+            type="button"
+            className="wf-status-badge wf-status-fail wf-status-badge-btn"
+            title={rs.error ? 'Click for full error and response details' : 'Click for details'}
+            onClick={openDetail}
+          >
+            {rs.statusCode || 'ERR'}{rs.responseTimeMs ? ` · ${rs.responseTimeMs}ms` : ''}
+          </button>
+        )}
+        {(rs?.state === 'pass' || rs?.state === 'fail') && (
+          <button
+            type="button"
+            className="wf-node-detail-badge"
+            title="Open full response body, validation errors, and request line (troubleshooting)"
+            onClick={openDetail}
+          >
+            Details
+          </button>
+        )}
         {rs?.state === 'running' && <span className="wf-status-badge wf-status-running">Running…</span>}
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="wf-handle" />
+      {/* Source/target last in DOM so handles stack above content (otherwise top handle sits under the header and blocks connections). */}
+      <Handle type="source" position={Position.Bottom} id="out" className="wf-handle" />
+      <Handle type="target" position={Position.Top} className="wf-handle" />
     </div>
   );
 }

@@ -1,22 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import type { GlobalAuthProfile, RequestItem, RequestFolder, Microservice, Environment } from '../types';
+import type { GlobalAuthProfile, Microservice, Environment, RequestItem } from '../types';
 import type { UseRequestsReturn } from '../hooks/useRequests';
 import RequestEditor from '../components/requests/RequestEditor';
-
-function findAncestorSubCollection(folders: RequestFolder[], reqId: string, ancestors: RequestFolder[] = []): RequestFolder | null {
-  for (const f of folders) {
-    const newAncestors = [...ancestors, f];
-    if (f.requests.some(r => r.id === reqId)) {
-      for (let i = newAncestors.length - 1; i >= 0; i--) {
-        if (newAncestors[i].isSubCollection) return newAncestors[i];
-      }
-      return null;
-    }
-    const deep = findAncestorSubCollection(f.folders ?? [], reqId, newAncestors);
-    if (deep) return deep;
-  }
-  return null;
-}
+import { findAncestorSubCollection } from '../utils/requestTree';
 
 interface Props {
   wb: UseRequestsReturn;

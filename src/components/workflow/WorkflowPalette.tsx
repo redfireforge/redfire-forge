@@ -113,6 +113,14 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
           </div>
         )}
       </div>
+
+      <div className="wf-palette-hint" role="note">
+        <span className="wf-palette-hint-title">Connections</span>
+        <p>
+          Click an edge to select it, then press <kbd className="wf-kbd">Delete</kbd> or{' '}
+          <kbd className="wf-kbd">Backspace</kbd> to remove. Drag an edge endpoint to reconnect it to another handle.
+        </p>
+      </div>
     </div>
   );
 }

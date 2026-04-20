@@ -1,4 +1,5 @@
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, NodeRunStatus } from '../../types/workflow';
+import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
 import { serializeWithContentType } from '../../utils/bodySerializer';
@@ -8,7 +9,62 @@ import { TokenManager } from '../tokenManager';
 import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { extractVariables, type ResponseData } from './extractVariables';
+import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../../utils/workflowRunErrors';
+import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Replace remaining `{{…}}` segments using a flat map (workflow + step snapshot + initialVariables).
+ * Catches cases where `VariableContext.resolve` still left placeholders (merge / ordering quirks).
+ */
+function applyTemplateLiteralsFromMap(template: string, flat: Record<string, string>): string {
+  if (!template.includes('{{')) return template;
+  let out = template;
+  for (const [k, val] of Object.entries(flat)) {
+    const key = k.trim();
+    if (!key) continue;
+    const re = new RegExp(`\\{\\{\\s*${escapeRegExp(key)}\\s*\\}\\}`, 'g');
+    out = out.replace(re, () => val);
+  }
+  return out;
+}
+
+/** Coerce workflow / per-step maps so substitution never sees `undefined` (would leave `{{name}}` literal). */
+function coerceStringMap(source: Record<string, string> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!source) return out;
+  for (const [k, v] of Object.entries(source)) {
+    const key = k.trim();
+    if (!key || v == null) continue;
+    out[key] = typeof v === 'string' ? v : String(v);
+  }
+  return out;
+}
+
+function applyTemplateLiteralsToScenario(scenario: Scenario, flat: Record<string, string>): Scenario {
+  if (Object.keys(flat).length === 0) return scenario;
+  const p = (s: string) => applyTemplateLiteralsFromMap(s, flat);
+  return {
+    ...scenario,
+    url: p(scenario.url),
+    body: p(scenario.body),
+    headers: scenario.headers.map((h) => ({ key: p(h.key), value: p(h.value) })),
+    bodyForm: scenario.bodyForm?.map((h) => ({ key: p(h.key), value: p(h.value) })),
+    auth: {
+      ...scenario.auth,
+      token: scenario.auth.token != null ? p(scenario.auth.token) : scenario.auth.token,
+      apiKeyValue: scenario.auth.apiKeyValue != null ? p(scenario.auth.apiKeyValue) : scenario.auth.apiKeyValue,
+      username: scenario.auth.username != null ? p(scenario.auth.username) : scenario.auth.username,
+      password: scenario.auth.password != null ? p(scenario.auth.password) : scenario.auth.password,
+      clientId: scenario.auth.clientId != null ? p(scenario.auth.clientId) : scenario.auth.clientId,
+      clientSecret: scenario.auth.clientSecret != null ? p(scenario.auth.clientSecret) : scenario.auth.clientSecret,
+    },
+  };
+}
 
 export interface GraphRunCallbacks {
   onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
@@ -18,7 +74,7 @@ export interface GraphRunCallbacks {
 
 /**
  * Execute a workflow graph with topological traversal.
- * Handles HTTP nodes, Condition branching, and Delay nodes.
+ * Handles HTTP nodes, Condition branching (multiple edges per Yes/No), and Delay nodes.
  * Calls back for canvas animation and variable updates.
  */
 export async function runGraph(
@@ -27,9 +83,14 @@ export async function runGraph(
   initialVariables: Record<string, string>,
   callbacks: GraphRunCallbacks,
   abortSignal?: AbortSignal,
+  /** Low-priority layer (e.g. Harness env base URL as `baseUrl`). Manual initial vars override these. */
+  environmentLayer?: Record<string, string>,
+  /** Per-HTTP-node base URL when the node sets host env + microservice; falls back to harness when omitted. */
+  resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
 ): Promise<RequestResult[]> {
   const start = performance.now();
-  const ctx = new VariableContext(initialVariables);
+  const ctx = new VariableContext(initialVariables, environmentLayer);
+  ctx.registerWorkflowNodes(nodes);
   const tokenManager = new TokenManager();
   const results: RequestResult[] = [];
 
@@ -64,8 +125,15 @@ export async function runGraph(
     callbacks.onNodeStateChange(nodeId, { state: 'running' });
 
     try {
-      if (node.type === 'http') {
-        const result = await executeHttpNode(node.data as HttpNodeData, ctx, tokenManager);
+      if (isHttpWorkflowNode(node)) {
+        const result = await executeHttpNode(
+          node.data as HttpNodeData,
+          ctx,
+          tokenManager,
+          resolveHttpBaseUrl,
+          nodeId,
+          initialVariables,
+        );
         results.push(result.requestResult);
 
         const status: NodeRunStatus = {
@@ -73,6 +141,8 @@ export async function runGraph(
           statusCode: result.requestResult.httpStatus,
           responseTimeMs: result.requestResult.responseTimeMs,
           extracted: result.extracted,
+          error: result.requestResult.passed ? undefined : summarizeRequestFailure(result.requestResult),
+          responseDetail: formatHttpNodeRunDetail(result.requestResult),
         };
         if (!result.requestResult.passed) allPassed = false;
         callbacks.onNodeStateChange(nodeId, status);
@@ -89,16 +159,20 @@ export async function runGraph(
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
         const nextEdges = outgoing.get(nodeId) ?? [];
-        const matchEdge = nextEdges.find(e =>
-          condResult ? (e.sourceHandle === 'true' || e.label === 'Yes') : (e.sourceHandle === 'false' || e.label === 'No')
-        );
+        const matchesTakenBranch = (e: WorkflowEdge) =>
+          condResult ? (e.sourceHandle === 'true' || e.label === 'Yes') : (e.sourceHandle === 'false' || e.label === 'No');
+        const matchesSkippedBranch = (e: WorkflowEdge) =>
+          condResult ? (e.sourceHandle === 'false' || e.label === 'No') : (e.sourceHandle === 'true' || e.label === 'Yes');
 
-        const skipEdge = nextEdges.find(e =>
-          condResult ? (e.sourceHandle === 'false' || e.label === 'No') : (e.sourceHandle === 'true' || e.label === 'Yes')
-        );
-        if (skipEdge) markSubtreeSkipped(skipEdge.target, outgoing, nodeMap, visited, callbacks);
+        const matchEdges = nextEdges.filter(matchesTakenBranch);
+        const skipEdges = nextEdges.filter(matchesSkippedBranch);
 
-        if (matchEdge) await visit(matchEdge.target);
+        for (const e of skipEdges) {
+          markSubtreeSkipped(e.target, outgoing, nodeMap, visited, callbacks);
+        }
+        for (const e of matchEdges) {
+          await visit(e.target);
+        }
 
       } else if (node.type === 'delay') {
         const data = node.data as DelayNodeData;
@@ -167,12 +241,43 @@ async function executeHttpNode(
   data: HttpNodeData,
   ctx: VariableContext,
   tokenManager: TokenManager,
+  resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
+  httpNodeId: string,
+  /** Workflow-level defaults from `runGraph` (fallback if snapshot / per-step maps miss a key). */
+  workflowDefaults: Record<string, string>,
 ): Promise<{ requestResult: RequestResult; extracted: Record<string, string> }> {
-  const resolved = resolveScenario(data.scenario, ctx);
-  const { body: reqBody, contentType } = serializeWithContentType(resolved);
-  const token = await tokenManager.getToken(resolved);
-  const headers = buildHeaders(resolved, token, contentType);
-  const url = buildUrl(resolved);
+  const wfVars = coerceStringMap(workflowDefaults);
+  const perStepVars = coerceStringMap(data.initialVariables);
+
+  const stepBase = resolveHttpBaseUrl?.(data);
+  const stepCtx = ctx.child();
+  if (stepBase?.trim()) {
+    stepCtx.set('baseUrl', stepBase.trim().replace(/\/$/, ''));
+  }
+  for (const [name, v] of Object.entries(perStepVars)) {
+    stepCtx.set(name, v);
+    ctx.setForNode(httpNodeId, name, v);
+  }
+  const resolved = resolveScenario(data.scenario, stepCtx);
+  /** Per-step vars must win over snapshot keys (e.g. same name from upstream). */
+  const flatLiterals: Record<string, string> = {
+    ...wfVars,
+    ...stepCtx.snapshot(),
+    ...perStepVars,
+  };
+  const afterLiterals = applyTemplateLiteralsToScenario(resolved, flatLiterals);
+  const resolvedAbs: Scenario = {
+    ...afterLiterals,
+    url: ensureAbsoluteUrlWithBase(afterLiterals.url, stepCtx),
+  };
+  const { body: reqBody, contentType } = serializeWithContentType(resolvedAbs);
+  const token = await tokenManager.getToken(resolvedAbs);
+  const headers = buildHeaders(resolvedAbs, token, contentType);
+  let url = buildUrl(resolvedAbs);
+  // buildUrl (e.g. apikey in query) rewrites the URL; ensure no `{{…}}` survives in the final href.
+  if (url.includes('{{')) {
+    url = applyTemplateLiteralsFromMap(url, flatLiterals);
+  }
 
   const start = performance.now();
   let httpStatus = 0;
@@ -182,7 +287,7 @@ async function executeHttpNode(
   let errorMessage: string | undefined;
 
   try {
-    const result = await httpFetch(url, resolved.method, headers, reqBody);
+    const result = await httpFetch(url, resolvedAbs.method, headers, reqBody);
     if (result.error) {
       errorMessage = result.error;
     } else {
@@ -197,14 +302,14 @@ async function executeHttpNode(
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
 
-  const assertions = resolved.validation.assertions ?? [];
+  const assertions = resolvedAbs.validation.assertions ?? [];
   const { failures: assertionFailures, statusAsserted } = assertions.length > 0
     ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
     : { failures: [], statusAsserted: false };
 
   const httpOk = httpStatus > 0 && httpStatus < 400;
   const statusOk = statusAsserted ? assertionFailures.every(f => f.path !== '(status)') : httpOk;
-  const jsonFailures = resolved.validation.mode !== 'none' && statusOk ? validate(resolved.validation, responseObj) : [];
+  const jsonFailures = resolvedAbs.validation.mode !== 'none' && statusOk ? validate(resolvedAbs.validation, responseObj) : [];
   let failureDetails = [...assertionFailures, ...jsonFailures];
 
   const httpFailed = !statusAsserted && (httpStatus >= 400 || httpStatus === 0);
@@ -218,7 +323,13 @@ async function executeHttpNode(
   let extracted: Record<string, string> = {};
   if (data.scenario.extractions?.length) {
     const responseData: ResponseData = { status: httpStatus, headers: responseHeaders, body: responseObj };
-    extracted = extractVariables(data.scenario.extractions, responseData, ctx);
+    extracted = extractVariables(data.scenario.extractions, responseData, ctx, httpNodeId);
+  }
+  // If nothing defined `status`, bind it to the numeric HTTP status so `{{status}}` works in conditions.
+  if (ctx.get('status') === undefined) {
+    ctx.set('status', String(httpStatus));
+    ctx.setForNode(httpNodeId, 'status', String(httpStatus));
+    extracted = { ...extracted, status: String(httpStatus) };
   }
 
   const requestResult: RequestResult = {
@@ -227,14 +338,14 @@ async function executeHttpNode(
     scenarioName: data.scenario.name || data.label,
     featureGroupName: data.scenario.featureGroupName,
     groupName: data.scenario.groupName,
-    url: resolved.url,
-    method: resolved.method,
+    url,
+    method: resolvedAbs.method,
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
     timestamp: Date.now(),
     passed,
-    validationMode: resolved.validation.mode,
+    validationMode: resolvedAbs.validation.mode,
     failureDetails,
     errorMessage,
   };

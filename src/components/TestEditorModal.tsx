@@ -663,6 +663,23 @@ export default function TestEditorModal({
                 <ExtractionEditor
                   extractions={draft.extractions ?? []}
                   onChange={(extractions) => onDraftChange({ ...draft, extractions })}
+                  sampleResponseBody={
+                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
+                      ? draft.validation.sampleJson
+                      : validationResult?.responseJson
+                  }
+                  fetchSample={{
+                    onFetch: handleFetchSampleResponse,
+                    fetching: fetchingResponse,
+                    error: fetchError,
+                    host: {
+                      enabled: fetchHostEnabled,
+                      setEnabled: setFetchHostEnabled,
+                      override: fetchHostOverride,
+                      setOverride: setFetchHostOverride,
+                      resolvedBaseUrl,
+                    },
+                  }}
                 />
               )}
             </div>

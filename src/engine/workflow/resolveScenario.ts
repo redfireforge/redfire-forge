@@ -2,6 +2,15 @@ import type { Scenario, KeyValue } from '../../types';
 import type { VariableContext } from './variableContext';
 
 /**
+ * Query strings are often built with `encodeURIComponent('{{name}}')` → `%7B%7Bname%7D%7D`.
+ * `VariableContext.resolve` only matches literal `{{…}}`, so normalize before substitution.
+ */
+export function decodeUrlEncodedTemplateBraces(s: string): string {
+  if (!s.includes('%7B%7B')) return s;
+  return s.replace(/%7B%7B/g, '{{').replace(/%7D%7D/g, '}}');
+}
+
+/**
  * Pure preprocessor: substitutes all {{var}} placeholders in a Scenario's
  * URL, headers, body, body form values, and auth fields.
  * Returns a new Scenario — never mutates the original.
@@ -10,7 +19,7 @@ export function resolveScenario(scenario: Scenario, ctx: VariableContext): Scena
   const r = ctx.resolve.bind(ctx);
   return {
     ...scenario,
-    url: r(scenario.url),
+    url: r(decodeUrlEncodedTemplateBraces(scenario.url)),
     headers: resolveKVs(scenario.headers, r),
     body: r(scenario.body),
     bodyForm: scenario.bodyForm ? resolveKVs(scenario.bodyForm, r) : scenario.bodyForm,

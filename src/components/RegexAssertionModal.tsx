@@ -67,7 +67,8 @@ interface PickerNodeProps {
   expandAll?: boolean;
 }
 
-const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll }: PickerNodeProps) {
+/** Shared JSON tree row picker (also used by ExtractionPathPickerModal). */
+export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
 
