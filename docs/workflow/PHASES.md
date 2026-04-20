@@ -142,6 +142,16 @@ Add WORKFLOW as a 4th top-level section with a visual canvas for designing workf
 
 ---
 
+## Backlog — Structured JSON assertions (cross-cutting)
+
+> Tracked in **ROADMAP.md → Phase 0.10.0** (“Structured JSON body assertions”). Not workflow-only: same validation engine as Harness.
+
+- [ ] **Engine + types** — New `Assertion` variants (or `jsonRule` type) for length / numeric / date; evaluate after `getByPath()` on parsed body; unit tests in `validator.test.ts` / `assertions.test.ts`.
+- [ ] **UI** — Test Editor Validation tab: add-rule flow with JSON path picker (reuse tree/picker patterns from regex builder).
+- [ ] **Workflow** — No separate feature: HTTP nodes already use `Scenario.validation`; once assertions ship, document in workflow docs if needed.
+
+---
+
 ## Progress Summary
 
 | Phase | Tasks | Done | Status |

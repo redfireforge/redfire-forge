@@ -1,14 +1,62 @@
 import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../types';
 
+const STAR = '__PATH_STAR__';
+
+/** Tokenize a JSONPath-style path after the optional `$.` prefix (supports `key`, `[n]`, `[*]`). */
+function tokenizeJsonPath(normalized: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+  const s = normalized.trim();
+  while (i < s.length) {
+    if (s[i] === '.') {
+      i++;
+      continue;
+    }
+    if (s[i] === '[') {
+      const end = s.indexOf(']', i);
+      if (end === -1) break;
+      const inner = s.slice(i + 1, end).trim();
+      tokens.push(inner === '*' ? STAR : inner);
+      i = end + 1;
+      continue;
+    }
+    let j = i;
+    while (j < s.length && s[j] !== '.' && s[j] !== '[') j++;
+    if (j > i) tokens.push(s.slice(i, j));
+    i = j;
+  }
+  return tokens;
+}
+
+function walkPath(obj: unknown, tokens: string[], idx: number): unknown {
+  if (idx >= tokens.length) return obj;
+  const t = tokens[idx];
+  if (t === STAR) {
+    if (!Array.isArray(obj)) return undefined;
+    if (idx === tokens.length - 1) return obj;
+    return obj.map((el) => walkPath(el, tokens, idx + 1));
+  }
+  if (obj == null || typeof obj !== 'object') return undefined;
+  const key = /^\d+$/.test(t) ? Number(t) : t;
+  let next: unknown;
+  if (Array.isArray(obj)) {
+    next = typeof key === 'number' ? obj[key] : undefined;
+  } else {
+    next = (obj as Record<string, unknown>)[String(key)];
+  }
+  return walkPath(next, tokens, idx + 1);
+}
+
+/**
+ * Resolve a JSONPath-style expression (`$.a.b`, `a[0].x`, `$.items[*].id`).
+ * `[*]` walks every array element at that segment and returns an array of nested results.
+ */
 export function getByPath(obj: unknown, path: string): unknown {
   const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
-  const parts = normalized.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
-  let current: unknown = obj;
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
+  if (!normalized.trim()) return obj;
+  const tokens = tokenizeJsonPath(normalized);
+  if (tokens.length === 0) return obj;
+  return walkPath(obj, tokens, 0);
 }
 
 function deepCompare(

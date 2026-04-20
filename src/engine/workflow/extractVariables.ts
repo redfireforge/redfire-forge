@@ -16,6 +16,8 @@ export function extractVariables(
   extractions: Extraction[],
   response: ResponseData,
   ctx: VariableContext,
+  /** React Flow node id — enables `{{node:<id>.<name>}}` references. */
+  httpNodeId: string,
 ): Record<string, string> {
   const extracted: Record<string, string> = {};
 
@@ -46,6 +48,7 @@ export function extractVariables(
     const resolved = value ?? ext.fallback;
     if (resolved !== undefined) {
       ctx.set(ext.name, resolved);
+      ctx.setForNode(httpNodeId, ext.name, resolved);
       extracted[ext.name] = resolved;
     }
   }

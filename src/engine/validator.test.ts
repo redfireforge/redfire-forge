@@ -44,6 +44,18 @@ describe('getByPath', () => {
     expect(getByPath(null, '$.x')).toBeUndefined();
     expect(getByPath(undefined, '$.x')).toBeUndefined();
   });
+
+  it('resolves [*] over an array segment', () => {
+    expect(getByPath(obj, '$.orders[*].id')).toEqual([1, 2]);
+  });
+
+  it('resolves nested [*] under a fixed index', () => {
+    expect(getByPath(obj, '$.orders[0].items[*].sku')).toEqual(['A', 'B']);
+  });
+
+  it('returns the array when path ends with [*]', () => {
+    expect(getByPath(obj, '$.orders[*]')).toEqual(obj.orders);
+  });
 });
 
 // ---------------------------------------------------------------------------

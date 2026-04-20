@@ -7,6 +7,22 @@ export interface HttpNodeData {
   scenario: Scenario;
   sourceType?: 'requests' | 'catalog';
   sourceId?: string;
+  /**
+   * When both are set, Quick Test uses this environment + microservice to resolve `{{baseUrl}}`
+   * and path-only URLs for this step only. When omitted or incomplete, the harness bar selection applies.
+   */
+  hostEnvironmentId?: string;
+  hostMicroserviceId?: string;
+  /**
+   * When set (e.g. request from a URL subcollection), used as `baseUrl` for this step if it cannot be
+   * expressed as env + microservice alone.
+   */
+  hostBaseUrl?: string;
+  /**
+   * `{{name}}` values for this HTTP step only. Merged with workflow-level defaults and upstream
+   * extractions when the step runs; highest priority for this step’s request resolution.
+   */
+  initialVariables?: Record<string, string>;
 }
 
 export interface ConditionNodeData {
@@ -68,4 +84,6 @@ export interface NodeRunStatus {
   responseTimeMs?: number;
   error?: string;
   extracted?: Record<string, string>;
+  /** Full formatted detail for the step result modal (response + errors). */
+  responseDetail?: string;
 }

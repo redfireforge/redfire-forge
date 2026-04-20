@@ -366,6 +366,23 @@
   letter-spacing: -1px;
 }
 
+.params-value-with-insert {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+.params-value-with-insert .params-input {
+  flex: 1;
+  min-width: 0;
+}
+.params-insert-var-btn {
+  flex-shrink: 0;
+  font-size: 0.65rem !important;
+  padding: 4px 6px !important;
+  white-space: nowrap;
+}
+
 .params-input {
   padding: 7px 10px;
   font-size: 0.84rem;

@@ -8,6 +8,7 @@ import { TokenManager } from '../tokenManager';
 import { applyThinkTime } from '../thinkTime';
 import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
+import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { extractVariables, type ResponseData } from './extractVariables';
 import type { RunOpts } from '../requestExecution';
 
@@ -40,33 +41,36 @@ export async function runWorkflow(
 
     const rawScenario = steps[i];
     const resolved = resolveScenario(rawScenario, ctx);
+    const resolvedAbs: Scenario = {
+      ...resolved,
+      url: ensureAbsoluteUrlWithBase(resolved.url, ctx),
+    };
 
-    const result = await executeWorkflowStep(resolved, tokenManager, timeoutMs);
+    const result = await executeWorkflowStep(resolvedAbs, tokenManager, timeoutMs);
     results.push(result);
     breaker.record(result);
 
+    let extracted: Record<string, string> = {};
     if (rawScenario.extractions?.length) {
       const responseData: ResponseData = {
         status: result.httpStatus,
         headers: result.responseHeaders ?? {},
         body: result._fullResponseBody,
       };
-      const extracted = extractVariables(rawScenario.extractions, responseData, ctx);
-
-      onStepComplete?.({
-        stepIndex: i,
-        stepName: rawScenario.name,
-        extracted,
-        variables: ctx.snapshot(),
-      });
-    } else {
-      onStepComplete?.({
-        stepIndex: i,
-        stepName: rawScenario.name,
-        extracted: {},
-        variables: ctx.snapshot(),
-      });
+      extracted = extractVariables(rawScenario.extractions, responseData, ctx, rawScenario.id);
     }
+    if (ctx.get('status') === undefined) {
+      ctx.set('status', String(result.httpStatus));
+      ctx.setForNode(rawScenario.id, 'status', String(result.httpStatus));
+      extracted = { ...extracted, status: String(result.httpStatus) };
+    }
+
+    onStepComplete?.({
+      stepIndex: i,
+      stepName: rawScenario.name,
+      extracted,
+      variables: ctx.snapshot(),
+    });
 
     onProgress(results.length, steps.length, results);
     if (i < steps.length - 1) {

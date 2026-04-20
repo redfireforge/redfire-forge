@@ -466,6 +466,27 @@ export async function removeCatalogEndpointValues(entryId: string): Promise<void
 // ── Workflows ──────────────────────────────────────────────
 
 const WORKFLOWS_KEY = 'workflows';
+/** Last selected workflow id in the designer (survives refresh). */
+const WORKFLOWS_SELECTED_ID_KEY = 'workflows_selected_id';
+/** When true, do not auto-inject the built-in sample workflow on load (user removed it). */
+const WORKFLOWS_SAMPLE_DISMISSED_KEY = 'workflows_sample_dismissed';
+
+export async function loadSelectedWorkflowId(): Promise<string | null> {
+  try {
+    const r = await readKey(WORKFLOWS_SELECTED_ID_KEY);
+    return r?.trim() ? r.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSelectedWorkflowId(id: string | null): Promise<void> {
+  if (id?.trim()) {
+    await writeKey(WORKFLOWS_SELECTED_ID_KEY, id.trim());
+  } else {
+    await removeKey(WORKFLOWS_SELECTED_ID_KEY);
+  }
+}
 
 export async function loadWorkflows(): Promise<import('../types/workflow').Workflow[]> {
   try { const r = await readKey(WORKFLOWS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
@@ -473,4 +494,17 @@ export async function loadWorkflows(): Promise<import('../types/workflow').Workf
 
 export async function saveWorkflows(workflows: import('../types/workflow').Workflow[]): Promise<void> {
   await writeKey(WORKFLOWS_KEY, JSON.stringify(workflows));
+}
+
+export async function loadWorkflowSampleDismissed(): Promise<boolean> {
+  try {
+    const r = await readKey(WORKFLOWS_SAMPLE_DISMISSED_KEY);
+    return r === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<void> {
+  await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
 }

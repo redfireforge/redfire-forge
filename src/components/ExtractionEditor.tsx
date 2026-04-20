@@ -1,8 +1,15 @@
+import { useState } from 'react';
 import type { Extraction, ExtractionSource } from '../types';
+import { suggestedVariableNameFromJsonPath } from '../utils/jsonPathTreeUtils';
+import ExtractionPathPickerModal, { type ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
 
 interface Props {
   extractions: Extraction[];
   onChange: (extractions: Extraction[]) => void;
+  /** Optional sample JSON to seed the path picker (e.g. last response body). */
+  sampleResponseBody?: string;
+  /** Optional: Fetch Response + host row inside the picker (Harness test editor). */
+  fetchSample?: ExtractionFetchSampleProps;
 }
 
 const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
@@ -11,7 +18,9 @@ const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
   { value: 'status', label: 'Status Code', hint: '(auto)' },
 ];
 
-export default function ExtractionEditor({ extractions, onChange }: Props) {
+export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample }: Props) {
+  const [pickerIdx, setPickerIdx] = useState<number | null>(null);
+
   const update = (idx: number, patch: Partial<Extraction>) => {
     const next = extractions.map((e, i) => i === idx ? { ...e, ...patch } : e);
     onChange(next);
@@ -58,12 +67,24 @@ export default function ExtractionEditor({ extractions, onChange }: Props) {
               </div>
               <div className="extraction-field">
                 <label>Expression</label>
-                <input
-                  value={ext.expression}
-                  onChange={(e) => update(i, { expression: e.target.value })}
-                  placeholder={sourceInfo.hint}
-                  disabled={ext.source === 'status'}
-                />
+                <div className="extraction-expression-row">
+                  <input
+                    value={ext.expression}
+                    onChange={(e) => update(i, { expression: e.target.value })}
+                    placeholder={sourceInfo.hint}
+                    disabled={ext.source === 'status'}
+                  />
+                  {ext.source === 'body' && (
+                    <button
+                      type="button"
+                      className="btn btn-sm extraction-path-btn"
+                      onClick={() => setPickerIdx(i)}
+                      title="Browse JSON and pick a path"
+                    >
+                      Pick path…
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="extraction-field">
                 <label>Fallback</label>
@@ -81,6 +102,25 @@ export default function ExtractionEditor({ extractions, onChange }: Props) {
       <button type="button" className="btn btn-sm" onClick={add} style={{ marginTop: 8 }}>
         + Add Extraction
       </button>
+
+      {pickerIdx !== null && extractions[pickerIdx]?.source === 'body' && (
+        <ExtractionPathPickerModal
+          initialExpression={extractions[pickerIdx].expression}
+          initialSampleJson={sampleResponseBody?.trim() ? sampleResponseBody : undefined}
+          fetchSample={fetchSample}
+          onApply={(expression) => {
+            const row = extractions[pickerIdx];
+            const nameEmpty = !row?.name?.trim();
+            const suggested = suggestedVariableNameFromJsonPath(expression);
+            update(pickerIdx, {
+              expression,
+              ...(nameEmpty && suggested ? { name: suggested } : {}),
+            });
+            setPickerIdx(null);
+          }}
+          onClose={() => setPickerIdx(null)}
+        />
+      )}
     </div>
   );
 }

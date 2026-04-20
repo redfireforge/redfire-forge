@@ -64,3 +64,17 @@ export function nodeMatchesSearch(node: JsonNode, term: string): boolean {
   } catch { /* ignore search errors */ }
   return false;
 }
+
+/**
+ * Last JSONPath segment as a suggested extraction variable name, e.g. `$.publication.body.country` → `country`.
+ * Strips trailing `[n]` / `[*]` from the last segment. Returns null if not a simple identifier.
+ */
+export function suggestedVariableNameFromJsonPath(expression: string): string | null {
+  const t = expression.trim().replace(/^\$\.?/, '').trim();
+  if (!t) return null;
+  const parts = t.split('.');
+  let last = parts[parts.length - 1] ?? '';
+  last = last.replace(/\[\d+\]|\[\*\]$/g, '');
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(last)) return last;
+  return null;
+}

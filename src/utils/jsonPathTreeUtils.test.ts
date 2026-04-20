@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, getAllLeafPaths, getAllPaths, nodeMatchesSearch, type JsonNode } from './jsonPathTreeUtils';
+import {
+  buildTree,
+  getAllLeafPaths,
+  getAllPaths,
+  nodeMatchesSearch,
+  suggestedVariableNameFromJsonPath,
+  type JsonNode,
+} from './jsonPathTreeUtils';
 
 // ---------------------------------------------------------------------------
 // buildTree
@@ -177,5 +184,38 @@ describe('nodeMatchesSearch', () => {
 
   it('does not search object/array values as text', () => {
     expect(nodeMatchesSearch(tree, '[object')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// suggestedVariableNameFromJsonPath
+// ---------------------------------------------------------------------------
+describe('suggestedVariableNameFromJsonPath', () => {
+  it('returns leaf key for dotted path', () => {
+    expect(suggestedVariableNameFromJsonPath('$.publication.body.country')).toBe('country');
+  });
+
+  it('handles optional $ prefix and whitespace', () => {
+    expect(suggestedVariableNameFromJsonPath(' publication.body.country ')).toBe('country');
+  });
+
+  it('returns last segment after array index', () => {
+    expect(suggestedVariableNameFromJsonPath('$.items[0].id')).toBe('id');
+  });
+
+  it('returns wildcard segment stripped from last segment only', () => {
+    expect(suggestedVariableNameFromJsonPath('$.items[*].code')).toBe('code');
+  });
+
+  it('returns single segment without dots', () => {
+    expect(suggestedVariableNameFromJsonPath('$.status')).toBe('status');
+  });
+
+  it('strips trailing index on sole segment', () => {
+    expect(suggestedVariableNameFromJsonPath('$.arr[0]')).toBe('arr');
+  });
+
+  it('returns null for unusable last segment', () => {
+    expect(suggestedVariableNameFromJsonPath('$.[0]')).toBe(null);
   });
 });

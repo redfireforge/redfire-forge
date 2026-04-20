@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Workflow } from '../types/workflow';
-import { loadWorkflows, saveWorkflows } from '../utils/storage';
+import { createSampleWorkflow } from '../data/sampleWorkflow';
+import {
+  loadWorkflows,
+  saveWorkflows,
+  loadWorkflowSampleDismissed,
+  saveWorkflowSampleDismissed,
+  loadSelectedWorkflowId,
+  saveSelectedWorkflowId,
+} from '../utils/storage';
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -9,16 +17,53 @@ export function useWorkflows() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    loadWorkflows().then((wfs) => {
-      setWorkflows(wfs);
+    let cancelled = false;
+    (async () => {
+      const [wfs, dismissed, storedSelectedId] = await Promise.all([
+        loadWorkflows(),
+        loadWorkflowSampleDismissed(),
+        loadSelectedWorkflowId(),
+      ]);
+      if (cancelled) return;
+      let next = wfs;
+      if (!dismissed && !wfs.some((w) => w.id === 'sample-workflow-001')) {
+        next = [createSampleWorkflow(), ...wfs];
+        await saveWorkflows(next);
+      }
+      if (cancelled) return;
+
+      let initialSelected: string | null = null;
+      if (storedSelectedId && next.some((w) => w.id === storedSelectedId)) {
+        initialSelected = storedSelectedId;
+      } else if (storedSelectedId) {
+        void saveSelectedWorkflowId(null);
+      }
+
+      setWorkflows(next);
+      setSelectedId(initialSelected);
       setLoaded(true);
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const persist = useCallback((next: Workflow[]) => {
-    setWorkflows(next);
-    saveWorkflows(next);
-  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    void saveSelectedWorkflowId(selectedId);
+  }, [loaded, selectedId]);
+
+  /** Ensure a workflow is selected when the list is non-empty (invalid id, missing storage, or after delete). */
+  useEffect(() => {
+    if (!loaded) return;
+    const missing = selectedId === null && workflows.length > 0;
+    const invalid = selectedId != null && !workflows.some((w) => w.id === selectedId);
+    if (!missing && !invalid) return;
+    const sorted = [...workflows].sort((a, b) => b.updatedAt - a.updatedAt);
+    const pick = sorted[0]?.id ?? null;
+    setSelectedId(pick);
+    void saveSelectedWorkflowId(pick);
+  }, [loaded, workflows, selectedId]);
 
   const create = useCallback((name: string): Workflow => {
     const wf: Workflow = {
@@ -30,35 +75,72 @@ export function useWorkflows() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    persist([...workflows, wf]);
+    setWorkflows((prev) => {
+      const next = [...prev, wf];
+      void saveWorkflows(next);
+      return next;
+    });
     setSelectedId(wf.id);
     return wf;
-  }, [workflows, persist]);
+  }, []);
 
+  /** Always merges into the latest workflows (avoids stale closure if multiple updates batch). */
   const update = useCallback((id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => {
-    persist(workflows.map(wf => wf.id === id ? { ...wf, ...patch, updatedAt: Date.now() } : wf));
-  }, [workflows, persist]);
+    setWorkflows((prev) => {
+      const next = prev.map((wf) => (wf.id === id ? { ...wf, ...patch, updatedAt: Date.now() } : wf));
+      void saveWorkflows(next);
+      return next;
+    });
+  }, []);
 
   const remove = useCallback((id: string) => {
-    persist(workflows.filter(wf => wf.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  }, [workflows, selectedId, persist]);
+    if (id === 'sample-workflow-001') {
+      void saveWorkflowSampleDismissed(true);
+    }
+    setWorkflows((prev) => {
+      const next = prev.filter((wf) => wf.id !== id);
+      void saveWorkflows(next);
+      return next;
+    });
+    setSelectedId((cur) => (cur === id ? null : cur));
+  }, []);
+
+  const insert = useCallback((wf: Workflow) => {
+    setWorkflows((prev) => {
+      if (prev.some((w) => w.id === wf.id)) {
+        return prev;
+      }
+      if (wf.id === 'sample-workflow-001') {
+        void saveWorkflowSampleDismissed(false);
+      }
+      const next = [...prev, wf];
+      void saveWorkflows(next);
+      return next;
+    });
+    setSelectedId(wf.id);
+  }, []);
 
   const duplicate = useCallback((id: string) => {
-    const src = workflows.find(wf => wf.id === id);
-    if (!src) return;
-    const copy: Workflow = {
-      ...structuredClone(src),
-      id: uuidv4(),
-      name: `${src.name} (copy)`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    persist([...workflows, copy]);
-    setSelectedId(copy.id);
-  }, [workflows, persist]);
+    let copyId: string | null = null;
+    setWorkflows((prev) => {
+      const src = prev.find((wf) => wf.id === id);
+      if (!src) return prev;
+      copyId = uuidv4();
+      const copy: Workflow = {
+        ...structuredClone(src),
+        id: copyId,
+        name: `${src.name} (copy)`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const next = [...prev, copy];
+      void saveWorkflows(next);
+      return next;
+    });
+    if (copyId) setSelectedId(copyId);
+  }, []);
 
-  const selected = workflows.find(wf => wf.id === selectedId) ?? null;
+  const selected = workflows.find((wf) => wf.id === selectedId) ?? null;
 
   return {
     workflows,
@@ -67,8 +149,11 @@ export function useWorkflows() {
     loaded,
     select: setSelectedId,
     create,
+    insert,
     update,
     remove,
     duplicate,
   };
 }
+
+export type WorkflowHook = ReturnType<typeof useWorkflows>;

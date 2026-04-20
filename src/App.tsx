@@ -26,6 +26,9 @@ import RequestsSidebar from './components/requests/RequestsSidebar';
 import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
 import WorkflowDesigner from './pages/WorkflowDesigner';
+import WorkflowSidebar from './components/workflow/WorkflowSidebar';
+import { useWorkflows } from './hooks/useWorkflows';
+import { createSampleWorkflow } from './data/sampleWorkflow';
 import RequestCollectionModal from './components/requests/RequestCollectionModal';
 import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
@@ -34,6 +37,39 @@ type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'scenarios' | 
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
+
+const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'scenarios', 'runner', 'results']);
+const TAB_QUERY = 'tab';
+const DEFAULT_TAB: Tab = 'requests';
+
+/** Read active tab from ?tab= so refresh keeps Environments / Workflow / Harness / etc. */
+function readTabFromUrl(): Tab {
+  try {
+    const q = new URLSearchParams(window.location.search).get(TAB_QUERY);
+    if (q && ALL_TABS.has(q as Tab)) return q as Tab;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_TAB;
+}
+
+function writeTabToUrl(tab: Tab): void {
+  try {
+    const url = new URL(window.location.href);
+    if (tab === DEFAULT_TAB) {
+      url.searchParams.delete(TAB_QUERY);
+    } else {
+      url.searchParams.set(TAB_QUERY, tab);
+    }
+    const serialized = url.pathname + (url.search ? url.search : '') + url.hash;
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    if (serialized !== current) {
+      window.history.replaceState(window.history.state, '', serialized);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 declare const __APP_VERSION__: string;
 
@@ -52,9 +88,10 @@ export default function App() {
 
   const wb = useRequests();
   const catalog = useCatalog();
+  const wfHook = useWorkflows();
 
   // ---- App shell state ----
-  const [activeTab, setActiveTab] = useState<Tab>('requests');
+  const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -96,6 +133,11 @@ export default function App() {
       setTestRunsCache(initialTestRuns);
     }
   }, [loading, initialTheme, initialTestRuns]);
+
+  // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
+  useEffect(() => {
+    writeTabToUrl(activeTab);
+  }, [activeTab]);
 
   // ---- Header height sync ----
   const headerRef = useRef<HTMLElement>(null);
@@ -374,6 +416,25 @@ export default function App() {
               />
             )}
           </div>
+          {activeTab === 'workflow' && (
+            <WorkflowSidebar
+              workflows={wfHook.workflows}
+              selectedId={wfHook.selectedId}
+              onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
+              onNew={() => {
+                const name = prompt('Workflow name:');
+                if (name?.trim()) { wfHook.create(name.trim()); setActiveTab('workflow'); }
+              }}
+              onDelete={(id) => { wfHook.remove(id); }}
+              onDuplicate={(id) => { wfHook.duplicate(id); }}
+              onLoadSample={() => {
+                const existing = wfHook.workflows.find(w => w.id === 'sample-workflow-001');
+                if (existing) { wfHook.select(existing.id); return; }
+                const sample = createSampleWorkflow();
+                wfHook.insert(sample);
+              }}
+            />
+          )}
           {isHarnessTab(activeTab) && (
             <Sidebar
               environments={environments}
@@ -402,19 +463,37 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {isHarnessTab(activeTab) && (
+          {(isHarnessTab(activeTab) || activeTab === 'workflow') && (
             <div className="main-top-nav">
               <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
               <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
               <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+              <button
+                type="button"
+                className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
+                onClick={() => setActiveTab('workflow')}
+                title="Visual workflow designer (separate from feature groups)"
+              >
+                Workflow
+              </button>
             </div>
           )}
-          {activeTab === 'workflow' && (
+          {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
+          <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner
               collections={wb.collections}
               catalogEntries={catalog.entries}
+              globalAuthProfiles={appGlobalAuthProfiles}
+              wfHook={wfHook}
+              environments={environments}
+              microservices={microservices}
+              selectedEnvId={selectedEnvId}
+              selectedSvcId={selectedSvcId}
+              onEnvSelect={setSelectedEnvId}
+              onSvcSelect={setSelectedSvcId}
+              resolvedBaseUrl={resolvedBaseUrl}
             />
-          )}
+          </div>
           {activeTab === 'environments' && (
             <EnvironmentManager
               environments={environments}

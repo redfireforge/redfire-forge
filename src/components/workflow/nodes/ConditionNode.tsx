@@ -1,12 +1,13 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { ConditionNodeData, NodeRunStatus } from '../../../types/workflow';
+import type { ConditionNodeData } from '../../../types/workflow';
+import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
 
 interface Props extends NodeProps {
-  data: ConditionNodeData & { runStatus?: NodeRunStatus };
+  data: ConditionNodeData;
 }
 
-export default function ConditionNode({ data, selected }: Props) {
-  const rs = data.runStatus;
+export default function ConditionNode({ id, data, selected }: Props) {
+  const rs = useWorkflowNodeRunStatus(id);
   const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
   const expr = data.left && data.right
     ? `${data.left} ${data.operator} ${data.right}`
@@ -14,8 +15,6 @@ export default function ConditionNode({ data, selected }: Props) {
 
   return (
     <div className={`wf-node wf-node-condition ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
-      <Handle type="target" position={Position.Top} className="wf-handle" />
-
       <div className="wf-condition-diamond">
         <span className="wf-condition-icon">◆</span>
         <span className="wf-node-label">{data.label || 'If/Else'}</span>
@@ -27,6 +26,9 @@ export default function ConditionNode({ data, selected }: Props) {
 
       <span className="wf-handle-label wf-handle-label-true">Yes</span>
       <span className="wf-handle-label wf-handle-label-false">No</span>
+
+      {/* Target last so the top handle is above the diamond (otherwise incoming edges are hard to attach). */}
+      <Handle type="target" position={Position.Top} className="wf-handle" />
     </div>
   );
 }

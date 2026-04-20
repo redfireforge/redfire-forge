@@ -30,6 +30,7 @@ import {
   collectAllGroups,
   countFolderReqs,
   findSiblingFolders,
+  findAncestorSubCollection,
 } from './requestTree';
 
 function makeReq(id: string, name = ''): RequestItem {
@@ -119,6 +120,38 @@ describe('findRequestInCollection', () => {
   it('returns null when not found', () => {
     const col = makeCollection();
     expect(findRequestInCollection(col, 'missing')).toBeNull();
+  });
+});
+
+// ─── findAncestorSubCollection ───────────────────────────
+
+describe('findAncestorSubCollection', () => {
+  it('returns the subcollection folder that contains the request', () => {
+    const sub = {
+      id: 'sub',
+      name: 'S',
+      isSubCollection: true,
+      baseUrls: {},
+      requests: [makeReq('r1')],
+    };
+    const top = makeFolder('top', [], [sub]);
+    expect(findAncestorSubCollection([top], 'r1')).toEqual(sub);
+  });
+
+  it('returns null when no folder is marked as sub-collection', () => {
+    const f = makeFolder('f', [makeReq('r1')]);
+    expect(findAncestorSubCollection([f], 'r1')).toBeNull();
+  });
+
+  it('finds a folder with baseUrls even when isSubCollection is unset', () => {
+    const sub = {
+      id: 'sub',
+      name: 'onstar',
+      requests: [makeReq('r1')],
+      baseUrls: { e1: 'https://ons.example.com/' },
+    };
+    const top = makeFolder('top', [], [sub]);
+    expect(findAncestorSubCollection([top], 'r1')).toEqual(sub);
   });
 });
 

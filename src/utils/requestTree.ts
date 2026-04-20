@@ -71,6 +71,32 @@ export function findRequestInCollection(col: RequestCollection, reqId: string): 
   return col.requests.find((r) => r.id === reqId) ?? findReqInFolders(col.folders ?? [], reqId);
 }
 
+/**
+ * Nearest ancestor folder that defines its own host bases: marked `isSubCollection`, or has
+ * non-empty `baseUrls` (some trees use the latter without the flag).
+ */
+export function findAncestorSubCollection(
+  folders: RequestFolder[],
+  reqId: string,
+  ancestors: RequestFolder[] = [],
+): RequestFolder | null {
+  const folderHostsRequests = (folder: RequestFolder): boolean =>
+    !!folder.isSubCollection || (!!folder.baseUrls && Object.keys(folder.baseUrls).length > 0);
+
+  for (const f of folders) {
+    const newAncestors = [...ancestors, f];
+    if (f.requests.some((r) => r.id === reqId)) {
+      for (let i = newAncestors.length - 1; i >= 0; i--) {
+        if (folderHostsRequests(newAncestors[i])) return newAncestors[i];
+      }
+      return null;
+    }
+    const deep = findAncestorSubCollection(f.folders ?? [], reqId, newAncestors);
+    if (deep) return deep;
+  }
+  return null;
+}
+
 export function countReqsInFolders(folders: RequestFolder[]): number {
   return folders.reduce((sum, f) => sum + f.requests.length + countReqsInFolders(f.folders ?? []), 0);
 }
