@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Environment, Microservice } from '../../types';
 import type { WorkflowService } from '../../types/workflow';
 import { checkAllEnvReadiness } from '../../utils/workflowEnvReadiness';
+import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 
 interface Props {
   environments: Environment[];
@@ -91,7 +92,7 @@ export default function WorkflowHarnessContextBar({
           <span className="wf-harness-context-preview-label">Resolved base URL</span>
           {resolvedBaseUrl.trim() ? (
             <code className="wf-harness-context-preview-url" title={resolvedBaseUrl.trim()}>
-              {resolvedBaseUrl.trim().replace(/\/$/, '')}
+              {stripTrailingSlash(resolvedBaseUrl)}
             </code>
           ) : (
             <span className="wf-harness-context-preview-missing">

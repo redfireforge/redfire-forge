@@ -1,6 +1,7 @@
 import type { Environment, Microservice, RequestCollection, RequestFolder, RequestItem } from '../types';
 import { findAncestorSubCollection } from './requestTree';
 import { resolveBaseUrl, type UrlResolverContext } from './requestUrlResolver';
+import { stripTrailingSlash } from './workflowHostResolve';
 
 function buildResolvedColBaseUrls(
   collection: RequestCollection,
@@ -44,7 +45,7 @@ function matchMicroserviceBase(
 ): Pick<WorkflowRequestHostResolution, 'hostMicroserviceId' | 'hostEnvironmentId'> | null {
   for (const svc of microservices) {
     for (const env of wbEnvironments) {
-      const u = svc.baseUrls[env.id]?.replace(/\/$/, '');
+      const u = stripTrailingSlash(svc.baseUrls[env.id] ?? '');
       if (u && u === targetNorm) {
         return { hostMicroserviceId: svc.id, hostEnvironmentId: env.id };
       }
@@ -71,8 +72,8 @@ function hostResolutionFromAbsoluteRequestUrl(
   } catch {
     return null;
   }
-  const originNorm = origin.replace(/\/$/, '');
-  const harnessNorm = harnessBaseUrl.trim().replace(/\/$/, '');
+  const originNorm = stripTrailingSlash(origin);
+  const harnessNorm = stripTrailingSlash(harnessBaseUrl);
   if (originNorm === harnessNorm) return {};
 
   const matched = matchMicroserviceBase(originNorm, microservices, wbEnvironments);
@@ -105,8 +106,8 @@ export function resolveQuickTestHostForRequest(
   };
 
   const resolved = resolveBaseUrl(urlCtx);
-  const harnessNorm = harnessBaseUrl.trim().replace(/\/$/, '');
-  const resolvedNorm = resolved?.trim().replace(/\/$/, '') ?? '';
+  const harnessNorm = stripTrailingSlash(harnessBaseUrl);
+  const resolvedNorm = resolved ? stripTrailingSlash(resolved) : '';
 
   if (!resolvedNorm) {
     if (collection.microserviceId && harnessEnvId) {

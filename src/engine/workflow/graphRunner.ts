@@ -12,6 +12,7 @@ import { extractVariables, type ResponseData } from './extractVariables';
 import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../../utils/workflowRunErrors';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
+import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -256,7 +257,7 @@ async function executeHttpNode(
   const stepBase = resolveHttpBaseUrl?.(data);
   const stepCtx = ctx.child();
   if (stepBase?.trim()) {
-    stepCtx.set('baseUrl', stepBase.trim().replace(/\/$/, ''));
+    stepCtx.set('baseUrl', stripTrailingSlash(stepBase));
   }
   for (const [name, v] of Object.entries(perStepVars)) {
     const resolved = ctx.resolve(v);

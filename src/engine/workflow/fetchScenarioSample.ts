@@ -6,6 +6,7 @@ import { TokenManager } from '../tokenManager';
 import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
+import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 
 export type FetchScenarioSampleResult =
   | { ok: true; body: string; httpStatus: number; finalUrl: string }
@@ -54,7 +55,7 @@ export async function fetchScenarioSample(
 ): Promise<FetchScenarioSampleResult> {
   const envLayer: Record<string, string> = {};
   const bu = resolvedBaseUrl.trim();
-  if (bu) envLayer.baseUrl = bu.replace(/\/$/, '');
+  if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
 
   const ctx = new VariableContext(liveVariables, envLayer);
   const resolved = resolveScenario(scenario, ctx);
