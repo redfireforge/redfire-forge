@@ -71,7 +71,7 @@ export async function fetchScenarioSample(
     return {
       ok: false,
       error:
-        'Could not build an absolute URL. Set Environment + Microservice in the Harness bar (Quick Test host), or add baseUrl to Initial variables.',
+        'Could not build an absolute URL. Assign a Service in the Service Registry, or set Environment + Microservice in the toolbar.',
     };
   }
 

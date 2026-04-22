@@ -10,7 +10,7 @@ interface ParamsEditorProps {
   params: ParamEntry[];
   onChange: (params: ParamEntry[]) => void;
   /** Per row: open variable picker; parent appends `{{…}}` to this row’s value. */
-  onInsertVariable?: (rowIndex: number) => void;
+  onInsertVariable?: (rowIndex: number, paramKey: string) => void;
 }
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
@@ -164,7 +164,7 @@ export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEdito
                     className="btn btn-sm params-insert-var-btn"
                     disabled={!p.enabled}
                     title="Insert variable from workflow or upstream step"
-                    onClick={() => onInsertVariable(i)}
+                    onClick={() => onInsertVariable(i, p.key)}
                   >
                     Insert…
                   </button>

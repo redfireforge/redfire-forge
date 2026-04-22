@@ -24,7 +24,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   const [hideDeprecated, setHideDeprecated] = useState(false);
   const [epValues, setEpValues] = useState<Record<string, SavedEndpointValues>>({});
   const [epLoaded, setEpLoaded] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entryIdRef = useRef(entry.id);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
       pendingEpValues.current = next;
       return next;
     });
-    clearTimeout(saveTimer.current);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveCatalogEndpointValues(entry.id, pendingEpValues.current);
     }, 600);

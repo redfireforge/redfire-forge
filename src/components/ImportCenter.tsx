@@ -28,6 +28,7 @@ interface Props {
 }
 
 export default function ImportCenter({ environments, microservices, featureGroups, appGlobalAuthProfiles, onImport, onClose }: Props) {
+  void featureGroups;
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');

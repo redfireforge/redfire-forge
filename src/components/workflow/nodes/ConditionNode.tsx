@@ -1,10 +1,9 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { ConditionNodeData } from '../../../types/workflow';
 import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
 
-interface Props extends NodeProps {
-  data: ConditionNodeData;
-}
+type ConditionWorkflowNode = Node<ConditionNodeData, 'condition'>;
+type Props = NodeProps<ConditionWorkflowNode>;
 
 export default function ConditionNode({ id, data, selected }: Props) {
   const rs = useWorkflowNodeRunStatus(id);

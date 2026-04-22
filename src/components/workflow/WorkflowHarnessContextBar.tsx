@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import type { Environment, Microservice } from '../../types';
+import type { WorkflowService } from '../../types/workflow';
+import { checkAllEnvReadiness } from '../../utils/workflowEnvReadiness';
 
 interface Props {
   environments: Environment[];
@@ -9,6 +11,7 @@ interface Props {
   onEnvSelect: (id: string) => void;
   onSvcSelect: (id: string) => void;
   resolvedBaseUrl: string;
+  workflowServices?: WorkflowService[];
 }
 
 /**
@@ -23,10 +26,18 @@ export default function WorkflowHarnessContextBar({
   onEnvSelect,
   onSvcSelect,
   resolvedBaseUrl,
+  workflowServices = [],
 }: Props) {
   const microservicesForEnv = useMemo(
     () => (selectedEnvId ? microservices.filter((s) => selectedEnvId in s.baseUrls) : []),
     [microservices, selectedEnvId],
+  );
+
+  const envReadinessMap = useMemo(
+    () => workflowServices.length > 0
+      ? checkAllEnvReadiness(environments.map((e) => e.id), workflowServices)
+      : new Map(),
+    [environments, workflowServices],
   );
 
   const handleEnvChange = (envId: string) => {
@@ -53,9 +64,13 @@ export default function WorkflowHarnessContextBar({
             onChange={(e) => handleEnvChange(e.target.value)}
           >
             <option value="">Select environment…</option>
-            {environments.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
+            {environments.map((e) => {
+              const r = envReadinessMap.get(e.id);
+              const warn = r && !r.ready ? ` ⚠ (${r.issues.length} svc missing)` : '';
+              return (
+                <option key={e.id} value={e.id}>{e.name}{warn}</option>
+              );
+            })}
           </select>
         </label>
         <label className="wf-harness-context-field">

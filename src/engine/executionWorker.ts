@@ -3,7 +3,15 @@ import type { HttpResponse } from '../utils/httpClient';
 import { setHttpTransport } from '../utils/httpClient';
 import { runTest } from './executor';
 
-const ctx = self as unknown as DedicatedWorkerGlobalScope;
+interface WorkerContext {
+  postMessage: (msg: WorkerToMainMessage) => void;
+  addEventListener: (
+    type: 'message',
+    listener: (e: MessageEvent<MainToWorkerMessage>) => void,
+  ) => void;
+}
+
+const ctx = self as unknown as WorkerContext;
 
 const pendingHttp = new Map<string, (response: HttpResponse) => void>();
 let abortController: AbortController | null = null;

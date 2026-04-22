@@ -1,6 +1,13 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
-import type { WorkflowNode, HttpNodeData, ConditionNodeData, DelayNodeData, WorkflowNodeData } from '../../types/workflow';
+import type {
+  WorkflowNode,
+  HttpNodeData,
+  ConditionNodeData,
+  DelayNodeData,
+  WorkflowNodeData,
+  WorkflowService,
+} from '../../types/workflow';
 import {
   guessConditionLeftMode,
   isHttpWorkflowNode,
@@ -9,8 +16,7 @@ import {
   validateConditionLeftRefs,
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
-import type { Scenario, Extraction, ExtractionSource, KeyValue, GlobalAuthProfile, AuthConfig, Environment, Microservice } from '../../types';
-import { resolveHttpNodeBaseUrl } from '../../utils/workflowHostResolve';
+import type { Scenario, KeyValue } from '../../types';
 import ExtractionEditor from '../ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../ExtractionPathPickerModal';
 import { useWorkflowInspect } from './WorkflowInspectContext';
@@ -25,26 +31,15 @@ interface Props {
   /** Merged shallowly into the node’s current `data` (avoids dropping `initialVariables` when HTTP fields update). */
   onUpdateNode: (id: string, patch: Partial<WorkflowNodeData>) => void;
   onDeleteNode: (id: string) => void;
-  globalAuthProfiles: GlobalAuthProfile[];
   /** Final URL from the last Quick Test (success or fail) for debugging. */
   lastQuickTestRequestUrl?: string | null;
   /** HTTP step error line from the last run (kept off node `data` in the designer). */
   lastRunStepError?: string | null;
   /**
-   * Global harness selection only — for “Use harness bar” preview in HTTP step host UI.
-   * (Per-step config may override.)
-   */
-  harnessBaseUrl: string;
-  /**
    * For the selected HTTP node: resolved base after per-request host override, else harness.
    * Used for Extract → Fetch sample and URL hints.
    */
   effectiveQuickTestBaseUrl: string;
-  /** Populate per-request Environment / Microservice on HTTP nodes. */
-  workflowEnvironments: Environment[];
-  workflowMicroservices: Microservice[];
-  harnessEnvironmentId: string;
-  harnessMicroserviceId: string;
   /** Last successful Fetch Response body for Extract → Pick JSON path. */
   extractionSampleResponseBody?: string;
   /** Fetch handler + loading/error for Extract modal (omit `host`; HttpConfig adds it from scenario). */
@@ -56,16 +51,26 @@ interface Props {
   conditionVariableHints?: WorkflowVariableHint[];
   /** Upstream + workflow variable templates for the selected HTTP step (URL, params, headers, body). */
   httpVariableHints?: WorkflowVariableHint[];
+  /** Workflow-level services from the Service Registry. */
+  workflowServices?: WorkflowService[];
 }
 
-type HttpTab = 'url' | 'headers' | 'body' | 'auth' | 'extract';
+type HttpTab = 'url' | 'headers' | 'body' | 'extract';
 
-export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, globalAuthProfiles, lastQuickTestRequestUrl, lastRunStepError, harnessBaseUrl, effectiveQuickTestBaseUrl, workflowEnvironments, workflowMicroservices, harnessEnvironmentId, harnessMicroserviceId, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [] }: Props) {
+export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [], workflowServices = [] }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
   const [variableInsertOpen, setVariableInsertOpen] = useState(false);
+  const [variableInsertShortRef, setVariableInsertShortRef] = useState(false);
+  const [variableInsertInitialSearch, setVariableInsertInitialSearch] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const insertApplyRef = useRef<(snippet: string) => void>(() => {});
+
+  // Reset to inline view when a different node is selected
+  useEffect(() => {
+    setExpanded(false);
+  }, [node?.id]);
 
   const workflowOnlyPickerHints = useMemo(
     (): WorkflowVariableHint[] =>
@@ -91,8 +96,10 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
   }, [node, httpVariableHints, workflowOnlyPickerHints]);
 
-  const requestVariableInsert = useCallback((apply: (snippet: string) => void) => {
+  const requestVariableInsert = useCallback((apply: (snippet: string) => void, shortRef = false, initialSearch = '') => {
     insertApplyRef.current = apply;
+    setVariableInsertShortRef(shortRef);
+    setVariableInsertInitialSearch(initialSearch);
     setVariableInsertOpen(true);
   }, []);
 
@@ -101,60 +108,40 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     setVariableInsertOpen(false);
   }, []);
 
-  return (
-    <div className="wf-config-panel">
-      {!node && (
-        <div className="wf-config-empty">
-          <p>Select a node to configure</p>
-          <p className="wf-config-hint">Click any step on the canvas, or add one from the palette</p>
-        </div>
+  /** Shared config body rendered in both inline and expanded modal views. */
+  const configContent = node ? (
+    <>
+      {isHttpWorkflowNode(node) && (
+        <HttpConfig
+          data={node.data as HttpNodeData}
+          onChange={(patch) => onUpdateNode(node.id, patch)}
+          activeTab={httpTab}
+          onTabChange={setHttpTab}
+          lastRunError={lastRunStepError ?? undefined}
+          lastQuickTestRequestUrl={lastQuickTestRequestUrl}
+          effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
+          extractionSampleResponseBody={extractionSampleResponseBody}
+          extractionFetchSample={extractionFetchSample}
+          variableHints={httpVariableHints}
+          onRequestVariableInsert={requestVariableInsert}
+          workflowServices={workflowServices}
+        />
       )}
 
-      {node && (
-        <>
-          <div className="wf-config-header">
-            <span className="wf-config-type">{node.type.toUpperCase()}</span>
-            <button className="btn btn-sm btn-danger" onClick={() => onDeleteNode(node.id)} title="Delete node">×</button>
-          </div>
+      {node.type === 'condition' && (
+        <ConditionConfig
+          key={node.id}
+          data={node.data as ConditionNodeData}
+          onChange={(data) => onUpdateNode(node.id, data)}
+          variableHints={conditionVariableHints}
+        />
+      )}
 
-          {isHttpWorkflowNode(node) && (
-            <HttpConfig
-              data={node.data as HttpNodeData}
-              onChange={(patch) => onUpdateNode(node.id, patch)}
-              activeTab={httpTab}
-              onTabChange={setHttpTab}
-              globalAuthProfiles={globalAuthProfiles}
-              lastRunError={lastRunStepError ?? undefined}
-              lastQuickTestRequestUrl={lastQuickTestRequestUrl}
-              harnessBaseUrl={harnessBaseUrl}
-              effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
-              workflowEnvironments={workflowEnvironments}
-              workflowMicroservices={workflowMicroservices}
-              harnessEnvironmentId={harnessEnvironmentId}
-              harnessMicroserviceId={harnessMicroserviceId}
-              extractionSampleResponseBody={extractionSampleResponseBody}
-              extractionFetchSample={extractionFetchSample}
-              variableHints={httpVariableHints}
-              onRequestVariableInsert={requestVariableInsert}
-            />
-          )}
-
-          {node.type === 'condition' && (
-            <ConditionConfig
-              key={node.id}
-              data={node.data as ConditionNodeData}
-              onChange={(data) => onUpdateNode(node.id, data)}
-              variableHints={conditionVariableHints}
-            />
-          )}
-
-          {node.type === 'delay' && (
-            <DelayConfig
-              data={node.data as DelayNodeData}
-              onChange={(data) => onUpdateNode(node.id, data)}
-            />
-          )}
-        </>
+      {node.type === 'delay' && (
+        <DelayConfig
+          data={node.data as DelayNodeData}
+          onChange={(data) => onUpdateNode(node.id, data)}
+        />
       )}
 
       {(!node || isHttpWorkflowNode(node)) && (
@@ -173,7 +160,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           onUpdateVariables={
             node && isHttpWorkflowNode(node)
               ? (vars) => onUpdateNode(node.id, { initialVariables: vars })
-              : onUpdateWorkflowVariables
+              : (vars) => onUpdateWorkflowVariables(vars)
           }
           newVarKey={newVarKey}
           setNewVarKey={setNewVarKey}
@@ -182,10 +169,84 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           onRequestVariableInsert={requestVariableInsert}
         />
       )}
+    </>
+  ) : null;
+
+  return (
+    <div className="wf-config-panel">
+      {!node && (
+        <div className="wf-config-empty">
+          <p>Select a node to configure</p>
+          <p className="wf-config-hint">Click any step on the canvas, or add one from the palette</p>
+        </div>
+      )}
+
+      {node && !expanded && (
+        <>
+          <div className="wf-config-header">
+            <span className="wf-config-type">{node.type.toUpperCase()}</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-sm" onClick={() => setExpanded(true)} title="Expand to full screen">⛶</button>
+              <button className="btn btn-sm btn-danger" onClick={() => onDeleteNode(node.id)} title="Delete node">×</button>
+            </div>
+          </div>
+          {configContent}
+        </>
+      )}
+
+      {node && expanded && (
+        <>
+          <div className="wf-config-header">
+            <span className="wf-config-type">{node.type.toUpperCase()}</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-sm" onClick={() => setExpanded(true)} title="Expand to full screen">⛶</button>
+              <button className="btn btn-sm btn-danger" onClick={() => onDeleteNode(node.id)} title="Delete node">×</button>
+            </div>
+          </div>
+          <div
+            className="modal-overlay wf-expand-modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}
+          >
+            <div
+              className="modal ram-modal wf-expand-modal"
+              role="dialog"
+              aria-labelledby="wf-expand-title"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="ram-header">
+                <h3 id="wf-expand-title">{node.type.toUpperCase()} — {(node.data as HttpNodeData).label || 'Step Config'}</h3>
+                <button type="button" className="ram-modal-close" onClick={() => setExpanded(false)} aria-label="Close">&times;</button>
+              </div>
+              <div className="wf-expand-modal-body">
+                {configContent}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {!node && (
+        <VariablesSection
+          title="Workflow defaults"
+          hint="Available as {{name}} on every HTTP step unless that step sets its own. Save the workflow to persist."
+          variables={workflowVariables}
+          onUpdateVariables={(vars) => onUpdateWorkflowVariables(vars)}
+          newVarKey={newVarKey}
+          setNewVarKey={setNewVarKey}
+          newVarValue={newVarValue}
+          setNewVarValue={setNewVarValue}
+          onRequestVariableInsert={requestVariableInsert}
+          deprecatedKeys={workflowServices.length > 0 ? ['baseUrl'] : []}
+        />
+      )}
 
       <WorkflowVariableInsertModal
         open={variableInsertOpen}
         hints={variableInsertHints}
+        shortRef={variableInsertShortRef}
+        initialSearch={variableInsertInitialSearch}
         onClose={() => setVariableInsertOpen(false)}
         onPick={handleVariableInsertPicked}
       />
@@ -222,138 +283,6 @@ function rebuildUrl(baseUrl: string, entries: ParamEntry[]): string {
   return `${path}?${qs}`;
 }
 
-function HttpHostFields({
-  data,
-  onChange,
-  environments,
-  microservices,
-  harnessEnvId,
-  harnessSvcId,
-  harnessBaseUrl,
-}: {
-  data: HttpNodeData;
-  /** Partial patch only — never spread full `data` (avoids wiping `initialVariables`). */
-  onChange: (patch: Partial<HttpNodeData>) => void;
-  environments: Environment[];
-  microservices: Microservice[];
-  harnessEnvId: string;
-  harnessSvcId: string;
-  harnessBaseUrl: string;
-}) {
-  const hasExplicitBase = !!data.hostBaseUrl?.trim();
-  const hasPair = !!(data.hostEnvironmentId && data.hostMicroserviceId);
-  const perRequest = hasExplicitBase || hasPair;
-
-  const microservicesForEnv = useMemo(
-    () => (data.hostEnvironmentId ? microservices.filter((s) => data.hostEnvironmentId! in s.baseUrls) : []),
-    [microservices, data.hostEnvironmentId],
-  );
-
-  const preview = useMemo(
-    () => resolveHttpNodeBaseUrl(data, microservices) || harnessBaseUrl.trim() || '—',
-    [data, microservices, harnessBaseUrl],
-  );
-
-  const handleEnvChange = (envId: string) => {
-    if (!envId) {
-      onChange({ hostEnvironmentId: undefined, hostMicroserviceId: undefined, hostBaseUrl: undefined });
-      return;
-    }
-    const svcs = microservices.filter((s) => envId in s.baseUrls);
-    let svcId = data.hostMicroserviceId;
-    if (!svcId || !svcs.some((s) => s.id === svcId)) {
-      svcId = svcs[0]?.id;
-    }
-    onChange({ hostEnvironmentId: envId, hostMicroserviceId: svcId, hostBaseUrl: undefined });
-  };
-
-  const handleSvcChange = (svcId: string) => {
-    if (!svcId) {
-      onChange({ hostEnvironmentId: undefined, hostMicroserviceId: undefined, hostBaseUrl: undefined });
-      return;
-    }
-    const svc = microservices.find((m) => m.id === svcId);
-    let envId = data.hostEnvironmentId;
-    if (svc && envId && !(envId in svc.baseUrls)) {
-      envId = Object.keys(svc.baseUrls)[0];
-    }
-    onChange({ hostMicroserviceId: svcId, hostEnvironmentId: envId, hostBaseUrl: undefined });
-  };
-
-  return (
-    <div className="wf-config-field wf-config-host">
-      <label>Quick Test host</label>
-      <div className="wf-host-mode" role="group" aria-label="Quick Test host mode">
-        <label className="wf-config-inline-radio">
-          <input
-            type="radio"
-            name="wf-http-host-mode"
-            checked={!perRequest}
-            onChange={() =>
-              onChange({ hostEnvironmentId: undefined, hostMicroserviceId: undefined, hostBaseUrl: undefined })
-            }
-          />
-          Harness bar (default)
-        </label>
-        <label className="wf-config-inline-radio">
-          <input
-            type="radio"
-            name="wf-http-host-mode"
-            checked={perRequest}
-            onChange={() => {
-              const envId = harnessEnvId || environments[0]?.id;
-              if (!envId) return;
-              const svcs = microservices.filter((s) => envId in s.baseUrls);
-              const svcId = (harnessSvcId && svcs.some((s) => s.id === harnessSvcId))
-                ? harnessSvcId
-                : svcs[0]?.id;
-              if (!svcId) return;
-              onChange({ hostEnvironmentId: envId, hostMicroserviceId: svcId, hostBaseUrl: undefined });
-            }}
-          />
-          This request only
-        </label>
-      </div>
-      {perRequest && hasExplicitBase && !hasPair && (
-        <p className="wf-config-hint-text" style={{ marginTop: 4 }}>
-          Base URL comes from this request’s URL collection. Use Environment and Microservice below to use a
-          registered host instead.
-        </p>
-      )}
-      {perRequest && (
-        <>
-          <select
-            className="wf-config-host-select"
-            value={data.hostEnvironmentId ?? ''}
-            onChange={(e) => handleEnvChange(e.target.value)}
-            aria-label="Environment for this request"
-          >
-            <option value="">Environment…</option>
-            {environments.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
-          <select
-            className="wf-config-host-select"
-            value={data.hostMicroserviceId ?? ''}
-            onChange={(e) => handleSvcChange(e.target.value)}
-            disabled={!data.hostEnvironmentId}
-            aria-label="Microservice for this request"
-          >
-            <option value="">Microservice…</option>
-            {microservicesForEnv.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </>
-      )}
-      <p className="wf-config-hint-text" style={{ marginTop: 8 }}>
-        Resolved base for this step: <code>{preview}</code>
-      </p>
-    </div>
-  );
-}
-
 function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
   const sorted = useMemo(
     () =>
@@ -385,40 +314,53 @@ function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
   );
 }
 
-function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles, lastRunError, lastQuickTestRequestUrl, harnessBaseUrl, effectiveQuickTestBaseUrl, workflowEnvironments, workflowMicroservices, harnessEnvironmentId, harnessMicroserviceId, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert }: {
+function HttpConfig({ data, onChange, activeTab, onTabChange, lastRunError, lastQuickTestRequestUrl, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert, workflowServices = [] }: {
   data: HttpNodeData;
   /** Partial patch merged in the parent — never pass full `data` here. */
   onChange: (patch: Partial<HttpNodeData>) => void;
   activeTab: HttpTab;
   onTabChange: (tab: HttpTab) => void;
-  globalAuthProfiles: GlobalAuthProfile[];
   /** From last Quick Test — helps debug without opening DevTools. */
   lastRunError?: string;
   lastQuickTestRequestUrl?: string | null;
-  harnessBaseUrl: string;
   effectiveQuickTestBaseUrl: string;
-  workflowEnvironments: Environment[];
-  workflowMicroservices: Microservice[];
-  harnessEnvironmentId: string;
-  harnessMicroserviceId: string;
   extractionSampleResponseBody?: string;
   extractionFetchSample?: Pick<ExtractionFetchSampleProps, 'onFetch' | 'fetching' | 'error'>;
   variableHints?: WorkflowVariableHint[];
   /** Opens variable picker; call with a function that appends the chosen `{{…}}` snippet to the target field. */
-  onRequestVariableInsert: (apply: (snippet: string) => void) => void;
+  onRequestVariableInsert: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
+  /** Workflow-level services from the Service Registry. */
+  workflowServices?: WorkflowService[];
 }) {
   const s = data.scenario;
   const update = (patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } });
 
+  const [extraEmptyRows, setExtraEmptyRows] = useState(0);
+
   const queryParams = useMemo<ParamEntry[]>(() => {
     const parsed = parseQueryParams(s.url);
-    if (parsed.length === 0) return [{ key: '', value: '', enabled: true, description: '' }];
-    return parsed.map(kv => ({ ...kv, enabled: true, description: '' }));
-  }, [s.url]);
+    const base: ParamEntry[] = parsed.length === 0
+      ? [{ key: '', value: '', enabled: true, description: '' }]
+      : parsed.map(kv => ({ ...kv, enabled: true, description: '' }));
+    for (let i = 0; i < extraEmptyRows; i++) {
+      base.push({ key: '', value: '', enabled: true, description: '' });
+    }
+    return base;
+  }, [s.url, extraEmptyRows]);
 
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
 
   const handleParamsChange = useCallback((entries: ParamEntry[]) => {
+    // Count trailing empty rows to preserve them as local state
+    let trailing = 0;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (!entries[i].key.trim() && !entries[i].value.trim()) trailing++;
+      else break;
+    }
+    // Always keep at least one empty row (the default), extras beyond that are tracked
+    const filledCount = entries.filter(e => e.key.trim()).length;
+    const newExtra = Math.max(0, trailing - (filledCount === 0 ? 1 : 0));
+    setExtraEmptyRows(newExtra);
     const newUrl = rebuildUrl(s.url, entries);
     update({ url: newUrl });
   }, [s.url, update]);
@@ -437,17 +379,28 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
           <code className="wf-config-last-req-url-value" title={lastQuickTestRequestUrl}>{lastQuickTestRequestUrl}</code>
         </div>
       )}
-      {workflowEnvironments.length > 0 && workflowMicroservices.length > 0 && (
-        <HttpHostFields
-          data={data}
-          onChange={onChange}
-          environments={workflowEnvironments}
-          microservices={workflowMicroservices}
-          harnessEnvId={harnessEnvironmentId}
-          harnessSvcId={harnessMicroserviceId}
-          harnessBaseUrl={harnessBaseUrl}
-        />
-      )}
+      <div className="wf-config-managed-note" role="note" aria-label="Host and auth are managed at workflow level">
+        <span className="wf-config-managed-note-title">Service</span>
+        <select
+          value={data.serviceId ?? ''}
+          onChange={(e) => {
+            const svcId = e.target.value || undefined;
+            const svc = workflowServices.find((s) => s.id === svcId);
+            onChange({ serviceId: svcId, label: svc ? svc.name : data.label });
+          }}
+          className="wf-config-service-select"
+        >
+          <option value="">None (use harness bar)</option>
+          {workflowServices.map((svc) => (
+            <option key={svc.id} value={svc.id}>{svc.name}</option>
+          ))}
+        </select>
+        {workflowServices.length === 0 && (
+          <p className="wf-config-managed-note-text">
+            Click the <strong>🔗 Services</strong> button in the toolbar to register external services.
+          </p>
+        )}
+      </div>
       <div className="wf-config-field">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
@@ -458,12 +411,18 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => <option key={m}>{m}</option>)}
         </select>
         <div className="wf-config-url-field-wrap">
-          <input value={s.url} onChange={(e) => update({ url: e.target.value })} placeholder="https://api.example.com/..." className="wf-config-url-input" />
+          <input
+            value={s.url.replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}')}
+            onChange={(e) => update({ url: e.target.value })}
+            placeholder="https://api.example.com/..."
+            className="wf-config-url-input"
+            title={s.url}
+          />
           <button
             type="button"
             className="btn btn-sm wf-config-insert-var-btn"
             title="Insert variable from workflow or upstream step"
-            onClick={() => onRequestVariableInsert((snippet) => update({ url: s.url + snippet }))}
+            onClick={() => onRequestVariableInsert((snippet) => update({ url: s.url + snippet }), true)}
           >
             Insert…
           </button>
@@ -471,7 +430,7 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
       </div>
 
       <div className="wf-config-tabs">
-        {(['url', 'headers', 'body', 'auth', 'extract'] as HttpTab[]).map(tab => (
+        {(['url', 'headers', 'body', 'extract'] as HttpTab[]).map(tab => (
           <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
             {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
@@ -492,13 +451,13 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
             <ParamsEditor
               params={queryParams}
               onChange={handleParamsChange}
-              onInsertVariable={(rowIndex) =>
+              onInsertVariable={(rowIndex, paramKey) =>
                 onRequestVariableInsert((snippet) => {
                   const next = queryParams.map((p, idx) =>
-                    idx === rowIndex ? { ...p, value: p.value + snippet } : p,
+                    idx === rowIndex ? { ...p, value: snippet } : p,
                   );
                   handleParamsChange(next);
-                })
+                }, false, paramKey)
               }
             />
           </div>
@@ -522,9 +481,9 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
                     onClick={() =>
                       onRequestVariableInsert((snippet) => {
                         const next = [...s.headers];
-                        next[i] = { ...h, value: h.value + snippet };
+                        next[i] = { ...h, value: snippet };
                         update({ headers: next });
-                      })
+                      }, false, h.key)
                     }
                   >
                     Insert…
@@ -545,7 +504,7 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
                 type="button"
                 className="btn btn-sm"
                 title="Insert variable from workflow or upstream step"
-                onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }))}
+                onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
               >
                 Insert variable…
               </button>
@@ -558,14 +517,6 @@ function HttpConfig({ data, onChange, activeTab, onTabChange, globalAuthProfiles
               className="wf-config-textarea"
             />
           </div>
-        )}
-
-        {activeTab === 'auth' && (
-          <WorkflowAuthEditor
-            auth={s.auth}
-            globalAuthProfiles={globalAuthProfiles}
-            onUpdate={(auth) => update({ auth })}
-          />
         )}
 
         {activeTab === 'extract' && (
@@ -802,130 +753,6 @@ function DelayConfig({ data, onChange }: { data: DelayNodeData; onChange: (d: De
   );
 }
 
-// ── Workflow Auth Editor ──────────────────────────────
-
-function WorkflowAuthEditor({ auth, globalAuthProfiles, onUpdate }: {
-  auth: AuthConfig;
-  globalAuthProfiles: GlobalAuthProfile[];
-  onUpdate: (auth: AuthConfig) => void;
-}) {
-  const authSelectValue = (auth as any).globalProfileId ? 'global-profile' : auth.type;
-
-  const handleTypeChange = (val: string) => {
-    if (val === 'global-profile') {
-      const first = globalAuthProfiles[0];
-      if (first) onUpdate({ ...first.auth, globalProfileId: first.id } as any);
-    } else {
-      onUpdate({ type: val as AuthConfig['type'] });
-    }
-  };
-
-  const handleProfileChange = (profileId: string) => {
-    const profile = globalAuthProfiles.find(p => p.id === profileId);
-    if (profile) onUpdate({ ...profile.auth, globalProfileId: profile.id } as any);
-  };
-
-  const selectedProfile = (auth as any).globalProfileId
-    ? globalAuthProfiles.find(p => p.id === (auth as any).globalProfileId)
-    : null;
-
-  return (
-    <div className="wf-config-auth">
-      <div className="wf-config-field">
-        <label>Auth Type</label>
-        <select value={authSelectValue} onChange={(e) => handleTypeChange(e.target.value)}>
-          <option value="none">None</option>
-          {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-          <option value="bearer">Bearer Token</option>
-          <option value="basic">Basic Auth</option>
-          <option value="apikey">API Key</option>
-          <option value="oauth2">OAuth2 Client Credentials</option>
-        </select>
-      </div>
-
-      {authSelectValue === 'global-profile' && (
-        <div className="wf-config-field">
-          <label>Select Profile</label>
-          <select value={(auth as any).globalProfileId ?? ''} onChange={(e) => handleProfileChange(e.target.value)}>
-            {globalAuthProfiles.map(p => (
-              <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-            ))}
-          </select>
-          {selectedProfile && (
-            <div className="wf-auth-profile-badge">
-              <span className="wf-auth-type-badge">{selectedProfile.auth.type.toUpperCase()}</span>
-              <span>{selectedProfile.name}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {auth.type === 'bearer' && !selectedProfile && (
-        <>
-          <div className="wf-config-field">
-            <label>Prefix</label>
-            <input value={auth.prefix ?? 'Bearer'} onChange={(e) => onUpdate({ ...auth, prefix: e.target.value })} placeholder="Bearer" />
-          </div>
-          <div className="wf-config-field">
-            <label>Token (supports {'{{var}}'})</label>
-            <input value={auth.token ?? ''} onChange={(e) => onUpdate({ ...auth, token: e.target.value })} placeholder="{{authToken}}" />
-          </div>
-        </>
-      )}
-
-      {auth.type === 'basic' && !selectedProfile && (
-        <>
-          <div className="wf-config-field">
-            <label>Username</label>
-            <input value={auth.username ?? ''} onChange={(e) => onUpdate({ ...auth, username: e.target.value })} />
-          </div>
-          <div className="wf-config-field">
-            <label>Password</label>
-            <input value={auth.password ?? ''} onChange={(e) => onUpdate({ ...auth, password: e.target.value })} type="password" />
-          </div>
-        </>
-      )}
-
-      {auth.type === 'apikey' && !selectedProfile && (
-        <>
-          <div className="wf-config-field">
-            <label>Key Name</label>
-            <input value={auth.apiKeyName ?? ''} onChange={(e) => onUpdate({ ...auth, apiKeyName: e.target.value })} />
-          </div>
-          <div className="wf-config-field">
-            <label>Key Value</label>
-            <input value={auth.apiKeyValue ?? ''} onChange={(e) => onUpdate({ ...auth, apiKeyValue: e.target.value })} />
-          </div>
-          <div className="wf-config-field">
-            <label>Send In</label>
-            <select value={auth.apiKeyIn ?? 'header'} onChange={(e) => onUpdate({ ...auth, apiKeyIn: e.target.value as 'header' | 'query' })}>
-              <option value="header">Header</option>
-              <option value="query">Query Parameter</option>
-            </select>
-          </div>
-        </>
-      )}
-
-      {auth.type === 'oauth2' && !selectedProfile && (
-        <>
-          <div className="wf-config-field">
-            <label>Token URL</label>
-            <input value={auth.tokenUrl ?? ''} onChange={(e) => onUpdate({ ...auth, tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
-          </div>
-          <div className="wf-config-field">
-            <label>Client ID</label>
-            <input value={auth.clientId ?? ''} onChange={(e) => onUpdate({ ...auth, clientId: e.target.value })} />
-          </div>
-          <div className="wf-config-field">
-            <label>Client Secret</label>
-            <input value={auth.clientSecret ?? ''} onChange={(e) => onUpdate({ ...auth, clientSecret: e.target.value })} type="password" />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ── Variables Section (always visible in config panel) ─
 
 const VAR_NAME_COL_MIN = 100;
@@ -934,14 +761,15 @@ const VAR_NAME_COL_DEFAULT = 200;
 /** Values longer than this use View + modal instead of a cramped single-line input. */
 const VAR_VALUE_LONG = 100;
 
-function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert }: {
+function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert, deprecatedKeys = [] }: {
   title: string;
   hint: string;
   variables: Record<string, string>;
   onUpdateVariables: (v: Record<string, string>) => void;
   newVarKey: string; setNewVarKey: (s: string) => void;
   newVarValue: string; setNewVarValue: (s: string) => void;
-  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
+  deprecatedKeys?: string[];
 }) {
   const { openVariableDetail } = useWorkflowInspect();
   const entries = Object.entries(variables);
@@ -991,9 +819,10 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
       </p>
       {entries.map(([key, value], index) => {
         const isLong = value.length > VAR_VALUE_LONG || value.includes('\n');
+        const isDeprecated = deprecatedKeys.includes(key);
         return (
         /* index key: variable *name* changes while typing during rename; key={key} remounts the row and drops focus */
-        <div key={index} className="wf-config-kv-row wf-config-kv-row-vars">
+        <div key={index} className={`wf-config-kv-row wf-config-kv-row-vars${isDeprecated ? ' wf-var-deprecated' : ''}`}>
           <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
             <input
               className="wf-var-key-input"
@@ -1007,6 +836,7 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
                 }
                 onUpdateVariables(next);
               }}
+              title={isDeprecated ? `"${key}" is managed by the Service Registry and can be removed` : undefined}
             />
           </div>
           <div className="wf-var-col-resize" onMouseDown={onResizeStart} title="Drag to resize name column" role="separator" aria-orientation="vertical" />
@@ -1025,7 +855,7 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
                   className="btn btn-sm wf-config-insert-var-btn"
                   title="Insert variable"
                   onClick={() =>
-                    onRequestVariableInsert((snippet) => onUpdateVariables({ ...variables, [key]: value + snippet }))
+                    onRequestVariableInsert((snippet) => onUpdateVariables({ ...variables, [key]: value + snippet }), false, key)
                   }
                 >
                   Insert…
@@ -1040,7 +870,9 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
               <input
                 className="wf-var-value-input"
                 value={value}
-                onChange={(e) => onUpdateVariables({ ...variables, [key]: e.target.value })}
+                onChange={(e) => {
+                  onUpdateVariables({ ...variables, [key]: e.target.value });
+                }}
               />
               {onRequestVariableInsert && (
                 <button
@@ -1048,7 +880,7 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
                   className="btn btn-sm wf-config-insert-var-btn"
                   title="Insert variable from workflow or upstream step"
                   onClick={() =>
-                    onRequestVariableInsert((snippet) => onUpdateVariables({ ...variables, [key]: value + snippet }))
+                    onRequestVariableInsert((snippet) => onUpdateVariables({ ...variables, [key]: value + snippet }), false, key)
                   }
                 >
                   Insert…
@@ -1064,7 +896,7 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
       })}
       <div className="wf-config-kv-row wf-config-kv-row-vars" style={{ marginTop: 4 }}>
         <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
-          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} className="wf-var-key-input" />
+          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} onBlur={() => { if (newVarKey.trim() && newVarValue) addVar(); }} className="wf-var-key-input" />
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
         <div className="wf-var-new-row-value">
@@ -1074,6 +906,7 @@ function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey
             onChange={(e) => setNewVarValue(e.target.value)}
             placeholder="value"
             onKeyDown={(e) => e.key === 'Enter' && addVar()}
+            onBlur={() => { if (newVarKey.trim()) addVar(); }}
           />
           {onRequestVariableInsert && (
             <button

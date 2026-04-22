@@ -27,6 +27,7 @@ import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
 import WorkflowDesigner from './pages/WorkflowDesigner';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
+// WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
 import { createSampleWorkflow } from './data/sampleWorkflow';
 import RequestCollectionModal from './components/requests/RequestCollectionModal';
@@ -425,6 +426,13 @@ export default function App() {
                 const name = prompt('Workflow name:');
                 if (name?.trim()) { wfHook.create(name.trim()); setActiveTab('workflow'); }
               }}
+              onRename={(id) => {
+                const target = wfHook.workflows.find((w) => w.id === id);
+                if (!target) return;
+                const name = prompt('Rename workflow:', target.name);
+                if (!name?.trim()) return;
+                wfHook.update(id, { name: name.trim() });
+              }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onLoadSample={() => {
@@ -483,10 +491,10 @@ export default function App() {
             <WorkflowDesigner
               collections={wb.collections}
               catalogEntries={catalog.entries}
-              globalAuthProfiles={appGlobalAuthProfiles}
               wfHook={wfHook}
               environments={environments}
               microservices={microservices}
+              globalAuthProfiles={appGlobalAuthProfiles}
               selectedEnvId={selectedEnvId}
               selectedSvcId={selectedSvcId}
               onEnvSelect={setSelectedEnvId}
@@ -504,6 +512,7 @@ export default function App() {
               confirm={confirm}
             />
           )}
+
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}

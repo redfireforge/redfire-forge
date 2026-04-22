@@ -38,7 +38,7 @@ function stepLabel(data: HttpNodeData): string {
 }
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
-export function isHttpWorkflowNode(n: WorkflowNode): boolean {
+export function isHttpWorkflowNode(n: { type?: string; data?: unknown }): n is { type: string; data: HttpNodeData } {
   if (n.type === 'http') return true;
   return n.data != null && typeof n.data === 'object' && 'scenario' in (n.data as object);
 }
