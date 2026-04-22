@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   collectAncestorNodeIds,
   collectConditionVariableHints,
+  formatNodeScopedRef,
+  guessConditionLeftMode,
+  httpStepDisplayLabel,
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
   parseNonGeneratorRefs,
@@ -103,6 +106,26 @@ describe('collectConditionVariableHints', () => {
     expect(refs(hints)).not.toContain('stale');
     expect(refs(hints)).not.toContain('node:h2.upstreamOnly');
   });
+
+  it('skips extractions with empty name', () => {
+    const nodes: WorkflowNode[] = [http('h1', [{ name: '' }, { name: '  ' }, { name: 'valid' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(refs(hints)).toContain('valid');
+    expect(refs(hints)).not.toContain('');
+  });
+
+  it('skips upstream HTTP node with no scenario', () => {
+    const noScenario: WorkflowNode = {
+      id: 'h1', type: 'http', position: { x: 0, y: 0 },
+      data: { label: 'NoScenario' },
+    };
+    const nodes: WorkflowNode[] = [noScenario, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    // Should still have status since hasHttpAncestor is true
+    expect(refs(hints)).toContain('status');
+  });
 });
 
 describe('isHttpWorkflowNode', () => {
@@ -146,6 +169,20 @@ describe('mergeHttpVariableHintsWithStepInitialVars', () => {
     const merged = mergeHttpVariableHintsWithStepInitialVars(base, minimalHttp());
     expect(merged.filter((h) => h.ref === 'vin')).toHaveLength(1);
   });
+
+  it('skips empty/whitespace-only initialVariable keys', () => {
+    const data = minimalHttp();
+    data.initialVariables = { '': 'val1', '  ': 'val2', valid: 'val3' };
+    const merged = mergeHttpVariableHintsWithStepInitialVars([], data);
+    expect(merged.map(h => h.ref)).toEqual(['valid']);
+  });
+
+  it('handles httpData with no initialVariables', () => {
+    const data = minimalHttp();
+    delete (data as Record<string, unknown>).initialVariables;
+    const merged = mergeHttpVariableHintsWithStepInitialVars([], data);
+    expect(merged).toEqual([]);
+  });
 });
 
 describe('parse and validate', () => {
@@ -172,5 +209,60 @@ describe('parse and validate', () => {
     const hints = [{ ref: 'node:"H".token', label: 't' }];
     expect(validateConditionLeftRefs('{{node:"H".token}}', hints).ok).toBe(true);
     expect(validateConditionLeftRefs('{{other}}', hints).unknown).toEqual(['other']);
+  });
+
+  it('validateConditionLeftRefs with empty hints array', () => {
+    expect(validateConditionLeftRefs('{{x}}', []).ok).toBe(false);
+    expect(validateConditionLeftRefs('{{x}}', []).unknown).toEqual(['x']);
+  });
+
+  it('validateConditionLeftRefs ok when no refs in template', () => {
+    expect(validateConditionLeftRefs('plain text', []).ok).toBe(true);
+    expect(validateConditionLeftRefs('plain text', []).unknown).toEqual([]);
+  });
+});
+
+describe('httpStepDisplayLabel', () => {
+  it('returns label when present', () => {
+    expect(httpStepDisplayLabel({ label: 'My Step' } as HttpNodeData)).toBe('My Step');
+  });
+  it('returns scenario name when label is empty', () => {
+    expect(httpStepDisplayLabel({ label: '', scenario: { name: 'Scenario Name' } } as unknown as HttpNodeData)).toBe('Scenario Name');
+  });
+  it('returns HTTP when both label and scenario name are empty', () => {
+    expect(httpStepDisplayLabel({ label: '', scenario: { name: '' } } as unknown as HttpNodeData)).toBe('HTTP');
+  });
+  it('returns HTTP when label is whitespace only and no scenario name', () => {
+    expect(httpStepDisplayLabel({ label: '  ', scenario: { name: '  ' } } as unknown as HttpNodeData)).toBe('HTTP');
+  });
+});
+
+describe('formatNodeScopedRef', () => {
+  it('uses label in quotes when safe', () => {
+    expect(formatNodeScopedRef('n1', 'Step A', 'token')).toBe('node:"Step A".token');
+  });
+  it('falls back to nodeId when label contains double quote', () => {
+    expect(formatNodeScopedRef('n1', 'Step "A"', 'token')).toBe('node:n1.token');
+  });
+  it('falls back to nodeId when label is empty', () => {
+    expect(formatNodeScopedRef('n1', '', 'token')).toBe('node:n1.token');
+  });
+  it('falls back to nodeId when label has newline', () => {
+    expect(formatNodeScopedRef('n1', 'Step\nA', 'token')).toBe('node:n1.token');
+  });
+});
+
+describe('guessConditionLeftMode', () => {
+  it('returns pick for single variable ref', () => {
+    expect(guessConditionLeftMode('{{status}}')).toBe('pick');
+  });
+  it('returns expr for expression with text around ref', () => {
+    expect(guessConditionLeftMode('value is {{x}}')).toBe('expr');
+  });
+  it('returns expr for plain text without ref', () => {
+    expect(guessConditionLeftMode('plain')).toBe('expr');
+  });
+  it('returns expr for generator ref', () => {
+    expect(guessConditionLeftMode('{{$uuid}}')).toBe('expr');
   });
 });

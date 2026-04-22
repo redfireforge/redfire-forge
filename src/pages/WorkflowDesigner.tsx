@@ -38,7 +38,7 @@ import {
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
 } from '../utils/workflowVariableHints';
-import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
+import { resolveHttpNodeBaseUrl, resolveServiceAuth, stripTrailingSlash } from '../utils/workflowHostResolve';
 import { resolveQuickTestHostForRequest } from '../utils/workflowRequestHost';
 import type { WorkflowHook } from '../hooks/useWorkflows';
 import { runGraph, type GraphRunCallbacks } from '../engine/workflow/graphRunner';
@@ -47,6 +47,7 @@ import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { mergeWorkflowNodeData, cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { WorkflowNodeRunContext } from '../components/workflow/WorkflowNodeRunContext';
+import { useResizablePanels } from '../hooks/useResizablePanels';
 
 import WorkflowToolbar from '../components/workflow/WorkflowToolbar';
 import WorkflowPalette from '../components/workflow/WorkflowPalette';
@@ -124,6 +125,7 @@ export default function WorkflowDesigner({
   resolvedBaseUrl,
 }: Props) {
   const { workflows, selected, create, update, select } = wfHook;
+  const { paletteWidth, configWidth, startDrag } = useResizablePanels();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
@@ -166,29 +168,7 @@ export default function WorkflowDesigner({
   const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const nextNodeY = useRef(100);
-
-  // Resizable panels
-  const [paletteWidth, setPaletteWidth] = useState(260);
-  const [configWidth, setConfigWidth] = useState(320);
-  const dragRef = useRef<{ side: 'left' | 'right'; startX: number; startW: number } | null>(null);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
-
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const { side, startX, startW } = dragRef.current;
-      const delta = e.clientX - startX;
-      if (side === 'left') {
-        setPaletteWidth(Math.max(180, Math.min(500, startW + delta)));
-      } else {
-        setConfigWidth(Math.max(220, Math.min(600, startW - delta)));
-      }
-    };
-    const onMouseUp = () => { dragRef.current = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
-  }, []);
 
   // Sync canvas whenever the selected workflow changes (from sidebar or internal)
   const prevSelectedId = useRef<string | null>(null);
@@ -299,30 +279,9 @@ export default function WorkflowDesigner({
 
   const resolveHttpAuthForGraph = useCallback(
     (data: HttpNodeData) => {
-      // Service Registry auth (new path — uses endpoint matrix)
-      if (data.serviceId && workflowServices.length) {
-        const svc = workflowServices.find((s) => s.id === data.serviceId);
-        if (svc) {
-          // New model: check endpoint for custom auth
-          if (svc.endpoints?.length && selectedEnvId) {
-            const ep = svc.endpoints.find((e) => e.envId === selectedEnvId && e.enabled)
-              ?? svc.endpoints.find((e) => e.envId === '__all__' && e.enabled);
-            if (ep && ep.authMode === 'custom' && ep.auth) return ep.auth;
-            // "inherit" → resolve from environment (microservice authProfileIds)
-            if (svc.microserviceId) {
-              const ms = microservices.find((m) => m.id === svc.microserviceId);
-              if (ms?.authProfileIds?.[selectedEnvId]) {
-                const profile = globalAuthProfiles.find((g) => g.id === ms.authProfileIds![selectedEnvId]);
-                if (profile?.auth) return profile.auth;
-              }
-            }
-          }
-          // Fallback: defaultAuth (new) or legacy fields
-          if (svc.defaultAuth) return svc.defaultAuth;
-          if (selectedEnvId && svc.authPerEnv?.[selectedEnvId]) return svc.authPerEnv[selectedEnvId];
-          return svc.auth;
-        }
-      }
+      // Service Registry auth (delegates to shared resolver)
+      const svcAuth = resolveServiceAuth(data, workflowServices, selectedEnvId, microservices, globalAuthProfiles);
+      if (svcAuth) return svcAuth;
       // Legacy path
       if (!data.authProfileId) return undefined;
       return workflowAuthProfiles.find((p) => p.id === data.authProfileId)?.auth;
@@ -410,10 +369,9 @@ export default function WorkflowDesigner({
   }, [select]);
 
 
-  // Save current canvas state to the workflow
-  const handleSave = useCallback(() => {
-    if (!selected) return;
-    const wfNodes: WorkflowNode[] = nodes.map(n => ({
+  /** Serialize React Flow nodes to workflow storage format. */
+  const serializeNodes = useCallback((rfNodes: WorkflowRFNode[]): WorkflowNode[] =>
+    rfNodes.map(n => ({
       id: n.id,
       type: n.type,
       position: n.position,
@@ -422,25 +380,39 @@ export default function WorkflowDesigner({
           ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
           : n.data,
       ),
-    }));
-    const wfEdges = edges.map(e => ({
+    })), []);
+
+  /** Serialize React Flow edges to workflow storage format. */
+  const serializeEdges = useCallback((rfEdges: WorkflowRFEdge[]) =>
+    rfEdges.map(e => ({
       id: e.id,
       source: e.source,
       target: e.target,
       sourceHandle: e.sourceHandle ?? undefined,
       label: typeof e.label === 'string' ? e.label : undefined,
-    }));
+    })), []);
+
+  /** Persist the current canvas to the workflow store. */
+  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[] }) => {
+    if (!selected) return;
+    const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
+    const wfEdges = serializeEdges(edges);
     update(selected.id, {
       nodes: wfNodes,
       edges: wfEdges,
       variables: workflowVariables,
       hostProfiles: workflowHostProfiles,
       authProfiles: workflowAuthProfiles,
-      services: workflowServices,
+      services: overrides?.services ?? workflowServices,
       schemaVersion: 3,
     });
     setSaveAcknowledged(true);
-  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update]);
+  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
+
+  // Save current canvas state to the workflow
+  const handleSave = useCallback(() => {
+    persistWorkflow();
+  }, [persistWorkflow]);
 
   useEffect(() => {
     if (!saveAcknowledged) return;
@@ -698,7 +670,7 @@ export default function WorkflowDesigner({
     // Only inject legacy baseUrl when no Service Registry services are configured
     if (!workflowServices.length) {
       const bu = resolvedBaseUrl.trim();
-      if (bu) envLayer.baseUrl = bu.replace(/\/$/, '');
+      if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
     }
 
     runGraph(
@@ -787,7 +759,7 @@ export default function WorkflowDesigner({
 
         <div
           className="wf-resize-handle"
-          onMouseDown={(e) => { dragRef.current = { side: 'left', startX: e.clientX, startW: paletteWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}
+          onMouseDown={(e) => startDrag('left', e)}
         />
 
         <div className="wf-canvas-area">
@@ -834,7 +806,7 @@ export default function WorkflowDesigner({
 
         <div
           className="wf-resize-handle"
-          onMouseDown={(e) => { dragRef.current = { side: 'right', startX: e.clientX, startW: configWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}
+          onMouseDown={(e) => startDrag('right', e)}
         />
 
         <div style={{ width: configWidth, flexShrink: 0 }}>
@@ -922,54 +894,17 @@ export default function WorkflowDesigner({
           setWorkflowServices(svcs);
           // Sync node labels to updated service names
           const svcMap = new Map(svcs.map((s) => [s.id, s.name]));
-          setNodes((nds) =>
-            nds.map((n) => {
-              if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
-              const newName = svcMap.get(n.data.serviceId);
-              if (newName && n.data.label !== newName) {
-                return { ...n, data: { ...n.data, label: newName } };
-              }
-              return n;
-            }),
-          );
+          const syncedNodes = nodes.map((n) => {
+            if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
+            const newName = svcMap.get(n.data.serviceId);
+            if (newName && n.data.label !== newName) {
+              return { ...n, data: { ...n.data, label: newName } };
+            }
+            return n;
+          });
+          setNodes(syncedNodes);
           // Persist immediately so service changes survive a refresh
-          if (selected) {
-            const syncedNodes = nodes.map((n) => {
-              if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
-              const newName = svcMap.get(n.data.serviceId);
-              if (newName && n.data.label !== newName) {
-                return { ...n, data: { ...n.data, label: newName } };
-              }
-              return n;
-            });
-            const wfNodes: WorkflowNode[] = syncedNodes.map(n => ({
-              id: n.id,
-              type: n.type,
-              position: n.position,
-              data: cloneWorkflowNodeDataForStorage(
-                isHttpWorkflowNode(n)
-                  ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
-                  : n.data,
-              ),
-            }));
-            const wfEdges = edges.map(e => ({
-              id: e.id,
-              source: e.source,
-              target: e.target,
-              sourceHandle: e.sourceHandle ?? undefined,
-              label: typeof e.label === 'string' ? e.label : undefined,
-            }));
-            update(selected.id, {
-              nodes: wfNodes,
-              edges: wfEdges,
-              variables: workflowVariables,
-              hostProfiles: workflowHostProfiles,
-              authProfiles: workflowAuthProfiles,
-              services: svcs,
-              schemaVersion: 3,
-            });
-            setSaveAcknowledged(true);
-          }
+          persistWorkflow({ services: svcs, rfNodes: syncedNodes });
         }}
         onClose={() => setServiceRegistryMode('closed')}
       />

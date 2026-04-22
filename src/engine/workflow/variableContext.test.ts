@@ -124,4 +124,142 @@ describe('VariableContext node-scoped refs', () => {
     ctx.setForNode('nid', 'k', 'v');
     expect(ctx.snapshot()['node:"My Step".k']).toBe('v');
   });
+
+  it('snapshot uses node:id.name when label is ambiguous', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'a', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Dup', scenario: { id: 's1', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+      {
+        id: 'b', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Dup', scenario: { id: 's2', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+    ];
+    const ctx = new VariableContext();
+    ctx.registerWorkflowNodes(nodes);
+    ctx.setForNode('a', 'x', '1');
+    const snap = ctx.snapshot();
+    expect(snap['node:a.x']).toBe('1');
+    expect(snap['node:"Dup".x']).toBeUndefined();
+  });
+
+  it('size counts unique variable keys', () => {
+    const ctx = new VariableContext({ a: '1' }, { b: '2' });
+    ctx.set('c', '3');
+    expect(ctx.size).toBe(3);
+  });
+
+  it('size does not double-count overlapping keys', () => {
+    const ctx = new VariableContext({ a: '1' }, { a: 'env' });
+    ctx.set('a', 'extracted');
+    expect(ctx.size).toBe(1);
+  });
+
+  it('size includes per-node variables', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'n1', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Step', scenario: { id: 's', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+    ];
+    const ctx = new VariableContext({ a: '1' });
+    ctx.registerWorkflowNodes(nodes);
+    ctx.setForNode('n1', 'b', '2');
+    expect(ctx.size).toBe(2);
+  });
+
+  it('resolves $uuid generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$uuid}}');
+    expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  it('resolves $timestamp generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$timestamp}}');
+    const ts = parseInt(result);
+    const now = Date.now();
+    expect(ts).toBeGreaterThan(now - 5000);
+    expect(ts).toBeLessThanOrEqual(now + 1000);
+  });
+
+  it('resolves $isoDate generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$isoDate}}');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}/);
+  });
+
+  it('resolves $randomInt generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$randomInt(1,10)}}');
+    const num = parseInt(result);
+    expect(num).toBeGreaterThanOrEqual(1);
+    expect(num).toBeLessThanOrEqual(10);
+  });
+
+  it('resolves $randomInt with default range', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$randomInt}}');
+    const num = parseInt(result);
+    expect(num).toBeGreaterThanOrEqual(0);
+    expect(num).toBeLessThanOrEqual(1000);
+  });
+
+  it('resolves $randomEmail generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$randomEmail}}');
+    expect(result).toContain('@test.com');
+    expect(result).toContain('user_');
+  });
+
+  it('resolves $randomString generator', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$randomString(12)}}');
+    expect(result.length).toBe(12);
+  });
+
+  it('resolves $randomString with default length', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$randomString}}');
+    expect(result.length).toBe(8);
+    expect(result).toMatch(/^[a-zA-Z0-9]+$/);
+  });
+
+  it('keeps unknown generator as literal', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$unknownGen}}');
+    expect(result).toBe('{{$unknownGen}}');
+  });
+
+  it('keeps unresolved variable as literal', () => {
+    const ctx = new VariableContext();
+    expect(ctx.resolve('{{missing}}')).toBe('{{missing}}');
+  });
+
+  it('environment has lowest priority', () => {
+    const ctx = new VariableContext({ a: 'manual' }, { a: 'env' });
+    expect(ctx.get('a')).toBe('manual');
+    ctx.set('a', 'extracted');
+    expect(ctx.get('a')).toBe('extracted');
+  });
+
+  it('child inherits extracted + manual, not environment as separate layer', () => {
+    const parent = new VariableContext({ x: '1' }, { y: '2' });
+    parent.set('z', '3');
+    const child = parent.child();
+    expect(child.get('x')).toBe('1');
+    expect(child.get('y')).toBe('2');
+    expect(child.get('z')).toBe('3');
+  });
+
+  it('ignores non-http nodes in registerWorkflowNodes', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'c1', type: 'condition', position: { x: 0, y: 0 }, data: { label: 'If', left: '', operator: '==', right: '' } },
+    ];
+    const ctx = new VariableContext();
+    ctx.registerWorkflowNodes(nodes);
+    // Should not throw, and labelToNodeId should be empty
+    expect(ctx.resolve('{{node:"If".x}}')).toBe('{{node:"If".x}}');
+  });
 });

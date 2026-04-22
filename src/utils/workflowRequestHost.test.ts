@@ -136,4 +136,146 @@ describe('resolveQuickTestHostForRequest', () => {
     expect(r.hostMicroserviceId).toBe('ms-onstar');
     expect(r.hostEnvironmentId).toBe('e-t01');
   });
+
+  it('returns hostBaseUrl when absolute URL does not match any microservice', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'multi-env',
+      microserviceId: 'ms-sales',
+      requests: [],
+      folders: [],
+    };
+    const req = {
+      ...makeReq('r-custom'),
+      url: 'https://custom-api.example.com/resource',
+    };
+    const r = resolveQuickTestHostForRequest(
+      col,
+      req,
+      'e-t01',
+      'https://sales.apps.test/',
+      [msSales],
+      [envT01],
+    );
+    expect(r.hostBaseUrl).toBe('https://custom-api.example.com');
+  });
+
+  it('returns empty when relative URL and no resolved base (no microserviceId)', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'url',
+      requests: [makeReq('r1')],
+      folders: [],
+    };
+    const r = resolveQuickTestHostForRequest(
+      col,
+      makeReq('r1'),
+      'e-t01',
+      'https://harness.example.com',
+      [],
+      [envT01],
+    );
+    expect(r).toEqual({});
+  });
+
+  it('falls back to microserviceId+envId when no resolved base and collection has microservice', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'multi-env',
+      microserviceId: 'ms-sales',
+      requests: [makeReq('r1')],
+      folders: [],
+    };
+    const r = resolveQuickTestHostForRequest(
+      col,
+      makeReq('r1'),
+      'e-t01',
+      'https://unrelated.com',
+      [msSales],
+      [envT01],
+    );
+    expect(r.hostMicroserviceId).toBe('ms-sales');
+    expect(r.hostEnvironmentId).toBe('e-t01');
+  });
+
+  it('uses absolute URL when collection has microserviceId but no resolved base for env', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'multi-env',
+      microserviceId: 'ms-sales',
+      requests: [],
+      folders: [],
+    };
+    const req = {
+      ...makeReq('r-abs'),
+      url: 'https://ons-profile-read.apps.test/path',
+    };
+    // Use an envId that has no matching base URL in ms-sales
+    const r = resolveQuickTestHostForRequest(
+      col,
+      req,
+      'e-unknown',
+      'https://no-match.com',
+      [msSales, msOnstar],
+      [envT01],
+    );
+    expect(r.hostMicroserviceId).toBe('ms-onstar');
+    expect(r.hostEnvironmentId).toBe('e-t01');
+  });
+
+  it('matches subcollection by name when no selectedEnvId', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'multi-env',
+      microserviceId: 'ms-sales',
+      requests: [],
+      folders: [
+        {
+          id: 'sub',
+          name: 't01',
+          isSubCollection: true,
+          baseUrls: { 'e-t01': 'https://custom.apps.test/' },
+          requests: [makeReq('r1')],
+        },
+      ],
+    };
+    const r = resolveQuickTestHostForRequest(
+      col,
+      makeReq('r1'),
+      'e-t01',
+      'https://harness.example.com',
+      [msSales],
+      [envT01],
+    );
+    expect(r.hostBaseUrl).toBe('https://custom.apps.test');
+  });
+
+  it('returns empty when absolute URL matches harness base', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'C',
+      mode: 'url',
+      requests: [],
+      folders: [],
+    };
+    const req = {
+      ...makeReq('r1'),
+      url: 'https://harness.example.com/api/resource',
+    };
+    const r = resolveQuickTestHostForRequest(
+      col,
+      req,
+      'e-t01',
+      'https://harness.example.com',
+      [],
+      [envT01],
+    );
+    expect(r).toEqual({});
+  });
 });
+

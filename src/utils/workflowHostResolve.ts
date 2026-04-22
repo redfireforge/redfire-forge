@@ -1,6 +1,11 @@
 import type { AuthConfig, GlobalAuthProfile, Microservice } from '../types';
 import type { HttpNodeData, WorkflowHostProfile, WorkflowService, ServiceEndpoint } from '../types/workflow';
 
+/** Normalize a base URL: trim whitespace and strip trailing slash. */
+export function stripTrailingSlash(url: string): string {
+  return url.trim().replace(/\/$/, '');
+}
+
 /**
  * Resolve the base URL for a workflow service, given a selected environment.
  * New endpoint-matrix model: look up the endpoint row for the selected env.
@@ -25,7 +30,7 @@ export function resolveServiceBaseUrl(
     if (!ep) {
       ep = service.endpoints.find((e) => e.enabled && e.url.trim());
     }
-    if (ep?.url?.trim()) return ep.url.replace(/\/$/, '');
+    if (ep?.url?.trim()) return stripTrailingSlash(ep.url);
   }
 
   // Linked microservice: resolve URL from microservice baseUrls
@@ -34,10 +39,10 @@ export function resolveServiceBaseUrl(
     if (ms) {
       if (selectedEnvId) {
         const u = ms.baseUrls[selectedEnvId];
-        if (u?.trim()) return u.replace(/\/$/, '');
+        if (u?.trim()) return stripTrailingSlash(u);
       }
       const first = Object.values(ms.baseUrls)[0];
-      if (first?.trim()) return first.replace(/\/$/, '');
+      if (first?.trim()) return stripTrailingSlash(first);
     }
     return undefined;
   }
@@ -45,19 +50,19 @@ export function resolveServiceBaseUrl(
   // Legacy fallback: urlMode-based
   switch (service.urlMode) {
     case 'direct':
-      return service.directUrl?.trim()?.replace(/\/$/, '') || undefined;
+      return service.directUrl?.trim() ? stripTrailingSlash(service.directUrl) : undefined;
     case 'adhoc':
-      return service.adhocUrl?.trim()?.replace(/\/$/, '') || undefined;
+      return service.adhocUrl?.trim() ? stripTrailingSlash(service.adhocUrl) : undefined;
     case 'multi-env': {
       if (selectedEnvId && service.baseUrls?.[selectedEnvId]) {
-        return service.baseUrls[selectedEnvId].replace(/\/$/, '');
+        return stripTrailingSlash(service.baseUrls[selectedEnvId]);
       }
       const first = Object.values(service.baseUrls ?? {})[0];
-      if (first?.trim()) return first.replace(/\/$/, '');
+      if (first?.trim()) return stripTrailingSlash(first);
       return undefined;
     }
     default:
-      return service.directUrl?.trim()?.replace(/\/$/, '') || undefined;
+      return service.directUrl?.trim() ? stripTrailingSlash(service.directUrl) : undefined;
   }
 }
 
@@ -81,7 +86,7 @@ export function resolveHttpNodeBaseUrl(
   }
 
   const explicit = data.hostBaseUrl?.trim();
-  if (explicit) return explicit.replace(/\/$/, '');
+  if (explicit) return stripTrailingSlash(explicit);
   const envId = data.hostEnvironmentId?.trim();
   const svcId = data.hostMicroserviceId?.trim();
   if (envId && svcId) {
@@ -89,14 +94,14 @@ export function resolveHttpNodeBaseUrl(
     if (!svc) return undefined;
     const u = svc.baseUrls[envId];
     if (!u?.trim()) return undefined;
-    return u.replace(/\/$/, '');
+    return stripTrailingSlash(u);
   }
 
   if (data.hostProfileId && hostProfiles?.length) {
     const profile = hostProfiles.find((p) => p.id === data.hostProfileId);
     if (!profile) return undefined;
     const pExplicit = profile.hostBaseUrl?.trim();
-    if (pExplicit) return pExplicit.replace(/\/$/, '');
+    if (pExplicit) return stripTrailingSlash(pExplicit);
     const pEnvId = profile.hostEnvironmentId?.trim();
     const pSvcId = profile.hostMicroserviceId?.trim();
     if (!pEnvId || !pSvcId) return undefined;
@@ -104,7 +109,7 @@ export function resolveHttpNodeBaseUrl(
     if (!svc) return undefined;
     const u = svc.baseUrls[pEnvId];
     if (!u?.trim()) return undefined;
-    return u.replace(/\/$/, '');
+    return stripTrailingSlash(u);
   }
 
   return undefined;
