@@ -315,7 +315,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const displayIsTimeBased = hasLiveProgress ? isTimeBased : savedProgress?.isTimeBased ?? false;
   const displayProgressPct = displayIsTimeBased
     ? (displayProfileMeta ? Math.min(100, Math.round((displayProfileMeta.elapsedMs / displayProfileMeta.durationMs) * 100)) : 0)
-    : (displayTotal > 0 ? Math.round((displayCompleted / displayTotal) * 100) : 0);
+    : (displayTotal > 0 ? (displayCompleted >= displayTotal ? 100 : Math.floor((displayCompleted / displayTotal) * 100)) : 0);
 
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;

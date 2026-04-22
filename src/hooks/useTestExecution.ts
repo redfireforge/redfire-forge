@@ -284,6 +284,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
+          completed: results.length,
+          total: results.length,
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(results),
@@ -292,6 +294,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
+          completed: results.length,
+          total: results.length,
           finalRun: testRun,
           liveSummary: summary,
           liveResults: capResults(results),
