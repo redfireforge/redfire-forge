@@ -1,10 +1,9 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { DelayNodeData } from '../../../types/workflow';
 import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
 
-interface Props extends NodeProps {
-  data: DelayNodeData;
-}
+type DelayWorkflowNode = Node<DelayNodeData, 'delay'>;
+type Props = NodeProps<DelayWorkflowNode>;
 
 export default function DelayNode({ id, data, selected }: Props) {
   const rs = useWorkflowNodeRunStatus(id);

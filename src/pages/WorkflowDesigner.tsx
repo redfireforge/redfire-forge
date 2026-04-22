@@ -18,9 +18,21 @@ import {
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { RequestCollection, Scenario, GlobalAuthProfile, Environment, Microservice, RequestResult } from '../types';
+import type { RequestCollection, Scenario, Environment, Microservice, RequestResult, GlobalAuthProfile } from '../types';
 import type { CatalogEntry } from '../types/catalog';
-import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType, WorkflowNodeData, HttpNodeData, ConditionNodeData, DelayNodeData, NodeRunStatus } from '../types/workflow';
+import type {
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodeType,
+  WorkflowNodeData,
+  HttpNodeData,
+  ConditionNodeData,
+  DelayNodeData,
+  NodeRunStatus,
+  WorkflowHostProfile,
+  WorkflowAuthProfile,
+  WorkflowService,
+} from '../types/workflow';
 import {
   collectConditionVariableHints,
   isHttpWorkflowNode,
@@ -33,16 +45,19 @@ import { runGraph, type GraphRunCallbacks } from '../engine/workflow/graphRunner
 import { fetchScenarioSample } from '../engine/workflow/fetchScenarioSample';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { mergeWorkflowNodeData, cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
+import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { WorkflowNodeRunContext } from '../components/workflow/WorkflowNodeRunContext';
 
 import WorkflowToolbar from '../components/workflow/WorkflowToolbar';
-import WorkflowHarnessContextBar from '../components/workflow/WorkflowHarnessContextBar';
 import WorkflowPalette from '../components/workflow/WorkflowPalette';
 import WorkflowConfigPanel from '../components/workflow/WorkflowConfigPanel';
 import WorkflowStatusBar from '../components/workflow/WorkflowStatusBar';
 import VariableContextBadge from '../components/workflow/VariableContextBar';
 import { WorkflowInspectProvider } from '../components/workflow/WorkflowInspectContext';
 import WorkflowDetailModal from '../components/workflow/WorkflowDetailModal';
+import WorkflowNodeContextMenu from '../components/workflow/WorkflowNodeContextMenu';
+import WorkflowServiceRegistryModal from '../components/workflow/WorkflowServiceRegistryModal';
+import WorkflowServicesPanelInline from '../components/workflow/WorkflowServicesPanelInline';
 import HttpStepNode from '../components/workflow/nodes/HttpStepNode';
 import ConditionNode from '../components/workflow/nodes/ConditionNode';
 import DelayNode from '../components/workflow/nodes/DelayNode';
@@ -50,7 +65,6 @@ import DelayNode from '../components/workflow/nodes/DelayNode';
 interface Props {
   collections: RequestCollection[];
   catalogEntries: CatalogEntry[];
-  globalAuthProfiles: GlobalAuthProfile[];
   wfHook: WorkflowHook;
   /**
    * Same Environment + Microservice selection as Harness; Quick Test injects `{{baseUrl}}`.
@@ -58,6 +72,7 @@ interface Props {
    */
   environments: Environment[];
   microservices: Microservice[];
+  globalAuthProfiles: GlobalAuthProfile[];
   selectedEnvId: string;
   selectedSvcId: string;
   onEnvSelect: (id: string) => void;
@@ -65,11 +80,20 @@ interface Props {
   resolvedBaseUrl: string;
 }
 
+interface WorkflowNodeContextMenuData {
+  x: number;
+  y: number;
+  nodeId: string;
+}
+
 const nodeTypes = {
   http: HttpStepNode,
   condition: ConditionNode,
   delay: DelayNode,
 };
+
+type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
+type WorkflowRFEdge = Edge;
 
 function makeEmptyScenario(): Scenario {
   return {
@@ -89,29 +113,43 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
 export default function WorkflowDesigner({
   collections,
   catalogEntries,
-  globalAuthProfiles,
   wfHook,
   environments,
   microservices,
+  globalAuthProfiles,
   selectedEnvId,
-  selectedSvcId,
+  selectedSvcId: _selectedSvcId,
   onEnvSelect,
-  onSvcSelect,
+  onSvcSelect: _onSvcSelect,
   resolvedBaseUrl,
 }: Props) {
-  const { workflows, selected, create, update, remove, duplicate, select } = wfHook;
+  const { workflows, selected, create, update, select } = wfHook;
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
   /** Always read latest graph in Quick Test (avoids stale closures if React batches updates). */
-  const nodesRef = useRef(nodes);
-  const edgesRef = useRef(edges);
+  const nodesRef = useRef<WorkflowRFNode[]>(nodes);
+  const edgesRef = useRef<WorkflowRFEdge[]>(edges);
   nodesRef.current = nodes;
   edgesRef.current = edges;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeRunStatus>>({});
+  /**
+   * Per-node initialVariables stored completely outside React Flow state.
+   * React Flow's internal state management drops custom data fields; keeping
+   * initialVariables in a separate state guarantees they survive RF updates.
+   */
+  const [nodeInitialVars, setNodeInitialVars] = useState<Record<string, Record<string, string>>>({});
+  const nodeInitialVarsRef = useRef(nodeInitialVars);
+  nodeInitialVarsRef.current = nodeInitialVars;
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
+  const [workflowHostProfiles, setWorkflowHostProfiles] = useState<WorkflowHostProfile[]>([]);
+  const [workflowAuthProfiles, setWorkflowAuthProfiles] = useState<WorkflowAuthProfile[]>([]);
+  const [workflowServices, setWorkflowServices] = useState<WorkflowService[]>([]);
+  const [serviceRegistryMode, setServiceRegistryMode] = useState<'closed' | 'panel' | 'fullscreen'>('closed');
+  const workflowVariablesRef = useRef(workflowVariables);
+  workflowVariablesRef.current = workflowVariables;
   /** Last Quick Test variable snapshot (for canvas badge); not persisted as workflow defaults. */
   const [runVariableSnapshot, setRunVariableSnapshot] = useState<Record<string, string> | null>(null);
   const [lastRunStatus, setLastRunStatus] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
@@ -133,6 +171,7 @@ export default function WorkflowDesigner({
   const [paletteWidth, setPaletteWidth] = useState(260);
   const [configWidth, setConfigWidth] = useState(320);
   const dragRef = useRef<{ side: 'left' | 'right'; startX: number; startW: number } | null>(null);
+  const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -156,16 +195,16 @@ export default function WorkflowDesigner({
   useEffect(() => {
     if (selected && selected.id !== prevSelectedId.current) {
       prevSelectedId.current = selected.id;
-      const rfNodes: Node[] = selected.nodes.map(n => ({
+      const rfNodes: WorkflowRFNode[] = selected.nodes.map(n => ({
         id: n.id,
         type: n.type,
         position: n.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
           ? n.position
           : { x: 0, y: 0 },
-        data: cloneWorkflowNodeDataForStorage({ ...n.data } as WorkflowNodeData),
+        data: cloneWorkflowNodeDataForStorage({ ...n.data }),
         selected: false,
       }));
-      const rfEdges: Edge[] = selected.edges.map(e => ({
+      const rfEdges: WorkflowRFEdge[] = selected.edges.map(e => ({
         id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, label: e.label, animated: false,
       }));
       setNodes(rfNodes);
@@ -173,8 +212,19 @@ export default function WorkflowDesigner({
       setSelectedNodeId(null);
       setNodeStatuses({});
       setWorkflowVariables(selected.variables ?? {});
+      setWorkflowHostProfiles(selected.hostProfiles ?? []);
+      setWorkflowAuthProfiles(selected.authProfiles ?? []);
+      setWorkflowServices(selected.services ?? []);
       setRunVariableSnapshot(null);
       setLastRunStatus('idle');
+      // Populate per-node initialVariables from saved workflow data (outside React Flow)
+      const ivMap: Record<string, Record<string, string>> = {};
+      for (const n of selected.nodes) {
+        if (isHttpWorkflowNode(n) && n.data.initialVariables) {
+          ivMap[n.id] = { ...n.data.initialVariables };
+        }
+      }
+      setNodeInitialVars(ivMap);
       const ys = selected.nodes.map(n => (n.position?.y ?? 0) + 120);
       nextNodeY.current = ys.length ? Math.max(100, ...ys) : 100;
     } else if (!selected) {
@@ -187,44 +237,97 @@ export default function WorkflowDesigner({
     if (!selectedNodeId) return null;
     const n = nodes.find(n => n.id === selectedNodeId);
     if (!n) return null;
-    return { id: n.id, type: n.type as WorkflowNodeType, position: n.position, data: n.data as WorkflowNodeData } as WorkflowNode;
-  }, [selectedNodeId, nodes]);
+    let data = n.data;
+    if (isHttpWorkflowNode(n)) {
+      // Use state-managed initialVariables instead of React Flow's node data
+      const iv = nodeInitialVars[n.id];
+      data = { ...data, initialVariables: iv ?? {} };
+    }
+    return { id: n.id, type: n.type, position: n.position, data } as WorkflowNode;
+  }, [selectedNodeId, nodes, nodeInitialVars]);
+
+  const hintNodes = useMemo<WorkflowNode[]>(() => (
+    nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }))
+  ), [nodes]);
+
+  const hintEdges = useMemo<WorkflowEdge[]>(() => (
+    edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? undefined,
+      label: typeof e.label === 'string' ? e.label : undefined,
+    }))
+  ), [edges]);
 
   const conditionVariableHints = useMemo(() => {
     if (!selectedNode || selectedNode.type !== 'condition') return [];
     return collectConditionVariableHints(
-      nodes as WorkflowNode[],
-      edges as WorkflowEdge[],
+      hintNodes,
+      hintEdges,
       selectedNode.id,
       workflowVariables,
     );
-  }, [selectedNode, nodes, edges, workflowVariables]);
+  }, [selectedNode, hintNodes, hintEdges, workflowVariables]);
 
   const httpVariableHints = useMemo(() => {
     if (!selectedNodeId) return [];
     const raw = nodes.find((x) => x.id === selectedNodeId);
     if (!raw || !isHttpWorkflowNode(raw)) return [];
-    const httpData = raw.data as HttpNodeData;
+    const httpData = raw.data;
     const base = collectConditionVariableHints(
-      nodes as WorkflowNode[],
-      edges as WorkflowEdge[],
+      hintNodes,
+      hintEdges,
       selectedNodeId,
       workflowVariables,
     );
     return mergeHttpVariableHintsWithStepInitialVars(base, httpData);
-  }, [selectedNodeId, nodes, edges, workflowVariables]);
+  }, [selectedNodeId, nodes, hintNodes, hintEdges, workflowVariables]);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {
-      const custom = resolveHttpNodeBaseUrl(selectedNode.data as HttpNodeData, microservices);
+      const custom = resolveHttpNodeBaseUrl(selectedNode.data, microservices, workflowHostProfiles, workflowServices, selectedEnvId);
       if (custom) return custom;
     }
     return resolvedBaseUrl;
-  }, [selectedNode, microservices, resolvedBaseUrl]);
+  }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
 
   const resolveHttpBaseUrlForGraph = useCallback(
-    (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, microservices),
-    [microservices],
+    (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, microservices, workflowHostProfiles, workflowServices, selectedEnvId),
+    [microservices, workflowHostProfiles, workflowServices, selectedEnvId],
+  );
+
+  const resolveHttpAuthForGraph = useCallback(
+    (data: HttpNodeData) => {
+      // Service Registry auth (new path — uses endpoint matrix)
+      if (data.serviceId && workflowServices.length) {
+        const svc = workflowServices.find((s) => s.id === data.serviceId);
+        if (svc) {
+          // New model: check endpoint for custom auth
+          if (svc.endpoints?.length && selectedEnvId) {
+            const ep = svc.endpoints.find((e) => e.envId === selectedEnvId && e.enabled)
+              ?? svc.endpoints.find((e) => e.envId === '__all__' && e.enabled);
+            if (ep && ep.authMode === 'custom' && ep.auth) return ep.auth;
+            // "inherit" → resolve from environment (microservice authProfileIds)
+            if (svc.microserviceId) {
+              const ms = microservices.find((m) => m.id === svc.microserviceId);
+              if (ms?.authProfileIds?.[selectedEnvId]) {
+                const profile = globalAuthProfiles.find((g) => g.id === ms.authProfileIds![selectedEnvId]);
+                if (profile?.auth) return profile.auth;
+              }
+            }
+          }
+          // Fallback: defaultAuth (new) or legacy fields
+          if (svc.defaultAuth) return svc.defaultAuth;
+          if (selectedEnvId && svc.authPerEnv?.[selectedEnvId]) return svc.authPerEnv[selectedEnvId];
+          return svc.auth;
+        }
+      }
+      // Legacy path
+      if (!data.authProfileId) return undefined;
+      return workflowAuthProfiles.find((p) => p.id === data.authProfileId)?.auth;
+    },
+    [workflowAuthProfiles, workflowServices, selectedEnvId, microservices, globalAuthProfiles],
   );
 
   useEffect(() => {
@@ -233,18 +336,18 @@ export default function WorkflowDesigner({
   }, [selected?.id, selectedNodeId]);
 
   const handleExtractionFetchSample = useCallback(async () => {
-    if (!selectedNode || selectedNode.type !== 'http') {
+    if (!selectedNode || !isHttpWorkflowNode(selectedNode)) {
       setExtractionFetchError('Select an HTTP step and open Pick path from the Extract tab.');
       return;
     }
-    const scenario = (selectedNode.data as HttpNodeData).scenario;
+    const scenario = selectedNode.data.scenario;
     setExtractionFetching(true);
     setExtractionFetchError(null);
     try {
-      const httpData = selectedNode.data as HttpNodeData;
-      const fetchBase = resolveHttpNodeBaseUrl(httpData, microservices) ?? resolvedBaseUrl;
+      const httpData = selectedNode.data;
+      const fetchBase = resolveHttpNodeBaseUrl(httpData, microservices, workflowHostProfiles, workflowServices, selectedEnvId) ?? resolvedBaseUrl;
 
-      const mergedVars = { ...workflowVariables, ...(httpData.initialVariables ?? {}) };
+      const mergedVars = { ...workflowVariables, ...(nodeInitialVarsRef.current[selectedNode.id] ?? httpData.initialVariables ?? {}) };
       const result = await fetchScenarioSample(
         scenario,
         mergedVars,
@@ -270,8 +373,8 @@ export default function WorkflowDesigner({
 
   const openVariableDetail = useCallback((key: string) => {
     if (selectedNode?.type === 'http') {
-      const d = selectedNode.data as HttpNodeData;
-      setVariableDetailDraft(d.initialVariables?.[key] ?? '');
+      const iv = nodeInitialVarsRef.current[selectedNode.id];
+      setVariableDetailDraft(iv?.[key] ?? '');
     } else {
       setVariableDetailDraft(workflowVariables[key] ?? '');
     }
@@ -290,7 +393,7 @@ export default function WorkflowDesigner({
   const stepDetailMeta = useMemo(() => {
     if (detailModal?.type !== 'step') return { title: '', body: '' };
     const n = nodes.find(x => x.id === detailModal.nodeId);
-    const label = (n?.data as HttpNodeData)?.label ?? 'HTTP step';
+    const label = n && isHttpWorkflowNode(n) ? n.data.label : 'HTTP step';
     const rs = nodeStatuses[detailModal.nodeId];
     const body = rs?.responseDetail ?? rs?.error ?? 'No details available. Run Quick Test again.';
     return { title: label, body };
@@ -306,29 +409,19 @@ export default function WorkflowDesigner({
     select(id);
   }, [select]);
 
-  const handleRename = useCallback(() => {
-    if (!selected) return;
-    const name = prompt('Rename workflow:', selected.name);
-    if (!name?.trim()) return;
-    update(selected.id, { name: name.trim() });
-  }, [selected, update]);
-
-  const handleDelete = useCallback(() => {
-    if (!selected) return;
-    if (!confirm(`Delete "${selected.name}"?`)) return;
-    remove(selected.id);
-    setNodes([]);
-    setEdges([]);
-  }, [selected, remove, setNodes, setEdges]);
 
   // Save current canvas state to the workflow
   const handleSave = useCallback(() => {
     if (!selected) return;
     const wfNodes: WorkflowNode[] = nodes.map(n => ({
       id: n.id,
-      type: n.type as WorkflowNodeType,
+      type: n.type,
       position: n.position,
-      data: cloneWorkflowNodeDataForStorage(n.data as WorkflowNodeData),
+      data: cloneWorkflowNodeDataForStorage(
+        isHttpWorkflowNode(n)
+          ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
+          : n.data,
+      ),
     }));
     const wfEdges = edges.map(e => ({
       id: e.id,
@@ -337,21 +430,23 @@ export default function WorkflowDesigner({
       sourceHandle: e.sourceHandle ?? undefined,
       label: typeof e.label === 'string' ? e.label : undefined,
     }));
-    update(selected.id, { nodes: wfNodes, edges: wfEdges, variables: workflowVariables });
+    update(selected.id, {
+      nodes: wfNodes,
+      edges: wfEdges,
+      variables: workflowVariables,
+      hostProfiles: workflowHostProfiles,
+      authProfiles: workflowAuthProfiles,
+      services: workflowServices,
+      schemaVersion: 3,
+    });
     setSaveAcknowledged(true);
-  }, [selected, nodes, edges, workflowVariables, update]);
+  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update]);
 
   useEffect(() => {
     if (!saveAcknowledged) return;
     const t = window.setTimeout(() => setSaveAcknowledged(false), 2200);
     return () => window.clearTimeout(t);
   }, [saveAcknowledged]);
-
-  const handleDuplicate = useCallback(() => {
-    if (!selected) return;
-    handleSave();
-    duplicate(selected.id);
-  }, [selected, duplicate, handleSave]);
 
   const onConnect: OnConnect = useCallback((params) => {
     const newEdge: Edge = {
@@ -382,7 +477,7 @@ export default function WorkflowDesigner({
     if (!selected) return;
     const y = nextNodeY.current;
     nextNodeY.current += 120;
-    const newNode: Node = {
+    const newNode: WorkflowRFNode = {
       id: uuidv4(),
       type,
       position: { x: 300, y },
@@ -455,26 +550,56 @@ export default function WorkflowDesigner({
 
   /** Shallow-merge into the latest node `data` so concurrent edits (HTTP config vs initial variables) never drop fields. */
   const handleUpdateNode = useCallback((id: string, patch: Partial<WorkflowNodeData>) => {
-    setNodes((nds) => nds.map(n => (n.id === id
-      ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
-      : n)));
+    // Route initialVariables to separate state (outside React Flow)
+    if ('initialVariables' in patch) {
+      const iv = (patch as Partial<HttpNodeData>).initialVariables ?? {};
+      const updated = { ...iv };
+      nodeInitialVarsRef.current = { ...nodeInitialVarsRef.current, [id]: updated };
+      setNodeInitialVars((prev) => ({ ...prev, [id]: updated }));
+      // Don't pass initialVariables into React Flow node data — it drops them
+      const { initialVariables: _iv, ...restPatch } = patch as Partial<HttpNodeData>;
+      if (Object.keys(restPatch).length === 0) return; // pure initialVariables update, skip RF
+      patch = restPatch;
+    }
+    setNodes((nds) => {
+      const next = nds.map(n => (n.id === id
+        ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
+        : n));
+      nodesRef.current = next;
+      return next;
+    });
   }, [setNodes]);
 
   const handleDeleteNode = useCallback((id: string) => {
     setNodes((nds) => nds.filter(n => n.id !== id));
     setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
+    setNodeInitialVars((prev) => { const next = { ...prev }; delete next[id]; return next; });
     if (selectedNodeId === id) setSelectedNodeId(null);
   }, [setNodes, setEdges, selectedNodeId]);
 
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: WorkflowRFNode) => {
     setSelectedNodeId(node.id);
+    setServiceRegistryMode((m) => m === 'panel' ? 'closed' : m);
   }, []);
 
   const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
+    setNodeCtxMenu(null);
+  }, []);
+
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: WorkflowRFNode) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedNodeId(node.id);
+    setNodeCtxMenu({
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id,
+    });
   }, []);
 
   const handleUpdateWorkflowVariables = useCallback((vars: Record<string, string>) => {
+    workflowVariablesRef.current = vars;
     setWorkflowVariables(vars);
   }, []);
 
@@ -483,22 +608,16 @@ export default function WorkflowDesigner({
     const key = detailModal.key;
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {
       const nodeId = selectedNode.id;
-      setNodes((nds) => nds.map(n => {
-        if (n.id !== nodeId) return n;
-        const d = n.data as HttpNodeData;
-        return {
-          ...n,
-          data: {
-            ...d,
-            initialVariables: { ...(d.initialVariables ?? {}), [key]: variableDetailDraft },
-          } as WorkflowNodeData,
-        };
-      }));
+      setNodeInitialVars((prev) => {
+        const updatedVars = { ...(prev[nodeId] ?? {}), [key]: variableDetailDraft };
+        nodeInitialVarsRef.current[nodeId] = { ...updatedVars };
+        return { ...prev, [nodeId]: updatedVars };
+      });
     } else {
       setWorkflowVariables((prev) => ({ ...prev, [key]: variableDetailDraft }));
     }
     setDetailModal(null);
-  }, [detailModal, variableDetailDraft, selectedNode, setNodes]);
+  }, [detailModal, variableDetailDraft, selectedNode]);
 
 
   // ── Quick Test ───────────────────────────────────────
@@ -511,6 +630,17 @@ export default function WorkflowDesigner({
 
     if (!selected || nodes.length === 0) return;
 
+    // Pre-flight: check env readiness for all services
+    if (selectedEnvId && workflowServices.length) {
+      const readiness = checkEnvReadiness(selectedEnvId, workflowServices);
+      if (!readiness.ready) {
+        const names = readiness.issues.map((i) => i.serviceName).join(', ');
+        const envLabel = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
+        alert(`Cannot run on "${envLabel}" — missing configuration for: ${names}.\n\nOpen Service Registry to configure these services for this environment.`);
+        return;
+      }
+    }
+
     setIsRunning(true);
     setLastRunStatus('running');
     setLastRunError(null);
@@ -519,18 +649,20 @@ export default function WorkflowDesigner({
 
     abortRef.current = new AbortController();
 
+    const liveWorkflowVariables = workflowVariablesRef.current;
     const wfNodes: WorkflowNode[] = nodesRef.current.map((n) => {
-      const base = { id: n.id, type: n.type as WorkflowNodeType, position: n.position };
+      const base = { id: n.id, type: n.type, position: n.position };
       if (!isHttpWorkflowNode(n)) {
-        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data as WorkflowNodeData) };
+        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
       }
-      const d = n.data as HttpNodeData;
+      const d = n.data;
+      // Use the ref-backed store as source of truth for initialVariables (survives React Flow state resets)
+      const refVars = nodeInitialVarsRef.current[n.id];
       const merged: HttpNodeData = {
         ...d,
-        /** Workflow defaults + per-step (per-step wins); ensures Quick Test sees `vin` even if RF state was incomplete. */
-        initialVariables: { ...workflowVariables, ...(d.initialVariables ?? {}) },
+        initialVariables: { ...liveWorkflowVariables, ...(refVars ?? d.initialVariables ?? {}) },
       };
-      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) as HttpNodeData };
+      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) };
     });
     const wfEdges = edgesRef.current.map(e => ({
       id: e.id,
@@ -563,26 +695,50 @@ export default function WorkflowDesigner({
     };
 
     const envLayer: Record<string, string> = {};
-    const bu = resolvedBaseUrl.trim();
-    if (bu) envLayer.baseUrl = bu.replace(/\/$/, '');
+    // Only inject legacy baseUrl when no Service Registry services are configured
+    if (!workflowServices.length) {
+      const bu = resolvedBaseUrl.trim();
+      if (bu) envLayer.baseUrl = bu.replace(/\/$/, '');
+    }
 
-    runGraph(wfNodes, wfEdges, workflowVariables, callbacks, abortRef.current.signal, envLayer, resolveHttpBaseUrlForGraph).catch(() => {
+    runGraph(
+      wfNodes,
+      wfEdges,
+      liveWorkflowVariables,
+      callbacks,
+      abortRef.current.signal,
+      envLayer,
+      resolveHttpBaseUrlForGraph,
+      resolveHttpAuthForGraph,
+    ).catch(() => {
       setIsRunning(false);
       setLastRunStatus('fail');
       setLastRunError('Workflow run failed or was interrupted.');
     });
-  }, [isRunning, selected, nodes, edges, workflowVariables, resolvedBaseUrl, resolveHttpBaseUrlForGraph]);
+  }, [
+    isRunning,
+    selected,
+    nodes,
+    edges,
+    resolvedBaseUrl,
+    resolveHttpBaseUrlForGraph,
+    resolveHttpAuthForGraph,
+    workflowHostProfiles,
+    selectedEnvId,
+    workflowServices,
+    environments,
+  ]);
 
   const variableCount = useMemo(() => {
     const s = new Set<string>(Object.keys(workflowVariables));
     for (const n of nodes) {
       if (n.type === 'http') {
-        const iv = (n.data as HttpNodeData).initialVariables;
+        const iv = nodeInitialVars[n.id];
         if (iv) for (const k of Object.keys(iv)) s.add(k);
       }
     }
     return s.size;
-  }, [workflowVariables, nodes]);
+  }, [workflowVariables, nodes, nodeInitialVars]);
 
   // ── Render ───────────────────────────────────────────
 
@@ -605,17 +761,16 @@ export default function WorkflowDesigner({
     <div className="wf-designer">
       <WorkflowToolbar
         workflows={workflows} selected={selected} isRunning={isRunning} saveAcknowledged={saveAcknowledged}
-        onNew={handleNew} onSelect={handleSelect} onSave={handleSave} onRename={handleRename}
-        onDelete={handleDelete} onDuplicate={handleDuplicate} onQuickTest={handleQuickTest}
-      />
-      <WorkflowHarnessContextBar
+        serviceCount={workflowServices.length}
         environments={environments}
-        microservices={microservices}
         selectedEnvId={selectedEnvId}
-        selectedSvcId={selectedSvcId}
         onEnvSelect={onEnvSelect}
-        onSvcSelect={onSvcSelect}
-        resolvedBaseUrl={resolvedBaseUrl}
+        workflowServices={workflowServices}
+        onNew={handleNew} onSelect={handleSelect} onSave={handleSave} onQuickTest={handleQuickTest}
+        onOpenServices={() => {
+          setServiceRegistryMode((m) => m === 'closed' ? 'panel' : 'closed');
+          setSelectedNodeId(null);
+        }}
       />
 
       <WorkflowInspectProvider value={inspectActions}>
@@ -637,7 +792,7 @@ export default function WorkflowDesigner({
 
         <div className="wf-canvas-area">
           <WorkflowNodeRunContext.Provider value={nodeStatuses}>
-            <ReactFlow
+            <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
               nodes={nodes}
               edges={edges}
               onNodesChange={onNodesChange}
@@ -645,6 +800,7 @@ export default function WorkflowDesigner({
               onConnect={onConnect}
               onReconnect={onReconnect}
               onNodeClick={handleNodeClick}
+              onNodeContextMenu={handleNodeContextMenu}
               onPaneClick={handlePaneClick}
               nodeTypes={nodeTypes}
               fitView
@@ -663,6 +819,17 @@ export default function WorkflowDesigner({
           {Object.keys(runVariableSnapshot ?? workflowVariables).length > 0 && (
             <VariableContextBadge variables={runVariableSnapshot ?? workflowVariables} />
           )}
+
+          <WorkflowNodeContextMenu
+            open={!!nodeCtxMenu}
+            x={nodeCtxMenu?.x ?? 0}
+            y={nodeCtxMenu?.y ?? 0}
+            onDelete={() => {
+              if (!nodeCtxMenu) return;
+              handleDeleteNode(nodeCtxMenu.nodeId);
+            }}
+            onClose={() => setNodeCtxMenu(null)}
+          />
         </div>
 
         <div
@@ -671,21 +838,26 @@ export default function WorkflowDesigner({
         />
 
         <div style={{ width: configWidth, flexShrink: 0 }}>
+          {serviceRegistryMode === 'panel' ? (
+            <WorkflowServicesPanelInline
+              services={workflowServices}
+              environments={environments}
+              microservices={microservices}
+              globalAuthProfiles={globalAuthProfiles}
+              selectedEnvId={selectedEnvId}
+              onExpand={() => setServiceRegistryMode('fullscreen')}
+              onClose={() => setServiceRegistryMode('closed')}
+            />
+          ) : (
           <WorkflowConfigPanel
             node={selectedNode}
             workflowVariables={workflowVariables}
             onUpdateWorkflowVariables={handleUpdateWorkflowVariables}
             onUpdateNode={handleUpdateNode}
             onDeleteNode={handleDeleteNode}
-            globalAuthProfiles={globalAuthProfiles}
             lastQuickTestRequestUrl={lastQuickTestRequestUrl}
             lastRunStepError={selectedNodeId ? nodeStatuses[selectedNodeId]?.error : undefined}
-            harnessBaseUrl={resolvedBaseUrl}
             effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
-            workflowEnvironments={environments}
-            workflowMicroservices={microservices}
-            harnessEnvironmentId={selectedEnvId}
-            harnessMicroserviceId={selectedSvcId}
             extractionSampleResponseBody={extractionSampleJson}
             extractionFetchSample={{
               onFetch: handleExtractionFetchSample,
@@ -694,7 +866,9 @@ export default function WorkflowDesigner({
             }}
             conditionVariableHints={conditionVariableHints}
             httpVariableHints={httpVariableHints}
+            workflowServices={workflowServices}
           />
+          )}
         </div>
       </div>
 
@@ -733,7 +907,72 @@ export default function WorkflowDesigner({
         onApplyVariable={detailModal?.type === 'variable' ? handleApplyVariableDetail : undefined}
         onClose={() => setDetailModal(null)}
       />
+
       </WorkflowInspectProvider>
+
+      <WorkflowServiceRegistryModal
+        open={serviceRegistryMode === 'fullscreen'}
+        services={workflowServices}
+        environments={environments}
+        microservices={microservices}
+        globalAuthProfiles={globalAuthProfiles}
+        selectedEnvId={selectedEnvId}
+        workflowName={selected?.name}
+        onApply={(svcs) => {
+          setWorkflowServices(svcs);
+          // Sync node labels to updated service names
+          const svcMap = new Map(svcs.map((s) => [s.id, s.name]));
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
+              const newName = svcMap.get(n.data.serviceId);
+              if (newName && n.data.label !== newName) {
+                return { ...n, data: { ...n.data, label: newName } };
+              }
+              return n;
+            }),
+          );
+          // Persist immediately so service changes survive a refresh
+          if (selected) {
+            const syncedNodes = nodes.map((n) => {
+              if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
+              const newName = svcMap.get(n.data.serviceId);
+              if (newName && n.data.label !== newName) {
+                return { ...n, data: { ...n.data, label: newName } };
+              }
+              return n;
+            });
+            const wfNodes: WorkflowNode[] = syncedNodes.map(n => ({
+              id: n.id,
+              type: n.type,
+              position: n.position,
+              data: cloneWorkflowNodeDataForStorage(
+                isHttpWorkflowNode(n)
+                  ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
+                  : n.data,
+              ),
+            }));
+            const wfEdges = edges.map(e => ({
+              id: e.id,
+              source: e.source,
+              target: e.target,
+              sourceHandle: e.sourceHandle ?? undefined,
+              label: typeof e.label === 'string' ? e.label : undefined,
+            }));
+            update(selected.id, {
+              nodes: wfNodes,
+              edges: wfEdges,
+              variables: workflowVariables,
+              hostProfiles: workflowHostProfiles,
+              authProfiles: workflowAuthProfiles,
+              services: svcs,
+              schemaVersion: 3,
+            });
+            setSaveAcknowledged(true);
+          }
+        }}
+        onClose={() => setServiceRegistryMode('closed')}
+      />
 
       <WorkflowStatusBar
         nodeCount={nodes.length}

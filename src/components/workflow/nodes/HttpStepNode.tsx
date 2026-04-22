@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { HttpNodeData } from '../../../types/workflow';
 import { useWorkflowInspect } from '../WorkflowInspectContext';
 import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
@@ -7,9 +7,8 @@ const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
 };
 
-interface Props extends NodeProps {
-  data: HttpNodeData;
-}
+type HttpWorkflowNode = Node<HttpNodeData, 'http'>;
+type Props = NodeProps<HttpWorkflowNode>;
 
 export default function HttpStepNode({ id, data, selected }: Props) {
   const { openStepDetail } = useWorkflowInspect();

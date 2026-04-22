@@ -34,7 +34,7 @@ export async function runWorkflow(
   onStepComplete?: (progress: WorkflowProgress) => void,
 ): Promise<RequestResult[]> {
   const { tokenManager, timeoutMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
-  const results: RequestResult[] = [];
+  const results: WorkflowStepResult[] = [];
 
   for (let i = 0; i < steps.length; i++) {
     if (abortSignal?.aborted || breaker.shouldStop) break;

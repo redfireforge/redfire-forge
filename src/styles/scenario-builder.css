@@ -322,7 +322,7 @@
 
 .params-grid-header {
   display: grid;
-  grid-template-columns: 24px 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 1fr auto auto;
   gap: 6px;
   align-items: center;
   padding: 0 4px;
@@ -334,15 +334,15 @@
   margin-bottom: 2px;
 }
 .params-grid-header.with-desc {
-  grid-template-columns: 24px 1fr 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 1fr 1fr auto auto;
 }
 
 .params-row {
   display: grid;
-  grid-template-columns: 24px 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 1fr auto auto;
   gap: 6px;
   align-items: center;
-  padding: 2px 4px;
+  padding: 3px 4px;
   border-radius: 4px;
   transition: background 0.1s;
 }
@@ -353,17 +353,18 @@
   opacity: 0.45;
 }
 .params-row.with-desc {
-  grid-template-columns: 24px 1fr 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 1fr 1fr auto auto;
 }
 
 .params-drag-handle {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   cursor: grab;
   user-select: none;
   text-align: center;
   line-height: 1;
   letter-spacing: -1px;
+  opacity: 0.5;
 }
 
 .params-value-with-insert {
@@ -378,14 +379,17 @@
 }
 .params-insert-var-btn {
   flex-shrink: 0;
-  font-size: 0.65rem !important;
-  padding: 4px 6px !important;
+  font-size: 0.83rem !important;
+  padding: 6px 10px !important;
   white-space: nowrap;
+}
+.params-insert-var-btn:hover {
+  opacity: 1;
 }
 
 .params-input {
-  padding: 7px 10px;
-  font-size: 0.84rem;
+  padding: 6px 10px;
+  font-size: 0.83rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--surface);
@@ -416,8 +420,8 @@
 .params-toggle input[type="checkbox"] {
   margin: 0;
   accent-color: var(--primary);
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
 }
 

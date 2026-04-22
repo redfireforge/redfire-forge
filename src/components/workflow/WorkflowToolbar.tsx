@@ -1,4 +1,7 @@
-import type { Workflow } from '../../types/workflow';
+import { useMemo } from 'react';
+import type { Environment } from '../../types';
+import type { Workflow, WorkflowService } from '../../types/workflow';
+import { checkAllEnvReadiness } from '../../utils/workflowEnvReadiness';
 
 interface Props {
   workflows: Workflow[];
@@ -6,19 +9,33 @@ interface Props {
   isRunning: boolean;
   /** Brief confirmation after Save persisted (cleared by parent). */
   saveAcknowledged?: boolean;
+  /** Number of services configured in the Service Registry. */
+  serviceCount?: number;
+  environments?: Environment[];
+  selectedEnvId?: string;
+  onEnvSelect?: (id: string) => void;
+  workflowServices?: WorkflowService[];
   onNew: () => void;
   onSelect: (id: string) => void;
   onSave: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
   onQuickTest: () => void;
+  onOpenServices?: () => void;
 }
 
 export default function WorkflowToolbar({
-  workflows, selected, isRunning, saveAcknowledged,
-  onNew, onSelect, onSave, onRename, onDelete, onDuplicate, onQuickTest,
+  workflows, selected, isRunning, saveAcknowledged, serviceCount = 0,
+  environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [],
+  onNew, onSelect, onSave, onQuickTest, onOpenServices,
 }: Props) {
+  const envReadinessMap = useMemo(
+    () => workflowServices.length > 0
+      ? checkAllEnvReadiness(environments.map((e) => e.id), workflowServices)
+      : new Map(),
+    [environments, workflowServices],
+  );
+
+  const currentReadiness = selectedEnvId ? envReadinessMap.get(selectedEnvId) : undefined;
+
   return (
     <div className="wf-toolbar">
       <div className="wf-toolbar-left">
@@ -40,6 +57,43 @@ export default function WorkflowToolbar({
 
         {selected && (
           <>
+            <span className="wf-toolbar-divider" />
+
+            <button
+              className="btn btn-sm wf-toolbar-services-btn"
+              onClick={onOpenServices}
+              disabled={isRunning}
+              title="Manage external service hostnames and auth for this workflow"
+            >
+              🔗 Services
+              {serviceCount > 0 && <span className="wf-toolbar-services-badge">{serviceCount}</span>}
+            </button>
+
+            <span className="wf-toolbar-env-wrap">
+              <select
+                className="wf-toolbar-env-select"
+                value={selectedEnvId}
+                onChange={(e) => onEnvSelect?.(e.target.value)}
+                disabled={isRunning}
+                title="Select target environment for Quick Test"
+              >
+                <option value="">Env…</option>
+                {environments.map((e) => {
+                  const r = envReadinessMap.get(e.id);
+                  const warn = r && !r.ready ? ` ⚠ ${r.issues.length} missing` : '';
+                  return <option key={e.id} value={e.id}>{e.name}{warn}</option>;
+                })}
+              </select>
+              {currentReadiness && !currentReadiness.ready && (
+                <span
+                  className="wf-toolbar-env-warn"
+                  title={`Missing config: ${currentReadiness.issues.map((i: { serviceName: string }) => i.serviceName).join(', ')}`}
+                >⚠</span>
+              )}
+            </span>
+
+            <span className="wf-toolbar-divider" />
+
             <span className="wf-toolbar-save-wrap">
               <button className="btn btn-sm" onClick={onSave} disabled={isRunning} title="Save canvas and variables to this workflow">
                 Save
@@ -50,9 +104,6 @@ export default function WorkflowToolbar({
                 </span>
               )}
             </span>
-            <button className="btn btn-sm" onClick={onRename} disabled={isRunning} title="Rename">Rename</button>
-            <button className="btn btn-sm" onClick={onDuplicate} disabled={isRunning} title="Duplicate">Duplicate</button>
-            <button className="btn btn-sm btn-danger" onClick={onDelete} disabled={isRunning} title="Delete">Delete</button>
           </>
         )}
       </div>

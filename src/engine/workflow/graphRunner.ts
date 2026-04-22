@@ -87,6 +87,8 @@ export async function runGraph(
   environmentLayer?: Record<string, string>,
   /** Per-HTTP-node base URL when the node sets host env + microservice; falls back to harness when omitted. */
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
+  /** Optional per-HTTP-node auth profile resolver (workflow-local profile bindings). */
+  resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -130,9 +132,10 @@ export async function runGraph(
           node.data as HttpNodeData,
           ctx,
           tokenManager,
-          resolveHttpBaseUrl,
           nodeId,
           initialVariables,
+          resolveHttpBaseUrl,
+          resolveHttpAuth,
         );
         results.push(result.requestResult);
 
@@ -241,10 +244,11 @@ async function executeHttpNode(
   data: HttpNodeData,
   ctx: VariableContext,
   tokenManager: TokenManager,
-  resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   httpNodeId: string,
   /** Workflow-level defaults from `runGraph` (fallback if snapshot / per-step maps miss a key). */
   workflowDefaults: Record<string, string>,
+  resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
+  resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
 ): Promise<{ requestResult: RequestResult; extracted: Record<string, string> }> {
   const wfVars = coerceStringMap(workflowDefaults);
   const perStepVars = coerceStringMap(data.initialVariables);
@@ -255,10 +259,15 @@ async function executeHttpNode(
     stepCtx.set('baseUrl', stepBase.trim().replace(/\/$/, ''));
   }
   for (const [name, v] of Object.entries(perStepVars)) {
-    stepCtx.set(name, v);
-    ctx.setForNode(httpNodeId, name, v);
+    const resolved = ctx.resolve(v);
+    stepCtx.set(name, resolved);
+    ctx.setForNode(httpNodeId, name, resolved);
   }
-  const resolved = resolveScenario(data.scenario, stepCtx);
+  const resolvedScenario: Scenario = {
+    ...data.scenario,
+    auth: resolveHttpAuth?.(data) ?? data.scenario.auth,
+  };
+  const resolved = resolveScenario(resolvedScenario, stepCtx);
   /** Per-step vars must win over snapshot keys (e.g. same name from upstream). */
   const flatLiterals: Record<string, string> = {
     ...wfVars,
