@@ -10,8 +10,9 @@ function tryPrettyResponseBody(s: string): string {
 
 /**
  * Full detail text for the workflow HTTP step modal (request line, status, errors, validation rows, body).
+ * @param opts.fullResponseBody - Optional full (non-truncated) body string to use instead of result.responseBody.
  */
-export function formatHttpNodeRunDetail(result: RequestResult): string {
+export function formatHttpNodeRunDetail(result: RequestResult, opts?: { fullResponseBody?: string }): string {
   const lines: string[] = [];
   lines.push(`${result.method} ${result.url}`);
   lines.push(`HTTP ${result.httpStatus} · ${result.responseTimeMs}ms`);
@@ -30,10 +31,11 @@ export function formatHttpNodeRunDetail(result: RequestResult): string {
       lines.push(`    actual: ${actShow}`);
     }
   }
-  if (result.responseBody) {
+  const body = opts?.fullResponseBody ?? result.responseBody;
+  if (body) {
     lines.push('');
     lines.push('Response body:');
-    lines.push(tryPrettyResponseBody(result.responseBody));
+    lines.push(tryPrettyResponseBody(body));
   }
   return lines.join('\n');
 }

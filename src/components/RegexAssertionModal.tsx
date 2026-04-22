@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
+import { typeColor, getValuePreview, ChevronIcon } from './shared/jsonTreeShared';
 
 export interface RegexAssertionResult {
   jsonPath: string;
@@ -92,26 +93,12 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
     return depth < 2;
   }, [searchTerm, hasMatchingDescendant, manualExpanded, expandAll, depth]);
 
-  const valuePreview = useMemo(() => {
-    if (node.type === 'object') return `{ ${node.children?.length || 0} keys }`;
-    if (node.type === 'array') return `[ ${node.children?.length || 0} items ]`;
-    if (node.type === 'string') {
-      const s = String(node.value);
-      return `"${s.length > 50 ? s.slice(0, 50) + '...' : s}"`;
-    }
-    if (node.type === 'null') return 'null';
-    return String(node.value);
-  }, [node]);
+  const valuePreview = useMemo(
+    () => getValuePreview(node.type, node.value, node.children?.length || 0, 50),
+    [node],
+  );
 
-  const typeColor = useMemo(() => {
-    switch (node.type) {
-      case 'string': return '#22c55e';
-      case 'number': return '#3b82f6';
-      case 'boolean': return '#f59e0b';
-      case 'null': return '#94a3b8';
-      default: return 'var(--text-muted)';
-    }
-  }, [node.type]);
+  const color = useMemo(() => typeColor(node.type), [node.type]);
 
   if (searchTerm && !hasMatchingDescendant) return null;
 
@@ -127,17 +114,17 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
       >
         {hasChildren ? (
           <span
-            className="json-tree-toggle"
+            className={`jt-toggle ${effectiveExpanded ? '' : 'jt-toggle--collapsed'}`}
             onClick={(e) => { e.stopPropagation(); setManualExpanded(!effectiveExpanded); }}
           >
-            {effectiveExpanded ? '▾' : '▸'}
+            <ChevronIcon />
           </span>
         ) : (
-          <span className="json-tree-toggle-spacer" />
+          <span className="jt-toggle-spacer" />
         )}
-        <span className="json-tree-key">{node.key}</span>
-        <span className="json-tree-colon">:</span>
-        <span className="json-tree-value" style={{ color: typeColor }}>{valuePreview}</span>
+        <span className="jt-key">{node.key}</span>
+        <span className="jt-colon">:</span>
+        <span className="json-tree-value" style={{ color }}>{valuePreview}</span>
         {node.path && <span className="json-tree-path">{node.path}</span>}
       </div>
       {hasChildren && effectiveExpanded && (

@@ -1019,10 +1019,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 306 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 1405 tests) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:e2e` | Run Playwright E2E tests (17 tests, Chromium) |
+| `npm run test:e2e` | Run Playwright E2E tests (26 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |

@@ -10,6 +10,7 @@ import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { extractVariables, type ResponseData } from './extractVariables';
+import { toErrorMessage } from '../../utils/helpers';
 import type { RunOpts } from '../requestExecution';
 
 export interface WorkflowProgress {
@@ -181,7 +182,7 @@ async function executeWorkflowStep(
     }
   } catch (err) {
     httpStatus = 0;
-    errorMessage = err instanceof Error ? err.message : String(err);
+    errorMessage = toErrorMessage(err);
   }
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;

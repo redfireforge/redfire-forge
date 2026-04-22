@@ -12,6 +12,7 @@ import {
   unwrapImport,
 } from '../utils/testEditorUtils';
 import { serializeWithContentType, getEffectiveBodyType } from '../utils/bodySerializer';
+import { toErrorMessage } from '../utils/helpers';
 import { BodyEditor } from './BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from './ParamsEditor';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
@@ -158,6 +159,28 @@ export default function TestEditorModal({
     return { auth: { type: 'none' }, source: 'none' };
   }, [draft.auth, editingTest.fgId, editingTest.scenarioId, featureGroups, allAuthProfiles]);
 
+  /** Apply host override and API-key query param to a URL before fetching. */
+  const applyFetchUrlOverrides = useCallback((url: string, auth: AuthConfig): string => {
+    let fetchUrl = url;
+    if (fetchHostEnabled && fetchHostOverride.trim()) {
+      try {
+        const orig = new URL(fetchUrl);
+        const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : `${fetchHostOverride.trim()}/`);
+        orig.protocol = base.protocol;
+        orig.host = base.host;
+        fetchUrl = orig.toString();
+      } catch { /* keep original */ }
+    }
+    if (auth.type === 'apikey' && auth.apiKeyIn === 'query' && auth.apiKeyName && auth.apiKeyValue) {
+      try {
+        const u = new URL(fetchUrl);
+        u.searchParams.set(auth.apiKeyName, auth.apiKeyValue);
+        fetchUrl = u.toString();
+      } catch { /* keep original */ }
+    }
+    return fetchUrl;
+  }, [fetchHostEnabled, fetchHostOverride]);
+
   const handleFetchSampleResponse = useCallback(async () => {
     const cur = draftRef.current;
     if (!cur.url.trim()) {
@@ -211,23 +234,7 @@ export default function TestEditorModal({
         reqHeaders['Authorization'] = `Bearer ${token}`;
       }
 
-      let fetchUrl = cur.url;
-      if (fetchHostEnabled && fetchHostOverride.trim()) {
-        try {
-          const orig = new URL(fetchUrl);
-          const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : `${fetchHostOverride.trim()}/`);
-          orig.protocol = base.protocol;
-          orig.host = base.host;
-          fetchUrl = orig.toString();
-        } catch { /* keep original */ }
-      }
-      if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        try {
-          const u = new URL(fetchUrl);
-          u.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
-          fetchUrl = u.toString();
-        } catch { /* keep original */ }
-      }
+      const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
 
       const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
       const latest = draftRef.current;
@@ -272,7 +279,7 @@ export default function TestEditorModal({
         setFetchError(null);
       }
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : String(err));
+      setFetchError(toErrorMessage(err));
     } finally {
       setFetchingResponse(false);
     }
@@ -326,23 +333,7 @@ export default function TestEditorModal({
         reqHeaders['Authorization'] = `Bearer ${token}`;
       }
 
-      let fetchUrl = cur.url;
-      if (fetchHostEnabled && fetchHostOverride.trim()) {
-        try {
-          const orig = new URL(fetchUrl);
-          const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : `${fetchHostOverride.trim()}/`);
-          orig.protocol = base.protocol;
-          orig.host = base.host;
-          fetchUrl = orig.toString();
-        } catch { /* keep original */ }
-      }
-      if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn === 'query' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        try {
-          const u = new URL(fetchUrl);
-          u.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
-          fetchUrl = u.toString();
-        } catch { /* keep original */ }
-      }
+      const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
 
       const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
 
@@ -371,7 +362,7 @@ export default function TestEditorModal({
         responseJson: result.body,
       });
     } catch (err) {
-      setValidationResult({ passed: false, failures: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }] });
+      setValidationResult({ passed: false, failures: [{ path: '(error)', expected: 'success', actual: toErrorMessage(err) }] });
     } finally {
       setValidating(false);
     }
@@ -425,7 +416,7 @@ export default function TestEditorModal({
       const cmd = await generateCurl();
       setGeneratedCurl(cmd);
     } catch (err) {
-      setGeneratedCurl(`# Error generating cURL: ${err instanceof Error ? err.message : String(err)}`);
+      setGeneratedCurl(`# Error generating cURL: ${toErrorMessage(err)}`);
     } finally {
       setCurlGenerating(false);
     }

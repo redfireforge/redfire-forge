@@ -1,5 +1,6 @@
 import type { CatalogEntry, CatalogEndpoint } from '../../types/catalog';
 import { countEndpoints } from '../../utils/openApiParser';
+import { formatBytes } from '../../utils/helpers';
 
 interface Props {
   entry: CatalogEntry;
@@ -150,10 +151,4 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
       )}
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
 }

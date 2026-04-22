@@ -1377,29 +1377,36 @@
 }
 
 .wf-detail-modal {
-  max-width: min(720px, 92vw);
+  max-width: min(780px, 92vw);
   width: 100%;
   max-height: min(90vh, 880px);
   display: flex;
   flex-direction: column;
+  border-radius: 14px;
 }
 .wf-detail-modal.wf-detail-modal--wide {
-  max-width: min(960px, 95vw);
+  max-width: min(1020px, 95vw);
 }
 .wf-detail-modal-body {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
   overflow: auto;
-  max-height: min(70vh, 640px);
+  max-height: min(74vh, 700px);
   flex: 1;
   min-height: 0;
+  padding: 18px 22px 20px;
+  gap: 0;
 }
 .wf-detail-modal--wide .wf-detail-modal-body {
   max-height: min(78vh, 720px);
 }
 .wf-detail-modal-sub {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
-  margin: 0 0 8px;
-  line-height: 1.35;
+  margin: 0 0 10px;
+  line-height: 1.4;
+  font-style: italic;
 }
 .wf-detail-modal-pre {
   margin: 0;
@@ -1496,6 +1503,40 @@
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
+  padding: 0 4px;
+}
+.wf-resp-search-nav {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wf-resp-search-nav:hover:not(:disabled) {
+  background: var(--surface-hover, #333);
+  color: var(--text);
+}
+.wf-resp-search-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.wf-resp-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+}
+.wf-resp-search-clear:hover {
+  color: var(--text);
 }
 .wf-resp-search-hint {
   font-size: 0.68rem;
@@ -1506,26 +1547,32 @@
 .wf-resp-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
+  margin-top: 14px;
+}
+.wf-resp-section:first-of-type {
+  margin-top: 6px;
 }
 .wf-resp-section-label {
-  font-size: 0.62rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   font-weight: 700;
   color: var(--accent);
   margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .wf-resp-meta {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: 'SF Mono', ui-monospace, monospace;
   font-size: 0.75rem;
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text);
@@ -1542,21 +1589,34 @@
   padding: 0 2px;
   border-radius: 2px;
 }
+.wf-resp-meta mark.wf-resp-search-hit--active,
+.wf-resp-raw-fallback mark.wf-resp-search-hit--active {
+  background: rgba(250, 204, 21, 0.7);
+  outline: 2px solid #facc15;
+  outline-offset: 1px;
+}
 [data-theme='light'] .wf-resp-meta mark.wf-resp-search-hit,
 [data-theme='light'] .wf-resp-raw-fallback mark.wf-resp-search-hit {
   background: rgba(234, 179, 8, 0.45);
 }
 .wf-resp-json-tree {
   max-height: min(48vh, 520px) !important;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.wf-resp-json-tree .req-json-preview-wrapper {
+  overflow: visible;
 }
 .wf-resp-raw-fallback {
   margin: 0;
-  padding: 10px 12px;
+  padding: 14px 16px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  line-height: 1.45;
+  border-radius: 10px;
+  font-size: 0.74rem;
+  line-height: 1.55;
   font-family: 'SF Mono', ui-monospace, monospace;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1565,9 +1625,21 @@
   overflow: auto;
 }
 .wf-resp-parse-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.72rem;
   color: var(--text-muted);
-  margin: 4px 0 0;
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.wf-resp-parse-icon {
+  font-size: 0.88rem;
+  flex-shrink: 0;
 }
 .json-tree-readonly-spacer {
   width: 16px;

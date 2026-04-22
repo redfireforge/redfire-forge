@@ -43,9 +43,9 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 948 unit/integration tests (Vitest, 98% line coverage, 90% branch coverage) + 17 E2E tests (Playwright) = 965 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1405 unit/integration tests (Vitest, 95.6% line coverage, 85.6% branch coverage) + 26 E2E tests (Playwright) = 1431 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
-- **No request chaining** — can't test multi-step workflows (create → read → update → delete)
+- ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
 - ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
@@ -58,11 +58,10 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 
 | Level | Description | Throughput | Examples |
 |---|---|---|---|
-| **Moderate** (current — 5/6 gaps to Good closed) | Worker threads, connection pooling, think time, rich assertions, timing breakdown; missing Variables & Chaining | ~100-300 RPS → approaching 500+ | RedfireForge today |
-| **Good** | Variables & chaining, rich assertions, worker-thread execution, connection pooling, think time | ~500-2,000 RPS | Artillery, JMeter |
+| **Good** (current — all 6 gaps closed) | Variables & chaining, rich assertions, worker-thread execution, connection pooling, think time, timing breakdown | ~500-2,000 RPS | RedfireForge today, Artillery, JMeter |
 | **Excellent** | Native async executor (Rust), distributed multi-machine, constant arrival rate, streaming percentiles | 5,000-50,000+ RPS | k6, Gatling |
 
-#### Current capabilities (Moderate → Good: 5/6 gaps closed, Variables & Chaining remaining)
+#### Current capabilities (Good: all 6/6 gaps closed ✅)
 
 - Duration-based profiles: sustained, ramp-up, spike
 - Fixed transaction count: sequential, batch, pool concurrency
@@ -71,6 +70,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 - Live streaming charts (TPS, response time, error rate, active connections)
 - OAuth2 token manager with JWT expiry detection
 - Weighted scenario distribution in load profiles
+- **Variables & chaining**: Visual workflow designer with graph editor, `VariableContext` layered store (environment → manual → extracted), template resolution in URL/headers/body/auth, condition branching (If/Else), delay nodes, variable extraction from JSONPath/headers/status, Service Registry with multi-environment endpoints, built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`)
 - **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
 - **Worker thread execution**: Engine runs in a Web Worker — UI stays responsive at 60fps during heavy runs; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback; incremental result transfer avoids serialization overhead
 - **Connection pooling**: Shared `undici.Agent` keeps HTTP connections alive (30s timeout, 128 connections) — eliminates TCP/TLS handshake overhead on repeated requests to the same origin; 2–3x latency reduction for HTTPS APIs in browser dev mode; Tauri mode already pooled via `reqwest`
@@ -81,7 +81,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 
 | # | Gap | Why it matters | Phase |
 |---|---|---|---|
-| 1 | **Variables & chaining** | Can't test multi-step workflows (create → get ID → verify) | 0.9.0 |
+| ~~1~~ | ~~**Variables & chaining**~~ | ~~Can't test multi-step workflows (create → get ID → verify)~~ | ~~0.9.0~~ ✅ |
 | ~~2~~ | ~~**Rich assertions**~~ | ~~No status code, response time SLA, header, or regex assertions~~ | ~~0.10.0~~ ✅ |
 | ~~3~~ | ~~**Think time & pacing**~~ | ~~No delay between requests per virtual user → unrealistic flood~~ | ~~0.9.1~~ ✅ |
 | ~~4~~ | ~~**Worker thread execution**~~ | ~~Single JS thread bottleneck; Web Workers (browser) or Rust threads (Tauri) = 2-5x throughput~~ | ~~0.9.1~~ ✅ |
@@ -102,7 +102,7 @@ RedfireForge's load testing is currently rated **Moderate**. The path to **Good*
 
 ```
 Priority 1 — Reach "Good" (Phases 0.9.0 + 0.9.1 + 0.10.0)
-  ① Variables & Chaining        → unblocks real-world multi-step testing
+  ① ~~Variables & Chaining~~      → ✅ workflow designer with variable extraction & chaining (done)
   ② ~~Think time & pacing~~      → ✅ realistic virtual user simulation (done)
   ③ ~~Worker thread execution~~ → ✅ Web Worker offloading (done)
   ④ ~~Connection pooling~~       → ✅ keep-alive reuse via undici.Agent (done)
@@ -300,11 +300,11 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > **Table stakes for real-world API testing.** Without this, you can't test multi-step workflows (create order → get order ID → verify order).
 
-- [ ] **Variable Templates** — Support `{{baseUrl}}`, `{{apiKey}}`, `{{timestamp}}` in URLs, headers, and body
-- [ ] **Built-in Generators** — `{{$randomEmail}}`, `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`
-- [ ] **Variable Extraction** — Extract values from responses using JSONPath (e.g., `$.data.id` → `{{orderId}}`)
-- [ ] **Variable Injection** — Use extracted variables in downstream test URLs, headers, and body
-- [ ] **Scenario Chaining / Workflow Mode** — Chain requests sequentially where each step depends on the previous
+- [x] **Variable Templates** — Support `{{baseUrl}}`, `{{apiKey}}`, `{{timestamp}}` in URLs, headers, and body
+- [x] **Built-in Generators** — `{{$randomEmail}}`, `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomString(N)}}`
+- [x] **Variable Extraction** — Extract values from responses using JSONPath (e.g., `$.data.id` → `{{orderId}}`), headers, or status code
+- [x] **Variable Injection** — Use extracted variables in downstream test URLs, headers, and body
+- [x] **Scenario Chaining / Workflow Mode** — Visual workflow designer with graph editor, condition branching (If/Else), delay nodes, Service Registry with multi-environment endpoints
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---
@@ -412,7 +412,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
 | 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
-| 0.9.0 | Variables & Chaining | → Good | 6 | 0 |
+| 0.9.0 | Variables & Chaining | → Good | 6 | 5 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
 | 0.10.0 | Assertions & Observability | → Good | 7 | 5 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
@@ -423,15 +423,13 @@ Post-launch features driven by community feedback. Completing the engine items b
 ### Load Testing Level Milestones
 
 ```
-CURRENT: Moderate (~100-300 RPS)
+CURRENT: Good (~500-2,000 RPS)
   ├── Phase 0.5.0 ✅  Duration profiles, ramp-up, spike
   ├── Phase 0.6.0 ✅  CSV data, retry, circuit breaker, timeout
-  └── Phase 0.6.5 ✅  Excel templates, live charts
-
-TARGET: Good (~500-2,000 RPS)
-  ├── Phase 0.9.0     Variables, chaining, workflow mode
-  ├── Phase 0.9.1     Worker threads, connection pooling, think time, constant rate
-  └── Phase 0.10.0    Rich assertions ✅, timing breakdown ✅
+  ├── Phase 0.6.5 ✅  Excel templates, live charts
+  ├── Phase 0.9.0 ✅  Variables, chaining, workflow mode
+  ├── Phase 0.9.1 ✅  Worker threads, connection pooling, think time
+  └── Phase 0.10.0 ✅ Rich assertions, timing breakdown
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
@@ -452,7 +450,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 730 unit/integration + 17 E2E = 747 tests
+Phase 0.8.0 (Tests) ✅ DONE — 1405 unit/integration + 26 E2E = 1431 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
@@ -460,11 +458,11 @@ Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive test
 ### Critical Path to "Good" Load Testing
 
 ```
-Phase 0.9.0 (Variables & Chaining)  →  Phase 0.9.1 (Engine Performance)  →  Phase 0.10.0 (Assertions)
-  ↑ unblocks real workflows              ↑ 2-5x throughput boost                ↑ actionable results
+Phase 0.9.0 (Variables & Chaining) ✅  →  Phase 0.9.1 (Engine Performance) ✅  →  Phase 0.10.0 (Assertions) ✅
+  ↑ workflow designer done                   ↑ workers + pooling done                    ↑ status/SLA/header/regex done
 ```
 
-Phases 0.9.0–0.10.0 elevate load testing from **Moderate** to **Good**. Phase 0.11.0 (trends) and 1.x (Rust executor, distributed) are post-launch paths to **Excellent**.
+Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** ✅. Phase 0.11.0 (trends) and 1.x (Rust executor, distributed) are post-launch paths to **Excellent**.
 
 ---
 
