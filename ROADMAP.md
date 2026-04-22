@@ -23,7 +23,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 | **Bruno** | Yes (modern) | No | Manual | No | Yes (Electron) |
 | **Hoppscotch** | Yes (modern, web) | No | Manual | No | No |
 | **Postman** | Yes (proprietary) | Limited (paid) | Good | Partial (paid) | Yes (Electron) |
-| **RedfireForge** | Yes (modern) | Moderate | Excellent (visual) | **Yes (OpenAPI)** | Yes (Tauri) |
+| **RedfireForge** | Yes (modern) | Good | Excellent (visual) | **Yes (OpenAPI)** | Yes (Tauri) |
 
 ### Key Differentiators (Lean Into These)
 
@@ -52,7 +52,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Load Testing Maturity Levels
 
-RedfireForge's load testing is currently rated **Moderate**. The path to **Good** and **Excellent** is mapped below.
+RedfireForge's load testing is currently rated **Good**. The path to **Excellent** is mapped below.
 
 #### What each level means
 
@@ -286,8 +286,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 728 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 17 tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 1405 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 26 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
@@ -466,4 +466,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-04-19 (v0.5.2 — Request timing breakdown complete; 97/148 items done)_
+_Last updated: 2026-04-22 (v0.5.2 — Variables & Chaining complete, load testing at Good; 97/148 items done)_
