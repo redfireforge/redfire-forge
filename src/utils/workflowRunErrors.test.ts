@@ -130,4 +130,25 @@ describe('formatHttpNodeRunDetail', () => {
     expect(detail).toContain('GET https://x');
     expect(detail).toContain('HTTP 200');
   });
+
+  it('uses fullResponseBody override when provided', () => {
+    const truncated = '{"key":"val'; // truncated → not valid JSON
+    const full = '{"key":"value","extra":true}';
+    const detail = formatHttpNodeRunDetail(
+      baseResult({ responseBody: truncated }),
+      { fullResponseBody: full },
+    );
+    expect(detail).toContain('"key": "value"'); // pretty-printed from full
+    expect(detail).toContain('"extra": true');
+  });
+
+  it('falls back to result.responseBody when fullResponseBody is omitted', () => {
+    const detail = formatHttpNodeRunDetail(baseResult({ responseBody: '{"a":1}' }));
+    expect(detail).toContain('"a": 1');
+  });
+
+  it('falls back to result.responseBody when opts is undefined', () => {
+    const detail = formatHttpNodeRunDetail(baseResult({ responseBody: '{"b":2}' }));
+    expect(detail).toContain('"b": 2');
+  });
 });

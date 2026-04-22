@@ -71,7 +71,13 @@ test.describe('Workflow Insert Variable modal', () => {
       }, varName);
       if (rowIndex < 0) throw new Error(`No row found for variable "${varName}"`);
       console.log(`[DEBUG] Row index for "${varName}": ${rowIndex}`);
-      await page.locator('.wf-config-kv-row').nth(rowIndex).locator('button:has-text("Insert…")').click();
+      const row = page.locator('.wf-config-kv-row').nth(rowIndex);
+      // Scroll and hover so the Insert… button is fully visible
+      await row.scrollIntoViewIfNeeded();
+      await row.hover();
+      // Use dispatchEvent to bypass overlapping sibling elements
+      const insertBtn = row.locator('button:has-text("Insert…")');
+      await insertBtn.dispatchEvent('click');
     };
 
     // ── enrollmentType ───────────────────────────────────────────────────

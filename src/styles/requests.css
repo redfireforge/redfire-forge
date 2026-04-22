@@ -1139,8 +1139,9 @@
 }
 .req-resp-search-nav {
   background: none; border: 1px solid var(--border); border-radius: 3px;
-  color: var(--text-muted); cursor: pointer; font-size: 0.55rem;
-  padding: 2px 5px; line-height: 1; transition: background 0.15s, color 0.15s;
+  color: var(--text-muted); cursor: pointer;
+  padding: 3px 5px; line-height: 1; transition: background 0.15s, color 0.15s;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .req-resp-search-nav:hover:not(:disabled) { background: var(--surface-hover, #333); color: var(--text); }
 .req-resp-search-nav:disabled { opacity: 0.3; cursor: default; }
@@ -1184,11 +1185,23 @@
 .jt-toggle {
   width: 16px; text-align: center; cursor: pointer; color: var(--text-muted);
   flex-shrink: 0; user-select: none; font-size: 0.7rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, color 0.15s;
 }
+.jt-toggle--collapsed { transform: rotate(-90deg); }
 .jt-toggle:hover { color: var(--text); }
 .jt-toggle-spacer { width: 16px; flex-shrink: 0; }
-.jt-key { color: #7dd3fc; }
-.jt-colon { color: var(--text-muted); margin-right: 4px; }
+
+/* Expand All / Collapse All text buttons */
+.jt-expand-collapse-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); cursor: pointer; font-size: 0.68rem; font-weight: 600;
+  padding: 3px 8px; line-height: 1.2; flex-shrink: 0; white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.jt-expand-collapse-btn:hover { background: var(--surface-hover, #333); color: var(--text); border-color: var(--text-muted); }
+.jt-key { color: #c084fc; font-weight: 500; flex-shrink: 0; }
+.jt-colon { color: var(--text-muted); margin-right: 4px; flex-shrink: 0; }
 .jt-str { color: #86efac; }
 .jt-num { color: #fbbf24; }
 .jt-bool { color: #c084fc; }

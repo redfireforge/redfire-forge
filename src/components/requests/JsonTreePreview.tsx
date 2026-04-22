@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
+import { ChevronIcon } from '../shared/jsonTreeShared';
 
 export interface JNode {
   key: string;
@@ -32,6 +33,33 @@ export function collectMatchNodes(node: JNode, term: string, results: JNode[]): 
   (node.children ?? []).forEach(c => collectMatchNodes(c, term, results));
 }
 
+/** Like collectMatchNodes but also records each match's tree path (for ancestor expansion). */
+function collectMatchNodesWithPaths(
+  node: JNode, term: string, results: { node: JNode; path: string }[], currentPath = '',
+): void {
+  if (!term) return;
+  const lower = term.toLowerCase();
+  const selfMatch = node.key.toLowerCase().includes(lower) ||
+    (node.type !== 'object' && node.type !== 'array' && String(node.value ?? '').toLowerCase().includes(lower));
+  if (selfMatch) results.push({ node, path: currentPath });
+  (node.children ?? []).forEach(c =>
+    collectMatchNodesWithPaths(c, term, results, `${currentPath}/${c.key}`),
+  );
+}
+
+/** Compute all ancestor paths for a given tree path (e.g. "/a/b/c" → {"", "/a", "/a/b", "/a/b/c"}). */
+function getAncestorPaths(path: string): Set<string> {
+  const set = new Set<string>();
+  const segments = path.split('/');
+  let p = '';
+  set.add(p); // root
+  for (let i = 1; i < segments.length; i++) {
+    p += '/' + segments[i];
+    set.add(p);
+  }
+  return set;
+}
+
 function highlightSearch(text: string, search: string): ReactNode {
   if (!search) return text;
   const lower = text.toLowerCase();
@@ -57,7 +85,9 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
   const hasChildren = (node.children?.length ?? 0) > 0;
   const hasMatchDescendant = useMemo(() => search ? nodeMatches(node, search) : false, [node, search]);
 
-  const expanded = search && hasMatchDescendant ? true : !collapsedSet.has(path);
+  // User's explicit collapse (collapsedSet) always wins.
+  // When search is active, auto-expand nodes with matching descendants (unless user collapsed).
+  const expanded = !collapsedSet.has(path) && (!search || hasMatchDescendant);
 
   const lower = search?.toLowerCase() ?? '';
   const keyMatch = lower && node.key.toLowerCase().includes(lower);
@@ -88,7 +118,9 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
         style={{ paddingLeft: depth * 18 }}
       >
         {hasChildren ? (
-          <span className="jt-toggle" onClick={() => onToggle(path)}>{expanded ? '▾' : '▸'}</span>
+          <span className={`jt-toggle ${expanded ? '' : 'jt-toggle--collapsed'}`} onClick={() => onToggle(path)}>
+            <ChevronIcon />
+          </span>
         ) : (
           <span className="jt-toggle-spacer" />
         )}
@@ -134,12 +166,14 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
     try { return buildJTree(JSON.parse(body), ''); } catch { return null; }
   }, [body, error, prebuiltTree]);
 
-  const matchNodes = useMemo(() => {
+  const matchNodesWithPaths = useMemo(() => {
     if (!tree || !search) return [];
-    const results: JNode[] = [];
-    collectMatchNodes(tree, search, results);
+    const results: { node: JNode; path: string }[] = [];
+    collectMatchNodesWithPaths(tree, search, results);
     return results;
   }, [tree, search]);
+
+  const matchNodes = useMemo(() => matchNodesWithPaths.map(m => m.node), [matchNodesWithPaths]);
 
   useEffect(() => {
     onMatchCountChange?.(matchNodes.length);
@@ -148,6 +182,16 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
   useEffect(() => {
     activeMatchRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [currentMatchIdx, search]);
+
+  // When navigating to a match, uncollapse its ancestor paths so it becomes visible
+  useEffect(() => {
+    const active = matchNodesWithPaths[currentMatchIdx];
+    if (!active) return;
+    const ancestors = getAncestorPaths(active.path);
+    ancestors.forEach(p => {
+      if (collapsedSet.has(p)) onToggle(p);
+    });
+  }, [currentMatchIdx, matchNodesWithPaths]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeNode = matchNodes[currentMatchIdx] ?? null;
 

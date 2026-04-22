@@ -12,6 +12,7 @@ import { pickJsonFile, unwrapImport } from '../../utils/testEditorUtils';
 import { useResponseCache } from '../../hooks/useResponseCache';
 import type { ConsoleLine } from '../../hooks/useResponseCache';
 import { buildDisplayUrl, resolveFullSendUrl } from '../../utils/requestUrlResolver';
+import { formatBytes } from '../../utils/helpers';
 import type { UrlResolverContext } from '../../utils/requestUrlResolver';
 import { BodyEditor } from '../BodyEditor';
 import { ParamsEditor, fromParamEntries } from '../ParamsEditor';
@@ -68,12 +69,6 @@ function buildUrl(base: string, params: ParamEntry[]): string {
   if (active.length === 0) return basePart;
   const qs = active.map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
   return `${basePart}?${qs}`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function RequestEditor({
@@ -767,11 +762,6 @@ export default function RequestEditor({
 
           {responseTab === 'preview' && (
             <div className="req-resp-search">
-              <button
-                className="req-tree-toggle-btn"
-                title={isAllCollapsed ? 'Expand All' : 'Collapse All'}
-                onClick={isAllCollapsed ? handleExpandAll : handleCollapseAll}
-              >{isAllCollapsed ? '⊞' : '⊟'}</button>
               <input
                 className="req-resp-search-input"
                 type="text"
@@ -785,12 +775,20 @@ export default function RequestEditor({
                     {searchMatchCount > 0 ? `${searchMatchIdx + 1}/${searchMatchCount}` : 'No match'}
                   </span>
                   <button className="req-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
-                    onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}>&#9650;</button>
+                    onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
                   <button className="req-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
-                    onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}>&#9660;</button>
+                    onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
                   <button className="req-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
                 </>
               )}
+              <button
+                className="jt-expand-collapse-btn"
+                onClick={handleExpandAll}
+              >Expand All</button>
+              <button
+                className="jt-expand-collapse-btn"
+                onClick={handleCollapseAll}
+              >Collapse All</button>
             </div>
           )}
 

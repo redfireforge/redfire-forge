@@ -3,15 +3,8 @@ import type { ExpectedField, SelectiveMode } from '../types';
 import type { ReactNode, ErrorInfo } from 'react';
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
 import { buildTree, getAllLeafPaths, getAllPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
-
-function useDebounce(value: string, delay: number): string {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
+import { typeColor, getValuePreview, ChevronIcon } from './shared/jsonTreeShared';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface ErrorBoundaryState { hasError: boolean; error: Error | null }
 class TreeErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
@@ -58,10 +51,10 @@ const TreeNode = memo(function TreeNode({ node, selectedPaths, onToggle, depth, 
     return nodeMatchesSearch(node, searchTerm);
   }, [node, searchTerm]);
 
-  // Auto-expand when search matches a descendant, otherwise use default/manual
+  // User's explicit expand/collapse always wins over search auto-expand
   const expanded = useMemo(() => {
-    if (searchTerm && hasMatchingDescendant) return true;
     if (manualExpanded !== null) return manualExpanded;
+    if (searchTerm && hasMatchingDescendant) return true;
     return depth < 2;
   }, [searchTerm, hasMatchingDescendant, manualExpanded, depth]);
 
@@ -74,23 +67,12 @@ const TreeNode = memo(function TreeNode({ node, selectedPaths, onToggle, depth, 
   const isChecked = isLeaf ? selectedPaths.has(node.path) : allSelected;
   const isIndeterminate = !isLeaf && someSelected && !allSelected;
 
-  const valuePreview = useMemo(() => {
-    if (node.type === 'object') return `{ ${node.children?.length || 0} keys }`;
-    if (node.type === 'array') return `[ ${node.children?.length || 0} items ]`;
-    if (node.type === 'string') return `"${String(node.value).length > 60 ? String(node.value).slice(0, 60) + '...' : node.value}"`;
-    if (node.type === 'null') return 'null';
-    return String(node.value);
-  }, [node]);
+  const valuePreview = useMemo(
+    () => getValuePreview(node.type, node.value, node.children?.length || 0, 60),
+    [node],
+  );
 
-  const typeColor = useMemo(() => {
-    switch (node.type) {
-      case 'string': return '#22c55e';
-      case 'number': return '#3b82f6';
-      case 'boolean': return '#f59e0b';
-      case 'null': return '#94a3b8';
-      default: return 'var(--text-muted)';
-    }
-  }, [node.type]);
+  const color = useMemo(() => typeColor(node.type), [node.type]);
 
   const isHighlighted = searchTerm && matchesSelf;
 
@@ -108,11 +90,11 @@ const TreeNode = memo(function TreeNode({ node, selectedPaths, onToggle, depth, 
         style={{ paddingLeft: depth * 20 + 8 }}
       >
         {hasChildren ? (
-          <span className="json-tree-toggle" onClick={() => setManualExpanded(!expanded)}>
-            {expanded ? '▾' : '▸'}
+          <span className={`jt-toggle ${expanded ? '' : 'jt-toggle--collapsed'}`} onClick={() => setManualExpanded(!expanded)}>
+            <ChevronIcon />
           </span>
         ) : (
-          <span className="json-tree-toggle-spacer" />
+          <span className="jt-toggle-spacer" />
         )}
 
         <input
@@ -123,9 +105,9 @@ const TreeNode = memo(function TreeNode({ node, selectedPaths, onToggle, depth, 
           onChange={() => onToggle(node.path, allDescendantPaths)}
         />
 
-        <span className="json-tree-key">{node.key}</span>
-        <span className="json-tree-colon">:</span>
-        <span className="json-tree-value" style={{ color: typeColor }}>{valuePreview}</span>
+        <span className="jt-key">{node.key}</span>
+        <span className="jt-colon">:</span>
+        <span className="json-tree-value" style={{ color }}>{valuePreview}</span>
 
         {node.path && (
           <span className="json-tree-path">{node.path}</span>

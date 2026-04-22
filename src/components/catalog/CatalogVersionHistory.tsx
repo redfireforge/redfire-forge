@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { CatalogEntry, CatalogVersion, CatalogSpecDiff } from '../../types/catalog';
 import { parseOpenApiSpec } from '../../utils/openApiParser';
+import { formatBytes } from '../../utils/helpers';
 import { diffCatalogEntries } from '../../utils/catalogSpecDiff';
 import CatalogVersionDiff from './CatalogVersionDiff';
 
@@ -130,10 +131,4 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
       </div>
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
 }

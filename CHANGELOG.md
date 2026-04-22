@@ -77,7 +77,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
 
 ### Changed
-- **Test Coverage**: Pushed code coverage above 90% on all metrics (97.5% statements, 90.4% branches, 98.9% functions, 98.2% lines) with 1027 total tests across 48 test files
+- **Test Coverage**: 1405 unit/integration tests across 65 test files + 26 E2E tests (94.5% statements, 85.6% branches, 92.8% functions, 95.6% lines)
+- **Shared Utilities Refactoring**: Extracted duplicate code into single canonical sources
+  - `useDebounce` hook: consolidated from 3 inline copies into `src/hooks/useDebounce.ts`
+  - `escapeRegExp()`: consolidated from 2 copies into `src/utils/helpers.ts`
+  - `formatBytes()`: consolidated from 4 copies into `src/utils/helpers.ts`
+  - `toErrorMessage()`: new utility replacing 20+ inline `err instanceof Error ? err.message : String(err)` patterns
+  - `typeColor()` / `getValuePreview()` / `ChevronIcon`: consolidated from 3 tree viewers into `src/components/shared/jsonTreeShared.tsx`
+  - `saveJsonKey()` / `loadJsonKey()`: generic helpers replacing 4 duplicate load/save pairs in `storage.ts`
+  - `applyFetchUrlOverrides()`: extracted from 2 duplicate URL-override blocks in `TestEditorModal.tsx`
+  - Unified `.jt-*` CSS classes across all JSON tree viewers (removed duplicate `.json-tree-*` classes)
+- **E2E Test Fix**: Fixed flaky `workflow-variable-insert.spec.ts` where delete button intercepted pointer events on `Insert…` button
 
 ---
 

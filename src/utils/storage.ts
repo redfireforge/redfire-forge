@@ -204,14 +204,17 @@ export interface AppData {
   selectedSvcId: string;
 }
 
-export async function saveEnvironments(envs: Environment[]): Promise<void> { await writeKey(FLAT_ENVS_KEY, JSON.stringify(envs)); }
-export async function loadEnvironments(): Promise<Environment[]> { try { const r = await readKey(FLAT_ENVS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
+async function saveJsonKey<T>(key: string, data: T): Promise<void> { await writeKey(key, JSON.stringify(data)); }
+async function loadJsonKey<T>(key: string): Promise<T[]> { try { const r = await readKey(key); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await writeKey(FLAT_SVCS_KEY, JSON.stringify(svcs)); }
-export async function loadMicroservices(): Promise<Microservice[]> { try { const r = await readKey(FLAT_SVCS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
+export async function saveEnvironments(envs: Environment[]): Promise<void> { await saveJsonKey(FLAT_ENVS_KEY, envs); }
+export async function loadEnvironments(): Promise<Environment[]> { return loadJsonKey<Environment>(FLAT_ENVS_KEY); }
 
-export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> { await writeKey(FLAT_FGS_KEY, JSON.stringify(fgs)); }
-export async function loadFeatureGroups(): Promise<FeatureGroup[]> { try { const r = await readKey(FLAT_FGS_KEY); return r ? JSON.parse(r) : []; } catch { return []; } }
+export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await saveJsonKey(FLAT_SVCS_KEY, svcs); }
+export async function loadMicroservices(): Promise<Microservice[]> { return loadJsonKey<Microservice>(FLAT_SVCS_KEY); }
+
+export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> { await saveJsonKey(FLAT_FGS_KEY, fgs); }
+export async function loadFeatureGroups(): Promise<FeatureGroup[]> { return loadJsonKey<FeatureGroup>(FLAT_FGS_KEY); }
 
 export async function saveSelectedEnvId(id: string): Promise<void> { await writeKey(FLAT_SEL_ENV_KEY, id); }
 export async function loadSelectedEnvId(): Promise<string> { return (await readKey(FLAT_SEL_ENV_KEY)) ?? ''; }
@@ -221,17 +224,8 @@ export async function loadSelectedSvcId(): Promise<string> { return (await readK
 
 // ---------- Global Auth Profiles ----------
 
-export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
-  await writeKey(GLOBAL_AUTH_KEY, JSON.stringify(profiles));
-}
-
-export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
-  try {
-    const raw = await readKey(GLOBAL_AUTH_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as GlobalAuthProfile[];
-  } catch { return []; }
-}
+export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> { await saveJsonKey(GLOBAL_AUTH_KEY, profiles); }
+export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> { return loadJsonKey<GlobalAuthProfile>(GLOBAL_AUTH_KEY); }
 
 // ---------- Migration (v1 legacy + v2 projects → v3 flat) ----------
 

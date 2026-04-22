@@ -107,4 +107,71 @@ describe('pickJsonFile', () => {
     mockInput.onchange({ target: { files: [] } });
     expect(onLoad).not.toHaveBeenCalled();
   });
+
+  it('calls onLoad with parsed JSON when file is read', () => {
+    const click = vi.fn();
+    const mockInput = { type: '', accept: '', onchange: null as any, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+
+    let capturedOnload: ((ev: any) => void) | null = null;
+    const mockReadAsText = vi.fn();
+    vi.stubGlobal('FileReader', class {
+      onload: any = null;
+      readAsText = (...args: any[]) => {
+        capturedOnload = this.onload;
+        mockReadAsText(...args);
+      };
+    });
+
+    const onLoad = vi.fn();
+    pickJsonFile(onLoad);
+
+    const mockFile = new File(['{"hello":"world"}'], 'test.json', { type: 'application/json' });
+    mockInput.onchange({ target: { files: [mockFile] } });
+
+    expect(mockReadAsText).toHaveBeenCalledWith(mockFile);
+    capturedOnload!({ target: { result: '{"hello":"world"}' } });
+    expect(onLoad).toHaveBeenCalledWith({ hello: 'world' });
+    vi.unstubAllGlobals();
+  });
+
+  it('alerts on invalid JSON in file', () => {
+    const click = vi.fn();
+    const mockInput = { type: '', accept: '', onchange: null as any, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+
+    let capturedOnload: any = null;
+    const mockReadAsText = vi.fn();
+    vi.stubGlobal('FileReader', class {
+      onload: any = null;
+      readAsText = (...args: any[]) => {
+        capturedOnload = this.onload;
+        mockReadAsText(...args);
+      };
+    });
+    const alertSpy = vi.spyOn(globalThis, 'alert').mockImplementation(() => {});
+
+    const onLoad = vi.fn();
+    pickJsonFile(onLoad);
+
+    const mockFile = new File(['not json'], 'test.json');
+    mockInput.onchange({ target: { files: [mockFile] } });
+
+    capturedOnload({ target: { result: 'not json' } });
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('does not call onLoad when files is undefined', () => {
+    const click = vi.fn();
+    const mockInput = { type: '', accept: '', onchange: null as any, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+
+    const onLoad = vi.fn();
+    pickJsonFile(onLoad);
+
+    mockInput.onchange({ target: { files: undefined } });
+    expect(onLoad).not.toHaveBeenCalled();
+  });
 });

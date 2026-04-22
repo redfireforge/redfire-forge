@@ -13,10 +13,7 @@ import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../../utils/wo
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
 import { stripTrailingSlash } from '../../utils/workflowHostResolve';
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp, toErrorMessage } from '../../utils/helpers';
 
 /**
  * Replace remaining `{{…}}` segments using a flat map (workflow + step snapshot + initialVariables).
@@ -146,7 +143,7 @@ export async function runGraph(
           responseTimeMs: result.requestResult.responseTimeMs,
           extracted: result.extracted,
           error: result.requestResult.passed ? undefined : summarizeRequestFailure(result.requestResult),
-          responseDetail: formatHttpNodeRunDetail(result.requestResult),
+          responseDetail: formatHttpNodeRunDetail(result.requestResult, { fullResponseBody: result.fullResponseBody }),
         };
         if (!result.requestResult.passed) allPassed = false;
         callbacks.onNodeStateChange(nodeId, status);
@@ -203,7 +200,7 @@ export async function runGraph(
       allPassed = false;
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
-        error: err instanceof Error ? err.message : String(err),
+        error: toErrorMessage(err),
       });
     }
   }
@@ -250,7 +247,7 @@ async function executeHttpNode(
   workflowDefaults: Record<string, string>,
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
-): Promise<{ requestResult: RequestResult; extracted: Record<string, string> }> {
+): Promise<{ requestResult: RequestResult; extracted: Record<string, string>; fullResponseBody: string }> {
   const wfVars = coerceStringMap(workflowDefaults);
   const perStepVars = coerceStringMap(data.initialVariables);
 
@@ -307,7 +304,7 @@ async function executeHttpNode(
       try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
     }
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : String(err);
+    errorMessage = toErrorMessage(err);
   }
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
@@ -360,7 +357,7 @@ async function executeHttpNode(
     errorMessage,
   };
 
-  return { requestResult, extracted };
+  return { requestResult, extracted, fullResponseBody: responseBody };
 }
 
 function evaluateCondition(data: ConditionNodeData, ctx: VariableContext): boolean {
