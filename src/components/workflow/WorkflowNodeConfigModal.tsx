@@ -33,6 +33,7 @@ interface Props {
   onUpdateNode: (id: string, patch: Partial<WorkflowNodeData>) => void;
   onDeleteNode: (id: string) => void;
   onClose: () => void;
+  workflowId?: string;
   lastQuickTestRequestUrl?: string | null;
   lastRunStepError?: string | null;
   effectiveQuickTestBaseUrl: string;
@@ -48,7 +49,7 @@ interface Props {
 }
 
 export default function WorkflowNodeConfigModal({
-  node, workflowVariables, onUpdateNode, onDeleteNode, onClose,
+  node, workflowVariables, onUpdateNode, onDeleteNode, onClose, workflowId,
   lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl,
   resolveBaseUrl, fallbackBaseUrl = '',
   extractionSampleResponseBody, extractionFetchSample,
@@ -218,6 +219,8 @@ export default function WorkflowNodeConfigModal({
               <WebhookConfig
                 data={draftNode.data as WebhookTriggerNodeData}
                 onChange={updateDraft}
+                workflowId={workflowId}
+                nodeId={node.id}
               />
             )}
 

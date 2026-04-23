@@ -1237,6 +1237,7 @@ function WorkflowDesignerInner({
           onUpdateNode={handleUpdateNode}
           onDeleteNode={handleDeleteNode}
           onClose={() => setConfigModalNodeId(null)}
+          workflowId={selected?.id}
           lastQuickTestRequestUrl={lastQuickTestRequestUrl}
           lastRunStepError={configModalNodeId ? nodeStatuses[configModalNodeId]?.error : undefined}
           effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
