@@ -3,16 +3,22 @@
 > Design document for adding explicit trigger/entry-point nodes to the Workflow Designer
 > and restructuring how default variables are provided.
 
-**Status:** Phase 1 ✅ | Phase 2 ✅ | Phase 3 🚧 In Progress
+**Status:** Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ⏳
 
 **Progress Summary:**
-- ✅ Phase 1: Start node + Workflow Variables (merged to develop)
-- ✅ Phase 2: Fork/Join nodes with parallel execution (merged to develop)
-- 🚧 Phase 3: Webhook Trigger node (next - UI + simulate mode)
-- ⏳ Phase 4: Schedule Trigger node (pending)
-- ⏳ Phase 5: Backend webhook server & cron runner (pending)
+- ✅ Phase 1: Start node + Workflow Variables (merged to develop April 23, 2026)
+- ✅ Phase 2: Fork/Join nodes with parallel execution (merged to develop April 23, 2026)
+- ✅ Phase 3: Webhook Trigger node (merged to develop April 23, 2026)
+- ✅ Phase 4: Schedule Trigger node (merged to develop April 23, 2026)
+- ⏳ Phase 5: Backend webhook server & cron runner (pending - requires Tauri/Node backend)
 
-**Latest Merge:** `feature/workflow-trigger-nodes` → `develop` (April 23, 2026)
+**Latest Merge:** `feature/webhook-schedule-triggers` → `develop` (April 23, 2026)
+- 31 new tests (11 unit + 20 E2E), all passing
+- Webhook & Schedule trigger nodes fully integrated with graphRunner
+- Variable extraction from webhook payloads, automatic time variables for schedules
+- Configuration UI complete with method selection, cron expressions, timezone support
+
+**Previous Merge:** `feature/workflow-trigger-nodes` → `develop` (April 23, 2026)
 - 53 files changed, +6,236 insertions, -470 deletions
 - Test coverage: 91.68% branch coverage in workflow directory
 - All 70 E2E tests passing, 1554 unit tests passing
