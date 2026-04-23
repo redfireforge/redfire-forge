@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, NodeRunStatus } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, NodeRunStatus } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -258,6 +258,59 @@ export async function runGraph(
           await visit(edge.target, threadId);
         }
 
+      } else if (node.type === 'webhook') {
+        // Webhook trigger: seed variables from simulated/actual webhook payload.
+        // In simulate mode, variables come from workflow-level defaults or manual config.
+        // Phase 5 will handle actual webhook server integration.
+        const data = node.data as WebhookTriggerNodeData;
+        // Extract variables from sample payload if configured
+        if (data.extractVariables && data.extractVariables.length > 0) {
+          try {
+            const payload = JSON.parse(data.samplePayload || '{}');
+            for (const { name, jsonPath } of data.extractVariables) {
+              // Simple JSONPath extraction (e.g., $.event, $.data.id)
+              const keys = jsonPath.replace(/^\$\./, '').split('.');
+              let value: unknown = payload;
+              for (const key of keys) {
+                value = (value as Record<string, unknown>)?.[key];
+                if (value === undefined) break;
+              }
+              if (value !== undefined) {
+                ctx.set(name, String(value));
+              }
+            }
+          } catch {
+            // Invalid JSON in samplePayload - skip extraction
+          }
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+
+      } else if (node.type === 'schedule') {
+        // Schedule trigger: seed variables with trigger time and any configured inputs.
+        const data = node.data as ScheduleTriggerNodeData;
+        // Add schedule-specific variables
+        ctx.set('triggerTime', new Date().toISOString());
+        ctx.set('triggerTimestamp', Date.now().toString());
+        // Seed any configured input variables
+        if (data.inputVariables) {
+          for (const [k, v] of Object.entries(data.inputVariables)) {
+            ctx.set(k, v);
+          }
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+
       } else if (node.type === 'fork') {
         // Fork node: execute all outgoing branches in parallel.
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
@@ -325,9 +378,9 @@ export async function runGraph(
 // ── Helpers ──────────────────────────────────────────
 
 function findStartNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
-  // Prefer explicit start-type nodes; fall back to nodes with no incoming edges.
-  const startTypeNodes = nodes.filter(n => n.type === 'start');
-  if (startTypeNodes.length > 0) return startTypeNodes;
+  // Prefer explicit trigger nodes (start, webhook, schedule); fall back to nodes with no incoming edges.
+  const triggerNodes = nodes.filter(n => n.type === 'start' || n.type === 'webhook' || n.type === 'schedule');
+  if (triggerNodes.length > 0) return triggerNodes;
   const targets = new Set(edges.map(e => e.target));
   return nodes.filter(n => !targets.has(n.id));
 }
