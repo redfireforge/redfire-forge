@@ -24,7 +24,7 @@ interface Props {
 
 export default function WorkflowPalette({ collections, catalogEntries, onAddNode, onAddFromRequest, onAddFromCatalog }: Props) {
   const [section, setSection] = useState<'blocks' | 'requests' | 'catalog'>('blocks');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic']));
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
@@ -41,74 +41,98 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
       <div className="wf-palette-content">
         {section === 'blocks' && (
           <div className="wf-palette-blocks">
-            <div className="wf-palette-category">Triggers</div>
-            <button className="wf-palette-block wf-palette-block-start" onClick={() => onAddNode('start')}>
-              <span className="wf-pb-icon">▶</span>
-              <div>
-                <div className="wf-pb-title">Manual Start</div>
-                <div className="wf-pb-desc">Workflow entry point</div>
-              </div>
+            {/* Triggers Category */}
+            <button className="wf-palette-category-header" onClick={() => toggle('triggers')}>
+              <span className="wf-palette-caret">{expanded.has('triggers') ? '▾' : '▸'}</span>
+              <span className="wf-palette-category-title">Triggers</span>
             </button>
-            <button className="wf-palette-block wf-palette-block-webhook" onClick={() => onAddNode('webhook')}>
-              <span className="wf-pb-icon">🪝</span>
-              <div>
-                <div className="wf-pb-title">Webhook Trigger</div>
-                <div className="wf-pb-desc">Incoming HTTP request</div>
-              </div>
-            </button>
-            <button className="wf-palette-block wf-palette-block-schedule" onClick={() => onAddNode('schedule')}>
-              <span className="wf-pb-icon">⏰</span>
-              <div>
-                <div className="wf-pb-title">Schedule Trigger</div>
-                <div className="wf-pb-desc">Cron-based execution</div>
-              </div>
-            </button>
+            {expanded.has('triggers') && (
+              <>
+                <button className="wf-palette-block wf-palette-block-start" onClick={() => onAddNode('start')}>
+                  <span className="wf-pb-icon">▶</span>
+                  <div>
+                    <div className="wf-pb-title">Manual Start</div>
+                    <div className="wf-pb-desc">Workflow entry point</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-webhook" onClick={() => onAddNode('webhook')}>
+                  <span className="wf-pb-icon">🪝</span>
+                  <div>
+                    <div className="wf-pb-title">Webhook Trigger</div>
+                    <div className="wf-pb-desc">Incoming HTTP request</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-schedule" onClick={() => onAddNode('schedule')}>
+                  <span className="wf-pb-icon">⏰</span>
+                  <div>
+                    <div className="wf-pb-title">Schedule Trigger</div>
+                    <div className="wf-pb-desc">Cron-based execution</div>
+                  </div>
+                </button>
+              </>
+            )}
 
-            <div className="wf-palette-category">Actions</div>
-            <button className="wf-palette-block wf-palette-block-http" onClick={() => onAddNode('http')}>
-              <span className="wf-pb-icon">↗</span>
-              <div>
-                <div className="wf-pb-title">HTTP Request</div>
-                <div className="wf-pb-desc">API call with extraction</div>
-              </div>
+            {/* Actions Category */}
+            <button className="wf-palette-category-header" onClick={() => toggle('actions')}>
+              <span className="wf-palette-caret">{expanded.has('actions') ? '▾' : '▸'}</span>
+              <span className="wf-palette-category-title">Actions</span>
             </button>
-            <button className="wf-palette-block wf-palette-block-delay" onClick={() => onAddNode('delay')}>
-              <span className="wf-pb-icon">⏱</span>
-              <div>
-                <div className="wf-pb-title">Delay</div>
-                <div className="wf-pb-desc">Pause between steps</div>
-              </div>
-            </button>
+            {expanded.has('actions') && (
+              <>
+                <button className="wf-palette-block wf-palette-block-http" onClick={() => onAddNode('http')}>
+                  <span className="wf-pb-icon">↗</span>
+                  <div>
+                    <div className="wf-pb-title">HTTP Request</div>
+                    <div className="wf-pb-desc">API call with extraction</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-delay" onClick={() => onAddNode('delay')}>
+                  <span className="wf-pb-icon">⏱</span>
+                  <div>
+                    <div className="wf-pb-title">Delay</div>
+                    <div className="wf-pb-desc">Pause between steps</div>
+                  </div>
+                </button>
+              </>
+            )}
 
-            <div className="wf-palette-category">Logic</div>
-            <button className="wf-palette-block wf-palette-block-condition" onClick={() => onAddNode('condition')}>
-              <span className="wf-pb-icon">◆</span>
-              <div>
-                <div className="wf-pb-title">Condition</div>
-                <div className="wf-pb-desc">If/Else branching</div>
-              </div>
+            {/* Logic Category */}
+            <button className="wf-palette-category-header" onClick={() => toggle('logic')}>
+              <span className="wf-palette-caret">{expanded.has('logic') ? '▾' : '▸'}</span>
+              <span className="wf-palette-category-title">Logic</span>
             </button>
-            <button className="wf-palette-block wf-palette-block-fork" onClick={() => onAddNode('fork')}>
-              <span className="wf-pb-icon">⑃</span>
-              <div>
-                <div className="wf-pb-title">Parallel Fork</div>
-                <div className="wf-pb-desc">Concurrent branches</div>
-              </div>
-            </button>
-            <button className="wf-palette-block wf-palette-block-join" onClick={() => onAddNode('join')}>
-              <span className="wf-pb-icon">⑂</span>
-              <div>
-                <div className="wf-pb-title">Join</div>
-                <div className="wf-pb-desc">Wait for all branches</div>
-              </div>
-            </button>
-            <button className="wf-palette-block wf-palette-block-end" onClick={() => onAddNode('end')}>
-              <span className="wf-pb-icon">⏹</span>
-              <div>
-                <div className="wf-pb-title">End</div>
-                <div className="wf-pb-desc">Workflow termination</div>
-              </div>
-            </button>
+            {expanded.has('logic') && (
+              <>
+                <button className="wf-palette-block wf-palette-block-condition" onClick={() => onAddNode('condition')}>
+                  <span className="wf-pb-icon">◆</span>
+                  <div>
+                    <div className="wf-pb-title">Condition</div>
+                    <div className="wf-pb-desc">If/Else branching</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-fork" onClick={() => onAddNode('fork')}>
+                  <span className="wf-pb-icon">⑃</span>
+                  <div>
+                    <div className="wf-pb-title">Parallel Fork</div>
+                    <div className="wf-pb-desc">Concurrent branches</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-join" onClick={() => onAddNode('join')}>
+                  <span className="wf-pb-icon">⑂</span>
+                  <div>
+                    <div className="wf-pb-title">Join</div>
+                    <div className="wf-pb-desc">Wait for all branches</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-end" onClick={() => onAddNode('end')}>
+                  <span className="wf-pb-icon">⏹</span>
+                  <div>
+                    <div className="wf-pb-title">End</div>
+                    <div className="wf-pb-desc">Workflow termination</div>
+                  </div>
+                </button>
+              </>
+            )}
           </div>
         )}
 
