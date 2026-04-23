@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Workflow } from '../../types/workflow';
+import { sampleWorkflowCatalog, type SampleWorkflowEntry } from '../../data/sampleWorkflows';
 
 interface Props {
   workflows: Workflow[];
@@ -9,7 +10,7 @@ interface Props {
   onRename: (id: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onLoadSample: () => void;
+  onLoadSample: (entry: SampleWorkflowEntry) => void;
 }
 
 interface WorkflowSidebarContextMenuState {
@@ -23,6 +24,8 @@ export default function WorkflowSidebar({
   workflows, selectedId, onSelect, onNew, onRename, onDelete, onDuplicate, onLoadSample,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<WorkflowSidebarContextMenuState | null>(null);
+  const [showSamples, setShowSamples] = useState(false);
+  const samplesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -35,6 +38,20 @@ export default function WorkflowSidebar({
       window.removeEventListener('resize', close);
     };
   }, [contextMenu]);
+
+  useEffect(() => {
+    if (!showSamples) return;
+    const close = (e: MouseEvent) => {
+      if (samplesRef.current && !samplesRef.current.contains(e.target as Node)) setShowSamples(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowSamples(false); };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showSamples]);
 
   return (
     <div className="wf-sidebar">
@@ -70,10 +87,28 @@ export default function WorkflowSidebar({
         </div>
       )}
 
-      <div className="wf-sidebar-footer">
-        <button className="btn btn-sm" onClick={onLoadSample} style={{ width: '100%' }}>
-          Load Sample Workflow
+      <div className="wf-sidebar-footer" ref={samplesRef}>
+        <button className="btn btn-sm" onClick={() => setShowSamples(v => !v)} style={{ width: '100%' }}>
+          📚 Browse Samples
         </button>
+        {showSamples && (
+          <div className="wf-sample-dropdown">
+            {sampleWorkflowCatalog.map(entry => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="wf-sample-dropdown-item"
+                  onClick={() => {
+                    onLoadSample(entry);
+                    setShowSamples(false);
+                  }}
+                >
+                  <span className="wf-sample-name">{entry.name}</span>
+                  <span className="wf-sample-desc">{entry.description}</span>
+                </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {contextMenu && (

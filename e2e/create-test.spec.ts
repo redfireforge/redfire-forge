@@ -4,22 +4,23 @@ import { seedAppData } from './helpers';
 test.describe('Create Test flow', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=scenarios');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('app loads with Feature Groups tab active', async ({ page }) => {
     const header = page.locator('.app-header h1');
-    await expect(header).toContainText('RedfireForge');
-    const activeTab = page.locator('.tab.active');
-    await expect(activeTab).toHaveText('Feature Groups');
+    await expect(header).toContainText('RedfireForge', { timeout: 5000 });
+    const activeTab = page.locator('.main-nav-tab.active');
+    await expect(activeTab).toHaveText('Feature Groups', { timeout: 5000 });
   });
 
   test('create a Feature Group', async ({ page }) => {
     await page.click('button:has-text("+ Add Feature Group")');
     const input = page.locator('input[placeholder="Feature group name (e.g. Onboarding)"]');
     await input.fill('My Feature');
-    await page.click('button:has-text("Create")');
+    await page.locator('.inline-name-form button:has-text("Create")').click();
 
     await expect(page.locator('.feature-group-card')).toBeVisible();
     await expect(page.locator('.feature-group-card')).toContainText('My Feature');
@@ -29,7 +30,7 @@ test.describe('Create Test flow', () => {
     // Create Feature Group
     await page.click('button:has-text("+ Add Feature Group")');
     await page.locator('input[placeholder="Feature group name (e.g. Onboarding)"]').fill('FG-1');
-    await page.click('button:has-text("Create")');
+    await page.locator('.inline-name-form button:has-text("Create")').click();
 
     // Create Scenario
     await page.click('button:has-text("+ Scenario")');
@@ -45,7 +46,7 @@ test.describe('Create Test flow', () => {
     // Create Feature Group
     await page.click('button:has-text("+ Add Feature Group")');
     await page.locator('input[placeholder="Feature group name (e.g. Onboarding)"]').fill('FG-1');
-    await page.click('button:has-text("Create")');
+    await page.locator('.inline-name-form button:has-text("Create")').click();
 
     // Create Scenario
     await page.click('button:has-text("+ Scenario")');

@@ -17,18 +17,21 @@ interface Props {
   selectedEnvId?: string;
   onEnvSelect?: (id: string) => void;
   workflowServices?: WorkflowService[];
+  isPreview?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
   onSave: () => void;
   onQuickTest: () => void;
+  onDebugTest?: () => void;
+  isDebugMode?: boolean;
   onOpenServices?: () => void;
   onOpenDefaults?: () => void;
 }
 
 export default function WorkflowToolbar({
   workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0,
-  environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [],
-  onNew, onSelect, onSave, onQuickTest, onOpenServices, onOpenDefaults,
+  environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [], isPreview = false,
+  onNew, onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults,
 }: Props) {
   const envReadinessMap = useMemo(
     () => workflowServices.length > 0
@@ -63,7 +66,7 @@ export default function WorkflowToolbar({
             <span className="wf-toolbar-divider" />
 
             <button
-              className="btn btn-sm wf-toolbar-services-btn"
+              className="btn btn-sm wf-toolbar-btn wf-toolbar-services-btn"
               onClick={onOpenServices}
               disabled={isRunning}
               title="Manage external service hostnames and auth for this workflow"
@@ -73,12 +76,12 @@ export default function WorkflowToolbar({
             </button>
 
             <button
-              className="btn btn-sm wf-toolbar-services-btn"
+              className="btn btn-sm wf-toolbar-btn wf-toolbar-variables-btn"
               onClick={onOpenDefaults}
               disabled={isRunning}
               title="Manage workflow-level default variables"
             >
-              📋 Defaults
+              📋 Workflow Variables
               {variableCount > 0 && <span className="wf-toolbar-services-badge">{variableCount}</span>}
             </button>
 
@@ -108,7 +111,7 @@ export default function WorkflowToolbar({
             <span className="wf-toolbar-divider" />
 
             <span className="wf-toolbar-save-wrap">
-              <button className="btn btn-sm" onClick={onSave} disabled={isRunning} title="Save canvas and variables to this workflow">
+              <button className="btn btn-sm" onClick={onSave} disabled={isRunning || isPreview} title={isPreview ? "Preview mode - click 'Use as Template' to save" : "Save canvas and variables to this workflow"}>
                 Save
               </button>
               {saveAcknowledged && (
@@ -123,12 +126,23 @@ export default function WorkflowToolbar({
 
       <div className="wf-toolbar-right">
         {selected && (
-          <button
-            className={`btn btn-sm ${isRunning ? 'btn-danger' : 'btn-primary'}`}
-            onClick={onQuickTest}
-          >
-            {isRunning ? '■ Stop' : '▶ Quick Test'}
-          </button>
+          <>
+            <button
+              className={`btn btn-sm ${isRunning && !isDebugMode ? 'btn-danger' : 'btn-primary'}`}
+              onClick={onQuickTest}
+            >
+              {isRunning && !isDebugMode ? '■ Stop' : '▶ Quick Test'}
+            </button>
+            {onDebugTest && (
+              <button
+                className={`btn btn-sm ${isRunning && isDebugMode ? 'btn-danger' : 'btn-outline'}`}
+                onClick={onDebugTest}
+                title="Run workflow step-by-step"
+              >
+                {isRunning && isDebugMode ? '■ Stop Debug' : '🔍 Debug'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

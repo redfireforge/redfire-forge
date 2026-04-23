@@ -5,6 +5,7 @@ import type {
   HttpNodeData,
   ConditionNodeData,
   DelayNodeData,
+  StartNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -192,6 +193,20 @@ export default function WorkflowNodeConfigModal({
               <DelayConfig
                 data={draftNode.data as DelayNodeData}
                 onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'start' && (
+              <VariablesSection
+                title="Trigger input variables"
+                hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
+                variables={(draftNode.data as StartNodeData).inputVariables ?? {}}
+                onUpdateVariables={(vars) => updateDraft({ inputVariables: vars })}
+                newVarKey={newVarKey}
+                setNewVarKey={setNewVarKey}
+                newVarValue={newVarValue}
+                setNewVarValue={setNewVarValue}
+                workflowVariables={workflowVariables}
               />
             )}
 

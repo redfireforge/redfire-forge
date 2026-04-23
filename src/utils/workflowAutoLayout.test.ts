@@ -135,4 +135,148 @@ describe('getAutoLayoutNodes', () => {
       expect(Number.isFinite(n.position.y)).toBe(true);
     }
   });
+
+  it('positions true-branch left and false-branch right for condition nodes in TB', () => {
+    const nodes = [makeNode('cond'), makeNode('yes'), makeNode('no')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'cond', target: 'yes', sourceHandle: 'true' },
+      { id: 'e2', source: 'cond', target: 'no', sourceHandle: 'false' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const yesX = result.find(n => n.id === 'yes')!.position.x;
+    const noX = result.find(n => n.id === 'no')!.position.x;
+    // Yes (true) should be to the left of No (false)
+    expect(yesX).toBeLessThan(noX);
+  });
+
+  it('positions true-branch top and false-branch bottom for condition nodes in LR', () => {
+    const nodes = [makeNode('cond'), makeNode('yes'), makeNode('no')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'cond', target: 'yes', sourceHandle: 'true' },
+      { id: 'e2', source: 'cond', target: 'no', sourceHandle: 'false' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'LR');
+
+    const yesY = result.find(n => n.id === 'yes')!.position.y;
+    const noY = result.find(n => n.id === 'no')!.position.y;
+    // Yes (true) should be above No (false)
+    expect(yesY).toBeLessThan(noY);
+  });
+
+  it('swaps entire subtrees when fixing branch ordering', () => {
+    // cond -> yes -> yesChild, cond -> no -> noChild
+    const nodes = [makeNode('cond'), makeNode('yes'), makeNode('no'), makeNode('yc'), makeNode('nc')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'cond', target: 'yes', sourceHandle: 'true' },
+      { id: 'e2', source: 'cond', target: 'no', sourceHandle: 'false' },
+      { id: 'e3', source: 'yes', target: 'yc' },
+      { id: 'e4', source: 'no', target: 'nc' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const yesX = result.find(n => n.id === 'yes')!.position.x;
+    const noX = result.find(n => n.id === 'no')!.position.x;
+    const ycX = result.find(n => n.id === 'yc')!.position.x;
+    const ncX = result.find(n => n.id === 'nc')!.position.x;
+
+    expect(yesX).toBeLessThan(noX);
+    expect(ycX).toBeLessThan(ncX);
+  });
+
+  it('does not alter layout when branches have no sourceHandle', () => {
+    // Plain edges without sourceHandle should not trigger branch fix
+    const nodes = [makeNode('root'), makeNode('a'), makeNode('b')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'root', target: 'a' },
+      { id: 'e2', source: 'root', target: 'b' },
+    ];
+    const result1 = getAutoLayoutNodes(nodes, edges, 'TB');
+    const result2 = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    // Results should be deterministic (no random swapping)
+    expect(result1.find(n => n.id === 'a')!.position.x).toBe(result2.find(n => n.id === 'a')!.position.x);
+    expect(result1.find(n => n.id === 'b')!.position.x).toBe(result2.find(n => n.id === 'b')!.position.x);
+  });
+
+  it('handles multiple condition nodes in the same graph', () => {
+    const nodes = [
+      makeNode('c1'), makeNode('c1y'), makeNode('c1n'),
+      makeNode('c2'), makeNode('c2y'), makeNode('c2n'),
+    ];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'c1', target: 'c1y', sourceHandle: 'true' },
+      { id: 'e2', source: 'c1', target: 'c1n', sourceHandle: 'false' },
+      { id: 'e3', source: 'c1y', target: 'c2' },
+      { id: 'e4', source: 'c2', target: 'c2y', sourceHandle: 'true' },
+      { id: 'e5', source: 'c2', target: 'c2n', sourceHandle: 'false' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    // Both condition nodes should have true-branch left of false-branch
+    expect(result.find(n => n.id === 'c1y')!.position.x).toBeLessThan(result.find(n => n.id === 'c1n')!.position.x);
+    expect(result.find(n => n.id === 'c2y')!.position.x).toBeLessThan(result.find(n => n.id === 'c2n')!.position.x);
+  });
+
+  it('uses label fallback when sourceHandle is not set', () => {
+    const nodes = [makeNode('cond'), makeNode('yes'), makeNode('no')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'cond', target: 'yes', label: 'Yes' },
+      { id: 'e2', source: 'cond', target: 'no', label: 'No' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const yesX = result.find(n => n.id === 'yes')!.position.x;
+    const noX = result.find(n => n.id === 'no')!.position.x;
+    expect(yesX).toBeLessThan(noX);
+  });
+
+  it('prefers sourceHandle over label when both are present', () => {
+    const nodes = [makeNode('cond'), makeNode('yes'), makeNode('no')];
+    const edges: Edge[] = [
+      { id: 'e1', source: 'cond', target: 'yes', sourceHandle: 'true', label: 'Yes' },
+      { id: 'e2', source: 'cond', target: 'no', sourceHandle: 'false', label: 'No' },
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const yesX = result.find(n => n.id === 'yes')!.position.x;
+    const noX = result.find(n => n.id === 'no')!.position.x;
+    expect(yesX).toBeLessThan(noX);
+  });
+
+  it('centers fork and join nodes over their parallel branches', () => {
+    const start: Node = { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: {} };
+    const fork: Node = { id: 'fork', type: 'fork', position: { x: 0, y: 0 }, data: {} };
+    const branchA = makeNode('a');
+    const branchB = makeNode('b');
+    const join: Node = { id: 'join', type: 'join', position: { x: 0, y: 0 }, data: {} };
+
+    const nodes = [start, fork, branchA, branchB, join];
+    const edges = [
+      makeEdge('e0', 'start', 'fork'),
+      makeEdge('e1', 'fork', 'a'),
+      makeEdge('e2', 'fork', 'b'),
+      makeEdge('e3', 'a', 'join'),
+      makeEdge('e4', 'b', 'join'),
+    ];
+
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const forkPos = result.find(n => n.id === 'fork')!.position;
+    const joinPos = result.find(n => n.id === 'join')!.position;
+    const aPos = result.find(n => n.id === 'a')!.position;
+    const bPos = result.find(n => n.id === 'b')!.position;
+
+    // Fork and join should be roughly centered between the two branches
+    const branchMidX = (aPos.x + bPos.x) / 2;
+    expect(Math.abs(forkPos.x - branchMidX)).toBeLessThan(50);
+    expect(Math.abs(joinPos.x - branchMidX)).toBeLessThan(50);
+
+    // Branches should be horizontally separated
+    expect(Math.abs(aPos.x - bPos.x)).toBeGreaterThan(40);
+
+    // Fork should be above branches, join below
+    expect(forkPos.y).toBeLessThan(aPos.y);
+    expect(joinPos.y).toBeGreaterThan(aPos.y);
+  });
 });

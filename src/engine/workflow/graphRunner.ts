@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, NodeRunStatus } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, NodeRunStatus } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -14,6 +14,7 @@ import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
 import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 import { escapeRegExp, toErrorMessage } from '../../utils/helpers';
+import type { DebugController } from './debugController';
 
 /**
  * Replace remaining `{{…}}` segments using a flat map (workflow + step snapshot + initialVariables).
@@ -87,6 +88,8 @@ export async function runGraph(
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   /** Optional per-HTTP-node auth profile resolver (workflow-local profile bindings). */
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
+  /** Optional debug controller for step-through execution. */
+  debugController?: DebugController,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -115,12 +118,48 @@ export async function runGraph(
   let allPassed = true;
   const visited = new Set<string>();
 
-  async function visit(nodeId: string): Promise<void> {
-    if (visited.has(nodeId) || abortSignal?.aborted) return;
-    visited.add(nodeId);
+  // Join-node barrier: track how many incoming edges have arrived.
+  const incomingCount = new Map<string, number>();
+  const joinArrived = new Map<string, number>();
+  for (const e of edges) {
+    incomingCount.set(e.target, (incomingCount.get(e.target) ?? 0) + 1);
+  }
+
+  async function visit(nodeId: string, threadId = 'main'): Promise<void> {
+    if (abortSignal?.aborted || debugController?.isStopped) return;
 
     const node = nodeMap.get(nodeId);
     if (!node) return;
+
+    // Join barrier: wait until all incoming branches have arrived.
+    if (node.type === 'join') {
+      const arrived = (joinArrived.get(nodeId) ?? 0) + 1;
+      joinArrived.set(nodeId, arrived);
+      const expected = incomingCount.get(nodeId) ?? 1;
+      if (arrived < expected) {
+        // Show waiting state on join node (both debug and normal mode)
+        callbacks.onNodeStateChange(nodeId, {
+          state: 'running',
+          responseDetail: `waiting (${arrived}/${expected})`,
+        });
+        if (debugController) {
+          debugController.markWaitingJoin(nodeId, threadId);
+        }
+        return; // not all branches arrived yet
+      }
+      // All branches arrived — fall through to execute once
+    }
+
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    // Debug: pause before executing this node
+    if (debugController) {
+      callbacks.onNodeStateChange(nodeId, { state: 'paused' });
+      await debugController.waitForStep(nodeId, threadId);
+      if (debugController.isStopped || abortSignal?.aborted) return;
+      debugController.markRunning(nodeId, threadId);
+    }
 
     callbacks.onNodeStateChange(nodeId, { state: 'running' });
 
@@ -151,7 +190,7 @@ export async function runGraph(
 
         const nextEdges = outgoing.get(nodeId) ?? [];
         for (const edge of nextEdges) {
-          await visit(edge.target);
+          await visit(edge.target, threadId);
         }
 
       } else if (node.type === 'condition') {
@@ -169,10 +208,17 @@ export async function runGraph(
         const skipEdges = nextEdges.filter(matchesSkippedBranch);
 
         for (const e of skipEdges) {
-          markSubtreeSkipped(e.target, outgoing, nodeMap, visited, callbacks);
+          markSubtreeSkipped(e.target, outgoing, nodeMap, visited, callbacks, incomingCount);
         }
-        for (const e of matchEdges) {
-          await visit(e.target);
+        // Run matched branches in parallel (like fork) when multiple edges share the same handle
+        if (matchEdges.length > 1) {
+          await Promise.all(matchEdges.map((e, i) =>
+            visit(e.target, `${threadId}-cond-${i}`)
+          ));
+        } else {
+          for (const e of matchEdges) {
+            await visit(e.target, threadId);
+          }
         }
 
       } else if (node.type === 'delay') {
@@ -193,8 +239,44 @@ export async function runGraph(
 
         const nextEdges = outgoing.get(nodeId) ?? [];
         for (const edge of nextEdges) {
-          await visit(edge.target);
+          await visit(edge.target, threadId);
         }
+
+      } else if (node.type === 'start') {
+        // Seed variables from the Start node's inputVariables into the context.
+        const data = node.data as StartNodeData;
+        if (data.inputVariables) {
+          for (const [k, v] of Object.entries(data.inputVariables)) {
+            ctx.set(k, v);
+          }
+          callbacks.onVariablesChange(ctx.snapshot());
+        }
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+
+      } else if (node.type === 'fork') {
+        // Fork node: execute all outgoing branches in parallel.
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        await Promise.all(nextEdges.map((edge, i) =>
+          visit(edge.target, `${threadId}-branch-${i}`)
+        ));
+      } else if (node.type === 'join') {
+        // Join node: barrier already handled above — just pass through.
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+      } else if (node.type === 'end') {
+        // End node: terminal — mark pass (no outgoing edges).
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
     } catch (err) {
       allPassed = false;
@@ -210,6 +292,31 @@ export async function runGraph(
     await visit(startNode.id);
   }
 
+  // If any node failed, implicitly mark unvisited End nodes as failed.
+  // If all passed, mark unvisited End nodes as pass (in case they weren't reached via edges).
+  const endNodes = nodes.filter(n => n.type === 'end');
+  for (const endNode of endNodes) {
+    if (!visited.has(endNode.id)) {
+      if (!allPassed) {
+        // Collect error messages from failed nodes
+        const failedErrors: string[] = [];
+        for (const [nid, result] of results.entries()) {
+          if (result.error) failedErrors.push(result.error);
+        }
+        const errorSummary = failedErrors.length > 0
+          ? failedErrors.join('; ')
+          : 'One or more steps failed';
+        callbacks.onNodeStateChange(endNode.id, {
+          state: 'fail',
+          error: errorSummary,
+          responseDetail: errorSummary,
+        });
+      } else {
+        callbacks.onNodeStateChange(endNode.id, { state: 'pass' });
+      }
+    }
+  }
+
   const durationMs = Math.round(performance.now() - start);
   callbacks.onComplete(results, allPassed, durationMs);
   return results;
@@ -218,6 +325,9 @@ export async function runGraph(
 // ── Helpers ──────────────────────────────────────────
 
 function findStartNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
+  // Prefer explicit start-type nodes; fall back to nodes with no incoming edges.
+  const startTypeNodes = nodes.filter(n => n.type === 'start');
+  if (startTypeNodes.length > 0) return startTypeNodes;
   const targets = new Set(edges.map(e => e.target));
   return nodes.filter(n => !targets.has(n.id));
 }
@@ -228,13 +338,26 @@ function markSubtreeSkipped(
   nodeMap: Map<string, WorkflowNode>,
   visited: Set<string>,
   callbacks: GraphRunCallbacks,
+  incomingCount?: Map<string, number>,
 ) {
+  // If this is a join node, don't skip it — just decrement its expected arrival count
+  // so the barrier knows fewer branches will arrive.
+  const node = nodeMap.get(nodeId);
+  if (node?.type === 'join') {
+    if (incomingCount) {
+      const current = incomingCount.get(nodeId) ?? 1;
+      if (current > 1) {
+        incomingCount.set(nodeId, current - 1);
+      }
+    }
+    return;
+  }
   if (visited.has(nodeId)) return;
   visited.add(nodeId);
   callbacks.onNodeStateChange(nodeId, { state: 'skipped' });
   const nextEdges = outgoing.get(nodeId) ?? [];
   for (const edge of nextEdges) {
-    markSubtreeSkipped(edge.target, outgoing, nodeMap, visited, callbacks);
+    markSubtreeSkipped(edge.target, outgoing, nodeMap, visited, callbacks, incomingCount);
   }
 }
 

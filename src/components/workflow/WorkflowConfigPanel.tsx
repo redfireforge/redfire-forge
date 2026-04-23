@@ -5,6 +5,7 @@ import type {
   HttpNodeData,
   ConditionNodeData,
   DelayNodeData,
+  StartNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -150,6 +151,20 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
         />
       )}
 
+      {node.type === 'start' && (
+        <VariablesSection
+          title="Trigger input variables"
+          hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
+          variables={(node.data as StartNodeData).inputVariables ?? {}}
+          onUpdateVariables={(vars) => onUpdateNode(node.id, { inputVariables: vars })}
+          newVarKey={newVarKey}
+          setNewVarKey={setNewVarKey}
+          newVarValue={newVarValue}
+          setNewVarValue={setNewVarValue}
+          workflowVariables={workflowVariables}
+        />
+      )}
+
       {(!node || isHttpWorkflowNode(node)) && (
         <VariablesSection
           title={node && isHttpWorkflowNode(node) ? 'Initial variables (this step)' : 'Workflow defaults'}
@@ -179,7 +194,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
   ) : null;
 
   return (
-    <div className="wf-config-panel">
+    <div className="wf-config-panel wf-node-config-panel">
       {!node && (
         <div className="wf-config-empty">
           <p>Select a node to configure</p>
