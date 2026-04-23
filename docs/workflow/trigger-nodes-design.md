@@ -3,6 +3,20 @@
 > Design document for adding explicit trigger/entry-point nodes to the Workflow Designer
 > and restructuring how default variables are provided.
 
+**Status:** Phase 1 ✅ | Phase 2 ✅ | Phase 3 🚧 In Progress
+
+**Progress Summary:**
+- ✅ Phase 1: Start node + Workflow Variables (merged to develop)
+- ✅ Phase 2: Fork/Join nodes with parallel execution (merged to develop)
+- 🚧 Phase 3: Webhook Trigger node (next - UI + simulate mode)
+- ⏳ Phase 4: Schedule Trigger node (pending)
+- ⏳ Phase 5: Backend webhook server & cron runner (pending)
+
+**Latest Merge:** `feature/workflow-trigger-nodes` → `develop` (April 23, 2026)
+- 53 files changed, +6,236 insertions, -470 deletions
+- Test coverage: 91.68% branch coverage in workflow directory
+- All 70 E2E tests passing, 1554 unit tests passing
+
 ---
 
 ## Motivation
@@ -377,15 +391,47 @@ BLOCKS
 
 ## Implementation Order
 
-| Phase | Scope | Effort |
-|-------|-------|--------|
-| **Phase 1** | Manual Start node + rename Defaults → Workflow Variables | Small |
-| **Phase 2** | Parallel Fork node | Medium |
-| **Phase 3** | Webhook Trigger node (UI + simulate mode) | Medium |
-| **Phase 4** | Schedule Trigger node (UI + simulate mode) | Medium |
-| **Phase 5** | Backend: actual webhook server & cron runner (Tauri/Node) | Large |
+| Phase | Scope | Effort | Status |
+|-------|-------|--------|--------|
+| **Phase 1** | Manual Start node + rename Defaults → Workflow Variables | Small | ✅ Complete |
+| **Phase 2** | Parallel Fork node | Medium | ✅ Complete |
+| **Phase 3** | Webhook Trigger node (UI + simulate mode) | Medium | 🚧 In Progress |
+| **Phase 4** | Schedule Trigger node (UI + simulate mode) | Medium | ⏳ Pending |
+| **Phase 5** | Backend: actual webhook server & cron runner (Tauri/Node) | Large | ⏳ Pending |
 
-### Phase 1 Detail (Manual Start)
+### Phase 1 Detail (Manual Start) — ✅ COMPLETE
+
+**Implemented:**
+1. ✅ Added `start` to `WorkflowNodeType` union
+2. ✅ Created `StartNode.tsx` component with green play icon
+3. ✅ Auto-insert Start node on new workflow creation
+4. ✅ Start node stores initial variables in `inputVariables`
+5. ✅ Renamed "Defaults" button → "Workflow Variables" in toolbar
+6. ✅ Updated `runGraph()` engine to seed variables from Start node
+7. ✅ Unit tests (19 tests) + E2E tests (9 tests including Start node visibility)
+8. ✅ Added End node for terminal states
+9. ✅ Migration: auto-create Start node for existing workflows (schema v3 → v4)
+
+**Merged:** feature/workflow-trigger-nodes → develop (commit 460b5f1)
+
+### Phase 2 Detail (Parallel Fork) — ✅ COMPLETE
+
+**Implemented:**
+1. ✅ Added `fork` and `join` to `WorkflowNodeType` union
+2. ✅ Created `ForkNode.tsx` component (parallel split with multiple output handles)
+3. ✅ Created `JoinNode.tsx` component (parallel merge with wait-all semantics)
+4. ✅ Updated `graphRunner.ts` for parallel execution:
+   - Fork spawns concurrent execution paths
+   - Join waits for all incoming branches before proceeding
+   - HTTP requests on parallel paths execute concurrently
+5. ✅ DebugController: "Waiting for N threads" status on Join nodes
+6. ✅ Auto-layout support: Dagre algorithm + smart fork/join path centering
+7. ✅ Unit tests (27 new tests in graphRunner.additional.test.ts) + E2E tests (9 tests)
+8. ✅ Test coverage: 91.68% branch coverage in workflow directory
+
+**Merged:** feature/workflow-trigger-nodes → develop (commit 460b5f1)
+
+### Phase 3 Detail (Webhook Trigger) — 🚧 IN PROGRESS
 
 1. Add `start` to `WorkflowNodeType` union
 2. Create `StartNode.tsx` component
