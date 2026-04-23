@@ -72,12 +72,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Think time config displayed in Progress header and Results dashboard context tags (orange "Think:" badge)
   - Think time persisted in runner config and progress storage for session continuity
   - New types: `ThinkTimeMode`, `ThinkTimeConfig`; `TestConfig` extended with optional `thinkTime` field
+- **Workflow Node Config Modal**: Full-screen modal for editing HTTP, condition, and delay node configurations with draft/save/cancel pattern
+  - Configure badge on every node type (HTTP, Condition, Delay) for one-click access
+  - Double-click on any node opens config modal
+  - Save/Cancel/Delete actions with unsaved-changes guard
+- **Workflow Defaults Modal**: Modal for managing workflow-level default variables with draft/save/cancel
+- **Auto-Layout Button**: One-click dagre-based hierarchical layout for workflow graphs (top-to-bottom)
+  - New `workflowAutoLayout.ts` utility using `@dagrejs/dagre` with configurable direction, node spacing, and rank separation
+- **Workflow MiniMap**: React Flow minimap overlay for large workflow navigation
+- **Shared Variable Source Map**: Extracted `workflowSourceMap.ts` utility for resolving variable sources across workflow nodes
+- **Variable Insert Modal Hook**: Shared `useVariableInsertModal` hook for consistent variable picker behavior across modals
+- **Snapshot Utility**: `snapshot<T>()` deep-clone helper in `helpers.ts` for draft/save/cancel patterns
 
 ### Fixed
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
+- **WorkflowDefaultsModal**: Fixed duplicate declarations of `requestVariableInsert` and `handleVariableInsertPicked` that caused build errors
 
 ### Changed
-- **Test Coverage**: 1405 unit/integration tests across 65 test files + 26 E2E tests (94.5% statements, 85.6% branches, 92.8% functions, 95.6% lines)
+- **Test Coverage**: 1446 unit/integration tests across 67 test files + 28 E2E tests (94.55% statements, 85.7% branches, 92.83% functions, 95.67% lines)
 - **Shared Utilities Refactoring**: Extracted duplicate code into single canonical sources
   - `useDebounce` hook: consolidated from 3 inline copies into `src/hooks/useDebounce.ts`
   - `escapeRegExp()`: consolidated from 2 copies into `src/utils/helpers.ts`
