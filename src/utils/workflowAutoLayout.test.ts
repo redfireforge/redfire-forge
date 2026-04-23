@@ -279,4 +279,60 @@ describe('getAutoLayoutNodes', () => {
     expect(forkPos.y).toBeLessThan(aPos.y);
     expect(joinPos.y).toBeGreaterThan(aPos.y);
   });
+
+  it('treats webhook trigger nodes like start nodes in layout', () => {
+    const nodes: Node[] = [
+      { id: 'webhook', type: 'webhook', position: { x: 0, y: 0 }, data: {} },
+      { id: 'http', type: 'http', position: { x: 0, y: 0 }, data: {} },
+    ];
+    const edges = [makeEdge('e1', 'webhook', 'http')];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const webhookPos = result.find(n => n.id === 'webhook')!.position;
+    const httpPos = result.find(n => n.id === 'http')!.position;
+
+    // Webhook should be positioned above the HTTP node
+    expect(webhookPos.y).toBeLessThan(httpPos.y);
+    // Webhook should have compact dimensions applied
+    expect(result.find(n => n.id === 'webhook')?.type).toBe('webhook');
+  });
+
+  it('treats schedule trigger nodes like start nodes in layout', () => {
+    const nodes: Node[] = [
+      { id: 'schedule', type: 'schedule', position: { x: 0, y: 0 }, data: {} },
+      { id: 'http', type: 'http', position: { x: 0, y: 0 }, data: {} },
+    ];
+    const edges = [makeEdge('e1', 'schedule', 'http')];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const schedulePos = result.find(n => n.id === 'schedule')!.position;
+    const httpPos = result.find(n => n.id === 'http')!.position;
+
+    // Schedule should be positioned above the HTTP node
+    expect(schedulePos.y).toBeLessThan(httpPos.y);
+    // Schedule should have compact dimensions applied
+    expect(result.find(n => n.id === 'schedule')?.type).toBe('schedule');
+  });
+
+  it('centers webhook trigger above fork node', () => {
+    const nodes: Node[] = [
+      { id: 'webhook', type: 'webhook', position: { x: 0, y: 0 }, data: {} },
+      { id: 'fork', type: 'fork', position: { x: 0, y: 0 }, data: {} },
+      { id: 'a', type: 'http', position: { x: 0, y: 0 }, data: {} },
+      { id: 'b', type: 'http', position: { x: 0, y: 0 }, data: {} },
+    ];
+    const edges = [
+      makeEdge('e1', 'webhook', 'fork'),
+      makeEdge('e2', 'fork', 'a'),
+      makeEdge('e3', 'fork', 'b'),
+    ];
+    const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+    const webhookPos = result.find(n => n.id === 'webhook')!.position;
+    const forkPos = result.find(n => n.id === 'fork')!.position;
+
+    // Webhook should be centered above the fork
+    expect(Math.abs(webhookPos.x - forkPos.x)).toBeLessThan(20);
+    expect(webhookPos.y).toBeLessThan(forkPos.y);
+  });
 });

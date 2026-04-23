@@ -5,7 +5,7 @@ const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 
 /** Compact node types get smaller layout dimensions. */
-const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end']);
+const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule']);
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
@@ -71,7 +71,7 @@ export function getAutoLayoutNodes<N extends Node>(
     });
   }
 
-  // Post-process: for condition/start/fork nodes with branching source handles,
+  // Post-process: for condition/start/fork/trigger nodes with branching source handles,
   // ensure the "true"/Yes target is to the left of the "false"/No target to prevent
   // edge crossings (the Yes handle is at left:30%, No handle at left:70%).
   fixBranchOrdering(edges, positioned, direction);
@@ -88,7 +88,7 @@ export function getAutoLayoutNodes<N extends Node>(
   // Post-process: center condition branch children symmetrically under their parent
   centerConditionBranches(nodes, edges, positioned, nodeWidths, direction);
 
-  // Post-process: center fork/join/start/end nodes over their branches
+  // Post-process: center fork/join/start/end/trigger nodes over their branches
   if (hasFork) {
     centerForkJoinNodes(nodes, edges, positioned, nodeWidths, nodeHeights, direction);
     // Re-run overlap resolution after centering may have introduced new overlaps
@@ -375,7 +375,7 @@ function alignLinearChains<N extends Node>(
   }
 
   // Walk each chain: start from nodes that are NOT single-in/single-out
-  // (anchors like start, fork, join, condition with branches) and propagate
+  // (anchors like start, trigger, fork, join, condition with branches) and propagate
   // their center down through single-child chains.
   const visited = new Set<string>();
 
@@ -412,7 +412,7 @@ function alignLinearChains<N extends Node>(
     const out = outgoingEdges.get(node.id) ?? [];
 
     // Start propagation from anchors (not single-in/single-out)
-    // or from nodes that have already been positioned (start, fork, join, condition, end)
+    // or from nodes that have already been positioned (start, trigger, fork, join, condition, end)
     const isSingleChain = inc.length === 1 && out.length === 1;
     if (!isSingleChain && out.length === 1) {
       propagateDown(node.id);
@@ -617,7 +617,7 @@ function centerForkJoinNodes<N extends Node>(
 
   // Also center start node if it feeds directly into a fork
   for (const node of nodes) {
-    if (node.type !== 'start') continue;
+    if (node.type !== 'start' && node.type !== 'webhook' && node.type !== 'schedule') continue;
     const children = outgoing.get(node.id);
     if (!children || children.length !== 1) continue;
     const child = nodeMap.get(children[0]);
