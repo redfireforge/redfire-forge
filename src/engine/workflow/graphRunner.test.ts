@@ -714,4 +714,360 @@ describe('runGraph', () => {
       .map(([, s]: [string, { state: string }]) => s.state);
     expect(condStates).toContain('pass');
   });
+
+  // ── Start Node Tests ──
+
+  it('executes start node and seeds inputVariables into context', async () => {
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { token: 'abc123', env: 'test' } },
+    };
+    const h1 = httpNode('h1', 'Request');
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'start-1', sourceHandle: 'out', target: 'h1', targetHandle: null }];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, h1], edges, {}, cb);
+
+    // Start node should pass
+    const startStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'start-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(startStates).toContain('pass');
+
+    // Variables should be seeded
+    const varCalls = cb.onVariablesChange.mock.calls;
+    expect(varCalls.length).toBeGreaterThan(0);
+    const firstSnapshot = varCalls[0][0];
+    expect(firstSnapshot.token).toBe('abc123');
+    expect(firstSnapshot.env).toBe('test');
+
+    // HTTP node should execute after start
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('start node with empty inputVariables still executes downstream', async () => {
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: {} },
+    };
+    const h1 = httpNode('h1', 'Request');
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'start-1', sourceHandle: 'out', target: 'h1', targetHandle: null }];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, h1], edges, {}, cb);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number));
+  });
+
+  it('findStartNodes prefers start-type nodes over root nodes', async () => {
+    // If a start node exists, it should be the entry point even if other nodes have no incoming edges
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: {} },
+    };
+    const h1 = httpNode('h1', 'Request A');
+    const h2 = httpNode('h2', 'Request B');
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'start-1', sourceHandle: 'out', target: 'h1', targetHandle: null },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, h1, h2], edges, {}, cb);
+
+    // Only h1 should run (connected to start); h2 is an orphan but start-type is preferred
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // h2 should remain in pending state since it's not reachable from start
+    const h2States = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'h2')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(h2States).toEqual(['pending']);
+  });
+
+  it('start node connected to multiple downstream nodes executes all', async () => {
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { baseUrl: 'https://api.test.com' } },
+    };
+    const h1 = httpNode('h1', 'Request A');
+    const h2 = httpNode('h2', 'Request B');
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'start-1', sourceHandle: 'out', target: 'h1', targetHandle: null },
+      { id: 'e2', source: 'start-1', sourceHandle: 'out', target: 'h2', targetHandle: null },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, h1, h2], edges, {}, cb);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Fork Node Tests ──
+
+  it('fork node executes all outgoing branches in parallel', async () => {
+    const h0 = httpNode('h0', 'Pre-Fork');
+    const fork: WorkflowNode = {
+      id: 'fork-1', type: 'fork', position: { x: 0, y: 0 },
+      data: { label: 'Parallel Fork' },
+    };
+    const h1 = httpNode('h1', 'Branch A');
+    const h2 = httpNode('h2', 'Branch B');
+    const edges: WorkflowEdge[] = [
+      { id: 'e0', source: 'h0', target: 'fork-1' },
+      { id: 'e1', source: 'fork-1', sourceHandle: 'out', target: 'h1', targetHandle: null },
+      { id: 'e2', source: 'fork-1', sourceHandle: 'out', target: 'h2', targetHandle: null },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([h0, fork, h1, h2], edges, {}, cb);
+
+    // All 3 HTTP nodes should execute
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    // Fork should pass
+    const forkStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'fork-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(forkStates).toContain('pass');
+  });
+
+  it('fork node with no outgoing edges still passes', async () => {
+    const fork: WorkflowNode = {
+      id: 'fork-1', type: 'fork', position: { x: 0, y: 0 },
+      data: { label: 'Empty Fork' },
+    };
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([fork], [], {}, cb);
+
+    const forkStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'fork-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(forkStates).toContain('pass');
+  });
+
+  it('start + fork combo: start seeds variables then fork parallelizes', async () => {
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { region: 'us-east' } },
+    };
+    const fork: WorkflowNode = {
+      id: 'fork-1', type: 'fork', position: { x: 0, y: 0 },
+      data: { label: 'Fork' },
+    };
+    const h1 = httpNode('h1', 'Branch A');
+    const h2 = httpNode('h2', 'Branch B');
+    const edges: WorkflowEdge[] = [
+      { id: 'e0', source: 'start-1', sourceHandle: 'out', target: 'fork-1', targetHandle: null },
+      { id: 'e1', source: 'fork-1', sourceHandle: 'out', target: 'h1', targetHandle: null },
+      { id: 'e2', source: 'fork-1', sourceHandle: 'out', target: 'h2', targetHandle: null },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, fork, h1, h2], edges, {}, cb);
+
+    // Both branches should execute
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Variables should include the seeded ones
+    const varCalls = cb.onVariablesChange.mock.calls;
+    expect(varCalls[0][0].region).toBe('us-east');
+  });
+
+  // ── Join Node Tests ──
+
+  it('join node waits for all incoming branches before proceeding', async () => {
+    const fork: WorkflowNode = {
+      id: 'fork-1', type: 'fork', position: { x: 0, y: 0 },
+      data: { label: 'Fork' },
+    };
+    const h1 = httpNode('h1', 'Branch A');
+    const h2 = httpNode('h2', 'Branch B');
+    const join: WorkflowNode = {
+      id: 'join-1', type: 'join', position: { x: 0, y: 0 },
+      data: { label: 'Join' },
+    };
+    const h3 = httpNode('h3', 'After Join');
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'fork-1', target: 'h1' },
+      { id: 'e2', source: 'fork-1', target: 'h2' },
+      { id: 'e3', source: 'h1', target: 'join-1' },
+      { id: 'e4', source: 'h2', target: 'join-1' },
+      { id: 'e5', source: 'join-1', target: 'h3' },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([fork, h1, h2, join, h3], edges, {}, cb);
+
+    // All 3 HTTP nodes should execute (branch A, branch B, after join)
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    // Join should pass
+    const joinStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'join-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(joinStates).toContain('pass');
+
+    // After-join node should execute exactly once
+    const h3States = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'h3')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(h3States.filter(s => s === 'running')).toHaveLength(1);
+  });
+
+  it('join node with single incoming edge passes through immediately', async () => {
+    const h1 = httpNode('h1', 'Before');
+    const join: WorkflowNode = {
+      id: 'join-1', type: 'join', position: { x: 0, y: 0 },
+      data: { label: 'Join' },
+    };
+    const h2 = httpNode('h2', 'After');
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'h1', target: 'join-1' },
+      { id: 'e2', source: 'join-1', target: 'h2' },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([h1, join, h2], edges, {}, cb);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const joinStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'join-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(joinStates).toContain('pass');
+  });
+
+  it('join node with no outgoing edges still passes', async () => {
+    const h1 = httpNode('h1', 'Before');
+    const join: WorkflowNode = {
+      id: 'join-1', type: 'join', position: { x: 0, y: 0 },
+      data: { label: 'Join' },
+    };
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'h1', target: 'join-1' },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([h1, join], edges, {}, cb);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const joinStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'join-1')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(joinStates).toContain('pass');
+  });
+
+  it('full fork-join pattern: start → fork → branches → join → final', async () => {
+    const start: WorkflowNode = {
+      id: 'start-1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { token: 'abc' } },
+    };
+    const fork: WorkflowNode = {
+      id: 'fork-1', type: 'fork', position: { x: 0, y: 0 },
+      data: { label: 'Fork' },
+    };
+    const h1 = httpNode('h1', 'Branch A');
+    const h2 = httpNode('h2', 'Branch B');
+    const h3 = httpNode('h3', 'Branch C');
+    const join: WorkflowNode = {
+      id: 'join-1', type: 'join', position: { x: 0, y: 0 },
+      data: { label: 'Join' },
+    };
+    const hFinal = httpNode('h-final', 'Final Step');
+    const edges: WorkflowEdge[] = [
+      { id: 'e0', source: 'start-1', target: 'fork-1' },
+      { id: 'e1', source: 'fork-1', target: 'h1' },
+      { id: 'e2', source: 'fork-1', target: 'h2' },
+      { id: 'e3', source: 'fork-1', target: 'h3' },
+      { id: 'e4', source: 'h1', target: 'join-1' },
+      { id: 'e5', source: 'h2', target: 'join-1' },
+      { id: 'e6', source: 'h3', target: 'join-1' },
+      { id: 'e7', source: 'join-1', target: 'h-final' },
+    ];
+
+    const cb = { onNodeStateChange: vi.fn(), onVariablesChange: vi.fn(), onComplete: vi.fn() };
+    await runGraph([start, fork, h1, h2, h3, join, hFinal], edges, {}, cb);
+
+    // 3 branch HTTP nodes + 1 final = 4
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+
+    // Final node should run exactly once
+    const finalStates = cb.onNodeStateChange.mock.calls
+      .filter(([id]: [string]) => id === 'h-final')
+      .map(([, s]: [string, { state: string }]) => s.state);
+    expect(finalStates.filter(s => s === 'running')).toHaveLength(1);
+  });
+});
+
+describe('runGraph with DebugController', () => {
+  beforeEach(() => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{}',
+    });
+  });
+
+  it('pauses before each node and resumes on stepNode', async () => {
+    const { DebugController } = await import('./debugController');
+    const n1 = httpNode('n1', 'First');
+    const n2 = httpNode('n2', 'Second');
+    const nodes: WorkflowNode[] = [n1, n2];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'n1', target: 'n2' }];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+
+    const dc = new DebugController();
+    const runPromise = runGraph(nodes, edges, {}, cb, undefined, undefined, undefined, undefined, dc);
+
+    // Wait a tick for the first node to pause
+    await new Promise(r => setTimeout(r, 50));
+    expect(dc.getPausedNodeIds()).toContain('n1');
+
+    // Step first node
+    dc.stepNode('n1');
+    await new Promise(r => setTimeout(r, 200));
+
+    // Second node should now be paused
+    expect(dc.getPausedNodeIds()).toContain('n2');
+
+    // Step second node
+    dc.stepNode('n2');
+    await runPromise;
+
+    // onComplete should have been called
+    expect(cb.onComplete).toHaveBeenCalled();
+
+    // Both nodes should have gone through 'paused' state
+    const pausedCalls = cb.onNodeStateChange.mock.calls.filter(
+      ([, s]: [string, { state: string }]) => s.state === 'paused'
+    );
+    expect(pausedCalls.length).toBe(2);
+  });
+
+  it('resumeAll skips pausing for remaining nodes', async () => {
+    const { DebugController } = await import('./debugController');
+    const n1 = httpNode('n1', 'First');
+    const n2 = httpNode('n2', 'Second');
+    const nodes: WorkflowNode[] = [n1, n2];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'n1', target: 'n2' }];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+
+    const dc = new DebugController();
+    const runPromise = runGraph(nodes, edges, {}, cb, undefined, undefined, undefined, undefined, dc);
+
+    await new Promise(r => setTimeout(r, 50));
+    dc.resumeAll();
+    await runPromise;
+
+    expect(cb.onComplete).toHaveBeenCalled();
+  });
 });

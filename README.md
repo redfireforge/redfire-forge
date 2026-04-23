@@ -17,6 +17,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Feature Groups & Scenarios](#feature-groups--scenarios)
   - [Test Editor](#test-editor)
   - [Test Runner](#test-runner)
+  - [Workflow Designer](#workflow-designer)
   - [Results Dashboard](#results-dashboard)
   - [API Catalog](#api-catalog)
   - [Requests](#requests-ad-hoc-api-testing)
@@ -787,6 +788,71 @@ State management                 └── Metrics tracking
 | **Automatic fallback** | If Web Workers are unavailable, falls back to direct main-thread execution (same behavior as before) |
 
 > **Note:** This is primarily a **responsiveness and reliability** improvement. HTTP throughput is still bounded by network I/O and browser connection limits (~6 per origin for HTTP/1.1). The worker offloads CPU-bound work (validation, metrics, serialization) — it does not bypass network constraints.
+
+### Workflow Designer
+
+Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workflows with visual graph editing.
+
+**Visual Graph Editor:**
+
+- **Canvas**: React Flow-based infinite canvas with pan, zoom, and minimap navigation
+- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution
+- **Connections**: Click and drag from output handles to input handles to create edges between nodes
+- **Auto-Layout**: Click the auto-layout button in the canvas controls to apply Dagre hierarchical layout with smart centering and overlap resolution
+
+**Node Types:**
+
+| Node Type | Purpose | Features |
+|---|---|---|
+| **Start** | Entry point for workflow execution | Green node marking where execution begins; workflows auto-start from Start nodes when running Quick Test |
+| **HTTP** | Execute an API request | Same configuration as Harness tests: method, URL, headers, body, auth, validation; extract variables from response via JSONPath |
+| **Condition** | If/Else branching | Compare two values (left vs right) with operators (`==`, `!=`, `>`, `<`, contains, regex); supports template variables; branches to True/False output handles |
+| **Delay** | Think time between steps | Pause execution for fixed/random duration (constant, uniform, gaussian); simulates realistic user behavior |
+| **Fork** | Parallel execution split | Spawns multiple parallel execution paths; each output handle runs concurrently |
+| **Join** | Parallel execution merge | Waits for all incoming paths to complete before continuing; synchronization point |
+| **End** | Terminal state | Marks workflow completion; stops execution even if other nodes haven't run yet |
+
+**Parallel Execution:**
+
+Fork and Join nodes enable true parallel execution:
+- **Fork** splits execution into multiple concurrent paths — each path executes independently
+- **Join** waits for all incoming branches to complete before proceeding downstream
+- HTTP requests on parallel paths execute concurrently (respecting overall concurrency limits)
+- Condition branches can also execute in parallel when multiple outgoing edges exist
+
+**Variable Context:**
+
+- **Workflow Variables**: Define default variables in the Workflow Variables modal (toolbar button) — shared across all nodes
+- **Node Variables**: Each HTTP node can define initial variables that override workflow defaults
+- **Variable Extraction**: Extract values from HTTP responses via JSONPath, headers, or status code — scoped to downstream nodes
+- **Template Resolution**: Use `{{variableName}}` syntax in URLs, headers, body, and auth fields
+- **Built-in Generators**: `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`
+
+**Service Registry:**
+
+- Configure external service endpoints per environment (similar to microservices in Harness mode)
+- HTTP nodes reference services by ID — URLs auto-resolve based on selected environment
+- Supports multi-environment testing: switch environments to test the same workflow against dev/QA/prod
+
+**Quick Test Execution:**
+
+- Click **Quick Test** in the toolbar to execute the workflow immediately with step-through debugging
+- Each node shows real-time status: ⏳ Running, ✓ Pass, ✗ Fail, ⊘ Skipped
+- Click **Step** to advance one node at a time; **Step All** to run to completion; **Resume All** to disable stepping
+- Join nodes show "Waiting for N threads" status when blocked on parallel paths
+- View response data for each HTTP node by clicking the node after execution
+
+**Sample Workflows:**
+
+- Click **Browse Samples** in the sidebar to load pre-built workflow templates
+- Samples demonstrate common patterns: linear sequences, parallel API calls, conditional branching, error handling
+- Click **Use as Template** to save a sample workflow to your workspace (auto-generates unique IDs)
+
+**Workflow Persistence:**
+
+- Workflows are saved automatically in local storage (browser) or Tauri's app-data directory (desktop)
+- Node positions, connections, variables, and service configurations are all persisted
+- Export/import workflows via JSON for sharing or version control
 
 ### Results Dashboard
 

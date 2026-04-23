@@ -9,6 +9,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Workflow Trigger Nodes & Parallel Execution**: Complete workflow control flow with Start, Fork, Join, and End nodes
+  - **Start Node**: Define workflow entry point with input variable declarations for parameterized execution
+  - **Fork Node**: Split execution into parallel branches - all branches execute concurrently
+  - **Join Node**: Barrier synchronization - waits for all incoming branches before continuing
+  - **End Node**: Terminal workflow node - marks successful completion or failure propagation
+  - **Auto-Layout**: Intelligent graph positioning using Dagre hierarchical layout algorithm
+    - Automatic node positioning with proper spacing and hierarchy
+    - Centers condition branches and fork/join parallel paths
+    - Aligns linear chains and resolves node overlaps
+    - Persists layout state across sessions
+    - Support for both TB (top-bottom) and LR (left-right) orientations
+  - **Enhanced Workflow Execution Engine**:
+    - Parallel execution for Fork/Join nodes - branches run concurrently via Promise.all
+    - Join barrier coordination - tracks incoming branch counts and waits for all arrivals
+    - End node state management - propagates success/failure states to all End nodes
+    - Improved error handling - collects errors from all branches and marks affected End nodes
+    - Skip subtree logic for failed condition branches
+  - **Test Coverage**: 74 new comprehensive tests (65 unit + 9 E2E)
+    - workflowAutoLayout: 23 tests, 80.97% branch coverage
+    - graphRunner: 27 tests, 88.7% branch coverage
+    - debugController: 14 tests, 92.85% branch coverage
+    - fetchScenarioSample: 10 tests, 94.44% branch coverage
+  - **E2E Tests**: workflow-auto-layout.spec.ts (4 tests), workflow-end-node.spec.ts (7 tests)
+  - Workflow directory coverage: 98.12% statements, 91.68% branches, 100% functions, 99.1% lines
+
 - **Variables & Chaining Engine (Phase A)**: Multi-step workflow execution with variable extraction and template resolution
   - New `VariableContext` class: layered variable store (environment → manual → extracted) with built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt(1,100)}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(16)}}`)
   - `resolveScenario()`: Pure preprocessor that substitutes `{{varName}}` placeholders in URL, headers, body, form fields, and auth credentials

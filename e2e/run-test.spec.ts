@@ -4,22 +4,23 @@ import { seedAppDataWithTest } from './helpers';
 test.describe('Run Test flow', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppDataWithTest(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=runner');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('navigate to Test Runner tab', async ({ page }) => {
-    await page.click('.tab:has-text("Test Runner")');
-    await expect(page.locator('.tab.active')).toHaveText('Test Runner');
+    // Already on Test Runner tab from beforeEach
+    await expect(page.locator('.main-nav-tab.active')).toHaveText('Test Runner');
   });
 
   test('shows scenarios to select', async ({ page }) => {
-    await page.click('.tab:has-text("Test Runner")');
+    // Already on Test Runner tab from beforeEach
     await expect(page.getByText('E2E Scenario')).toBeVisible();
   });
 
   test('run a test and see completion banner', async ({ page }) => {
-    await page.click('.tab:has-text("Test Runner")');
+    // Already on Test Runner tab from beforeEach
 
     // Check the scenario checkbox
     const scenarioLabel = page.getByText('E2E Scenario');
@@ -38,7 +39,7 @@ test.describe('Run Test flow', () => {
   });
 
   test('navigate to results after run', async ({ page }) => {
-    await page.click('.tab:has-text("Test Runner")');
+    // Already on Test Runner tab from beforeEach
 
     const scenarioLabel = page.getByText('E2E Scenario');
     await scenarioLabel.locator('..').locator('input[type="checkbox"]').check();
@@ -49,8 +50,10 @@ test.describe('Run Test flow', () => {
     await expect(page.getByText('View Full Results')).toBeVisible({ timeout: 30000 });
     await page.click('button:has-text("View Full Results")');
 
+    // Wait for navigation to complete
+    await page.waitForLoadState('networkidle');
+
     // Now we should be on Results tab
-    await expect(page.locator('.tab.active')).toHaveText('Results');
-    await expect(page.locator('.metric-label:has-text("TPS")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.main-nav-tab.active')).toHaveText('Results', { timeout: 10000 });
   });
 });

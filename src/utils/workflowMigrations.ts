@@ -433,8 +433,49 @@ function fixupOverGroupedServices(migrated: Workflow): Workflow {
   };
 }
 
+// ── v3 → v4: Auto-insert a Start node for workflows that lack one ──
+
+function migrateV3ToV4(wf: Workflow): Workflow {
+  if ((wf.schemaVersion ?? 1) >= 4) return wf;
+  const hasStart = wf.nodes.some(n => n.type === 'start');
+  if (hasStart || wf.nodes.length === 0) return { ...wf, schemaVersion: 4 };
+
+  const startNodeId = uuidv4();
+  const startNode = {
+    id: startNodeId,
+    type: 'start' as const,
+    position: { x: 250, y: 0 },
+    data: { label: 'Start', inputVariables: {} },
+  };
+
+  // Find root nodes (no incoming edges) to connect the Start node to them.
+  const targets = new Set(wf.edges.map(e => e.target));
+  const rootNodes = wf.nodes.filter(n => !targets.has(n.id));
+
+  const newEdges = rootNodes.map(root => ({
+    id: `e-${startNodeId}-${root.id}`,
+    source: startNodeId,
+    sourceHandle: 'out',
+    target: root.id,
+    targetHandle: null,
+  }));
+
+  // Shift existing nodes down to make room for the Start node.
+  const shiftedNodes = wf.nodes.map(n => ({
+    ...n,
+    position: { ...n.position, y: n.position.y + 100 },
+  }));
+
+  return {
+    ...wf,
+    schemaVersion: 4,
+    nodes: [startNode, ...shiftedNodes],
+    edges: [...wf.edges, ...newEdges],
+  };
+}
+
 /**
- * Run all schema migrations on a workflow (v1 → v2 → v3 + fixups).
+ * Run all schema migrations on a workflow (v1 → v2 → v3 → v4 + fixups).
  * Pure function — no React dependencies.
  */
 export function migrateWorkflowSchema(wf: Workflow): Workflow {
@@ -442,6 +483,7 @@ export function migrateWorkflowSchema(wf: Workflow): Workflow {
   let migrated = wf;
   if (version < 2) migrated = migrateV1ToV2(migrated);
   if ((migrated.schemaVersion ?? 1) < 3) migrated = migrateV2ToV3(migrated);
+  if ((migrated.schemaVersion ?? 1) < 4) migrated = migrateV3ToV4(migrated);
 
   migrated = {
     ...migrated,

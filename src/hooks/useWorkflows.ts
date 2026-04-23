@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Workflow } from '../types/workflow';
-import { createSampleWorkflow } from '../data/sampleWorkflow';
 import {
   loadWorkflows,
   saveWorkflows,
-  loadWorkflowSampleDismissed,
-  saveWorkflowSampleDismissed,
   loadSelectedWorkflowId,
   saveSelectedWorkflowId,
 } from '../utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 
-const WORKFLOW_SCHEMA_VERSION = 3;
+const WORKFLOW_SCHEMA_VERSION = 4;
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -22,18 +19,14 @@ export function useWorkflows() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [wfs, dismissed, storedSelectedId] = await Promise.all([
+      const [wfs, storedSelectedId] = await Promise.all([
         loadWorkflows(),
-        loadWorkflowSampleDismissed(),
         loadSelectedWorkflowId(),
       ]);
       if (cancelled) return;
       let next = wfs.map(migrateWorkflowSchema);
       const migrated = JSON.stringify(next) !== JSON.stringify(wfs);
-      if (!dismissed && !next.some((w) => w.id === 'sample-workflow-001')) {
-        next = [migrateWorkflowSchema(createSampleWorkflow()), ...next];
-        await saveWorkflows(next);
-      } else if (migrated) {
+      if (migrated) {
         await saveWorkflows(next);
       }
       if (cancelled) return;
@@ -72,6 +65,7 @@ export function useWorkflows() {
   }, [loaded, workflows, selectedId]);
 
   const create = useCallback((name: string): Workflow => {
+    const startNodeId = uuidv4();
     const wf: Workflow = {
       id: uuidv4(),
       name,
@@ -80,7 +74,14 @@ export function useWorkflows() {
       hostProfiles: [],
       authProfiles: [],
       services: [],
-      nodes: [],
+      nodes: [
+        {
+          id: startNodeId,
+          type: 'start',
+          position: { x: 250, y: 50 },
+          data: { label: 'Start', inputVariables: {} },
+        },
+      ],
       edges: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -104,9 +105,6 @@ export function useWorkflows() {
   }, []);
 
   const remove = useCallback((id: string) => {
-    if (id === 'sample-workflow-001') {
-      void saveWorkflowSampleDismissed(true);
-    }
     setWorkflows((prev) => {
       const next = prev.filter((wf) => wf.id !== id);
       void saveWorkflows(next);
@@ -119,9 +117,6 @@ export function useWorkflows() {
     setWorkflows((prev) => {
       if (prev.some((w) => w.id === wf.id)) {
         return prev;
-      }
-      if (wf.id === 'sample-workflow-001') {
-        void saveWorkflowSampleDismissed(false);
       }
       const next = [...prev, wf];
       void saveWorkflows(next);

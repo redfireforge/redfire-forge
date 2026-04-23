@@ -29,7 +29,8 @@ import WorkflowDesigner from './pages/WorkflowDesigner';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
-import { createSampleWorkflow } from './data/sampleWorkflow';
+import type { SampleWorkflowEntry } from './data/sampleWorkflows';
+import type { Workflow } from './types/workflow';
 import RequestCollectionModal from './components/requests/RequestCollectionModal';
 import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
@@ -108,6 +109,7 @@ export default function App() {
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
+  const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(null);
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
@@ -435,11 +437,9 @@ export default function App() {
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
-              onLoadSample={() => {
-                const existing = wfHook.workflows.find(w => w.id === 'sample-workflow-001');
-                if (existing) { wfHook.select(existing.id); return; }
-                const sample = createSampleWorkflow();
-                wfHook.insert(sample);
+              onLoadSample={(entry: SampleWorkflowEntry) => {
+                const sample = entry.factory();
+                setPreviewWorkflow(sample);
               }}
             />
           )}
@@ -500,6 +500,13 @@ export default function App() {
               onEnvSelect={setSelectedEnvId}
               onSvcSelect={setSelectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
+              previewWorkflow={previewWorkflow}
+              onClearPreview={() => setPreviewWorkflow(null)}
+              onUseAsTemplate={(wf) => {
+                const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
+                wfHook.insert(copy);
+                setPreviewWorkflow(null);
+              }}
             />
           </div>
           {activeTab === 'environments' && (

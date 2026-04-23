@@ -32,7 +32,7 @@ export default function WorkflowServicesPanelInline({
   };
 
   return (
-    <div className="wf-config-panel">
+    <div className="wf-config-panel wf-services-panel">
       <div className="wf-config-header">
         <span className="wf-config-type">🔗 Services</span>
         <div style={{ display: 'flex', gap: 4 }}>

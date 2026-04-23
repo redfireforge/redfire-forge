@@ -76,7 +76,7 @@ export default function WorkflowDefaultsModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="ram-header">
-            <h3 id="wf-defaults-modal-title">Workflow Defaults</h3>
+            <h3 id="wf-defaults-modal-title">Workflow Variables</h3>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               <button
                 type="button"
@@ -91,7 +91,7 @@ export default function WorkflowDefaultsModal({
           </div>
           <div className="wf-config-modal-body">
             <VariablesSection
-              title="Workflow defaults"
+              title="Workflow variables"
               hint="Available as {{name}} on every HTTP step unless that step sets its own. Save the workflow to persist."
               variables={draft}
               onUpdateVariables={setDraft}

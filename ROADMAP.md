@@ -70,7 +70,7 @@ RedfireForge's load testing is currently rated **Good**. The path to **Excellent
 - Live streaming charts (TPS, response time, error rate, active connections)
 - OAuth2 token manager with JWT expiry detection
 - Weighted scenario distribution in load profiles
-- **Variables & chaining**: Visual workflow designer with graph editor, `VariableContext` layered store (environment → manual → extracted), template resolution in URL/headers/body/auth, condition branching (If/Else), delay nodes, variable extraction from JSONPath/headers/status, Service Registry with multi-environment endpoints, built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`)
+- **Variables & chaining**: Visual workflow designer with React Flow graph editor, `VariableContext` layered store (environment → manual → extracted), template resolution in URL/headers/body/auth, condition branching (If/Else), delay nodes, variable extraction from JSONPath/headers/status, Service Registry with multi-environment endpoints, built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`); **Trigger nodes**: Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge with wait-all semantics); **Parallel execution**: Fork/Join enable true concurrent execution paths; **Auto-layout**: Dagre-based hierarchical layout with smart centering and overlap resolution
 - **Think time & pacing**: constant, uniform random, gaussian (normal distribution) delays between requests for realistic virtual user simulation
 - **Worker thread execution**: Engine runs in a Web Worker — UI stays responsive at 60fps during heavy runs; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback; incremental result transfer avoids serialization overhead
 - **Connection pooling**: Shared `undici.Agent` keeps HTTP connections alive (30s timeout, 128 connections) — eliminates TCP/TLS handshake overhead on repeated requests to the same origin; 2–3x latency reduction for HTTPS APIs in browser dev mode; Tauri mode already pooled via `reqwest`
@@ -304,7 +304,10 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Built-in Generators** — `{{$randomEmail}}`, `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomString(N)}}`
 - [x] **Variable Extraction** — Extract values from responses using JSONPath (e.g., `$.data.id` → `{{orderId}}`), headers, or status code
 - [x] **Variable Injection** — Use extracted variables in downstream test URLs, headers, and body
-- [x] **Scenario Chaining / Workflow Mode** — Visual workflow designer with graph editor, condition branching (If/Else), delay nodes, Service Registry with multi-environment endpoints
+- [x] **Scenario Chaining / Workflow Mode** — Visual workflow designer with React Flow graph editor, drag-and-drop palette, Service Registry with multi-environment endpoints
+- [x] **Workflow Control Nodes** — Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge), Condition (If/Else branching), Delay (think time between steps)
+- [x] **Parallel Execution** — Fork/Join nodes enable true parallel execution paths; Join nodes wait for all incoming branches to complete before proceeding; tested with concurrent HTTP requests
+- [x] **Auto-Layout** — Dagre-based hierarchical graph layout with smart post-processing: centers condition branches, aligns fork/join paths, resolves overlaps, maintains left-to-right flow
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---

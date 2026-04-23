@@ -4,25 +4,26 @@ import { seedAppData } from './helpers';
 test.describe('Settings and navigation', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=scenarios');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('sidebar shows environment items', async ({ page }) => {
-    // Use the sidebar-specific locator (sidebar has class config-sidebar)
-    const sidebar = page.locator('.config-sidebar');
+    // Use the sidebar-specific locator
+    const sidebar = page.locator('.config-sidebar-inner');
     await expect(sidebar.getByText('t01')).toBeVisible({ timeout: 5000 });
   });
 
   test('can switch between tabs', async ({ page }) => {
-    await page.click('.tab:has-text("Test Runner")');
-    await expect(page.locator('.tab.active')).toHaveText('Test Runner');
+    await page.click('.main-nav-tab:has-text("Test Runner")');
+    await expect(page.locator('.main-nav-tab.active')).toHaveText('Test Runner');
 
-    await page.click('.tab:has-text("Results")');
-    await expect(page.locator('.tab.active')).toHaveText('Results');
+    await page.click('.main-nav-tab:has-text("Results")');
+    await expect(page.locator('.main-nav-tab.active')).toHaveText('Results');
 
-    await page.click('.tab:has-text("Feature Groups")');
-    await expect(page.locator('.tab.active')).toHaveText('Feature Groups');
+    await page.click('.main-nav-tab:has-text("Feature Groups")');
+    await expect(page.locator('.main-nav-tab.active')).toHaveText('Feature Groups');
   });
 
   test('toggle dark/light theme', async ({ page }) => {
@@ -34,11 +35,11 @@ test.describe('Settings and navigation', () => {
   });
 
   test('sidebar toggle collapses and expands', async ({ page }) => {
-    const sidebar = page.locator('.config-sidebar');
+    const sidebar = page.locator('.config-sidebar-inner');
     await expect(sidebar).toBeVisible();
 
-    // Click the float toggle to collapse
-    const toggleBtn = page.locator('.sidebar-float-toggle');
+    // Click the USB toggle to collapse
+    const toggleBtn = page.locator('.usb-toggle-btn');
     await toggleBtn.click();
 
     // Sidebar should disappear
@@ -50,7 +51,8 @@ test.describe('Settings and navigation', () => {
   });
 
   test('context tags show service and environment', async ({ page }) => {
-    await expect(page.locator('.context-tag:has-text("test-service")')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.context-tag:has-text("t01")')).toBeVisible();
+    // Context tags are in the builder header at the top
+    await expect(page.locator('.context-tag:has-text("test-service")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.context-tag:has-text("t01")').first()).toBeVisible();
   });
 });
