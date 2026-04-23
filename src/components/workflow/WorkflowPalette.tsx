@@ -49,6 +49,20 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                 <div className="wf-pb-desc">Workflow entry point</div>
               </div>
             </button>
+            <button className="wf-palette-block wf-palette-block-webhook" onClick={() => onAddNode('webhook')}>
+              <span className="wf-pb-icon">🪝</span>
+              <div>
+                <div className="wf-pb-title">Webhook Trigger</div>
+                <div className="wf-pb-desc">Incoming HTTP request</div>
+              </div>
+            </button>
+            <button className="wf-palette-block wf-palette-block-schedule" onClick={() => onAddNode('schedule')}>
+              <span className="wf-pb-icon">⏰</span>
+              <div>
+                <div className="wf-pb-title">Schedule Trigger</div>
+                <div className="wf-pb-desc">Cron-based execution</div>
+              </div>
+            </button>
 
             <div className="wf-palette-category">Actions</div>
             <button className="wf-palette-block wf-palette-block-http" onClick={() => onAddNode('http')}>

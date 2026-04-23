@@ -35,6 +35,8 @@ import type {
   ForkNodeData,
   JoinNodeData,
   EndNodeData,
+  WebhookTriggerNodeData,
+  ScheduleTriggerNodeData,
   NodeRunStatus,
   WorkflowHostProfile,
   WorkflowAuthProfile,
@@ -74,10 +76,12 @@ import ConditionNode from '../components/workflow/nodes/ConditionNode';
 import DelayNode from '../components/workflow/nodes/DelayNode';
 import StartNode from '../components/workflow/nodes/StartNode';
 import ForkNode from '../components/workflow/nodes/ForkNode';
-import { DebugController } from '../engine/workflow/debugController';
-import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import JoinNode from '../components/workflow/nodes/JoinNode';
 import EndNode from '../components/workflow/nodes/EndNode';
+import WebhookTriggerNode from '../components/workflow/nodes/WebhookTriggerNode';
+import ScheduleTriggerNode from '../components/workflow/nodes/ScheduleTriggerNode';
+import { DebugController } from '../engine/workflow/debugController';
+import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 
 interface Props {
   collections: RequestCollection[];
@@ -115,6 +119,8 @@ const nodeTypes = {
   fork: ForkNode,
   join: JoinNode,
   end: EndNode,
+  webhook: WebhookTriggerNode,
+  schedule: ScheduleTriggerNode,
 };
 
 /** Enrich a React Flow node with state-managed initialVariables. */
@@ -149,6 +155,20 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'fork': return { label: 'Parallel Fork' } as ForkNodeData;
     case 'join': return { label: 'Join' } as JoinNodeData;
     case 'end': return { label: 'End' } as EndNodeData;
+    case 'webhook': return { 
+      label: 'Webhook Trigger', 
+      method: 'POST', 
+      path: '/api/webhook', 
+      samplePayload: '{\n  "event": "example",\n  "data": {}\n}',
+      extractVariables: []
+    } as WebhookTriggerNodeData;
+    case 'schedule': return {
+      label: 'Schedule Trigger',
+      cronExpression: '0 9 * * MON-FRI',
+      timezone: 'America/New_York',
+      scheduleDescription: 'Every weekday at 9:00 AM EST',
+      inputVariables: {}
+    } as ScheduleTriggerNodeData;
   }
 }
 
