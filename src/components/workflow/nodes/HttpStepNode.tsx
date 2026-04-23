@@ -11,7 +11,7 @@ type HttpWorkflowNode = Node<HttpNodeData, 'http'>;
 type Props = NodeProps<HttpWorkflowNode>;
 
 export default function HttpStepNode({ id, data, selected }: Props) {
-  const { openStepDetail } = useWorkflowInspect();
+  const { openStepDetail, openNodeConfig } = useWorkflowInspect();
   const rs = useWorkflowNodeRunStatus(id);
   const method = data.scenario?.method ?? 'GET';
   const url = data.scenario?.url ?? '';
@@ -24,14 +24,20 @@ export default function HttpStepNode({ id, data, selected }: Props) {
     if (rs?.state === 'pass' || rs?.state === 'fail') openStepDetail(id);
   };
 
+  const handleConfigure = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openNodeConfig(id);
+  };
+
   return (
     <div className={`wf-node wf-node-http ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
       <div className="wf-node-header">
+        {data.sourceType && <span className="wf-source-badge">{data.sourceType === 'catalog' ? 'CAT' : 'REQ'}</span>}
         <span className="wf-method-badge" style={{ background: METHOD_COLORS[method] ?? '#6b7280' }}>
           {method}
         </span>
         <span className="wf-node-label" title={data.label}>{data.label}</span>
-        {data.sourceType && <span className="wf-source-badge">{data.sourceType === 'catalog' ? 'CAT' : 'REQ'}</span>}
+        <button type="button" className="wf-node-configure-badge" title="Configure this step" onClick={handleConfigure}>⚙ Configure</button>
       </div>
 
       <div className="wf-node-url" title={url}>

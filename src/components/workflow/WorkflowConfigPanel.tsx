@@ -60,7 +60,18 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
   const [variableInsertShortRef, setVariableInsertShortRef] = useState(false);
   const [variableInsertInitialSearch, setVariableInsertInitialSearch] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const collapsingRef = useRef(false);
   const insertApplyRef = useRef<(snippet: string) => void>(() => {});
+
+  const collapse = useCallback(() => {
+    collapsingRef.current = true;
+    setExpanded(false);
+    requestAnimationFrame(() => { collapsingRef.current = false; });
+  }, []);
+
+  const tryExpand = useCallback(() => {
+    if (!collapsingRef.current) setExpanded(true);
+  }, []);
 
   // Reset to inline view when a different node is selected
   useEffect(() => {
@@ -181,7 +192,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           <div className="wf-config-header">
             <span className="wf-config-type">{node.type.toUpperCase()}</span>
             <div style={{ display: 'flex', gap: 4 }}>
-              <button className="btn btn-sm" onClick={() => setExpanded(true)} title="Expand to full screen">⛶</button>
+              <button className="btn btn-sm" onClick={tryExpand} title="Expand to full screen">⛶</button>
               <button className="btn btn-sm btn-danger" onClick={() => onDeleteNode(node.id)} title="Delete node">×</button>
             </div>
           </div>
@@ -194,14 +205,14 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           <div className="wf-config-header">
             <span className="wf-config-type">{node.type.toUpperCase()}</span>
             <div style={{ display: 'flex', gap: 4 }}>
-              <button className="btn btn-sm" onClick={() => setExpanded(true)} title="Expand to full screen">⛶</button>
+              <button className="btn btn-sm" onClick={tryExpand} title="Expand to full screen">⛶</button>
               <button className="btn btn-sm btn-danger" onClick={() => onDeleteNode(node.id)} title="Delete node">×</button>
             </div>
           </div>
           <div
             className="modal-overlay wf-expand-modal-overlay"
             role="presentation"
-            onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}
+            onClick={(e) => { if (e.target === e.currentTarget) collapse(); }}
           >
             <div
               className="modal ram-modal wf-expand-modal"
@@ -212,7 +223,10 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
             >
               <div className="ram-header">
                 <h3 id="wf-expand-title">{node.type.toUpperCase()} — {(node.data as HttpNodeData).label || 'Step Config'}</h3>
-                <button type="button" className="ram-modal-close" onClick={() => setExpanded(false)} aria-label="Close">&times;</button>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <button type="button" className="btn btn-sm" onClick={(e) => { e.stopPropagation(); collapse(); }} title="Shrink back to side panel">⛶</button>
+                  <button type="button" className="ram-modal-close" onClick={(e) => { e.stopPropagation(); collapse(); }} aria-label="Close">&times;</button>
+                </div>
               </div>
               <div className="wf-expand-modal-body">
                 {configContent}

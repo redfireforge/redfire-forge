@@ -6,15 +6,18 @@
 
 .wf-designer {
   display: flex; flex-direction: column; height: 100%; min-height: 0;
+  position: relative;
 }
 
 .wf-body {
   display: flex; flex: 1; min-height: 0; overflow: hidden;
+  position: relative;
 }
 
 .wf-canvas-area {
   flex: 1; position: relative; min-width: 0;
   background: var(--bg);
+  overflow: hidden;
 }
 .wf-canvas-area .react-flow {
   height: 100%;
@@ -700,9 +703,9 @@
   border: 1px solid var(--border);
 }
 
-/* Insert variable modal — two-column layout, sits above the expand modal overlay */
+/* Insert variable modal — two-column layout, sits above the config modal overlay */
 .wf-var-insert-modal-overlay.modal-overlay {
-  z-index: 10070;
+  z-index: 10090;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.55);
@@ -967,13 +970,19 @@
 }
 .wf-config-kv-val-wrap input { flex: 1; min-width: 0; }
 .wf-var-value-with-insert {
-  flex: 1; display: flex; gap: 4px; align-items: center; min-width: 0;
+  flex: 1; display: flex; gap: 6px; align-items: center; min-width: 0;
 }
 .wf-var-value-with-insert .wf-var-value-input { flex: 1; min-width: 0; }
 .wf-var-new-row-value {
-  flex: 1; display: flex; gap: 4px; align-items: center; min-width: 0;
+  flex: 1; display: flex; gap: 6px; align-items: center; min-width: 0;
 }
 .wf-var-new-row-value .wf-var-value-input { flex: 1; min-width: 0; }
+
+/* Action buttons (Insert + ×/+) spacing */
+.wf-config-kv-row-vars > .btn {
+  flex-shrink: 0;
+  margin-left: 6px;
+}
 
 .wf-config-kv-list { display: flex; flex-direction: column; gap: 0; }
 .wf-config-kv-row {
@@ -984,6 +993,52 @@
 .wf-config-kv-row input {
   flex: 1; padding: 6px 10px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; color: var(--text); font-size: 0.83rem;
+}
+
+/* Header row */
+.wf-config-kv-header {
+  padding: 0 4px 2px;
+  margin-bottom: 2px;
+}
+.wf-config-kv-header:hover { background: transparent; }
+.wf-var-col-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: block;
+  text-align: left;
+  padding-left: 11px; /* 10px input padding + 1px border */
+}
+.wf-var-actions-label {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+/* Source column in variables section */
+.wf-var-source-cell-header {
+  width: 160px;
+  flex-shrink: 0;
+}
+.wf-var-source-cell {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.wf-var-source-input {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wf-config-kv-row-vars {
@@ -1379,7 +1434,7 @@
 .wf-detail-modal {
   max-width: min(780px, 92vw);
   width: 100%;
-  max-height: min(90vh, 880px);
+  max-height: min(92vh, 940px);
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -1392,14 +1447,14 @@
   flex-direction: column;
   grid-template-columns: none;
   overflow: auto;
-  max-height: min(74vh, 700px);
+  max-height: min(86vh, 840px);
   flex: 1;
   min-height: 0;
   padding: 18px 22px 20px;
   gap: 0;
 }
 .wf-detail-modal--wide .wf-detail-modal-body {
-  max-height: min(78vh, 720px);
+  max-height: min(88vh, 860px);
 }
 .wf-detail-modal-sub {
   font-size: 0.76rem;
@@ -1439,9 +1494,10 @@
 }
 
 /* ── Expanded config modal (full-screen step editor) ─── */
+/* position:absolute relative to .wf-body so it covers the canvas + config but not the palette/sidebar. */
 .wf-expand-modal-overlay.modal-overlay {
-  position: fixed;
-  top: var(--header-h, 56px);
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1450,9 +1506,6 @@
   align-items: stretch;
   justify-content: stretch;
   background: var(--bg);
-}
-.sidebar-visible .wf-expand-modal-overlay.modal-overlay {
-  left: 300px;
 }
 .wf-expand-modal.modal.ram-modal {
   display: flex;
@@ -1463,6 +1516,13 @@
   max-height: 100%;
   border-radius: 0;
   overflow: hidden;
+}
+.wf-expand-modal .ram-header h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 .wf-expand-modal-body {
   flex: 1;
@@ -1576,7 +1636,6 @@
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text);
-  max-height: min(28vh, 280px);
   overflow: auto;
 }
 .wf-resp-meta--only {
@@ -2166,4 +2225,89 @@
   border-radius: 999px;
   padding: 0 4px;
   line-height: 1;
+}
+
+/* ── Node config modal (full-screen, portal) ──────── */
+/* ── Node config modal ─────────────────────────────
+   Uses position:absolute so it stays within .app-main
+   and never covers the left sidebar or toggle bar.     */
+.wf-config-modal-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
+}
+.wf-config-modal.modal.ram-modal {
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 900px;
+  height: 85vh;
+  max-height: 85vh;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.wf-config-modal .ram-header h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.wf-config-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
+  min-height: 0;
+}
+.wf-config-modal-body .wf-config-body {
+  max-height: none;
+}
+.wf-config-modal-body .wf-config-url-input {
+  font-size: 0.82rem;
+}
+.wf-config-modal-body .wf-config-vars {
+  margin-top: 16px;
+}
+
+/* Footer with Cancel / Save */
+.wf-config-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Expanded (full-screen) variant */
+.wf-config-modal-expanded.wf-config-modal-overlay {
+  background: var(--bg);
+  align-items: stretch;
+  justify-content: stretch;
+}
+.wf-config-modal-full.wf-config-modal.modal.ram-modal {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}
+
+/* ── Configure badge on nodes ──────────────────────── */
+.wf-node-configure-badge {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.68rem;
+  color: var(--accent);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.wf-node-configure-badge:hover {
+  opacity: 1;
+  text-decoration: underline;
 }

@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { KeyValue } from '../types';
+import type { WorkflowVariableHint } from '../utils/workflowVariableHints';
+import { buildVariableSourceMap, resolveVariableSource } from '../utils/workflowSourceMap';
 
 export interface ParamEntry extends KeyValue {
   enabled: boolean;
@@ -10,8 +12,8 @@ interface ParamsEditorProps {
   params: ParamEntry[];
   onChange: (params: ParamEntry[]) => void;
   /** Per row: open variable picker; parent appends `{{…}}` to this row’s value. */
-  onInsertVariable?: (rowIndex: number, paramKey: string) => void;
-}
+  onInsertVariable?: (rowIndex: number, paramKey: string) => void;  /** Variable hints used to display the source of each param value. */
+  variableHints?: WorkflowVariableHint[];}
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
 
@@ -24,11 +26,13 @@ export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
   return entries.filter((e) => e.enabled && e.key.trim()).map(({ key, value }) => ({ key, value }));
 }
 
-export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEditorProps) {
+export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [] }: ParamsEditorProps) {
   const [bulkEdit, setBulkEdit] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
 
   const activeCount = useMemo(() => params.filter((p) => p.key.trim() && p.enabled).length, [params]);
+
+  const sourceMap = useMemo(() => buildVariableSourceMap(variableHints), [variableHints]);
 
   const update = useCallback(
     (idx: number, patch: Partial<ParamEntry>) => {
@@ -134,13 +138,16 @@ export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEdito
           <div className={`params-grid-header ${showDesc ? 'with-desc' : ''}`}>
             <span />
             <span>name</span>
+            <span>source</span>
             <span>value</span>
             {showDesc && <span>description</span>}
             <span />
             <span />
           </div>
 
-          {params.map((p, i) => (
+          {params.map((p, i) => {
+            const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
+            return (
             <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!p.enabled ? 'disabled' : ''}`}>
               <span className="params-drag-handle" title="Drag to reorder">⠿</span>
               <input
@@ -150,10 +157,17 @@ export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEdito
                 placeholder="name"
                 disabled={!p.enabled}
               />
+              <input
+                className="params-input params-source-cell"
+                readOnly
+                value={source}
+                title={source}
+                tabIndex={-1}
+              />
               <div className="params-value-with-insert">
                 <input
                   className="params-input"
-                  value={p.value}
+                  value={displayValue}
                   onChange={(e) => update(i, { value: e.target.value })}
                   placeholder="value"
                   disabled={!p.enabled}
@@ -195,7 +209,8 @@ export function ParamsEditor({ params, onChange, onInsertVariable }: ParamsEdito
                 ×
               </button>
             </div>
-          ))}
+            );
+          })}
         </>
       )}
     </div>
