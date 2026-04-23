@@ -13,6 +13,7 @@
 
 import { app } from './webhook-server.js';
 import { getAppDataPath } from './file-storage.js';
+import { initScheduler, stopScheduler } from './cron-scheduler.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
@@ -28,10 +29,15 @@ async function startServer() {
     console.log(`  Starting server on http://${HOST}:${PORT}`);
     console.log('───────────────────────────────────────────────────────────');
 
-    server = app.listen(PORT, HOST, () => {
+    server = app.listen(PORT, HOST, async () => {
       console.log(`✅ Server listening on http://${HOST}:${PORT}`);
       console.log(`  Health check: http://${HOST}:${PORT}/health`);
       console.log(`  Webhook format: http://${HOST}:${PORT}/webhooks/:workflowId/:triggerId`);
+      console.log('───────────────────────────────────────────────────────────');
+      
+      // Initialize cron scheduler after server starts
+      await initScheduler();
+      
       console.log('═══════════════════════════════════════════════════════════');
       console.log('  Press Ctrl+C to stop');
       console.log('═══════════════════════════════════════════════════════════\n');
@@ -57,6 +63,9 @@ async function stopServer() {
   if (server) {
     console.log('\n───────────────────────────────────────────────────────────');
     console.log('  Shutting down server...');
+    
+    // Stop scheduler first
+    stopScheduler();
     
     await new Promise<void>((resolve) => {
       server!.close(() => {
