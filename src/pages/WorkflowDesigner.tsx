@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
+  ControlButton,
   MiniMap,
   Background,
   BackgroundVariant,
@@ -9,6 +10,8 @@ import {
   reconnectEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   ConnectionMode,
   type OnConnect,
   type Node,
@@ -46,12 +49,14 @@ import { fetchScenarioSample } from '../engine/workflow/fetchScenarioSample';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { mergeWorkflowNodeData, cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
+import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
 import { WorkflowNodeRunContext } from '../components/workflow/WorkflowNodeRunContext';
 import { useResizablePanels } from '../hooks/useResizablePanels';
 
 import WorkflowToolbar from '../components/workflow/WorkflowToolbar';
 import WorkflowPalette from '../components/workflow/WorkflowPalette';
-import WorkflowConfigPanel from '../components/workflow/WorkflowConfigPanel';
+import WorkflowNodeConfigModal from '../components/workflow/WorkflowNodeConfigModal';
+import WorkflowDefaultsModal from '../components/workflow/WorkflowDefaultsModal';
 import WorkflowStatusBar from '../components/workflow/WorkflowStatusBar';
 import VariableContextBadge from '../components/workflow/VariableContextBar';
 import { WorkflowInspectProvider } from '../components/workflow/WorkflowInspectContext';
@@ -93,6 +98,19 @@ const nodeTypes = {
   delay: DelayNode,
 };
 
+/** Enrich a React Flow node with state-managed initialVariables. */
+function enrichNodeData(
+  n: WorkflowRFNode,
+  nodeInitialVars: Record<string, Record<string, string>>,
+): WorkflowNode {
+  let data = n.data;
+  if (isHttpWorkflowNode(n)) {
+    const iv = nodeInitialVars[n.id];
+    data = { ...data, initialVariables: iv ?? {} };
+  }
+  return { id: n.id, type: n.type, position: n.position, data } as WorkflowNode;
+}
+
 type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 type WorkflowRFEdge = Edge;
 
@@ -111,7 +129,43 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
   }
 }
 
-export default function WorkflowDesigner({
+export default function WorkflowDesignerWrapper(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <WorkflowDesignerInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function AutoLayoutButton({ nodes, edges, setNodes }: {
+  nodes: WorkflowRFNode[];
+  edges: WorkflowRFEdge[];
+  setNodes: (nodes: WorkflowRFNode[]) => void;
+}) {
+  const { fitView } = useReactFlow();
+  return (
+    <ControlButton
+      onClick={() => {
+        const laid = getAutoLayoutNodes(nodes, edges);
+        setNodes(laid);
+        requestAnimationFrame(() => fitView({ padding: 0.2 }));
+      }}
+      title="Auto-layout nodes"
+    >
+      <svg viewBox="0 0 24 24">
+        <rect x="7" y="1" width="10" height="6" rx="1" />
+        <rect x="1" y="17" width="10" height="6" rx="1" />
+        <rect x="13" y="17" width="10" height="6" rx="1" />
+        <rect x="11" y="7" width="2" height="4" />
+        <rect x="5" y="11" width="2" height="6" />
+        <rect x="6" y="10" width="12" height="2" />
+        <rect x="17" y="11" width="2" height="6" />
+      </svg>
+    </ControlButton>
+  );
+}
+
+function WorkflowDesignerInner({
   collections,
   catalogEntries,
   wfHook,
@@ -125,7 +179,7 @@ export default function WorkflowDesigner({
   resolvedBaseUrl,
 }: Props) {
   const { workflows, selected, create, update, select } = wfHook;
-  const { paletteWidth, configWidth, startDrag } = useResizablePanels();
+  const { paletteWidth, startDrag } = useResizablePanels();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
@@ -135,6 +189,10 @@ export default function WorkflowDesigner({
   nodesRef.current = nodes;
   edgesRef.current = edges;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  /** Node being configured in the full-screen config modal (null = closed). */
+  const [configModalNodeId, setConfigModalNodeId] = useState<string | null>(null);
+  /** Whether the workflow-defaults modal is open. */
+  const [showDefaultsModal, setShowDefaultsModal] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeRunStatus>>({});
   /**
@@ -217,18 +275,20 @@ export default function WorkflowDesigner({
     if (!selectedNodeId) return null;
     const n = nodes.find(n => n.id === selectedNodeId);
     if (!n) return null;
-    let data = n.data;
-    if (isHttpWorkflowNode(n)) {
-      // Use state-managed initialVariables instead of React Flow's node data
-      const iv = nodeInitialVars[n.id];
-      data = { ...data, initialVariables: iv ?? {} };
-    }
-    return { id: n.id, type: n.type, position: n.position, data } as WorkflowNode;
+    return enrichNodeData(n, nodeInitialVars);
   }, [selectedNodeId, nodes, nodeInitialVars]);
 
+  /** Node being configured in the config modal (derived from configModalNodeId). */
+  const configModalNode = useMemo(() => {
+    if (!configModalNodeId) return null;
+    const n = nodes.find(n => n.id === configModalNodeId);
+    if (!n) return null;
+    return enrichNodeData(n, nodeInitialVars);
+  }, [configModalNodeId, nodes, nodeInitialVars]);
+
   const hintNodes = useMemo<WorkflowNode[]>(() => (
-    nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }))
-  ), [nodes]);
+    nodes.map((n) => enrichNodeData(n, nodeInitialVars))
+  ), [nodes, nodeInitialVars]);
 
   const hintEdges = useMemo<WorkflowEdge[]>(() => (
     edges.map((e) => ({
@@ -254,7 +314,9 @@ export default function WorkflowDesigner({
     if (!selectedNodeId) return [];
     const raw = nodes.find((x) => x.id === selectedNodeId);
     if (!raw || !isHttpWorkflowNode(raw)) return [];
-    const httpData = raw.data;
+    // Use state-managed initialVariables so hints stay in sync with the modal
+    const iv = nodeInitialVars[selectedNodeId];
+    const httpData = { ...raw.data, initialVariables: iv ?? {} } as HttpNodeData;
     const base = collectConditionVariableHints(
       hintNodes,
       hintEdges,
@@ -262,7 +324,7 @@ export default function WorkflowDesigner({
       workflowVariables,
     );
     return mergeHttpVariableHintsWithStepInitialVars(base, httpData);
-  }, [selectedNodeId, nodes, hintNodes, hintEdges, workflowVariables]);
+  }, [selectedNodeId, nodes, nodeInitialVars, hintNodes, hintEdges, workflowVariables]);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {
@@ -344,9 +406,14 @@ export default function WorkflowDesigner({
     if (lastRunError?.trim()) setDetailModal({ type: 'runError' });
   }, [lastRunError]);
 
+  const openNodeConfig = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setConfigModalNodeId(nodeId);
+  }, []);
+
   const inspectActions = useMemo(
-    () => ({ openStepDetail, openVariableDetail }),
-    [openStepDetail, openVariableDetail],
+    () => ({ openStepDetail, openVariableDetail, openNodeConfig }),
+    [openStepDetail, openVariableDetail, openNodeConfig],
   );
 
   const stepDetailMeta = useMemo(() => {
@@ -393,14 +460,14 @@ export default function WorkflowDesigner({
     })), []);
 
   /** Persist the current canvas to the workflow store. */
-  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[] }) => {
+  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string> }) => {
     if (!selected) return;
     const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
     const wfEdges = serializeEdges(edges);
     update(selected.id, {
       nodes: wfNodes,
       edges: wfEdges,
-      variables: workflowVariables,
+      variables: overrides?.variables ?? workflowVariables,
       hostProfiles: workflowHostProfiles,
       authProfiles: workflowAuthProfiles,
       services: overrides?.services ?? workflowServices,
@@ -530,7 +597,10 @@ export default function WorkflowDesigner({
       setNodeInitialVars((prev) => ({ ...prev, [id]: updated }));
       // Don't pass initialVariables into React Flow node data — it drops them
       const { initialVariables: _iv, ...restPatch } = patch as Partial<HttpNodeData>;
-      if (Object.keys(restPatch).length === 0) return; // pure initialVariables update, skip RF
+      if (Object.keys(restPatch).length === 0) {
+        persistWorkflow();
+        return;
+      }
       patch = restPatch;
     }
     setNodes((nds) => {
@@ -538,9 +608,11 @@ export default function WorkflowDesigner({
         ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
         : n));
       nodesRef.current = next;
+      // Auto-persist with updated nodes
+      persistWorkflow({ rfNodes: next });
       return next;
     });
-  }, [setNodes]);
+  }, [setNodes, persistWorkflow]);
 
   const handleDeleteNode = useCallback((id: string) => {
     setNodes((nds) => nds.filter(n => n.id !== id));
@@ -573,7 +645,8 @@ export default function WorkflowDesigner({
   const handleUpdateWorkflowVariables = useCallback((vars: Record<string, string>) => {
     workflowVariablesRef.current = vars;
     setWorkflowVariables(vars);
-  }, []);
+    persistWorkflow({ variables: vars });
+  }, [persistWorkflow]);
 
   const handleApplyVariableDetail = useCallback(() => {
     if (detailModal?.type !== 'variable') return;
@@ -734,6 +807,7 @@ export default function WorkflowDesigner({
       <WorkflowToolbar
         workflows={workflows} selected={selected} isRunning={isRunning} saveAcknowledged={saveAcknowledged}
         serviceCount={workflowServices.length}
+        variableCount={variableCount}
         environments={environments}
         selectedEnvId={selectedEnvId}
         onEnvSelect={onEnvSelect}
@@ -743,6 +817,7 @@ export default function WorkflowDesigner({
           setServiceRegistryMode((m) => m === 'closed' ? 'panel' : 'closed');
           setSelectedNodeId(null);
         }}
+        onOpenDefaults={() => setShowDefaultsModal(true)}
       />
 
       <WorkflowInspectProvider value={inspectActions}>
@@ -772,6 +847,7 @@ export default function WorkflowDesigner({
               onConnect={onConnect}
               onReconnect={onReconnect}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={(_event, node) => openNodeConfig(node.id)}
               onNodeContextMenu={handleNodeContextMenu}
               onPaneClick={handlePaneClick}
               nodeTypes={nodeTypes}
@@ -782,8 +858,24 @@ export default function WorkflowDesigner({
               edgesReconnectable
               defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
             >
-              <Controls />
-              <MiniMap pannable zoomable style={{ background: 'var(--surface)' }} />
+              <Controls>
+                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} />
+              </Controls>
+              <MiniMap
+                pannable
+                zoomable
+                style={{ background: 'var(--surface)' }}
+                nodeColor={(node) => {
+                  const status = nodeStatuses[node.id];
+                  if (status?.state === 'fail') return '#ef4444';
+                  if (status?.state === 'running') return '#eab308';
+                  if (status?.state === 'pass') return '#22c55e';
+                  if (status?.state === 'skipped') return '#94a3b8';
+                  if (node.type === 'condition') return '#a78bfa';
+                  if (node.type === 'delay') return '#94a3b8';
+                  return '#3b82f6';
+                }}
+              />
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
             </ReactFlow>
           </WorkflowNodeRunContext.Provider>
@@ -804,44 +896,25 @@ export default function WorkflowDesigner({
           />
         </div>
 
-        <div
-          className="wf-resize-handle"
-          onMouseDown={(e) => startDrag('right', e)}
-        />
-
-        <div style={{ width: configWidth, flexShrink: 0 }}>
-          {serviceRegistryMode === 'panel' ? (
-            <WorkflowServicesPanelInline
-              services={workflowServices}
-              environments={environments}
-              microservices={microservices}
-              globalAuthProfiles={globalAuthProfiles}
-              selectedEnvId={selectedEnvId}
-              onExpand={() => setServiceRegistryMode('fullscreen')}
-              onClose={() => setServiceRegistryMode('closed')}
+        {serviceRegistryMode === 'panel' && (
+          <>
+            <div
+              className="wf-resize-handle"
+              onMouseDown={(e) => startDrag('right', e)}
             />
-          ) : (
-          <WorkflowConfigPanel
-            node={selectedNode}
-            workflowVariables={workflowVariables}
-            onUpdateWorkflowVariables={handleUpdateWorkflowVariables}
-            onUpdateNode={handleUpdateNode}
-            onDeleteNode={handleDeleteNode}
-            lastQuickTestRequestUrl={lastQuickTestRequestUrl}
-            lastRunStepError={selectedNodeId ? nodeStatuses[selectedNodeId]?.error : undefined}
-            effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
-            extractionSampleResponseBody={extractionSampleJson}
-            extractionFetchSample={{
-              onFetch: handleExtractionFetchSample,
-              fetching: extractionFetching,
-              error: extractionFetchError,
-            }}
-            conditionVariableHints={conditionVariableHints}
-            httpVariableHints={httpVariableHints}
-            workflowServices={workflowServices}
-          />
-          )}
-        </div>
+            <div style={{ width: 320, flexShrink: 0 }}>
+              <WorkflowServicesPanelInline
+                services={workflowServices}
+                environments={environments}
+                microservices={microservices}
+                globalAuthProfiles={globalAuthProfiles}
+                selectedEnvId={selectedEnvId}
+                onExpand={() => setServiceRegistryMode('fullscreen')}
+                onClose={() => setServiceRegistryMode('closed')}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <WorkflowDetailModal
@@ -878,6 +951,38 @@ export default function WorkflowDesigner({
         onVariableChange={setVariableDetailDraft}
         onApplyVariable={detailModal?.type === 'variable' ? handleApplyVariableDetail : undefined}
         onClose={() => setDetailModal(null)}
+      />
+
+      {configModalNode && (
+        <WorkflowNodeConfigModal
+          node={configModalNode}
+          workflowVariables={workflowVariables}
+          onUpdateNode={handleUpdateNode}
+          onDeleteNode={handleDeleteNode}
+          onClose={() => setConfigModalNodeId(null)}
+          lastQuickTestRequestUrl={lastQuickTestRequestUrl}
+          lastRunStepError={configModalNodeId ? nodeStatuses[configModalNodeId]?.error : undefined}
+          effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
+          resolveBaseUrl={resolveHttpBaseUrlForGraph}
+          fallbackBaseUrl={resolvedBaseUrl}
+          extractionSampleResponseBody={extractionSampleJson}
+          extractionFetchSample={{
+            onFetch: handleExtractionFetchSample,
+            fetching: extractionFetching,
+            error: extractionFetchError,
+          }}
+          conditionVariableHints={conditionVariableHints}
+          httpVariableHints={httpVariableHints}
+          workflowServices={workflowServices}
+        />
+      )}
+
+      <WorkflowDefaultsModal
+        open={showDefaultsModal}
+        workflowVariables={workflowVariables}
+        onUpdateWorkflowVariables={handleUpdateWorkflowVariables}
+        onClose={() => setShowDefaultsModal(false)}
+        workflowServices={workflowServices}
       />
 
       </WorkflowInspectProvider>

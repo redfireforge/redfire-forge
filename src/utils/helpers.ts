@@ -13,3 +13,8 @@ export function escapeRegExp(s: string): string {
 export function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/** Deep-clone a plain JSON-safe value. */
+export function snapshot<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}

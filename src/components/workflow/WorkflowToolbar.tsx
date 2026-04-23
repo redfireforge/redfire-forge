@@ -11,6 +11,8 @@ interface Props {
   saveAcknowledged?: boolean;
   /** Number of services configured in the Service Registry. */
   serviceCount?: number;
+  /** Number of workflow-level default variables. */
+  variableCount?: number;
   environments?: Environment[];
   selectedEnvId?: string;
   onEnvSelect?: (id: string) => void;
@@ -20,12 +22,13 @@ interface Props {
   onSave: () => void;
   onQuickTest: () => void;
   onOpenServices?: () => void;
+  onOpenDefaults?: () => void;
 }
 
 export default function WorkflowToolbar({
-  workflows, selected, isRunning, saveAcknowledged, serviceCount = 0,
+  workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0,
   environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [],
-  onNew, onSelect, onSave, onQuickTest, onOpenServices,
+  onNew, onSelect, onSave, onQuickTest, onOpenServices, onOpenDefaults,
 }: Props) {
   const envReadinessMap = useMemo(
     () => workflowServices.length > 0
@@ -67,6 +70,16 @@ export default function WorkflowToolbar({
             >
               🔗 Services
               {serviceCount > 0 && <span className="wf-toolbar-services-badge">{serviceCount}</span>}
+            </button>
+
+            <button
+              className="btn btn-sm wf-toolbar-services-btn"
+              onClick={onOpenDefaults}
+              disabled={isRunning}
+              title="Manage workflow-level default variables"
+            >
+              📋 Defaults
+              {variableCount > 0 && <span className="wf-toolbar-services-badge">{variableCount}</span>}
             </button>
 
             <span className="wf-toolbar-env-wrap">
