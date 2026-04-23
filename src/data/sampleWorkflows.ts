@@ -389,8 +389,7 @@ function createWebhookTriggerWorkflow(): Workflow {
     name: 'Sample: Webhook Trigger',
     description: 'Webhook-triggered order processing with payload extraction and conditional branching',
     variables: {
-      warehouseId: 'WH-001',
-      notificationEmail: 'orders@example.com',
+      baseUrl: 'https://jsonplaceholder.typicode.com',
     },
     nodes: [
       {
@@ -403,7 +402,7 @@ function createWebhookTriggerWorkflow(): Workflow {
           path: '/api/orders/incoming',
           samplePayload: JSON.stringify({
             orderId: 'ORD-12345',
-            customerId: 'CUST-001',
+            customerId: '1',
             items: [
               { sku: 'ITEM-001', quantity: 2, price: 29.99 },
             ],
@@ -427,15 +426,15 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s1',
             name: 'Check Inventory',
-            url: 'https://api.example.com/inventory/check?sku=ITEM-001&warehouse={{warehouseId}}',
+            url: '{{baseUrl}}/users/{{customerId}}',
             method: 'GET',
-            headers: [],
+            headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
             auth: { type: 'none' },
             validation: { mode: 'none' },
             extractions: [
-              { name: 'stockLevel', source: 'body', expression: '$.stockLevel' },
-              { name: 'available', source: 'body', expression: '$.available' },
+              { name: 'stockLevel', source: 'body', expression: '$.id' },
+              { name: 'customerName', source: 'body', expression: '$.name' },
             ],
           },
         },
@@ -460,14 +459,13 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s2',
             name: 'Process Order',
-            url: 'https://api.example.com/orders/process',
+            url: '{{baseUrl}}/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
-              orderId: '{{orderId}}',
-              customerId: '{{customerId}}',
-              amount: '{{totalAmount}}',
-              status: 'processing',
+              title: 'Order {{orderId}} Processed',
+              body: 'Customer: {{customerName}} (ID: {{customerId}}), Amount: ${{totalAmount}}, Status: processing',
+              userId: 1,
             }, null, 2),
             bodyType: 'json',
             auth: { type: 'none' },
@@ -484,14 +482,13 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s3',
             name: 'Send Alert',
-            url: 'https://api.example.com/notifications',
+            url: '{{baseUrl}}/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
-              type: 'inventory_alert',
-              orderId: '{{orderId}}',
-              message: 'Order {{orderId}} - Item out of stock',
-              recipient: '{{notificationEmail}}',
+              title: 'Out of Stock Alert: Order {{orderId}}',
+              body: 'Customer {{customerName}} ({{customerId}}) - Order {{orderId}} cannot be processed. Item out of stock.',
+              userId: 1,
             }, null, 2),
             bodyType: 'json',
             auth: { type: 'none' },
@@ -535,8 +532,8 @@ function createScheduleTriggerWorkflow(): Workflow {
     name: 'Sample: Schedule Trigger',
     description: 'Cron-scheduled daily report generation with parallel email delivery and archiving',
     variables: {
-      reportFormat: 'pdf',
-      recipientEmail: 'reports@example.com',
+      baseUrl: 'https://jsonplaceholder.typicode.com',
+      reportType: 'daily_sales',
     },
     nodes: [
       {
@@ -564,16 +561,16 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s1',
             name: 'Fetch Sales Data',
-            url: 'https://api.example.com/analytics/reports/sales?type={{reportType}}&days={{lookbackDays}}&timestamp={{triggerTimestamp}}',
+            url: '{{baseUrl}}/posts?userId=1',
             method: 'GET',
-            headers: [],
+            headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
             auth: { type: 'none' },
             validation: { mode: 'none' },
             extractions: [
-              { name: 'totalSales', source: 'body', expression: '$.data.totalSales' },
-              { name: 'orderCount', source: 'body', expression: '$.data.orderCount' },
-              { name: 'reportUrl', source: 'body', expression: '$.data.reportUrl' },
+              { name: 'totalSales', source: 'body', expression: '$[0].id' },
+              { name: 'orderCount', source: 'body', expression: '$[1].id' },
+              { name: 'postTitle', source: 'body', expression: '$[0].title' },
             ],
           },
         },
@@ -587,24 +584,19 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s2',
             name: 'Generate Report',
-            url: 'https://api.example.com/analytics/reports/generate',
+            url: '{{baseUrl}}/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
-              reportType: '{{reportType}}',
-              generatedAt: '{{triggerTime}}',
-              data: {
-                totalSales: '{{totalSales}}',
-                orderCount: '{{orderCount}}',
-                period: '{{lookbackDays}} days',
-              },
-              format: '{{reportFormat}}',
+              title: 'Daily {{reportType}} Report - {{triggerTime}}',
+              body: 'Report generated at {{triggerTime}} (timestamp: {{triggerTimestamp}}). Total Sales: ${{totalSales}}, Orders: {{orderCount}}',
+              userId: 1,
             }, null, 2),
             bodyType: 'json',
             auth: { type: 'none' },
             validation: { mode: 'none' },
             extractions: [
-              { name: 'pdfUrl', source: 'body', expression: '$.pdfUrl' },
+              { name: 'reportId', source: 'body', expression: '$.id' },
             ],
           },
         },
@@ -624,16 +616,13 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s3',
             name: 'Email Report',
-            url: 'https://api.example.com/email/send',
+            url: '{{baseUrl}}/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
-              to: '{{recipientEmail}}',
-              subject: 'Daily Sales Report - {{triggerTime}}',
-              body: 'Please find the daily sales report attached.\n\nTotal Sales: ${{totalSales}}\nOrders: {{orderCount}}',
-              attachments: [
-                { name: 'sales_report.pdf', url: '{{pdfUrl}}' },
-              ],
+              title: 'Email: Daily Report {{reportId}}',
+              body: 'Sending report to recipients. Total Sales: ${{totalSales}}, Orders: {{orderCount}}. Report: {{postTitle}}',
+              userId: 1,
             }, null, 2),
             bodyType: 'json',
             auth: { type: 'none' },
@@ -650,18 +639,13 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s4',
             name: 'Archive Report',
-            url: 'https://api.example.com/analytics/reports/archive',
+            url: '{{baseUrl}}/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
-              reportUrl: '{{reportUrl}}',
-              pdfUrl: '{{pdfUrl}}',
-              timestamp: '{{triggerTimestamp}}',
-              metadata: {
-                type: '{{reportType}}',
-                totalSales: '{{totalSales}}',
-                orderCount: '{{orderCount}}',
-              },
+              title: 'Archive: Report {{reportId}}',
+              body: 'Archiving {{reportType}} report. Timestamp: {{triggerTimestamp}}, Sales: ${{totalSales}}, Orders: {{orderCount}}',
+              userId: 1,
             }, null, 2),
             bodyType: 'json',
             auth: { type: 'none' },
