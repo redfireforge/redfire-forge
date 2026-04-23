@@ -4,6 +4,7 @@ import {
   getWorkflow,
   saveExecutionResult,
   logWebhookDelivery,
+  getExecutionHistory,
   type ExecutionResult,
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
@@ -17,6 +18,17 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// CORS middleware for UI (localhost:5173)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.json({
@@ -24,6 +36,27 @@ app.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     port: 3001,
   });
+});
+
+// API: Get execution history
+app.get('/api/executions', async (req: Request, res: Response) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+    const workflowId = req.query.workflowId as string | undefined;
+
+    const executions = await getExecutionHistory(workflowId, limit);
+
+    res.json({
+      executions,
+      count: executions.length,
+    });
+  } catch (error) {
+    console.error('[API] Failed to get execution history:', error);
+    res.status(500).json({
+      error: 'Failed to load execution history',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 
 // Webhook endpoint - handles all HTTP methods
