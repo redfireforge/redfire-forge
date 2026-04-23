@@ -530,7 +530,8 @@ export default function App() {
               onMoveTest={moveTest}
             />
           )}
-          {activeTab === 'runner' && (
+          {/* Keep TestRunner mounted so in-flight tests survive tab switches */}
+          <div hidden={activeTab !== 'runner'}>
             <TestRunner
               featureGroups={filteredFeatureGroups}
               onComplete={() => setActiveTab('results')}
@@ -542,7 +543,7 @@ export default function App() {
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
             />
-          )}
+          </div>
           {activeTab === 'results' && (
             <ResultsDashboard
               envName={selectedEnv?.name}

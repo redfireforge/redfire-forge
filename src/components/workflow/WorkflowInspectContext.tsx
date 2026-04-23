@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 export interface WorkflowInspectActions {
   openStepDetail: (nodeId: string) => void;
   openVariableDetail: (key: string) => void;
+  openNodeConfig: (nodeId: string) => void;
 }
 
 const WorkflowInspectContext = createContext<WorkflowInspectActions | null>(null);
@@ -24,6 +25,7 @@ export function useWorkflowInspect(): WorkflowInspectActions {
     return {
       openStepDetail: () => {},
       openVariableDetail: () => {},
+      openNodeConfig: () => {},
     };
   }
   return v;

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type {
   HttpNodeData,
   WorkflowService,
@@ -34,13 +34,18 @@ function encodeQueryPart(raw: string, kind: 'key' | 'value'): string {
   return encodeURIComponent(t);
 }
 
+/** Decode percent-encoded `{{var}}` templates so the URL stays human-readable. */
+function decodeTemplateVars(url: string): string {
+  return url.replace(/%7B%7B([\s\S]*?)%7D%7D/gi, '{{$1}}');
+}
+
 function rebuildUrl(baseUrl: string, entries: ParamEntry[]): string {
   const qIdx = baseUrl.indexOf('?');
   const path = qIdx === -1 ? baseUrl : baseUrl.slice(0, qIdx);
   const active = entries.filter(e => e.enabled && e.key.trim());
   if (active.length === 0) return path;
   const qs = active.map(e => `${encodeQueryPart(e.key, 'key')}=${encodeQueryPart(e.value, 'value')}`).join('&');
-  return `${path}?${qs}`;
+  return decodeTemplateVars(`${path}?${qs}`);
 }
 
 // ── Variable-ref hints ────────────────────────────────
@@ -98,6 +103,15 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
 }) {
   const s = data.scenario;
   const update = (patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } });
+  const urlInputRef = useRef<HTMLInputElement>(null);
+
+  // Normalize encoded template vars on mount / when URL changes externally
+  useEffect(() => {
+    const decoded = decodeTemplateVars(s.url);
+    if (s.url !== decoded) {
+      onChange({ scenario: { ...s, url: decoded } });
+    }
+  }, [s.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [extraEmptyRows, setExtraEmptyRows] = useState(0);
 
@@ -129,6 +143,23 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
     update({ url: newUrl });
   }, [s.url, update]);
 
+  /** Strip node-scoped refs to simple form: {{node:"Step".var}} → {{var}} */
+  const simplifyRefs = (u: string) => u.replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}');
+
+  // Live preview: combine effective base URL + current path
+  const previewUrl = useMemo(() => {
+    const url = simplifyRefs(decodeTemplateVars(s.url.trim()));
+    if (!url) return effectiveQuickTestBaseUrl || '';
+    // If URL is already absolute, show it as-is
+    if (/^https?:\/\//i.test(url)) return simplifyRefs(decodeTemplateVars(url));
+    const base = effectiveQuickTestBaseUrl.replace(/\/+$/, '');
+    const path = url.startsWith('/') ? url : `/${url}`;
+    return simplifyRefs(decodeTemplateVars(`${base}${path}`));
+  }, [s.url, effectiveQuickTestBaseUrl]);
+
+  // Show last Quick Test URL when available, otherwise the live preview
+  const displayUrl = lastQuickTestRequestUrl || previewUrl;
+
   return (
     <div className="wf-config-body">
       {lastRunError && (
@@ -137,10 +168,10 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <pre className="wf-config-run-error-text">{lastRunError}</pre>
         </div>
       )}
-      {lastQuickTestRequestUrl && (
+      {displayUrl && (
         <div className="wf-config-last-req-url">
-          <span className="wf-config-last-req-url-label">Last request URL (resolved)</span>
-          <code className="wf-config-last-req-url-value" title={lastQuickTestRequestUrl}>{lastQuickTestRequestUrl}</code>
+          <span className="wf-config-last-req-url-label">{lastQuickTestRequestUrl ? 'Last request URL (resolved)' : 'Resolved URL (preview)'}</span>
+          <code className="wf-config-last-req-url-value" title={displayUrl}>{displayUrl}</code>
         </div>
       )}
       <div className="wf-config-managed-note" role="note" aria-label="Host and auth are managed at workflow level">
@@ -176,7 +207,8 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         </select>
         <div className="wf-config-url-field-wrap">
           <input
-            value={s.url.replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}')}
+            ref={urlInputRef}
+            value={decodeTemplateVars(s.url).replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}')}
             onChange={(e) => update({ url: e.target.value })}
             placeholder="https://api.example.com/..."
             className="wf-config-url-input"
@@ -185,8 +217,24 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <button
             type="button"
             className="btn btn-sm wf-config-insert-var-btn"
-            title="Insert variable from workflow or upstream step"
-            onClick={() => onRequestVariableInsert((snippet) => update({ url: s.url + snippet }), true)}
+            title="Insert variable at cursor position (or append if no cursor)"
+            onClick={() => onRequestVariableInsert((snippet) => {
+              const el = urlInputRef.current;
+              if (el && typeof el.selectionStart === 'number') {
+                const start = el.selectionStart;
+                const end = el.selectionEnd ?? start;
+                const current = decodeTemplateVars(s.url).replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}');
+                const newUrl = current.slice(0, start) + snippet + current.slice(end);
+                update({ url: newUrl });
+                // Restore cursor after the inserted snippet
+                requestAnimationFrame(() => {
+                  el.focus();
+                  el.setSelectionRange(start + snippet.length, start + snippet.length);
+                });
+              } else {
+                update({ url: s.url + snippet });
+              }
+            }, true)}
           >
             Insert…
           </button>
@@ -215,6 +263,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             <ParamsEditor
               params={queryParams}
               onChange={handleParamsChange}
+              variableHints={variableHints}
               onInsertVariable={(rowIndex, paramKey) =>
                 onRequestVariableInsert((snippet) => {
                   const next = queryParams.map((p, idx) =>

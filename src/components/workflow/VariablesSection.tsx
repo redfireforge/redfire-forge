@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useWorkflowInspect } from './WorkflowInspectContext';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import { buildVariableSourceMap, resolveVariableSource } from '../../utils/workflowSourceMap';
 
 const VAR_NAME_COL_MIN = 100;
 const VAR_NAME_COL_MAX = 420;
@@ -8,7 +9,7 @@ const VAR_NAME_COL_DEFAULT = 200;
 /** Values longer than this use View + modal instead of a cramped single-line input. */
 const VAR_VALUE_LONG = 100;
 
-export default function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert, deprecatedKeys = [] }: {
+export default function VariablesSection({ title, hint, variables, onUpdateVariables, newVarKey, setNewVarKey, newVarValue, setNewVarValue, onRequestVariableInsert, deprecatedKeys = [], variableHints = [], workflowVariables = {} }: {
   title: string;
   hint: string;
   variables: Record<string, string>;
@@ -17,9 +18,18 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
   newVarValue: string; setNewVarValue: (s: string) => void;
   onRequestVariableInsert?: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
   deprecatedKeys?: string[];
+  variableHints?: WorkflowVariableHint[];
+  /** Workflow-level default variables — used to resolve SOURCE for simple refs like {{vin}}. */
+  workflowVariables?: Record<string, string>;
 }) {
   const { openVariableDetail } = useWorkflowInspect();
   const entries = Object.entries(variables);
+
+  const sourceMap = useMemo(
+    () => buildVariableSourceMap(variableHints, workflowVariables),
+    [variableHints, workflowVariables],
+  );
+
   const [nameColWidth, setNameColWidth] = useState(VAR_NAME_COL_DEFAULT);
   const resizeDrag = useRef<{ startX: number; startW: number } | null>(null);
 
@@ -64,9 +74,23 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
       <p className="wf-config-hint-text" style={{ margin: '0 0 6px' }}>
         {hint} Drag the divider to resize the name column.
       </p>
+      <div className="wf-config-kv-row wf-config-kv-row-vars wf-config-kv-header">
+        <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
+          <span className="wf-var-col-label">name</span>
+        </div>
+        <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
+        <div className="wf-var-source-cell-header">
+          <span className="wf-var-col-label">source</span>
+        </div>
+        <div className="wf-var-value-with-insert">
+          <span className="wf-var-col-label">value</span>
+        </div>
+        <span className="wf-var-col-label wf-var-actions-label" />
+      </div>
       {entries.map(([key, value], index) => {
         const isLong = value.length > VAR_VALUE_LONG || value.includes('\n');
         const isDeprecated = deprecatedKeys.includes(key);
+        const { source: varSource, displayValue } = resolveVariableSource(value, sourceMap);
         return (
         /* index key: variable *name* changes while typing during rename; key={key} remounts the row and drops focus */
         <div key={index} className={`wf-config-kv-row wf-config-kv-row-vars${isDeprecated ? ' wf-var-deprecated' : ''}`}>
@@ -87,6 +111,9 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
             />
           </div>
           <div className="wf-var-col-resize" onMouseDown={onResizeStart} title="Drag to resize name column" role="separator" aria-orientation="vertical" />
+          <div className="wf-var-source-cell">
+            <input className="wf-var-source-input" readOnly value={varSource} title={varSource} tabIndex={-1} />
+          </div>
           {isLong ? (
             <div className="wf-var-value-long-wrap">
               <input
@@ -146,6 +173,9 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
           <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} onBlur={() => { if (newVarKey.trim() && newVarValue) addVar(); }} className="wf-var-key-input" />
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
+        <div className="wf-var-source-cell">
+          <input className="wf-var-source-input" readOnly value="" tabIndex={-1} />
+        </div>
         <div className="wf-var-new-row-value">
           <input
             className="wf-var-value-input"

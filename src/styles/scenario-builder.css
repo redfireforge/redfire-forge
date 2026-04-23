@@ -322,24 +322,31 @@
 
 .params-grid-header {
   display: grid;
-  grid-template-columns: 16px 200px 1fr auto auto;
+  grid-template-columns: 16px 200px 160px 1fr auto auto;
   gap: 6px;
   align-items: center;
   padding: 0 4px;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 2px;
 }
+.params-grid-header > span:nth-child(2),
+.params-grid-header > span:nth-child(4) {
+  padding-left: 11px; /* 10px input padding + 1px border */
+}
+.params-grid-header > span:nth-child(3) {
+  padding-left: 2px; /* align with source cell text */
+}
 .params-grid-header.with-desc {
-  grid-template-columns: 16px 200px 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
 }
 
 .params-row {
   display: grid;
-  grid-template-columns: 16px 200px 1fr auto auto;
+  grid-template-columns: 16px 200px 160px 1fr auto auto;
   gap: 6px;
   align-items: center;
   padding: 3px 4px;
@@ -353,7 +360,7 @@
   opacity: 0.45;
 }
 .params-row.with-desc {
-  grid-template-columns: 16px 200px 1fr 1fr auto auto;
+  grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
 }
 
 .params-drag-handle {
@@ -385,6 +392,11 @@
 }
 .params-insert-var-btn:hover {
   opacity: 1;
+}
+
+.params-source-cell {
+  color: var(--text-muted);
+  cursor: default;
 }
 
 .params-input {

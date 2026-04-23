@@ -113,9 +113,10 @@ function collectAllPaths(node: { key: string; children?: { key: string; children
 
 interface Props {
   body: string;
+  subtitle?: string;
 }
 
-export default function WorkflowResponseBody({ body }: Props) {
+export default function WorkflowResponseBody({ body, subtitle }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -245,84 +246,96 @@ export default function WorkflowResponseBody({ body }: Props) {
 
   const effectiveCount = jTree ? searchMatchCount : totalMatchCount;
 
+  const searchToolbarContent = (
+    <>
+      <input
+        type="search"
+        className="results-search wf-resp-search-input"
+        placeholder="Search response, keys, paths, values…"
+        value={searchTerm}
+        onChange={(e) => { setSearchTerm(e.target.value); setSearchMatchIdx(0); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { setSearchTerm(''); setSearchMatchIdx(0); }
+          if (e.key === 'Enter' && effectiveCount > 0) {
+            e.preventDefault();
+            if (e.shiftKey) {
+              setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1);
+            } else {
+              setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0);
+            }
+          }
+        }}
+        aria-label="Search response"
+      />
+      {debouncedSearch.trim() ? (
+        <>
+          <span className="wf-resp-search-count" aria-live="polite">
+            {effectiveCount > 0
+              ? `${searchMatchIdx + 1}/${effectiveCount}`
+              : 'No match'}
+          </span>
+          <button
+            type="button"
+            className="wf-resp-search-nav"
+            title="Previous (Shift+Enter)"
+            disabled={effectiveCount === 0}
+            onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1)}
+          ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+          <button
+            type="button"
+            className="wf-resp-search-nav"
+            title="Next (Enter)"
+            disabled={effectiveCount === 0}
+            onClick={() => setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0)}
+          ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
+          <button
+            type="button"
+            className="wf-resp-search-clear"
+            onClick={() => { setSearchTerm(''); setSearchMatchIdx(0); }}
+          >&times;</button>
+        </>
+      ) : (
+        <span className="wf-resp-search-hint">Search keys, paths, values. Enter / Shift+Enter to navigate.</span>
+      )}
+      {jTree && (
+        <>
+          <button
+            type="button"
+            className="jt-expand-collapse-btn"
+            onClick={handleExpandAll}
+          >Expand All</button>
+          <button
+            type="button"
+            className="jt-expand-collapse-btn"
+            onClick={handleCollapseAll}
+          >Collapse All</button>
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="wf-resp-body">
-      <div className="wf-resp-toolbar">
-        <input
-          type="search"
-          className="results-search wf-resp-search-input"
-          placeholder="Search response, keys, paths, values…"
-          value={searchTerm}
-          onChange={(e) => { setSearchTerm(e.target.value); setSearchMatchIdx(0); }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { setSearchTerm(''); setSearchMatchIdx(0); }
-            if (e.key === 'Enter' && effectiveCount > 0) {
-              e.preventDefault();
-              if (e.shiftKey) {
-                setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1);
-              } else {
-                setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0);
-              }
-            }
-          }}
-          aria-label="Search response"
-        />
-        {debouncedSearch.trim() ? (
-          <>
-            <span className="wf-resp-search-count" aria-live="polite">
-              {effectiveCount > 0
-                ? `${searchMatchIdx + 1}/${effectiveCount}`
-                : 'No match'}
-            </span>
-            <button
-              type="button"
-              className="wf-resp-search-nav"
-              title="Previous (Shift+Enter)"
-              disabled={effectiveCount === 0}
-              onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1)}
-            ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-            <button
-              type="button"
-              className="wf-resp-search-nav"
-              title="Next (Enter)"
-              disabled={effectiveCount === 0}
-              onClick={() => setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0)}
-            ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
-            <button
-              type="button"
-              className="wf-resp-search-clear"
-              onClick={() => { setSearchTerm(''); setSearchMatchIdx(0); }}
-            >&times;</button>
-          </>
-        ) : (
-          <span className="wf-resp-search-hint">Search keys, paths, values. Enter / Shift+Enter to navigate.</span>
-        )}
-        {jTree && (
-          <>
-            <button
-              type="button"
-              className="jt-expand-collapse-btn"
-              onClick={handleExpandAll}
-            >Expand All</button>
-            <button
-              type="button"
-              className="jt-expand-collapse-btn"
-              onClick={handleCollapseAll}
-            >Collapse All</button>
-          </>
-        )}
-      </div>
 
       {jsonText === null ? (
-        <div
-          className="wf-resp-meta wf-resp-meta--only"
-          dangerouslySetInnerHTML={fallbackBodyHtml}
-        />
+        <>
+          <div className="wf-resp-toolbar">
+            {searchToolbarContent}
+          </div>
+          <div
+            className="wf-resp-meta wf-resp-meta--only"
+            dangerouslySetInnerHTML={fallbackBodyHtml}
+          />
+        </>
       ) : (
         <>
           <div className="wf-resp-section">
             <div className="wf-resp-section-label">Request &amp; validation</div>
             <div className="wf-resp-meta" dangerouslySetInnerHTML={metaHtml} />
+          </div>
+          {subtitle && <p className="wf-resp-section-label" style={{ marginTop: 10 }}>{subtitle}</p>}
+          <div className="wf-resp-toolbar">
+            {searchToolbarContent}
           </div>
           <div className="wf-resp-section">
             <div className="wf-resp-section-label">Response body</div>
