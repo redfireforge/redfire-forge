@@ -236,6 +236,23 @@ export default function WorkflowNodeConfigModal({
               />
             )}
 
+            {/* Generic label editor for fork, join, end nodes */}
+            {(draftNode.type === 'fork' || draftNode.type === 'join' || draftNode.type === 'end') && (
+              <div className="wf-config-section">
+                <label className="wf-config-label">
+                  Label
+                  <input
+                    type="text"
+                    className="wf-config-input"
+                    value={draft.label || ''}
+                    onChange={(e) => updateDraft({ label: e.target.value })}
+                    placeholder={`${draftNode.type.charAt(0).toUpperCase() + draftNode.type.slice(1)} node`}
+                  />
+                  <span className="wf-config-hint">Display name for this {draftNode.type} node</span>
+                </label>
+              </div>
+            )}
+
             {isHttpWorkflowNode(draftNode) && (
               <VariablesSection
                 title="Initial variables (this step)"
