@@ -379,6 +379,324 @@ function createConditionalBranchWorkflow(): Workflow {
   };
 }
 
+/**
+ * Sample workflow demonstrating webhook trigger with payload extraction.
+ * Flow: Webhook receives order → Check inventory → If in stock: Process order, Else: Send alert
+ */
+function createWebhookTriggerWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-webhook',
+    name: 'Sample: Webhook Trigger',
+    description: 'Webhook-triggered order processing with payload extraction and conditional branching',
+    variables: {
+      warehouseId: 'WH-001',
+      notificationEmail: 'orders@example.com',
+    },
+    nodes: [
+      {
+        id: 'wh-webhook',
+        type: 'webhook',
+        position: { x: 240, y: 0 },
+        data: {
+          label: 'Order Webhook',
+          method: 'POST',
+          path: '/api/orders/incoming',
+          samplePayload: JSON.stringify({
+            orderId: 'ORD-12345',
+            customerId: 'CUST-001',
+            items: [
+              { sku: 'ITEM-001', quantity: 2, price: 29.99 },
+            ],
+            totalAmount: 59.98,
+            orderDate: '2026-04-23T10:30:00Z',
+          }, null, 2),
+          extractVariables: [
+            { name: 'orderId', jsonPath: '$.orderId' },
+            { name: 'customerId', jsonPath: '$.customerId' },
+            { name: 'totalAmount', jsonPath: '$.totalAmount' },
+          ],
+          notes: 'Extracts orderId, customerId, and totalAmount from incoming webhook payload',
+        },
+      },
+      {
+        id: 'wh-check-inventory',
+        type: 'http',
+        position: { x: 200, y: 150 },
+        data: {
+          label: '1. Check Inventory',
+          scenario: {
+            id: 'wh-s1',
+            name: 'Check Inventory',
+            url: 'https://api.example.com/inventory/check?sku=ITEM-001&warehouse={{warehouseId}}',
+            method: 'GET',
+            headers: [],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'stockLevel', source: 'body', expression: '$.stockLevel' },
+              { name: 'available', source: 'body', expression: '$.available' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'wh-condition',
+        type: 'condition',
+        position: { x: 240, y: 300 },
+        data: {
+          label: '2. In Stock?',
+          left: '{{stockLevel}}',
+          operator: '>',
+          right: '0',
+        },
+      },
+      {
+        id: 'wh-process',
+        type: 'http',
+        position: { x: 50, y: 450 },
+        data: {
+          label: '3a. Process Order',
+          scenario: {
+            id: 'wh-s2',
+            name: 'Process Order',
+            url: 'https://api.example.com/orders/process',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              orderId: '{{orderId}}',
+              customerId: '{{customerId}}',
+              amount: '{{totalAmount}}',
+              status: 'processing',
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+          },
+        },
+      },
+      {
+        id: 'wh-alert',
+        type: 'http',
+        position: { x: 400, y: 450 },
+        data: {
+          label: '3b. Out of Stock Alert',
+          scenario: {
+            id: 'wh-s3',
+            name: 'Send Alert',
+            url: 'https://api.example.com/notifications',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              type: 'inventory_alert',
+              orderId: '{{orderId}}',
+              message: 'Order {{orderId}} - Item out of stock',
+              recipient: '{{notificationEmail}}',
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+          },
+        },
+      },
+      {
+        id: 'wh-end-success',
+        type: 'end',
+        position: { x: 50, y: 600 },
+        data: { label: 'Order Processed', isSuccess: true },
+      },
+      {
+        id: 'wh-end-failure',
+        type: 'end',
+        position: { x: 400, y: 600 },
+        data: { label: 'Out of Stock', isSuccess: false },
+      },
+    ],
+    edges: [
+      { id: 'wh-e1', source: 'wh-webhook', target: 'wh-check-inventory' },
+      { id: 'wh-e2', source: 'wh-check-inventory', target: 'wh-condition' },
+      { id: 'wh-e3', source: 'wh-condition', target: 'wh-process', sourceHandle: 'true', label: 'Yes' },
+      { id: 'wh-e4', source: 'wh-condition', target: 'wh-alert', sourceHandle: 'false', label: 'No' },
+      { id: 'wh-e5', source: 'wh-process', target: 'wh-end-success' },
+      { id: 'wh-e6', source: 'wh-alert', target: 'wh-end-failure' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample workflow demonstrating schedule trigger with cron-based execution.
+ * Flow: Schedule trigger (daily) → Fetch data → Generate report → Fork → [Email + Archive] → Join
+ */
+function createScheduleTriggerWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-schedule',
+    name: 'Sample: Schedule Trigger',
+    description: 'Cron-scheduled daily report generation with parallel email delivery and archiving',
+    variables: {
+      reportFormat: 'pdf',
+      recipientEmail: 'reports@example.com',
+    },
+    nodes: [
+      {
+        id: 'sc-schedule',
+        type: 'schedule',
+        position: { x: 240, y: 0 },
+        data: {
+          label: 'Daily 9 AM Trigger',
+          cronExpression: '0 9 * * *',
+          timezone: 'America/New_York',
+          scheduleDescription: 'Every day at 9:00 AM EST',
+          inputVariables: {
+            reportType: 'daily_sales',
+            lookbackDays: '1',
+          },
+          notes: 'Runs daily at 9 AM EST. Automatic variables: triggerTime, triggerTimestamp',
+        },
+      },
+      {
+        id: 'sc-fetch',
+        type: 'http',
+        position: { x: 200, y: 150 },
+        data: {
+          label: '1. Fetch Sales Data',
+          scenario: {
+            id: 'sc-s1',
+            name: 'Fetch Sales Data',
+            url: 'https://api.example.com/analytics/reports/sales?type={{reportType}}&days={{lookbackDays}}&timestamp={{triggerTimestamp}}',
+            method: 'GET',
+            headers: [],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'totalSales', source: 'body', expression: '$.data.totalSales' },
+              { name: 'orderCount', source: 'body', expression: '$.data.orderCount' },
+              { name: 'reportUrl', source: 'body', expression: '$.data.reportUrl' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sc-generate',
+        type: 'http',
+        position: { x: 200, y: 300 },
+        data: {
+          label: '2. Generate Report',
+          scenario: {
+            id: 'sc-s2',
+            name: 'Generate Report',
+            url: 'https://api.example.com/analytics/reports/generate',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              reportType: '{{reportType}}',
+              generatedAt: '{{triggerTime}}',
+              data: {
+                totalSales: '{{totalSales}}',
+                orderCount: '{{orderCount}}',
+                period: '{{lookbackDays}} days',
+              },
+              format: '{{reportFormat}}',
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'pdfUrl', source: 'body', expression: '$.pdfUrl' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sc-fork',
+        type: 'fork',
+        position: { x: 240, y: 450 },
+        data: { label: '3. Parallel Delivery' },
+      },
+      {
+        id: 'sc-email',
+        type: 'http',
+        position: { x: 50, y: 570 },
+        data: {
+          label: '4a. Email Report',
+          scenario: {
+            id: 'sc-s3',
+            name: 'Email Report',
+            url: 'https://api.example.com/email/send',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              to: '{{recipientEmail}}',
+              subject: 'Daily Sales Report - {{triggerTime}}',
+              body: 'Please find the daily sales report attached.\n\nTotal Sales: ${{totalSales}}\nOrders: {{orderCount}}',
+              attachments: [
+                { name: 'sales_report.pdf', url: '{{pdfUrl}}' },
+              ],
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+          },
+        },
+      },
+      {
+        id: 'sc-archive',
+        type: 'http',
+        position: { x: 400, y: 570 },
+        data: {
+          label: '4b. Archive Report',
+          scenario: {
+            id: 'sc-s4',
+            name: 'Archive Report',
+            url: 'https://api.example.com/analytics/reports/archive',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              reportUrl: '{{reportUrl}}',
+              pdfUrl: '{{pdfUrl}}',
+              timestamp: '{{triggerTimestamp}}',
+              metadata: {
+                type: '{{reportType}}',
+                totalSales: '{{totalSales}}',
+                orderCount: '{{orderCount}}',
+              },
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+          },
+        },
+      },
+      {
+        id: 'sc-join',
+        type: 'join',
+        position: { x: 240, y: 720 },
+        data: { label: '5. Wait for Completion' },
+      },
+      {
+        id: 'sc-end',
+        type: 'end',
+        position: { x: 240, y: 820 },
+        data: { label: 'Report Complete', isSuccess: true },
+      },
+    ],
+    edges: [
+      { id: 'sc-e1', source: 'sc-schedule', target: 'sc-fetch' },
+      { id: 'sc-e2', source: 'sc-fetch', target: 'sc-generate' },
+      { id: 'sc-e3', source: 'sc-generate', target: 'sc-fork' },
+      { id: 'sc-e4', source: 'sc-fork', target: 'sc-email' },
+      { id: 'sc-e5', source: 'sc-fork', target: 'sc-archive' },
+      { id: 'sc-e6', source: 'sc-email', target: 'sc-join' },
+      { id: 'sc-e7', source: 'sc-archive', target: 'sc-join' },
+      { id: 'sc-e8', source: 'sc-join', target: 'sc-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
@@ -398,5 +716,17 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     name: 'Conditional Branching',
     description: 'If/Else paths leading to different API endpoints',
     factory: createConditionalBranchWorkflow,
+  },
+  {
+    id: 'sample-workflow-webhook',
+    name: '🪝 Webhook Trigger',
+    description: 'Order processing triggered by incoming HTTP webhooks with payload extraction',
+    factory: createWebhookTriggerWorkflow,
+  },
+  {
+    id: 'sample-workflow-schedule',
+    name: '⏰ Schedule Trigger',
+    description: 'Daily report generation with cron-based scheduling and automatic time variables',
+    factory: createScheduleTriggerWorkflow,
   },
 ];
