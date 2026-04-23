@@ -29,6 +29,7 @@ import WorkflowDesigner from './pages/WorkflowDesigner';
 import WorkflowExecutionHistory from './pages/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from './pages/WebhookDeliveryLogs';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
+import ServerStatusIndicator from './components/workflow/ServerStatusIndicator';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
 import type { SampleWorkflowEntry } from './data/sampleWorkflows';
@@ -477,33 +478,40 @@ export default function App() {
         <main className="app-main">
           {(isHarnessTab(activeTab) || isWorkflowTab(activeTab)) && (
             <div className="main-top-nav">
-              <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-              <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-              <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-              <button
-                type="button"
-                className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
-                onClick={() => setActiveTab('workflow')}
-                title="Visual workflow designer (separate from feature groups)"
-              >
-                Workflow
-              </button>
-              <button
-                type="button"
-                className={`main-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`}
-                onClick={() => setActiveTab('workflow-executions')}
-                title="View webhook and schedule execution history"
-              >
-                📊 Execution History
-              </button>
-              <button
-                type="button"
-                className={`main-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`}
-                onClick={() => setActiveTab('webhook-deliveries')}
-                title="View raw webhook delivery logs"
-              >
-                🪝 Webhook Logs
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
+                <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
+                <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('workflow')}
+                  title="Visual workflow designer (separate from feature groups)"
+                >
+                  Workflow
+                </button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('workflow-executions')}
+                  title="View webhook and schedule execution history"
+                >
+                  📊 Execution History
+                </button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('webhook-deliveries')}
+                  title="View raw webhook delivery logs"
+                >
+                  🪝 Webhook Logs
+                </button>
+              </div>
+              {isWorkflowTab(activeTab) && (
+                <div style={{ marginLeft: 'auto', paddingRight: '12px' }}>
+                  <ServerStatusIndicator />
+                </div>
+              )}
             </div>
           )}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
