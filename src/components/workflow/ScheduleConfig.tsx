@@ -66,11 +66,11 @@ export default function ScheduleConfig({
           <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff', borderRadius: '4px', fontSize: '0.8rem' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#666' }}>📝 Automatic Variables:</div>
             <div style={{ color: '#777', lineHeight: '1.5' }}>
-              • <code>{'{'}{'{'}}triggerTime{'}'}{'}'}</code> - ISO timestamp<br/>
-              • <code>{'{'}{'{'}}triggerTimestamp{'}'}{'}'}</code> - Unix milliseconds<br/>
-              • <code>{'{'}{'{'}}triggerDate{'}'}{'}'}</code> - YYYY-MM-DD<br/>
-              • <code>{'{'}{'{'}}triggerHour{'}'}{'}'}</code> - HH (00-23)<br/>
-              • <code>{'{'}{'{'}}triggerMinute{'}'}{'}'}</code> - MM (00-59)
+              • <code>{'{{triggerTime}}'}</code> - ISO timestamp<br/>
+              • <code>{'{{triggerTimestamp}}'}</code> - Unix milliseconds<br/>
+              • <code>{'{{triggerDate}}'}</code> - YYYY-MM-DD<br/>
+              • <code>{'{{triggerHour}}'}</code> - HH (00-23)<br/>
+              • <code>{'{{triggerMinute}}'}</code> - MM (00-59)
             </div>
           </div>
           <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#666', fontStyle: 'italic' }}>
