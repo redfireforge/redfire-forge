@@ -433,6 +433,32 @@ BLOCKS
 
 ### Phase 3 Detail (Webhook Trigger) — 🚧 IN PROGRESS
 
+**Scope:**
+1. Add `webhook` to `WorkflowNodeType` union
+2. Create `WebhookTriggerNode.tsx` component
+3. Webhook configuration UI: HTTP method (POST/PUT/PATCH), endpoint path, sample payload
+4. "Simulate Webhook" feature in WorkflowToolbar (modal to paste test JSON)
+5. Update `graphRunner.ts` to handle webhook entry points
+6. Variable extraction from webhook payload via JSONPath
+7. Unit tests for webhook node configuration and execution
+8. E2E tests (deferred until develop → release merge per git-branching policy)
+
+**Testing Note:** Per `.cursor/rules/git-branching.mdc`, E2E tests are NOT required for feature→develop merges. E2E tests will be run when merging develop→release or release→master.
+
+### Phase 4 Detail (Schedule Trigger) — 🚧 IN PROGRESS
+
+**Scope:**
+1. Add `schedule` to `WorkflowNodeType` union
+2. Create `ScheduleTriggerNode.tsx` component  
+3. Schedule configuration UI: cron expression, timezone, recurrence pattern
+4. "Simulate Schedule" feature in WorkflowToolbar (manual trigger)
+5. Update `graphRunner.ts` to handle schedule entry points
+6. Variable injection: current time, trigger timestamp
+7. Unit tests for schedule node configuration
+8. E2E tests (deferred until develop → release merge per git-branching policy)
+
+**Testing Note:** Per `.cursor/rules/git-branching.mdc`, E2E tests are NOT required for feature→develop merges. E2E tests will be run when merging develop→release or release→master.
+
 1. Add `start` to `WorkflowNodeType` union
 2. Create `StartNode.tsx` component
 3. Auto-insert Start node on new workflow creation

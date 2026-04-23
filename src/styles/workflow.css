@@ -1867,6 +1867,41 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;
 }
 
+/* Webhook Trigger node */
+.wf-node-webhook { min-width: 160px; border-color: #0ea5e9; }
+.wf-webhook-body {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+}
+.wf-webhook-icon { font-size: 1rem; }
+.wf-webhook-path {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 10px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono', monospace;
+}
+.wf-webhook-method {
+  font-weight: 700; color: #0ea5e9; margin-right: 4px;
+}
+.wf-webhook-extracts {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 10px 4px;
+}
+
+/* Schedule Trigger node */
+.wf-node-schedule { min-width: 160px; border-color: #f59e0b; }
+.wf-schedule-body {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+}
+.wf-schedule-icon { font-size: 1rem; }
+.wf-schedule-desc {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 10px 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wf-schedule-cron {
+  font-size: 0.65rem; color: var(--text-muted); padding: 0 10px 4px;
+  font-family: 'SF Mono', monospace;
+}
+.wf-schedule-vars {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 10px 4px;
+}
+
 /* Debug mode */
 .wf-debug-step-btn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1908,6 +1943,8 @@
   padding: 10px 10px 4px; margin: 0;
 }
 .wf-palette-block-start { border-left: 3px solid #22c55e; }
+.wf-palette-block-webhook { border-left: 3px solid #0ea5e9; }
+.wf-palette-block-schedule { border-left: 3px solid #f59e0b; }
 .wf-palette-block-fork { border-left: 3px solid #a855f7; }
 .wf-palette-block-join { border-left: 3px solid #a855f7; }
 
