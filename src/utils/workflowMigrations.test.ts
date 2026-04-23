@@ -18,7 +18,7 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
     id: 'wf-1', name: 'Test', nodes: [], edges: [],
     createdAt: 0, updatedAt: 0,
     variables: {}, hostProfiles: [], authProfiles: [], services: [],
-    schemaVersion: 3,
+    schemaVersion: 4,
     ...overrides,
   };
 }
@@ -31,11 +31,103 @@ function httpNode(id: string, label: string, extra: Partial<HttpNodeData> = {}):
 }
 
 describe('migrateWorkflowSchema', () => {
-  it('returns v3 workflow unchanged', () => {
-    const wf = makeWorkflow({ schemaVersion: 3 });
+  it('returns v4 workflow unchanged', () => {
+    const wf = makeWorkflow({ schemaVersion: 4 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
+    expect(result.schemaVersion).toBe(4);
     expect(result.services).toEqual([]);
+  });
+
+  // ── v3 → v4: Start node insertion ──
+
+  it('v3→v4 inserts Start node and connects to root nodes', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [
+        httpNode('n1', 'Step A'),
+        httpNode('n2', 'Step B'),
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(4);
+    // Start node should be inserted
+    const startNode = result.nodes.find(n => n.type === 'start');
+    expect(startNode).toBeDefined();
+    expect(startNode!.data.label).toBe('Start');
+    // Start node should connect to root node (n1, which has no incoming edges)
+    const startEdges = result.edges.filter(e => e.source === startNode!.id);
+    expect(startEdges).toHaveLength(1);
+    expect(startEdges[0].target).toBe('n1');
+    // n2 should NOT get a direct edge from Start (it has incoming from n1)
+    expect(startEdges.find(e => e.target === 'n2')).toBeUndefined();
+  });
+
+  it('v3→v4 skips insertion when Start node already exists', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [
+        { id: 's1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start', inputVariables: {} } },
+        httpNode('n1', 'Step A'),
+      ],
+      edges: [{ id: 'e1', source: 's1', target: 'n1' }],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(4);
+    // Should not add another Start node
+    const startNodes = result.nodes.filter(n => n.type === 'start');
+    expect(startNodes).toHaveLength(1);
+  });
+
+  it('v3→v4 skips insertion for empty workflows', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [],
+      edges: [],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(4);
+    expect(result.nodes).toHaveLength(0);
+  });
+
+  it('v3→v4 shifts existing nodes down by 100px', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [
+        { ...httpNode('n1', 'Step A'), position: { x: 100, y: 50 } },
+      ],
+      edges: [],
+    };
+    const result = migrateWorkflowSchema(wf);
+    const n1 = result.nodes.find(n => n.id === 'n1')!;
+    expect(n1.position.y).toBe(150); // 50 + 100
+    expect(n1.position.x).toBe(100); // unchanged
+  });
+
+  it('v3→v4 connects Start to multiple root nodes', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [
+        httpNode('n1', 'Root A'),
+        httpNode('n2', 'Root B'),
+      ],
+      edges: [], // both are root nodes
+    };
+    const result = migrateWorkflowSchema(wf);
+    const startNode = result.nodes.find(n => n.type === 'start')!;
+    const startEdges = result.edges.filter(e => e.source === startNode.id);
+    expect(startEdges).toHaveLength(2);
+    expect(startEdges.map(e => e.target).sort()).toEqual(['n1', 'n2']);
   });
 
   it('migrates a v1 workflow with inline host fields to v3', () => {
@@ -50,8 +142,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
-    const data = result.nodes[0].data as HttpNodeData;
+    expect(result.schemaVersion).toBe(4);
+    const data = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     // Should have a hostProfileId assigned
     expect(data.hostProfileId).toBeDefined();
     // Should have services created
@@ -75,12 +167,12 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
+    expect(result.schemaVersion).toBe(4);
     expect(result.services!.length).toBeGreaterThan(0);
     const svc = result.services![0];
     expect(svc.auth).toEqual({ type: 'bearer', token: 'tok' });
     // Node should have serviceId
-    const data = result.nodes[0].data as HttpNodeData;
+    const data = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(data.serviceId).toBe(svc.id);
   });
 
@@ -161,8 +253,8 @@ describe('migrateWorkflowSchema', () => {
     };
     const result = migrateWorkflowSchema(wf);
     // Each origin should get its own service
-    const d1 = result.nodes[0].data as HttpNodeData;
-    const d2 = result.nodes[1].data as HttpNodeData;
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
     expect(d1.serviceId).toBeDefined();
     expect(d2.serviceId).toBeDefined();
     expect(d1.serviceId).not.toBe(d2.serviceId);
@@ -179,8 +271,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d1 = result.nodes[0].data as HttpNodeData;
-    const d2 = result.nodes[1].data as HttpNodeData;
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
     expect(d1.serviceId).toBeDefined();
     expect(d1.serviceId).toBe(d2.serviceId);
   });
@@ -201,8 +293,9 @@ describe('migrateWorkflowSchema', () => {
   it('handles workflow with no nodes', () => {
     const wf = makeWorkflow({ nodes: [], schemaVersion: 1 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
-    expect(result.nodes).toEqual([]);
+    expect(result.schemaVersion).toBe(4);
+    // v3→v4 does not insert Start node if there are no existing nodes
+    expect(result.nodes).toHaveLength(0);
     expect(result.services).toEqual([]);
   });
 
@@ -217,12 +310,13 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
-    expect(result.nodes).toHaveLength(2);
+    expect(result.schemaVersion).toBe(4);
+    // v3→v4 inserts a Start node
+    expect(result.nodes).toHaveLength(3);
   });
 
   it('fills hostProfiles and authProfiles arrays when undefined', () => {
-    const wf = { id: 'wf-1', name: 'Test', nodes: [], edges: [], createdAt: 0, updatedAt: 0, variables: {}, schemaVersion: 3 } as unknown as Workflow;
+    const wf = { id: 'wf-1', name: 'Test', nodes: [], edges: [], createdAt: 0, updatedAt: 0, variables: {}, schemaVersion: 4 } as unknown as Workflow;
     const result = migrateWorkflowSchema(wf);
     expect(result.hostProfiles).toEqual([]);
     expect(result.authProfiles).toEqual([]);
@@ -252,7 +346,7 @@ describe('migrateWorkflowSchema', () => {
   it('fixup splits over-grouped service when nodes have different URL origins', () => {
     // Start with v3 that has 2 nodes sharing one service but with different URL origins
     const wf = makeWorkflow({
-      schemaVersion: 3,
+      schemaVersion: 4,
       services: [{
         id: 'svc-shared', name: 'Shared', urlMode: 'direct',
         endpoints: [{ envId: '__all__', url: 'https://a.com', enabled: true, authMode: 'inherit' as const, source: 'manual' as const }],
@@ -275,7 +369,7 @@ describe('migrateWorkflowSchema', () => {
 
   it('fixup keeps service when all nodes have the same URL origin', () => {
     const wf = makeWorkflow({
-      schemaVersion: 3,
+      schemaVersion: 4,
       services: [{
         id: 'svc-ok', name: 'Ok', urlMode: 'direct',
         endpoints: [{ envId: '__all__', url: 'https://api.com', enabled: true, authMode: 'inherit' as const, source: 'manual' as const }],
@@ -292,7 +386,7 @@ describe('migrateWorkflowSchema', () => {
 
   it('fixup assigns orphan HTTP nodes without serviceId', () => {
     const wf = makeWorkflow({
-      schemaVersion: 3,
+      schemaVersion: 4,
       services: [],
       nodes: [
         httpNode('n1', 'Orphan', { scenario: { ...minimalScenario(), url: 'https://orphan.com/x' } }),
@@ -307,7 +401,7 @@ describe('migrateWorkflowSchema', () => {
 
   it('fixup preserves auth on orphan nodes with inline auth', () => {
     const wf = makeWorkflow({
-      schemaVersion: 3,
+      schemaVersion: 4,
       services: [],
       nodes: [
         httpNode('n1', 'Authed', { scenario: { ...minimalScenario(), url: 'https://secure.com/api', auth: { type: 'bearer', token: 'tk' } } }),
@@ -331,8 +425,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
-    const data = result.nodes[0].data as HttpNodeData;
+    expect(result.schemaVersion).toBe(4);
+    const data = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(data.hostProfileId).toBeDefined();
   });
 
@@ -348,7 +442,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(3);
+    expect(result.schemaVersion).toBe(4);
   });
 
   it('orphan node with hostBaseUrl gets grouped by host', () => {
@@ -362,7 +456,7 @@ describe('migrateWorkflowSchema', () => {
     };
     const result = migrateWorkflowSchema(wf);
     // Node should get a service via orphan grouping (phase 3) with hostBaseUrl key
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
   });
 
@@ -378,7 +472,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
     const svc = result.services!.find(s => s.id === d.serviceId);
     expect(svc!.urlMode).toBe('multi-env');
@@ -394,7 +488,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
   });
 
@@ -428,7 +522,7 @@ describe('migrateWorkflowSchema', () => {
     const sharedSvcId = 'svc_shared';
     const wf: Workflow = {
       id: 'wf-1', name: 'Test', edges: [],
-      createdAt: 0, updatedAt: 0, schemaVersion: 3,
+      createdAt: 0, updatedAt: 0, schemaVersion: 4,
       variables: {}, hostProfiles: [], authProfiles: [],
       services: [{
         id: sharedSvcId, name: 'Shared', urlMode: 'direct',
@@ -456,7 +550,7 @@ describe('migrateWorkflowSchema', () => {
     const svcId = 'svc_single';
     const wf: Workflow = {
       id: 'wf-1', name: 'Test', edges: [],
-      createdAt: 0, updatedAt: 0, schemaVersion: 3,
+      createdAt: 0, updatedAt: 0, schemaVersion: 4,
       variables: {}, hostProfiles: [], authProfiles: [],
       services: [{
         id: svcId, name: 'Solo', urlMode: 'direct',
@@ -486,9 +580,10 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.nodes).toHaveLength(2);
-    expect(result.nodes[0].type).toBe('condition');
-    expect(result.nodes[1].type).toBe('delay');
+    // v3→v4 inserts a Start node
+    expect(result.nodes).toHaveLength(3);
+    expect(result.nodes.find(n => n.id === 'c1')!.type).toBe('condition');
+    expect(result.nodes.find(n => n.id === 'd1')!.type).toBe('delay');
   });
 
   it('v2→v3 assigns different services to nodes with auth vs no auth for same origin', () => {
@@ -530,8 +625,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d1 = result.nodes[0].data as HttpNodeData;
-    const d2 = result.nodes[1].data as HttpNodeData;
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
     // Both should share same hostProfileId
     expect(d1.hostProfileId).toBe(d2.hostProfileId);
   });
@@ -553,8 +648,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d1 = result.nodes[0].data as HttpNodeData;
-    const d2 = result.nodes[1].data as HttpNodeData;
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
     expect(d1.authProfileId).toBe(d2.authProfileId);
   });
 
@@ -575,8 +670,8 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d1 = result.nodes[0].data as HttpNodeData;
-    const d2 = result.nodes[1].data as HttpNodeData;
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
     expect(d1.authProfileId).toBeUndefined();
     expect(d2.authProfileId).toBeUndefined();
   });
@@ -597,7 +692,7 @@ describe('migrateWorkflowSchema', () => {
     };
     const result = migrateWorkflowSchema(wf);
     // Should still create profiles with fallback names
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.hostProfileId).toBeDefined();
     expect(d.authProfileId).toBeDefined();
   });
@@ -614,7 +709,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.hostProfileId).toBe('existing-hp');
   });
 
@@ -639,7 +734,7 @@ describe('migrateWorkflowSchema', () => {
     const sharedSvcId = 'svc_over';
     const wf: Workflow = {
       id: 'wf-1', name: 'Test', edges: [],
-      createdAt: 0, updatedAt: 0, schemaVersion: 3,
+      createdAt: 0, updatedAt: 0, schemaVersion: 4,
       variables: {}, hostProfiles: [], authProfiles: [],
       services: [{
         id: sharedSvcId, name: 'Over', urlMode: 'direct',
@@ -669,7 +764,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     // Should be grouped by label since URL origin can't be extracted
     expect(d.serviceId).toBeDefined();
   });
@@ -688,7 +783,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
   });
 
@@ -707,7 +802,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
     const svc = result.services!.find(s => s.id === d.serviceId);
     expect(svc!.urlMode).toBe('multi-env');
@@ -728,7 +823,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    const d = result.nodes[0].data as HttpNodeData;
+    const d = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     // serviceId preserved from pre-assignment
     expect(d.serviceId).toBe('svc-pre');
   });
@@ -737,7 +832,7 @@ describe('migrateWorkflowSchema', () => {
     // schemaVersion 3, no services, node has no serviceId
     const wf: Workflow = {
       id: 'wf-1', name: 'Test', edges: [],
-      createdAt: 0, updatedAt: 0, schemaVersion: 3,
+      createdAt: 0, updatedAt: 0, schemaVersion: 4,
       variables: {}, hostProfiles: [], authProfiles: [],
       services: [],
       nodes: [

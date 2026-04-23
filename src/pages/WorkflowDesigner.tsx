@@ -31,10 +31,15 @@ import type {
   HttpNodeData,
   ConditionNodeData,
   DelayNodeData,
+  StartNodeData,
+  ForkNodeData,
+  JoinNodeData,
+  EndNodeData,
   NodeRunStatus,
   WorkflowHostProfile,
   WorkflowAuthProfile,
   WorkflowService,
+  Workflow,
 } from '../types/workflow';
 import {
   collectConditionVariableHints,
@@ -50,7 +55,7 @@ import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { mergeWorkflowNodeData, cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
-import { WorkflowNodeRunContext } from '../components/workflow/WorkflowNodeRunContext';
+import { WorkflowNodeRunContext, WorkflowDebugStepContext } from '../components/workflow/WorkflowNodeRunContext';
 import { useResizablePanels } from '../hooks/useResizablePanels';
 
 import WorkflowToolbar from '../components/workflow/WorkflowToolbar';
@@ -67,6 +72,12 @@ import WorkflowServicesPanelInline from '../components/workflow/WorkflowServices
 import HttpStepNode from '../components/workflow/nodes/HttpStepNode';
 import ConditionNode from '../components/workflow/nodes/ConditionNode';
 import DelayNode from '../components/workflow/nodes/DelayNode';
+import StartNode from '../components/workflow/nodes/StartNode';
+import ForkNode from '../components/workflow/nodes/ForkNode';
+import { DebugController } from '../engine/workflow/debugController';
+import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
+import JoinNode from '../components/workflow/nodes/JoinNode';
+import EndNode from '../components/workflow/nodes/EndNode';
 
 interface Props {
   collections: RequestCollection[];
@@ -84,6 +95,10 @@ interface Props {
   onEnvSelect: (id: string) => void;
   onSvcSelect: (id: string) => void;
   resolvedBaseUrl: string;
+  /** Read-only sample workflow preview (not persisted). */
+  previewWorkflow: Workflow | null;
+  onClearPreview: () => void;
+  onUseAsTemplate: (wf: Workflow) => void;
 }
 
 interface WorkflowNodeContextMenuData {
@@ -96,6 +111,10 @@ const nodeTypes = {
   http: HttpStepNode,
   condition: ConditionNode,
   delay: DelayNode,
+  start: StartNode,
+  fork: ForkNode,
+  join: JoinNode,
+  end: EndNode,
 };
 
 /** Enrich a React Flow node with state-managed initialVariables. */
@@ -126,6 +145,10 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'http': return { label: 'HTTP Request', scenario: makeEmptyScenario(), initialVariables: {} } as HttpNodeData;
     case 'condition': return { label: 'If/Else', left: '{{status}}', operator: '==', right: '200' } as ConditionNodeData;
     case 'delay': return { label: 'Delay', delayMs: 1000, mode: 'fixed' } as DelayNodeData;
+    case 'start': return { label: 'Start', inputVariables: {} } as StartNodeData;
+    case 'fork': return { label: 'Parallel Fork' } as ForkNodeData;
+    case 'join': return { label: 'Join' } as JoinNodeData;
+    case 'end': return { label: 'End' } as EndNodeData;
   }
 }
 
@@ -137,31 +160,75 @@ export default function WorkflowDesignerWrapper(props: Props) {
   );
 }
 
-function AutoLayoutButton({ nodes, edges, setNodes }: {
+function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes }: {
   nodes: WorkflowRFNode[];
   edges: WorkflowRFEdge[];
   setNodes: (nodes: WorkflowRFNode[]) => void;
+  persistWorkflow: (overrides?: { rfNodes?: WorkflowRFNode[] }) => void;
+  selected: Workflow | null;
+  previewWorkflow: Workflow | null;
+  serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
 }) {
   const { fitView } = useReactFlow();
   return (
-    <ControlButton
-      onClick={() => {
-        const laid = getAutoLayoutNodes(nodes, edges);
-        setNodes(laid);
-        requestAnimationFrame(() => fitView({ padding: 0.2 }));
-      }}
-      title="Auto-layout nodes"
-    >
-      <svg viewBox="0 0 24 24">
-        <rect x="7" y="1" width="10" height="6" rx="1" />
-        <rect x="1" y="17" width="10" height="6" rx="1" />
-        <rect x="13" y="17" width="10" height="6" rx="1" />
-        <rect x="11" y="7" width="2" height="4" />
-        <rect x="5" y="11" width="2" height="6" />
-        <rect x="6" y="10" width="12" height="2" />
-        <rect x="17" y="11" width="2" height="6" />
-      </svg>
-    </ControlButton>
+    <>
+      <ControlButton
+        onClick={() => {
+          // Restore saved positions (revert manual moves without recalculating)
+          if (selected) {
+            setNodes((nds) => nds.map(n => {
+              const saved = selected.nodes.find(sn => sn.id === n.id);
+              return saved ? { ...n, position: saved.position } : n;
+            }));
+            requestAnimationFrame(() => fitView({ padding: 0.2 }));
+          }
+        }}
+        title="Restore saved layout"
+        disabled={!!previewWorkflow}
+      >
+        <svg viewBox="0 0 24 24">
+          <rect x="7" y="1" width="10" height="6" rx="1" />
+          <rect x="1" y="17" width="10" height="6" rx="1" />
+          <rect x="13" y="17" width="10" height="6" rx="1" />
+          <rect x="11" y="7" width="2" height="4" />
+          <rect x="5" y="11" width="2" height="6" />
+          <rect x="6" y="10" width="12" height="2" />
+          <rect x="17" y="11" width="2" height="6" />
+        </svg>
+      </ControlButton>
+      <ControlButton
+        onClick={() => {
+          const laid = getAutoLayoutNodes(nodes, edges);
+          setNodes(laid);
+          // For previews, only update visual layout (don't save)
+          // User must click "Use as Template" to save
+          if (!previewWorkflow) {
+            // For existing workflows, persist the layout
+            requestAnimationFrame(() => {
+              persistWorkflow({ rfNodes: laid });
+              fitView({ padding: 0.2 });
+            });
+          } else {
+            requestAnimationFrame(() => {
+              fitView({ padding: 0.2 });
+            });
+          }
+        }}
+        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
+      >
+        <svg viewBox="0 0 24 24">
+          <rect x="7" y="1" width="10" height="5" rx="1" />
+          <rect x="1" y="18" width="10" height="5" rx="1" />
+          <rect x="13" y="18" width="10" height="5" rx="1" />
+          <rect x="11" y="6" width="2" height="4" />
+          <rect x="5" y="10" width="2" height="8" />
+          <rect x="6" y="10" width="12" height="2" />
+          <rect x="17" y="10" width="2" height="8" />
+          <path d="M19 3 L21 5 L19 7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="15" y1="5" x2="21" y2="5" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+      </ControlButton>
+    </>
   );
 }
 
@@ -177,8 +244,12 @@ function WorkflowDesignerInner({
   onEnvSelect,
   onSvcSelect: _onSvcSelect,
   resolvedBaseUrl,
+  previewWorkflow,
+  onClearPreview,
+  onUseAsTemplate,
 }: Props) {
-  const { workflows, selected, create, update, select } = wfHook;
+  const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
+  const selected = previewWorkflow ?? selectedWorkflow;
   const { paletteWidth, startDrag } = useResizablePanels();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
@@ -428,12 +499,14 @@ function WorkflowDesignerInner({
   const handleNew = useCallback(() => {
     const name = prompt('Workflow name:');
     if (!name?.trim()) return;
+    onClearPreview();
     create(name.trim());
-  }, [create]);
+  }, [create, onClearPreview]);
 
   const handleSelect = useCallback((id: string) => {
+    onClearPreview();
     select(id);
-  }, [select]);
+  }, [select, onClearPreview]);
 
 
   /** Serialize React Flow nodes to workflow storage format. */
@@ -476,10 +549,11 @@ function WorkflowDesignerInner({
     setSaveAcknowledged(true);
   }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
 
-  // Save current canvas state to the workflow
+  // Save current canvas state — preserves current positions as-is
   const handleSave = useCallback(() => {
+    if (previewWorkflow) return;
     persistWorkflow();
-  }, [persistWorkflow]);
+  }, [persistWorkflow, previewWorkflow]);
 
   useEffect(() => {
     if (!saveAcknowledged) return;
@@ -494,8 +568,21 @@ function WorkflowDesignerInner({
       animated: false,
       label: params.sourceHandle === 'true' ? 'Yes' : params.sourceHandle === 'false' ? 'No' : undefined,
     };
-    setEdges((eds) => addEdge(newEdge, eds));
-  }, [setEdges]);
+    setEdges((eds) => {
+      const updated = addEdge(newEdge, eds);
+      // Auto-save edges when a new connection is made
+      if (selected) {
+        const wfNodes = serializeNodes(nodes);
+        const wfEdges = updated.map(e => ({
+          id: e.id, source: e.source, target: e.target,
+          sourceHandle: e.sourceHandle ?? undefined,
+          label: typeof e.label === 'string' ? e.label : undefined,
+        }));
+        update(selected.id, { nodes: wfNodes, edges: wfEdges });
+      }
+      return updated;
+    });
+  }, [setEdges, selected, nodes, serializeNodes, update]);
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
@@ -522,8 +609,28 @@ function WorkflowDesignerInner({
       position: { x: 300, y },
       data: data ?? defaultNodeData(type),
     };
-    setNodes((nds) => [...nds, newNode]);
-  }, [selected, setNodes]);
+    setNodes((nds) => {
+      const updated = [...nds, newNode];
+      // Auto-save so the new node is persisted immediately
+      const wfNodes = updated.map(n => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: cloneWorkflowNodeDataForStorage(
+          isHttpWorkflowNode(n)
+            ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
+            : n.data,
+        ),
+      }));
+      const wfEdges = edges.map(e => ({
+        id: e.id, source: e.source, target: e.target,
+        sourceHandle: e.sourceHandle ?? undefined,
+        label: typeof e.label === 'string' ? e.label : undefined,
+      }));
+      update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges });
+      return updated;
+    });
+  }, [selected, setNodes, edges, update]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
@@ -785,6 +892,134 @@ function WorkflowDesignerInner({
     return s.size;
   }, [workflowVariables, nodes, nodeInitialVars]);
 
+  // ── Debug Mode ───────────────────────────────────────
+
+  const [isDebugMode, setIsDebugMode] = useState(false);
+  const debugControllerRef = useRef<DebugController | null>(null);
+
+  const handleDebugQuickTest = useCallback(() => {
+    if (isRunning) {
+      // Stop debug
+      debugControllerRef.current?.stop();
+      abortRef.current?.abort();
+      return;
+    }
+    if (!selected || nodes.length === 0) return;
+
+    // Pre-flight same as handleQuickTest
+    if (selectedEnvId && workflowServices.length) {
+      const readiness = checkEnvReadiness(selectedEnvId, workflowServices);
+      if (!readiness.ready) {
+        const names = readiness.issues.map((i) => i.serviceName).join(', ');
+        const envLabel = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
+        alert(`Cannot run on "${envLabel}" — missing configuration for: ${names}.\n\nOpen Service Registry to configure these services for this environment.`);
+        return;
+      }
+    }
+
+    const dc = new DebugController();
+    debugControllerRef.current = dc;
+    setIsRunning(true);
+    setIsDebugMode(true);
+    setLastRunStatus('running');
+    setLastRunError(null);
+    setLastQuickTestRequestUrl(null);
+    setNodeStatuses({});
+
+    abortRef.current = new AbortController();
+
+    const liveWorkflowVariables = workflowVariablesRef.current;
+    const wfNodes: WorkflowNode[] = nodesRef.current.map((n) => {
+      const base = { id: n.id, type: n.type, position: n.position };
+      if (!isHttpWorkflowNode(n)) {
+        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
+      }
+      const d = n.data;
+      const refVars = nodeInitialVarsRef.current[n.id];
+      const merged: HttpNodeData = {
+        ...d,
+        initialVariables: { ...liveWorkflowVariables, ...(refVars ?? d.initialVariables ?? {}) },
+      };
+      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) };
+    });
+    const wfEdges = edgesRef.current.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? undefined,
+      label: typeof e.label === 'string' ? e.label : undefined,
+    }));
+
+    const callbacks: GraphRunCallbacks = {
+      onNodeStateChange: (nodeId, status) => {
+        setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
+      },
+      onVariablesChange: (vars) => {
+        setRunVariableSnapshot(vars);
+      },
+      onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
+        setIsRunning(false);
+        setIsDebugMode(false);
+        debugControllerRef.current = null;
+        setLastRunStatus(passed ? 'pass' : 'fail');
+        setLastRunTime(durationMs);
+        if (!passed) {
+          const fail = results.find((r) => !r.passed);
+          setLastRunError(fail ? summarizeRequestFailure(fail) : 'One or more steps failed.');
+        } else {
+          setLastRunError(null);
+        }
+        const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
+        setLastQuickTestRequestUrl(urlForDebug ?? null);
+      },
+    };
+
+    const envLayer: Record<string, string> = {};
+    if (!workflowServices.length) {
+      const bu = resolvedBaseUrl.trim();
+      if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
+    }
+
+    runGraph(
+      wfNodes,
+      wfEdges,
+      liveWorkflowVariables,
+      callbacks,
+      abortRef.current.signal,
+      envLayer,
+      resolveHttpBaseUrlForGraph,
+      resolveHttpAuthForGraph,
+      dc,
+    ).catch(() => {
+      setIsRunning(false);
+      setIsDebugMode(false);
+      debugControllerRef.current = null;
+      setLastRunStatus('fail');
+      setLastRunError('Workflow debug run failed or was interrupted.');
+    });
+  }, [
+    isRunning,
+    selected,
+    nodes,
+    edges,
+    resolvedBaseUrl,
+    resolveHttpBaseUrlForGraph,
+    resolveHttpAuthForGraph,
+    workflowHostProfiles,
+    selectedEnvId,
+    workflowServices,
+    environments,
+  ]);
+
+  const handleDebugStep = useCallback((nodeId: string) => {
+    debugControllerRef.current?.stepNode(nodeId);
+  }, []);
+
+  const handleDebugStop = useCallback(() => {
+    debugControllerRef.current?.stop();
+    abortRef.current?.abort();
+  }, []);
+
   // ── Render ───────────────────────────────────────────
 
   if (!selected) {
@@ -812,7 +1047,11 @@ function WorkflowDesignerInner({
         selectedEnvId={selectedEnvId}
         onEnvSelect={onEnvSelect}
         workflowServices={workflowServices}
-        onNew={handleNew} onSelect={handleSelect} onSave={handleSave} onQuickTest={handleQuickTest}
+        isPreview={!!previewWorkflow}
+        onNew={handleNew} onSelect={handleSelect} onSave={handleSave}
+        onQuickTest={handleQuickTest}
+        onDebugTest={handleDebugQuickTest}
+        isDebugMode={isDebugMode}
         onOpenServices={() => {
           setServiceRegistryMode((m) => m === 'closed' ? 'panel' : 'closed');
           setSelectedNodeId(null);
@@ -838,7 +1077,22 @@ function WorkflowDesignerInner({
         />
 
         <div className="wf-canvas-area">
+          {previewWorkflow && (
+            <div className="wf-preview-banner">
+              <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
+              <span className="wf-preview-desc">{previewWorkflow.description}</span>
+              <div className="wf-preview-actions">
+                <button className="btn btn-sm btn-primary" onClick={() => {
+                  // Capture current visual layout (may have been auto-laid)
+                  const currentNodes = serializeNodes(nodes);
+                  onUseAsTemplate({ ...previewWorkflow, nodes: currentNodes });
+                }}>Use as Template</button>
+                <button className="btn btn-sm" onClick={onClearPreview}>Close Preview</button>
+              </div>
+            </div>
+          )}
           <WorkflowNodeRunContext.Provider value={nodeStatuses}>
+          <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
             <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
               nodes={nodes}
               edges={edges}
@@ -859,7 +1113,7 @@ function WorkflowDesignerInner({
               defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
             >
               <Controls>
-                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} />
+                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} />
               </Controls>
               <MiniMap
                 pannable
@@ -873,11 +1127,14 @@ function WorkflowDesignerInner({
                   if (status?.state === 'skipped') return '#94a3b8';
                   if (node.type === 'condition') return '#a78bfa';
                   if (node.type === 'delay') return '#94a3b8';
+                  if (node.type === 'start') return '#22c55e';
+                  if (node.type === 'fork') return '#a855f7';
                   return '#3b82f6';
                 }}
               />
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
             </ReactFlow>
+          </WorkflowDebugStepContext.Provider>
           </WorkflowNodeRunContext.Provider>
 
           {Object.keys(runVariableSnapshot ?? workflowVariables).length > 0 && (
@@ -1013,6 +1270,14 @@ function WorkflowDesignerInner({
         }}
         onClose={() => setServiceRegistryMode('closed')}
       />
+
+      {isDebugMode && debugControllerRef.current && (
+        <WorkflowDebugBar
+          debugController={debugControllerRef.current}
+          onStop={handleDebugStop}
+          variableCount={Object.keys(runVariableSnapshot ?? workflowVariables).length}
+        />
+      )}
 
       <WorkflowStatusBar
         nodeCount={nodes.length}

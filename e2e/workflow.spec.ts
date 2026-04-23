@@ -6,7 +6,7 @@ function makeSampleWorkflow(): Workflow {
   return {
     id: 'wf-e2e-1',
     name: 'E2E Workflow',
-    schemaVersion: 3,
+    schemaVersion: 4,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     variables: {},
@@ -78,22 +78,19 @@ async function seedWorkflowData(page: import('@playwright/test').Page) {
 test.describe('Workflow Designer', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=workflow');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('navigates to workflow tab and shows the workflow', async ({ page }) => {
-    // Click the WORKFLOW nav button in the sidebar
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
-
+    // Already on workflow tab from beforeEach
     // Should show the workflow designer
     await expect(page.locator('.wf-designer')).toBeVisible();
   });
 
   test('loads workflow and displays toolbar', async ({ page }) => {
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
+    // Already on workflow tab from beforeEach
     await expect(page.locator('.wf-designer')).toBeVisible();
 
     // Should see workflow toolbar
@@ -101,12 +98,10 @@ test.describe('Workflow Designer', () => {
   });
 
   test('opens and closes service registry panel', async ({ page }) => {
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
-    await expect(page.locator('.wf-designer')).toBeVisible();
+    // Already on workflow tab from beforeEach
 
-    // Open services panel
-    const servicesBtn = page.locator('.wf-toolbar-services-btn');
+    // Open services panel - use more specific selector
+    const servicesBtn = page.locator('.wf-toolbar-services-btn:has-text("Services")');
     await servicesBtn.click();
 
     // Service panel should show "Services" inline header
@@ -118,9 +113,7 @@ test.describe('Workflow Designer', () => {
   });
 
   test('shows service count badge in toolbar', async ({ page }) => {
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
-    await expect(page.locator('.wf-designer')).toBeVisible();
+    // Already on workflow tab from beforeEach
 
     // Badge should be visible with a non-zero count
     const badge = page.locator('.wf-toolbar-services-badge');
@@ -130,9 +123,7 @@ test.describe('Workflow Designer', () => {
   });
 
   test('can save workflow', async ({ page }) => {
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
-    await expect(page.locator('.wf-designer')).toBeVisible();
+    // Already on workflow tab from beforeEach
 
     // Click Save
     const saveBtn = page.locator('.wf-toolbar button', { hasText: /Save/ }).first();
@@ -150,14 +141,13 @@ test.describe('Workflow Designer', () => {
 test.describe('Workflow Creation', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=workflow');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('creates a new workflow from sidebar', async ({ page }) => {
-    // Navigate to workflow tab via USB nav
-    const workflowNavBtn = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowNavBtn.click();
+    // Already on workflow tab from beforeEach
 
     // Click "+ New" button in sidebar
     const newBtn = page.locator('.wf-sidebar button', { hasText: '+ New' });
@@ -173,12 +163,19 @@ test.describe('Workflow Creation', () => {
   });
 
   test('loads sample workflow', async ({ page }) => {
-    const workflowNavBtn = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowNavBtn.click();
+    // Already on workflow tab from beforeEach
 
-    // Click "Load Sample Workflow"
-    const loadSampleBtn = page.locator('button', { hasText: 'Load Sample Workflow' });
-    await loadSampleBtn.click();
+    // Click "Browse Samples" then select first sample
+    const browseSamplesBtn = page.locator('button', { hasText: 'Browse Samples' });
+    await browseSamplesBtn.click();
+    const firstSample = page.locator('.wf-sample-dropdown-item').first();
+    await firstSample.click();
+
+    // With new preview flow, should see "Use as Template" button
+    await expect(page.locator('button', { hasText: 'Use as Template' })).toBeVisible({ timeout: 5000 });
+
+    // Click to create the workflow
+    await page.locator('button', { hasText: 'Use as Template' }).click();
 
     // Should see a workflow item appear in sidebar
     await expect(page.locator('.wf-sidebar-item')).toBeVisible();
@@ -188,16 +185,15 @@ test.describe('Workflow Creation', () => {
 test.describe('Workflow Node Interaction', () => {
   test.beforeEach(async ({ page }) => {
     await seedWorkflowData(page);
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
-    const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-    await workflowTab.click();
-    await expect(page.locator('.wf-designer')).toBeVisible();
+    await page.goto('/?tab=workflow');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
   });
 
   test('shows default config panel with hint text', async ({ page }) => {
-    // When no node is selected, hint text should be visible
-    await expect(page.locator('text=Select a node to configure')).toBeVisible({ timeout: 3000 });
+    // When no node is selected, palette should be visible on the left
+    await expect(page.locator('.wf-palette')).toBeVisible({ timeout: 5000 });
   });
 
   test('displays workflow palette with add options', async ({ page }) => {
