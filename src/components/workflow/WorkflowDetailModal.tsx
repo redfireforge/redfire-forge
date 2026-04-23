@@ -54,17 +54,19 @@ export default function WorkflowDetailModal({
           <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
         <div className="ram-body wf-detail-modal-body">
-          {subtitle && <p className="wf-detail-modal-sub">{subtitle}</p>}
           {variableMode ? (
-            <textarea
-              className="wf-detail-modal-textarea"
-              value={variableValue ?? ''}
-              onChange={(e) => onVariableChange?.(e.target.value)}
-              spellCheck={false}
-              rows={16}
-            />
+            <>
+              {subtitle && <p className="wf-detail-modal-sub">{subtitle}</p>}
+              <textarea
+                className="wf-detail-modal-textarea"
+                value={variableValue ?? ''}
+                onChange={(e) => onVariableChange?.(e.target.value)}
+                spellCheck={false}
+                rows={16}
+              />
+            </>
           ) : (
-            <WorkflowResponseBody body={body ?? ''} />
+            <WorkflowResponseBody body={body ?? ''} subtitle={subtitle} />
           )}
         </div>
         <div className="ram-footer wf-detail-modal-footer">

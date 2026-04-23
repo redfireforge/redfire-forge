@@ -1,16 +1,23 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { ConditionNodeData } from '../../../types/workflow';
+import { useWorkflowInspect } from '../WorkflowInspectContext';
 import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
 
 type ConditionWorkflowNode = Node<ConditionNodeData, 'condition'>;
 type Props = NodeProps<ConditionWorkflowNode>;
 
 export default function ConditionNode({ id, data, selected }: Props) {
+  const { openNodeConfig } = useWorkflowInspect();
   const rs = useWorkflowNodeRunStatus(id);
   const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
   const expr = data.left && data.right
     ? `${data.left} ${data.operator} ${data.right}`
     : 'Configure condition…';
+
+  const handleConfigure = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openNodeConfig(id);
+  };
 
   return (
     <div className={`wf-node wf-node-condition ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
@@ -19,6 +26,9 @@ export default function ConditionNode({ id, data, selected }: Props) {
         <span className="wf-node-label">{data.label || 'If/Else'}</span>
       </div>
       <div className="wf-condition-expr" title={expr}>{expr}</div>
+      <div className="wf-node-footer">
+        <button type="button" className="wf-node-configure-badge" title="Configure this condition" onClick={handleConfigure}>⚙ Configure</button>
+      </div>
 
       <Handle type="source" position={Position.Bottom} id="true" className="wf-handle wf-handle-true" style={{ left: '30%' }} />
       <Handle type="source" position={Position.Bottom} id="false" className="wf-handle wf-handle-false" style={{ left: '70%' }} />
