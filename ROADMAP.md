@@ -308,6 +308,9 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Workflow Control Nodes** — Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge), Condition (If/Else branching), Delay (think time between steps)
 - [x] **Parallel Execution** — Fork/Join nodes enable true parallel execution paths; Join nodes wait for all incoming branches to complete before proceeding; tested with concurrent HTTP requests
 - [x] **Auto-Layout** — Dagre-based hierarchical graph layout with smart post-processing: centers condition branches, aligns fork/join paths, resolves overlaps, maintains left-to-right flow
+- [ ] **Webhook Trigger Node** — Define workflows triggered by incoming HTTP webhooks; simulate mode for testing with sample payloads; extract variables from webhook body via JSONPath (Phase 3 of trigger nodes roadmap - see `docs/workflow/trigger-nodes-design.md`)
+- [ ] **Schedule Trigger Node** — Define workflows triggered by cron schedules; simulate mode for manual execution; configure recurrence patterns (Phase 4 of trigger nodes roadmap)
+- [ ] **Webhook & Schedule Backend** — Actual webhook HTTP server + cron runner implementation in Tauri/Node (Phase 5 of trigger nodes roadmap)
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---
