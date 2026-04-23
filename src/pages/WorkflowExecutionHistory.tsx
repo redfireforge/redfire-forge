@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 interface ExecutionResult {
   id: string;
@@ -146,21 +145,6 @@ export default function WorkflowExecutionHistory() {
           >
             🔄 Refresh
           </button>
-          <Link
-            to="/workflows"
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#f5f5f5',
-              color: '#333',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              textDecoration: 'none',
-              fontSize: '0.95rem',
-              fontWeight: '500',
-            }}
-          >
-            ← Back to Workflows
-          </Link>
         </div>
       </div>
 
