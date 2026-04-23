@@ -5,6 +5,7 @@ import {
   saveExecutionResult,
   logWebhookDelivery,
   getExecutionHistory,
+  getWebhookDeliveries,
   type ExecutionResult,
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
@@ -54,6 +55,36 @@ app.get('/api/executions', async (req: Request, res: Response) => {
     console.error('[API] Failed to get execution history:', error);
     res.status(500).json({
       error: 'Failed to load execution history',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// API: Get webhook deliveries for a specific date
+app.get('/api/webhook-deliveries', async (req: Request, res: Response) => {
+  try {
+    // Date format: YYYY-MM-DD, defaults to today
+    const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
+    
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({
+        error: 'Invalid date format',
+        message: 'Date must be in YYYY-MM-DD format',
+      });
+    }
+
+    const deliveries = await getWebhookDeliveries(date);
+
+    res.json({
+      deliveries,
+      date,
+      count: deliveries.length,
+    });
+  } catch (error) {
+    console.error('[API] Failed to get webhook deliveries:', error);
+    res.status(500).json({
+      error: 'Failed to load webhook deliveries',
       message: error instanceof Error ? error.message : String(error),
     });
   }

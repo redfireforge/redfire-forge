@@ -27,6 +27,7 @@ import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
 import WorkflowDesigner from './pages/WorkflowDesigner';
 import WorkflowExecutionHistory from './pages/WorkflowExecutionHistory';
+import WebhookDeliveryLogs from './pages/WebhookDeliveryLogs';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
@@ -36,14 +37,14 @@ import RequestCollectionModal from './components/requests/RequestCollectionModal
 import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'scenarios' | 'runner' | 'results';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions']);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
 const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
 
-const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -495,6 +496,14 @@ export default function App() {
               >
                 📊 Execution History
               </button>
+              <button
+                type="button"
+                className={`main-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`}
+                onClick={() => setActiveTab('webhook-deliveries')}
+                title="View raw webhook delivery logs"
+              >
+                🪝 Webhook Logs
+              </button>
             </div>
           )}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
@@ -522,6 +531,9 @@ export default function App() {
           </div>
           {activeTab === 'workflow-executions' && (
             <WorkflowExecutionHistory />
+          )}
+          {activeTab === 'webhook-deliveries' && (
+            <WebhookDeliveryLogs />
           )}
           {activeTab === 'environments' && (
             <EnvironmentManager
