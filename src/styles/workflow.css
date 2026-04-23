@@ -1942,6 +1942,22 @@
   color: var(--text-muted); letter-spacing: 0.05em;
   padding: 10px 10px 4px; margin: 0;
 }
+
+/* Collapsible category headers */
+.wf-palette-category-header {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  padding: 8px 8px 4px; background: none; border: none;
+  cursor: pointer; text-align: left;
+  margin: 0;
+}
+.wf-palette-category-header:hover {
+  background: var(--surface-hover);
+  border-radius: 4px;
+}
+.wf-palette-category-title {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: 0.05em;
+}
 .wf-palette-block-start { border-left: 3px solid #22c55e; }
 .wf-palette-block-webhook { border-left: 3px solid #0ea5e9; }
 .wf-palette-block-schedule { border-left: 3px solid #f59e0b; }
