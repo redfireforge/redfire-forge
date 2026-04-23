@@ -107,9 +107,31 @@ export interface DelayNodeData {
   maxMs?: number;
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay';
+export interface StartNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Variables provided by this trigger when the workflow starts. */
+  inputVariables: Record<string, string>;
+}
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData;
+export interface ForkNodeData {
+  [key: string]: unknown;
+  label: string;
+}
+
+export interface JoinNodeData {
+  [key: string]: unknown;
+  label: string;
+}
+
+export interface EndNodeData {
+  [key: string]: unknown;
+  label: string;
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 
@@ -151,7 +173,7 @@ export interface Workflow {
 
 // ── Execution state (for canvas animation) ──────────
 
-export type NodeRunState = 'idle' | 'pending' | 'running' | 'pass' | 'fail' | 'skipped';
+export type NodeRunState = 'idle' | 'pending' | 'running' | 'pass' | 'fail' | 'skipped' | 'paused';
 
 export interface NodeRunStatus {
   state: NodeRunState;

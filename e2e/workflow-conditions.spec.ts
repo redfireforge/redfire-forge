@@ -11,7 +11,7 @@ function makeConditionWorkflow(): Workflow {
   return {
     id: 'wf-cond-1',
     name: 'Condition Workflow',
-    schemaVersion: 3,
+    schemaVersion: 4,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     variables: { status: 'active', region: 'US' },
@@ -111,7 +111,8 @@ test.describe('Workflow Condition Branching', () => {
   test.beforeEach(async ({ page }) => {
     await seedConditionWorkflow(page);
     await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
     await page.waitForSelector('.wf-designer', { timeout: 10_000 });
   });
 
@@ -137,36 +138,41 @@ test.describe('Workflow Condition Branching', () => {
   });
 
   test('displays workflow-level variables in defaults panel', async ({ page }) => {
-    // Wait for config panel to load with hint text (no node selected)
-    await page.waitForSelector('.wf-config-panel', { timeout: 10_000 });
+    // Click Workflow Variables button in toolbar to open defaults modal
+    const varsBtn = page.locator('.wf-toolbar-variables-btn');
+    await varsBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await varsBtn.click();
 
-    // Check workflow default variables are shown
-    const statusInput = page.locator('.wf-config-kv-row input[value="status"]');
+    // Modal should appear with workflow variables
+    const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
+    await expect(modal).toBeVisible({ timeout: 5000 });
+
+    // Check workflow default variables are shown (status and region)
+    const statusInput = modal.locator('input[value="status"]');
     await expect(statusInput).toBeVisible({ timeout: 5_000 });
 
-    const regionInput = page.locator('.wf-config-kv-row input[value="region"]');
+    const regionInput = modal.locator('input[value="region"]');
     await expect(regionInput).toBeVisible({ timeout: 5_000 });
   });
 
   test('clicking HTTP node shows config panel with node details', async ({ page }) => {
-    // Click on the first HTTP node
+    // Click an HTTP node
     const httpNode = page.locator('.react-flow__node', { hasText: 'Fetch Status' });
-    await httpNode.click();
+    await httpNode.dblclick();
 
-    // Config panel should update to show the selected node's config
-    await page.waitForSelector('.wf-config-panel', { timeout: 5_000 });
-
-    // Should see method and URL fields in the config
-    await expect(page.locator('.wf-config-panel')).toBeVisible();
+    // Node config modal should open (full screen modal for node editing)
+    const modal = page.locator('.ram-modal');
+    await expect(modal).toBeVisible({ timeout: 3000 });
   });
 
   test('clicking condition node shows condition config', async ({ page }) => {
+    // Double-click condition node to open config modal
     const condNode = page.locator('.react-flow__node', { hasText: 'Is Active?' });
-    await condNode.click();
+    await condNode.dblclick();
 
-    // Config panel should show condition configuration fields
-    await page.waitForSelector('.wf-config-panel', { timeout: 5_000 });
-    await expect(page.locator('.wf-config-panel')).toBeVisible();
+    // Modal should show condition configuration
+    const modal = page.locator('.ram-modal');
+    await expect(modal).toBeVisible({ timeout: 3000 });
   });
 });
 

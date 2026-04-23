@@ -6,7 +6,7 @@ function makeSampleWorkflow(): Workflow {
   return {
     id: 'wf-e2e-feat',
     name: 'Feature Test Workflow',
-    schemaVersion: 3,
+    schemaVersion: 4,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     variables: { baseUrl: 'https://httpbin.org', apiKey: 'test-key-123' },
@@ -77,11 +77,10 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows', workflowJson);
     localStorage.setItem('workflows_selected_id', 'wf-e2e-feat');
   }, JSON.stringify([makeSampleWorkflow()]));
-  await page.goto('/');
-  await page.waitForSelector('.app-header');
-  const workflowTab = page.locator('button.usb-nav-btn', { hasText: /WORKFLOW/i });
-  await workflowTab.click();
-  await expect(page.locator('.wf-designer')).toBeVisible();
+  await page.goto('/?tab=workflow');
+  await page.waitForSelector('.app-header', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
 }
 
 test.describe('Auto-Layout Button', () => {
@@ -90,8 +89,8 @@ test.describe('Auto-Layout Button', () => {
   });
 
   test('auto-layout button is visible in canvas controls', async ({ page }) => {
-    // The Controls panel should have the auto-layout button with title
-    const autoLayoutBtn = page.locator('.react-flow__controls-button[title="Auto-layout nodes"]');
+    // The Controls panel should have the auto-layout button with correct title
+    const autoLayoutBtn = page.locator('.react-flow__controls-button[title*="Auto-layout"]');
     await expect(autoLayoutBtn).toBeVisible({ timeout: 5000 });
   });
 
@@ -100,8 +99,8 @@ test.describe('Auto-Layout Button', () => {
     const httpNodes = page.locator('.wf-node-http');
     await expect(httpNodes.first()).toBeVisible({ timeout: 5000 });
 
-    // Click auto-layout button
-    const autoLayoutBtn = page.locator('.react-flow__controls-button[title="Auto-layout nodes"]');
+    // Click auto-layout button - use more flexible selector
+    const autoLayoutBtn = page.locator('.react-flow__controls-button[title*="Auto-layout"]');
     await autoLayoutBtn.click();
 
     // After auto-layout, nodes should still be visible and the canvas should still render
@@ -119,7 +118,7 @@ test.describe('Defaults Modal', () => {
   });
 
   test('Defaults button is visible in toolbar with badge', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-services-btn', { hasText: /Defaults/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
     await expect(defaultsBtn).toBeVisible();
 
     // Badge should show count (2 variables seeded)
@@ -130,13 +129,13 @@ test.describe('Defaults Modal', () => {
   });
 
   test('opens and closes defaults modal', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-services-btn', { hasText: /Defaults/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
     await defaultsBtn.click();
 
     // Modal should be visible
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-defaults-modal-title')).toHaveText('Workflow Defaults');
+    await expect(page.locator('#wf-defaults-modal-title')).toHaveText('Workflow Variables');
 
     // Close via the × button
     const closeBtn = modal.locator('.ram-modal-close');
@@ -145,7 +144,7 @@ test.describe('Defaults Modal', () => {
   });
 
   test('displays seeded workflow variables', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-services-btn', { hasText: /Defaults/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
     await defaultsBtn.click();
 
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
@@ -165,7 +164,7 @@ test.describe('Defaults Modal', () => {
   });
 
   test('can expand defaults modal to full screen', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-services-btn', { hasText: /Defaults/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
     await defaultsBtn.click();
 
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');

@@ -41,6 +41,16 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
       <div className="wf-palette-content">
         {section === 'blocks' && (
           <div className="wf-palette-blocks">
+            <div className="wf-palette-category">Triggers</div>
+            <button className="wf-palette-block wf-palette-block-start" onClick={() => onAddNode('start')}>
+              <span className="wf-pb-icon">▶</span>
+              <div>
+                <div className="wf-pb-title">Manual Start</div>
+                <div className="wf-pb-desc">Workflow entry point</div>
+              </div>
+            </button>
+
+            <div className="wf-palette-category">Actions</div>
             <button className="wf-palette-block wf-palette-block-http" onClick={() => onAddNode('http')}>
               <span className="wf-pb-icon">↗</span>
               <div>
@@ -48,6 +58,15 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                 <div className="wf-pb-desc">API call with extraction</div>
               </div>
             </button>
+            <button className="wf-palette-block wf-palette-block-delay" onClick={() => onAddNode('delay')}>
+              <span className="wf-pb-icon">⏱</span>
+              <div>
+                <div className="wf-pb-title">Delay</div>
+                <div className="wf-pb-desc">Pause between steps</div>
+              </div>
+            </button>
+
+            <div className="wf-palette-category">Logic</div>
             <button className="wf-palette-block wf-palette-block-condition" onClick={() => onAddNode('condition')}>
               <span className="wf-pb-icon">◆</span>
               <div>
@@ -55,11 +74,25 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                 <div className="wf-pb-desc">If/Else branching</div>
               </div>
             </button>
-            <button className="wf-palette-block wf-palette-block-delay" onClick={() => onAddNode('delay')}>
-              <span className="wf-pb-icon">⏱</span>
+            <button className="wf-palette-block wf-palette-block-fork" onClick={() => onAddNode('fork')}>
+              <span className="wf-pb-icon">⑃</span>
               <div>
-                <div className="wf-pb-title">Delay</div>
-                <div className="wf-pb-desc">Pause between steps</div>
+                <div className="wf-pb-title">Parallel Fork</div>
+                <div className="wf-pb-desc">Concurrent branches</div>
+              </div>
+            </button>
+            <button className="wf-palette-block wf-palette-block-join" onClick={() => onAddNode('join')}>
+              <span className="wf-pb-icon">⑂</span>
+              <div>
+                <div className="wf-pb-title">Join</div>
+                <div className="wf-pb-desc">Wait for all branches</div>
+              </div>
+            </button>
+            <button className="wf-palette-block wf-palette-block-end" onClick={() => onAddNode('end')}>
+              <span className="wf-pb-icon">⏹</span>
+              <div>
+                <div className="wf-pb-title">End</div>
+                <div className="wf-pb-desc">Workflow termination</div>
               </div>
             </button>
           </div>

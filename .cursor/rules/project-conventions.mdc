@@ -37,9 +37,13 @@ alwaysApply: true
 | `src/utils/requestUrlResolver.ts` | Base URL resolution for multi-env collections |
 | `src/utils/requestAuthState.ts` | Auth config ↔ UI state mapping |
 | `src/utils/catalogExport.ts` | Catalog → Requests export transformation |
+| `src/utils/workflowAutoLayout.ts` | Dagre-based hierarchical auto-layout with post-processing |
 | `src/engine/executor.ts` | HTTP test execution engine |
 | `src/engine/thinkTime.ts` | Think time delay factory and apply function |
 | `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) |
+| `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |
+| `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
+| `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
 | `src/components/RegexAssertionModal.tsx` | Regex assertion builder modal: JSON tree picker, pattern library, live preview |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
@@ -53,3 +57,21 @@ alwaysApply: true
 - Tagline: **Redfire Performance Workbench**
 - Desktop title bar: "RedfireForge — Redfire Performance Workbench"
 - Export filenames: `{env}-{microservice}-{level}-{name}-{timestamp}.json`
+
+## Testing Strategy
+
+| Test Type | When to Run | Command |
+|---|---|---|
+| Unit tests (touched files only) | During development, after each change | `npx vitest run src/path/to/changed.test.ts` |
+| TypeScript check | During development, after each change | `npx tsc --noEmit` |
+| Full unit test suite | **Only before merging** to `develop`, `release/*`, or `master` | `npx vitest run` |
+| Unit test coverage | Before merging to develop/release/master | `npx vitest run --coverage` |
+| E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
+
+### Rules
+- **During development, only run tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
+- **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
+- **Full test suite and E2E tests are ONLY run before merging** to `develop`, `release/*`, or `master`.
+- During development, rely on scoped unit tests and TypeScript (`npx tsc --noEmit`) for fast feedback.
+- E2E tests require the dev server running on port 5173 (`npm run dev`).
+- Target >90% code coverage on all four metrics (statements, branches, functions, lines).

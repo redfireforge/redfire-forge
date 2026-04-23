@@ -1,7 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { HttpNodeData } from '../../../types/workflow';
 import { useWorkflowInspect } from '../WorkflowInspectContext';
-import { useWorkflowNodeRunStatus } from '../WorkflowNodeRunContext';
+import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeRunContext';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
@@ -13,6 +13,7 @@ type Props = NodeProps<HttpWorkflowNode>;
 export default function HttpStepNode({ id, data, selected }: Props) {
   const { openStepDetail, openNodeConfig } = useWorkflowInspect();
   const rs = useWorkflowNodeRunStatus(id);
+  const debugStep = useWorkflowDebugStep();
   const method = data.scenario?.method ?? 'GET';
   const url = data.scenario?.url ?? '';
   const extractCount = data.scenario?.extractions?.length ?? 0;
@@ -77,6 +78,10 @@ export default function HttpStepNode({ id, data, selected }: Props) {
           </button>
         )}
         {rs?.state === 'running' && <span className="wf-status-badge wf-status-running">Running…</span>}
+        {rs?.state === 'paused' && debugStep && (
+          <button type="button" className="wf-debug-step-btn" title="Step this node" onClick={(e) => { e.stopPropagation(); debugStep(id); }}>⏭ Step</button>
+        )}
+        {rs?.state === 'paused' && !debugStep && <span className="wf-status-badge wf-status-paused">⏸ Paused</span>}
       </div>
 
       {/* Source/target last in DOM so handles stack above content (otherwise top handle sits under the header and blocks connections). */}
