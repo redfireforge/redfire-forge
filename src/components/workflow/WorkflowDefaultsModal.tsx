@@ -59,18 +59,6 @@ export default function WorkflowDefaultsModal({
     [draft],
   );
 
-  const requestVariableInsert = useCallback((apply: (snippet: string) => void, shortRef = false, initialSearch = '') => {
-    insertApplyRef.current = apply;
-    setVariableInsertShortRef(shortRef);
-    setVariableInsertInitialSearch(initialSearch);
-    setVariableInsertOpen(true);
-  }, []);
-
-  const handleVariableInsertPicked = useCallback((template: string) => {
-    insertApplyRef.current(template);
-    setVariableInsertOpen(false);
-  }, []);
-
   if (!open) return null;
 
   return (
