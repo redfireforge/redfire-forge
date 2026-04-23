@@ -22,6 +22,8 @@ import HttpConfig from './HttpConfig';
 import type { HttpTab } from './HttpConfig';
 import ConditionConfig from './ConditionConfig';
 import DelayConfig from './DelayConfig';
+import WebhookConfig from './WebhookConfig';
+import ScheduleConfig from './ScheduleConfig';
 import VariablesSection from './VariablesSection';
 import type { ExtractionFetchSampleProps } from '../ExtractionPathPickerModal';
 
@@ -213,126 +215,22 @@ export default function WorkflowNodeConfigModal({
             )}
 
             {draftNode.type === 'webhook' && (
-              <>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    HTTP Method
-                    <select
-                      className="wf-config-input"
-                      value={(draftNode.data as WebhookTriggerNodeData).method}
-                      onChange={(e) => updateDraft({ method: e.target.value as 'POST' | 'PUT' | 'PATCH' })}
-                    >
-                      <option value="POST">POST</option>
-                      <option value="PUT">PUT</option>
-                      <option value="PATCH">PATCH</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Endpoint Path
-                    <input
-                      type="text"
-                      className="wf-config-input"
-                      value={(draftNode.data as WebhookTriggerNodeData).path}
-                      onChange={(e) => updateDraft({ path: e.target.value })}
-                      placeholder="/api/webhook"
-                    />
-                  </label>
-                </div>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Sample Payload (JSON)
-                    <textarea
-                      className="wf-config-textarea"
-                      rows={8}
-                      value={(draftNode.data as WebhookTriggerNodeData).samplePayload}
-                      onChange={(e) => updateDraft({ samplePayload: e.target.value })}
-                      placeholder='{\n  "event": "example",\n  "data": {}\n}'
-                      style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Notes (optional)
-                    <textarea
-                      className="wf-config-textarea"
-                      rows={3}
-                      value={(draftNode.data as WebhookTriggerNodeData).notes ?? ''}
-                      onChange={(e) => updateDraft({ notes: e.target.value })}
-                      placeholder="Documentation or notes about this webhook..."
-                    />
-                  </label>
-                </div>
-              </>
+              <WebhookConfig
+                data={draftNode.data as WebhookTriggerNodeData}
+                onChange={updateDraft}
+              />
             )}
 
             {draftNode.type === 'schedule' && (
-              <>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Cron Expression
-                    <input
-                      type="text"
-                      className="wf-config-input"
-                      value={(draftNode.data as ScheduleTriggerNodeData).cronExpression}
-                      onChange={(e) => updateDraft({ cronExpression: e.target.value })}
-                      placeholder="0 9 * * MON-FRI"
-                    />
-                    <span className="wf-config-hint">Standard cron format: minute hour day month weekday</span>
-                  </label>
-                </div>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Schedule Description
-                    <input
-                      type="text"
-                      className="wf-config-input"
-                      value={(draftNode.data as ScheduleTriggerNodeData).scheduleDescription ?? ''}
-                      onChange={(e) => updateDraft({ scheduleDescription: e.target.value })}
-                      placeholder="Every weekday at 9:00 AM EST"
-                    />
-                    <span className="wf-config-hint">Human-readable description of the schedule</span>
-                  </label>
-                </div>
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Timezone
-                    <input
-                      type="text"
-                      className="wf-config-input"
-                      value={(draftNode.data as ScheduleTriggerNodeData).timezone}
-                      onChange={(e) => updateDraft({ timezone: e.target.value })}
-                      placeholder="America/New_York"
-                    />
-                    <span className="wf-config-hint">IANA timezone identifier</span>
-                  </label>
-                </div>
-                <VariablesSection
-                  title="Initial variables"
-                  hint="Variables available at schedule trigger time."
-                  variables={(draftNode.data as ScheduleTriggerNodeData).inputVariables ?? {}}
-                  onUpdateVariables={(vars) => updateDraft({ inputVariables: vars })}
-                  newVarKey={newVarKey}
-                  setNewVarKey={setNewVarKey}
-                  newVarValue={newVarValue}
-                  setNewVarValue={setNewVarValue}
-                  workflowVariables={workflowVariables}
-                />
-                <div className="wf-config-section">
-                  <label className="wf-config-label">
-                    Notes (optional)
-                    <textarea
-                      className="wf-config-textarea"
-                      rows={3}
-                      value={(draftNode.data as ScheduleTriggerNodeData).notes ?? ''}
-                      onChange={(e) => updateDraft({ notes: e.target.value })}
-                      placeholder="Documentation or notes about this schedule..."
-                    />
-                  </label>
-                </div>
-              </>
+              <ScheduleConfig
+                data={draftNode.data as ScheduleTriggerNodeData}
+                onChange={updateDraft}
+                newVarKey={newVarKey}
+                setNewVarKey={setNewVarKey}
+                newVarValue={newVarValue}
+                setNewVarValue={setNewVarValue}
+                workflowVariables={workflowVariables}
+              />
             )}
 
             {isHttpWorkflowNode(draftNode) && (
