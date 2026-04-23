@@ -34,14 +34,19 @@ export function extractWebhookVariables(
 
 /**
  * Simple JSONPath evaluator (supports basic paths like $.body.orderId, $.headers.x-user-id, $.query.page)
- * For more complex JSONPath, consider using a library like jsonpath-plus.
+ * If path doesn't start with body/headers/query, it defaults to extracting from body (e.g., $.userId → $.body.userId)
  */
 function evaluateJsonPath(path: string, data: unknown): unknown {
   // Remove leading $. if present
-  const cleanPath = path.replace(/^\$\.?/, '');
+  let cleanPath = path.replace(/^\$\.?/, '');
   
   if (!cleanPath) {
     return data;
+  }
+
+  // If path doesn't start with body/headers/query, default to body
+  if (!cleanPath.startsWith('body') && !cleanPath.startsWith('headers') && !cleanPath.startsWith('query')) {
+    cleanPath = `body.${cleanPath}`;
   }
 
   // Split path by dots and brackets
