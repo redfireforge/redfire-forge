@@ -1,0 +1,228 @@
+# RedfireForge Workflow — Webhook Trigger Example
+# This workflow demonstrates a webhook-triggered order processing workflow
+
+name: Order Processing Webhook
+description: Process incoming order webhooks and validate inventory
+
+schemaVersion: 4
+
+# Workflow-level default variables (optional)
+variables:
+  warehouseId: "WH-001"
+  notificationEmail: "orders@example.com"
+
+# Service definitions
+services:
+  - id: svc-inventory
+    name: Inventory API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/inventory
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{INVENTORY_API_TOKEN}}"
+
+  - id: svc-orders
+    name: Orders API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/orders
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-API-Key
+      apiKeyValue: "{{ORDERS_API_KEY}}"
+      apiKeyIn: header
+
+# Workflow nodes
+nodes:
+  # Webhook trigger - entry point
+  - id: webhook-1
+    type: webhook
+    position:
+      x: 100
+      y: 100
+    data:
+      label: Order Webhook
+      method: POST
+      path: /api/orders/incoming
+      samplePayload: |
+        {
+          "orderId": "ORD-12345",
+          "customerId": "CUST-001",
+          "items": [
+            {
+              "sku": "ITEM-001",
+              "quantity": 2,
+              "price": 29.99
+            }
+          ],
+          "totalAmount": 59.98,
+          "orderDate": "2026-04-23T10:30:00Z"
+        }
+      extractVariables:
+        - name: orderId
+          jsonPath: $.orderId
+        - name: customerId
+          jsonPath: $.customerId
+        - name: totalAmount
+          jsonPath: $.totalAmount
+      notes: |
+        Incoming order webhook from e-commerce platform.
+        Extracts orderId, customerId, and totalAmount for downstream processing.
+
+  # Check inventory availability
+  - id: http-1
+    type: http
+    position:
+      x: 100
+      y: 250
+    data:
+      label: Check Inventory
+      serviceId: svc-inventory
+      scenario:
+        id: sc-1
+        name: Check Inventory
+        url: /check?sku=ITEM-001&warehouse={{warehouseId}}
+        method: GET
+        headers: []
+        body: ""
+        auth:
+          type: none
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.available
+              expectedValue: "true"
+      extraction:
+        - name: stockLevel
+          source: body
+          expression: $.stockLevel
+
+  # Conditional branch - check if in stock
+  - id: condition-1
+    type: condition
+    position:
+      x: 100
+      y: 400
+    data:
+      label: In Stock?
+      left: "{{stockLevel}}"
+      operator: ">"
+      right: "0"
+
+  # Process order (success path)
+  - id: http-2
+    type: http
+    position:
+      x: -100
+      y: 550
+    data:
+      label: Process Order
+      serviceId: svc-orders
+      scenario:
+        id: sc-2
+        name: Process Order
+        url: /process
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "customerId": "{{customerId}}",
+            "amount": {{totalAmount}},
+            "status": "processing"
+          }
+        auth:
+          type: none
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.status
+              expectedValue: "success"
+
+  # Send notification (out of stock path)
+  - id: http-3
+    type: http
+    position:
+      x: 300
+      y: 550
+    data:
+      label: Out of Stock Alert
+      serviceId: svc-orders
+      scenario:
+        id: sc-3
+        name: Out of Stock Alert
+        url: /notifications
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "type": "inventory_alert",
+            "orderId": "{{orderId}}",
+            "message": "Order {{orderId}} - Item out of stock",
+            "recipient": "{{notificationEmail}}"
+          }
+        auth:
+          type: none
+        validation:
+          mode: none
+
+  # Success end node
+  - id: end-1
+    type: end
+    position:
+      x: -100
+      y: 700
+    data:
+      label: Order Processed
+      isSuccess: true
+
+  # Failure end node
+  - id: end-2
+    type: end
+    position:
+      x: 300
+      y: 700
+    data:
+      label: Out of Stock
+      isSuccess: false
+
+# Edges define the flow
+edges:
+  - id: e1
+    source: webhook-1
+    target: http-1
+
+  - id: e2
+    source: http-1
+    target: condition-1
+
+  - id: e3
+    source: condition-1
+    target: http-2
+    sourceHandle: "true"
+    label: Yes
+
+  - id: e4
+    source: condition-1
+    target: http-3
+    sourceHandle: "false"
+    label: No
+
+  - id: e5
+    source: http-2
+    target: end-1
+
+  - id: e6
+    source: http-3
+    target: end-2
