@@ -1,9 +1,9 @@
 # Phase 5: Simple Webhook & Schedule Runtime
 
 > **Lightweight Extension for Performance Workbench Desktop App**  
-> **No Database • No Infrastructure • Local-First**
+> **No Database • No Infrastructure • Local-First • Cross-Platform**
 > 
-> Status: 📋 Design Phase  
+> Status: ✅ Phase 5.1-5.3 Complete  
 > Date: April 23, 2026
 
 ---
@@ -16,6 +16,7 @@
 
 - ✅ Runs locally on user's machine (localhost:3001)
 - ✅ File-based storage (JSON files in AppData)
+- ✅ **Cross-platform:** Windows, macOS, Linux
 - ✅ Auto-starts with Tauri app, auto-stops when closed
 - ✅ Zero configuration required
 - ✅ No database, no Redis, no Docker
@@ -26,6 +27,8 @@
 - Schedule workflows to run daily reports
 - Automate repetitive API testing tasks
 - Learn webhook/schedule concepts before production deployment
+
+**📖 Full Cross-Platform Guide:** [docs/CROSS-PLATFORM.md](../CROSS-PLATFORM.md)
 
 ---
 
@@ -61,6 +64,10 @@
                        ▼
 ┌──────────────────────────────────────────────────────────┐
 │              AppData/redfireforge/                       │
+│  macOS: ~/Library/Application Support/redfireforge/     │
+│  Windows: %APPDATA%\redfireforge\                        │
+│  Linux: ~/.local/share/redfireforge/                     │
+│                                                          │
 │  workflows/         # Existing workflow JSON files       │
 │  triggers/          # NEW: webhook-triggers.json         │
 │    └─ schedule-triggers.json                             │
@@ -70,6 +77,8 @@
 │  server.log         # NEW: Server startup log            │
 └──────────────────────────────────────────────────────────┘
 ```
+
+**✅ Cross-Platform:** All paths are automatically resolved for Windows, macOS, and Linux
 
 ---
 

@@ -2,7 +2,11 @@
 
 > *Fire. Measure. Validate.*
 
-A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
+A **cross-platform** desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
+
+**✅ Supports:** macOS (Intel & Apple Silicon) • Windows 10/11 • Linux (Ubuntu, Debian, Fedora)
+
+📖 **[Full Cross-Platform Guide](docs/CROSS-PLATFORM.md)** — Installation, building, and platform-specific notes
 
 ---
 
