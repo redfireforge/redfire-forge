@@ -800,7 +800,7 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 **Visual Graph Editor:**
 
 - **Canvas**: React Flow-based infinite canvas with pan, zoom, and minimap navigation
-- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution, Webhook/Schedule triggers for event-driven workflows
+- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution, Switch/Loop/SetVariable/Aggregate for advanced control flow, Webhook/Schedule triggers for event-driven workflows
 - **Connections**: Click and drag from output handles to input handles to create edges between nodes
 - **Auto-Layout**: Click the auto-layout button in the canvas controls to apply Dagre hierarchical layout with smart centering and overlap resolution
 
@@ -814,6 +814,10 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 | **Delay** | Think time between steps | Pause execution for fixed/random duration (constant, uniform, gaussian); simulates realistic user behavior |
 | **Fork** | Parallel execution split | Spawns multiple parallel execution paths; each output handle runs concurrently |
 | **Join** | Parallel execution merge | Waits for all incoming paths to complete before continuing; synchronization point |
+| **Switch** | Multi-way branching | Evaluate expression against defined cases; each case creates an output path; unmatched values follow the Default path; visual badge showing expression and case count |
+| **Loop** | Iterative execution | Three modes: Count (fixed iterations), ForEach (iterate JSON array with item/index variables), While (condition-based); configurable max iterations safety limit |
+| **SetVariable** | Variable assignment | Assign variable name/value pairs during execution; supports template expressions; variables available to all downstream nodes |
+| **Aggregate** | Data collection | Collect and combine values across loop iterations; source→target mappings with strategies: concat, sum, count, first, last, array |
 | **End** | Terminal state | Marks workflow completion; stops execution even if other nodes haven't run yet |
 | **Webhook Trigger** | HTTP endpoint trigger | Configure HTTP method, endpoint path, and sample payload; extract variables via JSONPath for downstream nodes; visual badge with method/path/extraction count |
 | **Schedule Trigger** | Cron-based trigger | 5-field cron expression with timezone support; human-readable schedule description; automatic `{{triggerTime}}` (ISO) and `{{triggerTimestamp}}` (epoch) variables |
