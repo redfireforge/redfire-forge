@@ -68,10 +68,10 @@ test.describe('Webhook Delivery Logs', () => {
     const cards = page.locator('.whl-card');
     await expect(cards).toHaveCount(3);
 
-    // First card should show POST method and success badge
+    // Default sort is newest-first (desc), so first card is the PUT/error delivery (12:15)
     const firstCard = cards.nth(0);
-    await expect(firstCard.locator('.whl-method')).toHaveText('POST');
-    await expect(firstCard.locator('.whl-badge')).toHaveText('SUCCESS');
+    await expect(firstCard.locator('.whl-method')).toHaveText('PUT');
+    await expect(firstCard.locator('.whl-badge')).toHaveText('ERROR');
   });
 
   test('shows detail panel when clicking a delivery', async ({ page }) => {
@@ -87,12 +87,12 @@ test.describe('Webhook Delivery Logs', () => {
     await expect(page.locator('.whl-detail')).toBeVisible();
     await expect(page.locator('.whl-detail-title')).toHaveText('Delivery Details');
 
-    // Should show trigger ID
-    await expect(page.locator('.whl-info-value.whl-mono').first()).toContainText('webhook-order-1');
+    // Should show trigger ID (first card is newest — webhook-alert-2)
+    await expect(page.locator('.whl-info-value.whl-mono').first()).toContainText('webhook-alert-2');
 
-    // Should show payload
+    // Should show payload (first card is newest — webhook-alert-2 with alertId)
     await expect(page.locator('.whl-payload')).toBeVisible();
-    await expect(page.locator('.whl-payload')).toContainText('12345');
+    await expect(page.locator('.whl-payload')).toContainText('A-001');
   });
 
   test('closes detail panel when clicking close button', async ({ page }) => {
@@ -180,8 +180,8 @@ test.describe('Webhook Delivery Logs', () => {
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
-    // Click the error delivery (3rd card)
-    await page.locator('.whl-card').nth(2).click();
+    // Click the error delivery (1st card — newest first with desc sort)
+    await page.locator('.whl-card').nth(0).click();
 
     // Should show error section
     await expect(page.locator('.whl-error-block')).toBeVisible();

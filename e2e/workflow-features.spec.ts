@@ -137,9 +137,9 @@ test.describe('Defaults Modal', () => {
     await expect(modal).toBeVisible({ timeout: 3000 });
     await expect(page.locator('#wf-defaults-modal-title')).toHaveText('Workflow Variables');
 
-    // Close via the × button
+    // Close via the × button (use dispatchEvent because workflow-designer-mount intercepts pointer events)
     const closeBtn = modal.locator('.ram-modal-close');
-    await closeBtn.click();
+    await closeBtn.dispatchEvent('click');
     await expect(modal).not.toBeVisible();
   });
 
@@ -170,9 +170,9 @@ test.describe('Defaults Modal', () => {
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
 
-    // Click expand button
+    // Click expand button (use dispatchEvent because workflow-designer-mount intercepts pointer events)
     const expandBtn = modal.locator('.btn.btn-sm', { hasText: '⛶' });
-    await expandBtn.click();
+    await expandBtn.dispatchEvent('click');
 
     // Modal overlay should have expanded class
     await expect(page.locator('.wf-config-modal-expanded')).toBeVisible();

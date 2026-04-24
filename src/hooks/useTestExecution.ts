@@ -226,7 +226,6 @@ export function useTestExecution() {
     let lastTrackedCount = 0;
     const useWorker = supportsWorkers();
     const executeFn = useWorker ? runTestInWorker : runTest;
-    console.log(`[RedfireForge] Execution mode: ${useWorker ? 'Web Worker (off-thread)' : 'Main thread (fallback)'}`);
 
     try {
       const results = await executeFn(
