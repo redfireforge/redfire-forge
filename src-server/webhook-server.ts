@@ -2,6 +2,7 @@ import express, { type Request, type Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import {
   getWorkflow,
+  saveWorkflow,
   saveExecutionResult,
   logWebhookDelivery,
   getExecutionHistory,
@@ -57,6 +58,23 @@ app.get('/api/executions', async (req: Request, res: Response) => {
       error: 'Failed to load execution history',
       message: error instanceof Error ? error.message : String(error),
     });
+  }
+});
+
+// API: Register/update a workflow so the server can execute it via webhooks
+app.put('/api/workflows/:id', async (req: Request, res: Response) => {
+  try {
+    const workflow = req.body;
+    if (!workflow || !workflow.id || !workflow.nodes) {
+      return res.status(400).json({ error: 'Invalid workflow data' });
+    }
+    workflow.id = req.params.id;
+    await saveWorkflow(workflow);
+    console.log(`[API] Workflow registered: ${workflow.id} (${workflow.name})`);
+    res.json({ message: 'Workflow registered', id: workflow.id });
+  } catch (error) {
+    console.error('[API] Failed to register workflow:', error);
+    res.status(500).json({ error: 'Failed to register workflow' });
   }
 });
 

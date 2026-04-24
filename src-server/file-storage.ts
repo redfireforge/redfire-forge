@@ -92,6 +92,16 @@ export async function getWorkflow(id: string): Promise<Workflow | null> {
 }
 
 /**
+ * Save a workflow to JSON file so the webhook server can execute it.
+ */
+export async function saveWorkflow(workflow: Workflow): Promise<void> {
+  const dir = join(getAppDataPath(), 'workflows');
+  await fs.mkdir(dir, { recursive: true });
+  const path = join(dir, `${workflow.id}.json`);
+  await fs.writeFile(path, JSON.stringify(workflow, null, 2));
+}
+
+/**
  * List all workflow IDs.
  */
 export async function listWorkflows(): Promise<string[]> {

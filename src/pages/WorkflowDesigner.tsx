@@ -576,6 +576,17 @@ function WorkflowDesignerInner({
       schemaVersion: 3,
     });
     setSaveAcknowledged(true);
+
+    // Register workflow with server so webhooks can trigger it
+    const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
+    if (hasWebhookTrigger) {
+      const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
+      fetch(`http://127.0.0.1:3001/api/workflows/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wf),
+      }).catch(() => { /* server may not be running */ });
+    }
   }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
 
   // Save current canvas state — preserves current positions as-is
