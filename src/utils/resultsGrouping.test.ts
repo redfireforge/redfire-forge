@@ -149,4 +149,12 @@ describe('buildGroups', () => {
     expect(groups[0].failed).toBe(1);
     expect(groups[0].avgTime).toBe(150);
   });
+
+  it('uses "(unknown group)" when groupName is empty', () => {
+    const results = [
+      makeResult({ groupName: '' }),
+    ];
+    const groups = buildGroups(results, ['group']);
+    expect(groups[0].key).toBe('(unknown group)');
+  });
 });

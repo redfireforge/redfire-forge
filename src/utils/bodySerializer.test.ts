@@ -152,3 +152,28 @@ describe('stringToBodyForm', () => {
     expect(result[0].value).toBe('hello world');
   });
 });
+
+describe('serializeWithContentType — missing bodyForm', () => {
+  it('serializes form-urlencoded with undefined bodyForm', () => {
+    const scenario = {
+      id: '1', name: 't', url: 'http://x', method: 'POST' as const,
+      headers: [], body: '', auth: { type: 'none' as const },
+      bodyType: 'form-urlencoded' as const,
+      validation: { mode: 'none' as const },
+    };
+    const result = serializeWithContentType(scenario);
+    expect(result.contentType).toBe('application/x-www-form-urlencoded');
+    expect(result.body).toBe('');
+  });
+
+  it('serializes form-data with undefined bodyForm', () => {
+    const scenario = {
+      id: '1', name: 't', url: 'http://x', method: 'POST' as const,
+      headers: [], body: '', auth: { type: 'none' as const },
+      bodyType: 'form-data' as const,
+      validation: { mode: 'none' as const },
+    };
+    const result = serializeWithContentType(scenario);
+    expect(result.contentType).toContain('multipart/form-data');
+  });
+});

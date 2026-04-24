@@ -13,10 +13,12 @@ import {
   useReactFlow,
   ReactFlowProvider,
   ConnectionMode,
+  applyNodeChanges,
   type OnConnect,
   type Node,
   type Edge,
   type Connection,
+  type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,6 +37,8 @@ import type {
   ForkNodeData,
   JoinNodeData,
   EndNodeData,
+  WebhookTriggerNodeData,
+  ScheduleTriggerNodeData,
   NodeRunStatus,
   WorkflowHostProfile,
   WorkflowAuthProfile,
@@ -74,10 +78,14 @@ import ConditionNode from '../components/workflow/nodes/ConditionNode';
 import DelayNode from '../components/workflow/nodes/DelayNode';
 import StartNode from '../components/workflow/nodes/StartNode';
 import ForkNode from '../components/workflow/nodes/ForkNode';
-import { DebugController } from '../engine/workflow/debugController';
-import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import JoinNode from '../components/workflow/nodes/JoinNode';
 import EndNode from '../components/workflow/nodes/EndNode';
+import WebhookTriggerNode from '../components/workflow/nodes/WebhookTriggerNode';
+import ScheduleTriggerNode from '../components/workflow/nodes/ScheduleTriggerNode';
+import { DebugController } from '../engine/workflow/debugController';
+import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
+import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
+import { useWorkflowRunCache } from '../hooks/useWorkflowRunCache';
 
 interface Props {
   collections: RequestCollection[];
@@ -115,6 +123,8 @@ const nodeTypes = {
   fork: ForkNode,
   join: JoinNode,
   end: EndNode,
+  webhook: WebhookTriggerNode,
+  schedule: ScheduleTriggerNode,
 };
 
 /** Enrich a React Flow node with state-managed initialVariables. */
@@ -149,6 +159,20 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'fork': return { label: 'Parallel Fork' } as ForkNodeData;
     case 'join': return { label: 'Join' } as JoinNodeData;
     case 'end': return { label: 'End' } as EndNodeData;
+    case 'webhook': return { 
+      label: 'Webhook Trigger', 
+      method: 'POST', 
+      path: '/api/webhook', 
+      samplePayload: '{\n  "event": "example",\n  "data": {}\n}',
+      extractVariables: []
+    } as WebhookTriggerNodeData;
+    case 'schedule': return {
+      label: 'Schedule Trigger',
+      cronExpression: '0 9 * * MON-FRI',
+      timezone: 'America/New_York',
+      scheduleDescription: 'Every weekday at 9:00 AM EST',
+      inputVariables: {}
+    } as ScheduleTriggerNodeData;
   }
 }
 
@@ -160,16 +184,17 @@ export default function WorkflowDesignerWrapper(props: Props) {
   );
 }
 
-function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes }: {
+function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes, bumpLayoutVersion }: {
   nodes: WorkflowRFNode[];
   edges: WorkflowRFEdge[];
-  setNodes: (nodes: WorkflowRFNode[]) => void;
+  setNodes: (nodes: WorkflowRFNode[] | ((nds: WorkflowRFNode[]) => WorkflowRFNode[])) => void;
   persistWorkflow: (overrides?: { rfNodes?: WorkflowRFNode[] }) => void;
   selected: Workflow | null;
   previewWorkflow: Workflow | null;
   serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
+  bumpLayoutVersion: () => void;
 }) {
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
   return (
     <>
       <ControlButton
@@ -199,20 +224,23 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
       <ControlButton
         onClick={() => {
           const laid = getAutoLayoutNodes(nodes, edges);
+          
+          // Update state with new positions
           setNodes(laid);
-          // For previews, only update visual layout (don't save)
-          // User must click "Use as Template" to save
+          // Force React Flow to remount with new positions
+          bumpLayoutVersion();
+          
+          // Persist if not preview
           if (!previewWorkflow) {
-            // For existing workflows, persist the layout
-            requestAnimationFrame(() => {
+            setTimeout(() => {
               persistWorkflow({ rfNodes: laid });
-              fitView({ padding: 0.2 });
-            });
-          } else {
-            requestAnimationFrame(() => {
-              fitView({ padding: 0.2 });
-            });
+            }, 100);
           }
+          
+          // Fit view after remount
+          setTimeout(() => {
+            fitView({ padding: 0.2, duration: 300 });
+          }, 50);
         }}
         title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
       >
@@ -254,6 +282,8 @@ function WorkflowDesignerInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
+  /** Bumped to force React Flow remount when programmatic layout changes don't visually update. */
+  const [layoutVersion, setLayoutVersion] = useState(0);
   /** Always read latest graph in Quick Test (avoids stale closures if React batches updates). */
   const nodesRef = useRef<WorkflowRFNode[]>(nodes);
   const edgesRef = useRef<WorkflowRFEdge[]>(edges);
@@ -265,7 +295,52 @@ function WorkflowDesignerInner({
   /** Whether the workflow-defaults modal is open. */
   const [showDefaultsModal, setShowDefaultsModal] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeRunStatus>>({});
+  const {
+    nodeStatuses, setNodeStatuses,
+    lastRunStatus, setLastRunStatus,
+    lastRunTime, setLastRunTime,
+    lastRunError, setLastRunError,
+    runVariableSnapshot, setRunVariableSnapshot,
+    history: runHistory,
+    pushHistory: pushRunHistory,
+    restoreFromHistory: restoreRunFromHistory,
+    deleteHistoryEntry: deleteRunHistoryEntry,
+    clearHistory: clearRunHistory,
+    consoleLines, pushConsoleLine, clearConsole,
+  } = useWorkflowRunCache(selected?.id ?? null);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const consoleOpenRef = useRef(false);
+  const handleToggleConsole = useCallback(() => {
+    setConsoleOpen(prev => {
+      const next = !prev;
+      consoleOpenRef.current = next;
+      return next;
+    });
+  }, []);
+  const handleCloseConsole = useCallback(() => {
+    setConsoleOpen(false);
+    consoleOpenRef.current = false;
+  }, []);
+
+  // Subscribe to server-side webhook execution logs via SSE
+  const hasWebhookNode = nodes.some(n => n.type === 'webhook');
+  useEffect(() => {
+    if (!consoleOpen || !hasWebhookNode) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/api/logs/stream');
+      es.onmessage = (event) => {
+        try {
+          const line = JSON.parse(event.data);
+          pushConsoleLine(line);
+        } catch { /* ignore malformed */ }
+      };
+      es.onerror = () => {
+        // Server may not be running; silently reconnect or close
+      };
+    } catch { /* EventSource creation failed */ }
+    return () => { es?.close(); };
+  }, [consoleOpen, hasWebhookNode, pushConsoleLine]);
   /**
    * Per-node initialVariables stored completely outside React Flow state.
    * React Flow's internal state management drops custom data fields; keeping
@@ -282,11 +357,8 @@ function WorkflowDesignerInner({
   const workflowVariablesRef = useRef(workflowVariables);
   workflowVariablesRef.current = workflowVariables;
   /** Last Quick Test variable snapshot (for canvas badge); not persisted as workflow defaults. */
-  const [runVariableSnapshot, setRunVariableSnapshot] = useState<Record<string, string> | null>(null);
-  const [lastRunStatus, setLastRunStatus] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
-  const [lastRunTime, setLastRunTime] = useState<number | undefined>();
-  const [lastRunError, setLastRunError] = useState<string | null>(null);
   const [lastQuickTestRequestUrl, setLastQuickTestRequestUrl] = useState<string | null>(null);
+  const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
   const [extractionSampleJson, setExtractionSampleJson] = useState('');
   const [extractionFetching, setExtractionFetching] = useState(false);
   const [extractionFetchError, setExtractionFetchError] = useState<string | null>(null);
@@ -319,13 +391,17 @@ function WorkflowDesignerInner({
       setNodes(rfNodes);
       setEdges(rfEdges);
       setSelectedNodeId(null);
-      setNodeStatuses({});
+      // Abort any in-flight Quick Test and reset running state
+      if (isRunning) {
+        abortRef.current?.abort();
+        setIsRunning(false);
+        setIsDebugMode(false);
+        debugControllerRef.current = null;
+      }
       setWorkflowVariables(selected.variables ?? {});
       setWorkflowHostProfiles(selected.hostProfiles ?? []);
       setWorkflowAuthProfiles(selected.authProfiles ?? []);
       setWorkflowServices(selected.services ?? []);
-      setRunVariableSnapshot(null);
-      setLastRunStatus('idle');
       // Populate per-node initialVariables from saved workflow data (outside React Flow)
       const ivMap: Record<string, Record<string, string>> = {};
       for (const n of selected.nodes) {
@@ -339,7 +415,8 @@ function WorkflowDesignerInner({
     } else if (!selected) {
       prevSelectedId.current = null;
     }
-  }, [selected, setNodes, setEdges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   // Compute selected node from React Flow nodes for config panel
   const selectedNode = useMemo(() => {
@@ -547,6 +624,17 @@ function WorkflowDesignerInner({
       schemaVersion: 3,
     });
     setSaveAcknowledged(true);
+
+    // Register workflow with server so webhooks can trigger it
+    const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
+    if (hasWebhookTrigger) {
+      const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
+      fetch(`/api/workflows/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wf),
+      }).catch(() => { /* server may not be running */ });
+    }
   }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
 
   // Save current canvas state — preserves current positions as-is
@@ -570,7 +658,7 @@ function WorkflowDesignerInner({
     };
     setEdges((eds) => {
       const updated = addEdge(newEdge, eds);
-      // Auto-save edges when a new connection is made
+      // Defer cross-component state update to avoid React warning
       if (selected) {
         const wfNodes = serializeNodes(nodes);
         const wfEdges = updated.map(e => ({
@@ -578,10 +666,11 @@ function WorkflowDesignerInner({
           sourceHandle: e.sourceHandle ?? undefined,
           label: typeof e.label === 'string' ? e.label : undefined,
         }));
-        update(selected.id, { nodes: wfNodes, edges: wfEdges });
+        queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
       }
       return updated;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setEdges, selected, nodes, serializeNodes, update]);
 
   const onReconnect = useCallback(
@@ -596,6 +685,7 @@ function WorkflowDesignerInner({
         });
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setEdges],
   );
 
@@ -611,7 +701,7 @@ function WorkflowDesignerInner({
     };
     setNodes((nds) => {
       const updated = [...nds, newNode];
-      // Auto-save so the new node is persisted immediately
+      // Defer cross-component state update to avoid React warning
       const wfNodes = updated.map(n => ({
         id: n.id,
         type: n.type,
@@ -627,10 +717,11 @@ function WorkflowDesignerInner({
         sourceHandle: e.sourceHandle ?? undefined,
         label: typeof e.label === 'string' ? e.label : undefined,
       }));
-      update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges });
+      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
       return updated;
     });
-  }, [selected, setNodes, edges, update]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, edges, update]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
@@ -715,8 +806,8 @@ function WorkflowDesignerInner({
         ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
         : n));
       nodesRef.current = next;
-      // Auto-persist with updated nodes
-      persistWorkflow({ rfNodes: next });
+      // Defer cross-component state update to avoid React warning
+      queueMicrotask(() => persistWorkflow({ rfNodes: next }));
       return next;
     });
   }, [setNodes, persistWorkflow]);
@@ -798,6 +889,7 @@ function WorkflowDesignerInner({
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
     setNodeStatuses({});
+    clearConsole();
 
     abortRef.current = new AbortController();
 
@@ -824,25 +916,52 @@ function WorkflowDesignerInner({
       label: typeof e.label === 'string' ? e.label : undefined,
     }));
 
+    const runNodeStatuses: Record<string, NodeRunStatus> = {};
+    let runVarSnap: Record<string, string> | null = null;
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: (nodeId, status) => {
+        runNodeStatuses[nodeId] = status;
         setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
       },
       onVariablesChange: (vars) => {
+        runVarSnap = vars;
         setRunVariableSnapshot(vars);
       },
+      onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
         setIsRunning(false);
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
-        if (!passed) {
-          const fail = results.find((r) => !r.passed);
-          setLastRunError(fail ? summarizeRequestFailure(fail) : 'One or more steps failed.');
-        } else {
-          setLastRunError(null);
-        }
+        const errorMsg = !passed
+          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
+          : null;
+        setLastRunError(errorMsg);
         const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
         setLastQuickTestRequestUrl(urlForDebug ?? null);
+        const stepSummaries = nodesRef.current
+          .filter(n => runNodeStatuses[n.id] && n.type === 'http')
+          .map(n => {
+            const rs = runNodeStatuses[n.id];
+            return {
+              nodeId: n.id,
+              label: (n.data as { label?: string }).label || n.id,
+              state: rs.state === 'pass' ? 'pass' as const : rs.state === 'fail' ? 'fail' as const : 'skipped' as const,
+              statusCode: rs.statusCode,
+              responseTimeMs: rs.responseTimeMs,
+              error: rs.error,
+            };
+          });
+        const histId = pushRunHistory({
+          timestamp: Date.now(),
+          durationMs,
+          passed,
+          nodeStatuses: { ...runNodeStatuses },
+          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
+          stepsExecuted: results.length,
+          stepSummaries,
+          error: errorMsg,
+        });
+        setActiveRunHistoryId(histId);
       },
     };
 
@@ -925,6 +1044,7 @@ function WorkflowDesignerInner({
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
     setNodeStatuses({});
+    clearConsole();
 
     abortRef.current = new AbortController();
 
@@ -950,27 +1070,54 @@ function WorkflowDesignerInner({
       label: typeof e.label === 'string' ? e.label : undefined,
     }));
 
+    const runNodeStatuses: Record<string, NodeRunStatus> = {};
+    let runVarSnap: Record<string, string> | null = null;
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: (nodeId, status) => {
+        runNodeStatuses[nodeId] = status;
         setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
       },
       onVariablesChange: (vars) => {
+        runVarSnap = vars;
         setRunVariableSnapshot(vars);
       },
+      onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
         setIsRunning(false);
         setIsDebugMode(false);
         debugControllerRef.current = null;
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
-        if (!passed) {
-          const fail = results.find((r) => !r.passed);
-          setLastRunError(fail ? summarizeRequestFailure(fail) : 'One or more steps failed.');
-        } else {
-          setLastRunError(null);
-        }
+        const errorMsg = !passed
+          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
+          : null;
+        setLastRunError(errorMsg);
         const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
         setLastQuickTestRequestUrl(urlForDebug ?? null);
+        const stepSummaries = nodesRef.current
+          .filter(n => runNodeStatuses[n.id] && n.type === 'http')
+          .map(n => {
+            const rs = runNodeStatuses[n.id];
+            return {
+              nodeId: n.id,
+              label: (n.data as { label?: string }).label || n.id,
+              state: rs.state === 'pass' ? 'pass' as const : rs.state === 'fail' ? 'fail' as const : 'skipped' as const,
+              statusCode: rs.statusCode,
+              responseTimeMs: rs.responseTimeMs,
+              error: rs.error,
+            };
+          });
+        const histId = pushRunHistory({
+          timestamp: Date.now(),
+          durationMs,
+          passed,
+          nodeStatuses: { ...runNodeStatuses },
+          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
+          stepsExecuted: results.length,
+          stepSummaries,
+          error: errorMsg,
+        });
+        setActiveRunHistoryId(histId);
       },
     };
 
@@ -1094,6 +1241,7 @@ function WorkflowDesignerInner({
           <WorkflowNodeRunContext.Provider value={nodeStatuses}>
           <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
             <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
+              key={layoutVersion}
               nodes={nodes}
               edges={edges}
               onNodesChange={onNodesChange}
@@ -1113,7 +1261,7 @@ function WorkflowDesignerInner({
               defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
             >
               <Controls>
-                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} />
+                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} bumpLayoutVersion={() => setLayoutVersion(v => v + 1)} />
               </Controls>
               <MiniMap
                 pannable
@@ -1217,6 +1365,7 @@ function WorkflowDesignerInner({
           onUpdateNode={handleUpdateNode}
           onDeleteNode={handleDeleteNode}
           onClose={() => setConfigModalNodeId(null)}
+          workflowId={selected?.id}
           lastQuickTestRequestUrl={lastQuickTestRequestUrl}
           lastRunStepError={configModalNodeId ? nodeStatuses[configModalNodeId]?.error : undefined}
           effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
@@ -1279,6 +1428,14 @@ function WorkflowDesignerInner({
         />
       )}
 
+      {consoleOpen && (
+        <WorkflowConsolePanel
+          lines={consoleLines}
+          onClear={clearConsole}
+          onClose={handleCloseConsole}
+        />
+      )}
+
       <WorkflowStatusBar
         nodeCount={nodes.length}
         edgeCount={edges.length}
@@ -1287,6 +1444,17 @@ function WorkflowDesignerInner({
         lastRunTime={lastRunTime}
         lastRunError={lastRunError}
         onOpenRunError={openRunErrorDetail}
+        runHistory={runHistory}
+        activeRunHistoryId={activeRunHistoryId}
+        onRestoreRunHistory={(id) => { restoreRunFromHistory(id); setActiveRunHistoryId(id); }}
+        onDeleteRunHistoryEntry={(id) => {
+          deleteRunHistoryEntry(id);
+          if (id === activeRunHistoryId) setActiveRunHistoryId(null);
+        }}
+        onClearRunHistory={() => { clearRunHistory(); setActiveRunHistoryId(null); }}
+        consoleLineCount={consoleLines.length}
+        consoleOpen={consoleOpen}
+        onToggleConsole={handleToggleConsole}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath, validate } from './validator';
+import { getByPath, validate, evaluateAssertions, matchesStatusPattern } from './validator';
 
 // ---------------------------------------------------------------------------
 // getByPath
@@ -514,5 +514,230 @@ describe('validate — unordered partial match details', () => {
       response
     );
     expect(failures).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions – branch coverage for header operators
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions', () => {
+  const ctx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseBody: { key: 'value' },
+    responseHeaders: { 'content-type': 'application/json', 'x-id': 'abc-123' },
+  };
+
+  it('handles unknown header operator (default branch)', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'startsWith', value: 'app' } as any],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('unknown operator');
+  });
+
+  it('handles invalid regex in header regex operator', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'regex', value: '[invalid' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('invalid regex pattern');
+  });
+
+  it('handles invalid regex in regex assertion', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$.key', pattern: '[bad' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('invalid regex pattern');
+  });
+
+  it('header exists assertion succeeds', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'exists' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header exists assertion fails for missing header', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-missing', operator: 'exists' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header contains assertion', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'contains', value: 'json' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header contains fails when not present', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-missing', operator: 'contains', value: 'x' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header regex assertion succeeds', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-id', operator: 'regex', value: '^abc-\\d+$' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header regex assertion fails on non-matching header', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-id', operator: 'regex', value: '^xyz' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header regex fails when header missing', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-missing', operator: 'regex', value: '.*' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('sets statusAsserted when status assertion is present', () => {
+    const { statusAsserted } = evaluateAssertions(
+      [{ type: 'status', expected: '200' }],
+      ctx
+    );
+    expect(statusAsserted).toBe(true);
+  });
+
+  it('responseTime assertion fails when too slow', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'responseTime', maxMs: 10 }],
+      { ...ctx, responseTimeMs: 100 }
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].path).toBe('(responseTime)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validate – deepCompare branch: expected array vs non-array actual
+// ---------------------------------------------------------------------------
+describe('validate deepCompare edge cases', () => {
+  it('reports failure when expected array but actual is non-array (full mode)', () => {
+    const failures = validate(
+      {
+        mode: 'full',
+        expectedJson: JSON.stringify({ items: ['a', 'b'] }),
+      },
+      { items: 'not-array' }
+    );
+    expect(failures.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getByPath – edge branches
+// ---------------------------------------------------------------------------
+describe('getByPath edge cases', () => {
+  it('returns root object for empty path after $', () => {
+    const obj = { a: 1 };
+    expect(getByPath(obj, '$')).toEqual(obj);
+  });
+
+  it('returns root object for path "$." with no key after', () => {
+    const obj = { a: 1 };
+    expect(getByPath(obj, '$.')).toEqual(obj);
+  });
+
+  it('handles unclosed bracket in path (breaks tokenization)', () => {
+    const obj = { a: [1, 2] };
+    // "[0" without closing bracket — tokenizer breaks, returns tokens up to that point
+    expect(getByPath(obj, '$.a[0')).toEqual([1, 2]);
+  });
+
+  it('handles [*] on non-array returns undefined', () => {
+    const obj = { a: { b: 1 } };
+    expect(getByPath(obj, '$.a[*]')).toBeUndefined();
+  });
+
+  it('handles [*] at terminal position returns entire array', () => {
+    const obj = { items: [1, 2, 3] };
+    expect(getByPath(obj, '$.items[*]')).toEqual([1, 2, 3]);
+  });
+
+  it('handles path starting with $ but not $. (single $ prefix)', () => {
+    const obj = { a: 1 };
+    expect(getByPath(obj, '$a')).toBe(1);
+  });
+
+  it('returns undefined for path through null', () => {
+    expect(getByPath(null, 'a.b')).toBeUndefined();
+  });
+
+  it('returns undefined for non-numeric key on array', () => {
+    expect(getByPath([1, 2, 3], 'foo')).toBeUndefined();
+  });
+
+  it('handles numeric index on array', () => {
+    expect(getByPath([10, 20, 30], '1')).toBe(20);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deepCompare – additional edge branches
+// ---------------------------------------------------------------------------
+describe('deepCompare via validate', () => {
+  it('reports null actual vs non-null expected', () => {
+    const failures = validate(
+      { mode: 'full', expectedJson: JSON.stringify({ key: 'value' }) },
+      { key: null }
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].path).toBe('key');
+  });
+
+  it('reports primitive mismatch at nested path', () => {
+    const failures = validate(
+      { mode: 'full', expectedJson: JSON.stringify({ a: { b: 1 } }) },
+      { a: { b: 2 } }
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].path).toBe('a.b');
+  });
+
+  it('reports extra keys in actual object', () => {
+    const failures = validate(
+      { mode: 'full', expectedJson: JSON.stringify({ a: 1 }) },
+      { a: 1, b: 2 }
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].path).toBe('b');
+  });
+
+  it('compares arrays of different lengths', () => {
+    const failures = validate(
+      { mode: 'full', expectedJson: JSON.stringify([1, 2, 3]) },
+      [1, 2]
+    );
+    expect(failures.length).toBe(1);
+  });
+
+  it('reports root primitive mismatch', () => {
+    const failures = validate(
+      { mode: 'full', expectedJson: '"hello"' },
+      'world'
+    );
+    expect(failures.length).toBe(1);
+    expect(failures[0].path).toBe('(root)');
   });
 });

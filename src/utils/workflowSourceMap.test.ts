@@ -121,6 +121,15 @@ describe('buildVariableSourceMap', () => {
     expect(m.get('extra')).toBe('Default');
     expect(m.has('node:a1.channel')).toBe(false);
   });
+
+  it('handles arrow hint with ref that has no dot (uses full ref as baseName)', () => {
+    const hints: WorkflowVariableHint[] = [
+      { ref: 'channelName', label: 'channelName ← "Input Step" (scoped)' },
+      { ref: 'channelName', label: 'channelName (latest)' },
+    ];
+    const m = buildVariableSourceMap(hints);
+    expect(m.get('channelName')).toBe('Input Step');
+  });
 });
 
 describe('resolveVariableSource', () => {

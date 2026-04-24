@@ -6,6 +6,8 @@ import type {
   ConditionNodeData,
   DelayNodeData,
   StartNodeData,
+  WebhookTriggerNodeData,
+  ScheduleTriggerNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -20,6 +22,8 @@ import HttpConfig from './HttpConfig';
 import type { HttpTab } from './HttpConfig';
 import ConditionConfig from './ConditionConfig';
 import DelayConfig from './DelayConfig';
+import WebhookConfig from './WebhookConfig';
+import ScheduleConfig from './ScheduleConfig';
 import VariablesSection from './VariablesSection';
 import type { ExtractionFetchSampleProps } from '../ExtractionPathPickerModal';
 
@@ -29,6 +33,7 @@ interface Props {
   onUpdateNode: (id: string, patch: Partial<WorkflowNodeData>) => void;
   onDeleteNode: (id: string) => void;
   onClose: () => void;
+  workflowId?: string;
   lastQuickTestRequestUrl?: string | null;
   lastRunStepError?: string | null;
   effectiveQuickTestBaseUrl: string;
@@ -44,7 +49,7 @@ interface Props {
 }
 
 export default function WorkflowNodeConfigModal({
-  node, workflowVariables, onUpdateNode, onDeleteNode, onClose,
+  node, workflowVariables, onUpdateNode, onDeleteNode, onClose, workflowId,
   lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl,
   resolveBaseUrl, fallbackBaseUrl = '',
   extractionSampleResponseBody, extractionFetchSample,
@@ -208,6 +213,44 @@ export default function WorkflowNodeConfigModal({
                 setNewVarValue={setNewVarValue}
                 workflowVariables={workflowVariables}
               />
+            )}
+
+            {draftNode.type === 'webhook' && (
+              <WebhookConfig
+                data={draftNode.data as WebhookTriggerNodeData}
+                onChange={updateDraft}
+                workflowId={workflowId}
+                nodeId={node.id}
+              />
+            )}
+
+            {draftNode.type === 'schedule' && (
+              <ScheduleConfig
+                data={draftNode.data as ScheduleTriggerNodeData}
+                onChange={updateDraft}
+                newVarKey={newVarKey}
+                setNewVarKey={setNewVarKey}
+                newVarValue={newVarValue}
+                setNewVarValue={setNewVarValue}
+                workflowVariables={workflowVariables}
+              />
+            )}
+
+            {/* Generic label editor for fork, join, end nodes */}
+            {(draftNode.type === 'fork' || draftNode.type === 'join' || draftNode.type === 'end') && (
+              <div className="wf-config-section">
+                <label className="wf-config-label">
+                  Label
+                  <input
+                    type="text"
+                    className="wf-config-input"
+                    value={draft.label || ''}
+                    onChange={(e) => updateDraft({ label: e.target.value })}
+                    placeholder={`${draftNode.type.charAt(0).toUpperCase() + draftNode.type.slice(1)} node`}
+                  />
+                  <span className="wf-config-hint">Display name for this {draftNode.type} node</span>
+                </label>
+              </div>
             )}
 
             {isHttpWorkflowNode(draftNode) && (

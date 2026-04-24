@@ -73,7 +73,7 @@ test.describe('Workflow Trigger Nodes', () => {
     await blocksTab.click();
 
     // Should show Triggers category header
-    await expect(page.locator('.wf-palette-category', { hasText: 'Triggers' })).toBeVisible();
+    await expect(page.locator('.wf-palette-category-title', { hasText: 'Triggers' })).toBeVisible();
 
     // Should show Manual Start block
     await expect(page.locator('.wf-palette-block-start .wf-pb-title')).toHaveText('Manual Start');
@@ -83,7 +83,7 @@ test.describe('Workflow Trigger Nodes', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-palette-category', { hasText: 'Logic' })).toBeVisible();
+    await expect(page.locator('.wf-palette-category-title', { hasText: 'Logic' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-fork .wf-pb-title')).toHaveText('Parallel Fork');
   });
 
@@ -91,7 +91,7 @@ test.describe('Workflow Trigger Nodes', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-palette-category', { hasText: 'Actions' })).toBeVisible();
+    await expect(page.locator('.wf-palette-category-title', { hasText: 'Actions' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-http .wf-pb-title')).toHaveText('HTTP Request');
     await expect(page.locator('.wf-palette-block-delay .wf-pb-title')).toHaveText('Delay');
   });

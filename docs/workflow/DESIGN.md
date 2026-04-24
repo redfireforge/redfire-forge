@@ -103,16 +103,110 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 
 ## 4. Node Types
 
-| Node | Shape | Purpose | Config |
-|---|---|---|---|
-| **HTTP Request** | Rounded rect | Execute an API call | Method, URL, headers, body, auth, extractions, assertions |
-| **Condition (If/Else)** | Diamond | Branch based on variable/status | Expression, true edge, false edge |
-| **Delay** | Clock icon | Pause between steps | Duration (fixed or random) |
-| **Loop** | Cycle arrows | Repeat steps | For-each array, repeat N, while condition |
-| **Fork** | Split arrows | Start parallel branches | Fan-out to N children |
-| **Join** | Merge arrows | Wait for parallel branches | Wait-all or wait-any |
-| **Aggregate** | Sigma icon | Combine parallel results | Merge strategy (concat, first, custom) |
-| **Switch** | Multi-diamond | Multi-way branch | Multiple conditions → edges |
+### Implemented Nodes ✅
+
+| Node | Shape | Purpose | Config | Status |
+|---|---|---|---|---|
+| **Start** | Circle (green) | Workflow entry point | Initial variables, trigger settings | ✅ Done |
+| **HTTP Request** | Rounded rect | Execute an API call | Method, URL, headers, body, auth, extractions, assertions, service binding | ✅ Done |
+| **Condition (If/Else)** | Diamond | Branch based on variable/status | Left operand, operator, right operand, true/false edges | ✅ Done |
+| **Delay** | Clock icon | Pause between steps | Duration (fixed or random), min/max ms | ✅ Done |
+| **Fork** | Split arrows | Start parallel branches | Fan-out to N children | ✅ Done |
+| **Join** | Merge arrows | Wait for parallel branches | Wait-all strategy | ✅ Done |
+| **End** | Circle (red) | Workflow exit point | Label only | ✅ Done |
+| **Webhook Trigger** | Webhook icon | Start workflow from webhook | HTTP method, path, sample payload, variable extraction | ✅ Done |
+| **Schedule Trigger** | Clock/calendar icon | Start workflow on schedule | Cron expression, timezone, schedule description | ✅ Done |
+
+### Planned Nodes 🚧
+
+| Node | Shape | Purpose | Config | Priority |
+|---|---|---|---|---|
+| **Loop** | Cycle arrows | Repeat steps | For-each array, repeat N, while condition, max iterations | High |
+| **Switch** | Multi-diamond | Multi-way branch | Multiple conditions → edges (case 1, case 2, default) | High |
+| **Set Variable** | Assignment icon | Set or transform variables | Variable name, value expression, transform function | High |
+| **Aggregate** | Sigma icon | Combine parallel results | Merge strategy (concat, first, last, custom JSONPath) | Medium |
+| **Script/Transform** | Code icon | Execute JavaScript | Code editor, input/output variables | Medium |
+| **Error Handler** | Shield icon | Catch and handle errors | Error type, retry config, fallback path | Medium |
+| **Log/Debug** | Bug icon | Log variables or messages | Message template, log level, variable snapshot | Low |
+| **Wait for Condition** | Hourglass icon | Poll until condition met | Condition, polling interval, timeout | Low |
+
+### Future Node Ideas 💡
+
+| Node | Purpose | Use Case |
+|---|---|---|
+| **Sub-workflow** | Call another workflow as a step | Reusable workflow components, modular design |
+| **Database Query** | Execute SQL queries | Direct DB testing, data setup/teardown |
+| **Rate Limiter** | Control request rate per step | Respect API rate limits, throttle load |
+| **Cache** | Cache responses by key | Avoid redundant calls, share data across iterations |
+| **File Operations** | Read/write files | CSV input, JSON export, test data generation |
+| **Email/Notification** | Send email/Slack/webhook | Alert on failures, report completion |
+| **HTTP Polling** | Poll endpoint until condition | Wait for async job completion (status=done) |
+| **Batch Request** | Execute multiple similar requests | Bulk operations (delete multiple resources) |
+| **Extract to File** | Save response to file | Debug large payloads, export test data |
+| **GraphQL Request** | Execute GraphQL queries | GraphQL API testing |
+
+---
+
+## 4.1 Node Implementation Roadmap
+
+### Phase 1: Core Workflow (✅ Complete)
+- **Start/End nodes** — Entry and exit points for workflows
+- **HTTP Request** — Core API execution with variable extraction
+- **Condition** — Basic if/else branching
+- **Delay** — Think time and pacing
+- **Fork/Join** — Parallel execution
+
+### Phase 2: Triggers & Automation (✅ Complete)
+- **Webhook Trigger** — Event-driven workflow initiation
+- **Schedule Trigger** — Time-based workflow automation
+
+### Phase 3: Advanced Control Flow (High Priority)
+- **Loop** — Iterate over arrays or repeat N times
+  - Essential for: data-driven testing, bulk operations, retry logic
+  - Config: for-each array variable, repeat count, while condition, max iterations
+- **Switch** — Multi-way branching (more than 2 paths)
+  - Essential for: status code routing (200/400/404/500), state machines
+  - Config: multiple case conditions, default path
+- **Set Variable** — Explicit variable manipulation
+  - Essential for: data transformation, computed values, test data setup
+  - Config: variable assignments, transform functions (uppercase, JSON parse, etc.)
+
+### Phase 4: Reliability & Observability (Medium Priority)
+- **Error Handler** — Structured error handling
+  - Essential for: retry logic, graceful degradation, error logging
+  - Config: error type filters, retry count/backoff, fallback path
+- **Aggregate** — Combine parallel branch results
+  - Essential for: gathering fork/join results, summary calculations
+  - Config: merge strategy (concat arrays, pick first/last, custom JSONPath)
+- **Log/Debug** — Workflow debugging and visibility
+  - Essential for: troubleshooting, audit trails, variable inspection
+  - Config: message template, log level, variable snapshot
+
+### Phase 5: Extended Capabilities (Future)
+- **Script/Transform** — JavaScript execution for complex logic
+- **Database Query** — Direct SQL testing and data operations
+- **Sub-workflow** — Reusable workflow modules
+- **Rate Limiter** — Control request pacing
+- **Cache** — Response caching and data sharing
+- **File Operations** — CSV/JSON input/output
+- **Notification** — Email/Slack/webhook alerts
+
+### Priority Justification
+
+**Loop is the #1 priority** because:
+- Already designed in original spec
+- Blocks common use cases: array iteration, retry logic, bulk operations
+- Required for realistic load test scenarios (e.g., create N orders per user)
+
+**Switch is #2** because:
+- Improves UX over chained condition nodes
+- Natural for HTTP status code routing
+- Prevents "diamond spaghetti" diagrams
+
+**Set Variable is #3** because:
+- Currently no way to manually transform/compute variables
+- Needed for test data preparation
+- Fills gap between extractions and request inputs
 
 ---
 
@@ -134,9 +228,9 @@ interface Workflow {
 
 interface WorkflowNode {
   id: string;
-  type: 'http' | 'condition' | 'delay' | 'loop' | 'fork' | 'join' | 'aggregate' | 'switch';
+  type: 'http' | 'condition' | 'delay' | 'start' | 'end' | 'webhook' | 'schedule' | 'fork' | 'join' | 'loop' | 'aggregate' | 'switch';
   position: { x: number; y: number };
-  data: HttpNodeData | ConditionNodeData | DelayNodeData | LoopNodeData | ForkJoinNodeData;
+  data: HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | ForkNodeData | JoinNodeData | LoopNodeData | AggregateNodeData;
 }
 
 interface HttpNodeData {
@@ -162,18 +256,79 @@ interface DelayNodeData {
   maxMs?: number;
 }
 
+interface StartNodeData {
+  label: string;
+  inputVariables: Record<string, string>;    // Variables provided when workflow starts
+}
+
+interface EndNodeData {
+  label: string;
+}
+
+interface WebhookTriggerNodeData {
+  label: string;
+  method: 'POST' | 'PUT' | 'PATCH';          // HTTP method expected for webhook
+  path: string;                              // Endpoint path (e.g., '/api/vehicle-created')
+  samplePayload: string;                     // Sample JSON payload for testing
+  extractVariables?: Array<{                 // Variables to extract from webhook body
+    name: string;
+    jsonPath: string;
+  }>;
+  notes?: string;
+}
+
+interface ScheduleTriggerNodeData {
+  label: string;
+  cronExpression: string;                    // Cron expression (e.g., '0 9 * * MON-FRI')
+  timezone: string;                          // Timezone for cron execution
+  scheduleDescription?: string;              // Human-readable description
+  inputVariables?: Record<string, string>;   // Optional initial variables
+  notes?: string;
+}
+
+interface ForkNodeData {
+  label: string;
+}
+
+interface JoinNodeData {
+  label: string;
+  strategy?: 'wait-all' | 'wait-any';       // Wait for all branches or first to complete
+}
+
+// ── Planned Node Data Types (not yet implemented) ──
+
 interface LoopNodeData {
   label: string;
   loopType: 'count' | 'for-each' | 'while';
   count?: number;
-  arrayVariable?: string;                 // variable containing array to iterate
+  arrayVariable?: string;                    // variable containing array to iterate
   whileCondition?: string;
-  maxIterations?: number;                 // safety limit
+  maxIterations?: number;                    // safety limit
 }
 
-interface ForkJoinNodeData {
+interface SwitchNodeData {
   label: string;
-  strategy?: 'wait-all' | 'wait-any';
+  cases: Array<{
+    condition: string;                       // expression to evaluate
+    label: string;                           // case label (e.g., "Case 1", "Success")
+  }>;
+  hasDefault?: boolean;                      // whether to include default/else path
+}
+
+interface SetVariableNodeData {
+  label: string;
+  variables: Array<{
+    name: string;                            // variable name
+    value: string;                           // value expression or template
+    transform?: 'uppercase' | 'lowercase' | 'trim' | 'json-parse' | 'json-stringify';
+  }>;
+}
+
+interface AggregateNodeData {
+  label: string;
+  strategy: 'concat' | 'first' | 'last' | 'custom';
+  arrayVariable?: string;                    // where to store aggregated results
+  customJsonPath?: string;                   // JSONPath for custom aggregation
 }
 ```
 
@@ -305,13 +460,19 @@ src/
 │   ├── VariablePanel.tsx        # Variable chip display (done)
 │   ├── WorkflowVariablesInput.tsx  # Initial variables editor (done)
 │   └── nodes/
-│       ├── HttpStepNode.tsx     # HTTP request node
-│       ├── ConditionNode.tsx    # If/Else diamond node
-│       ├── DelayNode.tsx        # Timer/delay node
-│       ├── LoopNode.tsx         # Loop node
-│       ├── ForkNode.tsx         # Parallel fork node
-│       ├── JoinNode.tsx         # Parallel join node
-│       └── SwitchNode.tsx       # Multi-branch node
+│       ├── HttpStepNode.tsx          # HTTP request node ✅
+│       ├── ConditionNode.tsx         # If/Else diamond node ✅
+│       ├── DelayNode.tsx             # Timer/delay node ✅
+│       ├── StartNode.tsx             # Workflow start node ✅
+│       ├── EndNode.tsx               # Workflow end node ✅
+│       ├── ForkNode.tsx              # Parallel fork node ✅
+│       ├── JoinNode.tsx              # Parallel join node ✅
+│       ├── WebhookTriggerNode.tsx    # Webhook trigger node ✅
+│       ├── ScheduleTriggerNode.tsx   # Schedule trigger node ✅
+│       ├── LoopNode.tsx              # Loop node (planned)
+│       ├── SwitchNode.tsx            # Multi-branch node (planned)
+│       ├── SetVariableNode.tsx       # Variable assignment node (planned)
+│       └── AggregateNode.tsx         # Aggregation node (planned)
 ├── engine/workflow/
 │   ├── variableContext.ts       # Variable store (done)
 │   ├── resolveScenario.ts       # Template resolution (done)

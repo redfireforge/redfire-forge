@@ -7,7 +7,7 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onRename: (id: string) => void;
+  onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onLoadSample: (entry: SampleWorkflowEntry) => void;
@@ -24,7 +24,10 @@ export default function WorkflowSidebar({
   workflows, selectedId, onSelect, onNew, onRename, onDelete, onDuplicate, onLoadSample,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<WorkflowSidebarContextMenuState | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [renameState, setRenameState] = useState<{ id: string; name: string } | null>(null);
   const [showSamples, setShowSamples] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const samplesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function WorkflowSidebar({
               className="wf-sidebar-ctx-item"
               role="menuitem"
               onClick={() => {
-                onRename(contextMenu.workflowId);
+                setRenameState({ id: contextMenu.workflowId, name: contextMenu.workflowName });
                 setContextMenu(null);
               }}
             >
@@ -147,7 +150,10 @@ export default function WorkflowSidebar({
               className="wf-sidebar-ctx-item wf-sidebar-ctx-item-danger"
               role="menuitem"
               onClick={() => {
-                if (confirm(`Delete "${contextMenu.workflowName}"?`)) onDelete(contextMenu.workflowId);
+                setConfirmDelete({
+                  message: `Delete "${contextMenu.workflowName}"?`,
+                  onConfirm: () => onDelete(contextMenu.workflowId),
+                });
                 setContextMenu(null);
               }}
             >
@@ -155,6 +161,47 @@ export default function WorkflowSidebar({
             </button>
           </div>
         </>
+      )}
+
+      {renameState && (
+        <div className="req-confirm-overlay" onClick={() => setRenameState(null)}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p>Rename workflow</p>
+            <input
+              ref={renameInputRef}
+              className="req-confirm-input"
+              autoFocus
+              defaultValue={renameState.name}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = renameInputRef.current?.value.trim();
+                  if (val) { onRename(renameState.id, val); setRenameState(null); }
+                } else if (e.key === 'Escape') {
+                  setRenameState(null);
+                }
+              }}
+            />
+            <div className="req-confirm-actions">
+              <button className="req-confirm-cancel" onClick={() => setRenameState(null)}>Cancel</button>
+              <button className="req-confirm-ok req-confirm-ok-primary" onClick={() => {
+                const val = renameInputRef.current?.value.trim();
+                if (val) { onRename(renameState.id, val); setRenameState(null); }
+              }}>Rename</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="req-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p>{confirmDelete.message}</p>
+            <div className="req-confirm-actions">
+              <button className="req-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="req-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -131,6 +131,13 @@ describe('stripPaths', () => {
     const result = stripPaths(arr, ['$[0].y']);
     expect(Array.isArray(result)).toBe(true);
   });
+
+  it('handles bracket notation on non-array property', () => {
+    const obj = { items: { nested: 'value' } };
+    const result = stripPaths(obj, ['$.items[0].nested']);
+    // items is not an array, so bracket access fails gracefully
+    expect(result.items).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

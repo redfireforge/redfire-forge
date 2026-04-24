@@ -1,0 +1,268 @@
+# RedfireForge Workflow — Schedule Trigger Example
+# This workflow demonstrates a cron-based scheduled job for daily reports
+
+name: Daily Sales Report Generator
+description: Generate and email sales reports every day at 9 AM
+
+schemaVersion: 4
+
+# Workflow-level default variables
+variables:
+  reportFormat: "pdf"
+  recipientEmail: "reports@example.com"
+  timezone: "America/New_York"
+
+# Service definitions
+services:
+  - id: svc-analytics
+    name: Analytics API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/analytics
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{ANALYTICS_API_TOKEN}}"
+
+  - id: svc-email
+    name: Email Service
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/email
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-API-Key
+      apiKeyValue: "{{EMAIL_API_KEY}}"
+      apiKeyIn: header
+
+# Workflow nodes
+nodes:
+  # Schedule trigger - runs daily at 9 AM
+  - id: schedule-1
+    type: schedule
+    position:
+      x: 100
+      y: 100
+    data:
+      label: Daily 9 AM Trigger
+      cronExpression: "0 9 * * *"
+      timezone: "America/New_York"
+      scheduleDescription: "Every day at 9:00 AM EST"
+      inputVariables:
+        reportType: "daily_sales"
+        lookbackDays: "1"
+      notes: |
+        Scheduled trigger for daily sales report generation.
+        Runs at 9 AM EST every day.
+        Seeds triggerTime and triggerTimestamp variables automatically.
+
+  # Fetch sales data for yesterday
+  - id: http-1
+    type: http
+    position:
+      x: 100
+      y: 250
+    data:
+      label: Fetch Sales Data
+      serviceId: svc-analytics
+      scenario:
+        id: sc-1
+        name: Fetch Sales Data
+        url: /reports/sales?type={{reportType}}&days={{lookbackDays}}&timestamp={{triggerTimestamp}}
+        method: GET
+        headers: []
+        body: ""
+        auth:
+          type: none
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.status
+              expectedValue: "success"
+      extraction:
+        - name: totalSales
+          source: body
+          expression: $.data.totalSales
+        - name: orderCount
+          source: body
+          expression: $.data.orderCount
+        - name: reportUrl
+          source: body
+          expression: $.data.reportUrl
+
+  # Generate report summary
+  - id: http-2
+    type: http
+    position:
+      x: 100
+      y: 400
+    data:
+      label: Generate Report
+      serviceId: svc-analytics
+      scenario:
+        id: sc-2
+        name: Generate Report
+        url: /reports/generate
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "reportType": "{{reportType}}",
+            "generatedAt": "{{triggerTime}}",
+            "data": {
+              "totalSales": {{totalSales}},
+              "orderCount": {{orderCount}},
+              "period": "{{lookbackDays}} days"
+            },
+            "format": "{{reportFormat}}"
+          }
+        auth:
+          type: none
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.generated
+              expectedValue: "true"
+      extraction:
+        - name: pdfUrl
+          source: body
+          expression: $.pdfUrl
+
+  # Fork for parallel delivery
+  - id: fork-1
+    type: fork
+    position:
+      x: 100
+      y: 550
+    data:
+      label: Parallel Delivery
+
+  # Send email with report
+  - id: http-3
+    type: http
+    position:
+      x: -100
+      y: 700
+    data:
+      label: Email Report
+      serviceId: svc-email
+      scenario:
+        id: sc-3
+        name: Email Report
+        url: /send
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "to": "{{recipientEmail}}",
+            "subject": "Daily Sales Report - {{triggerTime}}",
+            "body": "Please find the daily sales report attached.\n\nTotal Sales: ${{totalSales}}\nOrders: {{orderCount}}",
+            "attachments": [
+              {
+                "name": "sales_report.pdf",
+                "url": "{{pdfUrl}}"
+              }
+            ]
+          }
+        auth:
+          type: none
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.sent
+              expectedValue: "true"
+
+  # Archive report to storage
+  - id: http-4
+    type: http
+    position:
+      x: 300
+      y: 700
+    data:
+      label: Archive Report
+      serviceId: svc-analytics
+      scenario:
+        id: sc-4
+        name: Archive Report
+        url: /reports/archive
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "reportUrl": "{{reportUrl}}",
+            "pdfUrl": "{{pdfUrl}}",
+            "timestamp": "{{triggerTimestamp}}",
+            "metadata": {
+              "type": "{{reportType}}",
+              "totalSales": {{totalSales}},
+              "orderCount": {{orderCount}}
+            }
+          }
+        auth:
+          type: none
+        validation:
+          mode: none
+
+  # Join after parallel operations
+  - id: join-1
+    type: join
+    position:
+      x: 100
+      y: 850
+    data:
+      label: Wait for Completion
+
+  # Success end node
+  - id: end-1
+    type: end
+    position:
+      x: 100
+      y: 1000
+    data:
+      label: Report Complete
+      isSuccess: true
+
+# Edges define the flow
+edges:
+  - id: e1
+    source: schedule-1
+    target: http-1
+
+  - id: e2
+    source: http-1
+    target: http-2
+
+  - id: e3
+    source: http-2
+    target: fork-1
+
+  - id: e4
+    source: fork-1
+    target: http-3
+
+  - id: e5
+    source: fork-1
+    target: http-4
+
+  - id: e6
+    source: http-3
+    target: join-1
+
+  - id: e7
+    source: http-4
+    target: join-1
+
+  - id: e8
+    source: join-1
+    target: end-1

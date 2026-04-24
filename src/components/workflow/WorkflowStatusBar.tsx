@@ -1,3 +1,6 @@
+import type { WorkflowRunHistoryEntry } from '../../hooks/useWorkflowRunCache';
+import WorkflowRunHistoryDropdown from './WorkflowRunHistoryDropdown';
+
 interface Props {
   nodeCount: number;
   edgeCount: number;
@@ -7,6 +10,14 @@ interface Props {
   /** First failed step summary — open full text in a modal instead of cramming the status bar. */
   lastRunError?: string | null;
   onOpenRunError?: () => void;
+  runHistory?: WorkflowRunHistoryEntry[];
+  activeRunHistoryId?: string | null;
+  onRestoreRunHistory?: (id: string) => void;
+  onDeleteRunHistoryEntry?: (id: string) => void;
+  onClearRunHistory?: () => void;
+  consoleLineCount?: number;
+  consoleOpen?: boolean;
+  onToggleConsole?: () => void;
 }
 
 export default function WorkflowStatusBar({
@@ -17,6 +28,14 @@ export default function WorkflowStatusBar({
   lastRunTime,
   lastRunError,
   onOpenRunError,
+  runHistory = [],
+  activeRunHistoryId = null,
+  onRestoreRunHistory,
+  onDeleteRunHistoryEntry,
+  onClearRunHistory,
+  consoleLineCount = 0,
+  consoleOpen = false,
+  onToggleConsole,
 }: Props) {
   return (
     <div className="wf-status-bar">
@@ -47,6 +66,25 @@ export default function WorkflowStatusBar({
             View full error
           </button>
         </>
+      )}
+      {onToggleConsole && (
+        <button
+          type="button"
+          className={`wf-console-badge ${consoleOpen ? 'wf-console-badge-active' : ''}`}
+          onClick={onToggleConsole}
+          title="Toggle console"
+        >
+          🖥 Console{consoleLineCount > 0 && <span className="wf-console-badge-count">{consoleLineCount}</span>}
+        </button>
+      )}
+      {onRestoreRunHistory && onDeleteRunHistoryEntry && onClearRunHistory && (
+        <WorkflowRunHistoryDropdown
+          history={runHistory}
+          activeEntryId={activeRunHistoryId}
+          onRestore={onRestoreRunHistory}
+          onDeleteEntry={onDeleteRunHistoryEntry}
+          onClearHistory={onClearRunHistory}
+        />
       )}
     </div>
   );

@@ -26,7 +26,10 @@ import RequestsSidebar from './components/requests/RequestsSidebar';
 import SettingsModal from './components/SettingsModal';
 import EnvironmentManager from './pages/EnvironmentManager';
 import WorkflowDesigner from './pages/WorkflowDesigner';
+import WorkflowExecutionHistory from './pages/WorkflowExecutionHistory';
+import WebhookDeliveryLogs from './pages/WebhookDeliveryLogs';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
+import ServerStatusIndicator from './components/workflow/ServerStatusIndicator';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
 import type { SampleWorkflowEntry } from './data/sampleWorkflows';
@@ -35,12 +38,14 @@ import RequestCollectionModal from './components/requests/RequestCollectionModal
 import SubCollectionModal from './components/requests/SubCollectionModal';
 import './styles/index.css';
 
-type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'scenarios' | 'runner' | 'results';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
+const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
 
-const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -347,7 +352,7 @@ export default function App() {
             onClick={() => setActiveTab('requests')}>Requests</button>
           <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
             onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-nav-btn ${activeTab === 'workflow' ? 'active' : ''}`}
+          <button className={`usb-nav-btn ${isWorkflowTab(activeTab) ? 'active' : ''}`}
             onClick={() => setActiveTab('workflow')}>Workflow</button>
           <button className={`usb-nav-btn ${isHarnessTab(activeTab) ? 'active' : ''}`}
             onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}>Harness</button>
@@ -419,7 +424,7 @@ export default function App() {
               />
             )}
           </div>
-          {activeTab === 'workflow' && (
+          {isWorkflowTab(activeTab) && (
             <WorkflowSidebar
               workflows={wfHook.workflows}
               selectedId={wfHook.selectedId}
@@ -428,18 +433,15 @@ export default function App() {
                 const name = prompt('Workflow name:');
                 if (name?.trim()) { wfHook.create(name.trim()); setActiveTab('workflow'); }
               }}
-              onRename={(id) => {
-                const target = wfHook.workflows.find((w) => w.id === id);
-                if (!target) return;
-                const name = prompt('Rename workflow:', target.name);
-                if (!name?.trim()) return;
-                wfHook.update(id, { name: name.trim() });
+              onRename={(id, name) => {
+                wfHook.update(id, { name });
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onLoadSample={(entry: SampleWorkflowEntry) => {
                 const sample = entry.factory();
                 setPreviewWorkflow(sample);
+                setActiveTab('workflow');
               }}
             />
           )}
@@ -471,19 +473,42 @@ export default function App() {
       </button>
 
         <main className="app-main">
-          {(isHarnessTab(activeTab) || activeTab === 'workflow') && (
+          {(isHarnessTab(activeTab) || isWorkflowTab(activeTab)) && (
             <div className="main-top-nav">
-              <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-              <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-              <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-              <button
-                type="button"
-                className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
-                onClick={() => setActiveTab('workflow')}
-                title="Visual workflow designer (separate from feature groups)"
-              >
-                Workflow
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
+                <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
+                <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('workflow')}
+                  title="Visual workflow designer (separate from feature groups)"
+                >
+                  Workflow
+                </button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('workflow-executions')}
+                  title="View webhook and schedule execution history"
+                >
+                  📊 Execution History
+                </button>
+                <button
+                  type="button"
+                  className={`main-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('webhook-deliveries')}
+                  title="View raw webhook delivery logs"
+                >
+                  🪝 Webhook Logs
+                </button>
+              </div>
+              {isWorkflowTab(activeTab) && (
+                <div style={{ marginLeft: 'auto', paddingRight: '12px' }}>
+                  <ServerStatusIndicator />
+                </div>
+              )}
             </div>
           )}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
@@ -509,6 +534,16 @@ export default function App() {
               }}
             />
           </div>
+          {activeTab === 'workflow-executions' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WorkflowExecutionHistory />
+            </div>
+          )}
+          {activeTab === 'webhook-deliveries' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WebhookDeliveryLogs />
+            </div>
+          )}
           {activeTab === 'environments' && (
             <EnvironmentManager
               environments={environments}

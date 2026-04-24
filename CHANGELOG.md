@@ -9,6 +9,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Webhook & Schedule Trigger Nodes**: Event-driven and time-based workflow initiation (Phases 3 & 4)
+  - **Webhook Trigger Node**: HTTP endpoint trigger for workflows
+    - Configure HTTP method (GET, POST, PUT, DELETE, PATCH)
+    - Define endpoint path for webhook registration
+    - Sample payload JSON for variable extraction via JSONPath
+    - Extract variables from payload for downstream nodes
+    - Visual badge showing method, path, and extraction count
+  - **Schedule Trigger Node**: Cron-based workflow scheduling
+    - Cron expression configuration (standard 5-field format)
+    - Timezone support for accurate scheduling across regions
+    - Human-readable schedule description
+    - Input variables for parameterized scheduled runs
+    - Automatic trigger time variables: `{{triggerTime}}` (ISO date string), `{{triggerTimestamp}}` (Unix epoch)
+  - **GraphRunner Integration**: Trigger nodes recognized as workflow entry points
+    - `findStartNodes()` prioritizes webhook/schedule triggers over root HTTP nodes
+    - Webhook variable extraction from samplePayload using JSONPath
+    - Schedule time variable seeding on execution
+  - **Test Coverage**: 31 new tests (11 unit + 20 E2E)
+    - graphRunner.webhookSchedule.test.ts: 11 unit tests for trigger recognition, variable extraction, downstream flow
+    - workflow-triggers.spec.ts: 20 E2E tests for node rendering, configuration modals, palette integration
+  - All tests passing with >90% coverage maintained
+
 - **Workflow Trigger Nodes & Parallel Execution**: Complete workflow control flow with Start, Fork, Join, and End nodes
   - **Start Node**: Define workflow entry point with input variable declarations for parameterized execution
   - **Fork Node**: Split execution into parallel branches - all branches execute concurrently

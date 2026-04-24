@@ -1,10 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { HttpResponse } from '../utils/httpClient';
+import type { LogLine } from '../types/server-api';
 
-export interface ConsoleLine {
-  prefix: '' | '*' | '>' | '<' | '#';
-  text: string;
-}
+export type { LogLine as ConsoleLine };
 
 export interface ResponseHistoryEntry {
   id: string;
