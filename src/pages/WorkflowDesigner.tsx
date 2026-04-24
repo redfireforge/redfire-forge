@@ -224,10 +224,18 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
           const laid = getAutoLayoutNodes(nodes, edges);
           
           console.log('After:', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-          console.log('Setting nodes...');
+          console.log('Applying changes via onNodesChange...');
           
-          // Force update with functional setter and new array reference
-          setNodes(() => [...laid]);
+          // Create position change events for React Flow
+          const changes = laid.map(node => ({
+            id: node.id,
+            type: 'position' as const,
+            position: node.position,
+            dragging: false,
+          }));
+          
+          // Apply changes through React Flow's change handler
+          onNodesChange(changes);
           
           // For previews, only update visual layout (don't save)
           // User must click "Use as Template" to save
