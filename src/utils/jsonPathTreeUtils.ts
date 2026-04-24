@@ -4,19 +4,45 @@ export interface JsonNode {
   value: unknown;
   type: 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null';
   children?: JsonNode[];
+  /** When true, the children array was truncated (array had more items). */
+  truncated?: boolean;
+  /** Total count of items before truncation. */
+  totalCount?: number;
 }
 
-export function buildTree(obj: unknown, parentPath: string, parentKey: string): JsonNode {
+export interface BuildTreeOptions {
+  /** Max items to show per array (default: unlimited). */
+  maxArrayItems?: number;
+  /** Max depth to recurse (default: unlimited). */
+  maxDepth?: number;
+}
+
+export function buildTree(obj: unknown, parentPath: string, parentKey: string, opts?: BuildTreeOptions, depth?: number): JsonNode {
+  const d = depth ?? 0;
   if (obj === null || obj === undefined) {
     return { key: parentKey, path: parentPath, value: null, type: 'null' };
   }
+  // Stop recursing at maxDepth — show leaf preview only
+  if (opts?.maxDepth !== undefined && d >= opts.maxDepth) {
+    if (Array.isArray(obj)) {
+      return { key: parentKey, path: parentPath, value: obj, type: 'array', truncated: true, totalCount: obj.length };
+    }
+    if (typeof obj === 'object') {
+      const keys = Object.keys(obj as Record<string, unknown>);
+      return { key: parentKey, path: parentPath, value: obj, type: 'object', truncated: true, totalCount: keys.length };
+    }
+  }
   if (Array.isArray(obj)) {
+    const maxItems = opts?.maxArrayItems;
+    const isTruncated = maxItems !== undefined && obj.length > maxItems;
+    const items = isTruncated ? obj.slice(0, maxItems) : obj;
     return {
       key: parentKey,
       path: parentPath,
       value: obj,
       type: 'array',
-      children: obj.map((item, i) => buildTree(item, parentPath ? `${parentPath}[${i}]` : `[${i}]`, `[${i}]`)),
+      children: items.map((item, i) => buildTree(item, parentPath ? `${parentPath}[${i}]` : `[${i}]`, `[${i}]`, opts, d + 1)),
+      ...(isTruncated ? { truncated: true, totalCount: obj.length } : {}),
     };
   }
   if (typeof obj === 'object') {
@@ -26,7 +52,7 @@ export function buildTree(obj: unknown, parentPath: string, parentKey: string): 
       value: obj,
       type: 'object',
       children: Object.entries(obj as Record<string, unknown>).map(([k, v]) =>
-        buildTree(v, parentPath ? `${parentPath}.${k}` : k, k)
+        buildTree(v, parentPath ? `${parentPath}.${k}` : k, k, opts, d + 1)
       ),
     };
   }

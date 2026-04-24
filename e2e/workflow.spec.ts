@@ -162,14 +162,16 @@ test.describe('Workflow Creation', () => {
     await expect(page.locator('.wf-sidebar-item-name', { hasText: 'My E2E Workflow' })).toBeVisible();
   });
 
-  test('loads sample workflow', async ({ page }) => {
+  test('loads sample workflow via template gallery', async ({ page }) => {
     // Already on workflow tab from beforeEach
 
-    // Click "Browse Samples" then select first sample
-    const browseSamplesBtn = page.locator('button', { hasText: 'Browse Samples' });
-    await browseSamplesBtn.click();
-    const firstSample = page.locator('.wf-sample-dropdown-item').first();
-    await firstSample.click();
+    // Click Gallery tab to open template gallery
+    const galleryTab = page.locator('button.main-nav-tab:has-text("Gallery")');
+    await galleryTab.click();
+
+    // Select first template card
+    const firstCard = page.locator('.tg-card').first();
+    await firstCard.click();
 
     // With new preview flow, should see "Use as Template" button
     await expect(page.locator('button', { hasText: 'Use as Template' })).toBeVisible({ timeout: 5000 });

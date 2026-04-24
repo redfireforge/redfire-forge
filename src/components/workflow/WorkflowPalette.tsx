@@ -24,7 +24,7 @@ interface Props {
 
 export default function WorkflowPalette({ collections, catalogEntries, onAddNode, onAddFromRequest, onAddFromCatalog }: Props) {
   const [section, setSection] = useState<'blocks' | 'requests' | 'catalog'>('blocks');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic']));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic', 'flow', 'parallel']));
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
@@ -41,10 +41,11 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
       <div className="wf-palette-content">
         {section === 'blocks' && (
           <div className="wf-palette-blocks">
-            {/* Triggers Category */}
+            {/* Triggers */}
             <button className="wf-palette-category-header" onClick={() => toggle('triggers')}>
               <span className="wf-palette-caret">{expanded.has('triggers') ? '▾' : '▸'}</span>
               <span className="wf-palette-category-title">Triggers</span>
+              <span className="wf-palette-count">3</span>
             </button>
             {expanded.has('triggers') && (
               <>
@@ -72,10 +73,11 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
               </>
             )}
 
-            {/* Actions Category */}
+            {/* Actions */}
             <button className="wf-palette-category-header" onClick={() => toggle('actions')}>
               <span className="wf-palette-caret">{expanded.has('actions') ? '▾' : '▸'}</span>
               <span className="wf-palette-category-title">Actions</span>
+              <span className="wf-palette-count">2</span>
             </button>
             {expanded.has('actions') && (
               <>
@@ -96,10 +98,11 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
               </>
             )}
 
-            {/* Logic Category */}
+            {/* Logic — branching & looping */}
             <button className="wf-palette-category-header" onClick={() => toggle('logic')}>
               <span className="wf-palette-caret">{expanded.has('logic') ? '▾' : '▸'}</span>
               <span className="wf-palette-category-title">Logic</span>
+              <span className="wf-palette-count">3</span>
             </button>
             {expanded.has('logic') && (
               <>
@@ -110,6 +113,56 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
                     <div className="wf-pb-desc">If/Else branching</div>
                   </div>
                 </button>
+                <button className="wf-palette-block wf-palette-block-switch" onClick={() => onAddNode('switch')}>
+                  <span className="wf-pb-icon">⇅</span>
+                  <div>
+                    <div className="wf-pb-title">Switch</div>
+                    <div className="wf-pb-desc">Multi-way branching</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-loop" onClick={() => onAddNode('loop')}>
+                  <span className="wf-pb-icon">🔄</span>
+                  <div>
+                    <div className="wf-pb-title">Loop</div>
+                    <div className="wf-pb-desc">Repeat / For-Each / While</div>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* Data — variables & aggregation */}
+            <button className="wf-palette-category-header" onClick={() => toggle('data')}>
+              <span className="wf-palette-caret">{expanded.has('data') ? '▾' : '▸'}</span>
+              <span className="wf-palette-category-title">Data</span>
+              <span className="wf-palette-count">2</span>
+            </button>
+            {expanded.has('data') && (
+              <>
+                <button className="wf-palette-block wf-palette-block-setVariable" onClick={() => onAddNode('setVariable')}>
+                  <span className="wf-pb-icon">📝</span>
+                  <div>
+                    <div className="wf-pb-title">Set Variable</div>
+                    <div className="wf-pb-desc">Assign or transform variables</div>
+                  </div>
+                </button>
+                <button className="wf-palette-block wf-palette-block-aggregate" onClick={() => onAddNode('aggregate')}>
+                  <span className="wf-pb-icon">Σ</span>
+                  <div>
+                    <div className="wf-pb-title">Aggregate</div>
+                    <div className="wf-pb-desc">Combine parallel results</div>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* Flow — parallelism & termination */}
+            <button className="wf-palette-category-header" onClick={() => toggle('flow')}>
+              <span className="wf-palette-caret">{expanded.has('flow') ? '▾' : '▸'}</span>
+              <span className="wf-palette-category-title">Flow</span>
+              <span className="wf-palette-count">3</span>
+            </button>
+            {expanded.has('flow') && (
+              <>
                 <button className="wf-palette-block wf-palette-block-fork" onClick={() => onAddNode('fork')}>
                   <span className="wf-pb-icon">⑃</span>
                   <div>

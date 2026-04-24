@@ -8,6 +8,10 @@ import type {
   StartNodeData,
   WebhookTriggerNodeData,
   ScheduleTriggerNodeData,
+  SwitchNodeData,
+  LoopNodeData,
+  SetVariableNodeData,
+  AggregateNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -22,6 +26,10 @@ import HttpConfig from './HttpConfig';
 import type { HttpTab } from './HttpConfig';
 import ConditionConfig from './ConditionConfig';
 import DelayConfig from './DelayConfig';
+import SwitchConfig from './SwitchConfig';
+import LoopConfig from './LoopConfig';
+import SetVariableConfig from './SetVariableConfig';
+import AggregateConfig from './AggregateConfig';
 import WebhookConfig from './WebhookConfig';
 import ScheduleConfig from './ScheduleConfig';
 import VariablesSection from './VariablesSection';
@@ -233,6 +241,34 @@ export default function WorkflowNodeConfigModal({
                 newVarValue={newVarValue}
                 setNewVarValue={setNewVarValue}
                 workflowVariables={workflowVariables}
+              />
+            )}
+
+            {draftNode.type === 'switch' && (
+              <SwitchConfig
+                data={draftNode.data as SwitchNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'loop' && (
+              <LoopConfig
+                data={draftNode.data as LoopNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'setVariable' && (
+              <SetVariableConfig
+                data={draftNode.data as SetVariableNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'aggregate' && (
+              <AggregateConfig
+                data={draftNode.data as AggregateNodeData}
+                onChange={(data) => updateDraft(data)}
               />
             )}
 

@@ -124,14 +124,6 @@
   filter: invert(0.7);
 }
 
-.whl-sort-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
 .whl-select {
   padding: 7px 10px;
   border-radius: 6px;
