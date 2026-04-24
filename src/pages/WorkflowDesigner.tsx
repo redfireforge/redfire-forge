@@ -13,10 +13,12 @@ import {
   useReactFlow,
   ReactFlowProvider,
   ConnectionMode,
+  applyNodeChanges,
   type OnConnect,
   type Node,
   type Edge,
   type Connection,
+  type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -220,25 +222,29 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
         onClick={() => {
           console.log('=== AUTO-LAYOUT CLICKED ===');
           
-          // Get current nodes from props (controlled mode)
           console.log('Before:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
           const laid = getAutoLayoutNodes(nodes, edges);
           
           console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-          console.log('Calling setNodes (hook)...');
           
-          // Update via hook (controlled component)
-          setNodes(laid);
+          // Build position changes and apply via React Flow's official utility
+          const changes: NodeChange<WorkflowRFNode>[] = laid.map(node => ({
+            id: node.id,
+            type: 'position',
+            position: node.position,
+            positionAbsolute: node.position,
+            dragging: false,
+          }));
           
-          console.log('Called setNodes - React will re-render with new nodes');
+          console.log('Applying via applyNodeChanges + setNodes...');
+          setNodes((nds) => applyNodeChanges(changes, nds));
           
-          // FitView after React has re-rendered
           requestAnimationFrame(() => {
             fitView({ padding: 0.2, duration: 300 });
           });
         }}
-        title="Auto-layout (controlled mode)"
+        title="Auto-layout (applyNodeChanges)"
       >
         <svg viewBox="0 0 24 24">
           <rect x="7" y="1" width="10" height="5" rx="1" />
@@ -365,6 +371,11 @@ function WorkflowDesignerInner({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
+
+  // DEBUG: Log nodes whenever they change
+  useEffect(() => {
+    console.log('🔄 NODES STATE CHANGED:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+  }, [nodes]);
 
   // Compute selected node from React Flow nodes for config panel
   const selectedNode = useMemo(() => {
