@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { SetVariableNodeData, SetVariableAssignment } from '../../types/workflow';
+import { useListCrud } from '../../hooks/useListCrud';
 
 export default function SetVariableConfig({
   data,
@@ -9,27 +10,14 @@ export default function SetVariableConfig({
   onChange: (d: SetVariableNodeData) => void;
 }) {
   const assignments = data.assignments ?? [];
+  const { update: updateAssignment, remove: removeAssignment, move: moveAssignment } = useListCrud(
+    assignments,
+    (items) => onChange({ ...data, assignments: items }),
+  );
 
   const addAssignment = () => {
     const id = uuid().slice(0, 8);
     onChange({ ...data, assignments: [...assignments, { id, name: '', expression: '' }] });
-  };
-
-  const updateAssignment = (idx: number, patch: Partial<SetVariableAssignment>) => {
-    const updated = assignments.map((a, i) => (i === idx ? { ...a, ...patch } : a));
-    onChange({ ...data, assignments: updated });
-  };
-
-  const removeAssignment = (idx: number) => {
-    onChange({ ...data, assignments: assignments.filter((_, i) => i !== idx) });
-  };
-
-  const moveAssignment = (idx: number, dir: -1 | 1) => {
-    const arr = [...assignments];
-    const target = idx + dir;
-    if (target < 0 || target >= arr.length) return;
-    [arr[idx], arr[target]] = [arr[target], arr[idx]];
-    onChange({ ...data, assignments: arr });
   };
 
   return (

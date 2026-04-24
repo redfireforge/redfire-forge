@@ -149,6 +149,28 @@ describe('tauriStore', () => {
     expect(mockFs.mkdir).toHaveBeenCalled();
   });
 
+  it('ensureReady short-circuits on subsequent calls', async () => {
+    const { getItem } = await loadTauriStore();
+    mockFs.readTextFile.mockResolvedValue('{}');
+    await getItem('a');
+    await getItem('b');
+    // mkdir should only be called once (first ensureReady), not twice
+    expect(mockFs.mkdir).toHaveBeenCalledTimes(1);
+  });
+
+  it('getUsageBytes skips entries without name', async () => {
+    const { getUsageBytes } = await loadTauriStore();
+    mockFs.readDir.mockResolvedValueOnce([
+      { name: undefined },
+      {},
+      { name: 'perf-test-x.json' },
+    ]);
+    mockFs.readTextFile.mockResolvedValueOnce('hi');
+    const usage = await getUsageBytes();
+    expect(usage.usedBytes).toBe(4);
+    expect(Object.keys(usage.entries)).toHaveLength(1);
+  });
+
   it('keyToFile does not double the path separator when app dir ends with slash', async () => {
     mockAppDataDir.mockResolvedValueOnce('/app/with/trailing/');
     mockFs.readTextFile.mockResolvedValueOnce('ok');
