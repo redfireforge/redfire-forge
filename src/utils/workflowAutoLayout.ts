@@ -99,6 +99,27 @@ export function getAutoLayoutNodes<N extends Node>(
   // to share the same center as their neighbors, fixing vertical misalignment
   alignLinearChains(nodes, edges, positioned, nodeWidths, direction);
 
+  // Final step: normalize positions to ensure all nodes have positive coordinates
+  // The centering operations above can shift nodes into negative territory
+  const MARGIN = 20;
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const pos of positioned.values()) {
+    minX = Math.min(minX, pos.x);
+    minY = Math.min(minY, pos.y);
+  }
+  
+  // If any coordinate is negative or too close to zero, shift all nodes
+  const shiftX = minX < MARGIN ? MARGIN - minX : 0;
+  const shiftY = minY < MARGIN ? MARGIN - minY : 0;
+  
+  if (shiftX > 0 || shiftY > 0) {
+    for (const pos of positioned.values()) {
+      pos.x += shiftX;
+      pos.y += shiftY;
+    }
+  }
+
   return nodes.map((node) => ({
     ...node,
     position: { ...positioned.get(node.id)! },
