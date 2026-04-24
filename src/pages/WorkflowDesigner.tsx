@@ -221,10 +221,7 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
       </ControlButton>
       <ControlButton
         onClick={() => {
-          console.log('=== AUTO-LAYOUT CLICKED ===');
-          
           const laid = getAutoLayoutNodes(nodes, edges);
-          console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
           // Update state with new positions
           setNodes(laid);
@@ -238,9 +235,10 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
             }, 100);
           }
           
-          requestAnimationFrame(() => {
+          // Fit view after remount
+          setTimeout(() => {
             fitView({ padding: 0.2, duration: 300 });
-          });
+          }, 50);
         }}
         title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
       >
@@ -371,11 +369,6 @@ function WorkflowDesignerInner({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
-
-  // DEBUG: Log nodes whenever they change
-  useEffect(() => {
-    console.log('🔄 NODES STATE CHANGED:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-  }, [nodes]);
 
   // Compute selected node from React Flow nodes for config panel
   const selectedNode = useMemo(() => {
