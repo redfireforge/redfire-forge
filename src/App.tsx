@@ -433,18 +433,15 @@ export default function App() {
                 const name = prompt('Workflow name:');
                 if (name?.trim()) { wfHook.create(name.trim()); setActiveTab('workflow'); }
               }}
-              onRename={(id) => {
-                const target = wfHook.workflows.find((w) => w.id === id);
-                if (!target) return;
-                const name = prompt('Rename workflow:', target.name);
-                if (!name?.trim()) return;
-                wfHook.update(id, { name: name.trim() });
+              onRename={(id, name) => {
+                wfHook.update(id, { name });
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onLoadSample={(entry: SampleWorkflowEntry) => {
                 const sample = entry.factory();
                 setPreviewWorkflow(sample);
+                setActiveTab('workflow');
               }}
             />
           )}
@@ -538,10 +535,14 @@ export default function App() {
             />
           </div>
           {activeTab === 'workflow-executions' && (
-            <WorkflowExecutionHistory />
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WorkflowExecutionHistory />
+            </div>
           )}
           {activeTab === 'webhook-deliveries' && (
-            <WebhookDeliveryLogs />
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WebhookDeliveryLogs />
+            </div>
           )}
           {activeTab === 'environments' && (
             <EnvironmentManager

@@ -123,6 +123,16 @@ export default defineConfig({
   clearScreen: false,
   server: {
     strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

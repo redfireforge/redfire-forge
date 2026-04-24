@@ -268,4 +268,90 @@ describe('resolveServiceAuth', () => {
     const d: HttpNodeData = { label: 'x', serviceId: 's1', scenario: minimalScenario() };
     expect(resolveServiceAuth(d, services, 'any-env')).toEqual(customAuth);
   });
+
+  it('resolves auth via microservice authProfileIds when endpoint inherits', () => {
+    const apiKeyAuth = { type: 'apikey' as const, apiKeyName: 'X-Key', apiKeyValue: 'val', apiKeyIn: 'header' as const };
+    const globalProfiles: GlobalAuthProfile[] = [
+      { id: 'gp1', name: 'GP', auth: apiKeyAuth },
+    ];
+    const microservices: Microservice[] = [
+      { id: 'ms1', name: 'MS', baseUrls: {}, authProfileIds: { t01: 'gp1' } },
+    ];
+    const services: WorkflowService[] = [{
+      id: 's1', name: 'S', microserviceId: 'ms1',
+      endpoints: [{ envId: 't01', url: 'https://a.com', enabled: true, authMode: 'inherit', source: 'manual' }],
+    }];
+    const d: HttpNodeData = { label: 'x', serviceId: 's1', scenario: minimalScenario() };
+    expect(resolveServiceAuth(d, services, 't01', microservices, globalProfiles)).toEqual(apiKeyAuth);
+  });
+
+  it('falls back to legacy authPerEnv when no endpoints match', () => {
+    const envAuth = { type: 'bearer' as const, token: 'env-tok' };
+    const services: WorkflowService[] = [{
+      id: 's1', name: 'S',
+      authPerEnv: { t01: envAuth },
+    }];
+    const d: HttpNodeData = { label: 'x', serviceId: 's1', scenario: minimalScenario() };
+    expect(resolveServiceAuth(d, services, 't01')).toEqual(envAuth);
+  });
+});
+
+describe('resolveServiceBaseUrl — additional branches', () => {
+  it('resolves endpoints without selectedEnvId (no env-specific match)', () => {
+    const svc: WorkflowService = {
+      id: 's1', name: 'Svc',
+      endpoints: [
+        { envId: '__all__', url: 'https://all.api.com/', enabled: true, authMode: 'inherit', source: 'manual' },
+      ],
+    };
+    // No selectedEnvId — should skip env-specific, fall to __all__
+    expect(resolveServiceBaseUrl(svc, [])).toBe('https://all.api.com');
+  });
+
+  it('resolves microservice without selectedEnvId falls to first baseUrl', () => {
+    const ms: Microservice[] = [{ id: 'ms1', name: 'MS', baseUrls: { p01: 'https://prod.com/' } }];
+    const svc: WorkflowService = { id: 's1', name: 'Svc', microserviceId: 'ms1', endpoints: [] };
+    expect(resolveServiceBaseUrl(svc, ms)).toBe('https://prod.com');
+  });
+
+  it('returns undefined for adhoc with empty url', () => {
+    const svc: WorkflowService = { id: 's1', name: 'Svc', urlMode: 'adhoc', adhocUrl: '' };
+    expect(resolveServiceBaseUrl(svc, [])).toBeUndefined();
+  });
+
+  it('returns undefined for multi-env with empty baseUrls', () => {
+    const svc: WorkflowService = { id: 's1', name: 'Svc', urlMode: 'multi-env', baseUrls: {} };
+    expect(resolveServiceBaseUrl(svc, [])).toBeUndefined();
+  });
+
+  it('returns undefined for microservice with empty baseUrl for env', () => {
+    const ms: Microservice[] = [{ id: 'ms1', name: 'MS', baseUrls: { t01: '  ' } }];
+    const svc: WorkflowService = { id: 's1', name: 'Svc', microserviceId: 'ms1', endpoints: [] };
+    expect(resolveServiceBaseUrl(svc, ms, 't01')).toBeUndefined();
+  });
+});
+
+describe('resolveHttpNodeBaseUrl — additional branches', () => {
+  const microservices: Microservice[] = [
+    { id: 'svc-a', name: 'A', baseUrls: { t01: 'https://a.example.com/' } },
+  ];
+
+  it('resolves via hostProfile with env+microservice when profile baseUrl is empty', () => {
+    const d: HttpNodeData = { label: 'x', hostProfileId: 'hp-1', scenario: minimalScenario() };
+    const hostProfiles = [{ id: 'hp-1', name: 'H', hostEnvironmentId: 't01', hostMicroserviceId: 'svc-a' }];
+    expect(resolveHttpNodeBaseUrl(d, microservices, hostProfiles)).toBe('https://a.example.com');
+  });
+
+  it('returns undefined for hostProfile with unknown microserviceId', () => {
+    const d: HttpNodeData = { label: 'x', hostProfileId: 'hp-1', scenario: minimalScenario() };
+    const hostProfiles = [{ id: 'hp-1', name: 'H', hostEnvironmentId: 't01', hostMicroserviceId: 'unknown' }];
+    expect(resolveHttpNodeBaseUrl(d, microservices, hostProfiles)).toBeUndefined();
+  });
+
+  it('returns undefined for hostProfile with microservice but empty URL for env', () => {
+    const ms: Microservice[] = [{ id: 'svc-b', name: 'B', baseUrls: { t01: '  ' } }];
+    const d: HttpNodeData = { label: 'x', hostProfileId: 'hp-1', scenario: minimalScenario() };
+    const hostProfiles = [{ id: 'hp-1', name: 'H', hostEnvironmentId: 't01', hostMicroserviceId: 'svc-b' }];
+    expect(resolveHttpNodeBaseUrl(d, ms, hostProfiles)).toBeUndefined();
+  });
 });

@@ -2,13 +2,10 @@ import cron from 'node-cron';
 import {
   loadScheduleTriggers,
   getWorkflow,
-  saveExecutionResult,
-  type ScheduleTrigger,
-  type ExecutionResult,
 } from './file-storage.js';
-import { runGraph } from '../src/engine/workflow/graphRunner.js';
-import type { NodeRunStatus } from '../src/types/workflow.js';
-import type { RequestResult } from '../src/types/index.js';
+import type { ScheduleTrigger } from '../src/types/server-api.js';
+import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
+import { generateExecutionId, getErrorMessage } from '../src/utils/serverFormatters.js';
 
 // Map to keep track of active cron jobs
 const activeJobs = new Map<string, cron.ScheduledTask>();
@@ -81,12 +78,11 @@ async function registerSchedule(trigger: ScheduleTrigger): Promise<void> {
 async function executeTrigger(trigger: ScheduleTrigger): Promise<void> {
   const startTime = Date.now();
   const now = new Date();
-  const executionId = `${trigger.workflowId}-${trigger.id}-${Date.now()}`;
+  const executionId = generateExecutionId(trigger.workflowId, trigger.id);
 
   console.log(`[Scheduler] Executing trigger: ${trigger.id} for workflow: ${trigger.workflowId}`);
 
   try {
-    // Load workflow
     const workflow = await getWorkflow(trigger.workflowId);
     if (!workflow) {
       console.error(`[Scheduler] Workflow not found: ${trigger.workflowId}`);
@@ -94,91 +90,40 @@ async function executeTrigger(trigger: ScheduleTrigger): Promise<void> {
     }
 
     // Prepare initial variables with automatic time variables
-    const initialVariables = {
+    const initialVariables: Record<string, string> = {
       ...workflow.variables,
       ...trigger.inputVariables,
-      // Automatic time variables
-      triggerTime: now.toISOString(), // "2026-04-23T09:00:00.000Z"
-      triggerTimestamp: String(Math.floor(now.getTime() / 1000)), // "1714737600"
-      triggerDate: now.toISOString().split('T')[0], // "2026-04-23"
-      triggerHour: String(now.getHours()), // "9"
-      triggerMinute: String(now.getMinutes()), // "0"
+      triggerTime: now.toISOString(),
+      triggerTimestamp: String(Math.floor(now.getTime() / 1000)),
+      triggerDate: now.toISOString().split('T')[0],
+      triggerHour: String(now.getHours()),
+      triggerMinute: String(now.getMinutes()),
     };
 
-    // Execute workflow
-    const executionResults: RequestResult[] = [];
-    let executionPassed = true;
-    let executionDuration = 0;
-
-    await runGraph(
-      workflow.nodes,
-      workflow.edges,
+    const result = await executeWorkflow({
+      executionId,
+      workflow,
       initialVariables,
-      {
-        onNodeStateChange: (nodeId: string, status: NodeRunStatus) => {
-          // Optional: log state changes
-          if (status.state === 'fail') {
-            console.log(`[Scheduler] Node ${nodeId} failed`);
-          }
-        },
-        onVariablesChange: (variables: Record<string, string>) => {
-          // Optional: track variable changes
-        },
-        onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
-          executionResults.push(...results);
-          executionPassed = passed;
-          executionDuration = durationMs;
-        },
-      }
-    );
-
-    const totalDuration = Date.now() - startTime;
-    const status: ExecutionResult['status'] = executionPassed ? 'success' : 'failed';
-
-    // Save execution result
-    await saveExecutionResult({
-      id: executionId,
-      workflowId: trigger.workflowId,
-      triggerId: trigger.id,
       triggerType: 'schedule',
-      status,
-      duration: totalDuration,
-      results: executionResults.map((r) => ({
-        url: r.url,
-        statusCode: r.httpStatus,
-        responseTime: r.responseTimeMs,
-        body: r.responseBody,
-      })),
-      variables: initialVariables,
-      timestamp: now.toISOString(),
+      triggerId: trigger.id,
+      startTime,
     });
 
     console.log(
-      `[Scheduler] Execution ${status}: ${executionId} (${totalDuration}ms, ${executionResults.length} steps)`
+      `[Scheduler] Execution ${result.status}: ${executionId} (${result.duration}ms, ${result.results.length} steps)`
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
+    const errorMessage = getErrorMessage(error);
     console.error(`[Scheduler] Execution error for ${trigger.id}:`, error);
 
-    // Save error result
-    try {
-      await saveExecutionResult({
-        id: executionId,
-        workflowId: trigger.workflowId,
-        triggerId: trigger.id,
-        triggerType: 'schedule',
-        status: 'error',
-        duration: totalDuration,
-        results: [],
-        variables: {},
-        timestamp: now.toISOString(),
-        error: errorMessage,
-      });
-    } catch (saveError) {
-      console.error('[Scheduler] Failed to save error result:', saveError);
-    }
+    await saveErrorResult({
+      executionId,
+      workflowId: trigger.workflowId,
+      triggerId: trigger.id,
+      triggerType: 'schedule',
+      startTime,
+      error: errorMessage,
+    });
   }
 }
 

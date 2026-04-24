@@ -4,8 +4,8 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}'],
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src-server/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
   },
   resolve: {

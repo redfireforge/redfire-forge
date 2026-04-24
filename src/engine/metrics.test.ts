@@ -131,4 +131,46 @@ describe('computeMetrics', () => {
     expect(summary.p95ResponseTime).toBe(300);
     expect(summary.p99ResponseTime).toBe(300);
   });
+
+  it('handles single result where p95/p99 may fall back', () => {
+    const summary = computeMetrics(
+      [
+        {
+          url: 'http://api/1',
+          method: 'GET',
+          httpStatus: 200,
+          responseTimeMs: 150,
+          passed: true,
+          failureDetails: [],
+          requestSentAt: 0,
+          responseBody: '',
+          responseHeaders: {},
+        },
+      ],
+      500,
+    );
+    expect(summary.p95ResponseTime).toBe(150);
+    expect(summary.p99ResponseTime).toBe(150);
+    expect(summary.totalRequests).toBe(1);
+  });
+
+  it('handles failed validation results', () => {
+    const summary = computeMetrics(
+      [
+        {
+          url: 'http://api/1',
+          method: 'GET',
+          httpStatus: 200,
+          responseTimeMs: 100,
+          passed: false,
+          failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
+          requestSentAt: 0,
+          responseBody: '',
+          responseHeaders: {},
+        },
+      ],
+      500,
+    );
+    expect(summary.failedValidations).toBe(1);
+  });
 });

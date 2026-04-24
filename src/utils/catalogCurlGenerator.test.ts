@@ -380,4 +380,102 @@ describe('buildDefaultCurlCommand', () => {
     expect(curl).toContain('-d');
     expect(curl).toContain('name');
   });
+
+  it('does not add body when requestBody has no json content type', async () => {
+    const ep = makeEndpoint({
+      method: 'POST',
+      requestBody: {
+        required: true,
+        contentTypes: [{ mediaType: 'text/plain' }],
+      },
+    });
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).not.toContain('-d');
+  });
+
+  it('does not add body when no requestBody', async () => {
+    const ep = makeEndpoint({ method: 'POST' });
+    const curl = await buildDefaultCurlCommand(ep, hostConfig, servers, noAuth);
+    expect(curl).not.toContain('-d');
+  });
+});
+
+describe('catalogCurlGenerator — additional branch coverage', () => {
+  const hostConfig: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
+
+  it('falls through basic auth when username is empty', async () => {
+    const auth: AuthConfig = { type: 'basic', username: '' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).not.toContain('Authorization');
+  });
+
+  it('falls through bearer auth when token is empty', async () => {
+    const auth: AuthConfig = { type: 'bearer', token: '' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).not.toContain('Authorization');
+  });
+
+  it('falls through apikey auth when apiKeyName is missing', async () => {
+    const auth: AuthConfig = { type: 'apikey', apiKeyName: '', apiKeyValue: 'val', apiKeyIn: 'header' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).not.toContain('apikey');
+  });
+
+  it('apikey in header without Authorization name does not add Bearer prefix', async () => {
+    const auth: AuthConfig = { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'abc', apiKeyIn: 'header' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).toContain('X-Key: abc');
+    expect(curl).not.toContain('Bearer');
+  });
+
+  it('apikey with Authorization name and existing Bearer prefix does not double-prefix', async () => {
+    const auth: AuthConfig = { type: 'apikey', apiKeyName: 'Authorization', apiKeyValue: 'Bearer existing', apiKeyIn: 'header' };
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {}, headerValues: {}, bodyText: '', auth,
+    });
+    expect(curl).toContain('Authorization: Bearer existing');
+  });
+
+  it('resolveBaseUrl returns empty when environment strategy but no matching env', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env-missing' };
+    const envs = [{ id: 'env1', name: 'dev', baseUrl: 'https://dev.example.com' }];
+    expect(resolveBaseUrl(hc, [], envs)).toBe('');
+  });
+
+  it('resolveBaseUrl falls through when linkedMicroservice has no matching envId', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env2' };
+    const svc: Microservice = { id: 's1', name: 'Svc', baseUrls: { env1: 'https://svc.dev' } };
+    const envs = [{ id: 'env2', name: 'staging', baseUrl: 'https://staging.example.com/' }];
+    expect(resolveBaseUrl(hc, [], envs, svc)).toBe('https://staging.example.com');
+  });
+
+  it('resolveBaseUrl uses microservice URL without path prefix for root servers', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env1' };
+    const svc: Microservice = { id: 's1', name: 'Svc', baseUrls: { env1: 'https://svc.dev/' } };
+    const rootServers: CatalogServer[] = [{ url: 'https://api.com/', description: '' }];
+    expect(resolveBaseUrl(hc, rootServers, undefined, svc)).toBe('https://svc.dev');
+  });
+
+  it('skips empty header keys and values', async () => {
+    const curl = await buildCatalogCurlCommand({
+      endpoint: makeEndpoint(),
+      hostConfig, servers, paramValues: {},
+      headerValues: { '': 'val', 'key': '', '  ': '  ' },
+      bodyText: '', auth: noAuth,
+    });
+    expect(curl).not.toContain("-H ':");
+  });
 });

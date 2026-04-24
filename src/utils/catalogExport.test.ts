@@ -407,4 +407,19 @@ describe('catalogMeta on exported requests', () => {
     expect(meta.tags).toEqual([]);
     expect(meta.originalPath).toBe('/users');
   });
+
+  it('uses saved header values from epVals when endpoint is in sampleEpIds', () => {
+    const ep = makeEndpoint({
+      parameters: [
+        { name: 'X-Custom', in: 'header', required: false, schema: { type: 'string' } },
+      ],
+    });
+    const sampleIds = new Set(['ep-1']);
+    const vals: Record<string, SavedEndpointValues> = {
+      'ep-1': makeSaved({ headers: { 'X-Custom': 'saved-value' } }),
+    };
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, sampleIds, vals);
+    const customHeader = reqs[0].headers.find(h => h.key === 'X-Custom');
+    expect(customHeader?.value).toBe('saved-value');
+  });
 });

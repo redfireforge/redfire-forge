@@ -1121,6 +1121,14 @@
   cursor: pointer; transition: background 0.15s;
 }
 .req-confirm-ok:hover { background: #dc2626; }
+.req-confirm-ok-primary { background: var(--accent, #3b82f6); }
+.req-confirm-ok-primary:hover { background: #2563eb; }
+.req-confirm-input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font-size: 0.85rem; margin-bottom: 16px;
+  outline: none;
+}
+.req-confirm-input:focus { border-color: var(--accent, #3b82f6); }
 
 /* Response search */
 .req-resp-search {

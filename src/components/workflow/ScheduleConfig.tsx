@@ -37,61 +37,42 @@ export default function ScheduleConfig({
       </div>
 
       {/* Schedule Info Panel */}
-      <div style={{
-        padding: '12px',
-        backgroundColor: '#e3f2fd',
-        border: '1px solid #2196f3',
-        borderRadius: '8px',
-        marginBottom: '16px',
-      }}>
-        <div style={{ fontWeight: 'bold', color: '#1976d2', marginBottom: '8px', fontSize: '0.9rem' }}>
-          ⏰ Schedule Information
+      <div className="wf-schedule-info-panel">
+        <div className="wf-schedule-info-title">
+          Schedule Information
         </div>
-        <div style={{ fontSize: '0.85rem', color: '#555', lineHeight: '1.6' }}>
-          <div style={{ marginBottom: '8px' }}>
-            <strong>Cron:</strong> <code style={{ backgroundColor: '#fff', padding: '2px 6px', borderRadius: '4px' }}>
+        <div className="wf-schedule-info-body">
+          <div className="wf-schedule-info-row">
+            <strong>Cron:</strong> <code className="wf-schedule-info-code">
               {data.cronExpression || '(not set)'}
             </code>
           </div>
           {data.scheduleDescription && (
-            <div style={{ marginBottom: '8px' }}>
+            <div className="wf-schedule-info-row">
               <strong>Description:</strong> {data.scheduleDescription}
             </div>
           )}
-          <div style={{ marginBottom: '8px' }}>
-            <strong>Timezone:</strong> <code style={{ backgroundColor: '#fff', padding: '2px 6px', borderRadius: '4px' }}>
+          <div className="wf-schedule-info-row">
+            <strong>Timezone:</strong> <code className="wf-schedule-info-code">
               {data.timezone || 'UTC'}
             </code>
           </div>
-          <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff', borderRadius: '4px', fontSize: '0.8rem' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#666' }}>📝 Automatic Variables:</div>
-            <div style={{ color: '#777', lineHeight: '1.5' }}>
-              • <code>{'{{triggerTime}}'}</code> - ISO timestamp<br/>
-              • <code>{'{{triggerTimestamp}}'}</code> - Unix milliseconds<br/>
-              • <code>{'{{triggerDate}}'}</code> - YYYY-MM-DD<br/>
-              • <code>{'{{triggerHour}}'}</code> - HH (00-23)<br/>
-              • <code>{'{{triggerMinute}}'}</code> - MM (00-59)
+          <div className="wf-schedule-auto-vars">
+            <div className="wf-schedule-auto-vars-title">Automatic Variables:</div>
+            <div className="wf-schedule-auto-vars-list">
+              {'{{triggerTime}}'} - ISO timestamp<br/>
+              {'{{triggerTimestamp}}'} - Unix seconds<br/>
+              {'{{triggerDate}}'} - YYYY-MM-DD<br/>
+              {'{{triggerHour}}'} - HH (00-23)<br/>
+              {'{{triggerMinute}}'} - MM (00-59)
             </div>
           </div>
-          <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#666', fontStyle: 'italic' }}>
-            💡 Tip: These variables are automatically injected when the schedule triggers. Use them in HTTP requests or conditions.
+          <div className="wf-schedule-info-tip">
+            These variables are automatically injected when the schedule triggers.
           </div>
         </div>
       </div>
 
-      <div className="wf-config-section">
-        <label className="wf-config-label">
-          Cron Expression
-          <input
-            type="text"
-            className="wf-config-input"
-            value={data.cronExpression}
-            onChange={(e) => onChange({ cronExpression: e.target.value })}
-            placeholder="0 9 * * MON-FRI"
-          />
-          <span className="wf-config-hint">Standard cron format: minute hour day month weekday</span>
-        </label>
-      </div>
       <div className="wf-config-section">
         <label className="wf-config-label">
           Schedule Description
@@ -120,11 +101,9 @@ export default function ScheduleConfig({
       </div>
 
       {/* Common Cron Examples */}
-      <details style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '6px' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>
-          📚 Common Cron Examples
-        </summary>
-        <div style={{ marginTop: '12px', fontSize: '0.85rem', color: '#666', lineHeight: '1.8' }}>
+      <details className="wf-schedule-cron-examples">
+        <summary>Common Cron Examples</summary>
+        <div className="wf-schedule-cron-examples-list">
           <div><code>* * * * *</code> - Every minute</div>
           <div><code>0 * * * *</code> - Every hour (on the hour)</div>
           <div><code>0 9 * * *</code> - Every day at 9:00 AM</div>
@@ -133,7 +112,7 @@ export default function ScheduleConfig({
           <div><code>*/15 * * * *</code> - Every 15 minutes</div>
           <div><code>0 */6 * * *</code> - Every 6 hours</div>
           <div><code>0 0 1 * *</code> - First day of every month at midnight</div>
-          <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#888' }}>
+          <div className="wf-schedule-cron-format">
             Format: <code>minute (0-59) hour (0-23) day (1-31) month (1-12) weekday (0-7 or SUN-SAT)</code>
           </div>
         </div>

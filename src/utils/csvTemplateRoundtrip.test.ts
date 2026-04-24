@@ -89,6 +89,20 @@ describe('CSV template generate → parse roundtrip', () => {
     expect(parsed.validation.mode).toBe('none');
   });
 
+  it('uses empty string when path variable segmentIndex is out of bounds', () => {
+    const test = makeTest({ url: 'https://api.example.com/v1', validation: { mode: 'none' }, headers: [], body: '', auth: { type: 'none' } });
+    const opts: ExportOptions = {
+      test,
+      pathVariables: [{ segmentIndex: 99, variableName: 'missing' }],
+    };
+    const csv = generateCsvTemplate(opts);
+    expect(csv).toContain('path:missing');
+    // Parse it back - the path variable should be empty, causing an error
+    const result = parseCsvToScenarios(csv);
+    expect(result.errorRows).toBe(1);
+    expect(result.rows[0].errors).toContain('Missing path variable: missing');
+  });
+
   it('roundtrips full validation mode', () => {
     const test = makeTest({
       validation: { mode: 'full', expectedJson: '{"ok":true}' },
@@ -212,5 +226,61 @@ describe('parseCsvToScenarios — legacy URL without metadata', () => {
     expect(result.rows[0].scenario!.url).toBe(
       'https://api.example.com/items?q=&src=x',
     );
+  });
+
+  it('uses raw url without query string when no param columns', () => {
+    const csv = 'name,url\nT,https://api.example.com/items';
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.url).toBe('https://api.example.com/items');
+  });
+});
+
+describe('parseCsvToScenarios — edge branch coverage', () => {
+  it('falls back to defaults when no metadata and no method column', () => {
+    const csv = 'name,url\nTest,https://example.com/api';
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.method).toBe('GET');
+    expect(result.rows[0].scenario!.auth.type).toBe('inherit');
+  });
+
+  it('skips validate columns with empty values', () => {
+    const csv = 'name,url,validate:$.id\nTest,https://example.com/api,';
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.validation.expectedFields).toBeUndefined();
+  });
+
+  it('reports error for missing path variable', () => {
+    const meta = JSON.stringify({ version: 1, method: 'GET', urlPattern: 'https://api.com/{{id}}', headers: [], body: '', pathVariables: ['id'] });
+    const csv = `#META:${meta}\nname,path:id\nTest,`;
+    const result = parseCsvToScenarios(csv);
+    expect(result.errorRows).toBe(1);
+    expect(result.rows[0].errors).toContain('Missing path variable: id');
+  });
+
+  it('handles full validation mode with expectedJson from metadata', () => {
+    const meta = JSON.stringify({ version: 1, method: 'POST', urlPattern: 'https://api.com/test', headers: [], body: '{}', validationMode: 'full', expectedJson: '{"ok":true}' });
+    const csv = `#META:${meta}\nname\nTest`;
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.validation.mode).toBe('full');
+    expect(result.rows[0].scenario!.validation.expectedJson).toBe('{"ok":true}');
+  });
+
+  it('uses selective mode when validate fields present but no metadata', () => {
+    const csv = 'name,url,validate:$.status\nTest,https://api.com/x,200';
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.validation.mode).toBe('selective');
+    expect(result.rows[0].scenario!.validation.selectiveMode).toBe('include');
+    expect(result.rows[0].scenario!.validation.expectedFields).toHaveLength(1);
+  });
+
+  it('handles invalid metadata JSON gracefully', () => {
+    const csv = '#META:{invalid json\nname,url\nTest,https://example.com/api';
+    const result = parseCsvToScenarios(csv);
+    expect(result.validRows).toBe(1);
   });
 });

@@ -47,14 +47,19 @@ export default function WorkflowToolbar({
       <div className="wf-toolbar-left">
         <button className="btn btn-sm btn-primary" onClick={onNew} disabled={isRunning}>+ New</button>
 
-        {workflows.length > 0 && (
+        {(workflows.length > 0 || isPreview) && (
           <select
             className="wf-toolbar-select"
             value={selected?.id ?? ''}
             onChange={(e) => onSelect(e.target.value)}
-            disabled={isRunning}
+            disabled={isRunning || isPreview}
           >
             <option value="" disabled>Open workflow…</option>
+            {isPreview && selected && !workflows.some(wf => wf.id === selected.id) && (
+              <option key={selected.id} value={selected.id}>
+                {selected.name}
+              </option>
+            )}
             {workflows.map(wf => (
               <option key={wf.id} value={wf.id}>{wf.name}</option>
             ))}

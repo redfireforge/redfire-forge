@@ -136,4 +136,19 @@ describe('resolveAuth — auth inheritance chain', () => {
       expect(resolveAuth(makeTest(auth), noAuthScenario, noAuthFg, []).type).toBe(auth.type);
     }
   });
+
+  it('returns envFallbackAuth when entire chain is none/inherit', () => {
+    const envAuth: AuthConfig = { type: 'bearer', token: 'env-tok' };
+    const result = resolveAuth(
+      makeTest({ type: 'inherit' }), inheritScenario, noAuthFg, [], envAuth,
+    );
+    expect(result).toEqual(envAuth);
+  });
+
+  it('returns none when envFallbackAuth is none', () => {
+    const result = resolveAuth(
+      makeTest({ type: 'inherit' }), inheritScenario, noAuthFg, [], { type: 'none' },
+    );
+    expect(result).toEqual({ type: 'none' });
+  });
 });
