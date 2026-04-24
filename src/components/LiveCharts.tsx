@@ -73,7 +73,7 @@ export function LiveCharts({ data, isTimeBased }: { data: TimeSeriesPoint[]; isT
         </ResponsiveContainer>
       </div>
 
-      {isTimeBased && data.some((d) => d.concurrency > 0) && (
+      {data.some((d) => d.concurrency > 0) && (
         <div className="live-chart-card">
           <div className="live-chart-title">Concurrency</div>
           <ResponsiveContainer width="100%" height={140}>

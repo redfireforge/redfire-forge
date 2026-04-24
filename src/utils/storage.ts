@@ -138,7 +138,7 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = capAndTruncateResults(run);
-  const runs = await loadTestRuns();
+  let runs = await loadTestRuns();
   runs.unshift(truncated);
   const max = await getMaxRuns();
   if (runs.length > max) runs.length = max;
@@ -146,7 +146,21 @@ export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaErr
     await writeKey(STORAGE_KEY, JSON.stringify(runs));
     return { ok: true };
   } catch {
-    return { ok: false, quotaError: true };
+    // Auto-shrink: remove oldest runs until it fits
+    for (let attempt = 0; attempt < 5 && runs.length > 1; attempt++) {
+      runs = runs.slice(0, Math.max(1, Math.ceil(runs.length * 0.75)));
+      try {
+        await writeKey(STORAGE_KEY, JSON.stringify(runs));
+        return { ok: true };
+      } catch { /* keep shrinking */ }
+    }
+    // Last resort: save only the new run
+    try {
+      await writeKey(STORAGE_KEY, JSON.stringify([truncated]));
+      return { ok: true };
+    } catch {
+      return { ok: false, quotaError: true };
+    }
   }
 }
 

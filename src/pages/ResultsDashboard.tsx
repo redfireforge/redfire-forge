@@ -403,7 +403,11 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="range" fontSize={11} />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.78rem', color: 'var(--text)' }}
+                  labelStyle={{ color: 'var(--text)' }}
+                  itemStyle={{ color: 'var(--text)' }}
+                />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {histogramData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={index < 7 ? '#3b82f6' : index < 9 ? '#f59e0b' : '#ef4444'} />

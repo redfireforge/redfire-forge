@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import type { RequestCollection, RequestFolder, RequestItem } from '../../types';
 import type { CatalogEntry, CatalogFolder } from '../../types/catalog';
 import type { WorkflowNodeType } from '../../types/workflow';
+import { NodeIcon } from './nodes/NodeIcon';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
@@ -12,6 +13,44 @@ function countRequests(col: RequestCollection): number {
   const walk = (folders?: RequestFolder[]) => { if (!folders) return; for (const f of folders) { n += f.requests.length; walk(f.folders); } };
   walk(col.folders);
   return n;
+}
+
+interface BlockDef {
+  type: WorkflowNodeType;
+  title: string;
+  desc: string;
+  category: string;
+}
+
+const ALL_BLOCKS: BlockDef[] = [
+  { type: 'start', title: 'Manual Start', desc: 'Workflow entry point', category: 'triggers' },
+  { type: 'webhook', title: 'Webhook Trigger', desc: 'Incoming HTTP request', category: 'triggers' },
+  { type: 'schedule', title: 'Schedule Trigger', desc: 'Cron-based execution', category: 'triggers' },
+  { type: 'http', title: 'HTTP Request', desc: 'API call with extraction', category: 'actions' },
+  { type: 'delay', title: 'Delay', desc: 'Pause between steps', category: 'actions' },
+  { type: 'condition', title: 'Condition', desc: 'If/Else branching', category: 'logic' },
+  { type: 'switch', title: 'Switch', desc: 'Multi-way branching', category: 'logic' },
+  { type: 'loop', title: 'Loop', desc: 'Repeat / For-Each / While', category: 'logic' },
+  { type: 'setVariable', title: 'Set Variable', desc: 'Assign or transform variables', category: 'data' },
+  { type: 'aggregate', title: 'Aggregate', desc: 'Combine parallel results', category: 'data' },
+  { type: 'fork', title: 'Parallel Fork', desc: 'Concurrent branches', category: 'flow' },
+  { type: 'join', title: 'Join', desc: 'Wait for all branches', category: 'flow' },
+  { type: 'end', title: 'End', desc: 'Workflow termination', category: 'flow' },
+];
+
+const CATEGORIES = [
+  { id: 'triggers', label: 'Triggers' },
+  { id: 'actions', label: 'Actions' },
+  { id: 'logic', label: 'Logic' },
+  { id: 'data', label: 'Data' },
+  { id: 'flow', label: 'Flow' },
+];
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return <>{text.slice(0, idx)}<mark className="wf-palette-match">{text.slice(idx, idx + query.length)}</mark>{text.slice(idx + query.length)}</>;
 }
 
 interface Props {
@@ -25,6 +64,35 @@ interface Props {
 export default function WorkflowPalette({ collections, catalogEntries, onAddNode, onAddFromRequest, onAddFromCatalog }: Props) {
   const [section, setSection] = useState<'blocks' | 'requests' | 'catalog'>('blocks');
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic', 'flow', 'parallel']));
+  const [searchQuery, setSearchQuery] = useState('');
+  const dragGhostRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredBlocks = useMemo(() => {
+    if (!searchQuery.trim()) return ALL_BLOCKS;
+    const q = searchQuery.trim().toLowerCase();
+    return ALL_BLOCKS.filter(b => b.title.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q));
+  }, [searchQuery]);
+
+  const handleBlockDragStart = useCallback((e: React.DragEvent, block: BlockDef) => {
+    e.dataTransfer.setData('application/reactflow-type', block.type);
+    e.dataTransfer.effectAllowed = 'move';
+    // Create styled drag ghost
+    const ghost = document.createElement('div');
+    ghost.className = 'wf-drag-ghost';
+    ghost.innerHTML = `<span class="wf-drag-ghost-label">${block.title}</span>`;
+    ghost.style.position = 'absolute';
+    ghost.style.top = '-1000px';
+    document.body.appendChild(ghost);
+    dragGhostRef.current = ghost;
+    e.dataTransfer.setDragImage(ghost, 40, 20);
+    // Clean up after drag ends
+    setTimeout(() => {
+      if (dragGhostRef.current) {
+        document.body.removeChild(dragGhostRef.current);
+        dragGhostRef.current = null;
+      }
+    }, 0);
+  }, []);
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
@@ -41,150 +109,47 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
       <div className="wf-palette-content">
         {section === 'blocks' && (
           <div className="wf-palette-blocks">
-            {/* Triggers */}
-            <button className="wf-palette-category-header" onClick={() => toggle('triggers')}>
-              <span className="wf-palette-caret">{expanded.has('triggers') ? '▾' : '▸'}</span>
-              <span className="wf-palette-category-title">Triggers</span>
-              <span className="wf-palette-count">3</span>
-            </button>
-            {expanded.has('triggers') && (
-              <>
-                <button className="wf-palette-block wf-palette-block-start" onClick={() => onAddNode('start')}>
-                  <span className="wf-pb-icon">▶</span>
-                  <div>
-                    <div className="wf-pb-title">Manual Start</div>
-                    <div className="wf-pb-desc">Workflow entry point</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-webhook" onClick={() => onAddNode('webhook')}>
-                  <span className="wf-pb-icon">🪝</span>
-                  <div>
-                    <div className="wf-pb-title">Webhook Trigger</div>
-                    <div className="wf-pb-desc">Incoming HTTP request</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-schedule" onClick={() => onAddNode('schedule')}>
-                  <span className="wf-pb-icon">⏰</span>
-                  <div>
-                    <div className="wf-pb-title">Schedule Trigger</div>
-                    <div className="wf-pb-desc">Cron-based execution</div>
-                  </div>
-                </button>
-              </>
-            )}
-
-            {/* Actions */}
-            <button className="wf-palette-category-header" onClick={() => toggle('actions')}>
-              <span className="wf-palette-caret">{expanded.has('actions') ? '▾' : '▸'}</span>
-              <span className="wf-palette-category-title">Actions</span>
-              <span className="wf-palette-count">2</span>
-            </button>
-            {expanded.has('actions') && (
-              <>
-                <button className="wf-palette-block wf-palette-block-http" onClick={() => onAddNode('http')}>
-                  <span className="wf-pb-icon">↗</span>
-                  <div>
-                    <div className="wf-pb-title">HTTP Request</div>
-                    <div className="wf-pb-desc">API call with extraction</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-delay" onClick={() => onAddNode('delay')}>
-                  <span className="wf-pb-icon">⏱</span>
-                  <div>
-                    <div className="wf-pb-title">Delay</div>
-                    <div className="wf-pb-desc">Pause between steps</div>
-                  </div>
-                </button>
-              </>
-            )}
-
-            {/* Logic — branching & looping */}
-            <button className="wf-palette-category-header" onClick={() => toggle('logic')}>
-              <span className="wf-palette-caret">{expanded.has('logic') ? '▾' : '▸'}</span>
-              <span className="wf-palette-category-title">Logic</span>
-              <span className="wf-palette-count">3</span>
-            </button>
-            {expanded.has('logic') && (
-              <>
-                <button className="wf-palette-block wf-palette-block-condition" onClick={() => onAddNode('condition')}>
-                  <span className="wf-pb-icon">◆</span>
-                  <div>
-                    <div className="wf-pb-title">Condition</div>
-                    <div className="wf-pb-desc">If/Else branching</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-switch" onClick={() => onAddNode('switch')}>
-                  <span className="wf-pb-icon">⇅</span>
-                  <div>
-                    <div className="wf-pb-title">Switch</div>
-                    <div className="wf-pb-desc">Multi-way branching</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-loop" onClick={() => onAddNode('loop')}>
-                  <span className="wf-pb-icon">🔄</span>
-                  <div>
-                    <div className="wf-pb-title">Loop</div>
-                    <div className="wf-pb-desc">Repeat / For-Each / While</div>
-                  </div>
-                </button>
-              </>
-            )}
-
-            {/* Data — variables & aggregation */}
-            <button className="wf-palette-category-header" onClick={() => toggle('data')}>
-              <span className="wf-palette-caret">{expanded.has('data') ? '▾' : '▸'}</span>
-              <span className="wf-palette-category-title">Data</span>
-              <span className="wf-palette-count">2</span>
-            </button>
-            {expanded.has('data') && (
-              <>
-                <button className="wf-palette-block wf-palette-block-setVariable" onClick={() => onAddNode('setVariable')}>
-                  <span className="wf-pb-icon">📝</span>
-                  <div>
-                    <div className="wf-pb-title">Set Variable</div>
-                    <div className="wf-pb-desc">Assign or transform variables</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-aggregate" onClick={() => onAddNode('aggregate')}>
-                  <span className="wf-pb-icon">Σ</span>
-                  <div>
-                    <div className="wf-pb-title">Aggregate</div>
-                    <div className="wf-pb-desc">Combine parallel results</div>
-                  </div>
-                </button>
-              </>
-            )}
-
-            {/* Flow — parallelism & termination */}
-            <button className="wf-palette-category-header" onClick={() => toggle('flow')}>
-              <span className="wf-palette-caret">{expanded.has('flow') ? '▾' : '▸'}</span>
-              <span className="wf-palette-category-title">Flow</span>
-              <span className="wf-palette-count">3</span>
-            </button>
-            {expanded.has('flow') && (
-              <>
-                <button className="wf-palette-block wf-palette-block-fork" onClick={() => onAddNode('fork')}>
-                  <span className="wf-pb-icon">⑃</span>
-                  <div>
-                    <div className="wf-pb-title">Parallel Fork</div>
-                    <div className="wf-pb-desc">Concurrent branches</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-join" onClick={() => onAddNode('join')}>
-                  <span className="wf-pb-icon">⑂</span>
-                  <div>
-                    <div className="wf-pb-title">Join</div>
-                    <div className="wf-pb-desc">Wait for all branches</div>
-                  </div>
-                </button>
-                <button className="wf-palette-block wf-palette-block-end" onClick={() => onAddNode('end')}>
-                  <span className="wf-pb-icon">⏹</span>
-                  <div>
-                    <div className="wf-pb-title">End</div>
-                    <div className="wf-pb-desc">Workflow termination</div>
-                  </div>
-                </button>
-              </>
+            <div className="wf-palette-search-wrap">
+              <svg className="wf-palette-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                className="wf-palette-search"
+                type="text"
+                placeholder="Search blocks…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {CATEGORIES.map(cat => {
+              const blocks = filteredBlocks.filter(b => b.category === cat.id);
+              if (blocks.length === 0) return null;
+              const isOpen = searchQuery.trim() || expanded.has(cat.id);
+              return (
+                <div key={cat.id}>
+                  <button className="wf-palette-category-header" onClick={() => toggle(cat.id)}>
+                    <span className="wf-palette-caret">{isOpen ? '▾' : '▸'}</span>
+                    <span className="wf-palette-category-title">{cat.label}</span>
+                    <span className="wf-palette-count">{blocks.length}</span>
+                  </button>
+                  {isOpen && blocks.map(block => (
+                    <button
+                      key={block.type}
+                      className={`wf-palette-block wf-palette-block-${block.type}`}
+                      onClick={() => onAddNode(block.type)}
+                      draggable
+                      onDragStart={(e) => handleBlockDragStart(e, block)}
+                    >
+                      <NodeIcon type={block.type} />
+                      <div>
+                        <div className="wf-pb-title">{highlightMatch(block.title, searchQuery.trim())}</div>
+                        <div className="wf-pb-desc">{highlightMatch(block.desc, searchQuery.trim())}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+            {filteredBlocks.length === 0 && searchQuery.trim() && (
+              <div className="wf-palette-no-results">No blocks matching &ldquo;{searchQuery.trim()}&rdquo;</div>
             )}
           </div>
         )}

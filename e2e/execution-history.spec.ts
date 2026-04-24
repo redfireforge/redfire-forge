@@ -63,7 +63,7 @@ test.describe('Workflow Execution History', () => {
   test('navigates to execution history tab and shows list', async ({ page }) => {
     await page.goto('/');
     // Navigate to the workflow section first
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     // Then click execution history tab
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
@@ -74,7 +74,7 @@ test.describe('Workflow Execution History', () => {
 
   test('displays execution cards with correct info', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -89,7 +89,7 @@ test.describe('Workflow Execution History', () => {
 
   test('filters executions by trigger type', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -109,7 +109,7 @@ test.describe('Workflow Execution History', () => {
 
   test('shows detail panel when clicking an execution', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -126,7 +126,7 @@ test.describe('Workflow Execution History', () => {
 
   test('closes detail panel when clicking close button', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -146,7 +146,7 @@ test.describe('Workflow Execution History', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -164,7 +164,7 @@ test.describe('Workflow Execution History', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -174,7 +174,7 @@ test.describe('Workflow Execution History', () => {
 
   test('shows error details in execution detail panel', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
 
@@ -198,7 +198,7 @@ test.describe('Workflow Execution History', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Executions|Execution History/i });
     await tab.click();
     await expect(page.locator('.exh-card')).toHaveCount(3);

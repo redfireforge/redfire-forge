@@ -1,6 +1,6 @@
 /**
  * E2E: Template Gallery Modal and +New Dropdown.
- * Verifies the gallery opens from the nav tab and sidebar dropdown,
+ * Verifies the gallery opens from the sidebar dropdown,
  * shows categorized cards, and loads templates correctly.
  * Also verifies the +New dropdown with Blank Workflow / From Template.
  */
@@ -14,6 +14,12 @@ async function navigateToWorkflow(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle');
 }
 
+/** Open the Template Gallery via sidebar +New → From Template */
+async function openGallery(page: import('@playwright/test').Page) {
+  await page.locator('button:has-text("+ New")').click();
+  await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
+}
+
 // ── Template Gallery Modal ───────────────────────────
 
 test.describe('Template Gallery Modal', () => {
@@ -21,10 +27,8 @@ test.describe('Template Gallery Modal', () => {
     await navigateToWorkflow(page);
   });
 
-  test('Gallery tab opens the template gallery modal', async ({ page }) => {
-    const galleryTab = page.locator('button.main-nav-tab:has-text("Gallery")');
-    await expect(galleryTab).toBeVisible();
-    await galleryTab.click();
+  test('Gallery opens from sidebar +New dropdown', async ({ page }) => {
+    await openGallery(page);
 
     // Modal should appear
     const modal = page.locator('.tg-modal');
@@ -33,7 +37,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('gallery shows category filter tabs', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Should show all category tabs
@@ -45,7 +49,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('gallery shows template cards with icons and descriptions', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Should show template cards
@@ -63,7 +67,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('filtering by category shows only matching templates', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Click Triggers category
@@ -80,7 +84,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('filtering by Logic shows Switch and Loop templates', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     await page.locator('.tg-tab', { hasText: 'Logic' }).click();
@@ -95,7 +99,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('clicking a template card loads it as preview', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Click the first card
@@ -109,7 +113,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('Use as Template saves the workflow to sidebar', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Click a template
@@ -124,7 +128,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('gallery closes on Escape key', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     await page.keyboard.press('Escape');
@@ -132,7 +136,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('gallery closes on backdrop click', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Click the overlay (outside the modal)
@@ -141,7 +145,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('gallery close button works', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     await page.locator('.tg-close').click();
@@ -149,7 +153,7 @@ test.describe('Template Gallery Modal', () => {
   });
 
   test('category tab counts match actual template counts', async ({ page }) => {
-    await page.locator('button.main-nav-tab:has-text("Gallery")').click();
+    await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
     // Check count badges on category tabs

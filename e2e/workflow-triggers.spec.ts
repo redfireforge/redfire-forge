@@ -262,8 +262,8 @@ test.describe('Workflow Webhook Trigger', () => {
     const paletteBlock = page.locator('.wf-palette-block').filter({ hasText: 'Webhook' });
     await expect(paletteBlock).toBeVisible({ timeout: 5_000 });
 
-    // Should show webhook icon and description
-    await expect(paletteBlock).toContainText('🪝');
+    // Should show webhook icon badge and description
+    await expect(paletteBlock.locator('.wf-node-icon-badge')).toBeVisible();
     await expect(paletteBlock).toContainText('Incoming HTTP request');
   });
 });
@@ -387,8 +387,8 @@ test.describe('Workflow Schedule Trigger', () => {
     const paletteBlock = page.locator('.wf-palette-block').filter({ hasText: 'Schedule' });
     await expect(paletteBlock).toBeVisible({ timeout: 5_000 });
 
-    // Should show schedule icon and description
-    await expect(paletteBlock).toContainText('⏰');
+    // Should show schedule icon badge and description
+    await expect(paletteBlock.locator('.wf-node-icon-badge')).toBeVisible();
     await expect(paletteBlock).toContainText('Cron-based execution');
   });
 });

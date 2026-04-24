@@ -171,7 +171,7 @@ test.describe('Workflow Auto-Layout', () => {
     await page.waitForLoadState('networkidle');
 
     // Navigate to workflow designer
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Find and click auto-layout button
@@ -196,7 +196,7 @@ test.describe('Workflow Auto-Layout', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Apply auto-layout
@@ -219,7 +219,7 @@ test.describe('Workflow Auto-Layout', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Apply auto-layout
@@ -235,7 +235,7 @@ test.describe('Workflow Auto-Layout', () => {
       // Reload page
       await page.reload();
       await page.waitForLoadState('networkidle');
-      await page.click('text=Workflow');
+      await page.click('.ab-btn[title="Workflow"]');
       await page.waitForSelector('.react-flow', { timeout: 5000 });
 
       // Verify positions are restored
@@ -256,7 +256,7 @@ test.describe('Workflow Auto-Layout', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Check auto-layout button exists and is enabled
