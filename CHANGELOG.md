@@ -136,8 +136,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **WorkflowDefaultsModal**: Fixed duplicate declarations of `requestVariableInsert` and `handleVariableInsertPicked` that caused build errors
 
 ### Changed
-- **Test Coverage**: 1446 unit/integration tests across 67 test files + 28 E2E tests (94.55% statements, 85.7% branches, 92.83% functions, 95.67% lines)
+- **Test Coverage**: 1781 unit/integration tests across 78 test files + 109 E2E tests (96.93% statements, 90.04% branches, 98.25% functions, 98.04% lines)
 - **Shared Utilities Refactoring**: Extracted duplicate code into single canonical sources
+  - Extracted `serverFormatters.ts` with shared formatting utilities for server-related components
+  - Extracted `server-api.ts` shared types for webhook delivery logs, execution history, and server status
   - `useDebounce` hook: consolidated from 3 inline copies into `src/hooks/useDebounce.ts`
   - `escapeRegExp()`: consolidated from 2 copies into `src/utils/helpers.ts`
   - `formatBytes()`: consolidated from 4 copies into `src/utils/helpers.ts`

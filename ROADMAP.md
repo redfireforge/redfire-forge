@@ -43,7 +43,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1446 unit/integration tests (Vitest, 95.67% line coverage, 85.7% branch coverage) + 28 E2E tests (Playwright) = 1474 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1781 unit/integration tests (Vitest, 98.04% line coverage, 90.04% branch coverage) + 109 E2E tests (Playwright) = 1890 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -286,8 +286,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 1405 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 26 tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 1781 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 109 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
@@ -308,9 +308,9 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Workflow Control Nodes** — Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge), Condition (If/Else branching), Delay (think time between steps)
 - [x] **Parallel Execution** — Fork/Join nodes enable true parallel execution paths; Join nodes wait for all incoming branches to complete before proceeding; tested with concurrent HTTP requests
 - [x] **Auto-Layout** — Dagre-based hierarchical graph layout with smart post-processing: centers condition branches, aligns fork/join paths, resolves overlaps, maintains left-to-right flow
-- [ ] **Webhook Trigger Node** — Define workflows triggered by incoming HTTP webhooks; simulate mode for testing with sample payloads; extract variables from webhook body via JSONPath (Phase 3 of trigger nodes roadmap - see `docs/workflow/trigger-nodes-design.md`)
-- [ ] **Schedule Trigger Node** — Define workflows triggered by cron schedules; simulate mode for manual execution; configure recurrence patterns (Phase 4 of trigger nodes roadmap)
-- [ ] **Webhook & Schedule Backend** — Actual webhook HTTP server + cron runner implementation in Tauri/Node (Phase 5 of trigger nodes roadmap)
+- [x] **Webhook Trigger Node** — HTTP endpoint trigger for workflows; configure method, path, sample payload; extract variables from webhook body via JSONPath; visual badge showing method, path, and extraction count
+- [x] **Schedule Trigger Node** — Cron-based workflow scheduling; 5-field cron expressions with timezone support; human-readable schedule description; automatic `{{triggerTime}}` and `{{triggerTimestamp}}` variables
+- [x] **Webhook & Schedule Backend** — Node.js webhook HTTP server (`src-server/`) with cron scheduler; file-based workflow storage; webhook delivery logs; execution history; auto-registration on workflow save
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---
@@ -418,13 +418,13 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
 | 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
-| 0.9.0 | Variables & Chaining | → Good | 6 | 5 |
+| 0.9.0 | Variables & Chaining | → Good | 6 | 6 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
 | 0.10.0 | Assertions & Observability | → Good | 7 | 5 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **148** | **97** |
+| **Total** | | | **148** | **101** |
 
 ### Load Testing Level Milestones
 
@@ -456,7 +456,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 1405 unit/integration + 26 E2E = 1431 tests
+Phase 0.8.0 (Tests) ✅ DONE — 1781 unit/integration + 109 E2E = 1890 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```

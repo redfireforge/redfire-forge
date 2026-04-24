@@ -800,7 +800,7 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 **Visual Graph Editor:**
 
 - **Canvas**: React Flow-based infinite canvas with pan, zoom, and minimap navigation
-- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution
+- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution, Webhook/Schedule triggers for event-driven workflows
 - **Connections**: Click and drag from output handles to input handles to create edges between nodes
 - **Auto-Layout**: Click the auto-layout button in the canvas controls to apply Dagre hierarchical layout with smart centering and overlap resolution
 
@@ -815,6 +815,8 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 | **Fork** | Parallel execution split | Spawns multiple parallel execution paths; each output handle runs concurrently |
 | **Join** | Parallel execution merge | Waits for all incoming paths to complete before continuing; synchronization point |
 | **End** | Terminal state | Marks workflow completion; stops execution even if other nodes haven't run yet |
+| **Webhook Trigger** | HTTP endpoint trigger | Configure HTTP method, endpoint path, and sample payload; extract variables via JSONPath for downstream nodes; visual badge with method/path/extraction count |
+| **Schedule Trigger** | Cron-based trigger | 5-field cron expression with timezone support; human-readable schedule description; automatic `{{triggerTime}}` (ISO) and `{{triggerTimestamp}}` (epoch) variables |
 
 **Parallel Execution:**
 
@@ -1089,10 +1091,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 1405 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 1781 tests) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:e2e` | Run Playwright E2E tests (26 tests, Chromium) |
+| `npm run test:e2e` | Run Playwright E2E tests (109 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
