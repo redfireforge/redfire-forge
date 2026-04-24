@@ -84,6 +84,8 @@ import WebhookTriggerNode from '../components/workflow/nodes/WebhookTriggerNode'
 import ScheduleTriggerNode from '../components/workflow/nodes/ScheduleTriggerNode';
 import { DebugController } from '../engine/workflow/debugController';
 import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
+import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
+import { useWorkflowRunCache } from '../hooks/useWorkflowRunCache';
 
 interface Props {
   collections: RequestCollection[];
@@ -293,7 +295,52 @@ function WorkflowDesignerInner({
   /** Whether the workflow-defaults modal is open. */
   const [showDefaultsModal, setShowDefaultsModal] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeRunStatus>>({});
+  const {
+    nodeStatuses, setNodeStatuses,
+    lastRunStatus, setLastRunStatus,
+    lastRunTime, setLastRunTime,
+    lastRunError, setLastRunError,
+    runVariableSnapshot, setRunVariableSnapshot,
+    history: runHistory,
+    pushHistory: pushRunHistory,
+    restoreFromHistory: restoreRunFromHistory,
+    deleteHistoryEntry: deleteRunHistoryEntry,
+    clearHistory: clearRunHistory,
+    consoleLines, pushConsoleLine, clearConsole,
+  } = useWorkflowRunCache(selected?.id ?? null);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const consoleOpenRef = useRef(false);
+  const handleToggleConsole = useCallback(() => {
+    setConsoleOpen(prev => {
+      const next = !prev;
+      consoleOpenRef.current = next;
+      return next;
+    });
+  }, []);
+  const handleCloseConsole = useCallback(() => {
+    setConsoleOpen(false);
+    consoleOpenRef.current = false;
+  }, []);
+
+  // Subscribe to server-side webhook execution logs via SSE
+  const hasWebhookNode = nodes.some(n => n.type === 'webhook');
+  useEffect(() => {
+    if (!consoleOpen || !hasWebhookNode) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/api/logs/stream');
+      es.onmessage = (event) => {
+        try {
+          const line = JSON.parse(event.data);
+          pushConsoleLine(line);
+        } catch { /* ignore malformed */ }
+      };
+      es.onerror = () => {
+        // Server may not be running; silently reconnect or close
+      };
+    } catch { /* EventSource creation failed */ }
+    return () => { es?.close(); };
+  }, [consoleOpen, hasWebhookNode, pushConsoleLine]);
   /**
    * Per-node initialVariables stored completely outside React Flow state.
    * React Flow's internal state management drops custom data fields; keeping
@@ -310,11 +357,8 @@ function WorkflowDesignerInner({
   const workflowVariablesRef = useRef(workflowVariables);
   workflowVariablesRef.current = workflowVariables;
   /** Last Quick Test variable snapshot (for canvas badge); not persisted as workflow defaults. */
-  const [runVariableSnapshot, setRunVariableSnapshot] = useState<Record<string, string> | null>(null);
-  const [lastRunStatus, setLastRunStatus] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
-  const [lastRunTime, setLastRunTime] = useState<number | undefined>();
-  const [lastRunError, setLastRunError] = useState<string | null>(null);
   const [lastQuickTestRequestUrl, setLastQuickTestRequestUrl] = useState<string | null>(null);
+  const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
   const [extractionSampleJson, setExtractionSampleJson] = useState('');
   const [extractionFetching, setExtractionFetching] = useState(false);
   const [extractionFetchError, setExtractionFetchError] = useState<string | null>(null);
@@ -347,13 +391,17 @@ function WorkflowDesignerInner({
       setNodes(rfNodes);
       setEdges(rfEdges);
       setSelectedNodeId(null);
-      setNodeStatuses({});
+      // Abort any in-flight Quick Test and reset running state
+      if (isRunning) {
+        abortRef.current?.abort();
+        setIsRunning(false);
+        setIsDebugMode(false);
+        debugControllerRef.current = null;
+      }
       setWorkflowVariables(selected.variables ?? {});
       setWorkflowHostProfiles(selected.hostProfiles ?? []);
       setWorkflowAuthProfiles(selected.authProfiles ?? []);
       setWorkflowServices(selected.services ?? []);
-      setRunVariableSnapshot(null);
-      setLastRunStatus('idle');
       // Populate per-node initialVariables from saved workflow data (outside React Flow)
       const ivMap: Record<string, Record<string, string>> = {};
       for (const n of selected.nodes) {
@@ -581,7 +629,7 @@ function WorkflowDesignerInner({
     const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
     if (hasWebhookTrigger) {
       const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
-      fetch(`http://127.0.0.1:3001/api/workflows/${selected.id}`, {
+      fetch(`/api/workflows/${selected.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(wf),
@@ -610,7 +658,7 @@ function WorkflowDesignerInner({
     };
     setEdges((eds) => {
       const updated = addEdge(newEdge, eds);
-      // Auto-save edges when a new connection is made
+      // Defer cross-component state update to avoid React warning
       if (selected) {
         const wfNodes = serializeNodes(nodes);
         const wfEdges = updated.map(e => ({
@@ -618,7 +666,7 @@ function WorkflowDesignerInner({
           sourceHandle: e.sourceHandle ?? undefined,
           label: typeof e.label === 'string' ? e.label : undefined,
         }));
-        update(selected.id, { nodes: wfNodes, edges: wfEdges });
+        queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
       }
       return updated;
     });
@@ -653,7 +701,7 @@ function WorkflowDesignerInner({
     };
     setNodes((nds) => {
       const updated = [...nds, newNode];
-      // Auto-save so the new node is persisted immediately
+      // Defer cross-component state update to avoid React warning
       const wfNodes = updated.map(n => ({
         id: n.id,
         type: n.type,
@@ -669,7 +717,7 @@ function WorkflowDesignerInner({
         sourceHandle: e.sourceHandle ?? undefined,
         label: typeof e.label === 'string' ? e.label : undefined,
       }));
-      update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges });
+      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
       return updated;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -758,8 +806,8 @@ function WorkflowDesignerInner({
         ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
         : n));
       nodesRef.current = next;
-      // Auto-persist with updated nodes
-      persistWorkflow({ rfNodes: next });
+      // Defer cross-component state update to avoid React warning
+      queueMicrotask(() => persistWorkflow({ rfNodes: next }));
       return next;
     });
   }, [setNodes, persistWorkflow]);
@@ -841,6 +889,7 @@ function WorkflowDesignerInner({
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
     setNodeStatuses({});
+    clearConsole();
 
     abortRef.current = new AbortController();
 
@@ -867,25 +916,52 @@ function WorkflowDesignerInner({
       label: typeof e.label === 'string' ? e.label : undefined,
     }));
 
+    const runNodeStatuses: Record<string, NodeRunStatus> = {};
+    let runVarSnap: Record<string, string> | null = null;
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: (nodeId, status) => {
+        runNodeStatuses[nodeId] = status;
         setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
       },
       onVariablesChange: (vars) => {
+        runVarSnap = vars;
         setRunVariableSnapshot(vars);
       },
+      onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
         setIsRunning(false);
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
-        if (!passed) {
-          const fail = results.find((r) => !r.passed);
-          setLastRunError(fail ? summarizeRequestFailure(fail) : 'One or more steps failed.');
-        } else {
-          setLastRunError(null);
-        }
+        const errorMsg = !passed
+          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
+          : null;
+        setLastRunError(errorMsg);
         const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
         setLastQuickTestRequestUrl(urlForDebug ?? null);
+        const stepSummaries = nodesRef.current
+          .filter(n => runNodeStatuses[n.id] && n.type === 'http')
+          .map(n => {
+            const rs = runNodeStatuses[n.id];
+            return {
+              nodeId: n.id,
+              label: (n.data as { label?: string }).label || n.id,
+              state: rs.state === 'pass' ? 'pass' as const : rs.state === 'fail' ? 'fail' as const : 'skipped' as const,
+              statusCode: rs.statusCode,
+              responseTimeMs: rs.responseTimeMs,
+              error: rs.error,
+            };
+          });
+        const histId = pushRunHistory({
+          timestamp: Date.now(),
+          durationMs,
+          passed,
+          nodeStatuses: { ...runNodeStatuses },
+          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
+          stepsExecuted: results.length,
+          stepSummaries,
+          error: errorMsg,
+        });
+        setActiveRunHistoryId(histId);
       },
     };
 
@@ -968,6 +1044,7 @@ function WorkflowDesignerInner({
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
     setNodeStatuses({});
+    clearConsole();
 
     abortRef.current = new AbortController();
 
@@ -993,27 +1070,54 @@ function WorkflowDesignerInner({
       label: typeof e.label === 'string' ? e.label : undefined,
     }));
 
+    const runNodeStatuses: Record<string, NodeRunStatus> = {};
+    let runVarSnap: Record<string, string> | null = null;
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: (nodeId, status) => {
+        runNodeStatuses[nodeId] = status;
         setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
       },
       onVariablesChange: (vars) => {
+        runVarSnap = vars;
         setRunVariableSnapshot(vars);
       },
+      onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
         setIsRunning(false);
         setIsDebugMode(false);
         debugControllerRef.current = null;
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
-        if (!passed) {
-          const fail = results.find((r) => !r.passed);
-          setLastRunError(fail ? summarizeRequestFailure(fail) : 'One or more steps failed.');
-        } else {
-          setLastRunError(null);
-        }
+        const errorMsg = !passed
+          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
+          : null;
+        setLastRunError(errorMsg);
         const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
         setLastQuickTestRequestUrl(urlForDebug ?? null);
+        const stepSummaries = nodesRef.current
+          .filter(n => runNodeStatuses[n.id] && n.type === 'http')
+          .map(n => {
+            const rs = runNodeStatuses[n.id];
+            return {
+              nodeId: n.id,
+              label: (n.data as { label?: string }).label || n.id,
+              state: rs.state === 'pass' ? 'pass' as const : rs.state === 'fail' ? 'fail' as const : 'skipped' as const,
+              statusCode: rs.statusCode,
+              responseTimeMs: rs.responseTimeMs,
+              error: rs.error,
+            };
+          });
+        const histId = pushRunHistory({
+          timestamp: Date.now(),
+          durationMs,
+          passed,
+          nodeStatuses: { ...runNodeStatuses },
+          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
+          stepsExecuted: results.length,
+          stepSummaries,
+          error: errorMsg,
+        });
+        setActiveRunHistoryId(histId);
       },
     };
 
@@ -1324,6 +1428,14 @@ function WorkflowDesignerInner({
         />
       )}
 
+      {consoleOpen && (
+        <WorkflowConsolePanel
+          lines={consoleLines}
+          onClear={clearConsole}
+          onClose={handleCloseConsole}
+        />
+      )}
+
       <WorkflowStatusBar
         nodeCount={nodes.length}
         edgeCount={edges.length}
@@ -1332,6 +1444,17 @@ function WorkflowDesignerInner({
         lastRunTime={lastRunTime}
         lastRunError={lastRunError}
         onOpenRunError={openRunErrorDetail}
+        runHistory={runHistory}
+        activeRunHistoryId={activeRunHistoryId}
+        onRestoreRunHistory={(id) => { restoreRunFromHistory(id); setActiveRunHistoryId(id); }}
+        onDeleteRunHistoryEntry={(id) => {
+          deleteRunHistoryEntry(id);
+          if (id === activeRunHistoryId) setActiveRunHistoryId(null);
+        }}
+        onClearRunHistory={() => { clearRunHistory(); setActiveRunHistoryId(null); }}
+        consoleLineCount={consoleLines.length}
+        consoleOpen={consoleOpen}
+        onToggleConsole={handleToggleConsole}
       />
     </div>
   );

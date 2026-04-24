@@ -44,59 +44,36 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
   return (
     <>
       {webhookUrl && (
-        <div className="wf-config-section" style={{ padding: '12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-          <div className="wf-config-label" style={{ marginBottom: '8px', fontWeight: '600' }}>
-            🔗 Webhook URL
+        <div className="wf-config-section wf-webhook-url-panel">
+          <div className="wf-config-label wf-webhook-url-title">
+            Webhook URL
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="wf-webhook-url-row">
             <input
               type="text"
-              className="wf-config-input"
+              className="wf-config-input wf-webhook-url-input"
               value={webhookUrl}
               readOnly
-              style={{ fontFamily: 'monospace', fontSize: '0.85rem', flex: 1 }}
               onFocus={(e) => e.target.select()}
             />
             <button
               type="button"
+              className={`wf-webhook-copy-btn ${copied ? 'copied' : ''}`}
               onClick={handleCopyUrl}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: copied ? '#4caf50' : '#2196f3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: '500',
-                whiteSpace: 'nowrap',
-                transition: 'background-color 0.2s',
-              }}
             >
               {copied ? '✓ Copied!' : 'Copy'}
             </button>
             <button
               type="button"
+              className={`wf-webhook-copy-btn wf-webhook-curl-btn ${curlCopied ? 'copied' : ''}`}
               onClick={handleCopyCurl}
               title="Copy as cURL command with sample payload"
-              style={{
-                padding: '8px 16px',
-                backgroundColor: curlCopied ? '#4caf50' : '#6366f1',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: '500',
-                whiteSpace: 'nowrap',
-                transition: 'background-color 0.2s',
-              }}
             >
               {curlCopied ? '✓ Copied!' : 'Copy cURL'}
             </button>
           </div>
-          <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#666' }}>
-            💡 Tip: Server must be running (<code>npm run server</code>) to receive webhooks
+          <div className="wf-webhook-url-hint">
+            Server must be running (<code>npm run server</code>) to receive webhooks
           </div>
         </div>
       )}
@@ -130,12 +107,11 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
         <label className="wf-config-label">
           Sample Payload (JSON)
           <textarea
-            className="wf-config-textarea"
+            className="wf-config-textarea wf-config-textarea-mono"
             rows={8}
             value={data.samplePayload}
             onChange={(e) => onChange({ samplePayload: e.target.value })}
             placeholder='{\n  "event": "example",\n  "data": {}\n}'
-            style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
           />
         </label>
       </div>

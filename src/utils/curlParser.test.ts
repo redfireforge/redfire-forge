@@ -221,4 +221,112 @@ describe('parseCurl', () => {
     const s = parseCurl('curl not-a-valid-url');
     expect(s.name).toBe('Imported Scenario');
   });
+
+  it('handles -X without following token gracefully', () => {
+    const s = parseCurl('curl http://example.com -X');
+    expect(s.url).toBe('http://example.com');
+  });
+
+  it('handles -H without following token gracefully', () => {
+    const s = parseCurl('curl http://example.com -H');
+    expect(s.url).toBe('http://example.com');
+  });
+
+  it('handles -d without following token gracefully', () => {
+    const s = parseCurl('curl http://example.com -d');
+    expect(s.body).toBe('');
+  });
+
+  it('handles --data-urlencode without = sign', () => {
+    const s = parseCurl('curl --data-urlencode rawvalue http://example.com');
+    expect(s.body).toContain('rawvalue');
+  });
+
+  it('handles --data-urlencode appending to existing body', () => {
+    const s = parseCurl('curl --data-urlencode rawvalue --data-urlencode another http://example.com');
+    expect(s.body).toBe('rawvalue&another');
+  });
+
+  it('handles --data-urlencode with = sign as form field', () => {
+    const s = parseCurl('curl --data-urlencode key=value http://example.com');
+    expect(s.method).toBe('POST');
+    expect(s.bodyType).toBe('form-urlencoded');
+  });
+
+  it('handles -F / --form for multipart form data', () => {
+    const s = parseCurl("curl -F 'name=test' -F 'file=@path' http://example.com");
+    expect(s.method).toBe('POST');
+    expect(s.bodyType).toBe('form-data');
+  });
+
+  it('handles --url flag', () => {
+    const s = parseCurl('curl --url http://example.com/path');
+    expect(s.url).toBe('http://example.com/path');
+  });
+
+  it('handles -u user:pass for basic auth', () => {
+    const s = parseCurl('curl -u user:pass http://example.com');
+    expect(s.auth).toEqual({ type: 'basic', username: 'user', password: 'pass' });
+  });
+
+  it('handles -u username without colon', () => {
+    const s = parseCurl('curl -u admin http://example.com');
+    expect(s.auth).toEqual({ type: 'basic', username: 'admin', password: '' });
+  });
+
+  it('skips known flags like --compressed, -k, -s, -L', () => {
+    const s = parseCurl('curl --compressed -k -s -L http://example.com');
+    expect(s.url).toBe('http://example.com');
+  });
+
+  it('skips unknown flags with their argument', () => {
+    const s = parseCurl('curl --unknown-opt value http://example.com');
+    expect(s.url).toBe('http://example.com');
+  });
+
+  it('handles content-type xml', () => {
+    const s = parseCurl("curl -H 'Content-Type: application/xml' -d '<root/>' http://example.com");
+    expect(s.bodyType).toBe('xml');
+  });
+
+  it('handles content-type text/plain', () => {
+    const s = parseCurl("curl -H 'Content-Type: text/plain' -d 'hello' http://example.com");
+    expect(s.bodyType).toBe('text');
+  });
+
+  it('handles content-type multipart/form-data with body', () => {
+    const s = parseCurl("curl -H 'Content-Type: multipart/form-data' -d 'key=val' http://example.com");
+    expect(s.bodyType).toBe('form-data');
+  });
+
+  it('handles content-type application/x-www-form-urlencoded with body', () => {
+    const s = parseCurl("curl -H 'Content-Type: application/x-www-form-urlencoded' -d 'key=val' http://example.com");
+    expect(s.bodyType).toBe('form-urlencoded');
+  });
+
+  it('falls back to GET for unrecognized method', () => {
+    const s = parseCurl('curl -X CUSTOM http://example.com');
+    expect(s.method).toBe('GET');
+  });
+
+  it('handles non-bearer Authorization header', () => {
+    const s = parseCurl("curl -H 'Authorization: Token abc123' http://example.com");
+    expect(s.headers).toContainEqual({ key: 'Authorization', value: 'Token abc123' });
+  });
+
+  it('handles header with no colon (invalid header)', () => {
+    const s = parseCurl("curl -H 'InvalidHeader' http://example.com");
+    // Invalid headers without colon are skipped
+    expect(s.headers.find(h => h.key === 'InvalidHeader')).toBeUndefined();
+  });
+
+  it('handles --data-raw flag', () => {
+    const s = parseCurl("curl --data-raw '{\"a\":1}' http://example.com");
+    expect(s.body).toBe('{"a":1}');
+  });
+
+  it('handles --data-binary flag', () => {
+    const s = parseCurl("curl --data-binary 'binary-data' http://example.com");
+    expect(s.body).toBe('binary-data');
+  });
 });

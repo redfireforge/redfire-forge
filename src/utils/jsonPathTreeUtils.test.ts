@@ -218,4 +218,27 @@ describe('suggestedVariableNameFromJsonPath', () => {
   it('returns null for unusable last segment', () => {
     expect(suggestedVariableNameFromJsonPath('$.[0]')).toBe(null);
   });
+
+  it('returns null for bare $ path', () => {
+    expect(suggestedVariableNameFromJsonPath('$')).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(suggestedVariableNameFromJsonPath('')).toBeNull();
+  });
+});
+
+describe('nodeMatchesSearch — additional branches', () => {
+  it('matches node with undefined key by value', () => {
+    const node: JsonNode = { key: undefined as unknown as string, path: '', type: 'string', value: 'hello' };
+    expect(nodeMatchesSearch(node, 'hello')).toBe(true);
+  });
+
+  it('handles node with null value gracefully in search', () => {
+    const node: JsonNode = { key: 'k', path: '$.k', type: 'number', value: undefined };
+    // value is undefined, so (value ?? '') becomes '' — search by key instead
+    expect(nodeMatchesSearch(node, 'k')).toBe(true);
+    // The value path is entered (type !== 'object' && !== 'array') but '' won't match
+    expect(nodeMatchesSearch(node, 'something')).toBe(false);
+  });
 });

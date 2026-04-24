@@ -1,21 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import JsonPreview, { buildJTree, type JNode } from '../components/requests/JsonTreePreview';
+import type { ExecutionResult } from '../types/server-api';
+import { formatTimestamp, getErrorMessage } from '../utils/serverFormatters';
+import '../styles/execution-history.css';
 
-interface ExecutionResult {
-  id: string;
-  workflowId: string;
-  triggerId: string;
-  triggerType: 'webhook' | 'schedule';
-  status: 'success' | 'failed' | 'error';
-  duration: number;
-  results: Array<{
-    url: string;
-    statusCode: number;
-    responseTime: number;
-    body?: string;
-  }>;
-  variables: Record<string, unknown>;
-  timestamp: string;
-  error?: string;
+/* ---------- per-result JSON body with search + expand/collapse ---------- */
+function ExhResultBody({ body }: { body: string }) {
+  const [search, setSearch] = useState('');
+  const [matchIdx, setMatchIdx] = useState(0);
+  const [matchCount, setMatchCount] = useState(0);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+
+  const tree = useMemo(() => {
+    try { return buildJTree(JSON.parse(body), ''); } catch { return null; }
+  }, [body]);
+
+  const allPaths = useMemo(() => {
+    if (!tree) return new Set<string>();
+    const paths = new Set<string>();
+    (function walk(node: JNode, p: string) {
+      if (node.children?.length) { paths.add(p); node.children.forEach(c => walk(c, `${p}/${c.key}`)); }
+    })(tree, '');
+    return paths;
+  }, [tree]);
+
+  const handleToggle = useCallback((path: string) => {
+    setCollapsed(prev => { const next = new Set(prev); if (next.has(path)) next.delete(path); else next.add(path); return next; });
+  }, []);
+
+  if (!tree) return <pre className="exh-result-body">{body}</pre>;
+
+  return (
+    <div className="exh-result-body-rich">
+      <div className="req-resp-search">
+        <input
+          className="req-resp-search-input"
+          type="text"
+          placeholder="Search response..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setMatchIdx(0); }}
+        />
+        {search && (
+          <>
+            <span className="req-resp-search-count">
+              {matchCount > 0 ? `${matchIdx + 1}/${matchCount}` : 'No match'}
+            </span>
+            <button className="req-resp-search-nav" title="Previous" disabled={matchCount === 0}
+              onClick={() => setMatchIdx(prev => prev > 0 ? prev - 1 : matchCount - 1)}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
+            </button>
+            <button className="req-resp-search-nav" title="Next" disabled={matchCount === 0}
+              onClick={() => setMatchIdx(prev => prev < matchCount - 1 ? prev + 1 : 0)}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+            </button>
+            <button className="req-resp-search-clear" onClick={() => { setSearch(''); setMatchIdx(0); setMatchCount(0); }}>×</button>
+          </>
+        )}
+        <button className="jt-expand-collapse-btn" onClick={() => setCollapsed(new Set())}>Expand All</button>
+        <button className="jt-expand-collapse-btn" onClick={() => setCollapsed(new Set(allPaths))}>Collapse All</button>
+      </div>
+      <JsonPreview
+        body={body}
+        search={search}
+        currentMatchIdx={matchIdx}
+        onMatchCountChange={setMatchCount}
+        collapsedSet={collapsed}
+        onToggle={handleToggle}
+        prebuiltTree={tree}
+      />
+    </div>
+  );
 }
 
 export default function WorkflowExecutionHistory() {
@@ -24,6 +78,7 @@ export default function WorkflowExecutionHistory() {
   const [error, setError] = useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = useState<ExecutionResult | null>(null);
   const [filter, setFilter] = useState<'all' | 'webhook' | 'schedule'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     loadExecutions();
@@ -32,305 +87,195 @@ export default function WorkflowExecutionHistory() {
   const loadExecutions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/executions?limit=100');
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-
+      const response = await fetch('/api/executions?limit=100');
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
       const data = await response.json();
-      setExecutions(data.executions || []);
+      const list = data.executions || [];
+      setExecutions(list);
+      if (list.length > 0 && !selectedExecution) setSelectedExecution(list[0]);
       setError(null);
     } catch (err) {
       console.error('Failed to load executions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load executions');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredExecutions = executions.filter(exec => {
-    if (filter === 'all') return true;
-    return exec.triggerType === filter;
-  });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return '#4caf50';
-      case 'failed': return '#ff9800';
-      case 'error': return '#f44336';
-      default: return '#757575';
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
+  const filteredExecutions = executions
+    .filter(exec => filter === 'all' || exec.triggerType === filter)
+    .sort((a, b) => {
+      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return sortOrder === 'desc' ? diff : -diff;
+    });
 
   if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.2rem', color: '#666' }}>Loading executions...</div>
-      </div>
-    );
+    return <div className="exh-loading">Loading executions...</div>;
   }
 
   if (error) {
     return (
-      <div style={{ padding: '20px' }}>
-        <div style={{ backgroundColor: '#ffebee', padding: '16px', borderRadius: '8px', border: '1px solid #ef5350' }}>
-          <div style={{ fontWeight: 'bold', color: '#c62828', marginBottom: '8px' }}>
-            ❌ Error Loading Executions
-          </div>
-          <div style={{ color: '#d32f2f' }}>{error}</div>
-          <div style={{ marginTop: '12px', fontSize: '0.9rem', color: '#666' }}>
+      <div className="exh-error-wrap">
+        <div className="exh-error-card">
+          <div className="exh-error-title">Error Loading Executions</div>
+          <div className="exh-error-msg">{error}</div>
+          <div className="exh-error-hint">
             Make sure the webhook server is running: <code>npm run server</code>
           </div>
-          <button
-            onClick={loadExecutions}
-            style={{
-              marginTop: '12px',
-              padding: '8px 16px',
-              backgroundColor: '#2196f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Retry
-          </button>
+          <button className="exh-btn exh-btn-primary" onClick={loadExecutions}>Retry</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div className="exh-container">
+      {/* Header */}
+      <div className="exh-header">
         <div>
-          <h1 style={{ margin: '0 0 8px 0', fontSize: '1.8rem', color: '#333' }}>Workflow Execution History</h1>
-          <p style={{ margin: 0, color: '#666' }}>
+          <h1 className="exh-title">Workflow Execution History</h1>
+          <p className="exh-subtitle">
             {filteredExecutions.length} execution{filteredExecutions.length !== 1 ? 's' : ''}
             {executions.length > 0 && filter !== 'all' && ` (${executions.length} total)`}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="exh-controls">
           <select
+            className="exh-select"
             value={filter}
             onChange={(e) => setFilter(e.target.value as 'all' | 'webhook' | 'schedule')}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #ddd',
-              fontSize: '0.95rem',
-            }}
           >
             <option value="all">All Types</option>
-            <option value="webhook">🪝 Webhooks</option>
-            <option value="schedule">⏰ Schedules</option>
+            <option value="webhook">Webhooks</option>
+            <option value="schedule">Schedules</option>
           </select>
-          <button
-            onClick={loadExecutions}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#2196f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              fontWeight: '500',
-            }}
-          >
-            🔄 Refresh
-          </button>
+          <label className="exh-sort-label">
+            Sort:
+            <select
+              className="exh-select"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+          </label>
+          <button className="exh-btn exh-btn-primary" onClick={loadExecutions}>Refresh</button>
         </div>
       </div>
 
+      {/* Empty state */}
       {filteredExecutions.length === 0 ? (
-        <div style={{
-          padding: '60px 20px',
-          textAlign: 'center',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '12px',
-          border: '2px dashed #ddd',
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📊</div>
-          <div style={{ fontSize: '1.2rem', color: '#666', marginBottom: '8px' }}>No executions found</div>
-          <div style={{ fontSize: '0.95rem', color: '#999' }}>
-            Trigger a webhook or wait for a schedule to see executions here
-          </div>
+        <div className="exh-empty">
+          <div className="exh-empty-icon">📊</div>
+          <div className="exh-empty-title">No executions found</div>
+          <div className="exh-empty-hint">Trigger a webhook or wait for a schedule to see executions here</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedExecution ? '1fr 1fr' : '1fr', gap: '20px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className={`exh-content ${selectedExecution ? 'exh-content-split' : ''}`}>
+          {/* Execution list */}
+          <div className="exh-list">
             {filteredExecutions.map((exec) => (
-              <div
+              <button
                 key={exec.id}
+                type="button"
+                className={`exh-card ${selectedExecution?.id === exec.id ? 'exh-card-active' : ''}`}
                 onClick={() => setSelectedExecution(exec)}
-                style={{
-                  padding: '16px',
-                  backgroundColor: selectedExecution?.id === exec.id ? '#e3f2fd' : 'white',
-                  border: `2px solid ${selectedExecution?.id === exec.id ? '#2196f3' : '#e0e0e0'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>
-                      {exec.triggerType === 'webhook' ? '🪝' : '⏰'} {exec.workflowId}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                      {formatTimestamp(exec.timestamp)}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      padding: '4px 12px',
-                      backgroundColor: getStatusColor(exec.status),
-                      color: 'white',
-                      borderRadius: '12px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {exec.status}
-                  </div>
+                <div className="exh-card-header">
+                  <span className="exh-trigger-icon">{exec.triggerType === 'webhook' ? '🪝' : '⏰'}</span>
+                  <span className="exh-workflow-id">{exec.workflowId}</span>
+                  <span className={`exh-badge exh-badge-${exec.status}`}>
+                    {exec.status.toUpperCase()}
+                  </span>
                 </div>
-                <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: '#666' }}>
-                  <span>⏱️ {exec.duration}ms</span>
-                  <span>📊 {exec.results.length} step{exec.results.length !== 1 ? 's' : ''}</span>
-                  <span>🔑 {Object.keys(exec.variables).length} var{Object.keys(exec.variables).length !== 1 ? 's' : ''}</span>
+                <div className="exh-card-meta">
+                  <span className="exh-timestamp">{formatTimestamp(exec.timestamp)}</span>
                 </div>
-              </div>
+                <div className="exh-card-stats">
+                  <span className="exh-stat exh-duration">{exec.duration}ms</span>
+                  <span className="exh-stat">{exec.results.length} step{exec.results.length !== 1 ? 's' : ''}</span>
+                  <span className="exh-stat">{Object.keys(exec.variables).length} var{Object.keys(exec.variables).length !== 1 ? 's' : ''}</span>
+                </div>
+              </button>
             ))}
           </div>
 
+          {/* Detail panel */}
           {selectedExecution && (
-            <div style={{
-              padding: '20px',
-              backgroundColor: 'white',
-              border: '1px solid #e0e0e0',
-              borderRadius: '8px',
-              maxHeight: 'calc(100vh - 200px)',
-              overflowY: 'auto',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0, fontSize: '1.3rem', color: '#333' }}>Execution Details</h2>
-                <button
-                  onClick={() => setSelectedExecution(null)}
-                  style={{
-                    padding: '4px 12px',
-                    backgroundColor: '#f5f5f5',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  ✕
-                </button>
+            <div className="exh-detail">
+              <div className="exh-detail-header">
+                <h2 className="exh-detail-title">Execution Details</h2>
+                <button className="exh-btn exh-btn-ghost" onClick={() => setSelectedExecution(null)}>✕</button>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px', fontWeight: 'bold' }}>Info</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', fontSize: '0.9rem' }}>
-                  <div style={{ color: '#666' }}>ID:</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>{selectedExecution.id}</div>
-                  
-                  <div style={{ color: '#666' }}>Workflow:</div>
-                  <div>{selectedExecution.workflowId}</div>
-                  
-                  <div style={{ color: '#666' }}>Trigger:</div>
-                  <div>{selectedExecution.triggerType === 'webhook' ? '🪝 Webhook' : '⏰ Schedule'}</div>
-                  
-                  <div style={{ color: '#666' }}>Status:</div>
-                  <div style={{ color: getStatusColor(selectedExecution.status), fontWeight: 'bold' }}>
-                    {selectedExecution.status.toUpperCase()}
-                  </div>
-                  
-                  <div style={{ color: '#666' }}>Duration:</div>
-                  <div>{selectedExecution.duration}ms</div>
-                  
-                  <div style={{ color: '#666' }}>Time:</div>
-                  <div>{formatTimestamp(selectedExecution.timestamp)}</div>
+              <div className="exh-detail-section">
+                <h3 className="exh-section-title">Info</h3>
+                <div className="exh-info-grid">
+                  <span className="exh-info-label">ID</span>
+                  <span className="exh-info-value exh-mono">{selectedExecution.id}</span>
+
+                  <span className="exh-info-label">Workflow</span>
+                  <span className="exh-info-value exh-mono">{selectedExecution.workflowId}</span>
+
+                  <span className="exh-info-label">Trigger</span>
+                  <span className="exh-info-value">
+                    {selectedExecution.triggerType === 'webhook' ? '🪝 Webhook' : '⏰ Schedule'}
+                  </span>
+
+                  <span className="exh-info-label">Status</span>
+                  <span className="exh-info-value">
+                    <span className={`exh-badge exh-badge-${selectedExecution.status}`}>
+                      {selectedExecution.status.toUpperCase()}
+                    </span>
+                  </span>
+
+                  <span className="exh-info-label">Duration</span>
+                  <span className="exh-info-value exh-duration">{selectedExecution.duration}ms</span>
+
+                  <span className="exh-info-label">Time</span>
+                  <span className="exh-info-value">{formatTimestamp(selectedExecution.timestamp)}</span>
                 </div>
               </div>
 
               {Object.keys(selectedExecution.variables).length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px', fontWeight: 'bold' }}>Variables</div>
-                  <pre style={{
-                    backgroundColor: '#f5f5f5',
-                    padding: '12px',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    overflow: 'auto',
-                    margin: 0,
-                  }}>
+                <div className="exh-detail-section">
+                  <h3 className="exh-section-title">Variables</h3>
+                  <pre className="exh-code-block">
                     {JSON.stringify(selectedExecution.variables, null, 2)}
                   </pre>
                 </div>
               )}
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px', fontWeight: 'bold' }}>
-                  Results ({selectedExecution.results.length})
-                </div>
-                {selectedExecution.results.map((result, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      marginBottom: '12px',
-                      padding: '12px',
-                      backgroundColor: '#f9f9f9',
-                      borderRadius: '6px',
-                      borderLeft: `4px solid ${result.statusCode >= 200 && result.statusCode < 300 ? '#4caf50' : '#f44336'}`,
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#333' }}>{result.url}</div>
-                      <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
-                        <span style={{ color: result.statusCode >= 200 && result.statusCode < 300 ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>
-                          {result.statusCode}
-                        </span>
-                        <span style={{ color: '#666' }}>{result.responseTime.toFixed(2)}ms</span>
+              <div className="exh-detail-section">
+                <h3 className="exh-section-title">Results ({selectedExecution.results.length})</h3>
+                <div className="exh-results-list">
+                  {selectedExecution.results.map((result, idx) => {
+                    const isOk = result.statusCode >= 200 && result.statusCode < 300;
+                    return (
+                      <div key={idx} className={`exh-result-card ${isOk ? 'exh-result-ok' : 'exh-result-err'}`}>
+                        <div className="exh-result-header">
+                          <span className="exh-result-url">{result.url}</span>
+                          <span className={`exh-result-code ${isOk ? 'ok' : 'err'}`}>{result.statusCode}</span>
+                          <span className="exh-result-time">{result.responseTime.toFixed(2)}ms</span>
+                        </div>
+                        {result.body && (
+                          <details className="exh-result-body-toggle">
+                            <summary>Response Body</summary>
+                            <ExhResultBody body={result.body} />
+                          </details>
+                        )}
                       </div>
-                    </div>
-                    {result.body && (
-                      <details>
-                        <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#666' }}>Response Body</summary>
-                        <pre style={{
-                          marginTop: '8px',
-                          padding: '8px',
-                          backgroundColor: '#fff',
-                          borderRadius: '4px',
-                          fontSize: '0.8rem',
-                          overflow: 'auto',
-                          maxHeight: '200px',
-                        }}>
-                          {result.body}
-                        </pre>
-                      </details>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
 
               {selectedExecution.error && (
-                <div style={{
-                  padding: '12px',
-                  backgroundColor: '#ffebee',
-                  borderRadius: '6px',
-                  border: '1px solid #ef5350',
-                }}>
-                  <div style={{ fontWeight: 'bold', color: '#c62828', marginBottom: '4px' }}>Error</div>
-                  <div style={{ fontSize: '0.9rem', color: '#d32f2f', fontFamily: 'monospace' }}>
-                    {selectedExecution.error}
+                <div className="exh-detail-section">
+                  <h3 className="exh-section-title">Error</h3>
+                  <div className="exh-error-block">
+                    <code>{selectedExecution.error}</code>
                   </div>
                 </div>
               )}

@@ -52,12 +52,19 @@ function evaluateJsonPath(path: string, data: unknown): unknown {
   // Split path by dots and brackets
   const parts = cleanPath.split(/\.|\[|\]/).filter(Boolean);
   
+  // Prevent prototype pollution / internal property access
+  const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
   let current: any = data;
   
   for (const part of parts) {
     // Remove quotes from string keys
     const key = part.replace(/^['"]|['"]$/g, '');
     
+    if (BLOCKED_KEYS.has(key)) {
+      return undefined;
+    }
+
     if (current == null) {
       return undefined;
     }

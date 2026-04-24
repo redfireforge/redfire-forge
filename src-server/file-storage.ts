@@ -2,55 +2,14 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import os from 'os';
 import type { Workflow } from '../src/types/workflow.js';
+import type {
+  ExecutionResult,
+  WebhookDelivery,
+  ScheduleTrigger,
+  WebhookTrigger,
+} from '../src/types/server-api.js';
 
-// ── Type Definitions ──────────────────────────────────────────────────
-
-export interface ExecutionResult {
-  id: string;
-  workflowId: string;
-  triggerId: string;
-  triggerType: 'webhook' | 'schedule';
-  status: 'success' | 'failed' | 'error';
-  duration: number;
-  results: Array<{
-    url: string;
-    statusCode: number;
-    responseTime: number;
-    body?: string;
-  }>;
-  variables: Record<string, unknown>;
-  timestamp: string;
-  error?: string;
-}
-
-export interface WebhookDelivery {
-  triggerId: string;
-  method: string;
-  payload: unknown;
-  status: 'success' | 'failed' | 'error';
-  duration?: number;
-  timestamp: string;
-  error?: string;
-}
-
-export interface ScheduleTrigger {
-  id: string;
-  workflowId: string;
-  nodeId: string;
-  enabled: boolean;
-  cronExpression: string;
-  timezone: string;
-  inputVariables?: Record<string, string>;
-}
-
-export interface WebhookTrigger {
-  id: string;
-  workflowId: string;
-  nodeId: string;
-  enabled: boolean;
-  method: string;
-  path: string;
-}
+export type { ExecutionResult, WebhookDelivery, ScheduleTrigger, WebhookTrigger };
 
 // ── AppData Path Resolution ───────────────────────────────────────────
 
@@ -73,32 +32,47 @@ export function getAppDataPath(): string {
   }
 }
 
+// ── Generic file helpers ──────────────────────────────────────────────
+
+/**
+ * Read a JSON file and return parsed content, or return `defaultVal` if the file doesn't exist.
+ * Re-throws any error other than ENOENT.
+ */
+export async function readJsonFileOrDefault<T>(filePath: string, defaultVal: T): Promise<T> {
+  try {
+    const data = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(data) as T;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return defaultVal;
+    throw error;
+  }
+}
+
+/**
+ * Write JSON data to a file, creating parent directories if needed.
+ */
+export async function writeJsonFile<T>(filePath: string, data: T): Promise<void> {
+  const dir = join(filePath, '..');
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
 // ── Workflow Storage ──────────────────────────────────────────────────
 
 /**
  * Load a workflow from JSON file.
  */
 export async function getWorkflow(id: string): Promise<Workflow | null> {
-  try {
-    const path = join(getAppDataPath(), 'workflows', `${id}.json`);
-    const data = await fs.readFile(path, 'utf-8');
-    return JSON.parse(data) as Workflow;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
+  const path = join(getAppDataPath(), 'workflows', `${id}.json`);
+  return readJsonFileOrDefault<Workflow | null>(path, null);
 }
 
 /**
  * Save a workflow to JSON file so the webhook server can execute it.
  */
 export async function saveWorkflow(workflow: Workflow): Promise<void> {
-  const dir = join(getAppDataPath(), 'workflows');
-  await fs.mkdir(dir, { recursive: true });
-  const path = join(dir, `${workflow.id}.json`);
-  await fs.writeFile(path, JSON.stringify(workflow, null, 2));
+  const path = join(getAppDataPath(), 'workflows', `${workflow.id}.json`);
+  await writeJsonFile(path, workflow);
 }
 
 /**
@@ -112,9 +86,7 @@ export async function listWorkflows(): Promise<string[]> {
       .filter((f) => f.endsWith('.json'))
       .map((f) => f.replace('.json', ''));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
   }
 }
@@ -126,13 +98,9 @@ export async function listWorkflows(): Promise<string[]> {
  * Results are organized by date: executions/2026-04-23/exec-001.json
  */
 export async function saveExecutionResult(result: ExecutionResult): Promise<void> {
-  const date = new Date().toISOString().split('T')[0]; // "2026-04-23"
-  const dir = join(getAppDataPath(), 'executions', date);
-
-  await fs.mkdir(dir, { recursive: true });
-
-  const filePath = join(dir, `${result.id}.json`);
-  await fs.writeFile(filePath, JSON.stringify(result, null, 2));
+  const date = new Date().toISOString().split('T')[0];
+  const filePath = join(getAppDataPath(), 'executions', date, `${result.id}.json`);
+  await writeJsonFile(filePath, result);
 }
 
 /**
@@ -207,15 +175,12 @@ export async function getWebhookDeliveries(date: string): Promise<WebhookDeliver
   try {
     const file = join(getAppDataPath(), 'webhook-deliveries', `${date}.jsonl`);
     const content = await fs.readFile(file, 'utf-8');
-
     return content
       .split('\n')
       .filter((line) => line.trim())
       .map((line) => JSON.parse(line) as WebhookDelivery);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
   }
 }
@@ -226,27 +191,16 @@ export async function getWebhookDeliveries(date: string): Promise<WebhookDeliver
  * Load all schedule triggers from JSON file.
  */
 export async function loadScheduleTriggers(): Promise<ScheduleTrigger[]> {
-  try {
-    const triggersPath = join(getAppDataPath(), 'triggers', 'schedule-triggers.json');
-    const data = await fs.readFile(triggersPath, 'utf-8');
-    return JSON.parse(data) as ScheduleTrigger[];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
+  const path = join(getAppDataPath(), 'triggers', 'schedule-triggers.json');
+  return readJsonFileOrDefault<ScheduleTrigger[]>(path, []);
 }
 
 /**
  * Save schedule triggers to JSON file.
  */
 export async function saveScheduleTriggers(triggers: ScheduleTrigger[]): Promise<void> {
-  const triggersDir = join(getAppDataPath(), 'triggers');
-  await fs.mkdir(triggersDir, { recursive: true });
-
-  const triggersPath = join(triggersDir, 'schedule-triggers.json');
-  await fs.writeFile(triggersPath, JSON.stringify(triggers, null, 2));
+  const path = join(getAppDataPath(), 'triggers', 'schedule-triggers.json');
+  await writeJsonFile(path, triggers);
 }
 
 // ── Webhook Triggers Storage ──────────────────────────────────────────
@@ -255,25 +209,14 @@ export async function saveScheduleTriggers(triggers: ScheduleTrigger[]): Promise
  * Load all webhook triggers from JSON file.
  */
 export async function loadWebhookTriggers(): Promise<WebhookTrigger[]> {
-  try {
-    const triggersPath = join(getAppDataPath(), 'triggers', 'webhook-triggers.json');
-    const data = await fs.readFile(triggersPath, 'utf-8');
-    return JSON.parse(data) as WebhookTrigger[];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
+  const path = join(getAppDataPath(), 'triggers', 'webhook-triggers.json');
+  return readJsonFileOrDefault<WebhookTrigger[]>(path, []);
 }
 
 /**
  * Save webhook triggers to JSON file.
  */
 export async function saveWebhookTriggers(triggers: WebhookTrigger[]): Promise<void> {
-  const triggersDir = join(getAppDataPath(), 'triggers');
-  await fs.mkdir(triggersDir, { recursive: true });
-
-  const triggersPath = join(triggersDir, 'webhook-triggers.json');
-  await fs.writeFile(triggersPath, JSON.stringify(triggers, null, 2));
+  const path = join(getAppDataPath(), 'triggers', 'webhook-triggers.json');
+  await writeJsonFile(path, triggers);
 }

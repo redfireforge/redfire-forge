@@ -1,20 +1,28 @@
 import express, { type Request, type Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import {
   getWorkflow,
   saveWorkflow,
-  saveExecutionResult,
-  logWebhookDelivery,
   getExecutionHistory,
   getWebhookDeliveries,
-  type ExecutionResult,
+  logWebhookDelivery,
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
-import { runGraph } from '../src/engine/workflow/graphRunner.js';
-import type { WebhookTriggerNodeData, NodeRunStatus } from '../src/types/workflow.js';
-import type { RequestResult } from '../src/types/index.js';
+import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
+import type { WebhookTriggerNodeData } from '../src/types/workflow.js';
+import type { LogLine } from '../src/types/server-api.js';
+import { generateExecutionId, getErrorMessage } from '../src/utils/serverFormatters.js';
 
 const app = express();
+
+// ── SSE log broadcast ────────────────────────────────
+const sseClients = new Set<Response>();
+
+function broadcastLog(line: LogLine) {
+  const data = JSON.stringify(line);
+  for (const client of sseClients) {
+    client.write(`data: ${data}\n\n`);
+  }
+}
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -113,7 +121,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
   const { workflowId, triggerId } = req.params;
   const { method, headers, query, body } = req;
   const startTime = Date.now();
-  const executionId = `${workflowId}-${triggerId}-${Date.now()}`;
+  const executionId = generateExecutionId(workflowId, triggerId);
 
   console.log(`[Webhook] Received ${method} /webhooks/${workflowId}/${triggerId}`);
 
@@ -153,82 +161,48 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
 
     console.log(`[Webhook] Extracted variables:`, extractedVars);
 
-    // 5. Execute workflow synchronously using graph runner
-    const executionResults: RequestResult[] = [];
-    let executionPassed = true;
-    let executionDuration = 0;
-
-    await runGraph(
-      workflow.nodes,
-      workflow.edges,
-      {
-        ...workflow.variables,
-        ...Object.fromEntries(
-          Object.entries(extractedVars).map(([k, v]) => [k, String(v)])
-        ),
-      },
-      {
-        onNodeStateChange: (nodeId: string, status: NodeRunStatus) => {
-          // Could log state changes or send to UI via websocket
-          console.log(`[Workflow] Node ${nodeId} → ${status.state}`);
-        },
-        onVariablesChange: (variables: Record<string, string>) => {
-          // Variables updated during execution
-          console.log(`[Workflow] Variables updated:`, Object.keys(variables).length);
-        },
-        onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
-          executionResults.push(...results);
-          executionPassed = passed;
-          executionDuration = durationMs;
-          console.log(`[Workflow] Execution complete: passed=${passed}, duration=${durationMs}ms`);
-        },
-      }
-    );
-
-    const totalDuration = Date.now() - startTime;
-    const status: ExecutionResult['status'] = executionPassed ? 'success' : 'failed';
-
-    // 6. Save execution result
-    const executionResult: ExecutionResult = {
-      id: executionId,
-      workflowId,
-      triggerId,
-      triggerType: 'webhook',
-      status,
-      duration: totalDuration,
-      results: executionResults.map((r) => ({
-        url: r.url,
-        statusCode: r.httpStatus,
-        responseTime: r.responseTimeMs,
-        body: r.responseBody,
-      })),
-      variables: extractedVars,
-      timestamp: new Date(startTime).toISOString(),
+    // 5. Execute workflow using shared execution logic
+    const initialVariables = {
+      ...workflow.variables,
+      ...Object.fromEntries(
+        Object.entries(extractedVars).map(([k, v]) => [k, String(v)])
+      ),
     };
 
-    await saveExecutionResult(executionResult);
+    broadcastLog({ prefix: '*', text: `[Webhook] ${method} /webhooks/${workflowId}/${triggerId}`, ts: Date.now() });
+    broadcastLog({ prefix: '*', text: `[Webhook] Extracted ${Object.keys(extractedVars).length} variable(s)`, ts: Date.now() });
 
-    // 7. Log webhook delivery
+    const result = await executeWorkflow({
+      executionId,
+      workflow,
+      initialVariables,
+      triggerType: 'webhook',
+      triggerId,
+      startTime,
+      onLog: broadcastLog,
+    });
+
+    // 6. Log webhook delivery
     await logWebhookDelivery({
       triggerId,
       method,
       payload: body,
-      status: status === 'success' ? 'success' : 'failed',
-      duration: totalDuration,
+      status: result.status === 'success' ? 'success' : 'failed',
+      duration: result.duration,
       timestamp: new Date(startTime).toISOString(),
     });
 
-    // 8. Return results
+    // 7. Return results
     console.log(`[Webhook] Execution successful: ${executionId}`);
     res.status(200).json({
       message: 'Workflow executed successfully',
       executionId,
       workflowId,
-      duration: totalDuration,
-      status,
-      passed: executionPassed,
-      stepsExecuted: executionResults.length,
-      results: executionResults.map((r) => ({
+      duration: result.duration,
+      status: result.status,
+      passed: result.passed,
+      stepsExecuted: result.results.length,
+      results: result.results.map((r) => ({
         url: r.url,
         method: r.method,
         statusCode: r.httpStatus,
@@ -238,38 +212,34 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
     });
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = getErrorMessage(error);
 
     console.error(`[Webhook] Execution error:`, error);
 
-    // Log failure
-    await logWebhookDelivery({
-      triggerId,
-      method,
-      payload: body,
-      status: 'error',
-      duration: totalDuration,
-      error: errorMessage,
-      timestamp: new Date(startTime).toISOString(),
-    });
-
-    // Save error result
+    // Log failure (best-effort)
     try {
-      await saveExecutionResult({
-        id: executionId,
-        workflowId,
+      await logWebhookDelivery({
         triggerId,
-        triggerType: 'webhook',
+        method,
+        payload: body,
         status: 'error',
         duration: totalDuration,
-        results: [],
-        variables: {},
-        timestamp: new Date(startTime).toISOString(),
         error: errorMessage,
+        timestamp: new Date(startTime).toISOString(),
       });
-    } catch (saveError) {
-      console.error('[Webhook] Failed to save error result:', saveError);
+    } catch (logError) {
+      console.error('[Webhook] Failed to log delivery:', logError);
     }
+
+    // Save error result
+    await saveErrorResult({
+      executionId,
+      workflowId,
+      triggerId,
+      triggerType: 'webhook',
+      startTime,
+      error: errorMessage,
+    });
 
     res.status(500).json({
       error: 'Workflow execution failed',
@@ -277,6 +247,23 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
       executionId,
     });
   }
+});
+
+// SSE endpoint for live log streaming to the UI Console
+app.get('/api/logs/stream', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  sseClients.add(res);
+  console.log(`[SSE] Client connected (${sseClients.size} total)`);
+
+  req.on('close', () => {
+    sseClients.delete(res);
+    console.log(`[SSE] Client disconnected (${sseClients.size} total)`);
+  });
 });
 
 // 404 handler
