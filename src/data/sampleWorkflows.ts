@@ -395,7 +395,7 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-webhook',
         type: 'webhook',
-        position: { x: 205, y: 20 },
+        position: { x: 240, y: 50 },
         data: {
           label: 'Order Webhook',
           method: 'POST',
@@ -420,7 +420,7 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-check-inventory',
         type: 'http',
-        position: { x: 175, y: 120 },
+        position: { x: 200, y: 180 },
         data: {
           label: '1. Check Inventory',
           scenario: {
@@ -442,7 +442,7 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-condition',
         type: 'condition',
-        position: { x: 205, y: 260 },
+        position: { x: 240, y: 320 },
         data: {
           label: '2. In Stock?',
           left: '{{stockLevel}}',
@@ -453,7 +453,7 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-process',
         type: 'http',
-        position: { x: 50, y: 360 },
+        position: { x: 100, y: 460 },
         data: {
           label: '3a. Process Order',
           scenario: {
@@ -476,7 +476,7 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-alert',
         type: 'http',
-        position: { x: 330, y: 360 },
+        position: { x: 380, y: 460 },
         data: {
           label: '3b. Out of Stock Alert',
           scenario: {
@@ -499,13 +499,13 @@ function createWebhookTriggerWorkflow(): Workflow {
       {
         id: 'wh-end-success',
         type: 'end',
-        position: { x: 20, y: 500 },
+        position: { x: 100, y: 600 },
         data: { label: 'Order Processed', isSuccess: true },
       },
       {
         id: 'wh-end-failure',
         type: 'end',
-        position: { x: 300, y: 500 },
+        position: { x: 380, y: 600 },
         data: { label: 'Out of Stock', isSuccess: false },
       },
     ],
