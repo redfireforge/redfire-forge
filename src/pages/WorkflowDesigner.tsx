@@ -218,8 +218,16 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
       </ControlButton>
       <ControlButton
         onClick={() => {
+          console.log('=== AUTO-LAYOUT CLICKED ===');
+          console.log('Before:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+          
           const laid = getAutoLayoutNodes(nodes, edges);
+          
+          console.log('After:', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+          console.log('Setting nodes...');
+          
           setNodes(laid);
+          
           // For previews, only update visual layout (don't save)
           // User must click "Use as Template" to save
           if (!previewWorkflow) {
