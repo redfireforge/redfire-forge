@@ -29,8 +29,8 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
   return (
     <>
       {webhookUrl && (
-        <div className="wf-config-section" style={{ backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '6px', border: '1px solid #e0e0e0' }}>
-          <div className="wf-config-label" style={{ marginBottom: '8px', fontWeight: '600', color: '#333' }}>
+        <div className="wf-config-section" style={{ padding: '12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+          <div className="wf-config-label" style={{ marginBottom: '8px', fontWeight: '600' }}>
             🔗 Webhook URL
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -39,7 +39,7 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
               className="wf-config-input"
               value={webhookUrl}
               readOnly
-              style={{ fontFamily: 'monospace', fontSize: '0.85rem', flex: 1, backgroundColor: '#fff' }}
+              style={{ fontFamily: 'monospace', fontSize: '0.85rem', flex: 1 }}
               onFocus={(e) => e.target.select()}
             />
             <button
