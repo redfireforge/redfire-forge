@@ -242,3 +242,48 @@ describe('nodeMatchesSearch — additional branches', () => {
     expect(nodeMatchesSearch(node, 'something')).toBe(false);
   });
 });
+
+describe('buildTree — maxDepth', () => {
+  it('truncates arrays at maxDepth', () => {
+    const data = [[1, 2], [3, 4]];
+    const tree = buildTree(data, '$', 'root', { maxDepth: 1 });
+    // At depth 1, children are arrays but should be truncated
+    expect(tree.children).toBeDefined();
+    const child = tree.children![0];
+    expect(child.truncated).toBe(true);
+    expect(child.totalCount).toBe(2);
+    expect(child.type).toBe('array');
+  });
+
+  it('truncates objects at maxDepth', () => {
+    const data = { a: { x: 1, y: 2 } };
+    const tree = buildTree(data, '$', 'root', { maxDepth: 1 });
+    const child = tree.children![0];
+    expect(child.truncated).toBe(true);
+    expect(child.totalCount).toBe(2);
+    expect(child.type).toBe('object');
+  });
+
+  it('does not truncate primitives at maxDepth', () => {
+    const data = { a: 'hello' };
+    const tree = buildTree(data, '$', 'root', { maxDepth: 1 });
+    const child = tree.children![0];
+    expect(child.type).toBe('string');
+    expect(child.truncated).toBeUndefined();
+  });
+
+  it('handles null at any depth', () => {
+    const data = { a: null };
+    const tree = buildTree(data, '$', 'root', { maxDepth: 0 });
+    // At depth 0, the object itself is truncated
+    expect(tree.truncated).toBe(true);
+  });
+
+  it('builds tree with maxArrayItems', () => {
+    const data = [1, 2, 3, 4, 5];
+    const tree = buildTree(data, '$', 'root', { maxArrayItems: 2 });
+    expect(tree.children).toHaveLength(2);
+    expect(tree.truncated).toBe(true);
+    expect(tree.totalCount).toBe(5);
+  });
+});

@@ -5,12 +5,79 @@ const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 
 /** Compact node types get smaller layout dimensions. */
-const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule']);
+const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule', 'switch', 'loop', 'setVariable', 'aggregate']);
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
 /** Minimum gap between nodes on the same rank after overlap resolution. */
 const MIN_GAP = 30;
+
+/** Build adjacency maps from edges. Reused by multiple post-processing steps. */
+function buildGraphAdjacency(edges: Edge[]) {
+  const bySource = new Map<string, Edge[]>();
+  const childrenOf = new Map<string, string[]>();
+  const outgoing = new Map<string, string[]>();
+  const incoming = new Map<string, string[]>();
+  for (const e of edges) {
+    const src = bySource.get(e.source) ?? [];
+    src.push(e);
+    bySource.set(e.source, src);
+
+    const ch = childrenOf.get(e.source) ?? [];
+    ch.push(e.target);
+    childrenOf.set(e.source, ch);
+
+    const out = outgoing.get(e.source) ?? [];
+    out.push(e.target);
+    outgoing.set(e.source, out);
+
+    const inc = incoming.get(e.target) ?? [];
+    inc.push(e.source);
+    incoming.set(e.target, inc);
+  }
+  return { bySource, childrenOf, outgoing, incoming };
+}
+
+/**
+ * Collect subtree nodes via BFS, optionally stopping at (not including) any node in the stopSet.
+ */
+function collectSubtree(
+  root: string,
+  childrenOf: Map<string, string[]>,
+  stopSet?: Set<string>,
+): Set<string> {
+  const visited = new Set<string>();
+  const queue = [root];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    if (stopSet?.has(id)) continue;
+    visited.add(id);
+    for (const child of childrenOf.get(id) ?? []) {
+      queue.push(child);
+    }
+  }
+  return visited;
+}
+
+/** Compute bounding box of a set of nodes on a given axis. */
+function getSubtreeBounds(
+  nodeIds: Set<string>,
+  positions: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, number>,
+  axis: 'x' | 'y',
+) {
+  let min = Infinity, max = -Infinity;
+  for (const id of nodeIds) {
+    const p = positions.get(id);
+    const w = sizeMap.get(id) ?? 0;
+    if (p) {
+      min = Math.min(min, p[axis]);
+      max = Math.max(max, p[axis] + w);
+    }
+  }
+  return { min, max, width: max - min };
+}
 
 /**
  * Compute auto-layout positions for a directed graph using dagre.
@@ -146,17 +213,7 @@ function alignForkChildren<N extends Node>(
 ): void {
   const rankAxis = direction === 'TB' ? 'y' : 'x';
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-  const outgoing = new Map<string, string[]>();
-  const childrenOf = new Map<string, string[]>();
-  for (const e of edges) {
-    const out = outgoing.get(e.source) ?? [];
-    out.push(e.target);
-    outgoing.set(e.source, out);
-    const arr = childrenOf.get(e.source) ?? [];
-    arr.push(e.target);
-    childrenOf.set(e.source, arr);
-  }
+  const { outgoing, childrenOf } = buildGraphAdjacency(edges);
 
   // For each join, find which nodes feed into it — these subtrees should NOT
   // be shifted past the join.
@@ -182,36 +239,13 @@ function alignForkChildren<N extends Node>(
       if (Math.abs(delta) < 1) continue; // already aligned
 
       // Collect subtree from this child down to (but not including) join nodes
-      const subtree = collectSubtreeUntil(cp.id, childrenOf, joinNodes);
+      const subtree = collectSubtree(cp.id, childrenOf, joinNodes);
       for (const id of subtree) {
         const p = positions.get(id);
         if (p) p[rankAxis] -= delta;
       }
     }
   }
-}
-
-/**
- * Collect subtree nodes via BFS, stopping at (not including) any node in the stopSet.
- */
-function collectSubtreeUntil(
-  root: string,
-  childrenOf: Map<string, string[]>,
-  stopSet: Set<string>,
-): Set<string> {
-  const visited = new Set<string>();
-  const queue = [root];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (visited.has(id)) continue;
-    if (stopSet.has(id)) continue; // don't include or traverse past stop nodes
-    visited.add(id);
-    if (stopSet.has(id)) continue; // don't traverse past stop nodes, but include them
-    for (const child of childrenOf.get(id) ?? []) {
-      queue.push(child);
-    }
-  }
-  return visited;
 }
 
 /**
@@ -286,61 +320,48 @@ function fixBranchOrdering(
   positions: Map<string, { x: number; y: number }>,
   direction: 'TB' | 'LR',
 ): void {
-  // Group edges by source
-  const bySource = new Map<string, Edge[]>();
-  for (const e of edges) {
-    const arr = bySource.get(e.source) ?? [];
-    arr.push(e);
-    bySource.set(e.source, arr);
-  }
-
-  // Build child→descendants map for subtree swapping
-  const childrenOf = new Map<string, string[]>();
-  for (const e of edges) {
-    const arr = childrenOf.get(e.source) ?? [];
-    arr.push(e.target);
-    childrenOf.set(e.source, arr);
-  }
+  const { bySource, childrenOf } = buildGraphAdjacency(edges);
 
   for (const [, outEdges] of bySource) {
+    // Condition nodes: true (Yes) on left, false (No) on right
     const trueEdge = outEdges.find(e => e.sourceHandle === 'true' || (e.label === 'Yes' && !e.sourceHandle));
     const falseEdge = outEdges.find(e => e.sourceHandle === 'false' || (e.label === 'No' && !e.sourceHandle));
-    if (!trueEdge || !falseEdge) continue;
 
-    const truePos = positions.get(trueEdge.target);
-    const falsePos = positions.get(falseEdge.target);
-    if (!truePos || !falsePos) continue;
+    // Loop nodes: body on left, done on right
+    const bodyEdge = outEdges.find(e => e.sourceHandle === 'body');
+    const doneEdge = outEdges.find(e => e.sourceHandle === 'done');
 
-    // In TB direction, true-branch should be left (smaller x); in LR, top (smaller y)
+    // Determine the left-side and right-side edges
+    let leftEdge: Edge | undefined;
+    let rightEdge: Edge | undefined;
+    if (trueEdge && falseEdge) {
+      leftEdge = trueEdge;
+      rightEdge = falseEdge;
+    } else if (bodyEdge && doneEdge) {
+      leftEdge = bodyEdge;
+      rightEdge = doneEdge;
+    }
+    if (!leftEdge || !rightEdge) continue;
+
+    const leftPos = positions.get(leftEdge.target);
+    const rightPos = positions.get(rightEdge.target);
+    if (!leftPos || !rightPos) continue;
+
+    // In TB direction, left-branch should have smaller x; in LR, smaller y
     const needsSwap = direction === 'TB'
-      ? truePos.x > falsePos.x
-      : truePos.y > falsePos.y;
+      ? leftPos.x > rightPos.x
+      : leftPos.y > rightPos.y;
 
     if (needsSwap) {
       // Collect all nodes in each subtree
-      const trueSubtree = collectSubtree(trueEdge.target, childrenOf);
-      const falseSubtree = collectSubtree(falseEdge.target, childrenOf);
+      const leftSubtree = collectSubtree(leftEdge.target, childrenOf);
+      const rightSubtree = collectSubtree(rightEdge.target, childrenOf);
 
       // Mirror the two subtrees around their combined center
       const axis = direction === 'TB' ? 'x' : 'y';
-      swapSubtrees(trueSubtree, falseSubtree, positions, axis);
+      swapSubtrees(leftSubtree, rightSubtree, positions, axis);
     }
   }
-}
-
-/** Collect all descendant node IDs (BFS) including the root. */
-function collectSubtree(root: string, childrenOf: Map<string, string[]>): Set<string> {
-  const visited = new Set<string>();
-  const queue = [root];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    for (const child of childrenOf.get(id) ?? []) {
-      queue.push(child);
-    }
-  }
-  return visited;
 }
 
 /** Swap positions of two subtrees by mirroring them around their combined center on the given axis. */
@@ -387,17 +408,7 @@ function alignLinearChains<N extends Node>(
 ): void {
   const axis = direction === 'TB' ? 'x' : 'y';
 
-  // Build incoming/outgoing counts and maps
-  const incomingEdges = new Map<string, string[]>();
-  const outgoingEdges = new Map<string, string[]>();
-  for (const e of edges) {
-    const inc = incomingEdges.get(e.target) ?? [];
-    inc.push(e.source);
-    incomingEdges.set(e.target, inc);
-    const out = outgoingEdges.get(e.source) ?? [];
-    out.push(e.target);
-    outgoingEdges.set(e.source, out);
-  }
+  const { outgoing: outgoingEdges, incoming: incomingEdges } = buildGraphAdjacency(edges);
 
   // Walk each chain: start from nodes that are NOT single-in/single-out
   // (anchors like start, trigger, fork, join, condition with branches) and propagate
@@ -458,27 +469,26 @@ function centerConditionBranches<N extends Node>(
 ): void {
   const axis = direction === 'TB' ? 'x' : 'y';
 
-  // Build edge lookup by source
-  const bySource = new Map<string, Edge[]>();
-  const childrenOf = new Map<string, string[]>();
-  for (const e of edges) {
-    const arr = bySource.get(e.source) ?? [];
-    arr.push(e);
-    bySource.set(e.source, arr);
-    const ch = childrenOf.get(e.source) ?? [];
-    ch.push(e.target);
-    childrenOf.set(e.source, ch);
-  }
+  const { bySource, childrenOf } = buildGraphAdjacency(edges);
 
   // Stop subtree collection at join nodes
   const joinIds = new Set(nodes.filter(n => n.type === 'join').map(n => n.id));
 
   for (const node of nodes) {
-    if (node.type !== 'condition') continue;
+    // Handle condition nodes (true/false) and loop nodes (body/done)
+    if (node.type !== 'condition' && node.type !== 'loop') continue;
     const outEdges = bySource.get(node.id) ?? [];
-    const trueEdge = outEdges.find(e => e.sourceHandle === 'true' || e.label === 'Yes');
-    const falseEdge = outEdges.find(e => e.sourceHandle === 'false' || e.label === 'No');
-    if (!trueEdge || !falseEdge) continue;
+
+    let leftEdge: Edge | undefined;
+    let rightEdge: Edge | undefined;
+    if (node.type === 'condition') {
+      leftEdge = outEdges.find(e => e.sourceHandle === 'true' || e.label === 'Yes');
+      rightEdge = outEdges.find(e => e.sourceHandle === 'false' || e.label === 'No');
+    } else {
+      leftEdge = outEdges.find(e => e.sourceHandle === 'body');
+      rightEdge = outEdges.find(e => e.sourceHandle === 'done');
+    }
+    if (!leftEdge || !rightEdge) continue;
 
     const condPos = positions.get(node.id);
     const condW = nodeWidths.get(node.id) ?? 0;
@@ -486,65 +496,52 @@ function centerConditionBranches<N extends Node>(
     const condCenter = condPos[axis] + condW / 2;
 
     // Collect each branch's subtree (stop at join)
-    const trueSubtree = collectSubtreeUntil(trueEdge.target, childrenOf, joinIds);
-    const falseSubtree = collectSubtreeUntil(falseEdge.target, childrenOf, joinIds);
+    const leftSubtree = collectSubtree(leftEdge.target, childrenOf, joinIds);
+    const rightSubtree = collectSubtree(rightEdge.target, childrenOf, joinIds);
 
     // Find nodes shared by both subtrees (convergence points like a single end node).
     // Remove them from both subtrees so they aren't shifted twice; we'll center them after.
     const shared = new Set<string>();
-    for (const id of trueSubtree) {
-      if (falseSubtree.has(id)) shared.add(id);
+    for (const id of leftSubtree) {
+      if (rightSubtree.has(id)) shared.add(id);
     }
     for (const id of shared) {
-      trueSubtree.delete(id);
-      falseSubtree.delete(id);
+      leftSubtree.delete(id);
+      rightSubtree.delete(id);
     }
 
     // Compute bounding box of each subtree on the axis
-    const getBounds = (subtree: Set<string>) => {
-      let min = Infinity, max = -Infinity;
-      for (const id of subtree) {
-        const p = positions.get(id);
-        const w = nodeWidths.get(id) ?? 0;
-        if (p) {
-          min = Math.min(min, p[axis]);
-          max = Math.max(max, p[axis] + w);
-        }
-      }
-      return { min, max, width: max - min };
-    };
+    const leftBounds = getSubtreeBounds(leftSubtree, positions, nodeWidths, axis);
+    const rightBounds = getSubtreeBounds(rightSubtree, positions, nodeWidths, axis);
+    if (!isFinite(leftBounds.min) || !isFinite(rightBounds.min)) continue;
 
-    const trueBounds = getBounds(trueSubtree);
-    const falseBounds = getBounds(falseSubtree);
-    if (!isFinite(trueBounds.min) || !isFinite(falseBounds.min)) continue;
-
-    // Desired layout: [trueSubtree] GAP [falseSubtree], centered on condCenter
+    // Desired layout: [leftSubtree] GAP [rightSubtree], centered on condCenter
     const GAP = MIN_GAP;
-    const totalWidth = trueBounds.width + GAP + falseBounds.width;
-    const desiredTrueLeft = condCenter - totalWidth / 2;
-    const desiredFalseLeft = desiredTrueLeft + trueBounds.width + GAP;
+    const totalWidth = leftBounds.width + GAP + rightBounds.width;
+    const desiredLeftPos = condCenter - totalWidth / 2;
+    const desiredRightPos = desiredLeftPos + leftBounds.width + GAP;
 
-    // Shift true subtree
-    const trueDelta = desiredTrueLeft - trueBounds.min;
-    for (const id of trueSubtree) {
+    // Shift left subtree
+    const leftDelta = desiredLeftPos - leftBounds.min;
+    for (const id of leftSubtree) {
       const p = positions.get(id);
-      if (p) p[axis] += trueDelta;
+      if (p) p[axis] += leftDelta;
     }
 
-    // Shift false subtree
-    const falseDelta = desiredFalseLeft - falseBounds.min;
-    for (const id of falseSubtree) {
+    // Shift right subtree
+    const rightDelta = desiredRightPos - rightBounds.min;
+    for (const id of rightSubtree) {
       const p = positions.get(id);
-      if (p) p[axis] += falseDelta;
+      if (p) p[axis] += rightDelta;
     }
 
     // Center shared convergence nodes (e.g. single end node fed by both branches)
-    // between the shifted true and false subtrees
+    // between the shifted left and right subtrees
     if (shared.size > 0) {
       // Recompute bounds after shifting
-      const shiftedTrueBounds = getBounds(trueSubtree);
-      const shiftedFalseBounds = getBounds(falseSubtree);
-      const branchesCenter = (shiftedTrueBounds.min + shiftedFalseBounds.max) / 2;
+      const shiftedLeftBounds = getSubtreeBounds(leftSubtree, positions, nodeWidths, axis);
+      const shiftedRightBounds = getSubtreeBounds(rightSubtree, positions, nodeWidths, axis);
+      const branchesCenter = (shiftedLeftBounds.min + shiftedRightBounds.max) / 2;
       for (const id of shared) {
         const p = positions.get(id);
         const w = nodeWidths.get(id) ?? 0;
@@ -575,28 +572,9 @@ function centerForkJoinNodes<N extends Node>(
   const rankAxis = direction === 'TB' ? 'y' : 'x';
   const rankSizeMap = direction === 'TB' ? nodeHeights : nodeWidths;
 
-  // Build adjacency
-  const outgoing = new Map<string, string[]>();
-  const incoming = new Map<string, string[]>();
-  for (const e of edges) {
-    const out = outgoing.get(e.source) ?? [];
-    out.push(e.target);
-    outgoing.set(e.source, out);
-
-    const inc = incoming.get(e.target) ?? [];
-    inc.push(e.source);
-    incoming.set(e.target, inc);
-  }
+  const { outgoing, incoming, childrenOf } = buildGraphAdjacency(edges);
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-  // Build child→descendants map
-  const childrenOf = new Map<string, string[]>();
-  for (const e of edges) {
-    const arr = childrenOf.get(e.source) ?? [];
-    arr.push(e.target);
-    childrenOf.set(e.source, arr);
-  }
   const joinIds = new Set(nodes.filter(n => n.type === 'join').map(n => n.id));
 
   // Center fork nodes over the full bounding box of their subtree (excluding join)
@@ -608,7 +586,7 @@ function centerForkJoinNodes<N extends Node>(
     // Gather all subtree nodes between fork and join
     const subtreeNodes: string[] = [];
     for (const cid of children) {
-      const sub = collectSubtreeUntil(cid, childrenOf, joinIds);
+      const sub = collectSubtree(cid, childrenOf, joinIds);
       for (const id of sub) {
         if (!joinIds.has(id)) subtreeNodes.push(id);
       }

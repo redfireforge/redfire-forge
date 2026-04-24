@@ -10,7 +10,7 @@ import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 
 export type FetchScenarioSampleResult =
   | { ok: true; body: string; httpStatus: number; finalUrl: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; body?: string; httpStatus?: number; finalUrl?: string };
 
 function applyHostOverride(url: string, enabled: boolean, override: string): string {
   if (!enabled || !override.trim()) return url;
@@ -98,10 +98,12 @@ export async function fetchScenarioSample(
       return { ok: false, error: result.error };
     }
     if (result.status >= 400) {
-      const snippet = result.body ? ` ${result.body.slice(0, 280)}` : '';
       return {
         ok: false,
-        error: `HTTP ${result.status}: ${result.statusText}${snippet}`,
+        error: `HTTP ${result.status}: ${result.statusText}`,
+        body: result.body || undefined,
+        httpStatus: result.status,
+        finalUrl: url,
       };
     }
     let pretty: string;

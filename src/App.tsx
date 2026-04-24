@@ -29,6 +29,7 @@ import WorkflowDesigner from './pages/WorkflowDesigner';
 import WorkflowExecutionHistory from './pages/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from './pages/WebhookDeliveryLogs';
 import WorkflowSidebar from './components/workflow/WorkflowSidebar';
+import TemplateGalleryModal from './components/workflow/TemplateGalleryModal';
 import ServerStatusIndicator from './components/workflow/ServerStatusIndicator';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
@@ -115,6 +116,7 @@ export default function App() {
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
   const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(null);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
@@ -429,20 +431,15 @@ export default function App() {
               workflows={wfHook.workflows}
               selectedId={wfHook.selectedId}
               onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
-              onNew={() => {
-                const name = prompt('Workflow name:');
-                if (name?.trim()) { wfHook.create(name.trim()); setActiveTab('workflow'); }
+              onNew={(name: string) => {
+                wfHook.create(name); setActiveTab('workflow');
               }}
+              onBrowseTemplates={() => setShowTemplateGallery(true)}
               onRename={(id, name) => {
                 wfHook.update(id, { name });
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
-              onLoadSample={(entry: SampleWorkflowEntry) => {
-                const sample = entry.factory();
-                setPreviewWorkflow(sample);
-                setActiveTab('workflow');
-              }}
             />
           )}
           {isHarnessTab(activeTab) && (
@@ -486,6 +483,14 @@ export default function App() {
                   title="Visual workflow designer (separate from feature groups)"
                 >
                   Workflow
+                </button>
+                <button
+                  type="button"
+                  className="main-nav-tab"
+                  onClick={() => setShowTemplateGallery(true)}
+                  title="Browse pre-built workflow templates"
+                >
+                  📚 Gallery
                 </button>
                 <button
                   type="button"
@@ -750,6 +755,17 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <TemplateGalleryModal
+        open={showTemplateGallery}
+        onClose={() => setShowTemplateGallery(false)}
+        onSelect={(entry: SampleWorkflowEntry) => {
+          const sample = entry.factory();
+          setPreviewWorkflow(sample);
+          setShowTemplateGallery(false);
+          setActiveTab('workflow');
+        }}
+      />
     </div>
   );
 }

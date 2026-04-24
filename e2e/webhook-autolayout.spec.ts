@@ -17,16 +17,16 @@ test.describe('Webhook Sample Auto-Layout', () => {
     
     console.log('✓ App loaded');
     
-    // Click Browse Samples
-    const browseSamplesButton = page.locator('button:has-text("Browse Samples")');
-    await browseSamplesButton.waitFor({ state: 'visible', timeout: 5000 });
-    await browseSamplesButton.click();
+    // Click Gallery tab to open template gallery
+    const galleryTab = page.locator('button.main-nav-tab:has-text("Gallery")');
+    await galleryTab.waitFor({ state: 'visible', timeout: 5000 });
+    await galleryTab.click();
     await page.waitForTimeout(500);
     
-    console.log('✓ Browse Samples clicked');
+    console.log('✓ Gallery opened');
     
-    // Wait for dropdown to appear and select webhook sample
-    const webhookSample = page.locator('.wf-sample-dropdown-item', { 
+    // Wait for gallery modal and select webhook sample
+    const webhookSample = page.locator('.tg-card', { 
       hasText: 'Webhook Trigger' 
     });
     await webhookSample.waitFor({ state: 'visible', timeout: 5000 });

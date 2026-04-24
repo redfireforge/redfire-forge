@@ -1,0 +1,369 @@
+# RedfireForge Workflow — Batch User Provisioning
+# Iterates over a list of users, provisions each, then summarises.
+# Demonstrates: Loop (forEach), SetVariable, Aggregate (count + sum + first/last), Condition
+#
+# Flow:
+#   Start (users JSON array)
+#     → SetVariable (init counters)
+#       → Loop (forEach user in {{users}})
+#         ├─ Body:
+#         │    SetVariable (parse user fields)
+#         │    → POST /users (create user)
+#         │      → Condition (status == 201?)
+#         │        ├─ Yes → Aggregate (successCount++, ids concat)
+#         │        └─ No  → Aggregate (failCount++, errors concat)
+#         └─ Done:
+#              → SetVariable (build summary)
+#                → Condition (failCount > 0?)
+#                  ├─ Yes → POST /reports/partial
+#                  └─ No  → POST /reports/success
+#                    → End
+
+name: Batch User Provisioning
+description: Create users from a JSON array, track successes and failures, generate report
+
+schemaVersion: 4
+
+variables:
+  tenant: "acme-corp"
+
+services:
+  - id: svc-iam
+    name: IAM Service
+    endpoints:
+      - envId: env-prod
+        url: https://iam.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{IAM_TOKEN}}"
+
+  - id: svc-reports
+    name: Reporting Service
+    endpoints:
+      - envId: env-prod
+        url: https://reports.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: Authorization
+      apiKeyValue: "Bearer {{REPORTS_TOKEN}}"
+      apiKeyIn: header
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 350, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        users: |
+          [
+            {"email":"alice@acme.com","role":"admin","name":"Alice Chen"},
+            {"email":"bob@acme.com","role":"viewer","name":"Bob Smith"},
+            {"email":"carol@acme.com","role":"editor","name":"Carol Davis"},
+            {"email":"dave@acme.com","role":"viewer","name":"Dave Wilson"},
+            {"email":"eve@acme.com","role":"admin","name":"Eve Johnson"}
+          ]
+
+  # Initialise tracking variables
+  - id: setvar-init
+    type: setVariable
+    position: { x: 350, y: 140 }
+    data:
+      label: Init Trackers
+      assignments:
+        - id: a1
+          name: successCount
+          expression: "0"
+        - id: a2
+          name: failCount
+          expression: "0"
+        - id: a3
+          name: createdIds
+          expression: "[]"
+        - id: a4
+          name: errors
+          expression: "[]"
+        - id: a5
+          name: firstUser
+          expression: ""
+        - id: a6
+          name: lastUser
+          expression: ""
+
+  # forEach loop over users array
+  - id: loop-users
+    type: loop
+    position: { x: 350, y: 300 }
+    data:
+      label: Each User
+      mode: forEach
+      sourceExpression: "{{users}}"
+      itemVariable: user
+      indexVariable: userIndex
+      maxIterations: 100
+
+  # ══════════════════════════════════════
+  # Loop Body
+  # ══════════════════════════════════════
+
+  # Parse the current user object fields
+  - id: setvar-parse
+    type: setVariable
+    position: { x: 350, y: 440 }
+    data:
+      label: Parse User
+      assignments:
+        - id: a1
+          name: currentEmail
+          expression: "{{user}}"
+        - id: a2
+          name: batchPosition
+          expression: "User #{{userIndex}}"
+
+  # Create the user via API
+  - id: http-create-user
+    type: http
+    position: { x: 350, y: 580 }
+    data:
+      label: Create User
+      serviceId: svc-iam
+      scenario:
+        id: sc-create
+        name: Create User
+        url: /users
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "tenant": "{{tenant}}",
+            "user": {{user}},
+            "source": "batch-provisioning"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: createStatus
+            source: status
+            expression: ""
+          - name: userId
+            source: body
+            expression: $.id
+          - name: createError
+            source: body
+            expression: $.error
+
+  # Check if creation succeeded
+  - id: cond-created
+    type: condition
+    position: { x: 350, y: 740 }
+    data:
+      label: "Created?"
+      left: "{{createStatus}}"
+      operator: "=="
+      right: "201"
+
+  # ── Success path ──
+  - id: agg-success
+    type: aggregate
+    position: { x: 150, y: 900 }
+    data:
+      label: Track Success
+      mappings:
+        - id: m1
+          sourceExpression: "{{userId}}"
+          targetVariable: createdIds
+          strategy: concat
+        - id: m2
+          sourceExpression: "1"
+          targetVariable: successCount
+          strategy: count
+        - id: m3
+          sourceExpression: "{{currentEmail}}"
+          targetVariable: firstUser
+          strategy: first
+        - id: m4
+          sourceExpression: "{{currentEmail}}"
+          targetVariable: lastUser
+          strategy: last
+
+  # ── Failure path ──
+  - id: agg-failure
+    type: aggregate
+    position: { x: 550, y: 900 }
+    data:
+      label: Track Failure
+      mappings:
+        - id: m1
+          sourceExpression: '{"email":"{{currentEmail}}","error":"{{createError}}"}'
+          targetVariable: errors
+          strategy: concat
+        - id: m2
+          sourceExpression: "1"
+          targetVariable: failCount
+          strategy: count
+
+  # ══════════════════════════════════════
+  # After Loop — generate report
+  # ══════════════════════════════════════
+
+  # Build a human-readable summary
+  - id: setvar-summary
+    type: setVariable
+    position: { x: 350, y: 1100 }
+    data:
+      label: Build Summary
+      assignments:
+        - id: a1
+          name: summary
+          expression: "Provisioned {{successCount}} users ({{failCount}} failed). First: {{firstUser}}, Last: {{lastUser}}"
+        - id: a2
+          name: totalProcessed
+          expression: "{{successCount}}"
+
+  # Any failures?
+  - id: cond-has-failures
+    type: condition
+    position: { x: 350, y: 1260 }
+    data:
+      label: "Any Failures?"
+      left: "{{failCount}}"
+      operator: ">"
+      right: "0"
+
+  # ── Partial success report ──
+  - id: http-partial-report
+    type: http
+    position: { x: 100, y: 1420 }
+    data:
+      label: Partial Success Report
+      serviceId: svc-reports
+      scenario:
+        id: sc-partial
+        name: Partial Success Report
+        url: /reports/batch
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "tenant": "{{tenant}}",
+            "status": "partial",
+            "summary": "{{summary}}",
+            "successCount": {{successCount}},
+            "failCount": {{failCount}},
+            "createdIds": {{createdIds}},
+            "errors": {{errors}}
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  # ── Full success report ──
+  - id: http-success-report
+    type: http
+    position: { x: 600, y: 1420 }
+    data:
+      label: Full Success Report
+      serviceId: svc-reports
+      scenario:
+        id: sc-success
+        name: Full Success Report
+        url: /reports/batch
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "tenant": "{{tenant}}",
+            "status": "success",
+            "summary": "{{summary}}",
+            "successCount": {{successCount}},
+            "createdIds": {{createdIds}}
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: end-1
+    type: end
+    position: { x: 350, y: 1580 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: setvar-init
+
+  - id: e2
+    source: setvar-init
+    target: loop-users
+
+  # Loop body
+  - id: e3
+    source: loop-users
+    target: setvar-parse
+    sourceHandle: body
+
+  - id: e4
+    source: setvar-parse
+    target: http-create-user
+
+  - id: e5
+    source: http-create-user
+    target: cond-created
+
+  - id: e6
+    source: cond-created
+    target: agg-success
+    sourceHandle: "true"
+    label: "Yes"
+
+  - id: e7
+    source: cond-created
+    target: agg-failure
+    sourceHandle: "false"
+    label: "No"
+
+  # Loop done → summary
+  - id: e8
+    source: loop-users
+    target: setvar-summary
+    sourceHandle: done
+
+  - id: e9
+    source: setvar-summary
+    target: cond-has-failures
+
+  # Report branches
+  - id: e10
+    source: cond-has-failures
+    target: http-partial-report
+    sourceHandle: "true"
+    label: "Yes"
+
+  - id: e11
+    source: cond-has-failures
+    target: http-success-report
+    sourceHandle: "false"
+    label: "No"
+
+  # Both reports → end
+  - id: e12
+    source: http-partial-report
+    target: end-1
+
+  - id: e13
+    source: http-success-report
+    target: end-1

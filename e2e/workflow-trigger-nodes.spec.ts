@@ -79,11 +79,11 @@ test.describe('Workflow Trigger Nodes', () => {
     await expect(page.locator('.wf-palette-block-start .wf-pb-title')).toHaveText('Manual Start');
   });
 
-  test('palette shows Logic category with Parallel Fork block', async ({ page }) => {
+  test('palette shows Flow category with Parallel Fork block', async ({ page }) => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-palette-category-title', { hasText: 'Logic' })).toBeVisible();
+    await expect(page.locator('.wf-palette-category-title', { hasText: 'Flow' })).toBeVisible();
     await expect(page.locator('.wf-palette-block-fork .wf-pb-title')).toHaveText('Parallel Fork');
   });
 
