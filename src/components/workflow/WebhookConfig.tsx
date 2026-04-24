@@ -10,6 +10,7 @@ interface Props {
 
 export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Props) {
   const [copied, setCopied] = useState(false);
+  const [curlCopied, setCurlCopied] = useState(false);
 
   const webhookUrl = workflowId && nodeId
     ? `http://127.0.0.1:3001/webhooks/${workflowId}/${nodeId}`
@@ -24,6 +25,20 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
       } catch (err) {
         console.error('Failed to copy:', err);
       }
+    }
+  };
+
+  const handleCopyCurl = async () => {
+    if (!webhookUrl) return;
+    const payload = data.samplePayload?.trim() || '{}';
+    const escaped = payload.replace(/'/g, "'\\''");
+    const curl = `curl -X ${data.method} '${webhookUrl}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${escaped}'`;
+    try {
+      await navigator.clipboard.writeText(curl);
+      setCurlCopied(true);
+      setTimeout(() => setCurlCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy cURL:', err);
     }
   };
   return (
@@ -59,6 +74,25 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
               }}
             >
               {copied ? '✓ Copied!' : 'Copy'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyCurl}
+              title="Copy as cURL command with sample payload"
+              style={{
+                padding: '8px 16px',
+                backgroundColor: curlCopied ? '#4caf50' : '#6366f1',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: '500',
+                whiteSpace: 'nowrap',
+                transition: 'background-color 0.2s',
+              }}
+            >
+              {curlCopied ? '✓ Copied!' : 'Copy cURL'}
             </button>
           </div>
           <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#666' }}>
