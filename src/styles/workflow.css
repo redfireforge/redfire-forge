@@ -22,6 +22,12 @@
 }
 .wf-canvas-area .react-flow {
   flex: 1; height: 0;
+  animation: wf-canvas-fade-in 220ms ease-out;
+}
+
+@keyframes wf-canvas-fade-in {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
 }
 
 /* Preview banner for sample workflows */
