@@ -1,7 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { HttpNodeData } from '../../../types/workflow';
-import { useWorkflowInspect } from '../WorkflowInspectContext';
-import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeRunContext';
+import { useNodeBase } from './useNodeBase';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
@@ -11,23 +10,14 @@ type HttpWorkflowNode = Node<HttpNodeData, 'http'>;
 type Props = NodeProps<HttpWorkflowNode>;
 
 export default function HttpStepNode({ id, data, selected }: Props) {
-  const { openStepDetail, openNodeConfig } = useWorkflowInspect();
-  const rs = useWorkflowNodeRunStatus(id);
-  const debugStep = useWorkflowDebugStep();
+  const { rs, stateClass, debugStep, handleConfigure, openStepDetail } = useNodeBase(id);
   const method = data.scenario?.method ?? 'GET';
   const url = data.scenario?.url ?? '';
   const extractCount = data.scenario?.extractions?.length ?? 0;
 
-  const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
-
   const openDetail = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (rs?.state === 'pass' || rs?.state === 'fail') openStepDetail(id);
-  };
-
-  const handleConfigure = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    openNodeConfig(id);
   };
 
   return (

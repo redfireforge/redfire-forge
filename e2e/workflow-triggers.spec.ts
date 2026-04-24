@@ -238,8 +238,8 @@ test.describe('Workflow Webhook Trigger', () => {
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
-    // Path input should show /api/orders (scoped to modal)
-    const pathInput = modal.locator('input[type="text"]').first();
+    // Path input is the second text input (first is the readonly webhook URL)
+    const pathInput = modal.locator('input[type="text"]').nth(1);
     await expect(pathInput).toHaveValue('/api/orders');
   });
 
@@ -408,8 +408,8 @@ test.describe('Workflow Trigger Execution', () => {
     const webhookNode = page.locator('.wf-node-webhook').first();
     await expect(webhookNode).toBeVisible({ timeout: 5_000 });
 
-    // Verify the run button is present (workflow is ready to run)
-    const runBtn = page.locator('button').filter({ hasText: 'Run' });
+    // Verify the Quick Test button is present (workflow is ready to run)
+    const runBtn = page.locator('button').filter({ hasText: 'Quick Test' });
     await expect(runBtn).toBeVisible({ timeout: 5_000 });
   });
 });
