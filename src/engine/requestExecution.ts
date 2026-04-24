@@ -186,7 +186,12 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
     allResults.push(...batchResults);
     batchResults.forEach((r) => breaker.record(r));
     completed += batchResults.length;
-    onProgress(completed, queue.length, allResults);
+    onProgress(completed, queue.length, allResults, {
+      elapsedMs: 0,
+      targetConcurrency: concurrency,
+      currentInFlight: Math.min(concurrency, queue.length - completed),
+      durationMs: 0,
+    });
     await applyThinkTime(getThinkTimeMs, abortSignal);
   }
 
@@ -235,7 +240,12 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
           breaker.record(errorResult);
         }).finally(() => {
           inFlight--;
-          onProgress(allResults.length, total, allResults);
+          onProgress(allResults.length, total, allResults, {
+            elapsedMs: 0,
+            targetConcurrency: concurrency,
+            currentInFlight: inFlight,
+            durationMs: 0,
+          });
           if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
             resolve(allResults);
           } else {

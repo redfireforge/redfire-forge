@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1: Visual Foundation — Before / After</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0f1a;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    padding: 32px 0 8px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+  }
+  .comparison {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    padding: 0 40px 60px;
+    flex-wrap: wrap;
+  }
+  .panel {
+    flex: 1;
+    max-width: 620px;
+    min-width: 380px;
+  }
+  .panel-title {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    border-radius: 8px;
+  }
+  .panel-title.before { background: rgba(239,68,68,0.15); color: #f87171; }
+  .panel-title.after { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+  /* ── Canvas ── */
+  .canvas {
+    border-radius: 16px;
+    padding: 40px 30px;
+    position: relative;
+    min-height: 520px;
+  }
+  .canvas-before {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+  }
+  .canvas-after {
+    background: #0f172a;
+    /* dot grid pattern */
+    background-image: radial-gradient(circle, rgba(148,163,184,0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 1px solid #1e293b;
+  }
+
+  /* ── SVG Connections ── */
+  .connections {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .conn-before { stroke: #334155; stroke-width: 2; fill: none; }
+  .conn-after { stroke: #475569; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+
+  /* ── BEFORE nodes (current design) ── */
+  .node-old {
+    position: absolute;
+    border-radius: 10px;
+    border: 2px solid #334155;
+    background: #1e293b;
+    min-width: 180px;
+    max-width: 220px;
+    font-size: 0.78rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .node-old.start { border-color: #22c55e; }
+  .node-old.http { border-color: #334155; }
+  .node-old.condition { border-color: #334155; }
+  .node-old.end { border-color: #ef4444; }
+  .node-old.webhook { border-color: #0ea5e9; }
+
+  .node-old .header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px 4px;
+  }
+  .node-old .icon { font-size: 1rem; }
+  .node-old .label {
+    font-weight: 600; font-size: 0.78rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .node-old .url {
+    padding: 2px 10px 6px;
+    font-size: 0.65rem;
+    color: #64748b;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .node-old .method-badge {
+    padding: 2px 6px; border-radius: 4px; font-size: 0.6rem;
+    font-weight: 800; color: #fff; font-family: 'SF Mono', monospace;
+  }
+  .node-old .footer {
+    display: flex; gap: 4px; padding: 0 10px 6px; flex-wrap: wrap;
+  }
+  .node-old .badge {
+    font-size: 0.58rem; padding: 2px 6px; border-radius: 6px;
+    font-weight: 700; border: 1px solid rgba(99,102,241,0.45);
+    background: rgba(99,102,241,0.12); color: #a5b4fc;
+  }
+
+  /* ── AFTER nodes (Phase 1 design) ── */
+  .node-new {
+    position: absolute;
+    border-radius: 12px;
+    border: 2px solid #334155;
+    background: #1e293b;
+    min-width: 200px;
+    max-width: 280px;
+    font-size: 0.8125rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .node-new:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.15);
+  }
+
+  /* Category tints */
+  .node-new.trigger {
+    border-color: #22c55e;
+    background: linear-gradient(135deg, rgba(34,197,94,0.08) 0%, #1e293b 60%);
+  }
+  .node-new.action {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, #1e293b 60%);
+  }
+  .node-new.flow-control {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, #1e293b 60%);
+  }
+  .node-new.terminal {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, #1e293b 60%);
+  }
+
+  .node-new .header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px 6px;
+  }
+  /* SVG icon badge */
+  .node-new .icon-badge {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .node-new .icon-badge svg {
+    width: 18px; height: 18px;
+  }
+  .node-new .icon-badge.green { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .node-new .icon-badge.blue { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .node-new .icon-badge.indigo { background: rgba(99,102,241,0.15); color: #818cf8; }
+  .node-new .icon-badge.amber { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .node-new .icon-badge.red { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .node-new .icon-badge.purple { background: rgba(168,85,247,0.15); color: #a855f7; }
+  .node-new .icon-badge.cyan { background: rgba(14,165,233,0.15); color: #0ea5e9; }
+
+  .node-new .label-group { flex: 1; min-width: 0; }
+  .node-new .label {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #f1f5f9;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .node-new .label-sub {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 500;
+    margin-top: 1px;
+  }
+  .node-new .method-badge {
+    padding: 3px 8px; border-radius: 6px; font-size: 0.65rem;
+    font-weight: 800; color: #fff; font-family: 'SF Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .node-new .url {
+    padding: 4px 16px 8px;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .node-new .footer {
+    display: flex; gap: 6px; padding: 0 16px 10px; flex-wrap: wrap; align-items: center;
+  }
+  .node-new .badge {
+    font-size: 0.65rem; padding: 3px 8px; border-radius: 6px;
+    font-weight: 700; border: 1px solid rgba(99,102,241,0.45);
+    background: rgba(99,102,241,0.12); color: #a5b4fc;
+  }
+
+  /* ── Method colors ── */
+  .bg-get { background: #22c55e; }
+  .bg-post { background: #3b82f6; }
+  .bg-put { background: #f59e0b; }
+  .bg-delete { background: #ef4444; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; gap: 24px; justify-content: center;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; color: #94a3b8;
+  }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 4px;
+  }
+
+  /* ── Changes list ── */
+  .changes {
+    max-width: 700px;
+    margin: 0 auto 40px;
+    padding: 0 24px;
+  }
+  .changes h2 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    color: #e2e8f0;
+  }
+  .changes ul {
+    list-style: none;
+    padding: 0;
+  }
+  .changes li {
+    padding: 6px 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .changes li::before {
+    content: "✓";
+    color: #22c55e;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .changes .highlight {
+    color: #818cf8;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h1>Phase 1: Visual Foundation</h1>
+<p class="subtitle">Before → After comparison of workflow node design</p>
+
+<div class="comparison">
+
+  <!-- ════ BEFORE ════ -->
+  <div class="panel">
+    <div class="panel-title before">BEFORE (Current)</div>
+    <div class="canvas canvas-before">
+      <svg class="connections" viewBox="0 0 620 520">
+        <path class="conn-before" d="M 160,68 C 220,68 220,120 280,120"/>
+        <path class="conn-before" d="M 440,120 C 500,120 500,68 520,68"/>
+        <path class="conn-before" d="M 440,120 C 500,120 500,210 520,210"/>
+        <path class="conn-before" d="M 160,280 C 220,280 220,340 280,340"/>
+        <path class="conn-before" d="M 440,340 C 500,340 500,430 520,430"/>
+      </svg>
+
+      <!-- Start -->
+      <div class="node-old start" style="left:20px; top:40px; width:140px;">
+        <div class="header">
+          <span class="icon">▶️</span>
+          <span class="label">Start</span>
+        </div>
+      </div>
+
+      <!-- HTTP GET -->
+      <div class="node-old http" style="left:240px; top:80px; width:200px;">
+        <div class="header">
+          <span class="method-badge bg-get">GET</span>
+          <span class="label">Get Users</span>
+        </div>
+        <div class="url">/api/v1/users</div>
+        <div class="footer">
+          <span class="badge">bearer</span>
+          <span class="badge">2 asserts</span>
+        </div>
+      </div>
+
+      <!-- Condition -->
+      <div class="node-old condition" style="left:490px; top:40px; width:120px; text-align:center;">
+        <div class="header" style="justify-content:center;">
+          <span class="icon">🔀</span>
+          <span class="label">Check Status</span>
+        </div>
+        <div class="url" style="text-align:center;">status == 200</div>
+      </div>
+
+      <!-- End -->
+      <div class="node-old end" style="left:490px; top:180px; width:120px;">
+        <div class="header">
+          <span class="icon">⏹️</span>
+          <span class="label">End</span>
+        </div>
+      </div>
+
+      <!-- Webhook -->
+      <div class="node-old webhook" style="left:20px; top:250px; width:140px;">
+        <div class="header">
+          <span class="icon">🔗</span>
+          <span class="label">Webhook</span>
+        </div>
+        <div class="url">POST /hook</div>
+      </div>
+
+      <!-- HTTP POST -->
+      <div class="node-old http" style="left:240px; top:300px; width:200px;">
+        <div class="header">
+          <span class="method-badge bg-post">POST</span>
+          <span class="label">Create Order</span>
+        </div>
+        <div class="url">/api/v1/orders</div>
+        <div class="footer">
+          <span class="badge">json body</span>
+        </div>
+      </div>
+
+      <!-- Delay -->
+      <div class="node-old" style="left:490px; top:400px; width:120px; border-color:#f59e0b;">
+        <div class="header">
+          <span class="icon">⏱️</span>
+          <span class="label">Delay 2s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ AFTER ════ -->
+  <div class="panel">
+    <div class="panel-title after">AFTER (Phase 1)</div>
+    <div class="canvas canvas-after">
+      <svg class="connections" viewBox="0 0 620 520">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+          </marker>
+        </defs>
+        <path class="conn-after" d="M 160,68 C 220,68 220,120 270,120"/>
+        <path class="conn-after" d="M 460,120 C 500,120 500,68 520,68"/>
+        <path class="conn-after" d="M 460,120 C 500,120 500,210 520,210"/>
+        <path class="conn-after" d="M 160,290 C 220,290 220,350 270,350"/>
+        <path class="conn-after" d="M 460,350 C 500,350 500,440 520,440"/>
+      </svg>
+
+      <!-- Start (Trigger category) -->
+      <div class="node-new trigger" style="left:10px; top:35px; width:155px;">
+        <div class="header">
+          <div class="icon-badge green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Start</div>
+            <div class="label-sub">Trigger</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HTTP GET (Action category) -->
+      <div class="node-new action" style="left:230px; top:72px; width:230px;">
+        <div class="header">
+          <div class="icon-badge indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Get Users</div>
+            <div class="label-sub">HTTP Request</div>
+          </div>
+          <span class="method-badge bg-get">GET</span>
+        </div>
+        <div class="url">/api/v1/users</div>
+        <div class="footer">
+          <span class="badge">bearer</span>
+          <span class="badge">2 asserts</span>
+        </div>
+      </div>
+
+      <!-- Condition (Flow Control category) -->
+      <div class="node-new flow-control" style="left:490px; top:32px; width:130px; text-align:center;">
+        <div class="header" style="justify-content:center;">
+          <div class="icon-badge amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+              <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+              <line x1="4" y1="4" x2="9" y2="9"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Check Status</div>
+            <div class="label-sub">Condition</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- End (Terminal category) -->
+      <div class="node-new terminal" style="left:490px; top:180px; width:130px;">
+        <div class="header">
+          <div class="icon-badge red">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="6" width="12" height="12" rx="2"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">End</div>
+            <div class="label-sub">Terminal</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Webhook (Trigger category) -->
+      <div class="node-new trigger" style="left:10px; top:255px; width:155px;">
+        <div class="header">
+          <div class="icon-badge cyan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 012 17c.01-.7.2-1.4.57-2"/>
+              <path d="M6 17l3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 113.36-2.11"/>
+              <path d="M12 6l-3.13 5.78c-.53.97-.1 2.18.5 3.1a4 4 0 01-3.36 2.11"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Webhook</div>
+            <div class="label-sub">Trigger</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HTTP POST (Action category) -->
+      <div class="node-new action" style="left:230px; top:300px; width:230px;">
+        <div class="header">
+          <div class="icon-badge indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Create Order</div>
+            <div class="label-sub">HTTP Request</div>
+          </div>
+          <span class="method-badge bg-post">POST</span>
+        </div>
+        <div class="url">/api/v1/orders</div>
+        <div class="footer">
+          <span class="badge">json body</span>
+        </div>
+      </div>
+
+      <!-- Delay (Flow Control category) -->
+      <div class="node-new flow-control" style="left:490px; top:410px; width:130px;">
+        <div class="header">
+          <div class="icon-badge amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="label-group">
+            <div class="label">Delay 2s</div>
+            <div class="label-sub">Flow Control</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:rgba(34,197,94,0.3); border:1px solid #22c55e;"></div>
+        Trigger
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:rgba(99,102,241,0.3); border:1px solid #6366f1;"></div>
+        Action
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:rgba(245,158,11,0.3); border:1px solid #f59e0b;"></div>
+        Flow Control
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:rgba(239,68,68,0.3); border:1px solid #ef4444;"></div>
+        Terminal
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Changes Summary -->
+<div class="changes">
+  <h2>Phase 1 Changes Applied</h2>
+  <ul>
+    <li><span class="highlight">SVG icons</span> replace emojis (▶️→Play, 🔗→Webhook, ⏱️→Clock) in colored badge containers</li>
+    <li><span class="highlight">Typography increased</span>: titles from 0.78rem → 0.875rem (14px), body from 0.65rem → 0.75rem</li>
+    <li><span class="highlight">Category background tints</span>: subtle gradient per type (green=trigger, indigo=action, amber=flow, red=terminal)</li>
+    <li><span class="highlight">Enhanced shadows</span>: deeper box-shadow for more depth and layering</li>
+    <li><span class="highlight">Node width increased</span>: min-width from 180px → 200px, more breathing room</li>
+    <li><span class="highlight">Consistent padding</span>: 12px 16px inside nodes (was 8px 10px)</li>
+    <li><span class="highlight">Sub-labels added</span>: each node shows its category type below the title</li>
+    <li><span class="highlight">Border radius</span>: 10px → 12px for softer, modern feel</li>
+    <li><span class="highlight">Dot-grid canvas</span>: subtle grid pattern on background for spatial reference</li>
+    <li><span class="highlight">Hover lift effect</span>: nodes lift slightly on hover with enhanced shadow</li>
+  </ul>
+</div>
+
+</body>
+</html>

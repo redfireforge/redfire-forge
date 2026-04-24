@@ -172,9 +172,9 @@ test.describe('Workflow Creation', () => {
   test('loads sample workflow via template gallery', async ({ page }) => {
     // Already on workflow tab from beforeEach
 
-    // Click Gallery tab to open template gallery
-    const galleryTab = page.locator('button.main-nav-tab:has-text("Gallery")');
-    await galleryTab.click();
+    // Click +New → From Template to open template gallery
+    await page.locator('button:has-text("+ New")').click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
     // Select first template card
     const firstCard = page.locator('.tg-card').first();

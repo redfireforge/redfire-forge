@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ConsoleLine } from '../../hooks/useResponseCache';
+import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 
 const prefixClass: Record<string, string> = {
   '*': 'wf-cl-info',
@@ -37,11 +38,13 @@ interface Props {
   lines: ConsoleLine[];
   onClear: () => void;
   onClose: () => void;
+  stepSummaries?: WorkflowRunStepSummary[];
 }
 
-export default function WorkflowConsolePanel({ lines, onClear, onClose }: Props) {
+export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [] }: Props) {
   const [mode, setMode] = useState<PanelMode>('docked');
   const [dockedHeight, setDockedHeight] = useState(DEFAULT_DOCKED_H);
+  const [viewMode, setViewMode] = useState<'log' | 'timeline'>('log');
 
   // ── Floating state ──
   const [floatPos, setFloatPos] = useState({ x: 80, y: 80 });
@@ -179,6 +182,14 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose }: Props)
       >
         <span className="wf-console-title">Console</span>
         <span className="wf-console-count">{lines.length} line{lines.length !== 1 ? 's' : ''}</span>
+        <div className="wf-console-view-toggle">
+          <button type="button" className={`wf-console-view-btn ${viewMode === 'log' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('log')} title="Log view">
+            Log
+          </button>
+          <button type="button" className={`wf-console-view-btn ${viewMode === 'timeline' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('timeline')} title="Timeline view" disabled={stepSummaries.length === 0}>
+            Timeline
+          </button>
+        </div>
         <div className="wf-console-actions">
           <button type="button" className="wf-console-action-btn" onClick={onClear} title="Clear console">
             Clear
@@ -206,7 +217,22 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose }: Props)
         </div>
       </div>
       <div className="wf-console-body" ref={containerRef} onScroll={handleScroll}>
-        {lines.length === 0 ? (
+        {viewMode === 'timeline' && stepSummaries.length > 0 ? (
+          <div className="wf-timeline">
+            {stepSummaries.map((step, i) => (
+              <div key={i} className="wf-timeline-item">
+                <div className={`wf-timeline-dot wf-timeline-dot-${step.state}`} />
+                <div className="wf-timeline-content">
+                  <span className="wf-timeline-label">{step.label}</span>
+                  <span className={`wf-timeline-badge wf-timeline-badge-${step.state}`}>
+                    {step.state === 'skipped' ? 'SKIPPED' : `${step.statusCode ?? '—'}${step.responseTimeMs != null ? ` · ${step.responseTimeMs}ms` : ''}`}
+                  </span>
+                  {step.error && <div className="wf-timeline-error">{step.error}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : lines.length === 0 ? (
           <div className="wf-console-empty">Run a Quick Test to see activity logs</div>
         ) : (
           lines.map((line, i) => {
