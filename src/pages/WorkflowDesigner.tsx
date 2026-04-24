@@ -189,7 +189,7 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
   previewWorkflow: Workflow | null;
   serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
 }) {
-  const { fitView, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
+  const { fitView, getNodes, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
   return (
     <>
       <ControlButton
@@ -219,25 +219,33 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
       <ControlButton
         onClick={() => {
           console.log('=== AUTO-LAYOUT CLICKED ===');
-          console.log('Before:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
-          const laid = getAutoLayoutNodes(nodes, edges);
+          // Get current nodes directly from React Flow instance
+          const currentNodes = getNodes();
+          console.log('Before:', currentNodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+          
+          const laid = getAutoLayoutNodes(currentNodes, edges);
           
           console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
-          // Use React Flow instance's setNodes (bypasses useNodesState)
+          // Update using React Flow instance method
           rfSetNodes(laid);
           
-          // Also update the hook's state
-          setNodes(laid);
-          
-          // Wait a bit then check if it worked
-          setTimeout(() => {
-            console.log('After setNodes (checking via React Flow getNodes)');
-            fitView({ padding: 0.2, duration: 300 });
-          }, 200);
+          // For previews, only update visual layout (don't save)
+          // User must click "Use as Template" to save
+          if (!previewWorkflow) {
+            // For existing workflows, persist the layout
+            setTimeout(() => {
+              persistWorkflow({ rfNodes: laid });
+              fitView({ padding: 0.2, duration: 300 });
+            }, 100);
+          } else {
+            setTimeout(() => {
+              fitView({ padding: 0.2, duration: 300 });
+            }, 100);
+          }
         }}
-        title="Auto-layout (using React Flow instance)"
+        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
       >
         <svg viewBox="0 0 24 24">
           <rect x="7" y="1" width="10" height="5" rx="1" />
@@ -362,7 +370,8 @@ function WorkflowDesignerInner({
     } else if (!selected) {
       prevSelectedId.current = null;
     }
-  }, [selected, setNodes, setEdges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   // Compute selected node from React Flow nodes for config panel
   const selectedNode = useMemo(() => {
