@@ -180,11 +180,10 @@ export default function WorkflowDesignerWrapper(props: Props) {
   );
 }
 
-function AutoLayoutButton({ nodes, edges, setNodes, onNodesChange, persistWorkflow, selected, previewWorkflow, serializeNodes }: {
+function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes }: {
   nodes: WorkflowRFNode[];
   edges: WorkflowRFEdge[];
-  setNodes: (nodes: WorkflowRFNode[]) => void;
-  onNodesChange: any;
+  setNodes: (nodes: WorkflowRFNode[] | ((nds: WorkflowRFNode[]) => WorkflowRFNode[])) => void;
   persistWorkflow: (overrides?: { rfNodes?: WorkflowRFNode[] }) => void;
   selected: Workflow | null;
   previewWorkflow: Workflow | null;
@@ -225,16 +224,13 @@ function AutoLayoutButton({ nodes, edges, setNodes, onNodesChange, persistWorkfl
           const laid = getAutoLayoutNodes(nodes, edges);
           
           console.log('After:', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-          console.log('Applying position changes via onNodesChange...');
+          console.log('Applying via functional setter...');
           
-          // Use React Flow's change API to update positions
-          const changes = laid.map(node => ({
-            id: node.id,
-            type: 'position' as const,
-            position: node.position,
-            dragging: false,
+          // Use functional setter like the restore button does
+          setNodes((nds) => nds.map(n => {
+            const updated = laid.find(ln => ln.id === n.id);
+            return updated ? { ...n, position: { ...updated.position } } : n;
           }));
-          onNodesChange(changes);
           
           // For previews, only update visual layout (don't save)
           // User must click "Use as Template" to save
@@ -1149,7 +1145,7 @@ function WorkflowDesignerInner({
               defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
             >
               <Controls>
-                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} onNodesChange={onNodesChange} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} />
+                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} />
               </Controls>
               <MiniMap
                 pannable
