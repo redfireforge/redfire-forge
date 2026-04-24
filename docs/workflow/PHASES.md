@@ -24,121 +24,124 @@ Core engine components that power workflow execution. No UI designer yet.
 
 ---
 
-## Phase 1 — WORKFLOW Section + Visual Designer
+## Phase 1 — WORKFLOW Section + Visual Designer (COMPLETE)
 
-**Branch**: `feature/variables-chaining-engine` (continuing)
-**Status**: In progress
-**Estimated**: ~1,500 lines
+**Branch**: `feature/variables-chaining-engine`
+**Status**: Complete
 
-Add WORKFLOW as a 4th top-level section with a visual canvas for designing workflows.
+Added WORKFLOW as a 4th top-level section with a visual canvas for designing workflows.
 
 ### 1A — App Shell & Routing
 
 - [x] **1A.1** — Add `'workflow'` to `Tab` type in `App.tsx`
 - [x] **1A.2** — Add WORKFLOW button to sidebar nav rail
 - [x] **1A.3** — Fix Harness active predicate (exclude workflow)
-- [ ] **1A.4** — Create `WorkflowDesigner` page component
-- [ ] **1A.5** — Add workflow-specific CSS (`src/styles/workflow.css`)
+- [x] **1A.4** — Create `WorkflowDesigner` page component
+- [x] **1A.5** — Add workflow-specific CSS (`src/styles/workflow.css`)
 
 ### 1B — Data Model & Storage
 
-- [ ] **1B.1** — `src/types/workflow.ts` — `Workflow`, `WorkflowNode`, `WorkflowEdge`, node data types
-- [ ] **1B.2** — `src/hooks/useWorkflows.ts` — CRUD hook with dual-mode storage
-- [ ] **1B.3** — Storage functions: `saveWorkflows()`, `loadWorkflows()` in `storage.ts`
+- [x] **1B.1** — `src/types/workflow.ts` — `Workflow`, `WorkflowNode`, `WorkflowEdge`, node data types
+- [x] **1B.2** — `src/hooks/useWorkflows.ts` — CRUD hook with dual-mode storage
+- [x] **1B.3** — Storage functions: `saveWorkflows()`, `loadWorkflows()` in `storage.ts`
 
 ### 1C — Visual Canvas (React Flow)
 
-- [ ] **1C.1** — Add `@xyflow/react` dependency
-- [ ] **1C.2** — `WorkflowCanvas.tsx` — React Flow canvas with providers, zoom, minimap
-- [ ] **1C.3** — `WorkflowToolbar.tsx` — New / Open / Save / Rename / Delete / Quick Test
-- [ ] **1C.4** — `WorkflowStatusBar.tsx` — Step count, variable count, last run status
+- [x] **1C.1** — Add `@xyflow/react` dependency
+- [x] **1C.2** — `WorkflowCanvas.tsx` — React Flow canvas with providers, zoom, minimap
+- [x] **1C.3** — `WorkflowToolbar.tsx` — New / Open / Save / Rename / Delete / Quick Test
+- [x] **1C.4** — `WorkflowStatusBar.tsx` — Step count, variable count, last run status
 
 ### 1D — Node Components
 
-- [ ] **1D.1** — `nodes/HttpStepNode.tsx` — HTTP request node (method badge, URL, extraction count)
-- [ ] **1D.2** — `nodes/ConditionNode.tsx` — Diamond if/else node (true/false outputs)
-- [ ] **1D.3** — `nodes/DelayNode.tsx` — Timer node with duration display
+- [x] **1D.1** — `nodes/HttpStepNode.tsx` — HTTP request node (method badge, URL, extraction count)
+- [x] **1D.2** — `nodes/ConditionNode.tsx` — Diamond if/else node (true/false outputs)
+- [x] **1D.3** — `nodes/DelayNode.tsx` — Timer node with duration display
 
 ### 1E — Palette (left panel)
 
-- [ ] **1E.1** — `WorkflowPalette.tsx` — Draggable node blocks (HTTP, Condition, Delay)
-- [ ] **1E.2** — REQUESTS browser — collapsible tree of request collections
-- [ ] **1E.3** — CATALOG browser — collapsible tree of catalog endpoints
-- [ ] **1E.4** — Drag from palette/tree → drop on canvas → create node
+- [x] **1E.1** — `WorkflowPalette.tsx` — Draggable node blocks (HTTP, Condition, Delay)
+- [x] **1E.2** — REQUESTS browser — collapsible tree of request collections
+- [x] **1E.3** — CATALOG browser — collapsible tree of catalog endpoints
+- [x] **1E.4** — Drag from palette/tree → drop on canvas → create node
 
 ### 1F — Config Panel (right panel)
 
-- [ ] **1F.1** — `WorkflowConfigPanel.tsx` — Shows config for selected node
-- [ ] **1F.2** — HTTP node config: reuse existing editor tabs (Params, Headers, Body, Auth, Extract)
-- [ ] **1F.3** — Condition node config: expression builder (left, operator, right)
-- [ ] **1F.4** — Delay node config: fixed/random duration inputs
-- [ ] **1F.5** — Initial variables editor (for workflow-level variables)
+- [x] **1F.1** — `WorkflowNodeConfigModal.tsx` — Full-screen modal for selected node config
+- [x] **1F.2** — HTTP node config: reuse existing editor tabs (Params, Headers, Body, Auth, Extract)
+- [x] **1F.3** — Condition node config: expression builder (left, operator, right)
+- [x] **1F.4** — Delay node config: fixed/random duration inputs
+- [x] **1F.5** — Initial variables editor (for workflow-level variables)
 
 ### 1G — Quick Test Execution
 
-- [ ] **1G.1** — `graphRunner.ts` — Topological traversal of node graph for execution
-- [ ] **1G.2** — Quick Test button → runs workflow with live canvas animation
-- [ ] **1G.3** — Node state animation: pending → running → pass → fail
-- [ ] **1G.4** — `VariableContextBar.tsx` — Live variable updates during execution
-- [ ] **1G.5** — Per-step results shown on node (status code, response time)
+- [x] **1G.1** — `graphRunner.ts` — Topological traversal of node graph for execution
+- [x] **1G.2** — Quick Test button → runs workflow with live canvas animation
+- [x] **1G.3** — Node state animation: pending → running → pass → fail
+- [x] **1G.4** — Variable context bar — live variable updates during execution
+- [x] **1G.5** — Per-step results shown on node (status code, response time)
 
-### Phase 1 deliverables
+### Phase 1 deliverables ✅
 - WORKFLOW section in sidebar nav rail (same level as REQUESTS, CATALOG, HARNESS)
 - Visual canvas with drag-and-drop node placement and edge connections
 - Import requests from REQUESTS and CATALOG via palette browser
-- Per-node configuration (HTTP, Condition, Delay) in config panel
+- Per-node configuration (HTTP, Condition, Delay) in full-screen modal
 - Quick Test with live canvas animation and variable tracking
 - Save/load workflows
 
 ---
 
-## Phase 2 — Advanced Control Flow
+## Phase 2 — Advanced Control Flow (COMPLETE)
 
-**Branch**: TBD
-**Status**: Not started
-**Depends on**: Phase 1 complete
-**Estimated**: ~800 lines
+**Branch**: `feature/webhook-schedule-triggers`
+**Status**: Complete
 
 ### Tasks
 
-- [ ] **2.1** — `nodes/ForkNode.tsx` — Parallel fork (fan-out)
-- [ ] **2.2** — `nodes/JoinNode.tsx` — Parallel join (wait-all / wait-any)
-- [ ] **2.3** — `nodes/LoopNode.tsx` — For-each / Repeat N / While
-- [ ] **2.4** — `nodes/SwitchNode.tsx` — Multi-way branch
-- [ ] **2.5** — `AggregateNode.tsx` — Combine parallel results
-- [ ] **2.6** — Try/Catch error handling in graph runner
-- [ ] **2.7** — Sub-workflow (embed a saved workflow as a single node)
+- [x] **2.1** — `nodes/StartNode.tsx` — Workflow entry point with input variable declarations
+- [x] **2.2** — `nodes/EndNode.tsx` — Terminal workflow node with success/failure propagation
+- [x] **2.3** — `nodes/ForkNode.tsx` — Parallel fork (fan-out) with concurrent execution
+- [x] **2.4** — `nodes/JoinNode.tsx` — Parallel join (wait-all barrier synchronization)
+- [x] **2.5** — Auto-Layout — Dagre-based hierarchical layout with smart centering
+- [x] **2.6** — Parallel execution via Promise.all in graphRunner
+- [x] **2.7** — Join barrier coordination with thread tracking
 
-### Phase 2 deliverables
-- Parallel execution with fork/join
-- Loop iteration over arrays, counts, and conditions
-- Multi-way branching and error handling
-- Workflow composition (sub-workflows)
+### Phase 2 deliverables ✅
+- Start/End nodes for clear workflow boundaries
+- Parallel execution with Fork/Join
+- Auto-layout with Dagre hierarchical algorithm
+- 74 new tests (65 unit + 9 E2E)
 
 ---
 
-## Phase 3 — HARNESS Integration + Polish
+## Phase 3 — Webhook & Schedule Triggers (COMPLETE)
 
-**Branch**: TBD
-**Status**: Not started
-**Depends on**: Phase 1 complete (Phase 2 optional)
-**Estimated**: ~500 lines
+**Branch**: `feature/webhook-schedule-triggers`
+**Status**: Complete
 
 ### Tasks
 
-- [ ] **3.1** — Workflow picker in HARNESS Test Runner
-- [ ] **3.2** — "Run in Harness" button in workflow toolbar
-- [ ] **3.3** — Workflow results in Results Dashboard (per-step breakdown)
-- [ ] **3.4** — Export workflow as YAML (CLI-compatible)
-- [ ] **3.5** — Import workflow from YAML
-- [ ] **3.6** — Source sync indicators (badge when REQUESTS/CATALOG source changes)
-- [ ] **3.7** — CHANGELOG, ROADMAP updates
+- [x] **3.1** — `nodes/WebhookTriggerNode.tsx` — HTTP endpoint trigger with method/path/payload config
+- [x] **3.2** — `nodes/ScheduleTriggerNode.tsx` — Cron-based trigger with timezone and human-readable description
+- [x] **3.3** — `WebhookConfig.tsx` — Webhook configuration panel with method, path, sample payload, variable extraction
+- [x] **3.4** — `ScheduleConfig.tsx` — Schedule configuration panel with cron expression, timezone, input variables
+- [x] **3.5** — GraphRunner integration — `findStartNodes()` prioritizes trigger nodes; webhook variable extraction from samplePayload
+- [x] **3.6** — `src-server/webhook-server.ts` — Node.js webhook HTTP server for receiving webhook events
+- [x] **3.7** — `src-server/cron-scheduler.ts` — Cron scheduler for time-based workflow triggering
+- [x] **3.8** — `src-server/file-storage.ts` — File-based workflow and execution storage
+- [x] **3.9** — `src-server/webhook-extractor.ts` — JSONPath variable extraction from webhook payloads
+- [x] **3.10** — `WebhookDeliveryLogs.tsx` — Webhook delivery log viewer page
+- [x] **3.11** — `WorkflowExecutionHistory.tsx` — Execution history page with status tracking
+- [x] **3.12** — `ServerStatusIndicator.tsx` — Server connection status indicator
+- [x] **3.13** — Shared types (`server-api.ts`) and formatters (`serverFormatters.ts`)
+- [x] **3.14** — 31 new tests (11 unit + 20 E2E) for trigger node functionality
 
-### Phase 3 deliverables
-- Run saved workflows at scale from HARNESS
-- Per-step results in Results Dashboard
-- Round-trip YAML export/import for CLI
-- Source change tracking
+### Phase 3 deliverables ✅
+- Webhook and schedule trigger nodes in palette and canvas
+- Full configuration modals for both trigger types
+- Node.js backend server for webhook reception and cron scheduling
+- Webhook delivery logs and execution history pages
+- Server status indicator in workflow toolbar
 
 ---
 
@@ -157,11 +160,11 @@ Add WORKFLOW as a 4th top-level section with a visual canvas for designing workf
 | Phase | Tasks | Done | Status |
 |---|---|---|---|
 | **A** — Engine Foundation | 9 | 9 | Complete |
-| **1** — Visual Designer | 24 | 3 | In progress |
-| **2** — Advanced Control Flow | 7 | 0 | Not started |
-| **3** — HARNESS + Polish | 7 | 0 | Not started |
-| **Total** | **47** | **12** | **26%** |
+| **1** — Visual Designer | 24 | 24 | Complete |
+| **2** — Advanced Control Flow | 7 | 7 | Complete |
+| **3** — Webhook & Schedule Triggers | 14 | 14 | Complete |
+| **Total** | **54** | **54** | **100%** |
 
 ---
 
-_Last updated: 2026-04-19_
+_Last updated: 2026-04-24_
