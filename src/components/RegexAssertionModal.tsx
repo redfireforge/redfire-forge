@@ -66,10 +66,14 @@ interface PickerNodeProps {
   onSelect: (path: string) => void;
   searchTerm: string;
   expandAll?: boolean;
+  /** Set of JSONPath expressions already mapped (shown with a check indicator). */
+  mappedPaths?: Set<string>;
+  /** When true, onSelect fires on double-click instead of single-click. */
+  selectOnDoubleClick?: boolean;
 }
 
 /** Shared JSON tree row picker (also used by ExtractionPathPickerModal). */
-export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll }: PickerNodeProps) {
+export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
 
@@ -89,7 +93,8 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
   const effectiveExpanded = useMemo(() => {
     if (searchTerm && hasMatchingDescendant) return true;
     if (manualExpanded !== null) return manualExpanded;
-    if (expandAll) return true;
+    if (expandAll === true) return true;
+    if (expandAll === false) return depth < 1;
     return depth < 2;
   }, [searchTerm, hasMatchingDescendant, manualExpanded, expandAll, depth]);
 
@@ -104,13 +109,15 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
 
   const isSelected = node.path === selectedPath;
   const isHighlighted = searchTerm && matchesSelf;
+  const isMapped = mappedPaths ? mappedPaths.has(node.path.startsWith('$') ? node.path : `$.${node.path}`) : false;
 
   return (
     <div className="ram-tree-node">
       <div
-        className={`ram-tree-row ${isSelected ? 'ram-tree-selected' : ''} ${isHighlighted ? 'search-hit' : ''}`}
+        className={`ram-tree-row ${isSelected ? 'ram-tree-selected' : ''} ${isHighlighted ? 'search-hit' : ''} ${isMapped ? 'ram-tree-mapped' : ''}`}
         style={{ paddingLeft: depth * 18 + 8 }}
-        onClick={() => { if (node.path) onSelect(node.path); }}
+        onClick={selectOnDoubleClick ? undefined : () => { if (node.path) onSelect(node.path); }}
+        onDoubleClick={selectOnDoubleClick ? () => { if (node.path) onSelect(node.path); } : undefined}
       >
         {hasChildren ? (
           <span
@@ -126,6 +133,7 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
         <span className="jt-colon">:</span>
         <span className="json-tree-value" style={{ color }}>{valuePreview}</span>
         {node.path && <span className="json-tree-path">{node.path}</span>}
+        {isMapped && <span className="emm-mapped-check" title="Mapped">✓</span>}
       </div>
       {hasChildren && effectiveExpanded && (
         <div className="json-tree-children">
@@ -138,6 +146,8 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
               onSelect={onSelect}
               searchTerm={searchTerm}
               expandAll={expandAll}
+              mappedPaths={mappedPaths}
+              selectOnDoubleClick={selectOnDoubleClick}
             />
           ))}
         </div>

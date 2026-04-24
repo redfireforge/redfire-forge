@@ -1,14 +1,12 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { ForkNodeData } from '../../../types/workflow';
-import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeRunContext';
+import { useNodeBase } from './useNodeBase';
 
 type ForkWorkflowNode = Node<ForkNodeData, 'fork'>;
 type Props = NodeProps<ForkWorkflowNode>;
 
 export default function ForkNode({ id, data, selected }: Props) {
-  const rs = useWorkflowNodeRunStatus(id);
-  const debugStep = useWorkflowDebugStep();
-  const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
+  const { rs, stateClass, debugStep } = useNodeBase(id);
 
   return (
     <div className={`wf-node wf-node-fork ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>

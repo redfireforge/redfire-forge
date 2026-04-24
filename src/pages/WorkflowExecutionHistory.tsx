@@ -137,6 +137,16 @@ export default function WorkflowExecutionHistory() {
           <p className="exh-subtitle">
             {filteredExecutions.length} execution{filteredExecutions.length !== 1 ? 's' : ''}
             {executions.length > 0 && filter !== 'all' && ` (${executions.length} total)`}
+            {filteredExecutions.length > 1 && (
+              <button
+                type="button"
+                className="sort-toggle-badge"
+                onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Newest first — click to reverse' : 'Oldest first — click to reverse'}
+              >
+                {sortOrder === 'desc' ? '↓ Newest' : '↑ Oldest'}
+              </button>
+            )}
           </p>
         </div>
         <div className="exh-controls">
@@ -149,17 +159,6 @@ export default function WorkflowExecutionHistory() {
             <option value="webhook">Webhooks</option>
             <option value="schedule">Schedules</option>
           </select>
-          <label className="exh-sort-label">
-            Sort:
-            <select
-              className="exh-select"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
-            >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
-            </select>
-          </label>
           <button className="exh-btn exh-btn-primary" onClick={loadExecutions}>Refresh</button>
         </div>
       </div>

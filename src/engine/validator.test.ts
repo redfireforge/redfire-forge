@@ -643,6 +643,28 @@ describe('validate deepCompare edge cases', () => {
     );
     expect(failures.length).toBeGreaterThan(0);
   });
+
+  it('compares matching arrays element-by-element (full mode)', () => {
+    const failures = validate(
+      {
+        mode: 'full',
+        expectedJson: JSON.stringify({ items: ['a', 'b'] }),
+      },
+      { items: ['a', 'b'] }
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('reports mismatch when arrays differ in length (full mode)', () => {
+    const failures = validate(
+      {
+        mode: 'full',
+        expectedJson: JSON.stringify({ items: ['a', 'b', 'c'] }),
+      },
+      { items: ['a'] }
+    );
+    expect(failures.length).toBeGreaterThan(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

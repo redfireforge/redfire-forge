@@ -145,6 +145,80 @@ Added WORKFLOW as a 4th top-level section with a visual canvas for designing wor
 
 ---
 
+## Phase 4 — Switch, Loop, SetVariable & Aggregate Nodes (COMPLETE)
+
+**Branch**: `feature/switch-loop-nodes`
+**Status**: Complete
+
+### Types & Data Model
+
+- [x] **4.1** — `SwitchCase` interface — `{ id, value, label? }`
+- [x] **4.2** — `SwitchNodeData` interface — `{ label, expression, cases: SwitchCase[] }`
+- [x] **4.3** — `LoopMode` type — `'count' | 'forEach' | 'while'`
+- [x] **4.4** — `ConditionOperator` type alias — Reuses `ConditionNodeData['operator']`
+- [x] **4.5** — `LoopNodeData` interface — `{ label, mode, count?, countExpression?, sourceExpression?, itemVariable?, indexVariable?, whileLeft?, whileOperator?, whileRight?, maxIterations? }`
+- [x] **4.6** — Extended `WorkflowNodeType` union with `'switch' | 'loop' | 'setVariable' | 'aggregate'`
+- [x] **4.7** — Extended `WorkflowNodeData` union with `SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData`
+- [x] **4.7a** — `SetVariableAssignment` interface — `{ id, name, expression }`
+- [x] **4.7b** — `SetVariableNodeData` interface — `{ label, assignments: SetVariableAssignment[] }`
+- [x] **4.7c** — `AggregateStrategy` type — `'concat' | 'first' | 'last' | 'count' | 'sum' | 'custom'`
+- [x] **4.7d** — `AggregateMapping` interface — `{ id, sourceExpression, targetVariable, strategy, customExpression? }`
+- [x] **4.7e** — `AggregateNodeData` interface — `{ label, mappings: AggregateMapping[] }`
+
+### Node Components
+
+- [x] **4.8** — `nodes/SwitchNode.tsx` — Diamond shape with dynamic output handles per case + default; evenly-spaced handle positioning
+- [x] **4.9** — `nodes/LoopNode.tsx` — Rounded rectangle with loop icon (🔄) and mode badge; two source handles ("Body" + "Done")
+- [x] **4.9a** — `nodes/SetVariableNode.tsx` — Assignment count preview, up to 2 assignments shown, single in/out handles
+- [x] **4.9b** — `nodes/AggregateNode.tsx` — Σ icon, mapping count, up to 2 mappings with strategy display
+
+### Config Panels
+
+- [x] **4.10** — `SwitchConfig.tsx` — Label, expression input, dynamic case list with add/remove/reorder
+- [x] **4.11** — `LoopConfig.tsx` — Mode selector (Count/ForEach/While), mode-specific inputs, max iterations safety cap
+- [x] **4.11a** — `SetVariableConfig.tsx` — Label, dynamic assignments list with name/expression inputs, add/remove/reorder
+- [x] **4.11b** — `AggregateConfig.tsx` — Label, dynamic mappings list with source/target/strategy, custom expression input, add/remove/reorder
+
+### Integration
+
+- [x] **4.12** — `WorkflowNodeConfigModal.tsx` — Render blocks for switch, loop, setVariable, and aggregate node config
+- [x] **4.13** — `WorkflowPalette.tsx` — Switch (⇅), Loop (🔄), Set Variable (📝), Aggregate (Σ) blocks added to Logic category
+- [x] **4.14** — `WorkflowDesigner.tsx` — Node type registration + default node data for all 4 node types
+
+### Engine — GraphRunner
+
+- [x] **4.15** — Switch execution — Resolve expression, match first case, route to matched handle or default; skip non-taken subtrees via `markSubtreeSkipped()`
+- [x] **4.16** — Loop execution — Three modes (count, forEach, while); body subgraph re-traversal per iteration; index/item variable injection; `maxIterations` safety cap
+- [x] **4.17** — `collectReachableFromEdges()` helper — BFS to identify loop body subgraph for visited-set clearing between iterations
+- [x] **4.18** — While-loop condition evaluation — Reuses `evaluateCondition()` with `ConditionNodeData` shape
+- [x] **4.18a** — SetVariable execution — Iterates assignments, resolves expressions via `ctx.resolve()`, sets variables, skips empty names
+- [x] **4.18b** — Aggregate execution — Iterates mappings, applies strategy (concat/first/last/count/sum/custom), skips empty targetVariable
+- [x] **4.18c** — Refactored `visitOutgoing()` helper — Extracted repeated 'follow outgoing edges' pattern to reduce code duplication
+
+### Layout & CSS
+
+- [x] **4.19** — `workflowAutoLayout.ts` — Added `'switch'`, `'loop'`, `'setVariable'`, `'aggregate'` to `COMPACT_NODE_TYPES`
+- [x] **4.20** — `workflow.css` — Styles for `.wf-node-switch`, `.wf-node-loop`, `.wf-node-setVariable`, `.wf-node-aggregate`, config panel elements
+
+### Tests
+
+- [x] **4.21** — `graphRunner.switchLoop.test.ts` — 24 tests: switch routing (match, default, no cases, duplicate values, variable resolution, null-coalesce), loop count/forEach/while modes, forEach JSON array/object/invalid, countExpression resolution, maxIterations safety, abort signal, done-edge traversal
+- [x] **4.21a** — `graphRunner.setVarAggregate.test.ts` — 26 tests: SetVariable (single/multiple vars, template resolution, empty names, override, empty list, outgoing edges), Aggregate (concat/first/last/count/sum/custom strategies, empty mappings, empty targetVariable, unknown strategy, non-array JSON, parsed JSON values, multiple mappings)
+- [ ] **4.22** — E2E tests for switch/loop/setVariable/aggregate palette, config modals, and canvas integration
+- [x] **4.23** — Review, refactor, coverage >90% branch (90.07%)
+
+### Phase 4 deliverables ✅
+- Switch node: multi-way branching with dynamic cases and expression matching
+- Loop node: three iteration modes (count, forEach, while) with safety limits
+- Set Variable node: set/transform variables with template expression resolution
+- Aggregate node: accumulate values with 6 strategies (concat, first, last, count, sum, custom)
+- Full config UI for all 4 node types with add/remove/reorder support
+- GraphRunner execution logic with `visitOutgoing()` refactor to reduce code duplication
+- 50 new unit tests (24 switch/loop + 26 setVariable/aggregate)
+- 1,831 total tests passing, 90.07% branch coverage
+
+---
+
 ## Backlog — Structured JSON assertions (cross-cutting)
 
 > Tracked in **ROADMAP.md → Phase 0.10.0** (“Structured JSON body assertions”). Not workflow-only: same validation engine as Harness.
@@ -163,7 +237,8 @@ Added WORKFLOW as a 4th top-level section with a visual canvas for designing wor
 | **1** — Visual Designer | 24 | 24 | Complete |
 | **2** — Advanced Control Flow | 7 | 7 | Complete |
 | **3** — Webhook & Schedule Triggers | 14 | 14 | Complete |
-| **Total** | **54** | **54** | **100%** |
+| **4** — Switch, Loop, SetVariable & Aggregate | 33 | 32 | Complete (E2E pending) |
+| **Total** | **87** | **86** | **99%** |
 
 ---
 

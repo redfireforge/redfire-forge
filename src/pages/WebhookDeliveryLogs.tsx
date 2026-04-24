@@ -103,6 +103,16 @@ export default function WebhookDeliveryLogs() {
           <h1 className="whl-title">Webhook Delivery Logs</h1>
           <p className="whl-subtitle">
             {deliveries.length} deliver{deliveries.length !== 1 ? 'ies' : 'y'} on {selectedDate}
+            {deliveries.length > 1 && (
+              <button
+                type="button"
+                className="sort-toggle-badge"
+                onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Newest first — click to reverse' : 'Oldest first — click to reverse'}
+              >
+                {sortOrder === 'desc' ? '↓ Newest' : '↑ Oldest'}
+              </button>
+            )}
           </p>
         </div>
         <div className="whl-controls">
@@ -122,17 +132,6 @@ export default function WebhookDeliveryLogs() {
           >
             Next →
           </button>
-          <label className="whl-sort-label">
-            Sort:
-            <select
-              className="whl-select"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
-            >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
-            </select>
-          </label>
           <button className="whl-btn whl-btn-primary" onClick={() => loadDeliveries(selectedDate)}>
             Refresh
           </button>
