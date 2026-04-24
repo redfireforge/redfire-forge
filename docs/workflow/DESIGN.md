@@ -116,15 +116,15 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 | **End** | Circle (red) | Workflow exit point | Label only | ✅ Done |
 | **Webhook Trigger** | Webhook icon | Start workflow from webhook | HTTP method, path, sample payload, variable extraction | ✅ Done |
 | **Schedule Trigger** | Clock/calendar icon | Start workflow on schedule | Cron expression, timezone, schedule description | ✅ Done |
+| **Switch** | Multi-diamond (⇅) | Multi-way branching | Expression, ordered cases (value + label), default fallback | ✅ Done |
+| **Loop** | Rounded rect (🔄) | Repeat steps | Count / ForEach / While modes, index/item variables, max iterations safety cap | ✅ Done |
+| **Set Variable** | Assignment icon (📝) | Set or transform variables | Variable name, value expression, template resolution | ✅ Done |
+| **Aggregate** | Sigma icon (Σ) | Combine/accumulate values | Source/target mappings, strategy (concat, first, last, count, sum, custom) | ✅ Done |
 
 ### Planned Nodes 🚧
 
 | Node | Shape | Purpose | Config | Priority |
 |---|---|---|---|---|
-| **Loop** | Cycle arrows | Repeat steps | For-each array, repeat N, while condition, max iterations | High |
-| **Switch** | Multi-diamond | Multi-way branch | Multiple conditions → edges (case 1, case 2, default) | High |
-| **Set Variable** | Assignment icon | Set or transform variables | Variable name, value expression, transform function | High |
-| **Aggregate** | Sigma icon | Combine parallel results | Merge strategy (concat, first, last, custom JSONPath) | Medium |
 | **Script/Transform** | Code icon | Execute JavaScript | Code editor, input/output variables | Medium |
 | **Error Handler** | Shield icon | Catch and handle errors | Error type, retry config, fallback path | Medium |
 | **Log/Debug** | Bug icon | Log variables or messages | Message template, log level, variable snapshot | Low |

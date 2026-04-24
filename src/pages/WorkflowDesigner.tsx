@@ -39,6 +39,10 @@ import type {
   EndNodeData,
   WebhookTriggerNodeData,
   ScheduleTriggerNodeData,
+  SwitchNodeData,
+  LoopNodeData,
+  SetVariableNodeData,
+  AggregateNodeData,
   NodeRunStatus,
   WorkflowHostProfile,
   WorkflowAuthProfile,
@@ -82,6 +86,10 @@ import JoinNode from '../components/workflow/nodes/JoinNode';
 import EndNode from '../components/workflow/nodes/EndNode';
 import WebhookTriggerNode from '../components/workflow/nodes/WebhookTriggerNode';
 import ScheduleTriggerNode from '../components/workflow/nodes/ScheduleTriggerNode';
+import SwitchNode from '../components/workflow/nodes/SwitchNode';
+import LoopNode from '../components/workflow/nodes/LoopNode';
+import SetVariableNode from '../components/workflow/nodes/SetVariableNode';
+import AggregateNode from '../components/workflow/nodes/AggregateNode';
 import { DebugController } from '../engine/workflow/debugController';
 import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
@@ -125,6 +133,10 @@ const nodeTypes = {
   end: EndNode,
   webhook: WebhookTriggerNode,
   schedule: ScheduleTriggerNode,
+  switch: SwitchNode,
+  loop: LoopNode,
+  setVariable: SetVariableNode,
+  aggregate: AggregateNode,
 };
 
 /** Enrich a React Flow node with state-managed initialVariables. */
@@ -173,6 +185,26 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       scheduleDescription: 'Every weekday at 9:00 AM EST',
       inputVariables: {}
     } as ScheduleTriggerNodeData;
+    case 'switch': return {
+      label: 'Switch',
+      expression: '{{status}}',
+      cases: [],
+    } as SwitchNodeData;
+    case 'loop': return {
+      label: 'Loop',
+      mode: 'count',
+      count: 3,
+      indexVariable: 'i',
+      maxIterations: 100,
+    } as LoopNodeData;
+    case 'setVariable': return {
+      label: 'Set Variable',
+      assignments: [],
+    } as SetVariableNodeData;
+    case 'aggregate': return {
+      label: 'Aggregate',
+      mappings: [],
+    } as AggregateNodeData;
   }
 }
 
@@ -530,6 +562,11 @@ function WorkflowDesignerInner({
         setExtractionSampleJson(result.body);
       } else {
         setExtractionFetchError(result.error);
+        // Still load the response body (if any) so the user can inspect it
+        if (result.body) {
+          try { setExtractionSampleJson(JSON.stringify(JSON.parse(result.body), null, 2)); }
+          catch { setExtractionSampleJson(result.body); }
+        }
       }
     } finally {
       setExtractionFetching(false);
@@ -865,12 +902,8 @@ function WorkflowDesignerInner({
 
   // ── Quick Test ───────────────────────────────────────
 
-  const handleQuickTest = useCallback(() => {
-    if (isRunning) {
-      abortRef.current?.abort();
-      return;
-    }
-
+  /** Shared logic for both normal and debug workflow runs. */
+  const executeWorkflowRun = useCallback((debugController?: DebugController) => {
     if (!selected || nodes.length === 0) return;
 
     // Pre-flight: check env readiness for all services
@@ -885,6 +918,7 @@ function WorkflowDesignerInner({
     }
 
     setIsRunning(true);
+    if (debugController) setIsDebugMode(true);
     setLastRunStatus('running');
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
@@ -900,7 +934,6 @@ function WorkflowDesignerInner({
         return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
       }
       const d = n.data;
-      // Use the ref-backed store as source of truth for initialVariables (survives React Flow state resets)
       const refVars = nodeInitialVarsRef.current[n.id];
       const merged: HttpNodeData = {
         ...d,
@@ -930,6 +963,10 @@ function WorkflowDesignerInner({
       onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
         setIsRunning(false);
+        if (debugController) {
+          setIsDebugMode(false);
+          debugControllerRef.current = null;
+        }
         setLastRunStatus(passed ? 'pass' : 'fail');
         setLastRunTime(durationMs);
         const errorMsg = !passed
@@ -966,7 +1003,6 @@ function WorkflowDesignerInner({
     };
 
     const envLayer: Record<string, string> = {};
-    // Only inject legacy baseUrl when no Service Registry services are configured
     if (!workflowServices.length) {
       const bu = resolvedBaseUrl.trim();
       if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
@@ -981,13 +1017,17 @@ function WorkflowDesignerInner({
       envLayer,
       resolveHttpBaseUrlForGraph,
       resolveHttpAuthForGraph,
+      debugController,
     ).catch(() => {
       setIsRunning(false);
+      if (debugController) {
+        setIsDebugMode(false);
+        debugControllerRef.current = null;
+      }
       setLastRunStatus('fail');
-      setLastRunError('Workflow run failed or was interrupted.');
+      setLastRunError(debugController ? 'Workflow debug run failed or was interrupted.' : 'Workflow run failed or was interrupted.');
     });
   }, [
-    isRunning,
     selected,
     nodes,
     edges,
@@ -999,6 +1039,14 @@ function WorkflowDesignerInner({
     workflowServices,
     environments,
   ]);
+
+  const handleQuickTest = useCallback(() => {
+    if (isRunning) {
+      abortRef.current?.abort();
+      return;
+    }
+    executeWorkflowRun();
+  }, [isRunning, executeWorkflowRun]);
 
   const variableCount = useMemo(() => {
     const s = new Set<string>(Object.keys(workflowVariables));
@@ -1018,145 +1066,14 @@ function WorkflowDesignerInner({
 
   const handleDebugQuickTest = useCallback(() => {
     if (isRunning) {
-      // Stop debug
       debugControllerRef.current?.stop();
       abortRef.current?.abort();
       return;
     }
-    if (!selected || nodes.length === 0) return;
-
-    // Pre-flight same as handleQuickTest
-    if (selectedEnvId && workflowServices.length) {
-      const readiness = checkEnvReadiness(selectedEnvId, workflowServices);
-      if (!readiness.ready) {
-        const names = readiness.issues.map((i) => i.serviceName).join(', ');
-        const envLabel = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
-        alert(`Cannot run on "${envLabel}" — missing configuration for: ${names}.\n\nOpen Service Registry to configure these services for this environment.`);
-        return;
-      }
-    }
-
     const dc = new DebugController();
     debugControllerRef.current = dc;
-    setIsRunning(true);
-    setIsDebugMode(true);
-    setLastRunStatus('running');
-    setLastRunError(null);
-    setLastQuickTestRequestUrl(null);
-    setNodeStatuses({});
-    clearConsole();
-
-    abortRef.current = new AbortController();
-
-    const liveWorkflowVariables = workflowVariablesRef.current;
-    const wfNodes: WorkflowNode[] = nodesRef.current.map((n) => {
-      const base = { id: n.id, type: n.type, position: n.position };
-      if (!isHttpWorkflowNode(n)) {
-        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
-      }
-      const d = n.data;
-      const refVars = nodeInitialVarsRef.current[n.id];
-      const merged: HttpNodeData = {
-        ...d,
-        initialVariables: { ...liveWorkflowVariables, ...(refVars ?? d.initialVariables ?? {}) },
-      };
-      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) };
-    });
-    const wfEdges = edgesRef.current.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle ?? undefined,
-      label: typeof e.label === 'string' ? e.label : undefined,
-    }));
-
-    const runNodeStatuses: Record<string, NodeRunStatus> = {};
-    let runVarSnap: Record<string, string> | null = null;
-    const callbacks: GraphRunCallbacks = {
-      onNodeStateChange: (nodeId, status) => {
-        runNodeStatuses[nodeId] = status;
-        setNodeStatuses(prev => ({ ...prev, [nodeId]: status }));
-      },
-      onVariablesChange: (vars) => {
-        runVarSnap = vars;
-        setRunVariableSnapshot(vars);
-      },
-      onLog: (line) => { if (consoleOpenRef.current) pushConsoleLine(line); },
-      onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
-        setIsRunning(false);
-        setIsDebugMode(false);
-        debugControllerRef.current = null;
-        setLastRunStatus(passed ? 'pass' : 'fail');
-        setLastRunTime(durationMs);
-        const errorMsg = !passed
-          ? (results.find((r) => !r.passed) ? summarizeRequestFailure(results.find((r) => !r.passed)!) : 'One or more steps failed.')
-          : null;
-        setLastRunError(errorMsg);
-        const urlForDebug = results.find((r) => !r.passed)?.url ?? results[results.length - 1]?.url;
-        setLastQuickTestRequestUrl(urlForDebug ?? null);
-        const stepSummaries = nodesRef.current
-          .filter(n => runNodeStatuses[n.id] && n.type === 'http')
-          .map(n => {
-            const rs = runNodeStatuses[n.id];
-            return {
-              nodeId: n.id,
-              label: (n.data as { label?: string }).label || n.id,
-              state: rs.state === 'pass' ? 'pass' as const : rs.state === 'fail' ? 'fail' as const : 'skipped' as const,
-              statusCode: rs.statusCode,
-              responseTimeMs: rs.responseTimeMs,
-              error: rs.error,
-            };
-          });
-        const histId = pushRunHistory({
-          timestamp: Date.now(),
-          durationMs,
-          passed,
-          nodeStatuses: { ...runNodeStatuses },
-          variableSnapshot: runVarSnap ? { ...runVarSnap } : null,
-          stepsExecuted: results.length,
-          stepSummaries,
-          error: errorMsg,
-        });
-        setActiveRunHistoryId(histId);
-      },
-    };
-
-    const envLayer: Record<string, string> = {};
-    if (!workflowServices.length) {
-      const bu = resolvedBaseUrl.trim();
-      if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
-    }
-
-    runGraph(
-      wfNodes,
-      wfEdges,
-      liveWorkflowVariables,
-      callbacks,
-      abortRef.current.signal,
-      envLayer,
-      resolveHttpBaseUrlForGraph,
-      resolveHttpAuthForGraph,
-      dc,
-    ).catch(() => {
-      setIsRunning(false);
-      setIsDebugMode(false);
-      debugControllerRef.current = null;
-      setLastRunStatus('fail');
-      setLastRunError('Workflow debug run failed or was interrupted.');
-    });
-  }, [
-    isRunning,
-    selected,
-    nodes,
-    edges,
-    resolvedBaseUrl,
-    resolveHttpBaseUrlForGraph,
-    resolveHttpAuthForGraph,
-    workflowHostProfiles,
-    selectedEnvId,
-    workflowServices,
-    environments,
-  ]);
+    executeWorkflowRun(dc);
+  }, [isRunning, executeWorkflowRun]);
 
   const handleDebugStep = useCallback((nodeId: string) => {
     debugControllerRef.current?.stepNode(nodeId);

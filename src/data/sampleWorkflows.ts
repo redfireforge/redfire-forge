@@ -1,9 +1,14 @@
 import type { Workflow } from '../types/workflow';
 
+export type SampleCategory = 'basics' | 'triggers' | 'logic' | 'advanced';
+
 export interface SampleWorkflowEntry {
   id: string;
   name: string;
   description: string;
+  category: SampleCategory;
+  icon: string;
+  nodeCount: number;
   factory: () => Workflow;
 }
 
@@ -26,9 +31,7 @@ function createOrderWorkflow(): Workflow {
     id: 'sample-workflow-001',
     name: 'Sample: Create → Extract → Verify',
     description: 'Demonstrates multi-step API testing with variable chaining using a public REST API.',
-    variables: {
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-    },
+    variables: {},
     nodes: [
       {
         id: nodeIds.start,
@@ -45,7 +48,7 @@ function createOrderWorkflow(): Workflow {
           scenario: {
             id: 'sample-s1',
             name: 'Create Post',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [
               { key: 'Content-Type', value: 'application/json' },
@@ -95,7 +98,7 @@ function createOrderWorkflow(): Workflow {
           scenario: {
             id: 'sample-s3',
             name: 'Get Post Details',
-            url: '{{baseUrl}}/posts/1',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
             method: 'GET',
             headers: [
               { key: 'Accept', value: 'application/json' },
@@ -144,9 +147,7 @@ function createParallelForkWorkflow(): Workflow {
     id: 'sample-workflow-parallel',
     name: 'Sample: Parallel API Calls',
     description: 'Demonstrates Fork and Join nodes for running multiple API calls simultaneously and merging results.',
-    variables: {
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-    },
+    variables: {},
     nodes: [
       {
         id: 'sp-start',
@@ -163,7 +164,7 @@ function createParallelForkWorkflow(): Workflow {
           scenario: {
             id: 'sp-s1',
             name: 'Get Post',
-            url: '{{baseUrl}}/posts/1',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -191,7 +192,7 @@ function createParallelForkWorkflow(): Workflow {
           scenario: {
             id: 'sp-s2',
             name: 'Get Users',
-            url: '{{baseUrl}}/users',
+            url: 'https://jsonplaceholder.typicode.com/users',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -213,7 +214,7 @@ function createParallelForkWorkflow(): Workflow {
           scenario: {
             id: 'sp-s3',
             name: 'Get Comments',
-            url: '{{baseUrl}}/posts/1/comments',
+            url: 'https://jsonplaceholder.typicode.com/posts/1/comments',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -241,7 +242,7 @@ function createParallelForkWorkflow(): Workflow {
           scenario: {
             id: 'sp-s4',
             name: 'Post Summary',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -280,10 +281,7 @@ function createConditionalBranchWorkflow(): Workflow {
     id: 'sample-workflow-branching',
     name: 'Sample: Conditional Branching',
     description: 'Demonstrates If/Else branching with different API paths based on conditions.',
-    variables: {
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-      userId: '1',
-    },
+    variables: {},
     nodes: [
       {
         id: 'sb-start',
@@ -300,7 +298,7 @@ function createConditionalBranchWorkflow(): Workflow {
           scenario: {
             id: 'sb-s1',
             name: 'Get User',
-            url: '{{baseUrl}}/users/{{userId}}',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -333,7 +331,7 @@ function createConditionalBranchWorkflow(): Workflow {
           scenario: {
             id: 'sb-s2',
             name: 'Get User Posts',
-            url: '{{baseUrl}}/users/{{userId}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/users/1/posts',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -354,7 +352,7 @@ function createConditionalBranchWorkflow(): Workflow {
           scenario: {
             id: 'sb-s3',
             name: 'Create User',
-            url: '{{baseUrl}}/users',
+            url: 'https://jsonplaceholder.typicode.com/users',
             method: 'POST',
             headers: [
               { key: 'Content-Type', value: 'application/json' },
@@ -388,9 +386,7 @@ function createWebhookTriggerWorkflow(): Workflow {
     id: 'sample-workflow-webhook',
     name: 'Sample: Webhook Trigger',
     description: 'Webhook-triggered order processing with payload extraction and conditional branching',
-    variables: {
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-    },
+    variables: {},
     nodes: [
       {
         id: 'wh-webhook',
@@ -426,7 +422,7 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s1',
             name: 'Check Inventory',
-            url: '{{baseUrl}}/users/{{customerId}}',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -459,7 +455,7 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s2',
             name: 'Process Order',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -482,7 +478,7 @@ function createWebhookTriggerWorkflow(): Workflow {
           scenario: {
             id: 'wh-s3',
             name: 'Send Alert',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -526,7 +522,6 @@ function createScheduleTriggerWorkflow(): Workflow {
     name: 'Sample: Schedule Trigger',
     description: 'Cron-scheduled daily report generation with parallel email delivery and archiving',
     variables: {
-      baseUrl: 'https://jsonplaceholder.typicode.com',
       reportType: 'daily_sales',
     },
     nodes: [
@@ -555,7 +550,7 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s1',
             name: 'Fetch Sales Data',
-            url: '{{baseUrl}}/posts?userId=1',
+            url: 'https://jsonplaceholder.typicode.com/posts?userId=1',
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '',
@@ -578,7 +573,7 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s2',
             name: 'Generate Report',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -610,7 +605,7 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s3',
             name: 'Email Report',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -633,7 +628,7 @@ function createScheduleTriggerWorkflow(): Workflow {
           scenario: {
             id: 'sc-s4',
             name: 'Archive Report',
-            url: '{{baseUrl}}/posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
             method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: JSON.stringify({
@@ -675,36 +670,415 @@ function createScheduleTriggerWorkflow(): Workflow {
   };
 }
 
+/**
+ * Sample: Switch-based order routing.
+ * Start → HTTP (fetch order) → Switch on orderType (standard / express / gift / default) → End
+ */
+function createSwitchRoutingWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-switch',
+    name: 'Sample: Switch Order Router',
+    description: 'Routes orders through different processing paths based on order type using a Switch node.',
+    variables: {},
+    nodes: [
+      { id: 'sw-start', type: 'start', position: { x: 300, y: 0 }, data: { label: 'Start', inputVariables: {} } },
+      {
+        id: 'sw-fetch', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: 'Fetch Order', scenario: {
+            id: 'sw-s1', name: 'Fetch Order', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET',
+            headers: [], body: '', bodyType: 'none', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'orderType', source: 'body', expression: '$.userId' },
+              { name: 'orderTitle', source: 'body', expression: '$.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sw-switch', type: 'switch', position: { x: 280, y: 280 },
+        data: {
+          label: 'Route by Type', expression: '{{orderType}}',
+          cases: [
+            { id: 'c1', value: '1', label: 'Standard' },
+            { id: 'c2', value: '2', label: 'Express' },
+            { id: 'c3', value: '3', label: 'Gift' },
+          ],
+        },
+      },
+      {
+        id: 'sw-standard', type: 'http', position: { x: 50, y: 450 },
+        data: {
+          label: 'Standard Processing', scenario: {
+            id: 'sw-s2', name: 'Standard', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"type":"standard","order":"{{orderTitle}}"}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      {
+        id: 'sw-express', type: 'http', position: { x: 280, y: 450 },
+        data: {
+          label: 'Express Processing', scenario: {
+            id: 'sw-s3', name: 'Express', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"type":"express","priority":"high","order":"{{orderTitle}}"}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      {
+        id: 'sw-gift', type: 'http', position: { x: 510, y: 450 },
+        data: {
+          label: 'Gift Processing', scenario: {
+            id: 'sw-s4', name: 'Gift', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"type":"gift","wrapping":true,"order":"{{orderTitle}}"}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      {
+        id: 'sw-default', type: 'http', position: { x: 740, y: 450 },
+        data: {
+          label: 'Default Handler', scenario: {
+            id: 'sw-s5', name: 'Default', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"type":"unknown","order":"{{orderTitle}}"}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      { id: 'sw-end', type: 'end', position: { x: 350, y: 620 }, data: { label: 'Done' } },
+    ],
+    edges: [
+      { id: 'sw-e1', source: 'sw-start', target: 'sw-fetch' },
+      { id: 'sw-e2', source: 'sw-fetch', target: 'sw-switch' },
+      { id: 'sw-e3', source: 'sw-switch', target: 'sw-standard', sourceHandle: 'case-c1' },
+      { id: 'sw-e4', source: 'sw-switch', target: 'sw-express', sourceHandle: 'case-c2' },
+      { id: 'sw-e5', source: 'sw-switch', target: 'sw-gift', sourceHandle: 'case-c3' },
+      { id: 'sw-e6', source: 'sw-switch', target: 'sw-default', sourceHandle: 'default' },
+      { id: 'sw-e7', source: 'sw-standard', target: 'sw-end' },
+      { id: 'sw-e8', source: 'sw-express', target: 'sw-end' },
+      { id: 'sw-e9', source: 'sw-gift', target: 'sw-end' },
+      { id: 'sw-e10', source: 'sw-default', target: 'sw-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample: Loop + Aggregate paginated API fetcher.
+ * Start → SetVariable (init) → Loop (while hasMore) → HTTP (page) → Aggregate (concat items, sum totals)
+ *       → SetVariable (next page) → done → Condition → End
+ */
+function createLoopAggregateWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-loop-agg',
+    name: 'Sample: Paginated API Fetcher',
+    description: 'Fetches pages of data in a while-loop, aggregates results with concat/sum/count, then checks totals.',
+    variables: {},
+    nodes: [
+      { id: 'la-start', type: 'start', position: { x: 300, y: 0 }, data: { label: 'Start', inputVariables: {} } },
+      {
+        id: 'la-init', type: 'setVariable', position: { x: 260, y: 120 },
+        data: {
+          label: 'Init Variables',
+          assignments: [
+            { id: 'a1', name: 'page', expression: '1' },
+            { id: 'a2', name: 'hasMore', expression: 'true' },
+            { id: 'a3', name: 'allItems', expression: '[]' },
+            { id: 'a4', name: 'totalCount', expression: '0' },
+          ],
+        },
+      },
+      {
+        id: 'la-loop', type: 'loop', position: { x: 280, y: 260 },
+        data: {
+          label: 'Fetch Pages', mode: 'while' as const,
+          whileLeft: '{{hasMore}}', whileOperator: '==' as const, whileRight: 'true',
+          maxIterations: 10,
+        },
+      },
+      {
+        id: 'la-fetch', type: 'http', position: { x: 240, y: 400 },
+        data: {
+          label: 'GET Page', scenario: {
+            id: 'la-s1', name: 'Fetch Page', url: 'https://jsonplaceholder.typicode.com/posts?_page=1&_limit=10', method: 'GET',
+            headers: [], body: '', bodyType: 'none', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'pageItems', source: 'body', expression: '$' },
+              { name: 'itemCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'la-agg', type: 'aggregate', position: { x: 240, y: 560 },
+        data: {
+          label: 'Accumulate',
+          mappings: [
+            { id: 'm1', sourceExpression: '{{pageItems}}', targetVariable: 'allItems', strategy: 'concat' as const },
+            { id: 'm2', sourceExpression: '{{itemCount}}', targetVariable: 'totalCount', strategy: 'sum' as const },
+          ],
+        },
+      },
+      {
+        id: 'la-next', type: 'setVariable', position: { x: 240, y: 700 },
+        data: {
+          label: 'Next Page',
+          assignments: [
+            { id: 'a1', name: 'page', expression: '{{page}}' },
+            { id: 'a2', name: 'hasMore', expression: '{{itemCount}}' },
+          ],
+        },
+      },
+      {
+        id: 'la-check', type: 'condition', position: { x: 260, y: 880 },
+        data: { label: 'Many Items?', left: '{{totalCount}}', operator: '>' as const, right: '50' },
+      },
+      {
+        id: 'la-alert', type: 'http', position: { x: 60, y: 1030 },
+        data: {
+          label: 'Send Alert', scenario: {
+            id: 'la-s2', name: 'Alert', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"alert":"Large dataset: {{totalCount}} items fetched"}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      { id: 'la-end', type: 'end', position: { x: 300, y: 1180 }, data: { label: 'Complete' } },
+    ],
+    edges: [
+      { id: 'la-e1', source: 'la-start', target: 'la-init' },
+      { id: 'la-e2', source: 'la-init', target: 'la-loop' },
+      { id: 'la-e3', source: 'la-loop', target: 'la-fetch', sourceHandle: 'body' },
+      { id: 'la-e4', source: 'la-fetch', target: 'la-agg' },
+      { id: 'la-e5', source: 'la-agg', target: 'la-next' },
+      { id: 'la-e6', source: 'la-loop', target: 'la-check', sourceHandle: 'done' },
+      { id: 'la-e7', source: 'la-check', target: 'la-alert', sourceHandle: 'true' },
+      { id: 'la-e8', source: 'la-check', target: 'la-end', sourceHandle: 'false' },
+      { id: 'la-e9', source: 'la-alert', target: 'la-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample: Batch user provisioning — forEach loop with success/failure tracking.
+ * Start → SetVariable (init) → Loop (forEach user) → HTTP (create) → Condition (201?)
+ *       → Aggregate (success) / Aggregate (failure) → done → Switch (results) → End
+ */
+function createBatchProvisioningWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-batch',
+    name: 'Sample: Batch User Provisioning',
+    description: 'Creates users from a list, tracks successes/failures with aggregation, then routes the result via Switch.',
+    variables: {},
+    nodes: [
+      {
+        id: 'bp-start', type: 'start', position: { x: 300, y: 0 },
+        data: {
+          label: 'Start',
+          inputVariables: {
+            users: '[{"name":"Alice","email":"alice@test.com"},{"name":"Bob","email":"bob@test.com"},{"name":"Carol","email":"carol@test.com"}]',
+          },
+        },
+      },
+      {
+        id: 'bp-init', type: 'setVariable', position: { x: 260, y: 130 },
+        data: {
+          label: 'Init Trackers',
+          assignments: [
+            { id: 'a1', name: 'successCount', expression: '0' },
+            { id: 'a2', name: 'failCount', expression: '0' },
+            { id: 'a3', name: 'createdIds', expression: '[]' },
+          ],
+        },
+      },
+      {
+        id: 'bp-loop', type: 'loop', position: { x: 280, y: 270 },
+        data: {
+          label: 'Each User', mode: 'forEach' as const,
+          sourceExpression: '{{users}}', itemVariable: 'user', indexVariable: 'userIndex',
+          maxIterations: 50,
+        },
+      },
+      {
+        id: 'bp-create', type: 'http', position: { x: 240, y: 410 },
+        data: {
+          label: 'Create User', scenario: {
+            id: 'bp-s1', name: 'Create User', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{{user}}', bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'createStatus', source: 'status', expression: '' },
+              { name: 'userId', source: 'body', expression: '$.id' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'bp-check', type: 'condition', position: { x: 260, y: 570 },
+        data: { label: 'Created?', left: '{{createStatus}}', operator: '==' as const, right: '201' },
+      },
+      {
+        id: 'bp-agg-ok', type: 'aggregate', position: { x: 80, y: 720 },
+        data: {
+          label: 'Track Success',
+          mappings: [
+            { id: 'm1', sourceExpression: '{{userId}}', targetVariable: 'createdIds', strategy: 'concat' as const },
+            { id: 'm2', sourceExpression: '1', targetVariable: 'successCount', strategy: 'count' as const },
+          ],
+        },
+      },
+      {
+        id: 'bp-agg-fail', type: 'aggregate', position: { x: 440, y: 720 },
+        data: {
+          label: 'Track Failure',
+          mappings: [
+            { id: 'm1', sourceExpression: '1', targetVariable: 'failCount', strategy: 'count' as const },
+          ],
+        },
+      },
+      {
+        id: 'bp-summary', type: 'setVariable', position: { x: 240, y: 920 },
+        data: {
+          label: 'Build Summary',
+          assignments: [
+            { id: 'a1', name: 'resultType', expression: '{{failCount}}' },
+            { id: 'a2', name: 'summary', expression: 'Created {{successCount}} users ({{failCount}} failed)' },
+          ],
+        },
+      },
+      {
+        id: 'bp-switch', type: 'switch', position: { x: 260, y: 1060 },
+        data: {
+          label: 'Result Router', expression: '{{resultType}}',
+          cases: [
+            { id: 'rc1', value: '0', label: 'All OK' },
+          ],
+        },
+      },
+      {
+        id: 'bp-report-ok', type: 'http', position: { x: 80, y: 1230 },
+        data: {
+          label: 'Success Report', scenario: {
+            id: 'bp-s2', name: 'Report OK', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"status":"success","summary":"{{summary}}","ids":{{createdIds}}}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bp-report-partial', type: 'http', position: { x: 440, y: 1230 },
+        data: {
+          label: 'Partial Report', scenario: {
+            id: 'bp-s3', name: 'Report Partial', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"status":"partial","summary":"{{summary}}","failures":{{failCount}}}', bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
+          },
+        },
+      },
+      { id: 'bp-end', type: 'end', position: { x: 280, y: 1400 }, data: { label: 'Done' } },
+    ],
+    edges: [
+      { id: 'bp-e1', source: 'bp-start', target: 'bp-init' },
+      { id: 'bp-e2', source: 'bp-init', target: 'bp-loop' },
+      { id: 'bp-e3', source: 'bp-loop', target: 'bp-create', sourceHandle: 'body' },
+      { id: 'bp-e4', source: 'bp-create', target: 'bp-check' },
+      { id: 'bp-e5', source: 'bp-check', target: 'bp-agg-ok', sourceHandle: 'true' },
+      { id: 'bp-e6', source: 'bp-check', target: 'bp-agg-fail', sourceHandle: 'false' },
+      { id: 'bp-e7', source: 'bp-loop', target: 'bp-summary', sourceHandle: 'done' },
+      { id: 'bp-e8', source: 'bp-summary', target: 'bp-switch' },
+      { id: 'bp-e9', source: 'bp-switch', target: 'bp-report-ok', sourceHandle: 'case-rc1' },
+      { id: 'bp-e10', source: 'bp-switch', target: 'bp-report-partial', sourceHandle: 'default' },
+      { id: 'bp-e11', source: 'bp-report-ok', target: 'bp-end' },
+      { id: 'bp-e12', source: 'bp-report-partial', target: 'bp-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
     id: 'sample-workflow-001',
     name: 'Create → Extract → Verify',
     description: 'Sequential HTTP calls with variable chaining, conditions, and delays',
+    category: 'basics',
+    icon: '↗',
+    nodeCount: 6,
     factory: createOrderWorkflow,
   },
   {
     id: 'sample-workflow-parallel',
     name: 'Parallel API Calls',
     description: 'Fork/Join pattern splits execution into concurrent HTTP requests and merges results',
+    category: 'basics',
+    icon: '⑃',
+    nodeCount: 8,
     factory: createParallelForkWorkflow,
   },
   {
     id: 'sample-workflow-branching',
     name: 'Conditional Branching',
     description: 'If/Else paths leading to different API endpoints',
+    category: 'basics',
+    icon: '◆',
+    nodeCount: 6,
     factory: createConditionalBranchWorkflow,
   },
   {
     id: 'sample-workflow-webhook',
-    name: '🪝 Webhook Trigger',
+    name: 'Webhook Trigger',
     description: 'Order processing triggered by incoming HTTP webhooks with payload extraction',
+    category: 'triggers',
+    icon: '🪝',
+    nodeCount: 7,
     factory: createWebhookTriggerWorkflow,
   },
   {
     id: 'sample-workflow-schedule',
-    name: '⏰ Schedule Trigger',
+    name: 'Schedule Trigger',
     description: 'Daily report generation with cron-based scheduling and automatic time variables',
+    category: 'triggers',
+    icon: '⏰',
+    nodeCount: 8,
     factory: createScheduleTriggerWorkflow,
+  },
+  {
+    id: 'sample-workflow-switch',
+    name: 'Switch Order Router',
+    description: 'Routes orders through different processing paths using multi-way Switch branching',
+    category: 'logic',
+    icon: '⇅',
+    nodeCount: 8,
+    factory: createSwitchRoutingWorkflow,
+  },
+  {
+    id: 'sample-workflow-loop-agg',
+    name: 'Paginated API Fetcher',
+    description: 'While-loop fetches paginated data, Aggregate accumulates results with concat/sum/count',
+    category: 'logic',
+    icon: '🔄',
+    nodeCount: 9,
+    factory: createLoopAggregateWorkflow,
+  },
+  {
+    id: 'sample-workflow-batch',
+    name: 'Batch User Provisioning',
+    description: 'ForEach loop creates users, Aggregates track success/failure, Switch routes the final report',
+    category: 'advanced',
+    icon: '📝',
+    nodeCount: 12,
+    factory: createBatchProvisioningWorkflow,
   },
 ];

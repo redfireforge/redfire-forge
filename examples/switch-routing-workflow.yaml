@@ -1,0 +1,246 @@
+# RedfireForge Workflow — Switch Node Example
+# Routes API requests to different handlers based on order type.
+# Demonstrates: Start → HTTP → Switch (multi-way) → HTTP branches → End
+#
+# Flow:
+#   Start (orderType=subscription)
+#     → GET /orders/:id (extract orderType)
+#       → Switch on {{orderType}}
+#           ├─ "one-time"     → POST /billing/charge
+#           ├─ "subscription" → POST /subscriptions/renew
+#           ├─ "gift"         → POST /gifts/redeem
+#           └─ Default        → POST /errors/unknown-type
+#         → End
+
+name: Order Type Router
+description: Fetch an order and route processing based on its type using a Switch node
+
+schemaVersion: 4
+
+variables:
+  orderId: "ORD-7890"
+  apiBase: "https://api.example.com"
+
+services:
+  - id: svc-orders
+    name: Orders API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{API_TOKEN}}"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        orderId: "ORD-7890"
+
+  - id: http-fetch
+    type: http
+    position: { x: 300, y: 120 }
+    data:
+      label: Fetch Order
+      serviceId: svc-orders
+      scenario:
+        id: sc-fetch
+        name: Fetch Order
+        url: "/orders/{{orderId}}"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: orderType
+            source: body
+            expression: $.type
+          - name: customerId
+            source: body
+            expression: $.customerId
+          - name: amount
+            source: body
+            expression: $.amount
+
+  - id: switch-type
+    type: switch
+    position: { x: 300, y: 280 }
+    data:
+      label: Route by Type
+      expression: "{{orderType}}"
+      cases:
+        - id: c1
+          value: "one-time"
+          label: One-Time
+        - id: c2
+          value: "subscription"
+          label: Subscription
+        - id: c3
+          value: "gift"
+          label: Gift
+
+  # ── One-Time purchase ──
+  - id: http-charge
+    type: http
+    position: { x: 0, y: 440 }
+    data:
+      label: Charge One-Time
+      serviceId: svc-orders
+      scenario:
+        id: sc-charge
+        name: Charge One-Time Payment
+        url: /billing/charge
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "customerId": "{{customerId}}",
+            "amount": {{amount}},
+            "type": "one-time"
+          }
+        auth: { type: none }
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.status
+              expectedValue: "charged"
+
+  # ── Subscription renewal ──
+  - id: http-renew
+    type: http
+    position: { x: 300, y: 440 }
+    data:
+      label: Renew Subscription
+      serviceId: svc-orders
+      scenario:
+        id: sc-renew
+        name: Renew Subscription
+        url: /subscriptions/renew
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "customerId": "{{customerId}}",
+            "renewalAmount": {{amount}}
+          }
+        auth: { type: none }
+        validation:
+          mode: selective
+          expectedFields:
+            - jsonPath: $.status
+              expectedValue: "renewed"
+
+  # ── Gift redemption ──
+  - id: http-gift
+    type: http
+    position: { x: 600, y: 440 }
+    data:
+      label: Redeem Gift
+      serviceId: svc-orders
+      scenario:
+        id: sc-gift
+        name: Redeem Gift
+        url: /gifts/redeem
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "customerId": "{{customerId}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  # ── Default / unknown type ──
+  - id: http-unknown
+    type: http
+    position: { x: 900, y: 440 }
+    data:
+      label: Log Unknown Type
+      serviceId: svc-orders
+      scenario:
+        id: sc-unknown
+        name: Log Unknown Type
+        url: /errors/unknown-type
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "unknownType": "{{orderType}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: end-1
+    type: end
+    position: { x: 300, y: 600 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-fetch
+
+  - id: e2
+    source: http-fetch
+    target: switch-type
+
+  # Switch case edges
+  - id: e3
+    source: switch-type
+    target: http-charge
+    sourceHandle: case-c1
+
+  - id: e4
+    source: switch-type
+    target: http-renew
+    sourceHandle: case-c2
+
+  - id: e5
+    source: switch-type
+    target: http-gift
+    sourceHandle: case-c3
+
+  - id: e6
+    source: switch-type
+    target: http-unknown
+    sourceHandle: default
+
+  # All branches converge to End
+  - id: e7
+    source: http-charge
+    target: end-1
+
+  - id: e8
+    source: http-renew
+    target: end-1
+
+  - id: e9
+    source: http-gift
+    target: end-1
+
+  - id: e10
+    source: http-unknown
+    target: end-1

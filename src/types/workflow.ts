@@ -159,9 +159,95 @@ export interface ScheduleTriggerNodeData {
   notes?: string;
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule';
+// ── Switch node ──────────────────────────────────────
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData;
+export interface SwitchCase {
+  id: string;
+  value: string;
+  label?: string;
+}
+
+export interface SwitchNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Expression to evaluate (e.g. "{{status}}"). Resolved via VariableContext at runtime. */
+  expression: string;
+  /** Ordered list of cases. Each maps to a source handle `case-<id>`. */
+  cases: SwitchCase[];
+}
+
+// ── Loop node ────────────────────────────────────────
+
+export type LoopMode = 'count' | 'forEach' | 'while';
+
+export type ConditionOperator = ConditionNodeData['operator'];
+
+export interface LoopNodeData {
+  [key: string]: unknown;
+  label: string;
+  mode: LoopMode;
+  /** Number of iterations (count mode). */
+  count?: number;
+  /** Expression resolving to an iteration count (count mode). e.g. "{{itemCount}}" */
+  countExpression?: string;
+  /** Expression resolving to a JSON array (forEach mode). e.g. "{{items}}" */
+  sourceExpression?: string;
+  /** Variable name for current element (forEach mode). Default "item". */
+  itemVariable?: string;
+  /** Variable name for 0-based index (forEach & count modes). Default "i". */
+  indexVariable?: string;
+  /** Left operand for while condition. */
+  whileLeft?: string;
+  /** Operator for while condition. */
+  whileOperator?: ConditionOperator;
+  /** Right operand for while condition. */
+  whileRight?: string;
+  /** Safety cap to prevent infinite loops. Default 100. */
+  maxIterations?: number;
+}
+
+// ── Set Variable node ────────────────────────────────
+
+export interface SetVariableAssignment {
+  id: string;
+  name: string;
+  /** Expression that resolves to the value. Supports {{var}} templates. */
+  expression: string;
+}
+
+export interface SetVariableNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Ordered list of variable assignments. */
+  assignments: SetVariableAssignment[];
+}
+
+// ── Aggregate node ───────────────────────────────────
+
+export type AggregateStrategy = 'concat' | 'first' | 'last' | 'count' | 'sum' | 'custom';
+
+export interface AggregateMapping {
+  id: string;
+  /** Source expression — the variable/path to aggregate. */
+  sourceExpression: string;
+  /** Target variable name to store the result. */
+  targetVariable: string;
+  /** Aggregation strategy. */
+  strategy: AggregateStrategy;
+  /** Custom JSONPath or expression (used when strategy is 'custom'). */
+  customExpression?: string;
+}
+
+export interface AggregateNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Ordered list of aggregation mappings. */
+  mappings: AggregateMapping[];
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 

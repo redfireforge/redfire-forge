@@ -57,6 +57,12 @@ import {
   loadCatalogEndpointValues,
   saveCatalogEndpointValues,
   removeCatalogEndpointValues,
+  loadSelectedWorkflowId,
+  saveSelectedWorkflowId,
+  loadWorkflows,
+  saveWorkflows,
+  loadWorkflowSampleDismissed,
+  saveWorkflowSampleDismissed,
 } from './storage';
 import type { TestRun, GlobalAuthProfile } from '../types';
 
@@ -1006,5 +1012,84 @@ describe('storage — tauri backend', () => {
   it('removeCatalogRawSpec clears the key via tauriStore setItem empty string', async () => {
     await removeCatalogRawSpec('c1', 'v1');
     expect(tauriSetItem).toHaveBeenCalledWith('perf-test-catalog-spec-c1-v1', '');
+  });
+});
+
+describe('workflow storage', () => {
+  beforeEach(() => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockReset();
+    tauriSetItem.mockReset();
+  });
+
+  it('loadSelectedWorkflowId returns trimmed id', async () => {
+    tauriGetItem.mockResolvedValue('  wf-123  ');
+    expect(await loadSelectedWorkflowId()).toBe('wf-123');
+  });
+
+  it('loadSelectedWorkflowId returns null for empty string', async () => {
+    tauriGetItem.mockResolvedValue('   ');
+    expect(await loadSelectedWorkflowId()).toBeNull();
+  });
+
+  it('loadSelectedWorkflowId returns null on error', async () => {
+    tauriGetItem.mockRejectedValue(new Error('fail'));
+    expect(await loadSelectedWorkflowId()).toBeNull();
+  });
+
+  it('saveSelectedWorkflowId writes trimmed id', async () => {
+    await saveSelectedWorkflowId('  wf-1  ');
+    expect(tauriSetItem).toHaveBeenCalledWith('workflows_selected_id', 'wf-1');
+  });
+
+  it('saveSelectedWorkflowId removes key for null', async () => {
+    await saveSelectedWorkflowId(null);
+    expect(tauriSetItem).toHaveBeenCalledWith('workflows_selected_id', '');
+  });
+
+  it('loadWorkflows returns parsed array', async () => {
+    tauriGetItem.mockResolvedValue('[{"id":"w1"}]');
+    const wfs = await loadWorkflows();
+    expect(wfs).toEqual([{ id: 'w1' }]);
+  });
+
+  it('loadWorkflows returns empty array when null', async () => {
+    tauriGetItem.mockResolvedValue(null);
+    expect(await loadWorkflows()).toEqual([]);
+  });
+
+  it('loadWorkflows returns empty array on error', async () => {
+    tauriGetItem.mockRejectedValue(new Error('fail'));
+    expect(await loadWorkflows()).toEqual([]);
+  });
+
+  it('saveWorkflows writes JSON', async () => {
+    await saveWorkflows([{ id: 'w1' }] as any);
+    expect(tauriSetItem).toHaveBeenCalledWith('workflows', '[{"id":"w1"}]');
+  });
+
+  it('loadWorkflowSampleDismissed returns true when stored', async () => {
+    tauriGetItem.mockResolvedValue('true');
+    expect(await loadWorkflowSampleDismissed()).toBe(true);
+  });
+
+  it('loadWorkflowSampleDismissed returns false when not true', async () => {
+    tauriGetItem.mockResolvedValue('false');
+    expect(await loadWorkflowSampleDismissed()).toBe(false);
+  });
+
+  it('loadWorkflowSampleDismissed returns false on error', async () => {
+    tauriGetItem.mockRejectedValue(new Error('fail'));
+    expect(await loadWorkflowSampleDismissed()).toBe(false);
+  });
+
+  it('saveWorkflowSampleDismissed writes true', async () => {
+    await saveWorkflowSampleDismissed(true);
+    expect(tauriSetItem).toHaveBeenCalledWith('workflows_sample_dismissed', 'true');
+  });
+
+  it('saveWorkflowSampleDismissed writes false', async () => {
+    await saveWorkflowSampleDismissed(false);
+    expect(tauriSetItem).toHaveBeenCalledWith('workflows_sample_dismissed', 'false');
   });
 });

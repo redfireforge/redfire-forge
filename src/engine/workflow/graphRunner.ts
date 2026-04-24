@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, NodeRunStatus } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData, SetVariableNodeData, AggregateNodeData, NodeRunStatus } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -139,6 +139,14 @@ export async function runGraph(
   async function visit(nodeId: string, threadId = 'main'): Promise<void> {
     if (abortSignal?.aborted || debugController?.isStopped) return;
 
+    /** Follow all outgoing edges from the given node. */
+    const visitOutgoing = async (nid: string, tid: string = threadId) => {
+      const nextEdges = outgoing.get(nid) ?? [];
+      for (const edge of nextEdges) {
+        await visit(edge.target, tid);
+      }
+    };
+
     const node = nodeMap.get(nodeId);
     if (!node) return;
 
@@ -249,10 +257,7 @@ export async function runGraph(
         callbacks.onNodeStateChange(nodeId, status);
         callbacks.onVariablesChange(ctx.snapshot());
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
-        }
+        await visitOutgoing(nodeId);
 
       } else if (node.type === 'condition') {
         const data = node.data as ConditionNodeData;
@@ -302,10 +307,7 @@ export async function runGraph(
 
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
-        }
+        await visitOutgoing(nodeId);
 
       } else if (node.type === 'start') {
         // Seed variables from the Start node's inputVariables into the context.
@@ -320,10 +322,7 @@ export async function runGraph(
         log({ prefix: '*', text: `[Start] Initialised${varCount > 0 ? ` with ${varCount} variable(s)` : ''}` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
-        }
+        await visitOutgoing(nodeId);
 
       } else if (node.type === 'webhook') {
         // Webhook trigger: seed variables from simulated/actual webhook payload.
@@ -354,10 +353,7 @@ export async function runGraph(
         log({ prefix: '*', text: `[Webhook Trigger] Seeded variables from sample payload` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
-        }
+        await visitOutgoing(nodeId);
 
       } else if (node.type === 'schedule') {
         // Schedule trigger: seed variables with trigger time and any configured inputs.
@@ -379,10 +375,7 @@ export async function runGraph(
         log({ prefix: '*', text: `[Schedule Trigger] Seeded trigger time variables` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
-        }
+        await visitOutgoing(nodeId);
 
       } else if (node.type === 'fork') {
         // Fork node: execute all outgoing branches in parallel.
@@ -398,10 +391,183 @@ export async function runGraph(
         log({ prefix: '*', text: `[${nodeLabel(nodeId)}] All branches joined` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
+        await visitOutgoing(nodeId);
+
+      } else if (node.type === 'switch') {
+        const data = node.data as SwitchNodeData;
+        const resolvedExpr = ctx.resolve(data.expression);
+        const cases = data.cases ?? [];
+        const matchedCase = cases.find(c => c.value === resolvedExpr);
+        const matchHandle = matchedCase ? `case-${matchedCase.id}` : 'default';
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Switch "${resolvedExpr}" → ${matchedCase ? (matchedCase.label || matchedCase.value) : 'Default'}` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
         const nextEdges = outgoing.get(nodeId) ?? [];
-        for (const edge of nextEdges) {
-          await visit(edge.target, threadId);
+        const takenEdges = nextEdges.filter(e => e.sourceHandle === matchHandle);
+        const skippedEdges = nextEdges.filter(e => e.sourceHandle !== matchHandle);
+
+        for (const e of skippedEdges) {
+          markSubtreeSkipped(e.target, outgoing, nodeMap, visited, callbacks, incomingCount);
         }
+        for (const e of takenEdges) {
+          await visit(e.target, threadId);
+        }
+
+      } else if (node.type === 'loop') {
+        const data = node.data as LoopNodeData;
+        const maxIter = data.maxIterations ?? 100;
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        const bodyEdges = nextEdges.filter(e => e.sourceHandle === 'body');
+        const doneEdges = nextEdges.filter(e => e.sourceHandle === 'done');
+
+        // Collect all nodes reachable from the body handle (the loop body subgraph).
+        const bodyNodeIds = collectReachableFromEdges(bodyEdges, outgoing, nodeMap, doneEdges.map(e => e.target));
+
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Loop (${data.mode}) starting — body: ${bodyNodeIds.size} nodes` });
+        callbacks.onNodeStateChange(nodeId, { state: 'running' });
+
+        let iterations = 0;
+        let items: unknown[] = [];
+
+        if (data.mode === 'forEach') {
+          const raw = ctx.resolve(data.sourceExpression ?? '');
+          try { items = JSON.parse(raw); } catch { items = []; }
+          if (!Array.isArray(items)) items = [];
+        }
+
+        // Pre-initialize index variable so while-mode conditions referencing it work on first check.
+        const idxVar = data.indexVariable || 'i';
+        ctx.set(idxVar, '0');
+        callbacks.onVariablesChange(ctx.snapshot());
+
+        const shouldContinue = (): boolean => {
+          if (abortSignal?.aborted || debugController?.isStopped) return false;
+          if (iterations >= maxIter) return false;
+          switch (data.mode) {
+            case 'count': {
+              const countExpr = data.countExpression ? ctx.resolve(data.countExpression) : '';
+              const total = countExpr ? parseInt(countExpr, 10) : (data.count ?? 1);
+              return iterations < (isNaN(total) ? 1 : total);
+            }
+            case 'forEach':
+              return iterations < items.length;
+            case 'while':
+              return evaluateCondition(
+                { label: '', left: data.whileLeft ?? '', operator: data.whileOperator ?? '==', right: data.whileRight ?? '' },
+                ctx,
+              );
+            default:
+              return false;
+          }
+        };
+
+        while (shouldContinue()) {
+          ctx.set(idxVar, String(iterations));
+
+          if (data.mode === 'forEach' && iterations < items.length) {
+            const itemVar = data.itemVariable || 'item';
+            const val = items[iterations];
+            ctx.set(itemVar, typeof val === 'string' ? val : JSON.stringify(val));
+          }
+          callbacks.onVariablesChange(ctx.snapshot());
+
+          // Clear visited state for body nodes so they re-execute this iteration.
+          for (const bid of bodyNodeIds) {
+            visited.delete(bid);
+          }
+          // Also reset join barriers within the loop body.
+          for (const bid of bodyNodeIds) {
+            joinArrived.delete(bid);
+          }
+
+          log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Iteration ${iterations}` });
+
+          for (const e of bodyEdges) {
+            await visit(e.target, `${threadId}-loop-${iterations}`);
+          }
+
+          iterations++;
+          // Update the index variable so the next shouldContinue (while mode) sees the new value.
+          ctx.set(idxVar, String(iterations));
+        }
+
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Loop complete — ${iterations} iteration(s)` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        // Follow the "done" edges after the loop.
+        for (const e of doneEdges) {
+          await visit(e.target, threadId);
+        }
+
+      } else if (node.type === 'setVariable') {
+        const data = node.data as SetVariableNodeData;
+        const assignments = data.assignments ?? [];
+        for (const a of assignments) {
+          if (a.name) {
+            const resolved = ctx.resolve(a.expression);
+            ctx.set(a.name, resolved);
+          }
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Set ${assignments.filter(a => a.name).length} variable(s)` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        await visitOutgoing(nodeId);
+
+      } else if (node.type === 'aggregate') {
+        const data = node.data as AggregateNodeData;
+        const mappings = data.mappings ?? [];
+        for (const m of mappings) {
+          if (!m.targetVariable) continue;
+          const sourceVal = ctx.resolve(m.sourceExpression);
+          let result: string;
+          switch (m.strategy) {
+            case 'concat': {
+              // Append to existing array or start a new one
+              const existing = ctx.resolve(`{{${m.targetVariable}}}`);
+              let arr: unknown[];
+              try { arr = JSON.parse(existing); } catch { arr = []; }
+              if (!Array.isArray(arr)) arr = [];
+              try { arr.push(JSON.parse(sourceVal)); } catch { arr.push(sourceVal); }
+              result = JSON.stringify(arr);
+              break;
+            }
+            case 'first': {
+              const existing = ctx.resolve(`{{${m.targetVariable}}}`);
+              // Keep existing if already set (not an unresolved template)
+              result = existing !== `{{${m.targetVariable}}}` ? existing : sourceVal;
+              break;
+            }
+            case 'last':
+              result = sourceVal;
+              break;
+            case 'count': {
+              const existing = ctx.resolve(`{{${m.targetVariable}}}`);
+              const prev = parseInt(existing, 10);
+              result = String((isNaN(prev) ? 0 : prev) + 1);
+              break;
+            }
+            case 'sum': {
+              const existing = ctx.resolve(`{{${m.targetVariable}}}`);
+              const prev = parseFloat(existing);
+              const add = parseFloat(sourceVal);
+              result = String((isNaN(prev) ? 0 : prev) + (isNaN(add) ? 0 : add));
+              break;
+            }
+            case 'custom':
+              result = ctx.resolve(m.customExpression ?? sourceVal);
+              break;
+            default:
+              result = sourceVal;
+          }
+          ctx.set(m.targetVariable, result);
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Aggregated ${mappings.filter(m => m.targetVariable).length} mapping(s)` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        await visitOutgoing(nodeId);
+
       } else if (node.type === 'end') {
         // End node: terminal — mark pass (no outgoing edges).
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
@@ -460,6 +626,32 @@ function findStartNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowN
   if (triggerNodes.length > 0) return triggerNodes;
   const targets = new Set(edges.map(e => e.target));
   return nodes.filter(n => !targets.has(n.id));
+}
+
+/**
+ * Collect all node IDs reachable from a set of edges, stopping at boundary nodes.
+ * Used to identify loop body subgraphs for re-traversal.
+ */
+function collectReachableFromEdges(
+  startEdges: WorkflowEdge[],
+  outgoing: Map<string, WorkflowEdge[]>,
+  nodeMap: Map<string, WorkflowNode>,
+  boundaryNodeIds: string[],
+): Set<string> {
+  const reachable = new Set<string>();
+  const boundary = new Set(boundaryNodeIds);
+  const queue = startEdges.map(e => e.target);
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (reachable.has(id) || boundary.has(id)) continue;
+    if (!nodeMap.has(id)) continue;
+    reachable.add(id);
+    const next = outgoing.get(id) ?? [];
+    for (const e of next) {
+      queue.push(e.target);
+    }
+  }
+  return reachable;
 }
 
 function markSubtreeSkipped(

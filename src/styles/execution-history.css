@@ -109,15 +109,6 @@
   cursor: pointer;
 }
 
-.exh-sort-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
 /* ── Empty state ─────────────────────────────────────────────────── */
 
 .exh-empty {

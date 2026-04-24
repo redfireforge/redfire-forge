@@ -1,16 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import type { Workflow } from '../../types/workflow';
-import { sampleWorkflowCatalog, type SampleWorkflowEntry } from '../../data/sampleWorkflows';
 
 interface Props {
   workflows: Workflow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onNew: () => void;
+  onNew: (name: string) => void;
+  onBrowseTemplates: () => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onLoadSample: (entry: SampleWorkflowEntry) => void;
 }
 
 interface WorkflowSidebarContextMenuState {
@@ -21,14 +20,16 @@ interface WorkflowSidebarContextMenuState {
 }
 
 export default function WorkflowSidebar({
-  workflows, selectedId, onSelect, onNew, onRename, onDelete, onDuplicate, onLoadSample,
+  workflows, selectedId, onSelect, onNew, onBrowseTemplates, onRename, onDelete, onDuplicate,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<WorkflowSidebarContextMenuState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [renameState, setRenameState] = useState<{ id: string; name: string } | null>(null);
-  const [showSamples, setShowSamples] = useState(false);
+  const [showNewMenu, setShowNewMenu] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const samplesRef = useRef<HTMLDivElement>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const newMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -43,24 +44,44 @@ export default function WorkflowSidebar({
   }, [contextMenu]);
 
   useEffect(() => {
-    if (!showSamples) return;
+    if (!showNewMenu) return;
     const close = (e: MouseEvent) => {
-      if (samplesRef.current && !samplesRef.current.contains(e.target as Node)) setShowSamples(false);
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) setShowNewMenu(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowSamples(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowNewMenu(false); };
     window.addEventListener('mousedown', close);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('keydown', onKey);
     };
-  }, [showSamples]);
+  }, [showNewMenu]);
 
   return (
     <div className="wf-sidebar">
       <div className="wf-sidebar-header">
         <span className="wf-sidebar-title">Workflows</span>
-        <button className="btn btn-sm btn-primary" onClick={onNew} title="New workflow">+ New</button>
+        <div className="wf-new-dropdown-wrap" ref={newMenuRef}>
+          <button className="btn btn-sm btn-primary" onClick={() => setShowNewMenu(v => !v)} title="New workflow">+ New</button>
+          {showNewMenu && (
+            <div className="wf-new-dropdown">
+              <button className="wf-new-dropdown-item" onClick={() => { setShowCreateDialog(true); setShowNewMenu(false); }}>
+                <span className="wf-new-dropdown-icon">📄</span>
+                <div>
+                  <div className="wf-new-dropdown-label">Blank Workflow</div>
+                  <div className="wf-new-dropdown-hint">Start from scratch</div>
+                </div>
+              </button>
+              <button className="wf-new-dropdown-item" onClick={() => { onBrowseTemplates(); setShowNewMenu(false); }}>
+                <span className="wf-new-dropdown-icon">📚</span>
+                <div>
+                  <div className="wf-new-dropdown-label">From Template</div>
+                  <div className="wf-new-dropdown-hint">Browse pre-built workflows</div>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="wf-sidebar-list">
@@ -86,33 +107,9 @@ export default function WorkflowSidebar({
       {workflows.length === 0 && (
         <div className="wf-sidebar-empty">
           <p>No workflows yet.</p>
-          <p>Create one or load the sample.</p>
+          <p>Click <strong>+ New</strong> to create one or browse templates.</p>
         </div>
       )}
-
-      <div className="wf-sidebar-footer" ref={samplesRef}>
-        <button className="btn btn-sm" onClick={() => setShowSamples(v => !v)} style={{ width: '100%' }}>
-          📚 Browse Samples
-        </button>
-        {showSamples && (
-          <div className="wf-sample-dropdown">
-            {sampleWorkflowCatalog.map(entry => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className="wf-sample-dropdown-item"
-                  onClick={() => {
-                    onLoadSample(entry);
-                    setShowSamples(false);
-                  }}
-                >
-                  <span className="wf-sample-name">{entry.name}</span>
-                  <span className="wf-sample-desc">{entry.description}</span>
-                </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       {contextMenu && (
         <>
@@ -199,6 +196,35 @@ export default function WorkflowSidebar({
             <div className="req-confirm-actions">
               <button className="req-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="req-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateDialog && (
+        <div className="req-confirm-overlay" onClick={() => setShowCreateDialog(false)}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p>New workflow</p>
+            <input
+              ref={createInputRef}
+              className="req-confirm-input"
+              autoFocus
+              placeholder="Workflow name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = createInputRef.current?.value.trim();
+                  if (val) { onNew(val); setShowCreateDialog(false); }
+                } else if (e.key === 'Escape') {
+                  setShowCreateDialog(false);
+                }
+              }}
+            />
+            <div className="req-confirm-actions">
+              <button className="req-confirm-cancel" onClick={() => setShowCreateDialog(false)}>Cancel</button>
+              <button className="req-confirm-ok req-confirm-ok-primary" onClick={() => {
+                const val = createInputRef.current?.value.trim();
+                if (val) { onNew(val); setShowCreateDialog(false); }
+              }}>Create</button>
             </div>
           </div>
         </div>
