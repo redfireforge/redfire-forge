@@ -220,32 +220,25 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
         onClick={() => {
           console.log('=== AUTO-LAYOUT CLICKED ===');
           
-          // Get current nodes directly from React Flow instance
-          const currentNodes = getNodes();
-          console.log('Before:', currentNodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+          // Get current nodes from props (controlled mode)
+          console.log('Before:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
-          const laid = getAutoLayoutNodes(currentNodes, edges);
+          const laid = getAutoLayoutNodes(nodes, edges);
           
           console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
+          console.log('Calling setNodes (hook)...');
           
-          // Update using React Flow instance method
-          rfSetNodes(laid);
+          // Update via hook (controlled component)
+          setNodes(laid);
           
-          // For previews, only update visual layout (don't save)
-          // User must click "Use as Template" to save
-          if (!previewWorkflow) {
-            // For existing workflows, persist the layout
-            setTimeout(() => {
-              persistWorkflow({ rfNodes: laid });
-              fitView({ padding: 0.2, duration: 300 });
-            }, 100);
-          } else {
-            setTimeout(() => {
-              fitView({ padding: 0.2, duration: 300 });
-            }, 100);
-          }
+          console.log('Called setNodes - React will re-render with new nodes');
+          
+          // FitView after React has re-rendered
+          requestAnimationFrame(() => {
+            fitView({ padding: 0.2, duration: 300 });
+          });
         }}
-        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
+        title="Auto-layout (controlled mode)"
       >
         <svg viewBox="0 0 24 24">
           <rect x="7" y="1" width="10" height="5" rx="1" />
@@ -614,6 +607,7 @@ function WorkflowDesignerInner({
       }
       return updated;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setEdges, selected, nodes, serializeNodes, update]);
 
   const onReconnect = useCallback(
@@ -628,6 +622,7 @@ function WorkflowDesignerInner({
         });
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setEdges],
   );
 
@@ -662,7 +657,8 @@ function WorkflowDesignerInner({
       update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges });
       return updated;
     });
-  }, [selected, setNodes, edges, update]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, edges, update]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
