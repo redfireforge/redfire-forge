@@ -226,7 +226,8 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
           console.log('After:', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           console.log('Setting nodes...');
           
-          setNodes(laid);
+          // Force update with functional setter and new array reference
+          setNodes(() => [...laid]);
           
           // For previews, only update visual layout (don't save)
           // User must click "Use as Template" to save
@@ -234,11 +235,15 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
             // For existing workflows, persist the layout
             requestAnimationFrame(() => {
               persistWorkflow({ rfNodes: laid });
-              fitView({ padding: 0.2 });
+              setTimeout(() => {
+                fitView({ padding: 0.2, duration: 300 });
+              }, 100);
             });
           } else {
             requestAnimationFrame(() => {
-              fitView({ padding: 0.2 });
+              setTimeout(() => {
+                fitView({ padding: 0.2, duration: 300 });
+              }, 100);
             });
           }
         }}
