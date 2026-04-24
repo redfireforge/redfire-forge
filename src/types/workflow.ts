@@ -129,9 +129,39 @@ export interface EndNodeData {
   label: string;
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end';
+export interface WebhookTriggerNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** HTTP method expected for webhook (POST, PUT, PATCH). */
+  method: 'POST' | 'PUT' | 'PATCH';
+  /** Endpoint path (e.g., '/api/vehicle-created'). */
+  path: string;
+  /** Sample JSON payload for testing and schema documentation. */
+  samplePayload: string;
+  /** Variables to extract from webhook body via JSONPath. */
+  extractVariables?: Array<{ name: string; jsonPath: string }>;
+  /** Optional description/notes. */
+  notes?: string;
+}
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData;
+export interface ScheduleTriggerNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Cron expression (e.g., '0 9 * * MON-FRI' for 9am weekdays). */
+  cronExpression: string;
+  /** Timezone for cron execution (e.g., 'America/New_York'). */
+  timezone: string;
+  /** Human-readable description of schedule (e.g., 'Every weekday at 9am EST'). */
+  scheduleDescription?: string;
+  /** Optional initial variables for scheduled execution. */
+  inputVariables?: Record<string, string>;
+  /** Optional notes. */
+  notes?: string;
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 

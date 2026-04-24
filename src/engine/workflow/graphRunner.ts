@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, NodeRunStatus } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, NodeRunStatus } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -69,6 +69,7 @@ export interface GraphRunCallbacks {
   onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
   onVariablesChange: (variables: Record<string, string>) => void;
   onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => void;
+  onLog?: (line: { prefix: '' | '*' | '>' | '<' | '#' | '!'; text: string; ts?: number }) => void;
 }
 
 /**
@@ -96,6 +97,16 @@ export async function runGraph(
   ctx.registerWorkflowNodes(nodes);
   const tokenManager = new TokenManager();
   const results: RequestResult[] = [];
+
+  const log = (line: { prefix: '' | '*' | '>' | '<' | '#' | '!'; text: string }) => {
+    callbacks.onLog?.({ ...line, ts: Date.now() });
+  };
+  const nodeLabel = (id: string) => {
+    const n = nodes.find(nd => nd.id === id);
+    return (n?.data as { label?: string })?.label || n?.type || id;
+  };
+
+  log({ prefix: '*', text: `Workflow run started — ${nodes.length} nodes` });
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const outgoing = new Map<string, WorkflowEdge[]>();
@@ -165,8 +176,10 @@ export async function runGraph(
 
     try {
       if (isHttpWorkflowNode(node)) {
+        const httpData = node.data as HttpNodeData;
+        log({ prefix: '>', text: `[${nodeLabel(nodeId)}] ${httpData.scenario?.method ?? 'GET'} request...` });
         const result = await executeHttpNode(
-          node.data as HttpNodeData,
+          httpData,
           ctx,
           tokenManager,
           nodeId,
@@ -185,6 +198,54 @@ export async function runGraph(
           responseDetail: formatHttpNodeRunDetail(result.requestResult, { fullResponseBody: result.fullResponseBody }),
         };
         if (!result.requestResult.passed) allPassed = false;
+        const rr = result.requestResult;
+        const label = nodeLabel(nodeId);
+
+        // ── Request details ──
+        log({ prefix: '>', text: `[${label}] ${rr.method} ${rr.url}` });
+        const reqHdrEntries = Object.entries(result.requestHeaders);
+        if (reqHdrEntries.length > 0) {
+          for (const [k, v] of reqHdrEntries) {
+            const display = /auth|token|key|secret|cookie/i.test(k) ? v.slice(0, 8) + '••••' : v;
+            log({ prefix: '>', text: `[${label}]   ${k}: ${display}` });
+          }
+        }
+        if (result.requestBody) {
+          const bodyPreview = result.requestBody.length > 200 ? result.requestBody.slice(0, 200) + '…' : result.requestBody;
+          log({ prefix: '>', text: `[${label}]   Body: ${bodyPreview}` });
+        }
+
+        // ── Response details ──
+        const bodyLen = result.fullResponseBody?.length ?? 0;
+        const bodySize = bodyLen < 1024 ? `${bodyLen}B` : `${(bodyLen / 1024).toFixed(1)}KB`;
+        log({ prefix: '<', text: `[${label}] ${rr.httpStatus} — ${rr.responseTimeMs.toFixed(0)}ms — ${bodySize}` });
+        const resHdrEntries = Object.entries(result.responseHeaders);
+        if (resHdrEntries.length > 0) {
+          for (const [k, v] of resHdrEntries) {
+            log({ prefix: '<', text: `[${label}]   ${k}: ${v}` });
+          }
+        }
+        if (result.fullResponseBody) {
+          const respPreview = result.fullResponseBody.length > 300 ? result.fullResponseBody.slice(0, 300) + '…' : result.fullResponseBody;
+          log({ prefix: '<', text: `[${label}]   Body: ${respPreview}` });
+        }
+
+        // ── Assertions ──
+        if (rr.failureDetails && rr.failureDetails.length > 0 && !rr.passed) {
+          for (const f of rr.failureDetails) {
+            log({ prefix: '!', text: `[${label}] assertion ${f.path}: expected ${f.expected}, got ${f.actual}` });
+          }
+        }
+        // ── Extracted variables ──
+        if (result.extracted && Object.keys(result.extracted).length > 0) {
+          for (const [k, v] of Object.entries(result.extracted)) {
+            const display = v.length > 80 ? v.slice(0, 80) + '…' : v;
+            log({ prefix: '#', text: `[${label}] ${k} = ${display}` });
+          }
+        }
+        if (!rr.passed && !rr.failureDetails?.length) {
+          log({ prefix: '!', text: `[${label}] FAIL — ${status.error ?? 'request failed'}` });
+        }
         callbacks.onNodeStateChange(nodeId, status);
         callbacks.onVariablesChange(ctx.snapshot());
 
@@ -195,7 +256,10 @@ export async function runGraph(
 
       } else if (node.type === 'condition') {
         const data = node.data as ConditionNodeData;
+        const resolvedLeft = ctx.resolve(data.left);
+        const resolvedRight = ctx.resolve(data.right);
         const condResult = evaluateCondition(data, ctx);
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] ${resolvedLeft} ${data.operator} ${resolvedRight} → ${condResult ? 'Yes' : 'No'}` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
         const nextEdges = outgoing.get(nodeId) ?? [];
@@ -227,6 +291,7 @@ export async function runGraph(
           ? (data.minMs ?? 0) + Math.random() * ((data.maxMs ?? data.delayMs) - (data.minMs ?? 0))
           : data.delayMs;
 
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Delay ${Math.round(ms)}ms...` });
         await new Promise<void>((resolve) => {
           const timer = setTimeout(resolve, ms);
           if (abortSignal) {
@@ -251,6 +316,67 @@ export async function runGraph(
           }
           callbacks.onVariablesChange(ctx.snapshot());
         }
+        const varCount = Object.keys(data.inputVariables ?? {}).length;
+        log({ prefix: '*', text: `[Start] Initialised${varCount > 0 ? ` with ${varCount} variable(s)` : ''}` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+
+      } else if (node.type === 'webhook') {
+        // Webhook trigger: seed variables from simulated/actual webhook payload.
+        // In simulate mode, variables come from workflow-level defaults or manual config.
+        // Phase 5 will handle actual webhook server integration.
+        const data = node.data as WebhookTriggerNodeData;
+        // Extract variables from sample payload if configured
+        if (data.extractVariables && data.extractVariables.length > 0) {
+          try {
+            const payload = JSON.parse(data.samplePayload || '{}');
+            for (const { name, jsonPath } of data.extractVariables) {
+              // Simple JSONPath extraction (e.g., $.event, $.data.id)
+              const keys = jsonPath.replace(/^\$\./, '').split('.');
+              let value: unknown = payload;
+              for (const key of keys) {
+                value = (value as Record<string, unknown>)?.[key];
+                if (value === undefined) break;
+              }
+              if (value !== undefined) {
+                ctx.set(name, String(value));
+              }
+            }
+          } catch {
+            // Invalid JSON in samplePayload - skip extraction
+          }
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        log({ prefix: '*', text: `[Webhook Trigger] Seeded variables from sample payload` });
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        for (const edge of nextEdges) {
+          await visit(edge.target, threadId);
+        }
+
+      } else if (node.type === 'schedule') {
+        // Schedule trigger: seed variables with trigger time and any configured inputs.
+        const data = node.data as ScheduleTriggerNodeData;
+        // Add schedule-specific variables (matches cron-scheduler.ts behavior)
+        const now = new Date();
+        ctx.set('triggerTime', now.toISOString());
+        ctx.set('triggerTimestamp', String(Math.floor(now.getTime() / 1000)));
+        ctx.set('triggerDate', now.toISOString().split('T')[0]);
+        ctx.set('triggerHour', String(now.getHours()));
+        ctx.set('triggerMinute', String(now.getMinutes()));
+        // Seed any configured input variables
+        if (data.inputVariables) {
+          for (const [k, v] of Object.entries(data.inputVariables)) {
+            ctx.set(k, v);
+          }
+        }
+        callbacks.onVariablesChange(ctx.snapshot());
+        log({ prefix: '*', text: `[Schedule Trigger] Seeded trigger time variables` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
         const nextEdges = outgoing.get(nodeId) ?? [];
@@ -260,14 +386,16 @@ export async function runGraph(
 
       } else if (node.type === 'fork') {
         // Fork node: execute all outgoing branches in parallel.
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Forking into ${nextEdges.length} branches` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
-        const nextEdges = outgoing.get(nodeId) ?? [];
         await Promise.all(nextEdges.map((edge, i) =>
           visit(edge.target, `${threadId}-branch-${i}`)
         ));
       } else if (node.type === 'join') {
         // Join node: barrier already handled above — just pass through.
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] All branches joined` });
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
         const nextEdges = outgoing.get(nodeId) ?? [];
@@ -280,6 +408,7 @@ export async function runGraph(
       }
     } catch (err) {
       allPassed = false;
+      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${toErrorMessage(err)}` });
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
         error: toErrorMessage(err),
@@ -318,6 +447,7 @@ export async function runGraph(
   }
 
   const durationMs = Math.round(performance.now() - start);
+  log({ prefix: '*', text: `Workflow ${allPassed ? 'PASS' : 'FAIL'} — ${results.length} step(s), ${durationMs}ms` });
   callbacks.onComplete(results, allPassed, durationMs);
   return results;
 }
@@ -325,9 +455,9 @@ export async function runGraph(
 // ── Helpers ──────────────────────────────────────────
 
 function findStartNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
-  // Prefer explicit start-type nodes; fall back to nodes with no incoming edges.
-  const startTypeNodes = nodes.filter(n => n.type === 'start');
-  if (startTypeNodes.length > 0) return startTypeNodes;
+  // Prefer explicit trigger nodes (start, webhook, schedule); fall back to nodes with no incoming edges.
+  const triggerNodes = nodes.filter(n => n.type === 'start' || n.type === 'webhook' || n.type === 'schedule');
+  if (triggerNodes.length > 0) return triggerNodes;
   const targets = new Set(edges.map(e => e.target));
   return nodes.filter(n => !targets.has(n.id));
 }
@@ -352,6 +482,15 @@ function markSubtreeSkipped(
     }
     return;
   }
+  // End nodes with multiple incoming edges (convergence point after condition branches):
+  // don't skip — let the other branch visit it normally.
+  if (node?.type === 'end' && incomingCount) {
+    const current = incomingCount.get(nodeId) ?? 1;
+    if (current > 1) {
+      incomingCount.set(nodeId, current - 1);
+      return;
+    }
+  }
   if (visited.has(nodeId)) return;
   visited.add(nodeId);
   callbacks.onNodeStateChange(nodeId, { state: 'skipped' });
@@ -370,7 +509,7 @@ async function executeHttpNode(
   workflowDefaults: Record<string, string>,
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
-): Promise<{ requestResult: RequestResult; extracted: Record<string, string>; fullResponseBody: string }> {
+): Promise<{ requestResult: RequestResult; extracted: Record<string, string>; fullResponseBody: string; requestHeaders: Record<string, string>; requestBody: string; responseHeaders: Record<string, string> }> {
   const wfVars = coerceStringMap(workflowDefaults);
   const perStepVars = coerceStringMap(data.initialVariables);
 
@@ -480,7 +619,7 @@ async function executeHttpNode(
     errorMessage,
   };
 
-  return { requestResult, extracted, fullResponseBody: responseBody };
+  return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };
 }
 
 function evaluateCondition(data: ConditionNodeData, ctx: VariableContext): boolean {

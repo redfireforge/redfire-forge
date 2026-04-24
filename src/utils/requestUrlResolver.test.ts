@@ -122,3 +122,12 @@ describe('resolveFullSendUrl', () => {
     expect(result).toEqual({ url: 'http://localhost:3000/api' });
   });
 });
+
+describe('resolveBaseUrl — additional branches', () => {
+  it('returns null when sub-collection baseUrls is empty', () => {
+    const c = ctx({
+      parentSubCollection: { baseUrls: {} },
+    });
+    expect(resolveBaseUrl(c)).toBeNull();
+  });
+});

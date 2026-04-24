@@ -5,7 +5,7 @@ const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 
 /** Compact node types get smaller layout dimensions. */
-const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end']);
+const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule']);
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
@@ -71,7 +71,7 @@ export function getAutoLayoutNodes<N extends Node>(
     });
   }
 
-  // Post-process: for condition/start/fork nodes with branching source handles,
+  // Post-process: for condition/start/fork/trigger nodes with branching source handles,
   // ensure the "true"/Yes target is to the left of the "false"/No target to prevent
   // edge crossings (the Yes handle is at left:30%, No handle at left:70%).
   fixBranchOrdering(edges, positioned, direction);
@@ -88,7 +88,7 @@ export function getAutoLayoutNodes<N extends Node>(
   // Post-process: center condition branch children symmetrically under their parent
   centerConditionBranches(nodes, edges, positioned, nodeWidths, direction);
 
-  // Post-process: center fork/join/start/end nodes over their branches
+  // Post-process: center fork/join/start/end/trigger nodes over their branches
   if (hasFork) {
     centerForkJoinNodes(nodes, edges, positioned, nodeWidths, nodeHeights, direction);
     // Re-run overlap resolution after centering may have introduced new overlaps
@@ -98,6 +98,31 @@ export function getAutoLayoutNodes<N extends Node>(
   // Post-process: align nodes in linear chains (single parent + single child)
   // to share the same center as their neighbors, fixing vertical misalignment
   alignLinearChains(nodes, edges, positioned, nodeWidths, direction);
+
+  // Post-process: resolve overlaps again after all centering operations
+  // This catches cases where end nodes were centered under close parents
+  resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
+
+  // Final step: normalize positions to ensure all nodes have positive coordinates
+  // The centering operations above can shift nodes into negative territory
+  const MARGIN = 20;
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const pos of positioned.values()) {
+    minX = Math.min(minX, pos.x);
+    minY = Math.min(minY, pos.y);
+  }
+  
+  // If any coordinate is negative or too close to zero, shift all nodes
+  const shiftX = minX < MARGIN ? MARGIN - minX : 0;
+  const shiftY = minY < MARGIN ? MARGIN - minY : 0;
+  
+  if (shiftX > 0 || shiftY > 0) {
+    for (const pos of positioned.values()) {
+      pos.x += shiftX;
+      pos.y += shiftY;
+    }
+  }
 
   return nodes.map((node) => ({
     ...node,
@@ -375,7 +400,7 @@ function alignLinearChains<N extends Node>(
   }
 
   // Walk each chain: start from nodes that are NOT single-in/single-out
-  // (anchors like start, fork, join, condition with branches) and propagate
+  // (anchors like start, trigger, fork, join, condition with branches) and propagate
   // their center down through single-child chains.
   const visited = new Set<string>();
 
@@ -412,7 +437,7 @@ function alignLinearChains<N extends Node>(
     const out = outgoingEdges.get(node.id) ?? [];
 
     // Start propagation from anchors (not single-in/single-out)
-    // or from nodes that have already been positioned (start, fork, join, condition, end)
+    // or from nodes that have already been positioned (start, trigger, fork, join, condition, end)
     const isSingleChain = inc.length === 1 && out.length === 1;
     if (!isSingleChain && out.length === 1) {
       propagateDown(node.id);
@@ -464,6 +489,17 @@ function centerConditionBranches<N extends Node>(
     const trueSubtree = collectSubtreeUntil(trueEdge.target, childrenOf, joinIds);
     const falseSubtree = collectSubtreeUntil(falseEdge.target, childrenOf, joinIds);
 
+    // Find nodes shared by both subtrees (convergence points like a single end node).
+    // Remove them from both subtrees so they aren't shifted twice; we'll center them after.
+    const shared = new Set<string>();
+    for (const id of trueSubtree) {
+      if (falseSubtree.has(id)) shared.add(id);
+    }
+    for (const id of shared) {
+      trueSubtree.delete(id);
+      falseSubtree.delete(id);
+    }
+
     // Compute bounding box of each subtree on the axis
     const getBounds = (subtree: Set<string>) => {
       let min = Infinity, max = -Infinity;
@@ -500,6 +536,22 @@ function centerConditionBranches<N extends Node>(
     for (const id of falseSubtree) {
       const p = positions.get(id);
       if (p) p[axis] += falseDelta;
+    }
+
+    // Center shared convergence nodes (e.g. single end node fed by both branches)
+    // between the shifted true and false subtrees
+    if (shared.size > 0) {
+      // Recompute bounds after shifting
+      const shiftedTrueBounds = getBounds(trueSubtree);
+      const shiftedFalseBounds = getBounds(falseSubtree);
+      const branchesCenter = (shiftedTrueBounds.min + shiftedFalseBounds.max) / 2;
+      for (const id of shared) {
+        const p = positions.get(id);
+        const w = nodeWidths.get(id) ?? 0;
+        if (p) {
+          p[axis] = branchesCenter - w / 2;
+        }
+      }
     }
   }
 }
@@ -617,7 +669,7 @@ function centerForkJoinNodes<N extends Node>(
 
   // Also center start node if it feeds directly into a fork
   for (const node of nodes) {
-    if (node.type !== 'start') continue;
+    if (node.type !== 'start' && node.type !== 'webhook' && node.type !== 'schedule') continue;
     const children = outgoing.get(node.id);
     if (!children || children.length !== 1) continue;
     const child = nodeMap.get(children[0]);

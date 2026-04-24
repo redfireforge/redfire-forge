@@ -1,0 +1,398 @@
+/* ── Workflow Execution History ────────────────────────────────────── */
+
+.exh-container {
+  padding: 24px 32px;
+  color: var(--text);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Loading / Error ─────────────────────────────────────────────── */
+
+.exh-loading {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.exh-error-wrap { padding: 20px; }
+
+.exh-error-card {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.exh-error-title {
+  font-weight: 700;
+  color: var(--danger);
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+.exh-error-msg { color: var(--danger); font-size: 0.9rem; }
+.exh-error-hint {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.exh-error-hint code {
+  background: var(--surface-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+.exh-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.exh-title {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.exh-subtitle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.exh-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Buttons & Inputs ────────────────────────────────────────────── */
+
+.exh-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+  font-family: var(--font);
+}
+.exh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.exh-btn-primary { background: var(--primary); color: #fff; }
+.exh-btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+.exh-btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  font-size: 1rem;
+}
+.exh-btn-ghost:hover { color: var(--text); background: var(--surface-hover); }
+
+.exh-select {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.exh-sort-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+
+.exh-empty {
+  padding: 60px 20px;
+  text-align: center;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 2px dashed var(--border);
+}
+.exh-empty-icon { font-size: 3rem; margin-bottom: 16px; }
+.exh-empty-title {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.exh-empty-hint { font-size: 0.88rem; color: var(--text-muted); opacity: 0.7; }
+
+/* ── Content layout ──────────────────────────────────────────────── */
+
+.exh-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.exh-content-split { grid-template-columns: 1fr 1fr; }
+
+/* ── Execution list ──────────────────────────────────────────────── */
+
+.exh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.exh-card {
+  all: unset;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+}
+.exh-card:hover { border-color: var(--primary); background: var(--surface-hover); }
+.exh-card-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.exh-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.exh-trigger-icon { font-size: 0.9rem; flex-shrink: 0; }
+
+.exh-workflow-id {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exh-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.exh-badge-success { background: rgba(34,197,94,0.18); color: var(--success); }
+.exh-badge-failed  { background: rgba(245,158,11,0.18); color: var(--warning); }
+.exh-badge-error   { background: rgba(239,68,68,0.18); color: var(--danger); }
+
+.exh-card-meta { margin-bottom: 6px; }
+
+.exh-timestamp {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.exh-card-stats {
+  display: flex;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.exh-stat { white-space: nowrap; }
+.exh-duration { color: var(--success); font-weight: 500; }
+
+/* ── Detail panel ────────────────────────────────────────────────── */
+
+.exh-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.exh-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.exh-detail-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.exh-detail-section { margin-bottom: 20px; }
+.exh-detail-section:last-child { margin-bottom: 0; }
+
+.exh-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.exh-info-grid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px 12px;
+  font-size: 0.88rem;
+}
+.exh-info-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.exh-info-value {
+  color: var(--text);
+  word-break: break-all;
+}
+.exh-mono {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.82rem;
+}
+
+.exh-code-block {
+  background: var(--bg);
+  color: var(--text);
+  padding: 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  overflow: auto;
+  margin: 0;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+/* ── Results list ────────────────────────────────────────────────── */
+
+.exh-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exh-result-card {
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  border-left: 4px solid var(--border);
+}
+.exh-result-ok { border-left-color: var(--success); }
+.exh-result-err { border-left-color: var(--danger); }
+
+.exh-result-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.exh-result-url {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exh-result-code {
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.exh-result-code.ok  { color: var(--success); }
+.exh-result-code.err { color: var(--danger); }
+.exh-result-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.exh-result-body-toggle {
+  margin-top: 8px;
+}
+.exh-result-body-toggle summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+.exh-result-body-toggle summary:hover { color: var(--text); }
+
+.exh-result-body {
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: var(--text);
+  overflow: auto;
+  max-height: 200px;
+  line-height: 1.5;
+}
+
+.exh-result-body-rich {
+  margin-top: 8px;
+}
+.exh-result-body-rich .req-resp-search {
+  margin-bottom: 6px;
+}
+.exh-result-body-rich .jt-tree {
+  max-height: 300px;
+  overflow: auto;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+
+/* ── Error block ─────────────────────────────────────────────────── */
+
+.exh-error-block {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 12px;
+}
+.exh-error-block code {
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  word-break: break-all;
+}

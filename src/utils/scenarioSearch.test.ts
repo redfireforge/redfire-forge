@@ -218,3 +218,16 @@ describe('buildSearchText', () => {
     expect(s).toContain('{"ok":true}');
   });
 });
+
+describe('parseSearchQuery — additional branches', () => {
+  it('handles unclosed parenthesis gracefully', () => {
+    const node = parseSearchQuery('(a OR b');
+    expect(node).not.toBeNull();
+    expect(node!.type).toBe('or');
+  });
+
+  it('handles negation with dash-prefix token', () => {
+    const node = parseSearchQuery('-error');
+    expect(node).toEqual({ type: 'not', child: { type: 'term', value: 'error', exact: false } });
+  });
+});

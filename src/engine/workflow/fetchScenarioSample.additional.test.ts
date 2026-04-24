@@ -259,4 +259,41 @@ describe('fetchScenarioSample - Additional Coverage', () => {
 
     expect(result.ok).toBe(true);
   });
+
+  it('handles HTTP 400+ with empty body (no snippet)', async () => {
+    const scenario = buildScenario({ url: 'https://api.example.com/test' });
+
+    mockFetch.mockResolvedValueOnce({
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: {},
+      body: '',
+    });
+
+    const result = await fetchScenarioSample(
+      scenario,
+      {},
+      '',
+      { fetchHostEnabled: false, fetchHostOverride: '' }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toBe('HTTP 500: Internal Server Error');
+  });
+
+  it('handles httpFetch throwing a non-Error value', async () => {
+    const scenario = buildScenario({ url: 'https://api.example.com/test' });
+
+    mockFetch.mockRejectedValueOnce('network failure string');
+
+    const result = await fetchScenarioSample(
+      scenario,
+      {},
+      '',
+      { fetchHostEnabled: false, fetchHostOverride: '' }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toBe('network failure string');
+  });
 });
