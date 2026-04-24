@@ -489,6 +489,17 @@ function centerConditionBranches<N extends Node>(
     const trueSubtree = collectSubtreeUntil(trueEdge.target, childrenOf, joinIds);
     const falseSubtree = collectSubtreeUntil(falseEdge.target, childrenOf, joinIds);
 
+    // Find nodes shared by both subtrees (convergence points like a single end node).
+    // Remove them from both subtrees so they aren't shifted twice; we'll center them after.
+    const shared = new Set<string>();
+    for (const id of trueSubtree) {
+      if (falseSubtree.has(id)) shared.add(id);
+    }
+    for (const id of shared) {
+      trueSubtree.delete(id);
+      falseSubtree.delete(id);
+    }
+
     // Compute bounding box of each subtree on the axis
     const getBounds = (subtree: Set<string>) => {
       let min = Infinity, max = -Infinity;
@@ -525,6 +536,22 @@ function centerConditionBranches<N extends Node>(
     for (const id of falseSubtree) {
       const p = positions.get(id);
       if (p) p[axis] += falseDelta;
+    }
+
+    // Center shared convergence nodes (e.g. single end node fed by both branches)
+    // between the shifted true and false subtrees
+    if (shared.size > 0) {
+      // Recompute bounds after shifting
+      const shiftedTrueBounds = getBounds(trueSubtree);
+      const shiftedFalseBounds = getBounds(falseSubtree);
+      const branchesCenter = (shiftedTrueBounds.min + shiftedFalseBounds.max) / 2;
+      for (const id of shared) {
+        const p = positions.get(id);
+        const w = nodeWidths.get(id) ?? 0;
+        if (p) {
+          p[axis] = branchesCenter - w / 2;
+        }
+      }
     }
   }
 }
