@@ -99,6 +99,10 @@ export function getAutoLayoutNodes<N extends Node>(
   // to share the same center as their neighbors, fixing vertical misalignment
   alignLinearChains(nodes, edges, positioned, nodeWidths, direction);
 
+  // Post-process: resolve overlaps again after all centering operations
+  // This catches cases where end nodes were centered under close parents
+  resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
+
   // Final step: normalize positions to ensure all nodes have positive coordinates
   // The centering operations above can shift nodes into negative territory
   const MARGIN = 20;
