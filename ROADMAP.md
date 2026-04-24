@@ -43,11 +43,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1781 unit/integration tests (Vitest, 98.04% line coverage, 90.04% branch coverage) + 109 E2E tests (Playwright) = 1890 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1997 unit/integration tests (Vitest, 98.04% line coverage, 90.10% branch coverage) + 109 E2E tests (Playwright) = 2106 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ### Load Testing Maturity Levels
@@ -308,6 +308,10 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Workflow Control Nodes** — Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge), Condition (If/Else branching), Delay (think time between steps)
 - [x] **Parallel Execution** — Fork/Join nodes enable true parallel execution paths; Join nodes wait for all incoming branches to complete before proceeding; tested with concurrent HTTP requests
 - [x] **Auto-Layout** — Dagre-based hierarchical graph layout with smart post-processing: centers condition branches, aligns fork/join paths, resolves overlaps, maintains left-to-right flow
+- [x] **Switch Node** — Multi-way branching based on expression evaluation; define cases with values/labels; unmatched values follow Default path; visual expression badge
+- [x] **Loop Node** — Iterative execution with three modes: Count (fixed/expression), ForEach (JSON array iteration with item/index variables), While (condition-based loop); configurable max iterations safety limit
+- [x] **SetVariable Node** — Assign variables during workflow execution; name/value pairs with template expression support; variables propagate to downstream nodes
+- [x] **Aggregate Node** — Collect and combine values across iterations; source→target mappings with strategies (concat, sum, count, first, last, array)
 - [x] **Webhook Trigger Node** — HTTP endpoint trigger for workflows; configure method, path, sample payload; extract variables from webhook body via JSONPath; visual badge showing method, path, and extraction count
 - [x] **Schedule Trigger Node** — Cron-based workflow scheduling; 5-field cron expressions with timezone support; human-readable schedule description; automatic `{{triggerTime}}` and `{{triggerTimestamp}}` variables
 - [x] **Webhook & Schedule Backend** — Node.js webhook HTTP server (`src-server/`) with cron scheduler; file-based workflow storage; webhook delivery logs; execution history; auto-registration on workflow save

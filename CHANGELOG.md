@@ -9,6 +9,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Switch, Loop, SetVariable & Aggregate Workflow Nodes**: Advanced control flow and data manipulation nodes for workflows
+  - **Switch Node**: Multi-way branching based on expression evaluation — define cases with values and labels; unmatched values follow the Default path; visual badge showing expression and case count
+  - **Loop Node**: Iterative execution with three modes — Count (fixed iterations with optional expression override), ForEach (iterate over JSON array with item/index variables), While (condition-based with operators ==, !=, >, <, contains, regex); configurable max iterations safety limit
+  - **SetVariable Node**: Assign variables during workflow execution — define variable name/value pairs with template expression support; variables available to all downstream nodes
+  - **Aggregate Node**: Collect and combine values across iterations — map source expressions to target variables with strategies (concat, sum, count, first, last, array); useful for accumulating results from loops
+  - **GraphRunner Integration**: Switch evaluates expressions against case values for branch selection; Loop supports count/forEach/while iteration with VariableContext; SetVariable assigns to context; Aggregate collects across iterations
+  - **Configuration Panels**: Dedicated config UIs for each node type with add/remove/reorder controls
+  - **Workflow Palette**: All four nodes available in the drag-and-drop palette under Control Flow category
+
+- **Extraction Mapper Modal Improvements**: Enhanced change detection and tree navigation
+  - Color-coded row indicators: untouched (gray), changed (amber), new (green) with footer legend
+  - Change detection via `originalExtractionsRef` comparing against initial state
+  - Requests-style tree controls with Expand All / Collapse All buttons
+
 - **Webhook & Schedule Trigger Nodes**: Event-driven and time-based workflow initiation (Phases 3 & 4)
   - **Webhook Trigger Node**: HTTP endpoint trigger for workflows
     - Configure HTTP method (GET, POST, PUT, DELETE, PATCH)
@@ -136,7 +150,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **WorkflowDefaultsModal**: Fixed duplicate declarations of `requestVariableInsert` and `handleVariableInsertPicked` that caused build errors
 
 ### Changed
-- **Test Coverage**: 1781 unit/integration tests across 78 test files + 109 E2E tests (96.93% statements, 90.04% branches, 98.25% functions, 98.04% lines)
+- **Test Coverage**: 1997 unit/integration tests across 87 test files + 109 E2E tests (97.05% statements, 90.10% branches, 97.74% functions, 98.04% lines)
+- **Shared Hook Refactoring**: Extracted common patterns into reusable hooks
+  - `useListCrud<T>` hook: generic ordered-list CRUD (update, remove, move) shared by AggregateConfig, SetVariableConfig, SwitchConfig
+  - `useNodeBase` hook enhanced: now returns `{ rs, stateClass, debugStep, handleConfigure }` — used by SwitchNode, LoopNode, AggregateNode, SetVariableNode, ForkNode, JoinNode
+  - ForkNode/JoinNode refactored from raw hook calls to `useNodeBase`
 - **Shared Utilities Refactoring**: Extracted duplicate code into single canonical sources
   - Extracted `serverFormatters.ts` with shared formatting utilities for server-related components
   - Extracted `server-api.ts` shared types for webhook delivery logs, execution history, and server status
