@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { isTauri } from './utils/platform';
 import type { TestRun, RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from './types';
 import type { CatalogEntry, SavedEndpointValues } from './types/catalog';
 import { buildCatalogExport } from './utils/catalogExport';
@@ -41,10 +40,24 @@ import './styles/index.css';
 
 type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'scenarios' | 'runner' | 'results';
 
+type Domain = 'api' | 'workflow' | 'testing' | 'settings';
+
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
 const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
 const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
+const API_TABS = new Set<Tab>(['requests', 'catalog']);
+const isApiTab = (t: Tab) => API_TABS.has(t);
+const SETTINGS_TABS = new Set<Tab>(['environments']);
+const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
+
+/** Derive the active domain from the current tab. */
+function domainOf(tab: Tab): Domain {
+  if (isApiTab(tab)) return 'api';
+  if (isWorkflowTab(tab)) return 'workflow';
+  if (isHarnessTab(tab)) return 'testing';
+  return 'settings'; // environments
+}
 
 const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
@@ -334,10 +347,24 @@ export default function App() {
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <header ref={headerRef} className="app-header">
-        <h1>🔥 RedfireForge {!isTauri() && <span style={{ fontSize: '0.65em', fontWeight: 400, opacity: 0.75, marginLeft: '0.5em' }}>Redfire Performance Workbench</span>}
+        <h1>🔥 RedfireForge
           <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
         </h1>
         <div className="header-selectors">
+          <div className="header-select-group">
+            <label>Environment</label>
+            <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
+              <option value="">— select —</option>
+              {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
+            </select>
+          </div>
+          <div className="header-select-group">
+            <label>Service</label>
+            <select value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
+              <option value="">— select —</option>
+              {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
+            </select>
+          </div>
           <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
@@ -345,23 +372,56 @@ export default function App() {
       </header>
 
       <div className="app-body">
-      {!sidebarCollapsed && (
+      {/* ── Activity Bar ── */}
+      <nav className="activity-bar">
+        <button
+          className={`ab-btn ${domainOf(activeTab) === 'api' ? 'active' : ''}`}
+          onClick={() => { if (!isApiTab(activeTab)) setActiveTab('requests'); }}
+          title="API"
+        >
+          <span className="ab-icon">🔌</span>
+          <span className="ab-label">API</span>
+        </button>
+        <button
+          className={`ab-btn ${domainOf(activeTab) === 'workflow' ? 'active' : ''}`}
+          onClick={() => { if (!isWorkflowTab(activeTab)) setActiveTab('workflow'); }}
+          title="Workflow"
+        >
+          <span className="ab-icon">🔧</span>
+          <span className="ab-label">Workflow</span>
+        </button>
+        <button
+          className={`ab-btn ${domainOf(activeTab) === 'testing' ? 'active' : ''}`}
+          onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}
+          title="Testing"
+        >
+          <span className="ab-icon">🏋</span>
+          <span className="ab-label">Testing</span>
+        </button>
+        <div className="ab-spacer" />
+        <button
+          className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
+          onClick={() => { if (!isSettingsTab(activeTab)) setActiveTab('environments'); }}
+          title="Settings"
+        >
+          <span className="ab-icon">⚙️</span>
+          <span className="ab-label">Settings</span>
+        </button>
+      </nav>
+
+      {/* ── Sidebar (contextual per domain) ── */}
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
-        <nav className="usb-nav-rail">
-          <button className={`usb-nav-btn ${activeTab === 'environments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('environments')}>Environments</button>
-          <button className={`usb-nav-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}>Requests</button>
-          <button className={`usb-nav-btn ${activeTab === 'catalog' ? 'active' : ''}`}
-            onClick={() => setActiveTab('catalog')}>Catalog</button>
-          <button className={`usb-nav-btn ${isWorkflowTab(activeTab) ? 'active' : ''}`}
-            onClick={() => setActiveTab('workflow')}>Workflow</button>
-          <button className={`usb-nav-btn ${isHarnessTab(activeTab) ? 'active' : ''}`}
-            onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}>Harness</button>
-        </nav>
 
         <div className="usb-content">
-          <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
+          {/* API domain: Requests + Catalog toggle */}
+          {isApiTab(activeTab) && (
+            <>
+              <div className="usb-sidebar-toggle-row">
+                <button className={`usb-sidebar-toggle ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
+                <button className={`usb-sidebar-toggle ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
+              </div>
+              <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
             {catalog.loaded && (
               <CatalogSidebar
                 entries={catalog.entries}
@@ -426,6 +486,8 @@ export default function App() {
               />
             )}
           </div>
+            </>
+          )}
           {isWorkflowTab(activeTab) && (
             <WorkflowSidebar
               workflows={wfHook.workflows}
@@ -458,64 +520,50 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+        style={domainOf(activeTab) === 'settings' ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
 
         <main className="app-main">
-          {(isHarnessTab(activeTab) || isWorkflowTab(activeTab)) && (
-            <div className="main-top-nav">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                <button className={`main-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-                <button className={`main-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-                <button className={`main-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-                <button
-                  type="button"
-                  className={`main-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('workflow')}
-                  title="Visual workflow designer (separate from feature groups)"
-                >
-                  Workflow
-                </button>
-                <button
-                  type="button"
-                  className="main-nav-tab"
-                  onClick={() => setShowTemplateGallery(true)}
-                  title="Browse pre-built workflow templates"
-                >
-                  📚 Gallery
-                </button>
-                <button
-                  type="button"
-                  className={`main-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('workflow-executions')}
-                  title="View webhook and schedule execution history"
-                >
-                  📊 Execution History
-                </button>
-                <button
-                  type="button"
-                  className={`main-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('webhook-deliveries')}
-                  title="View raw webhook delivery logs"
-                >
-                  🪝 Webhook Logs
-                </button>
+          {/* ── Contextual sub-nav ── */}
+          <div className="sub-nav">
+            {domainOf(activeTab) === 'api' && (
+              <div className="sub-nav-tabs">
+                <button className={`sub-nav-tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
+                <button className={`sub-nav-tab ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
               </div>
-              {isWorkflowTab(activeTab) && (
-                <div style={{ marginLeft: 'auto', paddingRight: '12px' }}>
-                  <ServerStatusIndicator />
-                </div>
-              )}
-            </div>
-          )}
+            )}
+            {domainOf(activeTab) === 'workflow' && (
+              <div className="sub-nav-tabs">
+                <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
+                <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
+                <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
+                <div className="sub-nav-spacer" />
+                <ServerStatusIndicator />
+              </div>
+            )}
+            {domainOf(activeTab) === 'testing' && (
+              <div className="sub-nav-tabs">
+                <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Scenarios</button>
+                <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Runner</button>
+                <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+              </div>
+            )}
+            {domainOf(activeTab) === 'settings' && (
+              <div className="sub-nav-tabs">
+                <button className={`sub-nav-tab ${activeTab === 'environments' ? 'active' : ''}`} onClick={() => setActiveTab('environments')}>Environments</button>
+                <button className="sub-nav-tab" onClick={() => setShowSettings(true)}>Preferences</button>
+              </div>
+            )}
+          </div>
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
           <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner

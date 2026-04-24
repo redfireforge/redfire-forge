@@ -1,37 +1,30 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { ConditionNodeData } from '../../../types/workflow';
-import { useWorkflowInspect } from '../WorkflowInspectContext';
-import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeRunContext';
+import { useNodeBase } from './useNodeBase';
+import { NodeIcon, getNodeCategory } from './NodeIcon';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type ConditionWorkflowNode = Node<ConditionNodeData, 'condition'>;
 type Props = NodeProps<ConditionWorkflowNode>;
 
 export default function ConditionNode({ id, data, selected }: Props) {
-  const { openNodeConfig } = useWorkflowInspect();
-  const rs = useWorkflowNodeRunStatus(id);
-  const debugStep = useWorkflowDebugStep();
-  const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
   const expr = data.left && data.right
     ? `${data.left} ${data.operator} ${data.right}`
     : 'Configure condition…';
 
-  const handleConfigure = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    openNodeConfig(id);
-  };
-
   return (
     <div className={`wf-node wf-node-condition ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
       <div className="wf-condition-diamond">
-        <span className="wf-condition-icon">◆</span>
-        <span className="wf-node-label">{data.label || 'If/Else'}</span>
-        <button type="button" className="wf-node-configure-badge" title="Configure this condition" onClick={handleConfigure}>⚙ Configure</button>
+        <NodeIcon type="condition" />
+        <div>
+          <span className="wf-node-label">{data.label || 'If/Else'}</span>
+          <div className="wf-node-sublabel">{getNodeCategory('condition')}</div>
+        </div>
+        <button type="button" className="wf-node-configure-badge" title="Configure this condition" onClick={handleConfigure}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       </div>
       <div className="wf-condition-expr" title={expr}>{expr}</div>
-      {rs?.state === 'paused' && debugStep && (
-        <button type="button" className="wf-debug-step-btn" title="Step this node" onClick={(e) => { e.stopPropagation(); debugStep(id); }}>⏭ Step</button>
-      )}
-      {rs?.state === 'paused' && !debugStep && <span className="wf-status-badge wf-status-paused">⏸ Paused</span>}
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="source" position={Position.Bottom} id="true" className="wf-handle wf-handle-true" style={{ left: '30%' }} />
       <Handle type="source" position={Position.Bottom} id="false" className="wf-handle wf-handle-false" style={{ left: '70%' }} />

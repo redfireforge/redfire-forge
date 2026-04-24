@@ -89,8 +89,8 @@ test.describe('Auto-Layout Button', () => {
   });
 
   test('auto-layout button is visible in canvas controls', async ({ page }) => {
-    // The Controls panel should have the auto-layout button with correct title
-    const autoLayoutBtn = page.locator('.react-flow__controls-button[title*="Auto-layout"]');
+    // The floating pill controls should have the auto-layout button
+    const autoLayoutBtn = page.locator('.wf-pill-btn[title="Auto-layout"]');
     await expect(autoLayoutBtn).toBeVisible({ timeout: 5000 });
   });
 
@@ -99,8 +99,8 @@ test.describe('Auto-Layout Button', () => {
     const httpNodes = page.locator('.wf-node-http');
     await expect(httpNodes.first()).toBeVisible({ timeout: 5000 });
 
-    // Click auto-layout button - use more flexible selector
-    const autoLayoutBtn = page.locator('.react-flow__controls-button[title*="Auto-layout"]');
+    // Click auto-layout button in the floating pill controls
+    const autoLayoutBtn = page.locator('.wf-pill-btn[title="Auto-layout"]');
     await autoLayoutBtn.click();
 
     // After auto-layout, nodes should still be visible and the canvas should still render

@@ -143,7 +143,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Verify End node exists
@@ -161,7 +161,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Look for End node in palette or toolbar
@@ -177,7 +177,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Verify edge to End node exists
@@ -191,7 +191,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Verify both End nodes exist
@@ -207,7 +207,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Verify End node is visible and properly rendered
@@ -225,7 +225,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // End node should exist
@@ -263,7 +263,7 @@ test.describe('Workflow End Node', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     await page.waitForSelector('.react-flow', { timeout: 5000 });
 
     // Verify End node is visible

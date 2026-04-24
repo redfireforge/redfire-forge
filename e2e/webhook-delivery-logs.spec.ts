@@ -51,7 +51,7 @@ test.describe('Webhook Delivery Logs', () => {
 
   test('navigates to webhook deliveries tab and shows list', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -61,7 +61,7 @@ test.describe('Webhook Delivery Logs', () => {
 
   test('displays delivery cards with correct info', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -76,7 +76,7 @@ test.describe('Webhook Delivery Logs', () => {
 
   test('shows detail panel when clicking a delivery', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -97,7 +97,7 @@ test.describe('Webhook Delivery Logs', () => {
 
   test('closes detail panel when clicking close button', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -114,7 +114,7 @@ test.describe('Webhook Delivery Logs', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -132,7 +132,7 @@ test.describe('Webhook Delivery Logs', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -154,7 +154,7 @@ test.describe('Webhook Delivery Logs', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -176,7 +176,7 @@ test.describe('Webhook Delivery Logs', () => {
 
   test('shows error details in delivery detail panel', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
 
@@ -200,7 +200,7 @@ test.describe('Webhook Delivery Logs', () => {
     });
 
     await page.goto('/');
-    await page.click('text=Workflow');
+    await page.click('.ab-btn[title="Workflow"]');
     const tab = page.locator('button', { hasText: /Webhook|Deliveries/i });
     await tab.click();
     await expect(page.locator('.whl-card')).toHaveCount(3);

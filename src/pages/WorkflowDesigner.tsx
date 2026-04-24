@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
-  Controls,
-  ControlButton,
   MiniMap,
   Background,
   BackgroundVariant,
@@ -13,6 +11,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
   ConnectionMode,
+  MarkerType,
   applyNodeChanges,
   type OnConnect,
   type Node,
@@ -67,10 +66,12 @@ import { WorkflowNodeRunContext, WorkflowDebugStepContext } from '../components/
 import { useResizablePanels } from '../hooks/useResizablePanels';
 
 import WorkflowToolbar from '../components/workflow/WorkflowToolbar';
+import type { RunProgress } from '../components/workflow/WorkflowToolbar';
 import WorkflowPalette from '../components/workflow/WorkflowPalette';
 import WorkflowNodeConfigModal from '../components/workflow/WorkflowNodeConfigModal';
 import WorkflowDefaultsModal from '../components/workflow/WorkflowDefaultsModal';
 import WorkflowStatusBar from '../components/workflow/WorkflowStatusBar';
+import WorkflowExecSummary from '../components/workflow/WorkflowExecSummary';
 import VariableContextBadge from '../components/workflow/VariableContextBar';
 import { WorkflowInspectProvider } from '../components/workflow/WorkflowInspectContext';
 import WorkflowDetailModal from '../components/workflow/WorkflowDetailModal';
@@ -93,6 +94,13 @@ import AggregateNode from '../components/workflow/nodes/AggregateNode';
 import { DebugController } from '../engine/workflow/debugController';
 import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
+import WorkflowCanvasControls from '../components/workflow/WorkflowCanvasControls';
+import WorkflowShortcutsOverlay from '../components/workflow/WorkflowShortcutsOverlay';
+import WorkflowCommandPalette from '../components/workflow/WorkflowCommandPalette';
+import WorkflowToastProvider from '../components/workflow/WorkflowToastProvider';
+import { useToast } from '../hooks/useToast';
+import { useUndoRedo } from '../hooks/useUndoRedo';
+import { useNodeClipboard } from '../hooks/useNodeClipboard';
 import { useWorkflowRunCache } from '../hooks/useWorkflowRunCache';
 
 interface Props {
@@ -211,84 +219,10 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
 export default function WorkflowDesignerWrapper(props: Props) {
   return (
     <ReactFlowProvider>
-      <WorkflowDesignerInner {...props} />
+      <WorkflowToastProvider>
+        <WorkflowDesignerInner {...props} />
+      </WorkflowToastProvider>
     </ReactFlowProvider>
-  );
-}
-
-function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes, bumpLayoutVersion }: {
-  nodes: WorkflowRFNode[];
-  edges: WorkflowRFEdge[];
-  setNodes: (nodes: WorkflowRFNode[] | ((nds: WorkflowRFNode[]) => WorkflowRFNode[])) => void;
-  persistWorkflow: (overrides?: { rfNodes?: WorkflowRFNode[] }) => void;
-  selected: Workflow | null;
-  previewWorkflow: Workflow | null;
-  serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
-  bumpLayoutVersion: () => void;
-}) {
-  const { fitView, getNodes, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
-  return (
-    <>
-      <ControlButton
-        onClick={() => {
-          // Restore saved positions (revert manual moves without recalculating)
-          if (selected) {
-            setNodes((nds) => nds.map(n => {
-              const saved = selected.nodes.find(sn => sn.id === n.id);
-              return saved ? { ...n, position: saved.position } : n;
-            }));
-            requestAnimationFrame(() => fitView({ padding: 0.2 }));
-          }
-        }}
-        title="Restore saved layout"
-        disabled={!!previewWorkflow}
-      >
-        <svg viewBox="0 0 24 24">
-          <rect x="7" y="1" width="10" height="6" rx="1" />
-          <rect x="1" y="17" width="10" height="6" rx="1" />
-          <rect x="13" y="17" width="10" height="6" rx="1" />
-          <rect x="11" y="7" width="2" height="4" />
-          <rect x="5" y="11" width="2" height="6" />
-          <rect x="6" y="10" width="12" height="2" />
-          <rect x="17" y="11" width="2" height="6" />
-        </svg>
-      </ControlButton>
-      <ControlButton
-        onClick={() => {
-          const laid = getAutoLayoutNodes(nodes, edges);
-          
-          // Update state with new positions
-          setNodes(laid);
-          // Force React Flow to remount with new positions
-          bumpLayoutVersion();
-          
-          // Persist if not preview
-          if (!previewWorkflow) {
-            setTimeout(() => {
-              persistWorkflow({ rfNodes: laid });
-            }, 100);
-          }
-          
-          // Fit view after remount
-          setTimeout(() => {
-            fitView({ padding: 0.2, duration: 300 });
-          }, 50);
-        }}
-        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
-      >
-        <svg viewBox="0 0 24 24">
-          <rect x="7" y="1" width="10" height="5" rx="1" />
-          <rect x="1" y="18" width="10" height="5" rx="1" />
-          <rect x="13" y="18" width="10" height="5" rx="1" />
-          <rect x="11" y="6" width="2" height="4" />
-          <rect x="5" y="10" width="2" height="8" />
-          <rect x="6" y="10" width="12" height="2" />
-          <rect x="17" y="10" width="2" height="8" />
-          <path d="M19 3 L21 5 L19 7" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="15" y1="5" x2="21" y2="5" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-      </ControlButton>
-    </>
   );
 }
 
@@ -354,6 +288,44 @@ function WorkflowDesignerInner({
     consoleOpenRef.current = false;
   }, []);
 
+  // ── Phase 5: Run progress tracking ──
+  const runStartRef = useRef<number>(0);
+  const [runElapsed, setRunElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    runStartRef.current = Date.now();
+    setRunElapsed(0);
+    const iv = window.setInterval(() => setRunElapsed(Date.now() - runStartRef.current), 250);
+    return () => window.clearInterval(iv);
+  }, [isRunning]);
+
+  const runProgress = useMemo<RunProgress | null>(() => {
+    if (lastRunStatus === 'idle') return null;
+    const statuses = Object.values(nodeStatuses);
+    const httpStatuses = statuses.filter(s => s.statusCode != null || s.state === 'pass' || s.state === 'fail' || s.state === 'running' || s.state === 'skipped');
+    const totalNodes = nodes.filter(n => n.type === 'http').length;
+    const completed = httpStatuses.filter(s => s.state === 'pass' || s.state === 'fail' || s.state === 'skipped').length;
+    const failed = httpStatuses.filter(s => s.state === 'fail').length;
+    const elapsed = lastRunStatus === 'running' ? runElapsed : (lastRunTime ?? 0);
+    return { completed, total: totalNodes, failed, elapsedMs: elapsed, lastRunStatus };
+  }, [nodeStatuses, nodes, lastRunStatus, lastRunTime, runElapsed]);
+
+  const failedStepLabel = useMemo(() => {
+    if (lastRunStatus !== 'fail') return null;
+    for (const n of nodes) {
+      if (n.type === 'http' && nodeStatuses[n.id]?.state === 'fail') {
+        return (n.data as { label?: string }).label || null;
+      }
+    }
+    return null;
+  }, [lastRunStatus, nodes, nodeStatuses]);
+
+  const latestStepSummaries = useMemo(() => {
+    const latest = runHistory[0];
+    return latest?.stepSummaries ?? [];
+  }, [runHistory]);
+
   // Subscribe to server-side webhook execution logs via SSE
   const hasWebhookNode = nodes.some(n => n.type === 'webhook');
   useEffect(() => {
@@ -402,6 +374,205 @@ function WorkflowDesignerInner({
   const abortRef = useRef<AbortController | null>(null);
   const nextNodeY = useRef(100);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
+  const [showMinimap, setShowMinimap] = useState(true);
+
+  // ── Phase 6: Toast, Undo/Redo, Copy/Paste, Command Palette, Shortcuts ──
+  const toast = useToast();
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const rfInstance = useReactFlow();
+
+  const undoRedo = useUndoRedo(
+    () => nodesRef.current,
+    () => edgesRef.current,
+    (n) => setNodes(n as WorkflowRFNode[]),
+    (e) => setEdges(e as WorkflowRFEdge[]),
+  );
+
+  // Clear undo stack on workflow switch
+  useEffect(() => { undoRedo.clear(); }, [selected?.id]);
+
+  // Stable refs so the keyboard-shortcut handler can call these
+  // without depending on them (they are declared later in the file).
+  const handleQuickTestRef = useRef<() => void>(() => {});
+  const handleDebugQuickTestRef = useRef<() => void>(() => {});
+
+  const clipboard = useNodeClipboard({
+    getNodes: () => nodesRef.current,
+    selectedNodeId,
+    toast,
+  });
+
+  /** Serialize React Flow nodes to workflow storage format. */
+  const serializeNodes = useCallback((rfNodes: WorkflowRFNode[]): WorkflowNode[] =>
+    rfNodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: cloneWorkflowNodeDataForStorage(
+        isHttpWorkflowNode(n)
+          ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
+          : n.data,
+      ),
+    })), []);
+
+  /** Serialize React Flow edges to workflow storage format. */
+  const serializeEdges = useCallback((rfEdges: WorkflowRFEdge[]) =>
+    rfEdges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? undefined,
+      label: typeof e.label === 'string' ? e.label : undefined,
+    })), []);
+
+  /** Persist the current canvas to the workflow store. */
+  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string> }) => {
+    if (!selected) return;
+    const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
+    const wfEdges = serializeEdges(edges);
+    update(selected.id, {
+      nodes: wfNodes,
+      edges: wfEdges,
+      variables: overrides?.variables ?? workflowVariables,
+      hostProfiles: workflowHostProfiles,
+      authProfiles: workflowAuthProfiles,
+      services: overrides?.services ?? workflowServices,
+      schemaVersion: 3,
+    });
+    setSaveAcknowledged(true);
+
+    // Register workflow with server so webhooks can trigger it
+    const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
+    if (hasWebhookTrigger) {
+      const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
+      fetch(`/api/workflows/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wf),
+      }).catch(() => { /* server may not be running */ });
+    }
+  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
+
+  /** Insert a new node and persist. Shared by paste, duplicate, and drop. */
+  const insertNodeAndPersist = useCallback((newNode: WorkflowRFNode, snapshotLabel: string) => {
+    if (!selected) return;
+    undoRedo.takeSnapshot(snapshotLabel);
+    setNodes((nds) => {
+      const updated = [...nds, newNode];
+      const wfNodes = serializeNodes(updated);
+      const wfEdges = serializeEdges(edges);
+      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
+      return updated;
+    });
+  }, [selected, edges, setNodes, serializeNodes, serializeEdges, update, undoRedo]);
+
+  const handleCopyNode = useCallback((nodeId?: string) => {
+    clipboard.copyNode(nodeId);
+  }, [clipboard]);
+
+  const handlePasteNode = useCallback(() => {
+    if (!selected) return;
+    const y = nextNodeY.current;
+    nextNodeY.current += 120;
+    const newNode = clipboard.buildPasteNode({ x: 340, y });
+    if (!newNode) return;
+    insertNodeAndPersist(newNode as WorkflowRFNode, 'Paste node');
+    toast.show('info', 'Node pasted', `"${(newNode.data as { label?: string }).label}"`);
+  }, [selected, clipboard, insertNodeAndPersist, toast]);
+
+  const handleDuplicateNode = useCallback((nodeId?: string) => {
+    if (!selected) return;
+    const newNode = clipboard.buildDuplicateNode(nodeId);
+    if (!newNode) return;
+    const srcNode = nodesRef.current.find((n) => n.id === (nodeId ?? selectedNodeId));
+    insertNodeAndPersist(newNode as WorkflowRFNode, 'Duplicate node');
+    toast.show('info', 'Node duplicated', `"${(srcNode?.data as { label?: string })?.label}" → "${(newNode.data as { label?: string }).label}"`);
+  }, [selected, selectedNodeId, clipboard, insertNodeAndPersist, toast]);
+
+  const handleUndoAction = useCallback(() => {
+    const label = undoRedo.undo();
+    if (label) toast.show('info', `Undo: ${label}`);
+  }, [undoRedo, toast]);
+
+  const handleRedoAction = useCallback(() => {
+    const label = undoRedo.redo();
+    if (label) toast.show('info', `Redo: ${label}`);
+  }, [undoRedo, toast]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!selected) return;
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // ? opens shortcuts (but not in input fields)
+      if (e.key === '?' && !mod && !isInput) {
+        e.preventDefault();
+        setShowShortcuts(true);
+        return;
+      }
+
+      if (!mod) return;
+
+      switch (e.key.toLowerCase()) {
+        case 's':
+          e.preventDefault();
+          if (!previewWorkflow) {
+            persistWorkflow();
+            toast.show('success', 'Workflow saved');
+          }
+          break;
+        case 'k':
+          e.preventDefault();
+          setShowCommandPalette((v) => !v);
+          break;
+        case 'j':
+          e.preventDefault();
+          handleToggleConsole();
+          break;
+        case 'enter':
+          e.preventDefault();
+          if (e.shiftKey) handleDebugQuickTestRef.current();
+          else handleQuickTestRef.current();
+          break;
+        case 'l':
+          if (!isInput) {
+            e.preventDefault();
+            const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
+            setNodes(laid);
+            setLayoutVersion((v) => v + 1);
+          }
+          break;
+        case 'm':
+          if (!isInput) { e.preventDefault(); setShowMinimap((v) => !v); }
+          break;
+        case '0':
+          if (!isInput) { e.preventDefault(); rfInstance.fitView({ padding: 0.2, duration: 300 }); }
+          break;
+        case 'z':
+          if (!isInput) {
+            e.preventDefault();
+            if (e.shiftKey) handleRedoAction();
+            else handleUndoAction();
+          }
+          break;
+        case 'c':
+          if (!isInput) { e.preventDefault(); handleCopyNode(); }
+          break;
+        case 'v':
+          if (!isInput) { e.preventDefault(); handlePasteNode(); }
+          break;
+        case 'd':
+          if (!isInput) { e.preventDefault(); handleDuplicateNode(); }
+          break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selected, previewWorkflow, persistWorkflow, toast, handleToggleConsole, handleUndoAction, handleRedoAction, handleCopyNode, handlePasteNode, handleDuplicateNode, rfInstance]);
 
   // Sync canvas whenever the selected workflow changes (from sidebar or internal)
   const prevSelectedId = useRef<string | null>(null);
@@ -623,62 +794,11 @@ function WorkflowDesignerInner({
   }, [select, onClearPreview]);
 
 
-  /** Serialize React Flow nodes to workflow storage format. */
-  const serializeNodes = useCallback((rfNodes: WorkflowRFNode[]): WorkflowNode[] =>
-    rfNodes.map(n => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: cloneWorkflowNodeDataForStorage(
-        isHttpWorkflowNode(n)
-          ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
-          : n.data,
-      ),
-    })), []);
-
-  /** Serialize React Flow edges to workflow storage format. */
-  const serializeEdges = useCallback((rfEdges: WorkflowRFEdge[]) =>
-    rfEdges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle ?? undefined,
-      label: typeof e.label === 'string' ? e.label : undefined,
-    })), []);
-
-  /** Persist the current canvas to the workflow store. */
-  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string> }) => {
-    if (!selected) return;
-    const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
-    const wfEdges = serializeEdges(edges);
-    update(selected.id, {
-      nodes: wfNodes,
-      edges: wfEdges,
-      variables: overrides?.variables ?? workflowVariables,
-      hostProfiles: workflowHostProfiles,
-      authProfiles: workflowAuthProfiles,
-      services: overrides?.services ?? workflowServices,
-      schemaVersion: 3,
-    });
-    setSaveAcknowledged(true);
-
-    // Register workflow with server so webhooks can trigger it
-    const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
-    if (hasWebhookTrigger) {
-      const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
-      fetch(`/api/workflows/${selected.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(wf),
-      }).catch(() => { /* server may not be running */ });
-    }
-  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
-
-  // Save current canvas state — preserves current positions as-is
   const handleSave = useCallback(() => {
     if (previewWorkflow) return;
     persistWorkflow();
-  }, [persistWorkflow, previewWorkflow]);
+    toast.show('success', 'Workflow saved', `${nodes.length} nodes · ${edges.length} connections`);
+  }, [persistWorkflow, previewWorkflow, toast, nodes.length, edges.length]);
 
   useEffect(() => {
     if (!saveAcknowledged) return;
@@ -687,6 +807,7 @@ function WorkflowDesignerInner({
   }, [saveAcknowledged]);
 
   const onConnect: OnConnect = useCallback((params) => {
+    undoRedo.takeSnapshot('Add connection');
     const newEdge: Edge = {
       ...params,
       id: uuidv4(),
@@ -728,6 +849,7 @@ function WorkflowDesignerInner({
 
   const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
     if (!selected) return;
+    undoRedo.takeSnapshot('Add node');
     const y = nextNodeY.current;
     nextNodeY.current += 120;
     const newNode: WorkflowRFNode = {
@@ -738,31 +860,57 @@ function WorkflowDesignerInner({
     };
     setNodes((nds) => {
       const updated = [...nds, newNode];
-      // Defer cross-component state update to avoid React warning
-      const wfNodes = updated.map(n => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: cloneWorkflowNodeDataForStorage(
-          isHttpWorkflowNode(n)
-            ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
-            : n.data,
-        ),
-      }));
-      const wfEdges = edges.map(e => ({
-        id: e.id, source: e.source, target: e.target,
-        sourceHandle: e.sourceHandle ?? undefined,
-        label: typeof e.label === 'string' ? e.label : undefined,
-      }));
+      const wfNodes = serializeNodes(updated);
+      const wfEdges = serializeEdges(edges);
       queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
       return updated;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, edges, update]);
+  }, [selected, edges, update, serializeNodes, serializeEdges]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
   }, [addNodeToCanvas]);
+
+  // ── Drag-to-place from palette ──
+  const [isDragOver, setIsDragOver] = useState(false);
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/reactflow-type')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleCanvasDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const type = e.dataTransfer.getData('application/reactflow-type') as WorkflowNodeType;
+    if (!type || !selected) return;
+
+    // Convert screen coordinates to React Flow canvas coordinates
+    const bounds = canvasAreaRef.current?.querySelector('.react-flow')?.getBoundingClientRect();
+    if (!bounds) { addNodeToCanvas(type); return; }
+
+    const position = rfInstance.screenToFlowPosition({
+      x: e.clientX,
+      y: e.clientY,
+    });
+
+    const newNode: WorkflowRFNode = {
+      id: uuidv4(),
+      type,
+      position,
+      data: defaultNodeData(type),
+    };
+    insertNodeAndPersist(newNode, 'Add node');
+  }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance]);
 
   const handleAddFromRequest = useCallback((collectionId: string, requestId: string) => {
     const col = collections.find(c => c.id === collectionId);
@@ -850,6 +998,7 @@ function WorkflowDesignerInner({
   }, [setNodes, persistWorkflow]);
 
   const handleDeleteNode = useCallback((id: string) => {
+    undoRedo.takeSnapshot('Delete node');
     setNodes((nds) => nds.filter(n => n.id !== id));
     setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
     setNodeInitialVars((prev) => { const next = { ...prev }; delete next[id]; return next; });
@@ -898,6 +1047,42 @@ function WorkflowDesignerInner({
     }
     setDetailModal(null);
   }, [detailModal, variableDetailDraft, selectedNode]);
+
+  // ── Phase 2: Derive edge execution states from nodeStatuses ──
+
+  useEffect(() => {
+    const statusKeys = Object.keys(nodeStatuses);
+    if (statusKeys.length === 0) {
+      // Reset all edge classes when run state is cleared
+      setEdges(prev => {
+        const needsReset = prev.some(e => e.className);
+        if (!needsReset) return prev;
+        return prev.map(e => e.className ? { ...e, className: undefined } : e);
+      });
+      return;
+    }
+
+    setEdges(prev => prev.map(edge => {
+      const sourceStatus = nodeStatuses[edge.source];
+      const targetStatus = nodeStatuses[edge.target];
+      const sourceState = sourceStatus?.state;
+      const targetState = targetStatus?.state;
+
+      let className: string | undefined;
+      if (targetState === 'running') {
+        className = 'wf-edge-animated';
+      } else if (targetState === 'skipped') {
+        className = 'wf-edge-skipped';
+      } else if (sourceState === 'pass' && (targetState === 'pass' || targetState === 'fail')) {
+        className = targetState === 'pass' ? 'wf-edge-pass' : 'wf-edge-fail';
+      } else if (sourceState === 'fail' && targetState === 'fail') {
+        className = 'wf-edge-fail';
+      }
+
+      if (edge.className === className) return edge;
+      return { ...edge, className };
+    }));
+  }, [nodeStatuses, setEdges]);
 
 
   // ── Quick Test ───────────────────────────────────────
@@ -1047,6 +1232,7 @@ function WorkflowDesignerInner({
     }
     executeWorkflowRun();
   }, [isRunning, executeWorkflowRun]);
+  handleQuickTestRef.current = handleQuickTest;
 
   const variableCount = useMemo(() => {
     const s = new Set<string>(Object.keys(workflowVariables));
@@ -1074,6 +1260,7 @@ function WorkflowDesignerInner({
     debugControllerRef.current = dc;
     executeWorkflowRun(dc);
   }, [isRunning, executeWorkflowRun]);
+  handleDebugQuickTestRef.current = handleDebugQuickTest;
 
   const handleDebugStep = useCallback((nodeId: string) => {
     debugControllerRef.current?.stepNode(nodeId);
@@ -1083,6 +1270,13 @@ function WorkflowDesignerInner({
     debugControllerRef.current?.stop();
     abortRef.current?.abort();
   }, []);
+
+  const handleResetRunStatus = useCallback(() => {
+    setNodeStatuses({});
+    setLastRunStatus('idle');
+    setLastRunTime(null);
+    setLastRunError(null);
+  }, [setNodeStatuses, setLastRunStatus, setLastRunTime, setLastRunError]);
 
   // ── Render ───────────────────────────────────────────
 
@@ -1121,6 +1315,8 @@ function WorkflowDesignerInner({
           setSelectedNodeId(null);
         }}
         onOpenDefaults={() => setShowDefaultsModal(true)}
+        runProgress={runProgress}
+        onReset={handleResetRunStatus}
       />
 
       <WorkflowInspectProvider value={inspectActions}>
@@ -1140,7 +1336,24 @@ function WorkflowDesignerInner({
           onMouseDown={(e) => startDrag('left', e)}
         />
 
-        <div className="wf-canvas-area">
+        <div
+          className={`wf-canvas-area ${isDragOver ? 'wf-canvas-drag-over' : ''}`}
+          ref={canvasAreaRef}
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
+        >
+          {isDragOver && (
+            <div className="wf-drop-indicator">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Drop here to add node
+            </div>
+          )}
+          <WorkflowExecSummary
+            runProgress={runProgress}
+            failedStepLabel={failedStepLabel}
+            onOpenConsole={handleToggleConsole}
+          />
           {previewWorkflow && (
             <div className="wf-preview-banner">
               <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
@@ -1175,28 +1388,56 @@ function WorkflowDesignerInner({
               connectionRadius={40}
               deleteKeyCode={['Backspace', 'Delete']}
               edgesReconnectable
-              defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
+              defaultEdgeOptions={{
+                animated: false,
+                style: { stroke: 'var(--border)', strokeWidth: 2 },
+                markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 12, color: 'var(--border)' },
+              }}
             >
-              <Controls>
-                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} bumpLayoutVersion={() => setLayoutVersion(v => v + 1)} />
-              </Controls>
-              <MiniMap
-                pannable
-                zoomable
-                style={{ background: 'var(--surface)' }}
-                nodeColor={(node) => {
-                  const status = nodeStatuses[node.id];
-                  if (status?.state === 'fail') return '#ef4444';
-                  if (status?.state === 'running') return '#eab308';
-                  if (status?.state === 'pass') return '#22c55e';
-                  if (status?.state === 'skipped') return '#94a3b8';
-                  if (node.type === 'condition') return '#a78bfa';
-                  if (node.type === 'delay') return '#94a3b8';
-                  if (node.type === 'start') return '#22c55e';
-                  if (node.type === 'fork') return '#a855f7';
-                  return '#3b82f6';
+              <WorkflowCanvasControls
+                showMinimap={showMinimap}
+                onToggleMinimap={() => setShowMinimap(v => !v)}
+                disableLayout={!!previewWorkflow}
+                canUndo={undoRedo.canUndo()}
+                canRedo={undoRedo.canRedo()}
+                onUndo={handleUndoAction}
+                onRedo={handleRedoAction}
+                onRestoreLayout={() => {
+                  if (selected) {
+                    setNodes((nds) => nds.map(n => {
+                      const saved = selected.nodes.find(sn => sn.id === n.id);
+                      return saved ? { ...n, position: saved.position } : n;
+                    }));
+                  }
+                }}
+                onAutoLayout={() => {
+                  const laid = getAutoLayoutNodes(nodes, edges);
+                  setNodes(laid);
+                  setLayoutVersion(v => v + 1);
+                  if (!previewWorkflow) {
+                    setTimeout(() => persistWorkflow({ rfNodes: laid }), 100);
+                  }
                 }}
               />
+              {showMinimap && (
+                <MiniMap
+                  pannable
+                  zoomable
+                  style={{ background: 'var(--surface)' }}
+                  nodeColor={(node) => {
+                    const status = nodeStatuses[node.id];
+                    if (status?.state === 'fail') return '#ef4444';
+                    if (status?.state === 'running') return '#eab308';
+                    if (status?.state === 'pass') return '#22c55e';
+                    if (status?.state === 'skipped') return '#94a3b8';
+                    if (node.type === 'condition') return '#a78bfa';
+                    if (node.type === 'delay') return '#94a3b8';
+                    if (node.type === 'start') return '#22c55e';
+                    if (node.type === 'fork') return '#a855f7';
+                    return '#3b82f6';
+                  }}
+                />
+              )}
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
             </ReactFlow>
           </WorkflowDebugStepContext.Provider>
@@ -1210,6 +1451,16 @@ function WorkflowDesignerInner({
             open={!!nodeCtxMenu}
             x={nodeCtxMenu?.x ?? 0}
             y={nodeCtxMenu?.y ?? 0}
+            onCopy={() => {
+              if (!nodeCtxMenu) return;
+              setSelectedNodeId(nodeCtxMenu.nodeId);
+              handleCopyNode(nodeCtxMenu.nodeId);
+            }}
+            onDuplicate={() => {
+              if (!nodeCtxMenu) return;
+              setSelectedNodeId(nodeCtxMenu.nodeId);
+              handleDuplicateNode(nodeCtxMenu.nodeId);
+            }}
             onDelete={() => {
               if (!nodeCtxMenu) return;
               handleDeleteNode(nodeCtxMenu.nodeId);
@@ -1297,6 +1548,7 @@ function WorkflowDesignerInner({
           conditionVariableHints={conditionVariableHints}
           httpVariableHints={httpVariableHints}
           workflowServices={workflowServices}
+          nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
         />
       )}
 
@@ -1350,8 +1602,39 @@ function WorkflowDesignerInner({
           lines={consoleLines}
           onClear={clearConsole}
           onClose={handleCloseConsole}
+          stepSummaries={latestStepSummaries}
         />
       )}
+
+      <WorkflowShortcutsOverlay
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
+      <WorkflowCommandPalette
+        open={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        actions={{
+          onSave: handleSave,
+          onQuickTest: handleQuickTest,
+          onDebugTest: handleDebugQuickTest,
+          onToggleConsole: handleToggleConsole,
+          onAutoLayout: () => {
+            const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
+            setNodes(laid);
+            setLayoutVersion((v) => v + 1);
+          },
+          onFitView: () => rfInstance.fitView({ padding: 0.2, duration: 300 }),
+          onToggleMinimap: () => setShowMinimap((v) => !v),
+          onOpenServices: () => {
+            setServiceRegistryMode((m) => m === 'closed' ? 'panel' : 'closed');
+            setSelectedNodeId(null);
+          },
+          onOpenDefaults: () => setShowDefaultsModal(true),
+          onAddNode: handleAddNode,
+          onOpenShortcuts: () => setShowShortcuts(true),
+        }}
+      />
 
       <WorkflowStatusBar
         nodeCount={nodes.length}
@@ -1372,6 +1655,7 @@ function WorkflowDesignerInner({
         consoleLineCount={consoleLines.length}
         consoleOpen={consoleOpen}
         onToggleConsole={handleToggleConsole}
+        runProgress={runProgress}
       />
     </div>
   );

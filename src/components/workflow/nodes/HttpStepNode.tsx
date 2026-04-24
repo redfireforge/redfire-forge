@@ -1,6 +1,8 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { HttpNodeData } from '../../../types/workflow';
 import { useNodeBase } from './useNodeBase';
+import { NodeIcon, getNodeCategory } from './NodeIcon';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#a855f7', DELETE: '#ef4444',
@@ -23,12 +25,16 @@ export default function HttpStepNode({ id, data, selected }: Props) {
   return (
     <div className={`wf-node wf-node-http ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
       <div className="wf-node-header">
+        <NodeIcon type="http" />
         {data.sourceType && <span className="wf-source-badge">{data.sourceType === 'catalog' ? 'CAT' : 'REQ'}</span>}
         <span className="wf-method-badge" style={{ background: METHOD_COLORS[method] ?? '#6b7280' }}>
           {method}
         </span>
-        <span className="wf-node-label" title={data.label}>{data.label}</span>
-        <button type="button" className="wf-node-configure-badge" title="Configure this step" onClick={handleConfigure}>⚙ Configure</button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="wf-node-label" title={data.label}>{data.label}</span>
+          <div className="wf-node-sublabel">{getNodeCategory('http')}</div>
+        </div>
+        <button type="button" className="wf-node-configure-badge" title="Configure this step" onClick={handleConfigure}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       </div>
 
       <div className="wf-node-url" title={url}>
@@ -44,7 +50,7 @@ export default function HttpStepNode({ id, data, selected }: Props) {
             title="Click for full response details"
             onClick={openDetail}
           >
-            {rs.statusCode} · {rs.responseTimeMs}ms
+            <span>✓</span> {rs.statusCode} · {rs.responseTimeMs}ms
           </button>
         )}
         {rs?.state === 'fail' && (
@@ -54,7 +60,7 @@ export default function HttpStepNode({ id, data, selected }: Props) {
             title={rs.error ? 'Click for full error and response details' : 'Click for details'}
             onClick={openDetail}
           >
-            {rs.statusCode || 'ERR'}{rs.responseTimeMs ? ` · ${rs.responseTimeMs}ms` : ''}
+            <span>✗</span> {rs.statusCode || 'ERR'}{rs.responseTimeMs ? ` · ${rs.responseTimeMs}ms` : ''}
           </button>
         )}
         {(rs?.state === 'pass' || rs?.state === 'fail') && (
@@ -67,11 +73,8 @@ export default function HttpStepNode({ id, data, selected }: Props) {
             Details
           </button>
         )}
-        {rs?.state === 'running' && <span className="wf-status-badge wf-status-running">Running…</span>}
-        {rs?.state === 'paused' && debugStep && (
-          <button type="button" className="wf-debug-step-btn" title="Step this node" onClick={(e) => { e.stopPropagation(); debugStep(id); }}>⏭ Step</button>
-        )}
-        {rs?.state === 'paused' && !debugStep && <span className="wf-status-badge wf-status-paused">⏸ Paused</span>}
+        {rs?.state === 'running' && <span className="wf-status-badge wf-status-running"><span className="wf-spinner" /> Running…</span>}
+        <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
       </div>
 
       {/* Source/target last in DOM so handles stack above content (otherwise top handle sits under the header and blocks connections). */}

@@ -11,7 +11,7 @@ test.describe('Run Test flow', () => {
 
   test('navigate to Test Runner tab', async ({ page }) => {
     // Already on Test Runner tab from beforeEach
-    await expect(page.locator('.main-nav-tab.active')).toHaveText('Test Runner');
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Runner');
   });
 
   test('shows scenarios to select', async ({ page }) => {
@@ -54,6 +54,6 @@ test.describe('Run Test flow', () => {
     await page.waitForLoadState('networkidle');
 
     // Now we should be on Results tab
-    await expect(page.locator('.main-nav-tab.active')).toHaveText('Results', { timeout: 10000 });
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Results', { timeout: 10000 });
   });
 });

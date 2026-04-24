@@ -16,6 +16,26 @@
   --radius: 8px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --overlay-bg: rgba(0, 0, 0, 0.6);
+
+  /* Node category tints */
+  --cat-trigger: #22c55e;
+  --cat-trigger-bg: rgba(34, 197, 94, 0.08);
+  --cat-trigger-badge: rgba(34, 197, 94, 0.15);
+  --cat-action: #6366f1;
+  --cat-action-bg: rgba(99, 102, 241, 0.08);
+  --cat-action-badge: rgba(99, 102, 241, 0.15);
+  --cat-logic: #f59e0b;
+  --cat-logic-bg: rgba(245, 158, 11, 0.08);
+  --cat-logic-badge: rgba(245, 158, 11, 0.15);
+  --cat-data: #ec4899;
+  --cat-data-bg: rgba(236, 72, 153, 0.08);
+  --cat-data-badge: rgba(236, 72, 153, 0.15);
+  --cat-flow: #a855f7;
+  --cat-flow-bg: rgba(168, 85, 247, 0.08);
+  --cat-flow-badge: rgba(168, 85, 247, 0.15);
+  --cat-terminal: #ef4444;
+  --cat-terminal-bg: rgba(239, 68, 68, 0.08);
+  --cat-terminal-badge: rgba(239, 68, 68, 0.15);
   --shadow-subtle: rgba(255, 255, 255, 0.05);
   --shadow-soft: rgba(255, 255, 255, 0.08);
   --confirm-bg: #1e293b;
@@ -40,6 +60,26 @@
   --warning: #d97706;
   --accent: #7c3aed;
   --overlay-bg: rgba(0, 0, 0, 0.3);
+
+  /* Node category tints (light) */
+  --cat-trigger: #16a34a;
+  --cat-trigger-bg: rgba(34, 197, 94, 0.06);
+  --cat-trigger-badge: rgba(34, 197, 94, 0.12);
+  --cat-action: #4f46e5;
+  --cat-action-bg: rgba(99, 102, 241, 0.06);
+  --cat-action-badge: rgba(99, 102, 241, 0.12);
+  --cat-logic: #d97706;
+  --cat-logic-bg: rgba(245, 158, 11, 0.06);
+  --cat-logic-badge: rgba(245, 158, 11, 0.12);
+  --cat-data: #db2777;
+  --cat-data-bg: rgba(236, 72, 153, 0.06);
+  --cat-data-badge: rgba(236, 72, 153, 0.12);
+  --cat-flow: #7c3aed;
+  --cat-flow-bg: rgba(168, 85, 247, 0.06);
+  --cat-flow-badge: rgba(168, 85, 247, 0.12);
+  --cat-terminal: #dc2626;
+  --cat-terminal-bg: rgba(239, 68, 68, 0.06);
+  --cat-terminal-badge: rgba(239, 68, 68, 0.12);
   --shadow-subtle: rgba(0, 0, 0, 0.04);
   --shadow-soft: rgba(0, 0, 0, 0.06);
   --confirm-bg: #ffffff;

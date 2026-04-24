@@ -17,10 +17,11 @@ test.describe('Webhook Sample Auto-Layout', () => {
     
     console.log('✓ App loaded');
     
-    // Click Gallery tab to open template gallery
-    const galleryTab = page.locator('button.main-nav-tab:has-text("Gallery")');
-    await galleryTab.waitFor({ state: 'visible', timeout: 5000 });
-    await galleryTab.click();
+    // Click +New → From Template to open template gallery
+    const newBtn = page.locator('button:has-text("+ New")');
+    await newBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await newBtn.click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
     await page.waitForTimeout(500);
     
     console.log('✓ Gallery opened');
@@ -80,8 +81,8 @@ test.describe('Webhook Sample Auto-Layout', () => {
     });
     console.log('✓ Screenshot saved: webhook-initial.png');
     
-    // Now click auto-layout button (second button in React Flow controls)
-    const autoLayoutButton = page.locator('.react-flow__controls button').nth(1);
+    // Now click auto-layout button in the floating pill controls
+    const autoLayoutButton = page.locator('.wf-pill-btn[title="Auto-layout"]');
     await autoLayoutButton.waitFor({ state: 'visible', timeout: 5000 });
     await autoLayoutButton.click();
     await page.waitForTimeout(1500);
