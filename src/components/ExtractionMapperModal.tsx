@@ -21,6 +21,8 @@ interface Props {
 interface MappedExtraction extends Extraction {
   /** Whether this came from the existing extractions (vs. newly picked). */
   existing?: boolean;
+  /** Whether any field was changed from the original (only relevant for existing rows). */
+  changed?: boolean;
 }
 
 export default function ExtractionMapperModal({
@@ -66,15 +68,33 @@ export default function ExtractionMapperModal({
     [mappings],
   );
 
+  // Snapshot of original extraction values for change detection
+  const originalExtractionsRef = useRef(
+    new Map(existingExtractions.map((e, i) => [i, { name: e.name, expression: e.expression, fallback: e.fallback }])),
+  );
+
+  /** Update a mapping field, marking existing rows as changed when values differ from original */
+  const updateMapping = useCallback((idx: number, patch: Partial<MappedExtraction>) => {
+    setMappings(prev => prev.map((m, i) => {
+      if (i !== idx) return m;
+      const updated = { ...m, ...patch };
+      if (updated.existing) {
+        const orig = originalExtractionsRef.current.get(idx);
+        updated.changed = orig
+          ? updated.name !== orig.name || updated.expression !== orig.expression || updated.fallback !== orig.fallback
+          : false;
+      }
+      return updated;
+    }));
+  }, []);
+
   /** Double-click a tree node → populate active row's expression, or add new row */
   const handleTreeSelect = useCallback((path: string) => {
     const expr = path.startsWith('$') ? path : `$.${path}`;
     const suggested = suggestedVariableNameFromJsonPath(expr);
     if (activeRowIdx !== null && activeRowIdx < mappings.length) {
-      // Populate the active row
-      setMappings(prev => prev.map((m, i) =>
-        i === activeRowIdx ? { ...m, expression: expr, name: m.name || suggested || '' } : m,
-      ));
+      // Populate the active row — use updateMapping so change detection works
+      updateMapping(activeRowIdx, { expression: expr, name: mappings[activeRowIdx].name || suggested || '' });
     } else {
       // No active row — create a new one and activate it
       setMappings(prev => {
@@ -83,7 +103,7 @@ export default function ExtractionMapperModal({
         return [...prev, { name: suggested || '', source: 'body', expression: expr, fallback: '' }];
       });
     }
-  }, [activeRowIdx, mappings.length]);
+  }, [activeRowIdx, mappings, updateMapping]);
 
   /** Add a blank extraction row */
   const addExtraction = useCallback(() => {
@@ -99,11 +119,6 @@ export default function ExtractionMapperModal({
     }, 50);
   }, [mappings.length]);
 
-  /** Update a mapping field */
-  const updateMapping = useCallback((idx: number, patch: Partial<MappedExtraction>) => {
-    setMappings(prev => prev.map((m, i) => i === idx ? { ...m, ...patch } : m));
-  }, []);
-
   /** Remove a mapping */
   const removeMapping = useCallback((idx: number) => {
     setMappings(prev => prev.filter((_, i) => i !== idx));
@@ -117,12 +132,13 @@ export default function ExtractionMapperModal({
 
   /** Apply and close */
   const handleApply = useCallback(() => {
-    // Strip internal 'existing' flag
-    const cleaned: Extraction[] = mappings.map(({ existing: _, ...rest }) => rest);
+    // Strip internal flags
+    const cleaned: Extraction[] = mappings.map(({ existing: _, changed: _c, ...rest }) => rest);
     onApply(cleaned);
   }, [mappings, onApply]);
 
   const newCount = mappings.filter(m => !m.existing).length;
+  const changedCount = mappings.filter(m => m.existing && m.changed).length;
 
   // selectedPath for tree highlighting — show all mapped paths
 
@@ -201,22 +217,17 @@ export default function ExtractionMapperModal({
                 <div className="emm-tree-controls">
                   <button
                     type="button"
-                    className="btn btn-xs emm-tree-btn"
+                    className="jt-expand-collapse-btn"
                     onClick={() => { setExpandAll(true); setTreeKey(k => k + 1); }}
-                    title="Expand all"
-                  >
-                    ⊞
-                  </button>
+                  >Expand All</button>
                   <button
                     type="button"
-                    className="btn btn-xs emm-tree-btn"
+                    className="jt-expand-collapse-btn"
                     onClick={() => { setExpandAll(false); setTreeKey(k => k + 1); }}
-                    title="Collapse all"
-                  >
-                    ⊟
-                  </button>
+                  >Collapse All</button>
                   <input
                     className="emm-search"
+                    type="search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search keys…"
@@ -275,7 +286,7 @@ export default function ExtractionMapperModal({
               {mappings.map((m, i) => (
                 <div
                   key={`${m.expression}-${i}`}
-                  className={`emm-mapping-row${m.existing ? ' emm-existing' : ''}${activeRowIdx === i ? ' emm-active' : ''}`}
+                  className={`emm-mapping-row${m.existing && !m.changed ? ' emm-untouched' : ''}${m.existing && m.changed ? ' emm-changed' : ''}${!m.existing ? ' emm-new' : ''}${activeRowIdx === i ? ' emm-active' : ''}`}
                   onClick={() => setActiveRowIdx(i)}
                 >
                   <div className="emm-mapping-top">
@@ -317,9 +328,14 @@ export default function ExtractionMapperModal({
         {/* ── Footer ── */}
         <div className="emm-footer">
           <div className="emm-footer-hint">
+            <span className="emm-legend">
+              <span className="emm-legend-dot emm-legend-new" />New
+              <span className="emm-legend-dot emm-legend-changed" />Changed
+              <span className="emm-legend-dot emm-legend-untouched" />Untouched
+            </span>
             {activeRowIdx !== null && activeRowIdx < mappings.length
-              ? <>Row <strong>{activeRowIdx + 1}</strong> active — double-click a response field to set its path</>
-              : 'Select an extraction row, then double-click a response field'
+              ? <> · Row <strong>{activeRowIdx + 1}</strong> active — double-click a response field</>
+              : null
             }
           </div>
           <div className="emm-footer-actions">
@@ -327,6 +343,7 @@ export default function ExtractionMapperModal({
             <button type="button" className="btn btn-accent" onClick={handleApply}>
               Apply {mappings.length} Extraction{mappings.length !== 1 ? 's' : ''}
               {newCount > 0 && ` (${newCount} new)`}
+              {changedCount > 0 && ` (${changedCount} changed)`}
             </button>
           </div>
         </div>

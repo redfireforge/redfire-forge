@@ -128,8 +128,8 @@ describe('ExtractionMapperModal', () => {
 
     it('renders expand/collapse buttons when tree is available', () => {
       renderModal({ sampleResponseBody: SAMPLE_JSON });
-      expect(screen.getByTitle('Expand all')).toBeTruthy();
-      expect(screen.getByTitle('Collapse all')).toBeTruthy();
+      expect(screen.getByText('Expand All')).toBeTruthy();
+      expect(screen.getByText('Collapse All')).toBeTruthy();
     });
 
     it('tree is expanded by default (nested keys visible)', () => {
@@ -142,7 +142,7 @@ describe('ExtractionMapperModal', () => {
 
     it('collapse all hides nested keys', () => {
       const { container } = renderModal({ sampleResponseBody: SAMPLE_JSON });
-      fireEvent.click(screen.getByTitle('Collapse all'));
+      fireEvent.click(screen.getByText('Collapse All'));
       // After collapse, nested "city" should not be visible
       const cityNode = Array.from(container.querySelectorAll('.jt-key'))
         .find(el => el.textContent === 'city');
@@ -151,8 +151,8 @@ describe('ExtractionMapperModal', () => {
 
     it('expand all after collapse restores nested keys', () => {
       const { container } = renderModal({ sampleResponseBody: SAMPLE_JSON });
-      fireEvent.click(screen.getByTitle('Collapse all'));
-      fireEvent.click(screen.getByTitle('Expand all'));
+      fireEvent.click(screen.getByText('Collapse All'));
+      fireEvent.click(screen.getByText('Expand All'));
       const cityNode = Array.from(container.querySelectorAll('.jt-key'))
         .find(el => el.textContent === 'city');
       expect(cityNode).toBeTruthy();
@@ -449,12 +449,67 @@ describe('ExtractionMapperModal', () => {
   });
 
   describe('existing extractions styling', () => {
-    it('marks existing extractions with emm-existing class', () => {
+    it('marks untouched existing extractions with emm-untouched class', () => {
       const existing: Extraction[] = [
         { name: 'postId', source: 'body', expression: '$.id' },
       ];
       const { container } = renderModal({ existingExtractions: existing });
-      expect(container.querySelector('.emm-existing')).toBeTruthy();
+      expect(container.querySelector('.emm-untouched')).toBeTruthy();
+    });
+
+    it('marks changed existing extractions with emm-changed class', () => {
+      const existing: Extraction[] = [
+        { name: 'postId', source: 'body', expression: '$.id' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing });
+      // Modify the name to trigger change detection
+      const nameInput = container.querySelector('.emm-mapping-row input[placeholder="variableName"]') as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'newName' } });
+      expect(container.querySelector('.emm-changed')).toBeTruthy();
+      expect(container.querySelector('.emm-untouched')).toBeFalsy();
+    });
+
+    it('marks new extractions with emm-new class', () => {
+      const { container } = renderModal({ existingExtractions: [] });
+      // Add a new row — use getAllByText since there may be multiple + Add buttons
+      const addBtns = screen.getAllByText('+ Add');
+      fireEvent.click(addBtns[0]);
+      expect(container.querySelector('.emm-new')).toBeTruthy();
+    });
+
+    it('reverts emm-changed to emm-untouched when value restored to original', () => {
+      const existing: Extraction[] = [
+        { name: 'postId', source: 'body', expression: '$.id' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing });
+      const nameInput = container.querySelector('.emm-mapping-row input[placeholder="variableName"]') as HTMLInputElement;
+      // Change
+      fireEvent.change(nameInput, { target: { value: 'newName' } });
+      expect(container.querySelector('.emm-changed')).toBeTruthy();
+      // Restore original
+      fireEvent.change(nameInput, { target: { value: 'postId' } });
+      expect(container.querySelector('.emm-changed')).toBeFalsy();
+      expect(container.querySelector('.emm-untouched')).toBeTruthy();
+    });
+  });
+
+  describe('footer legend', () => {
+    it('renders change-state legend dots', () => {
+      const { container } = renderModal({});
+      expect(container.querySelector('.emm-legend')).toBeTruthy();
+      expect(container.querySelector('.emm-legend-new')).toBeTruthy();
+      expect(container.querySelector('.emm-legend-changed')).toBeTruthy();
+      expect(container.querySelector('.emm-legend-untouched')).toBeTruthy();
+    });
+
+    it('shows changed count in apply button', () => {
+      const existing: Extraction[] = [
+        { name: 'postId', source: 'body', expression: '$.id' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing });
+      const nameInput = container.querySelector('.emm-mapping-row input[placeholder="variableName"]') as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'newName' } });
+      expect(screen.getByText(/1 changed/)).toBeTruthy();
     });
   });
 });
