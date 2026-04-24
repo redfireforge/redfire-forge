@@ -1,22 +1,13 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { StartNodeData } from '../../../types/workflow';
-import { useWorkflowInspect } from '../WorkflowInspectContext';
-import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeRunContext';
+import { useNodeBase } from './useNodeBase';
 
 type StartWorkflowNode = Node<StartNodeData, 'start'>;
 type Props = NodeProps<StartWorkflowNode>;
 
 export default function StartNode({ id, data, selected }: Props) {
-  const { openNodeConfig } = useWorkflowInspect();
-  const rs = useWorkflowNodeRunStatus(id);
-  const debugStep = useWorkflowDebugStep();
-  const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
   const varCount = Object.keys(data.inputVariables ?? {}).length;
-
-  const handleConfigure = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    openNodeConfig(id);
-  };
 
   return (
     <div className={`wf-node wf-node-start ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>

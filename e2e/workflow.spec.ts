@@ -149,14 +149,21 @@ test.describe('Workflow Creation', () => {
   test('creates a new workflow from sidebar', async ({ page }) => {
     // Already on workflow tab from beforeEach
 
-    // Click "+ New" button in sidebar
+    // Click "+ New" button in sidebar to open dropdown
     const newBtn = page.locator('.wf-sidebar button', { hasText: '+ New' });
-
-    // Handle the prompt dialog
-    page.on('dialog', async (dialog) => {
-      await dialog.accept('My E2E Workflow');
-    });
     await newBtn.click();
+
+    // Click "Blank Workflow" from the dropdown
+    const blankItem = page.locator('.wf-new-dropdown-item', { hasText: 'Blank Workflow' });
+    await blankItem.click();
+
+    // Fill in the workflow name in the create dialog
+    const nameInput = page.locator('.req-confirm-input');
+    await nameInput.fill('My E2E Workflow');
+
+    // Click the Create button
+    const createBtn = page.locator('.req-confirm-ok');
+    await createBtn.click();
 
     // Sidebar should have the new workflow
     await expect(page.locator('.wf-sidebar-item-name', { hasText: 'My E2E Workflow' })).toBeVisible();

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Webhook Sample Auto-Layout', () => {
-  test('loads webhook sample and verifies end node positions', async ({ page }) => {
+  test('loads webhook sample and verifies sibling node positions after auto-layout', async ({ page }) => {
     // Navigate to the app
     await page.goto('http://localhost:5173/');
     
@@ -35,9 +35,10 @@ test.describe('Webhook Sample Auto-Layout', () => {
     
     console.log('✓ Webhook sample selected');
     
-    // Wait for nodes to render
-    await page.waitForSelector('[data-id="wh-end-success"]', { timeout: 5000 });
-    await page.waitForSelector('[data-id="wh-end-failure"]', { timeout: 5000 });
+    // Wait for the sibling nodes to render (Process Order and Out of Stock Alert)
+    await page.waitForSelector('[data-id="wh-process"]', { timeout: 5000 });
+    await page.waitForSelector('[data-id="wh-alert"]', { timeout: 5000 });
+    await page.waitForSelector('[data-id="wh-end"]', { timeout: 5000 });
     
     // Helper function to get node position from transform style
     const getNodePosition = async (nodeId: string) => {
@@ -51,22 +52,22 @@ test.describe('Webhook Sample Auto-Layout', () => {
     };
     
     // Get INITIAL positions (from sample data)
-    const initialEndSuccess = await getNodePosition('wh-end-success');
-    const initialEndFailure = await getNodePosition('wh-end-failure');
+    const initialProcess = await getNodePosition('wh-process');
+    const initialAlert = await getNodePosition('wh-alert');
     
     console.log('\n=== INITIAL POSITIONS (from sample) ===');
-    console.log('End Success:', initialEndSuccess);
-    console.log('End Failure:', initialEndFailure);
+    console.log('Process Order:', initialProcess);
+    console.log('Out of Stock Alert:', initialAlert);
     
-    if (initialEndSuccess && initialEndFailure) {
-      const initialGap = Math.abs(initialEndFailure.x - initialEndSuccess.x);
+    if (initialProcess && initialAlert) {
+      const initialGap = Math.abs(initialAlert.x - initialProcess.x);
       console.log(`Gap: ${initialGap}px`);
       
       // Verify initial positions match the manual layout in the sample
-      expect(initialEndSuccess.x).toBe(100);
-      expect(initialEndSuccess.y).toBe(600);
-      expect(initialEndFailure.x).toBe(380);
-      expect(initialEndFailure.y).toBe(600);
+      expect(initialProcess.x).toBe(100);
+      expect(initialProcess.y).toBe(460);
+      expect(initialAlert.x).toBe(380);
+      expect(initialAlert.y).toBe(460);
       expect(initialGap).toBe(280);
       
       console.log('✅ Initial positions are correct (manual layout)!');
@@ -88,27 +89,27 @@ test.describe('Webhook Sample Auto-Layout', () => {
     console.log('\n✓ Auto-layout button clicked');
     
     // Get positions AFTER auto-layout
-    const afterEndSuccess = await getNodePosition('wh-end-success');
-    const afterEndFailure = await getNodePosition('wh-end-failure');
+    const afterProcess = await getNodePosition('wh-process');
+    const afterAlert = await getNodePosition('wh-alert');
     
     console.log('\n=== AFTER AUTO-LAYOUT ===');
-    console.log('End Success:', afterEndSuccess);
-    console.log('End Failure:', afterEndFailure);
+    console.log('Process Order:', afterProcess);
+    console.log('Out of Stock Alert:', afterAlert);
     
-    if (afterEndSuccess && afterEndFailure) {
-      const afterGap = Math.abs(afterEndFailure.x - afterEndSuccess.x);
+    if (afterProcess && afterAlert) {
+      const afterGap = Math.abs(afterAlert.x - afterProcess.x);
       console.log(`Gap: ${afterGap}px`);
       console.log(`Required minimum: 190px (160px width + 30px MIN_GAP)`);
       console.log(`Status: ${afterGap >= 190 ? '✅ NO OVERLAP' : '❌ OVERLAPPING'}`);
       
-      // Verify no overlap
+      // Verify no overlap between sibling nodes
       expect(afterGap).toBeGreaterThanOrEqual(190);
       
       // Verify both nodes have positive coordinates
-      expect(afterEndSuccess.x).toBeGreaterThanOrEqual(20);
-      expect(afterEndSuccess.y).toBeGreaterThanOrEqual(20);
-      expect(afterEndFailure.x).toBeGreaterThanOrEqual(20);
-      expect(afterEndFailure.y).toBeGreaterThanOrEqual(20);
+      expect(afterProcess.x).toBeGreaterThanOrEqual(20);
+      expect(afterProcess.y).toBeGreaterThanOrEqual(20);
+      expect(afterAlert.x).toBeGreaterThanOrEqual(20);
+      expect(afterAlert.y).toBeGreaterThanOrEqual(20);
       
       console.log('✅ Auto-layout positions are correct!');
     }

@@ -7,7 +7,7 @@ import { useWorkflowNodeRunStatus, useWorkflowDebugStep } from '../WorkflowNodeR
  * Returns the run-state CSS class, debug step handler, and a click handler to open the config modal.
  */
 export function useNodeBase(nodeId: string) {
-  const { openNodeConfig } = useWorkflowInspect();
+  const { openNodeConfig, openStepDetail } = useWorkflowInspect();
   const rs = useWorkflowNodeRunStatus(nodeId);
   const debugStep = useWorkflowDebugStep();
   const stateClass = rs?.state && rs.state !== 'idle' ? `wf-node-${rs.state}` : '';
@@ -20,5 +20,5 @@ export function useNodeBase(nodeId: string) {
     [nodeId, openNodeConfig],
   );
 
-  return { rs, stateClass, debugStep, handleConfigure };
+  return { rs, stateClass, debugStep, handleConfigure, openStepDetail };
 }
