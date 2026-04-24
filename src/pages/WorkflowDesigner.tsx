@@ -189,7 +189,7 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
   previewWorkflow: Workflow | null;
   serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
 }) {
-  const { fitView } = useReactFlow();
+  const { fitView, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
   return (
     <>
       <ControlButton
@@ -223,30 +223,21 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
           
           const laid = getAutoLayoutNodes(nodes, edges);
           
-          console.log('After:', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-          console.log('Applying via functional setter...');
+          console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
-          // Use functional setter like the restore button does
-          setNodes((nds) => nds.map(n => {
-            const updated = laid.find(ln => ln.id === n.id);
-            return updated ? { ...n, position: { ...updated.position } } : n;
-          }));
+          // Use React Flow instance's setNodes (bypasses useNodesState)
+          rfSetNodes(laid);
           
-          // For previews, only update visual layout (don't save)
-          // User must click "Use as Template" to save
-          if (!previewWorkflow) {
-            // For existing workflows, persist the layout
-            setTimeout(() => {
-              persistWorkflow({ rfNodes: laid });
-              fitView({ padding: 0.2, duration: 300 });
-            }, 100);
-          } else {
-            setTimeout(() => {
-              fitView({ padding: 0.2, duration: 300 });
-            }, 100);
-          }
+          // Also update the hook's state
+          setNodes(laid);
+          
+          // Wait a bit then check if it worked
+          setTimeout(() => {
+            console.log('After setNodes (checking via React Flow getNodes)');
+            fitView({ padding: 0.2, duration: 300 });
+          }, 200);
         }}
-        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
+        title="Auto-layout (using React Flow instance)"
       >
         <svg viewBox="0 0 24 24">
           <rect x="7" y="1" width="10" height="5" rx="1" />
