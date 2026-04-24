@@ -182,7 +182,7 @@ export default function WorkflowDesignerWrapper(props: Props) {
   );
 }
 
-function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes }: {
+function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, previewWorkflow, serializeNodes, bumpLayoutVersion }: {
   nodes: WorkflowRFNode[];
   edges: WorkflowRFEdge[];
   setNodes: (nodes: WorkflowRFNode[] | ((nds: WorkflowRFNode[]) => WorkflowRFNode[])) => void;
@@ -190,6 +190,7 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
   selected: Workflow | null;
   previewWorkflow: Workflow | null;
   serializeNodes: (rfNodes: WorkflowRFNode[]) => WorkflowNode[];
+  bumpLayoutVersion: () => void;
 }) {
   const { fitView, getNodes, setNodes: rfSetNodes } = useReactFlow<WorkflowRFNode>();
   return (
@@ -222,29 +223,26 @@ function AutoLayoutButton({ nodes, edges, setNodes, persistWorkflow, selected, p
         onClick={() => {
           console.log('=== AUTO-LAYOUT CLICKED ===');
           
-          console.log('Before:', nodes.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
-          
           const laid = getAutoLayoutNodes(nodes, edges);
-          
           console.log('After (calculated):', laid.map(n => ({ id: n.id, x: Math.round(n.position.x), y: Math.round(n.position.y) })));
           
-          // Build position changes and apply via React Flow's official utility
-          const changes: NodeChange<WorkflowRFNode>[] = laid.map(node => ({
-            id: node.id,
-            type: 'position',
-            position: node.position,
-            positionAbsolute: node.position,
-            dragging: false,
-          }));
+          // Update state with new positions
+          setNodes(laid);
+          // Force React Flow to remount with new positions
+          bumpLayoutVersion();
           
-          console.log('Applying via applyNodeChanges + setNodes...');
-          setNodes((nds) => applyNodeChanges(changes, nds));
+          // Persist if not preview
+          if (!previewWorkflow) {
+            setTimeout(() => {
+              persistWorkflow({ rfNodes: laid });
+            }, 100);
+          }
           
           requestAnimationFrame(() => {
             fitView({ padding: 0.2, duration: 300 });
           });
         }}
-        title="Auto-layout (applyNodeChanges)"
+        title={previewWorkflow ? "Auto-layout preview (click 'Use as Template' to save)" : "Auto-layout and save positions"}
       >
         <svg viewBox="0 0 24 24">
           <rect x="7" y="1" width="10" height="5" rx="1" />
@@ -284,6 +282,8 @@ function WorkflowDesignerInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
+  /** Bumped to force React Flow remount when programmatic layout changes don't visually update. */
+  const [layoutVersion, setLayoutVersion] = useState(0);
   /** Always read latest graph in Quick Test (avoids stale closures if React batches updates). */
   const nodesRef = useRef<WorkflowRFNode[]>(nodes);
   const edgesRef = useRef<WorkflowRFEdge[]>(edges);
@@ -1133,6 +1133,7 @@ function WorkflowDesignerInner({
           <WorkflowNodeRunContext.Provider value={nodeStatuses}>
           <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
             <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
+              key={layoutVersion}
               nodes={nodes}
               edges={edges}
               onNodesChange={onNodesChange}
@@ -1152,7 +1153,7 @@ function WorkflowDesignerInner({
               defaultEdgeOptions={{ animated: false, style: { stroke: 'var(--border)', strokeWidth: 2 } }}
             >
               <Controls>
-                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} />
+                <AutoLayoutButton nodes={nodes} edges={edges} setNodes={setNodes} persistWorkflow={persistWorkflow} selected={selected} previewWorkflow={previewWorkflow} serializeNodes={serializeNodes} bumpLayoutVersion={() => setLayoutVersion(v => v + 1)} />
               </Controls>
               <MiniMap
                 pannable
