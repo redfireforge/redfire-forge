@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import type { AggregateNodeData, AggregateMapping, AggregateStrategy } from '../../types/workflow';
+import { useListCrud } from '../../hooks/useListCrud';
 
 const STRATEGY_OPTIONS: { value: AggregateStrategy; label: string; desc: string }[] = [
   { value: 'concat', label: 'Concat', desc: 'Join all values into a JSON array' },
@@ -18,27 +19,14 @@ export default function AggregateConfig({
   onChange: (d: AggregateNodeData) => void;
 }) {
   const mappings = data.mappings ?? [];
+  const { update: updateMapping, remove: removeMapping, move: moveMapping } = useListCrud(
+    mappings,
+    (items) => onChange({ ...data, mappings: items }),
+  );
 
   const addMapping = () => {
     const id = uuid().slice(0, 8);
     onChange({ ...data, mappings: [...mappings, { id, sourceExpression: '', targetVariable: '', strategy: 'concat' }] });
-  };
-
-  const updateMapping = (idx: number, patch: Partial<AggregateMapping>) => {
-    const updated = mappings.map((m, i) => (i === idx ? { ...m, ...patch } : m));
-    onChange({ ...data, mappings: updated });
-  };
-
-  const removeMapping = (idx: number) => {
-    onChange({ ...data, mappings: mappings.filter((_, i) => i !== idx) });
-  };
-
-  const moveMapping = (idx: number, dir: -1 | 1) => {
-    const arr = [...mappings];
-    const target = idx + dir;
-    if (target < 0 || target >= arr.length) return;
-    [arr[idx], arr[target]] = [arr[target], arr[idx]];
-    onChange({ ...data, mappings: arr });
   };
 
   return (
