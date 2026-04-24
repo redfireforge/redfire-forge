@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Phase 6: Interaction Polish &amp; Keyboard Shortcuts — Design Mockup</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface-hover: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --primary: #6366f1; --primary-hover: #818cf8;
+    --success: #22c55e; --error: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+
+  .mockup-header { text-align: center; padding: 40px 20px 20px; border-bottom: 1px solid var(--border); }
+  .mockup-header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .mockup-header p { color: var(--text-muted); font-size: 15px; max-width: 720px; margin: 0 auto; }
+
+  .section { padding: 40px 20px; max-width: 1200px; margin: 0 auto; }
+  .section h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-before { background: rgba(239,68,68,0.15); color: #f87171; }
+  .badge-after { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .badge-new { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .section .desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+
+  .panel-demo { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .panel-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+  .panel-body { padding: 16px; }
+  .full-width { grid-column: 1 / -1; }
+
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Keyboard shortcut overlay ── */
+  .kbd-overlay {
+    background: rgba(15,23,42,0.95); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px 28px; max-width: 560px;
+    margin: 0 auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  }
+  .kbd-overlay-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .kbd-overlay-title { font-size: 16px; font-weight: 700; }
+  .kbd-overlay-close {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-muted); font-size: 11px; padding: 2px 8px; cursor: pointer;
+  }
+  .kbd-section { margin-bottom: 16px; }
+  .kbd-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 8px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(51,65,85,0.5);
+  }
+  .kbd-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+  .kbd-row-label { color: var(--text); }
+  .kbd-keys { display: flex; gap: 4px; }
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 24px; height: 22px; padding: 0 6px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); font-family: -apple-system, sans-serif;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .kbd-plus { color: var(--text-muted); font-size: 10px; padding: 0 1px; align-self: center; }
+
+  /* ── Toast notifications ── */
+  .toast-stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .toast {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    border-radius: 10px; font-size: 13px; font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 260px;
+    animation: toast-in 0.3s ease-out;
+    border: 1px solid;
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .toast-icon { font-size: 16px; flex-shrink: 0; }
+  .toast-body { flex: 1; }
+  .toast-title { font-weight: 600; font-size: 13px; }
+  .toast-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .toast-close {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 14px; padding: 0 4px; opacity: 0.6;
+  }
+  .toast-close:hover { opacity: 1; }
+  .toast-success { background: rgba(15,23,42,0.95); border-color: rgba(34,197,94,0.3); }
+  .toast-success .toast-icon { color: #4ade80; }
+  .toast-error { background: rgba(15,23,42,0.95); border-color: rgba(239,68,68,0.3); }
+  .toast-error .toast-icon { color: #f87171; }
+  .toast-info { background: rgba(15,23,42,0.95); border-color: rgba(59,130,246,0.3); }
+  .toast-info .toast-icon { color: #60a5fa; }
+  .toast-warn { background: rgba(15,23,42,0.95); border-color: rgba(245,158,11,0.3); }
+  .toast-warn .toast-icon { color: #fbbf24; }
+  .toast-progress {
+    position: absolute; bottom: 0; left: 0; height: 2px; border-radius: 0 0 10px 10px;
+    animation: toast-shrink 4s linear forwards;
+  }
+  @keyframes toast-shrink { from { width: 100%; } to { width: 0; } }
+  .toast-progress-success { background: #22c55e; }
+  .toast-progress-error { background: #ef4444; }
+
+  /* ── Command palette ── */
+  .cmd-palette {
+    background: rgba(15,23,42,0.97); border: 1px solid var(--border);
+    border-radius: 14px; width: 520px; margin: 0 auto;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .cmd-input-wrap {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-input-icon { color: var(--text-muted); font-size: 16px; flex-shrink: 0; }
+  .cmd-input {
+    flex: 1; background: none; border: none; color: var(--text);
+    font-size: 15px; outline: none;
+  }
+  .cmd-input::placeholder { color: var(--text-muted); }
+  .cmd-results { max-height: 320px; overflow-y: auto; padding: 6px; }
+  .cmd-group-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 10px 4px;
+  }
+  .cmd-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-radius: 8px; cursor: pointer; transition: background 0.1s;
+  }
+  .cmd-item:hover, .cmd-item-active { background: rgba(99,102,241,0.12); }
+  .cmd-item-icon {
+    width: 28px; height: 28px; border-radius: 6px; display: flex;
+    align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+  }
+  .cmd-item-icon-action { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .cmd-item-icon-nav { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .cmd-item-icon-node { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .cmd-item-body { flex: 1; }
+  .cmd-item-title { font-size: 13px; font-weight: 500; }
+  .cmd-item-desc { font-size: 11px; color: var(--text-muted); }
+  .cmd-item-kbd { display: flex; gap: 3px; }
+  .cmd-footer {
+    display: flex; align-items: center; gap: 16px; padding: 8px 16px;
+    border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted);
+  }
+  .cmd-footer-hint { display: flex; align-items: center; gap: 4px; }
+
+  /* ── Drag preview ── */
+  .drag-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 10px;
+    background: rgba(99,102,241,0.2); border: 2px dashed var(--primary);
+    color: var(--text); font-size: 12px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transform: rotate(-2deg);
+    pointer-events: none;
+  }
+  .drag-ghost-icon {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .drag-ghost-icon-action { background: rgba(59,130,246,0.25); color: #60a5fa; }
+  .drag-ghost-icon-logic { background: rgba(245,158,11,0.25); color: #fbbf24; }
+  .drop-indicator {
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; border: 2px dashed var(--primary); border-radius: 12px;
+    background: rgba(99,102,241,0.06); color: var(--primary-hover);
+    font-size: 13px; font-weight: 600; gap: 8px;
+    animation: drop-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes drop-pulse {
+    0%, 100% { border-color: var(--primary); background: rgba(99,102,241,0.06); }
+    50% { border-color: var(--primary-hover); background: rgba(99,102,241,0.12); }
+  }
+
+  /* ── Undo/Redo ── */
+  .undo-bar {
+    display: inline-flex; align-items: center; gap: 2px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 2px;
+  }
+  .undo-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px;
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 14px; transition: all 0.1s;
+  }
+  .undo-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .undo-btn:disabled { opacity: 0.3; cursor: default; }
+  .undo-btn:disabled:hover { background: none; color: var(--text-muted); }
+  .undo-sep { width: 1px; height: 18px; background: var(--border); }
+
+  /* ── Node copy badge ── */
+  .copy-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 6px; font-size: 11px;
+    font-weight: 600; background: rgba(99,102,241,0.12);
+    color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25);
+  }
+
+  /* ── Demo node card ── */
+  .demo-node {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 12px;
+    min-width: 160px; display: inline-block; position: relative;
+  }
+  .demo-node-selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+  .demo-node-header { display: flex; align-items: center; gap: 8px; }
+  .demo-node-badge {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+  }
+  .demo-node-badge-action { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .demo-node-label { font-weight: 700; font-size: 13px; }
+  .demo-node-url { color: var(--text-muted); font-size: 11px; margin-top: 4px; font-family: 'SF Mono', monospace; }
+  .demo-node-copy-indicator {
+    position: absolute; top: -8px; right: -8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--primary); color: #fff; font-size: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; border: 2px solid var(--surface);
+    animation: copy-pop 0.3s ease-out;
+  }
+  @keyframes copy-pop {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+
+  /* ── Interactive tabs ── */
+  .demo-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+  .demo-tab {
+    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .demo-tab:first-child { border-radius: 8px 0 0 8px; }
+  .demo-tab:last-child { border-radius: 0 8px 8px 0; }
+  .demo-tab:not(:last-child) { border-right: none; }
+  .demo-tab:hover { color: var(--text); background: var(--surface-hover); }
+  .demo-tab-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="mockup-header">
+  <h1>Phase 6: Interaction Polish &amp; Keyboard Shortcuts</h1>
+  <p>Power-user keyboard shortcuts, a VS Code-style command palette, toast notifications, undo/redo, improved drag-and-drop previews, and node copy/paste — the "feel" improvements that make the designer a professional tool.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 1: Keyboard Shortcuts Overlay
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    1. Keyboard Shortcuts Overlay
+    <span class="badge badge-new">New</span>
+  </h2>
+  <p class="desc">Press <strong>?</strong> or <strong>⌘ K then ?</strong> to open a categorized cheat sheet of all keyboard shortcuts. Dismissible via Escape or clicking outside. Every action in the workflow designer gets a discoverable shortcut.</p>
+
+  <div class="compare" style="grid-template-columns: 1fr;">
+    <div class="panel-demo full-width">
+      <div class="panel-label">Keyboard Shortcuts — ⌘? or Shift+?</div>
+      <div class="panel-body" style="display: flex; justify-content: center;">
+        <div class="kbd-overlay">
+          <div class="kbd-overlay-header">
+            <span class="kbd-overlay-title">Keyboard Shortcuts</span>
+            <button class="kbd-overlay-close">ESC</button>
+          </div>
+
+          <div class="kbd-section">
+            <div class="kbd-section-title">Canvas</div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Zoom to fit</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">0</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Zoom in / out</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">+</span> / <span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">−</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Auto-layout</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">L</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Toggle minimap</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">M</span></div>
+            </div>
+          </div>
+
+          <div class="kbd-section">
+            <div class="kbd-section-title">Editing</div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Undo</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">Z</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Redo</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">Z</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Copy node</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">C</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Paste node</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">V</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Duplicate node</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">D</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Delete selected</span>
+              <div class="kbd-keys"><span class="kbd">⌫</span></div>
+            </div>
+          </div>
+
+          <div class="kbd-section">
+            <div class="kbd-section-title">Workflow</div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Save</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">S</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Quick Test</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">↵</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Debug Test</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">↵</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Command palette</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">K</span></div>
+            </div>
+            <div class="kbd-row">
+              <span class="kbd-row-label">Toggle console</span>
+              <div class="kbd-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">J</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 2: Toast Notification System
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    2. Toast Notification System
+    <span class="badge badge-before">Before</span> →
+    <span class="badge badge-after">After</span>
+  </h2>
+  <p class="desc">Replace the inline "Saved" text and browser <code>alert()</code> calls with a proper toast notification system. Toasts stack in the bottom-right corner, auto-dismiss after 4 seconds, and support success/error/info/warning types with animated progress bars.</p>
+
+  <div class="compare">
+    <div class="panel-demo">
+      <div class="panel-label">Before — Inline text + alert()</div>
+      <div class="panel-body" style="text-align: center; padding: 32px;">
+        <div style="margin-bottom: 20px;">
+          <span style="background: var(--surface-hover); padding: 6px 12px; border-radius: 6px; font-size: 12px;">
+            Save
+          </span>
+          <span style="color: #4ade80; font-size: 12px; margin-left: 8px; animation: fade-in 0.3s;">✓ Saved</span>
+        </div>
+        <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 13px; max-width: 320px; margin: 0 auto;">
+          <div style="font-weight: 600; margin-bottom: 4px;">⚠ alert()</div>
+          <div style="color: var(--text-muted); font-size: 12px;">Cannot run on "Production" — missing configuration for: Payment Service</div>
+          <div style="text-align: right; margin-top: 8px;">
+            <span style="background: var(--surface-hover); padding: 4px 16px; border-radius: 4px; font-size: 11px; cursor: pointer;">OK</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-demo">
+      <div class="panel-label">After — Stacked toast notifications</div>
+      <div class="panel-body" style="display: flex; justify-content: flex-end;">
+        <div class="toast-stack">
+          <div class="toast toast-success" style="position: relative; overflow: hidden;">
+            <span class="toast-icon">✓</span>
+            <div class="toast-body">
+              <div class="toast-title">Workflow saved</div>
+              <div class="toast-sub">3 nodes · 2 connections</div>
+            </div>
+            <button class="toast-close">✕</button>
+            <div class="toast-progress toast-progress-success" style="position: absolute;"></div>
+          </div>
+
+          <div class="toast toast-error" style="position: relative; overflow: hidden;">
+            <span class="toast-icon">✗</span>
+            <div class="toast-body">
+              <div class="toast-title">Missing service configuration</div>
+              <div class="toast-sub">"Payment Service" has no host for Production</div>
+            </div>
+            <button class="toast-close">✕</button>
+            <div class="toast-progress toast-progress-error" style="position: absolute;"></div>
+          </div>
+
+          <div class="toast toast-info">
+            <span class="toast-icon">ℹ</span>
+            <div class="toast-body">
+              <div class="toast-title">Node duplicated</div>
+              <div class="toast-sub">"Create User" → "Create User (copy)"</div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+
+          <div class="toast toast-warn">
+            <span class="toast-icon">⚠</span>
+            <div class="toast-body">
+              <div class="toast-title">Circular dependency detected</div>
+              <div class="toast-sub">Connection would create a loop</div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 3: Command Palette
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    3. Command Palette
+    <span class="badge badge-new">New</span>
+  </h2>
+  <p class="desc">Press <strong>⌘K</strong> to open a VS Code-style command palette. Search across actions (save, run, layout), navigation (open services, variables), and node creation (add HTTP, condition, delay). Fuzzy search with keyboard navigation.</p>
+
+  <div class="compare" style="grid-template-columns: 1fr;">
+    <div class="panel-demo full-width">
+      <div class="panel-label">Command Palette — ⌘K</div>
+      <div class="panel-body" style="display: flex; justify-content: center;">
+        <div class="cmd-palette">
+          <div class="cmd-input-wrap">
+            <span class="cmd-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input class="cmd-input" placeholder="Type a command…" value="add h" readonly />
+          </div>
+          <div class="cmd-results">
+            <div class="cmd-group-title">Add Node</div>
+            <div class="cmd-item cmd-item-active">
+              <div class="cmd-item-icon cmd-item-icon-node">⚡</div>
+              <div class="cmd-item-body">
+                <div class="cmd-item-title">Add <strong>H</strong>TTP Request</div>
+                <div class="cmd-item-desc">Add an HTTP step to the canvas</div>
+              </div>
+            </div>
+            <div class="cmd-item">
+              <div class="cmd-item-icon cmd-item-icon-node">⚡</div>
+              <div class="cmd-item-body">
+                <div class="cmd-item-title">Add Web<strong>h</strong>ook Trigger</div>
+                <div class="cmd-item-desc">Add a webhook entry point</div>
+              </div>
+            </div>
+
+            <div class="cmd-group-title">Actions</div>
+            <div class="cmd-item">
+              <div class="cmd-item-icon cmd-item-icon-action">▶</div>
+              <div class="cmd-item-body">
+                <div class="cmd-item-title">Run Quick Test</div>
+                <div class="cmd-item-desc">Execute all workflow steps</div>
+              </div>
+              <div class="cmd-item-kbd"><span class="kbd" style="font-size: 9px;">⌘</span><span class="kbd" style="font-size: 9px;">↵</span></div>
+            </div>
+
+            <div class="cmd-group-title">Navigate</div>
+            <div class="cmd-item">
+              <div class="cmd-item-icon cmd-item-icon-nav">🔗</div>
+              <div class="cmd-item-body">
+                <div class="cmd-item-title">Open Service Registry</div>
+                <div class="cmd-item-desc">Manage <strong>h</strong>osts and auth</div>
+              </div>
+            </div>
+          </div>
+          <div class="cmd-footer">
+            <span class="cmd-footer-hint"><span class="kbd" style="font-size: 9px;">↑↓</span> Navigate</span>
+            <span class="cmd-footer-hint"><span class="kbd" style="font-size: 9px;">↵</span> Select</span>
+            <span class="cmd-footer-hint"><span class="kbd" style="font-size: 9px;">ESC</span> Close</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 4: Undo / Redo
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    4. Undo / Redo
+    <span class="badge badge-new">New</span>
+  </h2>
+  <p class="desc">Canvas operations (add/delete/move nodes, add/delete edges, node config changes) are tracked in an undo stack. <strong>⌘Z</strong> to undo, <strong>⌘⇧Z</strong> to redo. Buttons also added to the floating pill controls bar. Max 50 undo levels.</p>
+
+  <div class="compare">
+    <div class="panel-demo">
+      <div class="panel-label">Pill controls — Undo/Redo buttons</div>
+      <div class="panel-body" style="display: flex; justify-content: center; padding: 24px;">
+        <div style="display: flex; align-items: center; gap: 6px; background: rgba(30,41,59,0.92); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+          <div class="undo-bar">
+            <button class="undo-btn" title="Undo (⌘Z)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+            <div class="undo-sep"></div>
+            <button class="undo-btn" disabled title="Redo (⌘⇧Z)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+            </button>
+          </div>
+          <div style="width: 1px; height: 20px; background: var(--border);"></div>
+          <button class="undo-btn" title="Zoom in">+</button>
+          <button class="undo-btn" title="Zoom out">−</button>
+          <button class="undo-btn" title="Fit view">⊡</button>
+          <div style="width: 1px; height: 20px; background: var(--border);"></div>
+          <button class="undo-btn" title="Auto-layout">⊞</button>
+          <button class="undo-btn" title="Minimap">◫</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-demo">
+      <div class="panel-label">Undo toast feedback</div>
+      <div class="panel-body" style="display: flex; justify-content: flex-end;">
+        <div class="toast-stack">
+          <div class="toast toast-info">
+            <span class="toast-icon">↩</span>
+            <div class="toast-body">
+              <div class="toast-title">Undo: Delete "Create User"</div>
+              <div class="toast-sub">Node restored with 2 connections</div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 5: Drag Preview + Drop Indicator
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    5. Drag Preview &amp; Drop Indicator
+    <span class="badge badge-before">Before</span> →
+    <span class="badge badge-after">After</span>
+  </h2>
+  <p class="desc">When dragging a block from the palette, show a styled ghost preview instead of the browser's default drag image. The canvas shows a pulsing drop zone indicator to signal where the node will land.</p>
+
+  <div class="compare">
+    <div class="panel-demo">
+      <div class="panel-label">Before — Browser default drag</div>
+      <div class="panel-body" style="text-align: center; padding: 32px;">
+        <div style="display: inline-block; opacity: 0.5; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 11px; transform: rotate(-1deg);">
+          HTTP Request
+        </div>
+        <div style="color: var(--text-muted); font-size: 12px; margin-top: 12px;">Generic browser drag image — no context, no style</div>
+      </div>
+    </div>
+
+    <div class="panel-demo">
+      <div class="panel-label">After — Styled ghost + drop zone</div>
+      <div class="panel-body">
+        <div style="display: flex; flex-direction: column; gap: 16px; align-items: center;">
+          <div class="drag-ghost">
+            <div class="drag-ghost-icon drag-ghost-icon-action">⚡</div>
+            HTTP Request
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted);">↓ dragging onto canvas ↓</div>
+          <div class="drop-indicator" style="width: 100%;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Drop here to add node
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURE 6: Node Copy / Paste / Duplicate
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>
+    6. Node Copy / Paste / Duplicate
+    <span class="badge badge-before">Before</span> →
+    <span class="badge badge-after">After</span>
+  </h2>
+  <p class="desc">Select a node and press <strong>⌘C</strong> to copy, <strong>⌘V</strong> to paste (offset +40px), or <strong>⌘D</strong> to duplicate in-place. Copies include the full node config (HTTP settings, variables, extractions). A brief copy indicator appears on the node. Also available via the right-click context menu.</p>
+
+  <div class="compare">
+    <div class="panel-demo">
+      <div class="panel-label">Before — No copy/paste support</div>
+      <div class="panel-body" style="text-align: center; padding: 32px;">
+        <div style="color: var(--text-muted); font-size: 13px;">
+          <div>To duplicate a node, you must:</div>
+          <div style="margin-top: 8px; text-align: left; max-width: 280px; margin-left: auto; margin-right: auto; font-size: 12px; line-height: 1.8;">
+            1. Add a new node from palette<br/>
+            2. Open config modal<br/>
+            3. Manually re-enter all settings<br/>
+            4. Re-create all connections
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-demo">
+      <div class="panel-label">After — ⌘C / ⌘V / ⌘D + context menu</div>
+      <div class="panel-body">
+        <div style="display: flex; flex-direction: column; gap: 16px; align-items: center;">
+          <div style="display: flex; gap: 16px; align-items: flex-start;">
+            <div class="demo-node demo-node-selected">
+              <div class="demo-node-copy-indicator">✓</div>
+              <div class="demo-node-header">
+                <div class="demo-node-badge demo-node-badge-action">⚡</div>
+                <span class="demo-node-label">Create User</span>
+              </div>
+              <div class="demo-node-url">POST /api/users</div>
+            </div>
+
+            <div style="align-self: center; color: var(--text-muted); font-size: 16px;">→</div>
+
+            <div class="demo-node" style="border-style: dashed; border-color: var(--primary); opacity: 0.8;">
+              <div class="demo-node-header">
+                <div class="demo-node-badge demo-node-badge-action">⚡</div>
+                <span class="demo-node-label">Create User (copy)</span>
+              </div>
+              <div class="demo-node-url">POST /api/users</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <span class="copy-badge">⌘C Copy</span>
+            <span class="copy-badge">⌘V Paste</span>
+            <span class="copy-badge">⌘D Duplicate</span>
+          </div>
+
+          <!-- Context menu mockup -->
+          <div style="background: rgba(15,23,42,0.95); border: 1px solid var(--border); border-radius: 8px; padding: 4px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+            <div style="padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;" onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background=''">
+              <span>Configure</span>
+              <span style="color: var(--text-muted); font-size: 11px;">Dbl-click</span>
+            </div>
+            <div style="height: 1px; background: var(--border); margin: 2px 0;"></div>
+            <div style="padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;" onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background=''">
+              <span>Copy</span>
+              <span style="color: var(--text-muted); font-size: 11px;">⌘C</span>
+            </div>
+            <div style="padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;" onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background=''">
+              <span>Duplicate</span>
+              <span style="color: var(--text-muted); font-size: 11px;">⌘D</span>
+            </div>
+            <div style="height: 1px; background: var(--border); margin: 2px 0;"></div>
+            <div style="padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; color: #f87171; display: flex; justify-content: space-between;" onmouseover="this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.background=''">
+              <span>Delete</span>
+              <span style="color: var(--text-muted); font-size: 11px;">⌫</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ═══════════════════════════════════════════════════════
+     Summary
+     ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Implementation Summary</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+    <div class="panel-demo">
+      <div class="panel-body" style="padding: 20px;">
+        <div style="font-weight: 700; margin-bottom: 12px; font-size: 14px;">Files to Create / Modify</div>
+        <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+          <div><strong>New:</strong> <code>WorkflowCommandPalette.tsx</code></div>
+          <div><strong>New:</strong> <code>WorkflowToastProvider.tsx</code> + <code>useToast.ts</code></div>
+          <div><strong>New:</strong> <code>WorkflowShortcutsOverlay.tsx</code></div>
+          <div><strong>New:</strong> <code>useUndoRedo.ts</code></div>
+          <div><strong>Modify:</strong> <code>WorkflowDesigner.tsx</code> — wire shortcuts, toasts, undo, copy/paste</div>
+          <div><strong>Modify:</strong> <code>WorkflowCanvasControls.tsx</code> — undo/redo buttons</div>
+          <div><strong>Modify:</strong> <code>WorkflowNodeContextMenu.tsx</code> — copy/duplicate items</div>
+          <div><strong>Modify:</strong> <code>WorkflowPalette.tsx</code> — custom drag image</div>
+          <div><strong>Modify:</strong> <code>workflow.css</code> — all Phase 6 styles</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-demo">
+      <div class="panel-body" style="padding: 20px;">
+        <div style="font-weight: 700; margin-bottom: 12px; font-size: 14px;">Key Principles</div>
+        <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+          <div>✦ Zero new dependencies — keyboard listeners via <code>useEffect</code></div>
+          <div>✦ Toast system uses React Context + portal — no library</div>
+          <div>✦ Command palette built from existing action handlers</div>
+          <div>✦ Undo stack stores node/edge snapshots (max 50 entries)</div>
+          <div>✦ Copy/paste serializes node data to clipboard as JSON</div>
+          <div>✦ All shortcuts use ⌘ (Mac) / Ctrl (Windows/Linux)</div>
+          <div>✦ Focus trap: shortcuts only fire when canvas area is focused</div>
+          <div>✦ All E2E selectors preserved — additive changes only</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">
+  Phase 6: Interaction Polish &amp; Keyboard Shortcuts — Design Mockup
+</div>
+
+</body>
+</html>

@@ -1,6 +1,8 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { EndNodeData } from '../../../types/workflow';
 import { useNodeBase } from './useNodeBase';
+import { NodeIcon, getNodeCategory } from './NodeIcon';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type EndWorkflowNode = Node<EndNodeData, 'end'>;
 type Props = NodeProps<EndWorkflowNode>;
@@ -12,8 +14,11 @@ export default function EndNode({ id, data, selected }: Props) {
     <div className={`wf-node wf-node-end ${stateClass} ${selected ? 'wf-node-selected' : ''}`}>
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <div className="wf-end-body">
-        <span className="wf-end-icon">⏹</span>
-        <span className="wf-node-label">{data.label || 'End'}</span>
+        <NodeIcon type="end" />
+        <div>
+          <span className="wf-node-label">{data.label || 'End'}</span>
+          <div className="wf-node-sublabel">{getNodeCategory('end')}</div>
+        </div>
       </div>
       {rs?.state === 'pass' && <span className="wf-status-badge wf-status-pass">✓ Completed</span>}
       {rs?.state === 'fail' && (
@@ -22,10 +27,7 @@ export default function EndNode({ id, data, selected }: Props) {
       {rs?.responseDetail && rs.state === 'fail' && (
         <div className="wf-end-error">{rs.responseDetail}</div>
       )}
-      {rs?.state === 'paused' && debugStep && (
-        <button type="button" className="wf-debug-step-btn" title="Step this node" onClick={(e) => { e.stopPropagation(); debugStep(id); }}>⏭ Step</button>
-      )}
-      {rs?.state === 'paused' && !debugStep && <span className="wf-status-badge wf-status-paused">⏸ Paused</span>}
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
     </div>
   );
 }

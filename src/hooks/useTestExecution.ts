@@ -173,7 +173,9 @@ export function useTestExecution() {
         avgResponseTime: Math.round(avgRecent * 10) / 10,
         tps: Math.round(intervalTps * 10) / 10,
         errorRate: Math.round(errorPct * 10) / 10,
-        concurrency: pending.profileMeta?.currentInFlight ?? 0,
+        concurrency: pending.profileMeta
+          ? (pending.total === -1 ? pending.profileMeta.currentInFlight : pending.profileMeta.targetConcurrency)
+          : 0,
       };
 
       lastSnapshotRef.current = elapsedSec;
@@ -283,6 +285,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
+          completed: results.length,
+          total: prev.total === -1 ? -1 : results.length,
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(results),
@@ -291,6 +295,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
+          completed: results.length,
+          total: prev.total === -1 ? -1 : results.length,
           finalRun: testRun,
           liveSummary: summary,
           liveResults: capResults(results),

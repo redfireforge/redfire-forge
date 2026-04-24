@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { useNodeBase } from './useNodeBase';
+import * as RunContext from '../WorkflowNodeRunContext';
 
 // By default, contexts return safe no-ops when used outside providers.
 
@@ -30,6 +31,27 @@ describe('useNodeBase', () => {
   it('stateClass is empty when rs is undefined', () => {
     const { result } = renderHook(() => useNodeBase('n1'));
     expect(result.current.stateClass).toBe('');
+  });
+
+  it('stateClass is empty when state is idle', () => {
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'idle' } as any);
+    const { result } = renderHook(() => useNodeBase('n1'));
+    expect(result.current.stateClass).toBe('');
+    vi.restoreAllMocks();
+  });
+
+  it('stateClass reflects non-idle state', () => {
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'running' } as any);
+    const { result } = renderHook(() => useNodeBase('n1'));
+    expect(result.current.stateClass).toBe('wf-node-running');
+    vi.restoreAllMocks();
+  });
+
+  it('stateClass reflects paused state', () => {
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'paused' } as any);
+    const { result } = renderHook(() => useNodeBase('n1'));
+    expect(result.current.stateClass).toBe('wf-node-paused');
+    vi.restoreAllMocks();
   });
 
   it('returns a function for handleConfigure on rerender', () => {

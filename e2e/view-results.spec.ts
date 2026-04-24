@@ -52,7 +52,7 @@ test.describe('View Results flow', () => {
 
   test('navigate to Results tab and see metrics', async ({ page }) => {
     // Already on Results tab from beforeEach
-    await expect(page.locator('.main-nav-tab.active')).toHaveText('Results');
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Results');
 
     await expect(page.locator('.metric-label:has-text("TPS")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.metric-label:has-text("Avg Response")')).toBeVisible();
