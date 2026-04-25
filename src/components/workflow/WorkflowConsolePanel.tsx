@@ -91,6 +91,21 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   const containerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
 
+  // Re-enable auto-scroll when a new run starts (separator line appears in append mode)
+  const prevLinesLenRef = useRef(lines.length);
+  useEffect(() => {
+    if (lines.length > prevLinesLenRef.current) {
+      // Check if the newly added lines include a separator (new run marker)
+      for (let i = prevLinesLenRef.current; i < lines.length; i++) {
+        if (lines[i].prefix === '---') {
+          autoScrollRef.current = true;
+          break;
+        }
+      }
+    }
+    prevLinesLenRef.current = lines.length;
+  }, [lines]);
+
   useEffect(() => {
     if (autoScrollRef.current && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'instant' });

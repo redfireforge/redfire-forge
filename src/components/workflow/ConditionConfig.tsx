@@ -7,6 +7,9 @@ import {
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
 import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
+import SearchableVariableSelect from './SearchableVariableSelect';
+import ExpressionTextarea from './ExpressionTextarea';
 
 const CUSTOM_SELECT = '__custom__';
 
@@ -19,7 +22,7 @@ export default function ConditionConfig({
   data: ConditionNodeData;
   onChange: (d: ConditionNodeData) => void;
   variableHints: WorkflowVariableHint[];
-  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
 }) {
   const [uiMode, setUiMode] = useState<'pick' | 'expr'>(() => guessConditionLeftMode(data.left));
   const [pickCustom, setPickCustom] = useState(false);
@@ -30,6 +33,14 @@ export default function ConditionConfig({
     () => validateConditionLeftRefs(data.left, variableHints),
     [data.left, variableHints],
   );
+
+  /** Extract the last {{var}} reference from the expression for search context. */
+  const leftInitialSearch = useMemo(() => {
+    const matches = data.left.match(/\{\{([^}]+)\}\}/g);
+    if (!matches || matches.length === 0) return '';
+    const last = matches[matches.length - 1];
+    return last.replace(/^\{\{|\}\}$/g, '');
+  }, [data.left]);
 
   useEffect(() => {
     const sn = parseSingleVariableRef(data.left);
@@ -76,34 +87,26 @@ export default function ConditionConfig({
 
         {uiMode === 'pick' && (
           <>
-            <select
-              className={!validation.ok && singleName !== null ? 'wf-input-invalid' : undefined}
-              value={selectValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '') {
+            <SearchableVariableSelect
+              hints={variableHints}
+              value={selectValue === CUSTOM_SELECT ? '' : selectValue}
+              onChange={(ref) => {
+                if (ref === '') {
                   setPickCustom(false);
                   onChange({ ...data, left: '' });
                   return;
                 }
-                if (v === CUSTOM_SELECT) {
-                  setPickCustom(true);
-                  onChange({ ...data, left: '' });
-                  return;
-                }
                 setPickCustom(false);
-                onChange({ ...data, left: `{{${v}}}` });
+                onChange({ ...data, left: `{{${ref}}}` });
               }}
+              showCustom
+              onCustom={() => {
+                setPickCustom(true);
+                onChange({ ...data, left: '' });
+              }}
+              invalid={!validation.ok && singleName !== null}
               aria-label="Variable for left operand"
-            >
-              <option value="">— Select variable —</option>
-              {variableHints.map((h) => (
-                <option key={h.ref} value={h.ref} title={h.description || h.label}>
-                  {h.label}{h.type ? ` [${h.type}]` : ''}
-                </option>
-              ))}
-              <option value={CUSTOM_SELECT}>Custom name…</option>
-            </select>
+            />
             {selectValue === CUSTOM_SELECT && (
               <input
                 className={!validation.ok && singleName !== null && !hintSet.has(singleName) ? 'wf-input-invalid' : undefined}
@@ -129,15 +132,17 @@ export default function ConditionConfig({
           <InsertVarField
             onRequestVariableInsert={onRequestVariableInsert}
             onInsert={(snippet) => onChange({ ...data, left: data.left + snippet })}
+            initialSearch={leftInitialSearch}
           >
-            <textarea
+            <ExpressionTextarea
               className={`wf-config-textarea ${!validation.ok ? 'wf-input-invalid' : ''}`}
               value={data.left}
-              onChange={(e) => onChange({ ...data, left: e.target.value })}
+              onChange={(val) => onChange({ ...data, left: val })}
               rows={3}
               placeholder="Literal text or {{var}} placeholders"
               spellCheck={false}
               aria-label="Left operand expression"
+              variableHints={variableHints}
             />
           </InsertVarField>
         )}
@@ -180,7 +185,7 @@ export default function ConditionConfig({
           onRequestVariableInsert={onRequestVariableInsert}
           onInsert={(snippet) => onChange({ ...data, right: data.right + snippet })}
         >
-          <input value={data.right} onChange={(e) => onChange({ ...data, right: e.target.value })} placeholder="200" />
+          <ExpressionInput value={data.right} onChange={(val) => onChange({ ...data, right: val })} placeholder="200" variableHints={variableHints} />
         </InsertVarField>
       </div>
       <p className="wf-config-hint-text" style={{ marginTop: 4 }}>

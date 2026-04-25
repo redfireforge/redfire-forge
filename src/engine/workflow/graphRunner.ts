@@ -582,15 +582,16 @@ export async function runGraph(
           [...catchEdges.map(e => e.target), ...doneEdges.map(e => e.target)],
         );
 
-        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Error Handler — body: ${bodyNodeIds.size} nodes, retry: ${data.retryCount}` });
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Error Handler — body: ${bodyNodeIds.size} nodes, retry: ${data.retryCount ?? 0}` });
         callbacks.onNodeStateChange(nodeId, { state: 'running' });
 
         let succeeded = false;
         let lastError: { message: string; statusCode: number; nodeId: string; nodeLabel: string; type: string } | null = null;
         let attempt = 0;
         const retryStart = performance.now();
+        const maxRetries = data.retryCount ?? 0;
 
-        while (attempt <= data.retryCount && !succeeded) {
+        while (attempt <= maxRetries && !succeeded) {
           if (abortSignal?.aborted || debugController?.isStopped) break;
 
           // Check retry timeout
@@ -638,11 +639,11 @@ export async function runGraph(
             }
 
             attempt++;
-            if (attempt <= data.retryCount) {
+            if (attempt <= maxRetries) {
               const delay = data.retryBackoff === 'exponential'
-                ? data.retryDelayMs * Math.pow(2, attempt - 1)
-                : data.retryDelayMs;
-              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Retry ${attempt}/${data.retryCount} in ${delay}ms...` });
+                ? (data.retryDelayMs ?? 1000) * Math.pow(2, attempt - 1)
+                : (data.retryDelayMs ?? 1000);
+              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Retry ${attempt}/${maxRetries} in ${delay}ms...` });
               await new Promise<void>((resolve) => {
                 const timer = setTimeout(resolve, delay);
                 if (abortSignal) {
@@ -670,6 +671,8 @@ export async function runGraph(
             ctx.set('error.nodeLabel', lastError.nodeLabel);
             ctx.set('error.retryCount', String(Math.max(0, attempt - 1)));
             ctx.set('error.type', lastError.type);
+            // Ensure httpStatus is available in catch path for conditions/logging
+            ctx.set('httpStatus', String(lastError.statusCode));
           }
           callbacks.onVariablesChange(ctx.snapshot());
           log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Body failed — executing catch path` });
@@ -817,6 +820,13 @@ export async function runGraph(
       const technical = toErrorMessage(err);
       const friendly = humanizeError(technical);
       log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${friendly}` });
+      // Ensure httpStatus is always available even when the node throws before setting it
+      if (isHttpWorkflowNode(node) && ctx.get('httpStatus') === undefined) {
+        ctx.set('httpStatus', '0');
+        ctx.set('status', '0');
+        ctx.setForNode(nodeId, 'httpStatus', '0');
+        ctx.setForNode(nodeId, 'status', '0');
+      }
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
         error: friendly,
@@ -1049,12 +1059,18 @@ async function executeHttpNode(
     const responseData: ResponseData = { status: httpStatus, headers: responseHeaders, body: responseObj };
     extracted = extractVariables(data.scenario.extractions, responseData, ctx, httpNodeId);
   }
-  // If nothing defined `status`, bind it to the numeric HTTP status so `{{status}}` works in conditions.
-  if (ctx.get('status') === undefined) {
-    ctx.set('status', String(httpStatus));
-    ctx.setForNode(httpNodeId, 'status', String(httpStatus));
-    extracted = { ...extracted, status: String(httpStatus) };
+  // Always bind `httpStatus` globally so `{{httpStatus}}` works everywhere.
+  // Only set global `status` when undefined (preserves user-defined `status` variables).
+  // Per-node scoping always gets both for `{{node:"Step".status}}`.
+  const statusStr = String(httpStatus);
+  ctx.set('httpStatus', statusStr);
+  ctx.setForNode(httpNodeId, 'status', statusStr);
+  ctx.setForNode(httpNodeId, 'httpStatus', statusStr);
+  if (!extracted.status && ctx.get('status') === undefined) {
+    ctx.set('status', statusStr);
+    extracted = { ...extracted, status: statusStr };
   }
+  if (!extracted.httpStatus) extracted = { ...extracted, httpStatus: statusStr };
 
   const requestResult: RequestResult = {
     id: uuidv4(),

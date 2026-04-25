@@ -3,6 +3,7 @@ import type { SetVariableNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
 import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
 import AvailableVariables from './AvailableVariables';
 
 export default function SetVariableConfig({
@@ -50,11 +51,12 @@ export default function SetVariableConfig({
                 onRequestVariableInsert={onRequestVariableInsert}
                 onInsert={(snippet) => updateAssignment(i, { expression: a.expression + snippet })}
               >
-                <input
+                <ExpressionInput
                   className="wf-setvar-assignment-expr"
                   value={a.expression}
-                  onChange={(e) => updateAssignment(i, { expression: e.target.value })}
+                  onChange={(val) => updateAssignment(i, { expression: val })}
                   placeholder="Value / {{expression}}"
+                  variableHints={variableHints}
                 />
               </InsertVarField>
               <button

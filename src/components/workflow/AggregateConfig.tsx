@@ -3,6 +3,7 @@ import type { AggregateNodeData, AggregateStrategy } from '../../types/workflow'
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
 import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
 import AvailableVariables from './AvailableVariables';
 
 const STRATEGY_OPTIONS: { value: AggregateStrategy; label: string; desc: string }[] = [
@@ -53,11 +54,12 @@ export default function AggregateConfig({
                   onRequestVariableInsert={onRequestVariableInsert}
                   onInsert={(snippet) => updateMapping(i, { sourceExpression: m.sourceExpression + snippet })}
                 >
-                  <input
+                  <ExpressionInput
                     className="wf-aggregate-mapping-source"
                     value={m.sourceExpression}
-                    onChange={(e) => updateMapping(i, { sourceExpression: e.target.value })}
+                    onChange={(val) => updateMapping(i, { sourceExpression: val })}
                     placeholder="Source {{variable}}"
+                    variableHints={variableHints}
                   />
                 </InsertVarField>
                 <span className="wf-aggregate-mapping-arrow">→</span>

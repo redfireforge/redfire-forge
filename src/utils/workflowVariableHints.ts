@@ -210,12 +210,14 @@ export function collectConditionVariableHints(
 
   if (hasHttpAncestor) {
     push('status', 'status (latest)', 'HTTP response status code of the last executed step', 'number');
+    push('httpStatus', 'httpStatus (latest)', 'HTTP response status code of the last executed step (always set)', 'number');
     for (const n of nodes) {
       if (!isHttpWorkflowNode(n) || !ancestors.has(n.id)) continue;
       const data = n.data as HttpNodeData;
       const label = stepLabel(data);
       const httpSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'http', category: 'HTTP Steps' };
       push(formatNodeScopedRef(n.id, label, 'status'), `status ← "${label}" (scoped)`, `HTTP response status code from "${label}". e.g. 200, 404`, 'number', httpSource);
+      push(formatNodeScopedRef(n.id, label, 'httpStatus'), `httpStatus ← "${label}" (scoped)`, `HTTP response status code from "${label}". e.g. 200, 404`, 'number', httpSource);
     }
   }
 
@@ -259,6 +261,16 @@ export function collectConditionVariableHints(
       push('wait.attempts', `wait.attempts ← "${label}"`, `Number of poll iterations completed by "${label}"`, 'number', waitSource);
       push('wait.elapsed', `wait.elapsed ← "${label}"`, `Total polling time in milliseconds for "${label}"`, 'number', waitSource);
       push('wait.conditionMet', `wait.conditionMet ← "${label}"`, `Whether the poll condition was satisfied. Returns "true" or "false"`, 'boolean', waitSource);
+    } else if (n.type === 'errorHandler') {
+      const data = n.data as ErrorHandlerNodeData;
+      const label = data.label?.trim() || 'Error Handler';
+      const errSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'errorHandler', category: 'Logic' };
+      push('error.message', `error.message ← "${label}"`, `Error message from failed step in "${label}"`, 'string', errSource);
+      push('error.statusCode', `error.statusCode ← "${label}"`, `HTTP status code of the failed request (e.g. 500, 0 for network error)`, 'number', errSource);
+      push('error.nodeId', `error.nodeId ← "${label}"`, `Node ID of the step that failed inside "${label}"`, 'string', errSource);
+      push('error.nodeLabel', `error.nodeLabel ← "${label}"`, `Label of the step that failed inside "${label}"`, 'string', errSource);
+      push('error.retryCount', `error.retryCount ← "${label}"`, `Number of retry attempts before the error handler gave up`, 'number', errSource);
+      push('error.type', `error.type ← "${label}"`, `Error classification: "http-error", "network-error", or "assertion-failure"`, 'string', errSource);
     } else if (n.type === 'start') {
       const data = n.data as StartNodeData;
       const label = data.label?.trim() || 'Start';
