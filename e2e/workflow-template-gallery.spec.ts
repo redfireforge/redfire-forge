@@ -167,7 +167,7 @@ test.describe('Template Gallery Modal', () => {
     await expect(logicCount).toHaveText('2');
 
     const advancedCount = page.locator('.tg-tab', { hasText: 'Advanced' }).locator('.tg-tab-count');
-    await expect(advancedCount).toHaveText('1');
+    await expect(advancedCount).toHaveText('4');
   });
 });
 
