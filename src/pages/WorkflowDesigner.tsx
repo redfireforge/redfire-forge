@@ -42,10 +42,14 @@ import type {
   LoopNodeData,
   SetVariableNodeData,
   AggregateNodeData,
+  ErrorHandlerNodeData,
+  LogDebugNodeData,
+  WaitForConditionNodeData,
   NodeRunStatus,
   WorkflowHostProfile,
   WorkflowAuthProfile,
   WorkflowService,
+  WorkflowErrorConfig,
   Workflow,
 } from '../types/workflow';
 import {
@@ -91,6 +95,9 @@ import SwitchNode from '../components/workflow/nodes/SwitchNode';
 import LoopNode from '../components/workflow/nodes/LoopNode';
 import SetVariableNode from '../components/workflow/nodes/SetVariableNode';
 import AggregateNode from '../components/workflow/nodes/AggregateNode';
+import ErrorHandlerNode from '../components/workflow/nodes/ErrorHandlerNode';
+import LogDebugNode from '../components/workflow/nodes/LogDebugNode';
+import WaitForConditionNode from '../components/workflow/nodes/WaitForConditionNode';
 import { DebugController } from '../engine/workflow/debugController';
 import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
@@ -145,6 +152,9 @@ const nodeTypes = {
   loop: LoopNode,
   setVariable: SetVariableNode,
   aggregate: AggregateNode,
+  errorHandler: ErrorHandlerNode,
+  logDebug: LogDebugNode,
+  waitForCondition: WaitForConditionNode,
 };
 
 /** Enrich a React Flow node with state-managed initialVariables. */
@@ -213,6 +223,28 @@ function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       label: 'Aggregate',
       mappings: [],
     } as AggregateNodeData;
+    case 'errorHandler': return {
+      label: 'Error Handler',
+      errorFilter: 'all',
+      retryCount: 2,
+      retryDelayMs: 1000,
+      retryBackoff: 'fixed',
+      retryTimeoutMs: 0,
+      continueOnError: true,
+    } as ErrorHandlerNodeData;
+    case 'logDebug': return {
+      label: 'Log',
+      message: '',
+      logLevel: 'info',
+      snapshotVariables: false,
+    } as LogDebugNodeData;
+    case 'waitForCondition': return {
+      label: 'Wait for Condition',
+      conditionExpression: '',
+      pollIntervalMs: 2000,
+      timeoutMs: 30000,
+      maxAttempts: 0,
+    } as WaitForConditionNodeData;
   }
 }
 
@@ -250,6 +282,13 @@ function WorkflowDesignerInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
   /** Bumped to force React Flow remount when programmatic layout changes don't visually update. */
   const [layoutVersion, setLayoutVersion] = useState(0);
+  /**
+   * Tracks which workflow ID has completed auto-layout.
+   * When a preview loads, this won't match `selected.id` until onInit finishes
+   * auto-layout, so the canvas stays hidden (visibility:hidden) with zero flash.
+   * Computed synchronously during render — no useEffect timing gap.
+   */
+  const [laidOutId, setLaidOutId] = useState<string | null>(null);
   /** Always read latest graph in Quick Test (avoids stale closures if React batches updates). */
   const nodesRef = useRef<WorkflowRFNode[]>(nodes);
   const edgesRef = useRef<WorkflowRFEdge[]>(edges);
@@ -357,6 +396,7 @@ function WorkflowDesignerInner({
   const [workflowHostProfiles, setWorkflowHostProfiles] = useState<WorkflowHostProfile[]>([]);
   const [workflowAuthProfiles, setWorkflowAuthProfiles] = useState<WorkflowAuthProfile[]>([]);
   const [workflowServices, setWorkflowServices] = useState<WorkflowService[]>([]);
+  const [workflowErrorConfig, setWorkflowErrorConfig] = useState<WorkflowErrorConfig | undefined>();
   const [serviceRegistryMode, setServiceRegistryMode] = useState<'closed' | 'panel' | 'fullscreen'>('closed');
   const workflowVariablesRef = useRef(workflowVariables);
   workflowVariablesRef.current = workflowVariables;
@@ -427,7 +467,7 @@ function WorkflowDesignerInner({
     })), []);
 
   /** Persist the current canvas to the workflow store. */
-  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string> }) => {
+  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string>; errorConfig?: WorkflowErrorConfig }) => {
     if (!selected) return;
     const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
     const wfEdges = serializeEdges(edges);
@@ -438,6 +478,7 @@ function WorkflowDesignerInner({
       hostProfiles: workflowHostProfiles,
       authProfiles: workflowAuthProfiles,
       services: overrides?.services ?? workflowServices,
+      errorConfig: overrides?.errorConfig !== undefined ? overrides.errorConfig : workflowErrorConfig,
       schemaVersion: 3,
     });
     setSaveAcknowledged(true);
@@ -452,7 +493,7 @@ function WorkflowDesignerInner({
         body: JSON.stringify(wf),
       }).catch(() => { /* server may not be running */ });
     }
-  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, update, serializeNodes, serializeEdges]);
+  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, workflowErrorConfig, update, serializeNodes, serializeEdges]);
 
   /** Insert a new node and persist. Shared by paste, duplicate, and drop. */
   const insertNodeAndPersist = useCallback((newNode: WorkflowRFNode, snapshotLabel: string) => {
@@ -605,6 +646,7 @@ function WorkflowDesignerInner({
       setWorkflowHostProfiles(selected.hostProfiles ?? []);
       setWorkflowAuthProfiles(selected.authProfiles ?? []);
       setWorkflowServices(selected.services ?? []);
+      setWorkflowErrorConfig(selected.errorConfig);
       // Populate per-node initialVariables from saved workflow data (outside React Flow)
       const ivMap: Record<string, Record<string, string>> = {};
       for (const n of selected.nodes) {
@@ -615,6 +657,10 @@ function WorkflowDesignerInner({
       setNodeInitialVars(ivMap);
       const ys = selected.nodes.map(n => (n.position?.y ?? 0) + 120);
       nextNodeY.current = ys.length ? Math.max(100, ...ys) : 100;
+      // When loading a sample/preview, remount ReactFlow to trigger fitView
+      if (previewWorkflow) {
+        setLayoutVersion(v => v + 1);
+      }
     } else if (!selected) {
       prevSelectedId.current = null;
     }
@@ -874,23 +920,86 @@ function WorkflowDesignerInner({
 
   // ── Drag-to-place from palette ──
   const [isDragOver, setIsDragOver] = useState(false);
+  const [dropTargetEdgeId, setDropTargetEdgeId] = useState<string | null>(null);
   const canvasAreaRef = useRef<HTMLDivElement>(null);
+
+  /** Find the closest edge to a flow-space point, within a threshold distance. */
+  const findClosestEdge = useCallback((flowPos: { x: number; y: number }, threshold = 60): WorkflowRFEdge | null => {
+    const rfNodes = nodesRef.current;
+    const rfEdges = edgesRef.current;
+    const nodeMap = new Map(rfNodes.map(n => [n.id, n]));
+
+    // Special handles that indicate branching edges (should not be split)
+    const branchHandles = new Set(['true', 'false', 'body', 'catch', 'done']);
+
+    let bestEdge: WorkflowRFEdge | null = null;
+    let bestDist = threshold;
+
+    for (const edge of rfEdges) {
+      const srcNode = nodeMap.get(edge.source);
+      const tgtNode = nodeMap.get(edge.target);
+      if (!srcNode || !tgtNode) continue;
+      // Skip edges from branching handles (condition true/false, errorHandler body/catch/done, etc.)
+      if (edge.sourceHandle && branchHandles.has(edge.sourceHandle)) continue;
+      // Also skip switch case handles
+      if (edge.sourceHandle && edge.sourceHandle.startsWith('case-')) continue;
+
+      // Approximate edge as line from source bottom-center to target top-center
+      const sw = (srcNode.measured?.width ?? (srcNode as unknown as { width?: number }).width ?? 160);
+      const sh = (srcNode.measured?.height ?? (srcNode as unknown as { height?: number }).height ?? 60);
+      const tw = (tgtNode.measured?.width ?? (tgtNode as unknown as { width?: number }).width ?? 160);
+      const sx = srcNode.position.x + sw / 2;
+      const sy = srcNode.position.y + sh;
+      const tx = tgtNode.position.x + tw / 2;
+      const ty = tgtNode.position.y;
+
+      // Point-to-segment distance
+      const dx = tx - sx, dy = ty - sy;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) continue;
+      const t = Math.max(0, Math.min(1, ((flowPos.x - sx) * dx + (flowPos.y - sy) * dy) / lenSq));
+      const px = sx + t * dx, py = sy + t * dy;
+      const dist = Math.sqrt((flowPos.x - px) ** 2 + (flowPos.y - py) ** 2);
+
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestEdge = edge;
+      }
+    }
+    return bestEdge;
+  }, []);
+
+  const lastEdgeCheckTime = useRef(0);
 
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/reactflow-type')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       setIsDragOver(true);
+
+      // Throttle edge detection to ~60fps
+      const now = performance.now();
+      if (now - lastEdgeCheckTime.current > 16) {
+        lastEdgeCheckTime.current = now;
+        const flowPos = rfInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+        const closest = findClosestEdge(flowPos);
+        setDropTargetEdgeId(prev => {
+          const next = closest?.id ?? null;
+          return prev === next ? prev : next;
+        });
+      }
     }
-  }, []);
+  }, [rfInstance, findClosestEdge]);
 
   const handleCanvasDragLeave = useCallback(() => {
     setIsDragOver(false);
+    setDropTargetEdgeId(null);
   }, []);
 
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    setDropTargetEdgeId(null);
     const type = e.dataTransfer.getData('application/reactflow-type') as WorkflowNodeType;
     if (!type || !selected) return;
 
@@ -909,8 +1018,36 @@ function WorkflowDesignerInner({
       position,
       data: defaultNodeData(type),
     };
+
+    // Check if dropping on an edge → split it
+    const closestEdge = findClosestEdge(position);
+    if (closestEdge) {
+      undoRedo.takeSnapshot('Insert node on edge');
+      const newEdge1: WorkflowRFEdge = {
+        id: uuidv4(),
+        source: closestEdge.source,
+        target: newNode.id,
+        sourceHandle: closestEdge.sourceHandle,
+        label: closestEdge.label,
+      };
+      const newEdge2: WorkflowRFEdge = {
+        id: uuidv4(),
+        source: newNode.id,
+        target: closestEdge.target,
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setEdges((eds) => {
+        const updated = eds.filter(e2 => e2.id !== closestEdge.id).concat(newEdge1, newEdge2);
+        const wfNodes = serializeNodes([...rfInstance.getNodes(), newNode]);
+        const wfEdges = serializeEdges(updated);
+        queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
+        return updated;
+      });
+      return;
+    }
+
     insertNodeAndPersist(newNode, 'Add node');
-  }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance]);
+  }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance, findClosestEdge, setNodes, setEdges, serializeNodes, serializeEdges, update, undoRedo]);
 
   const handleAddFromRequest = useCallback((collectionId: string, requestId: string) => {
     const col = collections.find(c => c.id === collectionId);
@@ -1203,6 +1340,7 @@ function WorkflowDesignerInner({
       resolveHttpBaseUrlForGraph,
       resolveHttpAuthForGraph,
       debugController,
+      workflowErrorConfig,
     ).catch(() => {
       setIsRunning(false);
       if (debugController) {
@@ -1343,17 +1481,25 @@ function WorkflowDesignerInner({
           onDragLeave={handleCanvasDragLeave}
           onDrop={handleCanvasDrop}
         >
-          {isDragOver && (
+          {isDragOver && !dropTargetEdgeId && (
             <div className="wf-drop-indicator">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Drop here to add node
             </div>
           )}
-          <WorkflowExecSummary
-            runProgress={runProgress}
-            failedStepLabel={failedStepLabel}
-            onOpenConsole={handleToggleConsole}
-          />
+          {isDragOver && dropTargetEdgeId && (
+            <div className="wf-drop-indicator wf-drop-indicator-edge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="3"/></svg>
+              Insert between nodes
+            </div>
+          )}
+          {!previewWorkflow && (
+            <WorkflowExecSummary
+              runProgress={runProgress}
+              failedStepLabel={failedStepLabel}
+              onOpenConsole={handleToggleConsole}
+            />
+          )}
           {previewWorkflow && (
             <div className="wf-preview-banner">
               <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
@@ -1372,8 +1518,9 @@ function WorkflowDesignerInner({
           <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
             <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
               key={layoutVersion}
+              style={previewWorkflow && laidOutId !== selected?.id ? { visibility: 'hidden' as const } : undefined}
               nodes={nodes}
-              edges={edges}
+              edges={dropTargetEdgeId ? edges.map(e => e.id === dropTargetEdgeId ? { ...e, className: (e.className ? e.className + ' ' : '') + 'wf-edge-drop-target' } : e) : edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
@@ -1384,6 +1531,30 @@ function WorkflowDesignerInner({
               onPaneClick={handlePaneClick}
               nodeTypes={nodeTypes}
               fitView
+              onInit={(instance) => {
+                // For preview/sample workflows, re-run auto-layout after ReactFlow
+                // measures actual node dimensions, then fit viewport to show all nodes.
+                if (previewWorkflow) {
+                  const currentPreviewId = previewWorkflow.id;
+                  setTimeout(() => {
+                    const measuredNodes = instance.getNodes();
+                    const measuredEdges = instance.getEdges();
+                    if (measuredNodes.length > 0) {
+                      const laid = getAutoLayoutNodes(measuredNodes, measuredEdges);
+                      instance.setNodes(laid);
+                      // Wait for React to commit the new positions before revealing
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                          instance.fitView({ padding: 0.15, maxZoom: 1, duration: 0 });
+                          setLaidOutId(currentPreviewId);
+                        });
+                      });
+                    } else {
+                      setLaidOutId(currentPreviewId);
+                    }
+                  }, 100);
+                }
+              }}
               connectionMode={ConnectionMode.Loose}
               connectionRadius={40}
               deleteKeyCode={['Backspace', 'Delete']}
@@ -1558,6 +1729,9 @@ function WorkflowDesignerInner({
         onUpdateWorkflowVariables={handleUpdateWorkflowVariables}
         onClose={() => setShowDefaultsModal(false)}
         workflowServices={workflowServices}
+        errorConfig={workflowErrorConfig}
+        onUpdateErrorConfig={(cfg) => { setWorkflowErrorConfig(cfg); persistWorkflow({ errorConfig: cfg }); }}
+        workflowNodes={nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data } as WorkflowNode))}
       />
 
       </WorkflowInspectProvider>

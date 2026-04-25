@@ -1007,6 +1007,236 @@ function createBatchProvisioningWorkflow(): Workflow {
   };
 }
 
+/**
+ * Sample workflow: Resilient API call with Error Handler, Log/Debug diagnostics, and outcome branching.
+ * Flow: Start → Log(begin) → ErrorHandler[ body: POST /posts → catch: Log(error) ] → done → Condition → Log(success) / Log(failure) → End
+ */
+function createErrorHandlerWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-error-handler',
+    name: 'Sample: Resilient API with Error Handling',
+    description: 'Demonstrates Error Handler with retry, Log/Debug for diagnostics, and conditional outcome.',
+    variables: {},
+    nodes: [
+      { id: 'eh-start', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Start', inputVariables: { apiKey: 'demo-key' } } },
+      {
+        id: 'eh-log-begin', type: 'logDebug', position: { x: 200, y: 100 },
+        data: { label: 'Log: Begin', message: 'Starting resilient API call with key={{apiKey}}', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'eh-guard', type: 'errorHandler', position: { x: 200, y: 240 },
+        data: { label: 'API Guard', errorFilter: 'all', maxRetries: 2, retryBackoffStrategy: 'fixed', retryDelayMs: 500, failWorkflowOnError: false },
+      },
+      {
+        id: 'eh-post', type: 'http', position: { x: 50, y: 400 },
+        data: {
+          label: 'Create Post',
+          scenario: {
+            id: 'eh-s1', name: 'Create Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'Resilient Post', body: 'Created with error handling', userId: 1 }, null, 2),
+            bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'postId', source: 'body', expression: '$.id' }, { name: 'httpStatus', source: 'status', expression: '' }],
+          },
+        },
+      },
+      {
+        id: 'eh-log-error', type: 'logDebug', position: { x: 400, y: 400 },
+        data: { label: 'Log: Error', message: 'API call failed — will retry. Status={{httpStatus}}', logLevel: 'error', snapshotVariables: true },
+      },
+      {
+        id: 'eh-check', type: 'condition', position: { x: 240, y: 560 },
+        data: { label: 'Created OK?', left: '{{httpStatus}}', operator: '==', right: '201' },
+      },
+      {
+        id: 'eh-log-ok', type: 'logDebug', position: { x: 100, y: 700 },
+        data: { label: 'Log: Success', message: 'Post {{postId}} created successfully', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'eh-log-fail', type: 'logDebug', position: { x: 400, y: 700 },
+        data: { label: 'Log: Failure', message: 'Post creation failed with status={{httpStatus}}', logLevel: 'warn', snapshotVariables: true },
+      },
+      { id: 'eh-end', type: 'end', position: { x: 250, y: 850 }, data: { label: 'End' } },
+    ],
+    edges: [
+      { id: 'eh-e1', source: 'eh-start', target: 'eh-log-begin' },
+      { id: 'eh-e2', source: 'eh-log-begin', target: 'eh-guard' },
+      { id: 'eh-e3', source: 'eh-guard', target: 'eh-post', sourceHandle: 'body' },
+      { id: 'eh-e4', source: 'eh-guard', target: 'eh-log-error', sourceHandle: 'catch' },
+      { id: 'eh-e5', source: 'eh-guard', target: 'eh-check', sourceHandle: 'done' },
+      { id: 'eh-e6', source: 'eh-check', target: 'eh-log-ok', sourceHandle: 'true' },
+      { id: 'eh-e7', source: 'eh-check', target: 'eh-log-fail', sourceHandle: 'false' },
+      { id: 'eh-e8', source: 'eh-log-ok', target: 'eh-end' },
+      { id: 'eh-e9', source: 'eh-log-fail', target: 'eh-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample workflow: Debug trace pipeline that logs before and after each API call.
+ * Flow: Start → Log(step1) → GET users → Log(step2) → GET user/1 → Log(step3) → GET posts → Log(done) → End
+ */
+function createLogDebugWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-log-debug',
+    name: 'Sample: Debug Trace Pipeline',
+    description: 'Adds Log/Debug nodes between HTTP calls for full request tracing.',
+    variables: {},
+    nodes: [
+      { id: 'ld-start', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Start', inputVariables: { traceId: 'trace-001' } } },
+      {
+        id: 'ld-log1', type: 'logDebug', position: { x: 200, y: 100 },
+        data: { label: 'Trace: Step 1', message: '[{{traceId}}] Fetching user list...', logLevel: 'debug', snapshotVariables: false },
+      },
+      {
+        id: 'ld-get-users', type: 'http', position: { x: 180, y: 220 },
+        data: {
+          label: 'GET Users',
+          scenario: {
+            id: 'ld-s1', name: 'Get Users',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET', headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'userCount', source: 'body', expression: '$.length' }],
+          },
+        },
+      },
+      {
+        id: 'ld-log2', type: 'logDebug', position: { x: 200, y: 340 },
+        data: { label: 'Trace: Step 2', message: '[{{traceId}}] Got {{userCount}} users. Fetching user details...', logLevel: 'debug', snapshotVariables: true },
+      },
+      {
+        id: 'ld-get-user1', type: 'http', position: { x: 180, y: 460 },
+        data: {
+          label: 'GET User #1',
+          scenario: {
+            id: 'ld-s2', name: 'Get User 1',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET', headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'userName', source: 'body', expression: '$.name' }],
+          },
+        },
+      },
+      {
+        id: 'ld-log3', type: 'logDebug', position: { x: 200, y: 580 },
+        data: { label: 'Trace: Step 3', message: '[{{traceId}}] User: {{userName}}. Fetching posts...', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'ld-get-posts', type: 'http', position: { x: 180, y: 700 },
+        data: {
+          label: 'GET Posts',
+          scenario: {
+            id: 'ld-s3', name: 'Get Posts',
+            url: 'https://jsonplaceholder.typicode.com/posts?userId=1',
+            method: 'GET', headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'postCount', source: 'body', expression: '$.length' }],
+          },
+        },
+      },
+      {
+        id: 'ld-log-done', type: 'logDebug', position: { x: 200, y: 820 },
+        data: { label: 'Trace: Done', message: '[{{traceId}}] Pipeline complete. {{postCount}} posts found for {{userName}}.', logLevel: 'info', snapshotVariables: true },
+      },
+    ],
+    edges: [
+      { id: 'ld-e1', source: 'ld-start', target: 'ld-log1' },
+      { id: 'ld-e2', source: 'ld-log1', target: 'ld-get-users' },
+      { id: 'ld-e3', source: 'ld-get-users', target: 'ld-log2' },
+      { id: 'ld-e4', source: 'ld-log2', target: 'ld-get-user1' },
+      { id: 'ld-e5', source: 'ld-get-user1', target: 'ld-log3' },
+      { id: 'ld-e6', source: 'ld-log3', target: 'ld-get-posts' },
+      { id: 'ld-e7', source: 'ld-get-posts', target: 'ld-log-done' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample workflow: Polling with Wait for Condition.
+ * Flow: Start → POST create → Log(created) → WaitForCondition[ body: GET status → done: ] → Condition(completed?) → Log(result) → End
+ */
+function createWaitConditionWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-wait-condition',
+    name: 'Sample: Polling with Wait for Condition',
+    description: 'Creates a resource and polls until processing completes with timeout protection.',
+    variables: {},
+    nodes: [
+      { id: 'wc-start', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Start', inputVariables: { jobName: 'data-import' } } },
+      {
+        id: 'wc-create', type: 'http', position: { x: 180, y: 100 },
+        data: {
+          label: '1. Create Job',
+          scenario: {
+            id: 'wc-s1', name: 'Create Job',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'Import Job', body: 'Processing data...', userId: 1 }, null, 2),
+            bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'jobId', source: 'body', expression: '$.id' }],
+          },
+        },
+      },
+      {
+        id: 'wc-log-created', type: 'logDebug', position: { x: 200, y: 240 },
+        data: { label: 'Log: Job Created', message: 'Job {{jobId}} ({{jobName}}) created. Starting polling...', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'wc-wait', type: 'waitForCondition', position: { x: 200, y: 370 },
+        data: { label: 'Wait: Job Complete', conditionExpression: '{{jobStatus}} == completed', pollIntervalMs: 2000, timeoutMs: 30000, maxAttempts: 15 },
+      },
+      {
+        id: 'wc-poll', type: 'http', position: { x: 50, y: 530 },
+        data: {
+          label: '2. Poll Status',
+          scenario: {
+            id: 'wc-s2', name: 'Poll Job Status',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'jobStatus', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'wc-check', type: 'condition', position: { x: 240, y: 530 },
+        data: { label: 'Completed?', left: '{{wait.conditionMet}}', operator: '==', right: 'true' },
+      },
+      {
+        id: 'wc-log-ok', type: 'logDebug', position: { x: 100, y: 680 },
+        data: { label: 'Log: Success', message: 'Job {{jobId}} completed after {{wait.attempts}} polls ({{wait.elapsed}}ms)', logLevel: 'info', snapshotVariables: true },
+      },
+      {
+        id: 'wc-log-timeout', type: 'logDebug', position: { x: 400, y: 680 },
+        data: { label: 'Log: Timeout', message: 'Job {{jobId}} timed out after {{wait.attempts}} polls', logLevel: 'warn', snapshotVariables: true },
+      },
+      { id: 'wc-end', type: 'end', position: { x: 250, y: 820 }, data: { label: 'End' } },
+    ],
+    edges: [
+      { id: 'wc-e1', source: 'wc-start', target: 'wc-create' },
+      { id: 'wc-e2', source: 'wc-create', target: 'wc-log-created' },
+      { id: 'wc-e3', source: 'wc-log-created', target: 'wc-wait' },
+      { id: 'wc-e4', source: 'wc-wait', target: 'wc-poll', sourceHandle: 'body' },
+      { id: 'wc-e5', source: 'wc-wait', target: 'wc-check', sourceHandle: 'done' },
+      { id: 'wc-e6', source: 'wc-check', target: 'wc-log-ok', sourceHandle: 'true' },
+      { id: 'wc-e7', source: 'wc-check', target: 'wc-log-timeout', sourceHandle: 'false' },
+      { id: 'wc-e8', source: 'wc-log-ok', target: 'wc-end' },
+      { id: 'wc-e9', source: 'wc-log-timeout', target: 'wc-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
@@ -1080,5 +1310,32 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     icon: '📝',
     nodeCount: 12,
     factory: createBatchProvisioningWorkflow,
+  },
+  {
+    id: 'sample-workflow-error-handler',
+    name: 'Resilient API with Error Handling',
+    description: 'HTTP call wrapped in Error Handler with retry, Log/Debug captures diagnostics, condition checks outcome',
+    category: 'advanced',
+    icon: '🛡️',
+    nodeCount: 9,
+    factory: createErrorHandlerWorkflow,
+  },
+  {
+    id: 'sample-workflow-log-debug',
+    name: 'Debug Trace Pipeline',
+    description: 'Sequential API calls with Log/Debug nodes tracing request/response at each step',
+    category: 'advanced',
+    icon: '📋',
+    nodeCount: 8,
+    factory: createLogDebugWorkflow,
+  },
+  {
+    id: 'sample-workflow-wait-condition',
+    name: 'Polling with Wait for Condition',
+    description: 'Creates a resource then polls until processing completes, with timeout and status tracking',
+    category: 'advanced',
+    icon: '⏳',
+    nodeCount: 9,
+    factory: createWaitConditionWorkflow,
   },
 ];

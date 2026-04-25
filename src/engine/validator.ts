@@ -36,6 +36,10 @@ function walkPath(obj: unknown, tokens: string[], idx: number): unknown {
     if (idx === tokens.length - 1) return obj;
     return obj.map((el) => walkPath(el, tokens, idx + 1));
   }
+  // Support .length on arrays (returns count)
+  if (t === 'length' && Array.isArray(obj)) {
+    return walkPath(obj.length, tokens, idx + 1);
+  }
   if (obj == null || typeof obj !== 'object') return undefined;
   const key = /^\d+$/.test(t) ? Number(t) : t;
   let next: unknown;
