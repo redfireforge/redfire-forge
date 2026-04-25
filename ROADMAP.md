@@ -43,7 +43,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 1997 unit/integration tests (Vitest, 98.04% line coverage, 90.10% branch coverage) + 109 E2E tests (Playwright) = 2106 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 2143 unit/integration tests (Vitest, 98.11% line coverage, 90.2% branch coverage) + 180 E2E tests (Playwright) = 2323 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -282,12 +282,24 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ## Upcoming Phases
 
+### Phase 0.5.4 — UI/UX Visual Foundation ✅
+
+> Redesign the app shell with a modern Activity Bar + contextual workspace layout inspired by VS Code/Postman/Grafana. Improve workflow node visual clarity.
+
+- [x] **Activity Bar Layout** — 4-domain Activity Bar (API, Workflow, Testing, Settings) replacing flat top-nav tabs; contextual sub-navigation per domain (2-3 tabs each)
+- [x] **Environment & Service Selectors in Header** — Global access to env/svc dropdowns from any domain
+- [x] **Clear Run Status** — Toolbar button to reset all workflow node execution status (checkmarks, response times, edge highlights) back to clean state
+- [x] **Workflow Node Label Overflow Fix** — Labels truncate with ellipsis instead of overflowing node boundary; `min-width: 0` and `overflow: hidden` on flex containers; node max-width increased to 320px
+- [x] **SVG Configure Icon** — Replaced tiny Unicode ⚙ with a 14×14px SVG pencil/edit icon; hover tooltip preserved
+- [x] **E2E Test Selectors Updated** — All 180 E2E tests updated for new nav structure
+- [x] **2143 Unit Tests** — 97.19% statements, 90.2% branches, 98.03% functions, 98.11% lines
+
 ### Phase 0.7.5 — CI/CD Pipeline
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 1781 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 109 tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 2143 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 180 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)

@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+---
+
+## [0.5.4] — 2026-04-24
+
+### Added
+- **Activity Bar Layout**: Redesigned app shell with VS Code/Postman-inspired Activity Bar + contextual sub-navigation
+  - 4-domain Activity Bar: API (🔌), Workflow (🔧), Testing (🏋), Settings (⚙️)
+  - Contextual sub-nav tabs per domain: API (Requests, Catalog), Workflow (Designer, Executions, Webhooks), Testing (Scenarios, Runner, Results), Settings (Environments, Preferences)
+  - Environment and service selectors moved to header for global access
+  - Tab IDs and `?tab=` URL system unchanged for backward compatibility
+- **Clear Run Status**: New Clear button in workflow toolbar to reset all node execution status (checkmarks, response times, edge highlights) back to original state
+- **Workflow Node SVG Configure Icon**: Replaced small Unicode ⚙ character with a 14×14px SVG pencil/edit icon for better visibility; full "Configure..." text shown on hover tooltip
+- **Workflow Node Label Overflow Fix**: Node labels now properly truncate with ellipsis instead of overflowing the node boundary
+  - Added `overflow: hidden` and `min-width: 0` to all node body flex containers
+  - CSS selector targets only label wrapper divs via `:has(.wf-node-label)` to avoid affecting icon badges
+  - Increased node `max-width` from 280px to 320px for more label space
+  - Added `flex-shrink: 0` to configure badge to prevent it from being squeezed
+
+### Changed
+- **Test Coverage**: 2143 unit/integration tests across 100 test files + 180 E2E tests (97.19% statements, 90.2% branches, 98.03% functions, 98.11% lines)
+- **E2E Test Selectors**: Updated all E2E tests for new navigation structure (`.main-nav-tab` → `.sub-nav-tab`, `text=Workflow` → `.ab-btn[title="Workflow"]`, Gallery button → `+ New` → "From Template" dropdown path)
+
 ### Added
 - **Switch, Loop, SetVariable & Aggregate Workflow Nodes**: Advanced control flow and data manipulation nodes for workflows
   - **Switch Node**: Multi-way branching based on expression evaluation — define cases with values and labels; unmatched values follow the Default path; visual badge showing expression and case count
