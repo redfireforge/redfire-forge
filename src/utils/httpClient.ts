@@ -1,6 +1,25 @@
 import { isTauri, isNode } from './platform';
 import type { TimingBreakdown } from '../types';
 
+/** Walk the error `.cause` chain to build a detailed message string. */
+function deepErrorMessage(err: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = err;
+  const seen = new Set<unknown>();
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error) {
+      const code = (current as NodeJS.ErrnoException).code;
+      parts.push(code ? `${current.message} [${code}]` : current.message);
+      current = current.cause;
+    } else {
+      parts.push(String(current));
+      break;
+    }
+  }
+  return parts.join(' — ');
+}
+
 export interface HttpResponse {
   status: number;
   statusText: string;
@@ -94,7 +113,7 @@ async function tauriFetch(
       statusText: '',
       headers: {},
       body: '',
-      error: err instanceof Error ? err.message : String(err),
+      error: deepErrorMessage(err),
     };
   }
 }
@@ -141,8 +160,8 @@ async function getNodeDispatcher(): Promise<unknown> {
 
 /** Closes the shared Node dispatcher and resets the cache. */
 export async function closeNodePool(): Promise<void> {
-  if (_nodeDispatcher && typeof (_nodeDispatcher as any).close === 'function') {
-    await (_nodeDispatcher as any).close();
+  if (_nodeDispatcher && typeof (_nodeDispatcher as { close?: () => Promise<void> }).close === 'function') {
+    await (_nodeDispatcher as { close: () => Promise<void> }).close();
   }
   _nodeDispatcher = undefined;
   _nodeDispatcherInited = false;
@@ -180,7 +199,7 @@ async function nodeFetch(
       timing: { dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0, ttfb, download, total },
     };
   } catch (err) {
-    return { status: 0, statusText: '', headers: {}, body: '', error: err instanceof Error ? err.message : String(err) };
+    return { status: 0, statusText: '', headers: {}, body: '', error: deepErrorMessage(err) };
   }
 }
 

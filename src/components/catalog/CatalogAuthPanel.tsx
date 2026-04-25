@@ -39,8 +39,8 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
   const hasGlobal = globalAuthProfiles.length > 0;
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
 
-  const mode: AuthMode = (auth as any).__inherit ? 'inherit'
-    : (auth as any).__globalProfileId ? 'global'
+  const mode: AuthMode = auth.__inherit ? 'inherit'
+    : auth.__globalProfileId ? 'global'
     : auth.type === 'none' ? 'none'
     : auth.type as AuthMode;
 
@@ -56,10 +56,10 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
       if (scheme.type === 'http' && scheme.scheme === 'basic') {
         base.type = 'basic';
       }
-      onAuthChange({ ...base, __inherit: true, __schemeName: schemeName } as any);
+      onAuthChange({ ...base, __inherit: true, __schemeName: schemeName });
     } else if (newMode === 'global' && hasGlobal) {
       const profile = globalAuthProfiles[0];
-      onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
+      onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name });
     } else if (newMode === 'none') {
       onAuthChange({ type: 'none' });
     } else {
@@ -70,7 +70,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
   const handleGlobalProfileChange = useCallback((profileId: string) => {
     const profile = globalAuthProfiles.find(p => p.id === profileId);
     if (!profile) return;
-    onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
+    onAuthChange({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name });
   }, [globalAuthProfiles, onAuthChange]);
 
   const handleSchemeSwitch = useCallback((schemeName: string) => {
@@ -85,10 +85,10 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
     if (scheme.type === 'http' && scheme.scheme === 'basic') {
       base.type = 'basic';
     }
-    onAuthChange({ ...base, __inherit: true, __schemeName: schemeName } as any);
+    onAuthChange({ ...base, __inherit: true, __schemeName: schemeName });
   }, [securitySchemes, onAuthChange]);
 
-  const currentSchemeName = (auth as any).__schemeName as string | undefined;
+  const currentSchemeName = auth.__schemeName;
 
   return (
     <div className="ceb-auth-panel">
@@ -194,7 +194,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             <div className="cep-tryit-field">
               <label className="cep-field-name">Profile</label>
               <select className="cep-field-input"
-                value={(auth as any).__globalProfileId ?? globalAuthProfiles[0]?.id}
+                value={auth.__globalProfileId ?? globalAuthProfiles[0]?.id}
                 onChange={e => handleGlobalProfileChange(e.target.value)}>
                 {globalAuthProfiles.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -205,7 +205,7 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
               <div className="ceb-scheme-badge">
                 <span className="ceb-scheme-type">{auth.type.toUpperCase()}</span>
                 <span className="ceb-scheme-detail">
-                  {(auth as any).__globalProfileName ?? 'Global profile'}
+                  {auth.__globalProfileName ?? 'Global profile'}
                   {auth.type === 'oauth2' && ' — OAuth2 Client Credentials'}
                   {auth.type === 'bearer' && ' — Bearer Token'}
                   {auth.type === 'basic' && ' — Basic Auth'}

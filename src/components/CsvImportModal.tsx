@@ -2,6 +2,10 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import type { CsvParseResult } from '../utils/csvTemplate';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -22,6 +26,8 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'append'>('append');
   const [dragging, setDragging] = useState(false);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+  const { expanded: modalExpanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,9 +167,10 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
       className="modal-overlay"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="modal csv-import-modal">
+      <div className={`modal csv-import-modal ${expandClass}`} style={resizeStyle}>
         <div className="modal-header">
           <h3>Import Tests from CSV / Excel</h3>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} />
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -414,7 +421,9 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           <button className="btn btn-primary" onClick={handleImport} disabled={!canImport}>
             Import {validTests.length} Test{validTests.length !== 1 ? 's' : ''}
           </button>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

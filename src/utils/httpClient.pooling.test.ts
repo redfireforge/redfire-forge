@@ -49,7 +49,7 @@ describe('httpClient connection pooling', () => {
 
   function mockFetchResponse(body = 'ok', status = 200) {
     const mockHeaders = new Map<string, string>();
-    (globalThis.fetch as any).mockResolvedValue({
+    vi.mocked(globalThis.fetch).mockResolvedValue({
       status,
       statusText: 'OK',
       headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
@@ -95,7 +95,7 @@ describe('httpClient connection pooling', () => {
     it('injects Connection: keep-alive into outbound requests', async () => {
       mockFetchResponse();
       await httpFetch('http://example.com', 'GET', { 'Accept': 'application/json' });
-      const callOpts = (globalThis.fetch as any).mock.calls[0][1];
+      const callOpts = vi.mocked(globalThis.fetch).mock.calls[0][1];
       expect(callOpts.headers).toEqual(
         expect.objectContaining({
           'Connection': 'keep-alive',
@@ -107,7 +107,7 @@ describe('httpClient connection pooling', () => {
     it('does not overwrite existing Connection header from user', async () => {
       mockFetchResponse();
       await httpFetch('http://example.com', 'GET', { 'Connection': 'close' });
-      const callOpts = (globalThis.fetch as any).mock.calls[0][1];
+      const callOpts = vi.mocked(globalThis.fetch).mock.calls[0][1];
       expect(callOpts.headers['Connection']).toBe('keep-alive');
     });
   });

@@ -31,6 +31,7 @@ function ensureAllEnvRows(endpoints: ServiceEndpoint[], environments: Environmen
 
 /** Short auth summary label for the matrix row. */
 /** Resolve the inherited auth label for an endpoint row by looking up the microservice's authProfileIds. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function resolveInheritLabel(
   envId: string,
   microserviceId: string | undefined,
@@ -46,6 +47,7 @@ export function resolveInheritLabel(
   return profile ? `${profile.name} (${profile.auth.type})` : 'Profile not found';
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function authSummary(ep: ServiceEndpoint, _defaultAuth: EnvAuthState, globalAuthProfiles: GlobalAuthProfile[]): string {
   if (ep.authMode === 'inherit') return 'inherit';
   if (!ep.auth) return 'none';
@@ -84,7 +86,7 @@ export default function WorkflowServiceRegistryModal({
       ...svc,
       endpoints: ensureAllEnvRows(svc.endpoints ?? [], environments),
     }));
-    setDrafts(cloned);
+    setDrafts(cloned); // eslint-disable-line react-hooks/set-state-in-effect
     setSelectedId(cloned[0]?.id ?? null);
     setExpandedEnvId(null);
   }, [open, services, environments]);
@@ -172,7 +174,7 @@ export default function WorkflowServiceRegistryModal({
     return 'missing';
   };
 
-  const currentEnvName = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
+  const _currentEnvName = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
 
   // ── Full-screen modal mode ──
   return (

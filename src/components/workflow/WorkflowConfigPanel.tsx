@@ -12,6 +12,7 @@ import type {
 import {
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
+  buildWorkflowOnlyHints,
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
 import HttpConfig from './HttpConfig';
@@ -76,24 +77,28 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
 
   // Reset to inline view when a different node is selected
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state on node selection change
     setExpanded(false);
   }, [node?.id]);
 
   const workflowOnlyPickerHints = useMemo(
-    (): WorkflowVariableHint[] =>
-      Object.keys(workflowVariables)
-        .filter((k) => k.trim().length > 0)
-        .sort((a, b) => a.localeCompare(b))
-        .map((k) => {
-          const t = k.trim();
-          return { ref: t, label: `${t} (workflow)` };
-        }),
+    () => buildWorkflowOnlyHints(workflowVariables),
     [workflowVariables],
   );
 
   /** Always fold in this step's `initialVariables` + workflow defaults; parent graph hints can be empty if type/id desync. */
   const variableInsertHints = useMemo((): WorkflowVariableHint[] => {
-    if (!node || !isHttpWorkflowNode(node)) return workflowOnlyPickerHints;
+    if (!node || !isHttpWorkflowNode(node)) {
+      // For non-HTTP nodes, merge conditionVariableHints with workflow-level hints
+      if (conditionVariableHints.length > 0) {
+        const byRef = new Map<string, WorkflowVariableHint>(conditionVariableHints.map((h) => [h.ref, h]));
+        for (const h of workflowOnlyPickerHints) {
+          if (!byRef.has(h.ref)) byRef.set(h.ref, h);
+        }
+        return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
+      }
+      return workflowOnlyPickerHints;
+    }
     const data = node.data as HttpNodeData;
     const withStep = mergeHttpVariableHintsWithStepInitialVars(httpVariableHints, data);
     const byRef = new Map<string, WorkflowVariableHint>(withStep.map((h) => [h.ref, h]));
@@ -101,7 +106,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
       if (!byRef.has(h.ref)) byRef.set(h.ref, h);
     }
     return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
-  }, [node, httpVariableHints, workflowOnlyPickerHints]);
+  }, [node, httpVariableHints, workflowOnlyPickerHints, conditionVariableHints]);
 
   const requestVariableInsert = useCallback((apply: (snippet: string) => void, shortRef = false, initialSearch = '') => {
     insertApplyRef.current = apply;
@@ -141,6 +146,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           data={node.data as ConditionNodeData}
           onChange={(data) => onUpdateNode(node.id, data)}
           variableHints={conditionVariableHints}
+          onRequestVariableInsert={requestVariableInsert}
         />
       )}
 

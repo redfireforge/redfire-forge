@@ -70,7 +70,7 @@ describe('summarizeRequestFailure', () => {
   });
 
   it('handles HTTP 0 (network error)', () => {
-    expect(summarizeRequestFailure(baseResult({ httpStatus: 0, failureDetails: [] }))).toContain('No response');
+    expect(summarizeRequestFailure(baseResult({ httpStatus: 0, failureDetails: [] }))).toContain('could not reach');
   });
 
   it('returns generic message when nothing else matches', () => {

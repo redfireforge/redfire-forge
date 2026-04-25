@@ -177,6 +177,7 @@ export function NodeIcon({ type, className }: NodeIconProps) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getNodeCategory(type: string): string {
   const entry = ICON_MAP[type];
   if (!entry) return '';

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { WorkflowEdge, WorkflowNode } from '../../types/workflow';
+import type { WorkflowEdge, WorkflowNode, NodeRunStatus } from '../../types/workflow';
 
 vi.mock('../../utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -7,7 +7,7 @@ vi.mock('../../utils/httpClient', () => ({
 
 import { runGraph } from './graphRunner';
 import { httpFetch } from '../../utils/httpClient';
-import { DebugController } from './debugController';
+import { DebugController, type DebugThread } from './debugController';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -100,7 +100,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e2', source: 'h1', target: 'end' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -126,7 +126,7 @@ describe('graphRunner - Additional Coverage', () => {
         // No edge from h1 to end - end is unreachable
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -151,7 +151,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e1', source: 'start', target: 'h1' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -179,7 +179,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e4', source: 'h2', target: 'end2' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -205,7 +205,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e2', source: 'h1', target: 'end1' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -241,7 +241,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e4', source: 'h2', target: 'end' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -269,7 +269,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e2', source: 'h1', target: 'end1' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -299,7 +299,7 @@ describe('graphRunner - Additional Coverage', () => {
       ];
       const edges: WorkflowEdge[] = [];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -340,7 +340,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e5', source: 'join', target: 'h3' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -367,7 +367,7 @@ describe('graphRunner - Additional Coverage', () => {
         { id: 'e2', source: 'h1', target: 'end1' },
       ];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -385,7 +385,7 @@ describe('graphRunner - Additional Coverage', () => {
   describe('Debug Controller Integration', () => {
     it('executes with debug controller and tracks thread state', async () => {
       const controller = new DebugController();
-      const threadStates: any[] = [];
+      const threadStates: DebugThread[][] = [];
       
       controller.onStateChange((threads) => {
         threadStates.push(Array.from(threads.values()).map(t => ({ ...t })));
@@ -500,7 +500,7 @@ describe('graphRunner - Additional Coverage', () => {
       const nodes = [endNode('end')];
       const edges: WorkflowEdge[] = [];
 
-      const states: Record<string, any> = {};
+      const states: Record<string, NodeRunStatus> = {};
       const cb = {
         onNodeStateChange: vi.fn((nodeId, status) => { states[nodeId] = status; }),
         onVariablesChange: vi.fn(),
@@ -650,7 +650,7 @@ describe('graphRunner - Additional Coverage', () => {
       };
 
       // Variables with null/undefined should be filtered out
-      const vars: Record<string, any> = { 
+      const vars: Record<string, NodeRunStatus> = { 
         key1: 'value1', 
         key2: null,
         key3: undefined 
@@ -672,7 +672,7 @@ describe('graphRunner - Additional Coverage', () => {
       };
 
       // Non-string values should be converted
-      const vars: Record<string, any> = { 
+      const vars: Record<string, NodeRunStatus> = { 
         count: 123,
         flag: true
       };

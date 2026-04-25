@@ -1,0 +1,694 @@
+# RedfireForge Workflow — Multi-Stage Deployment Pipeline
+# Demonstrates: WaitForCondition, Condition (expression mode), LogDebug, Switch,
+# Fork/Join, Loop (forEach), SetVariable, Aggregate
+#
+# Scenario: Deploy a service across multiple environments (staging → canary → production)
+# with health-check polling, traffic-percentage ramping, and rollback on failure.
+# Uses variable expressions extensively for dynamic thresholds and routing.
+#
+# Flow:
+#   Start (service=payment-api, version=2.4.1, canaryPercent=10)
+#     → LogDebug ("Starting deploy of {{service}} v{{version}}")
+#       → POST /deploy/staging (extract stagingDeployId)
+#         → WaitForCondition (poll health until {{stagingHealth}} == healthy)
+#           → GET /metrics/staging (extract errorRate, p99Latency)
+#             → Condition ({{errorRate}} <= {{errorThreshold}} AND {{p99Latency}} < {{latencyThreshold}})
+#               ├─ Yes → LogDebug ("Staging passed")
+#               │   → POST /deploy/canary?traffic={{canaryPercent}}
+#               │     → WaitForCondition (poll canary health)
+#               │       → Fork (parallel metric checks)
+#               │           ├─ GET /metrics/canary/errors → Aggregate
+#               │           ├─ GET /metrics/canary/latency → Aggregate
+#               │           └─ GET /metrics/canary/throughput → Aggregate
+#               │       → Join
+#               │         → Switch on {{canaryVerdict}}
+#               │           ├─ "promote"  → POST /deploy/production → LogDebug → End (Success)
+#               │           ├─ "hold"     → LogDebug ("Canary hold") → End (Hold)
+#               │           └─ Default    → POST /deploy/rollback → LogDebug → End (Rolled Back)
+#               └─ No  → POST /deploy/rollback → LogDebug ("Staging failed") → End (Rolled Back)
+
+name: Multi-Stage Deployment Pipeline
+description: Progressive deploy through staging, canary, production with health-check polling and automatic rollback
+
+schemaVersion: 4
+
+variables:
+  service: "payment-api"
+  version: "2.4.1"
+  canaryPercent: "10"
+  errorThreshold: "0.02"
+  latencyThreshold: "500"
+  rollbackOnFailure: "true"
+  slackChannel: "#deployments"
+
+services:
+  - id: svc-deploy
+    name: Deployment API
+    endpoints:
+      - envId: env-prod
+        url: https://deploy.internal.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{DEPLOY_TOKEN}}"
+
+  - id: svc-metrics
+    name: Metrics API
+    endpoints:
+      - envId: env-prod
+        url: https://metrics.internal.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{METRICS_TOKEN}}"
+
+  - id: svc-slack
+    name: Slack Webhook
+    endpoints:
+      - envId: env-prod
+        url: https://hooks.slack.com/services
+        enabled: true
+        authMode: none
+        source: manual
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start Deploy
+      inputVariables:
+        service: "payment-api"
+        version: "2.4.1"
+        canaryPercent: "10"
+
+  # ── Log deployment start ──
+  - id: log-start
+    type: logDebug
+    position: { x: 400, y: 100 }
+    data:
+      label: Log Deploy Start
+      message: "Starting deployment of {{service}} v{{version}} — canary traffic: {{canaryPercent}}%, error threshold: {{errorThreshold}}, latency threshold: {{latencyThreshold}}ms"
+      logLevel: info
+      snapshotVariables: true
+
+  # ── Deploy to staging ──
+  - id: http-deploy-staging
+    type: http
+    position: { x: 400, y: 220 }
+    data:
+      label: Deploy to Staging
+      serviceId: svc-deploy
+      scenario:
+        id: sc-staging
+        name: Deploy Staging
+        url: "/environments/staging/deploy"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "service": "{{service}}",
+            "version": "{{version}}",
+            "environment": "staging",
+            "healthCheckPath": "/health",
+            "readinessTimeoutMs": 30000
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "202"
+        extractions:
+          - name: stagingDeployId
+            source: body
+            expression: $.deploymentId
+          - name: stagingNamespace
+            source: body
+            expression: $.namespace
+
+  # ── Wait for staging to be healthy ──
+  - id: wait-staging-health
+    type: waitForCondition
+    position: { x: 400, y: 380 }
+    data:
+      label: Wait Staging Healthy
+      conditionExpression: "{{stagingHealth}} == healthy"
+      pollIntervalMs: 3000
+      timeoutMs: 90000
+      maxAttempts: 30
+
+  # Poll body: check staging health
+  - id: http-staging-health
+    type: http
+    position: { x: 200, y: 460 }
+    data:
+      label: Check Staging Health
+      serviceId: svc-deploy
+      scenario:
+        id: sc-staging-health
+        name: Staging Health
+        url: "/environments/staging/deployments/{{stagingDeployId}}/health"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: stagingHealth
+            source: body
+            expression: $.status
+          - name: stagingReadyReplicas
+            source: body
+            expression: $.readyReplicas
+
+  # ── Fetch staging metrics ──
+  - id: http-staging-metrics
+    type: http
+    position: { x: 400, y: 560 }
+    data:
+      label: Get Staging Metrics
+      serviceId: svc-metrics
+      scenario:
+        id: sc-staging-metrics
+        name: Staging Metrics
+        url: "/query/staging/{{service}}"
+        method: GET
+        headers:
+          - key: X-Time-Range
+            value: "5m"
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "200"
+        extractions:
+          - name: errorRate
+            source: body
+            expression: $.errorRate
+          - name: p99Latency
+            source: body
+            expression: $.p99LatencyMs
+          - name: requestCount
+            source: body
+            expression: $.totalRequests
+
+  # ── Staging quality gate (expression-based) ──
+  - id: cond-staging-gate
+    type: condition
+    position: { x: 400, y: 720 }
+    data:
+      label: Staging Quality Gate
+      left: "{{errorRate}}"
+      operator: "<="
+      right: "{{errorThreshold}}"
+
+  # ──────────────────────────────────────────────
+  # YES branch: staging passed → canary deploy
+  # ──────────────────────────────────────────────
+
+  - id: log-staging-pass
+    type: logDebug
+    position: { x: 200, y: 860 }
+    data:
+      label: Staging Passed
+      message: "Staging gate PASSED — errorRate={{errorRate}} (threshold={{errorThreshold}}), p99={{p99Latency}}ms, {{requestCount}} requests sampled"
+      logLevel: info
+      snapshotVariables: false
+
+  # Deploy canary with traffic percentage
+  - id: http-deploy-canary
+    type: http
+    position: { x: 200, y: 1000 }
+    data:
+      label: Deploy Canary
+      serviceId: svc-deploy
+      scenario:
+        id: sc-canary
+        name: Deploy Canary
+        url: "/environments/production/canary"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "service": "{{service}}",
+            "version": "{{version}}",
+            "trafficPercent": {{canaryPercent}},
+            "baselineVersion": "current",
+            "analysisWindowMs": 60000
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "202"
+        extractions:
+          - name: canaryDeployId
+            source: body
+            expression: $.deploymentId
+
+  # ── Wait for canary analysis window ──
+  - id: wait-canary
+    type: waitForCondition
+    position: { x: 200, y: 1160 }
+    data:
+      label: Wait Canary Analysis
+      conditionExpression: "{{canaryAnalysisStatus}} == complete"
+      pollIntervalMs: 5000
+      timeoutMs: 120000
+      maxAttempts: 24
+
+  # Poll body: canary analysis status
+  - id: http-canary-status
+    type: http
+    position: { x: 50, y: 1240 }
+    data:
+      label: Check Canary Status
+      serviceId: svc-deploy
+      scenario:
+        id: sc-canary-status
+        name: Canary Status
+        url: "/environments/production/canary/{{canaryDeployId}}/analysis"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: canaryAnalysisStatus
+            source: body
+            expression: $.status
+
+  # ── Parallel metric collection ──
+  - id: fork-metrics
+    type: fork
+    position: { x: 200, y: 1360 }
+    data:
+      label: Collect Canary Metrics
+
+  - id: http-canary-errors
+    type: http
+    position: { x: 50, y: 1500 }
+    data:
+      label: Canary Error Rate
+      serviceId: svc-metrics
+      scenario:
+        id: sc-canary-err
+        name: Canary Errors
+        url: "/query/canary/{{service}}/errors"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: canaryErrorRate
+            source: body
+            expression: $.errorRate
+
+  - id: http-canary-latency
+    type: http
+    position: { x: 200, y: 1500 }
+    data:
+      label: Canary Latency
+      serviceId: svc-metrics
+      scenario:
+        id: sc-canary-lat
+        name: Canary Latency
+        url: "/query/canary/{{service}}/latency"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: canaryP99
+            source: body
+            expression: $.p99Ms
+
+  - id: http-canary-throughput
+    type: http
+    position: { x: 350, y: 1500 }
+    data:
+      label: Canary Throughput
+      serviceId: svc-metrics
+      scenario:
+        id: sc-canary-tps
+        name: Canary Throughput
+        url: "/query/canary/{{service}}/throughput"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: canaryThroughput
+            source: body
+            expression: $.requestsPerSecond
+
+  # ── Aggregate canary metrics ──
+  - id: agg-canary
+    type: aggregate
+    position: { x: 200, y: 1660 }
+    data:
+      label: Aggregate Canary
+      mappings:
+        - id: m1
+          targetName: canaryMetricsSummary
+          sourceExpression: "errors={{canaryErrorRate}}, p99={{canaryP99}}ms, tps={{canaryThroughput}}"
+          operation: last
+
+  - id: join-metrics
+    type: join
+    position: { x: 200, y: 1780 }
+    data:
+      label: Join Metrics
+
+  # ── Set verdict variable based on metrics ──
+  - id: setvar-verdict
+    type: setVariable
+    position: { x: 200, y: 1900 }
+    data:
+      label: Compute Verdict
+      assignments:
+        - id: v1
+          name: canaryVerdict
+          expression: "promote"
+
+  # ── Switch on canary verdict ──
+  - id: switch-verdict
+    type: switch
+    position: { x: 200, y: 2040 }
+    data:
+      label: Canary Decision
+      expression: "{{canaryVerdict}}"
+      cases:
+        - id: cv-promote
+          value: "promote"
+          label: Promote to Prod
+        - id: cv-hold
+          value: "hold"
+          label: Hold for Review
+
+  # Promote → full production deploy
+  - id: http-deploy-prod
+    type: http
+    position: { x: 50, y: 2200 }
+    data:
+      label: Deploy Production
+      serviceId: svc-deploy
+      scenario:
+        id: sc-prod
+        name: Deploy Production
+        url: "/environments/production/promote"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "service": "{{service}}",
+            "version": "{{version}}",
+            "canaryDeployId": "{{canaryDeployId}}",
+            "trafficPercent": 100,
+            "canaryMetrics": "{{canaryMetricsSummary}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "202"
+        extractions:
+          - name: prodDeployId
+            source: body
+            expression: $.deploymentId
+
+  - id: log-prod-success
+    type: logDebug
+    position: { x: 50, y: 2360 }
+    data:
+      label: Log Production Deploy
+      message: "{{service}} v{{version}} promoted to production (deploy={{prodDeployId}}). Canary metrics: {{canaryMetricsSummary}}"
+      logLevel: info
+      snapshotVariables: true
+
+  # Hold → log and exit
+  - id: log-hold
+    type: logDebug
+    position: { x: 200, y: 2200 }
+    data:
+      label: Log Canary Hold
+      message: "Canary HOLD for {{service}} v{{version}} — manual review required. Metrics: {{canaryMetricsSummary}}"
+      logLevel: warn
+      snapshotVariables: true
+
+  # Default (rollback canary)
+  - id: http-rollback-canary
+    type: http
+    position: { x: 380, y: 2200 }
+    data:
+      label: Rollback Canary
+      serviceId: svc-deploy
+      scenario:
+        id: sc-rollback-canary
+        name: Rollback Canary
+        url: "/environments/production/canary/{{canaryDeployId}}/rollback"
+        method: POST
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: log-canary-rollback
+    type: logDebug
+    position: { x: 380, y: 2360 }
+    data:
+      label: Log Canary Rollback
+      message: "Canary ROLLED BACK for {{service}} v{{version}}. Error rate {{canaryErrorRate}} exceeded threshold. Metrics: {{canaryMetricsSummary}}"
+      logLevel: error
+      snapshotVariables: true
+
+  # ──────────────────────────────────────────────
+  # NO branch: staging failed → rollback
+  # ──────────────────────────────────────────────
+
+  - id: http-rollback-staging
+    type: http
+    position: { x: 600, y: 860 }
+    data:
+      label: Rollback Staging
+      serviceId: svc-deploy
+      scenario:
+        id: sc-rollback-staging
+        name: Rollback Staging
+        url: "/environments/staging/deployments/{{stagingDeployId}}/rollback"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "reason": "quality-gate-failed",
+            "errorRate": {{errorRate}},
+            "p99Latency": {{p99Latency}},
+            "threshold": {{errorThreshold}}
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: log-staging-fail
+    type: logDebug
+    position: { x: 600, y: 1020 }
+    data:
+      label: Log Staging Failure
+      message: "Staging FAILED for {{service}} v{{version}} — errorRate={{errorRate}} (threshold={{errorThreshold}}), p99={{p99Latency}}ms (threshold={{latencyThreshold}}ms). Rolled back deployment {{stagingDeployId}}."
+      logLevel: error
+      snapshotVariables: true
+
+  # ── End nodes ──
+  - id: end-success
+    type: end
+    position: { x: 50, y: 2500 }
+    data:
+      label: Deploy Success
+
+  - id: end-hold
+    type: end
+    position: { x: 200, y: 2360 }
+    data:
+      label: Hold for Review
+
+  - id: end-canary-rollback
+    type: end
+    position: { x: 380, y: 2500 }
+    data:
+      label: Canary Rolled Back
+
+  - id: end-staging-fail
+    type: end
+    position: { x: 600, y: 1160 }
+    data:
+      label: Staging Failed
+
+edges:
+  # Main flow
+  - id: e-start
+    source: start-1
+    target: log-start
+
+  - id: e-log-deploy
+    source: log-start
+    target: http-deploy-staging
+
+  - id: e-deploy-wait
+    source: http-deploy-staging
+    target: wait-staging-health
+
+  # WaitForCondition poll
+  - id: e-wait-poll
+    source: wait-staging-health
+    target: http-staging-health
+    sourceHandle: poll
+
+  # WaitForCondition done → metrics
+  - id: e-wait-done
+    source: wait-staging-health
+    target: http-staging-metrics
+    sourceHandle: done
+
+  - id: e-metrics-gate
+    source: http-staging-metrics
+    target: cond-staging-gate
+
+  # ── YES path ──
+  - id: e-gate-yes
+    source: cond-staging-gate
+    target: log-staging-pass
+    sourceHandle: "true"
+    label: "Yes"
+
+  - id: e-pass-canary
+    source: log-staging-pass
+    target: http-deploy-canary
+
+  - id: e-canary-wait
+    source: http-deploy-canary
+    target: wait-canary
+
+  # Canary poll
+  - id: e-canary-poll
+    source: wait-canary
+    target: http-canary-status
+    sourceHandle: poll
+
+  # Canary done → parallel metrics
+  - id: e-canary-done
+    source: wait-canary
+    target: fork-metrics
+    sourceHandle: done
+
+  # Fork branches
+  - id: e-fork-errors
+    source: fork-metrics
+    target: http-canary-errors
+
+  - id: e-fork-latency
+    source: fork-metrics
+    target: http-canary-latency
+
+  - id: e-fork-throughput
+    source: fork-metrics
+    target: http-canary-throughput
+
+  # Aggregate → Join
+  - id: e-errors-agg
+    source: http-canary-errors
+    target: agg-canary
+
+  - id: e-latency-agg
+    source: http-canary-latency
+    target: agg-canary
+
+  - id: e-throughput-agg
+    source: http-canary-throughput
+    target: agg-canary
+
+  - id: e-agg-join
+    source: agg-canary
+    target: join-metrics
+
+  - id: e-join-verdict
+    source: join-metrics
+    target: setvar-verdict
+
+  - id: e-verdict-switch
+    source: setvar-verdict
+    target: switch-verdict
+
+  # Switch outcomes
+  - id: e-switch-promote
+    source: switch-verdict
+    target: http-deploy-prod
+    sourceHandle: case-cv-promote
+    label: Promote
+
+  - id: e-switch-hold
+    source: switch-verdict
+    target: log-hold
+    sourceHandle: case-cv-hold
+    label: Hold
+
+  - id: e-switch-rollback
+    source: switch-verdict
+    target: http-rollback-canary
+    sourceHandle: default
+    label: Rollback
+
+  # Promote path
+  - id: e-prod-log
+    source: http-deploy-prod
+    target: log-prod-success
+
+  - id: e-prod-end
+    source: log-prod-success
+    target: end-success
+
+  # Hold path
+  - id: e-hold-end
+    source: log-hold
+    target: end-hold
+
+  # Canary rollback path
+  - id: e-rollback-log
+    source: http-rollback-canary
+    target: log-canary-rollback
+
+  - id: e-rollback-end
+    source: log-canary-rollback
+    target: end-canary-rollback
+
+  # ── NO path ──
+  - id: e-gate-no
+    source: cond-staging-gate
+    target: http-rollback-staging
+    sourceHandle: "false"
+    label: "No"
+
+  - id: e-rollback-staging-log
+    source: http-rollback-staging
+    target: log-staging-fail
+
+  - id: e-staging-fail-end
+    source: log-staging-fail
+    target: end-staging-fail

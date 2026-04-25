@@ -300,7 +300,7 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
   // → strip the first path segment
   if (Array.isArray(responseBody)) {
     const firstPath = fields[0]?.jsonPath || '';
-    const firstSegment = firstPath.split(/[.\[]/)[0];
+    const firstSegment = firstPath.split(/[[.]/)[0];
     if (firstSegment && fields.every((f) => f.jsonPath.startsWith(firstSegment))) {
       const stripped = fields.map((f) => ({
         ...f,

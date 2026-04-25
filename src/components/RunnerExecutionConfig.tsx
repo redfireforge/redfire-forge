@@ -37,6 +37,7 @@ function profileLabel(type: LoadProfileType): string {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { profileLabel };
 
 export default function RunnerExecutionConfig({

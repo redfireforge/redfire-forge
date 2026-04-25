@@ -10,6 +10,7 @@ interface ShortcutDef {
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
 const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const SHORTCUTS: ShortcutDef[] = [
   // Canvas
   { key: 'mod+0', category: 'Canvas', label: 'Zoom to fit', display: `${MOD_LABEL}+0` },

@@ -90,7 +90,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
       {entries.map(([key, value], index) => {
         const isLong = value.length > VAR_VALUE_LONG || value.includes('\n');
         const isDeprecated = deprecatedKeys.includes(key);
-        const { source: varSource, displayValue } = resolveVariableSource(value, sourceMap);
+        const { source: varSource } = resolveVariableSource(value, sourceMap);
         return (
         /* index key: variable *name* changes while typing during rename; key={key} remounts the row and drops focus */
         <div key={index} className={`wf-config-kv-row wf-config-kv-row-vars${isDeprecated ? ' wf-var-deprecated' : ''}`}>
@@ -121,7 +121,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
                 readOnly
                 value={value.length > 72 ? `${value.slice(0, 72)}…` : value}
                 title={value}
-                onClick={() => openVariableDetail(key)}
+                onClick={() => openVariableDetail(key, value, (nv) => onUpdateVariables({ ...variables, [key]: nv }))}
               />
               {onRequestVariableInsert && (
                 <button
@@ -135,7 +135,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
                   Insert…
                 </button>
               )}
-              <button type="button" className="btn btn-sm wf-var-view-btn" onClick={() => openVariableDetail(key)}>
+              <button type="button" className="btn btn-sm wf-var-view-btn" onClick={() => openVariableDetail(key, value, (nv) => onUpdateVariables({ ...variables, [key]: nv }))}>
                 View…
               </button>
             </div>

@@ -260,10 +260,10 @@ export async function migrateToFlat(): Promise<AppData | null> {
       const sel = projects.find((p) => p.id === rawSelId) ?? projects[0];
       if (sel) {
         // Merge all project data (selected first, then others for envs/svcs/auth)
-        let envs = [...(sel.environments ?? [])];
-        let svcs = [...(sel.microservices ?? [])];
+        const envs = [...(sel.environments ?? [])];
+        const svcs = [...(sel.microservices ?? [])];
         let fgs = [...(sel.featureGroups ?? [])];
-        let auth = [...(sel.globalAuthProfiles ?? [])];
+        const auth = [...(sel.globalAuthProfiles ?? [])];
 
         const envIds = new Set(envs.map(e => e.id));
         const svcIds = new Set(svcs.map(s => s.id));
@@ -515,4 +515,27 @@ export async function loadWorkflowSampleDismissed(): Promise<boolean> {
 
 export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<void> {
   await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
+}
+
+/** Preview sample workflow entry ID — survives refresh via sessionStorage. */
+const WORKFLOW_PREVIEW_SAMPLE_KEY = 'workflow_preview_sample_id';
+
+export function loadPreviewSampleId(): string | null {
+  try {
+    return sessionStorage.getItem(WORKFLOW_PREVIEW_SAMPLE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePreviewSampleId(id: string | null): void {
+  try {
+    if (id) {
+      sessionStorage.setItem(WORKFLOW_PREVIEW_SAMPLE_KEY, id);
+    } else {
+      sessionStorage.removeItem(WORKFLOW_PREVIEW_SAMPLE_KEY);
+    }
+  } catch {
+    /* sessionStorage may be unavailable */
+  }
 }

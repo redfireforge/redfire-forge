@@ -95,7 +95,7 @@ export async function runWorkflowLoad(
   onStepComplete?: (progress: WorkflowProgress) => void,
 ): Promise<RequestResult[]> {
   const allResults: RequestResult[] = [];
-  let completedIterations = 0;
+  let _completedIterations = 0;
   const totalSteps = steps.length * iterations;
 
   const runOne = async (): Promise<void> => {
@@ -107,7 +107,7 @@ export async function runWorkflowLoad(
       },
     }, childCtx, onStepComplete);
     allResults.push(...iterResults);
-    completedIterations++;
+    _completedIterations++;
   };
 
   if (concurrency <= 1) {

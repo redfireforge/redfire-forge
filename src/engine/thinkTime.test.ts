@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createThinkTimeDelay, applyThinkTime } from './thinkTime';
 import type { ThinkTimeConfig } from '../types';
 
+
 describe('createThinkTimeDelay', () => {
   describe('none / undefined', () => {
     it('returns 0 when config is undefined', () => {
@@ -115,7 +116,7 @@ describe('createThinkTimeDelay', () => {
 
   describe('unknown mode', () => {
     it('returns 0 for unknown mode', () => {
-      const fn = createThinkTimeDelay({ mode: 'custom' as any });
+      const fn = createThinkTimeDelay({ mode: 'custom' as ThinkTimeConfig['mode'] });
       expect(fn()).toBe(0);
     });
   });

@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { useNodeBase } from './useNodeBase';
+import type { NodeRunStatus } from '../../../types/workflow';
 import * as RunContext from '../WorkflowNodeRunContext';
 
 // By default, contexts return safe no-ops when used outside providers.
@@ -34,21 +35,21 @@ describe('useNodeBase', () => {
   });
 
   it('stateClass is empty when state is idle', () => {
-    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'idle' } as any);
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'idle' } as NodeRunStatus);
     const { result } = renderHook(() => useNodeBase('n1'));
     expect(result.current.stateClass).toBe('');
     vi.restoreAllMocks();
   });
 
   it('stateClass reflects non-idle state', () => {
-    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'running' } as any);
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'running' } as NodeRunStatus);
     const { result } = renderHook(() => useNodeBase('n1'));
     expect(result.current.stateClass).toBe('wf-node-running');
     vi.restoreAllMocks();
   });
 
   it('stateClass reflects paused state', () => {
-    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'paused' } as any);
+    vi.spyOn(RunContext, 'useWorkflowNodeRunStatus').mockReturnValue({ state: 'paused' } as NodeRunStatus);
     const { result } = renderHook(() => useNodeBase('n1'));
     expect(result.current.stateClass).toBe('wf-node-paused');
     vi.restoreAllMocks();

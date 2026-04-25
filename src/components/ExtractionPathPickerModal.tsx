@@ -3,6 +3,10 @@ import { buildTree, getAllLeafPaths } from '../utils/jsonPathTreeUtils';
 import { getByPath } from '../engine/validator';
 import { PickerNode } from './RegexAssertionModal';
 import { useDebounce } from '../hooks/useDebounce';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 const MAX_MATCH_CHIPS = 32;
 
@@ -59,6 +63,8 @@ export default function ExtractionPathPickerModal({
   const [expression, setExpression] = useState(initialExpression);
   const [sampleJson, setSampleJson] = useState(initialSampleJson);
   const [searchTerm, setSearchTerm] = useState('');
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const debouncedSearch = useDebounce(searchTerm, 200);
 
   useEffect(() => {
@@ -148,9 +154,10 @@ export default function ExtractionPathPickerModal({
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal ram-modal epp-path-modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal ram-modal epp-path-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         <div className="ram-header">
           <h3>Pick JSON path (extraction)</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
 
@@ -361,7 +368,9 @@ export default function ExtractionPathPickerModal({
           <button type="button" className="btn btn-accent" onClick={handleApply} disabled={!expression.trim()}>
             Use this path
           </button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

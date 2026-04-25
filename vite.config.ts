@@ -101,13 +101,28 @@ function proxyPlugin(): Plugin {
             timing,
           }));
         } catch (err) {
+          // Walk the cause chain for detailed network errors (DNS, TLS, timeout, etc.)
+          const parts: string[] = [];
+          let cur: unknown = err;
+          const seen = new Set<unknown>();
+          while (cur && !seen.has(cur)) {
+            seen.add(cur);
+            if (cur instanceof Error) {
+              const code = (cur as NodeJS.ErrnoException).code;
+              parts.push(code ? `${cur.message} [${code}]` : cur.message);
+              cur = cur.cause;
+            } else {
+              parts.push(String(cur));
+              break;
+            }
+          }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             status: 0,
             statusText: '',
             headers: {},
             body: '',
-            error: err instanceof Error ? err.message : String(err),
+            error: parts.join(' — '),
           }));
         }
       });

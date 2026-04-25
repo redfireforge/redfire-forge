@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { GlobalAuthProfile, AuthType } from '../types';
 import { useAuthVerify } from '../hooks/useAuthVerify';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
 import { getStorageUsage, getMaxRuns } from '../utils/storage';
 import SettingsStorageTab from './SettingsStorageTab';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 export interface SettingsModalProps {
   appGlobalAuthProfiles: GlobalAuthProfile[];
@@ -30,6 +34,8 @@ export default function SettingsModal({
   const [newGlobalProfileName, setNewGlobalProfileName] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth: verifyProfileAuth } = useAuthVerify();
+  const { expanded: modalExpanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   useEffect(() => {
     void (async () => {
@@ -41,9 +47,10 @@ export default function SettingsModal({
 
   return (
     <div className="modal-overlay settings-overlay" onClick={onClose}>
-      <div className="modal settings-modal settings-modal-split" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal settings-modal settings-modal-split ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         <div className="settings-header">
           <h3>Settings</h3>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} />
           <button className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
         <div className="settings-split">
@@ -153,6 +160,10 @@ export default function SettingsModal({
 
           </div>
         </div>
+        <div className="settings-footer" style={{ display: 'flex', padding: '8px 20px', borderTop: '1px solid var(--border)', justifyContent: 'flex-end' }}>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} position="footer" />
+        </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

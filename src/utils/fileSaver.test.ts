@@ -98,7 +98,7 @@ describe('saveFile (browser fallback)', () => {
       click,
       set href(v: string) { /* noop */ },
       set download(v: string) { /* noop */ },
-    } as any);
+    } as unknown as HTMLAnchorElement);
 
     const blob = new Blob(['test'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'test.json', mimeType: 'application/json' });
@@ -120,7 +120,7 @@ describe('saveJsonFile', () => {
       click: vi.fn(),
       href: '',
       download: '',
-    } as any);
+    } as unknown as HTMLAnchorElement);
   });
 
   it('creates a JSON blob and saves it', async () => {
@@ -139,7 +139,7 @@ describe('saveCsvFile', () => {
       click: vi.fn(),
       href: '',
       download: '',
-    } as any);
+    } as unknown as HTMLAnchorElement);
   });
 
   it('creates a CSV blob and saves it', async () => {
@@ -158,22 +158,22 @@ describe('saveFile with showSaveFilePicker', () => {
   it('uses showSaveFilePicker when available', async () => {
     const mockWritable = { write: vi.fn(), close: vi.fn() };
     const mockHandle = { createWritable: vi.fn().mockResolvedValue(mockWritable) };
-    (window as any).showSaveFilePicker = vi.fn().mockResolvedValue(mockHandle);
+    (window as unknown as Record<string, unknown>).showSaveFilePicker = vi.fn().mockResolvedValue(mockHandle);
 
     const blob = new Blob(['test'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'test.json', mimeType: 'application/json' });
 
-    expect((window as any).showSaveFilePicker).toHaveBeenCalled();
+    expect((window as unknown as Record<string, unknown>).showSaveFilePicker).toHaveBeenCalled();
     expect(mockWritable.write).toHaveBeenCalledWith(blob);
     expect(mockWritable.close).toHaveBeenCalled();
-    delete (window as any).showSaveFilePicker;
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
   });
 
   it('uses .json accept extension when filename has no extension', async () => {
     const mockWritable = { write: vi.fn(), close: vi.fn() };
     const mockHandle = { createWritable: vi.fn().mockResolvedValue(mockWritable) };
     const showSaveFilePicker = vi.fn().mockResolvedValue(mockHandle);
-    (window as any).showSaveFilePicker = showSaveFilePicker;
+    (window as unknown as Record<string, unknown>).showSaveFilePicker = showSaveFilePicker;
 
     const blob = new Blob(['x'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'noext', mimeType: 'application/json', description: 'My export' });
@@ -189,12 +189,12 @@ describe('saveFile with showSaveFilePicker', () => {
         ],
       }),
     );
-    delete (window as any).showSaveFilePicker;
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
   });
 
   it('falls back to download link on AbortError', async () => {
     const abortErr = new DOMException('User cancelled', 'AbortError');
-    (window as any).showSaveFilePicker = vi.fn().mockRejectedValue(abortErr);
+    (window as unknown as Record<string, unknown>).showSaveFilePicker = vi.fn().mockRejectedValue(abortErr);
 
     vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn());
     vi.spyOn(document.body, 'removeChild').mockImplementation(vi.fn());
@@ -202,11 +202,11 @@ describe('saveFile with showSaveFilePicker', () => {
     const blob = new Blob(['test'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'test.json', mimeType: 'application/json' });
 
-    delete (window as any).showSaveFilePicker;
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
   });
 
   it('falls back to download link on other errors', async () => {
-    (window as any).showSaveFilePicker = vi.fn().mockRejectedValue(new Error('Not supported'));
+    (window as unknown as Record<string, unknown>).showSaveFilePicker = vi.fn().mockRejectedValue(new Error('Not supported'));
 
     const click = vi.fn();
     vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn());
@@ -215,18 +215,18 @@ describe('saveFile with showSaveFilePicker', () => {
       click,
       href: '',
       download: '',
-    } as any);
+    } as unknown as HTMLAnchorElement);
 
     const blob = new Blob(['test'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'test.json', mimeType: 'application/json' });
 
     expect(click).toHaveBeenCalled();
-    delete (window as any).showSaveFilePicker;
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
   });
 
   it('falls back to download link on non-abort DOMException', async () => {
     const err = new DOMException('Security', 'SecurityError');
-    (window as any).showSaveFilePicker = vi.fn().mockRejectedValue(err);
+    (window as unknown as Record<string, unknown>).showSaveFilePicker = vi.fn().mockRejectedValue(err);
 
     const click = vi.fn();
     vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn());
@@ -235,13 +235,13 @@ describe('saveFile with showSaveFilePicker', () => {
       click,
       href: '',
       download: '',
-    } as any);
+    } as unknown as HTMLAnchorElement);
 
     const blob = new Blob(['test'], { type: 'text/plain' });
     await saveFile(blob, { filename: 'test.json', mimeType: 'application/json' });
 
     expect(click).toHaveBeenCalled();
-    delete (window as any).showSaveFilePicker;
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
   });
 });
 

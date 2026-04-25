@@ -126,4 +126,26 @@ describe('SwitchConfig', () => {
     const { container } = render(<SwitchConfig data={data} onChange={onChange} />);
     expect(container.querySelectorAll('.wf-switch-case-row').length).toBe(0);
   });
+
+  it('does not render Insert button when onRequestVariableInsert is not provided', () => {
+    render(<SwitchConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.queryByText('Insert…')).toBeNull();
+  });
+
+  it('renders Insert button when onRequestVariableInsert is provided', () => {
+    render(<SwitchConfig data={makeData()} onChange={vi.fn()} onRequestVariableInsert={vi.fn()} />);
+    expect(screen.getByText('Insert…')).toBeTruthy();
+  });
+
+  it('calls onRequestVariableInsert when Insert button is clicked', () => {
+    const onRequest = vi.fn();
+    const onChange = vi.fn();
+    render(<SwitchConfig data={makeData()} onChange={onChange} onRequestVariableInsert={onRequest} />);
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(onRequest).toHaveBeenCalledTimes(1);
+    // Simulate the picker returning a snippet
+    const applyFn = onRequest.mock.calls[0][0];
+    applyFn('{{newVar}}');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expression: '{{status}}{{newVar}}' }));
+  });
 });

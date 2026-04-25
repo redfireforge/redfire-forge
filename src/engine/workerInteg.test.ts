@@ -5,11 +5,11 @@
  * creating a MockWorker that behaves like the real executionWorker
  * (receives start, posts progress/done, handles abort & http proxy).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { TestConfig, Scenario, RequestResult } from '../types';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import type { ProgressMeta } from './executor';
-import type { HttpResponse } from '../utils/httpClient';
+
 
 vi.mock('../utils/platform', () => ({
   isTauri: vi.fn(() => false),
@@ -31,12 +31,12 @@ class SimulatedWorker {
   public terminate = vi.fn();
   public scenario: 'normal' | 'error' | 'abort-aware' | 'multi-progress' | 'http-proxy' = 'normal';
 
-  addEventListener(type: string, fn: any) {
-    if (type === 'message') this.msgListeners.push(fn);
-    if (type === 'error') this.errListeners.push(fn);
+  addEventListener(type: string, fn: MsgHandler | ErrHandler) {
+    if (type === 'message') this.msgListeners.push(fn as MsgHandler);
+    if (type === 'error') this.errListeners.push(fn as ErrHandler);
   }
 
-  removeEventListener(type: string, fn: any) {
+  removeEventListener(type: string, fn: MsgHandler | ErrHandler) {
     if (type === 'message') this.msgListeners = this.msgListeners.filter(f => f !== fn);
     if (type === 'error') this.errListeners = this.errListeners.filter(f => f !== fn);
   }
@@ -86,7 +86,7 @@ class SimulatedWorker {
           url: 'http://api.example/data',
           method: 'GET',
           headers: { Accept: 'application/json' },
-        } as any);
+        } as WorkerToMainMessage);
         // The bridge will post 'http-response' back; we wait for it
         break;
       }
@@ -125,7 +125,7 @@ class SimulatedWorker {
 
 let workerInstance: SimulatedWorker;
 
-function WorkerCtor(this: any) {
+function WorkerCtor(this: SimulatedWorker) {
   workerInstance = new SimulatedWorker();
   this.postMessage = workerInstance.postMessage;
   this.terminate = workerInstance.terminate;
@@ -157,7 +157,7 @@ describe('Worker Integration', () => {
   });
 
   it('completes a normal run and accumulates results', async () => {
-    workerInstance = undefined as any;
+    workerInstance = undefined as unknown as SimulatedWorker;
     const onProgress = vi.fn();
     const promise = runTestInWorker(cfg(), sc(), onProgress);
     workerInstance.scenario = 'normal';
@@ -234,7 +234,7 @@ describe('Worker Integration', () => {
 
     await vi.waitFor(() => {
       const resp = workerInstance.postMessage.mock.calls.find(
-        (c: any[]) => c[0]?.type === 'http-response'
+        (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'http-response'
       );
       expect(resp).toBeDefined();
       expect(resp![0].response.body).toBe('{"data":"yes"}');
@@ -255,7 +255,7 @@ describe('Worker Integration', () => {
 
     await vi.waitFor(() => {
       const resp = workerInstance.postMessage.mock.calls.find(
-        (c: any[]) => c[0]?.type === 'http-response'
+        (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'http-response'
       );
       expect(resp).toBeDefined();
       expect(resp![0].response.status).toBe(0);

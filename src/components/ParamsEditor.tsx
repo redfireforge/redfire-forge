@@ -17,11 +17,13 @@ interface ParamsEditorProps {
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function toParamEntries(kvs: KeyValue[]): ParamEntry[] {
   if (kvs.length === 0) return [{ ...EMPTY_ROW }];
   return kvs.map((kv) => ({ ...kv, enabled: true, description: '' }));
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
   return entries.filter((e) => e.enabled && e.key.trim()).map(({ key, value }) => ({ key, value }));
 }
