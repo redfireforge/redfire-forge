@@ -178,6 +178,72 @@ describe('humanizeError', () => {
     expect(result).toContain('connection or VPN');
   });
 
+  it('humanizes ECONNABORTED', () => {
+    const result = humanizeError('ECONNABORTED: request timeout');
+    expect(result).toContain('Connection was aborted');
+  });
+
+  it('humanizes CERT_ALTNAME_INVALID', () => {
+    const result = humanizeError('Hostname/IP does not match certificate');
+    expect(result).toContain('SSL certificate does not match');
+  });
+
+  it('humanizes UNABLE_TO_VERIFY_LEAF_SIGNATURE', () => {
+    const result = humanizeError('unable_to_verify_leaf_signature');
+    expect(result).toContain('could not be verified');
+  });
+
+  it('humanizes EPROTO / SSL routines', () => {
+    const result = humanizeError('SSL routines::wrong version number');
+    expect(result).toContain('SSL/TLS protocol error');
+  });
+
+  it('humanizes HTTP status codes like 404, 500', () => {
+    const result = humanizeError('404 Not Found');
+    expect(result).toBe('404 Not Found');
+  });
+
+  it('humanizes 500 status code', () => {
+    const result = humanizeError('500 Internal Server Error');
+    expect(result).toBe('500 Internal Server Error');
+  });
+
+  it('humanizes OAuth2 with non-nested cause', () => {
+    const result = humanizeError('OAuth2 token request failed: something unknown');
+    expect(result).toContain('Authentication failed');
+    expect(result).toContain('could not obtain an access token');
+  });
+
+  it('humanizes ENOTFOUND without hostname', () => {
+    const result = humanizeError('ENOTFOUND');
+    expect(result).toContain('Server not found');
+  });
+
+  it('humanizes ECONNREFUSED without hostname', () => {
+    const result = humanizeError('ECONNREFUSED');
+    expect(result).toContain('Connection refused');
+  });
+
+  it('humanizes ETIMEDOUT without hostname', () => {
+    const result = humanizeError('ETIMEDOUT');
+    expect(result).toContain('timed out');
+  });
+
+  it('humanizes ECONNRESET without hostname', () => {
+    const result = humanizeError('ECONNRESET');
+    expect(result).toContain('reset');
+  });
+
+  it('humanizes certificate has expired text', () => {
+    const result = humanizeError('certificate has expired');
+    expect(result).toContain('SSL certificate has expired');
+  });
+
+  it('humanizes self_signed_cert', () => {
+    const result = humanizeError('self_signed_cert_in_chain');
+    expect(result).toContain('self-signed');
+  });
+
   it('passes through unrecognized errors unchanged', () => {
     expect(humanizeError('Some unknown error')).toBe('Some unknown error');
   });

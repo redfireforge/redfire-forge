@@ -197,4 +197,210 @@ describe('WorkflowConsolePanel', () => {
     // No timestamp span when ts is undefined
     expect(line.querySelector('.wf-cl-ts')).toBeNull();
   });
+
+  it('navigates to next match with Enter key', () => {
+    const lines: ConsoleLine[] = [
+      makeLine('foo bar', '*'),
+      makeLine('hello world', '*'),
+      makeLine('foo baz', '*'),
+    ];
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    const input = screen.getByPlaceholderText('Search console…');
+    fireEvent.change(input, { target: { value: 'foo' } });
+    expect(screen.getByText('1/2')).toBeTruthy();
+    // Press Enter to go to next match
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByText('2/2')).toBeTruthy();
+  });
+
+  it('navigates to previous match with Shift+Enter key', () => {
+    const lines: ConsoleLine[] = [
+      makeLine('foo bar', '*'),
+      makeLine('hello world', '*'),
+      makeLine('foo baz', '*'),
+    ];
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    const input = screen.getByPlaceholderText('Search console…');
+    fireEvent.change(input, { target: { value: 'foo' } });
+    // Go to next first
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByText('2/2')).toBeTruthy();
+    // Press Shift+Enter to go back
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(screen.getByText('1/2')).toBeTruthy();
+  });
+
+  it('closes search with Escape key', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    expect(container.querySelector('.wf-console-search-bar')).toBeTruthy();
+    const input = screen.getByPlaceholderText('Search console…');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(container.querySelector('.wf-console-search-bar')).toBeNull();
+  });
+
+  it('navigates matches with prev/next buttons', () => {
+    const lines: ConsoleLine[] = [
+      makeLine('foo one', '*'),
+      makeLine('foo two', '*'),
+      makeLine('foo three', '*'),
+    ];
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    const input = screen.getByPlaceholderText('Search console…');
+    fireEvent.change(input, { target: { value: 'foo' } });
+    expect(screen.getByText('1/3')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Next match (Enter)'));
+    expect(screen.getByText('2/3')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Previous match (Shift+Enter)'));
+    expect(screen.getByText('1/3')).toBeTruthy();
+  });
+
+  it('wraps around when navigating matches forward', () => {
+    const lines: ConsoleLine[] = [makeLine('foo one', '*'), makeLine('foo two', '*')];
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'foo' } });
+    fireEvent.click(screen.getByTitle('Next match (Enter)'));
+    expect(screen.getByText('2/2')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Next match (Enter)'));
+    expect(screen.getByText('1/2')).toBeTruthy();
+  });
+
+  it('wraps around when navigating matches backward', () => {
+    const lines: ConsoleLine[] = [makeLine('foo one', '*'), makeLine('foo two', '*')];
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'foo' } });
+    fireEvent.click(screen.getByTitle('Previous match (Shift+Enter)'));
+    expect(screen.getByText('2/2')).toBeTruthy();
+  });
+
+  it('changes mode via selector', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'floating' } });
+    expect(container.querySelector('.wf-console-floating')).toBeTruthy();
+  });
+
+  it('changes to maximized mode via selector', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'maximized' } });
+    expect(container.querySelector('.wf-console-maximized')).toBeTruthy();
+  });
+
+  it('renders floating grip and edge when in floating mode', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'floating' } });
+    expect(container.querySelector('.wf-console-float-grip')).toBeTruthy();
+    expect(container.querySelector('.wf-console-float-edge-right')).toBeTruthy();
+  });
+
+  it('renders docked resize handle when in docked mode', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    expect(container.querySelector('.wf-console-resize-handle')).toBeTruthy();
+  });
+
+  it('does not render docked resize handle in maximized mode', () => {
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'maximized' } });
+    expect(container.querySelector('.wf-console-resize-handle')).toBeNull();
+  });
+
+  it('renders timeline with error state', () => {
+    const summaries = [
+      { label: 'Failed Step', state: 'error' as const, statusCode: 500, responseTimeMs: 200, error: 'Connection refused' },
+    ];
+    const { container } = render(
+      <WorkflowConsolePanel {...defaultProps} stepSummaries={summaries} />,
+    );
+    fireEvent.click(screen.getByText('Timeline'));
+    expect(container.querySelector('.wf-timeline-error')).toBeTruthy();
+    expect(screen.getByText('Connection refused')).toBeTruthy();
+  });
+
+  it('renders timeline with skipped state', () => {
+    const summaries = [
+      { label: 'Skipped Step', state: 'skipped' as const },
+    ];
+    render(<WorkflowConsolePanel {...defaultProps} stepSummaries={summaries} />);
+    fireEvent.click(screen.getByText('Timeline'));
+    expect(screen.getByText('SKIPPED')).toBeTruthy();
+  });
+
+  it('renders timeline step without responseTimeMs', () => {
+    const summaries = [
+      { label: 'No Time', state: 'success' as const, statusCode: 200 },
+    ];
+    render(<WorkflowConsolePanel {...defaultProps} stepSummaries={summaries} />);
+    fireEvent.click(screen.getByText('Timeline'));
+    expect(screen.getByText('200')).toBeTruthy();
+  });
+
+  it('renders timeline step without statusCode', () => {
+    const summaries = [
+      { label: 'No Code', state: 'success' as const, responseTimeMs: 50 },
+    ];
+    render(<WorkflowConsolePanel {...defaultProps} stepSummaries={summaries} />);
+    fireEvent.click(screen.getByText('Timeline'));
+    expect(screen.getByText('— · 50ms')).toBeTruthy();
+  });
+
+  it('renders timestamps when ts is provided', () => {
+    const lines: ConsoleLine[] = [makeLine('With time', '*', 1700000000000)];
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    expect(container.querySelector('.wf-cl-ts')).toBeTruthy();
+  });
+
+  it('handles highlightMatches with regex special characters', () => {
+    const lines: ConsoleLine[] = [makeLine('test (foo) bar', '*')];
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: '(foo)' } });
+    expect(screen.getByText('1/1')).toBeTruthy();
+  });
+
+  it('auto-scroll re-enables on separator line', () => {
+    const lines1: ConsoleLine[] = [makeLine('line1', '*')];
+    const { rerender } = render(<WorkflowConsolePanel {...defaultProps} lines={lines1} />);
+    // Add separator (new run marker) to trigger auto-scroll re-enable
+    const lines2: ConsoleLine[] = [...lines1, makeLine('Run · 10:00:00', '---')];
+    rerender(<WorkflowConsolePanel {...defaultProps} lines={lines2} />);
+    // scrollIntoView should have been called
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('search next/prev do nothing when no matches', () => {
+    render(<WorkflowConsolePanel {...defaultProps} />);
+    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'zzzzz' } });
+    // Should not throw when clicking disabled buttons
+    fireEvent.click(screen.getByTitle('Next match (Enter)'));
+    fireEvent.click(screen.getByTitle('Previous match (Shift+Enter)'));
+    expect(screen.getByText('No matches')).toBeTruthy();
+  });
+
+  it('uses stored mode from localStorage', () => {
+    localStorage.setItem('wf-console-default-mode', 'maximized');
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    expect(container.querySelector('.wf-console-maximized')).toBeTruthy();
+  });
+
+  it('falls back to docked when localStorage has invalid mode', () => {
+    localStorage.setItem('wf-console-default-mode', 'invalid');
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+    expect(container.querySelector('.wf-console-docked')).toBeTruthy();
+  });
+
+  it('handles unknown prefix gracefully', () => {
+    const lines: ConsoleLine[] = [{ text: 'unknown prefix', prefix: 'X' as any }];
+    const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    // Should use wf-cl-plain as fallback
+    expect(container.querySelector('.wf-cl-plain')).toBeTruthy();
+  });
 });

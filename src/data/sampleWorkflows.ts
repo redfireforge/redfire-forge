@@ -1237,6 +1237,132 @@ function createWaitConditionWorkflow(): Workflow {
   };
 }
 
+/**
+ * Sample workflow showcasing Expression functions for array aggregation,
+ * string manipulation, math, and conditional logic.
+ * Flow: Start → GET users → SetVariable (user stats) → GET posts → SetVariable (post stats) → Condition → Log
+ */
+function createExpressionFunctionsWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-expressions',
+    name: 'Sample: Expression Functions Showcase',
+    description: 'Demonstrates $count, $upper, $default, $indexOf, $add, $substring, $concat, $divide, $round, $contains, $if, $padStart, $min, $max via sequential intermediate variables.',
+    variables: {},
+    nodes: [
+      {
+        id: 'ex-start', type: 'start', position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { reportTitle: 'User Activity Report' } },
+      },
+      {
+        id: 'ex-users', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: '1. Fetch Users',
+          scenario: {
+            id: 'ex-s1', name: 'Fetch Users',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'usersJson', source: 'body', expression: '' },
+              { name: 'firstUserName', source: 'body', expression: '$.0.name' },
+              { name: 'firstUserEmail', source: 'body', expression: '$.0.email' },
+              { name: 'firstUserCity', source: 'body', expression: '$.0.address.city' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ex-user-stats', type: 'setVariable', position: { x: 250, y: 280 },
+        data: {
+          label: '2. Compute User Stats',
+          assignments: [
+            { id: 'a1', name: 'totalUsers', expression: '{{$count(usersJson)}}' },
+            { id: 'a2', name: 'upperName', expression: '{{$upper(firstUserName)}}' },
+            { id: 'a3', name: 'displayCity', expression: '{{$default(firstUserCity, "N/A")}}' },
+            { id: 'a4', name: 'emailAtPos', expression: '{{$indexOf(firstUserEmail, "@")}}' },
+            { id: 'a5', name: 'domainStart', expression: '{{$add(emailAtPos, 1)}}' },
+            { id: 'a6', name: 'firstUserDomain', expression: '{{$substring(firstUserEmail, domainStart)}}' },
+            { id: 'a7', name: 'userSummary', expression: '{{$concat(upperName, " <", firstUserEmail, ">")}}' },
+            { id: 'a8', name: 'reportHeader', expression: 'REPORT: {{reportTitle}} | {{totalUsers}} users' },
+          ],
+        },
+      },
+      {
+        id: 'ex-posts', type: 'http', position: { x: 250, y: 440 },
+        data: {
+          label: '3. Fetch Posts',
+          scenario: {
+            id: 'ex-s2', name: 'Fetch Posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'postsJson', source: 'body', expression: '' },
+              { name: 'firstPostTitle', source: 'body', expression: '$.0.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ex-post-stats', type: 'setVariable', position: { x: 250, y: 600 },
+        data: {
+          label: '4. Aggregate Post Stats',
+          assignments: [
+            { id: 'b1', name: 'totalPosts', expression: '{{$count(postsJson)}}' },
+            { id: 'b2', name: 'avgRaw', expression: '{{$divide(totalPosts, totalUsers)}}' },
+            { id: 'b3', name: 'avgPostsPerUser', expression: '{{$round(avgRaw, 1)}}' },
+            { id: 'b4', name: 'titleHasProvident', expression: '{{$contains(firstPostTitle, "provident")}}' },
+            { id: 'b5', name: 'activityLevel', expression: '{{$if(titleHasProvident, "Active", "Normal")}}' },
+            { id: 'b6', name: 'titlePreview', expression: '{{$substring(firstPostTitle, 0, 30)}}' },
+            { id: 'b7', name: 'paddedUserCount', expression: '{{$padStart(totalUsers, 5, "0")}}' },
+            { id: 'b8', name: 'minMetric', expression: '{{$min(totalPosts, totalUsers)}}' },
+            { id: 'b9', name: 'maxMetric', expression: '{{$max(totalPosts, totalUsers)}}' },
+          ],
+        },
+      },
+      {
+        id: 'ex-cond', type: 'condition', position: { x: 300, y: 760 },
+        data: { label: '5. Enough Data?', left: '{{totalPosts}}', operator: '>=', right: '5' },
+      },
+      {
+        id: 'ex-log-success', type: 'logDebug', position: { x: 80, y: 900 },
+        data: {
+          label: 'Log: Success',
+          logLevel: 'info',
+          message: '{{reportHeader}} | Posts: {{totalPosts}}, Avg: {{avgPostsPerUser}}/user ({{activityLevel}}), User: {{userSummary}} from {{displayCity}}, Domain: {{firstUserDomain}}, Preview: {{titlePreview}}, Range: {{minMetric}}–{{maxMetric}}',
+          snapshotVariables: true,
+        },
+      },
+      {
+        id: 'ex-log-insufficient', type: 'logDebug', position: { x: 450, y: 900 },
+        data: {
+          label: 'Log: Insufficient',
+          logLevel: 'warn',
+          message: 'Only {{totalPosts}} posts found. Activity: {{activityLevel}}. Contains "provident": {{titleHasProvident}}',
+          snapshotVariables: true,
+        },
+      },
+      {
+        id: 'ex-end', type: 'end', position: { x: 300, y: 1050 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'ex-e1', source: 'ex-start', target: 'ex-users' },
+      { id: 'ex-e2', source: 'ex-users', target: 'ex-user-stats' },
+      { id: 'ex-e3', source: 'ex-user-stats', target: 'ex-posts' },
+      { id: 'ex-e4', source: 'ex-posts', target: 'ex-post-stats' },
+      { id: 'ex-e5', source: 'ex-post-stats', target: 'ex-cond' },
+      { id: 'ex-e6', source: 'ex-cond', target: 'ex-log-success', sourceHandle: 'true', label: 'Yes' },
+      { id: 'ex-e7', source: 'ex-cond', target: 'ex-log-insufficient', sourceHandle: 'false', label: 'No' },
+      { id: 'ex-e8', source: 'ex-log-success', target: 'ex-end' },
+      { id: 'ex-e9', source: 'ex-log-insufficient', target: 'ex-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
@@ -1337,5 +1463,14 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     icon: '⏳',
     nodeCount: 9,
     factory: createWaitConditionWorkflow,
+  },
+  {
+    id: 'sample-workflow-expressions',
+    name: 'Expression Functions Showcase',
+    description: 'Array aggregation ($count), math ($round, $divide, $min, $max), string ops ($concat, $substring), conditionals ($if, $default)',
+    category: 'advanced',
+    icon: 'ƒx',
+    nodeCount: 9,
+    factory: createExpressionFunctionsWorkflow,
   },
 ];

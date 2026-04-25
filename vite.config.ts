@@ -76,30 +76,47 @@ function proxyPlugin(): Plugin {
           const dispatcher = await getDispatcher();
           if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
-          const t0 = performance.now();
-          const response = await fetch(payload.url, fetchOpts as RequestInit);
-          const tFirstByte = performance.now();
-          const responseBody = await response.text();
-          const tDone = performance.now();
-
           const round2 = (n: number) => Math.round(n * 100) / 100;
-          const timing = {
-            dnsLookup: 0,
-            tcpConnect: 0,
-            tlsHandshake: 0,
-            ttfb: round2(tFirstByte - t0),
-            download: round2(tDone - tFirstByte),
-            total: round2(tDone - t0),
+
+          /** Perform the fetch and format the result. */
+          const doFetch = async (opts: Record<string, unknown>) => {
+            const t0 = performance.now();
+            const response = await fetch(payload.url, opts as RequestInit);
+            const tFirstByte = performance.now();
+            const responseBody = await response.text();
+            const tDone = performance.now();
+            return {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              body: responseBody,
+              timing: {
+                dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0,
+                ttfb: round2(tFirstByte - t0),
+                download: round2(tDone - tFirstByte),
+                total: round2(tDone - t0),
+              },
+            };
           };
 
+          let result;
+          try {
+            result = await doFetch(fetchOpts);
+          } catch (proxyErr) {
+            // If proxy is unreachable (DNS/connection error), retry without proxy
+            const code = (proxyErr as NodeJS.ErrnoException).code
+              ?? ((proxyErr as { cause?: NodeJS.ErrnoException }).cause as NodeJS.ErrnoException | undefined)?.code;
+            if (dispatcher && (code === 'ENOTFOUND' || code === 'ECONNREFUSED' || code === 'ETIMEDOUT')) {
+              const directOpts = { ...fetchOpts };
+              delete directOpts.dispatcher;
+              result = await doFetch(directOpts);
+            } else {
+              throw proxyErr;
+            }
+          }
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            body: responseBody,
-            timing,
-          }));
+          res.end(JSON.stringify(result));
         } catch (err) {
           // Walk the cause chain for detailed network errors (DNS, TLS, timeout, etc.)
           const parts: string[] = [];

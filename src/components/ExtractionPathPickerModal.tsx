@@ -3,6 +3,7 @@ import { buildTree, getAllLeafPaths } from '../utils/jsonPathTreeUtils';
 import { getByPath } from '../engine/validator';
 import { PickerNode } from './RegexAssertionModal';
 import { useDebounce } from '../hooks/useDebounce';
+import { useModalDrag } from '../hooks/useModalDrag';
 import { useModalExpand } from '../hooks/useModalExpand';
 import { useModalResize } from '../hooks/useModalResize';
 import ModalExpandButton from './shared/ModalExpandButton';
@@ -63,6 +64,7 @@ export default function ExtractionPathPickerModal({
   const [expression, setExpression] = useState(initialExpression);
   const [sampleJson, setSampleJson] = useState(initialSampleJson);
   const [searchTerm, setSearchTerm] = useState('');
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true);
   const { expanded, toggleExpand, expandClass } = useModalExpand();
   const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const debouncedSearch = useDebounce(searchTerm, 200);
@@ -153,9 +155,9 @@ export default function ExtractionPathPickerModal({
     : '';
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`modal ram-modal epp-path-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
-        <div className="ram-header">
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={overlayStyle}>
+      <div className={`modal ram-modal epp-path-modal ${expandClass}`} role="dialog" onClick={(e) => e.stopPropagation()} style={{ ...modalStyle, ...resizeStyle }}>
+        <div className="ram-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
           <h3>Pick JSON path (extraction)</h3>
           <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>

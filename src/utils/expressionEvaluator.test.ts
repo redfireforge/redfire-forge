@@ -144,4 +144,117 @@ describe('expressionEvaluator', () => {
       expect(buildExpressionTemplate('$concat', ['"a"', '"b"'])).toBe('{{$concat("a", "b")}}');
     });
   });
+
+  // ── Tokenizer / parser edge cases ──
+
+  describe('tokenizer edge cases', () => {
+    it('handles whitespace-only expression', () => {
+      expect(evaluateExpression('   ')).toEqual({ value: '' });
+    });
+
+    it('handles escaped characters in double-quoted strings', () => {
+      const r = evaluateExpression('$upper("he\\"llo")');
+      expect(r.value).toBe('HE"LLO');
+    });
+
+    it('handles negative number at start', () => {
+      const r = evaluateExpression('$abs(-42)');
+      expect(r.value).toBe(42);
+    });
+
+    it('handles negative number after comma', () => {
+      const r = evaluateExpression('$add(10, -3)');
+      expect(r.value).toBe(7);
+    });
+
+    it('handles negative number after open paren', () => {
+      const r = evaluateExpression('$abs(-5)');
+      expect(r.value).toBe(5);
+    });
+
+    it('handles floating point numbers', () => {
+      const r = evaluateExpression('$round(3.14159, 2)');
+      expect(r.value).toBe(3.14);
+    });
+
+    it('skips unknown characters in tokenizer', () => {
+      // @ is an unknown character, should be skipped
+      const r = evaluateExpression('$upper(@"hello")');
+      expect(r.value).toBe('HELLO');
+    });
+
+    it('handles function without parens (function name as standalone token)', () => {
+      const r = evaluateExpression('$unknown');
+      expect(r.value).toBe('{{$unknown}}');
+    });
+
+    it('handles bare identifier resolved as variable', () => {
+      const r = evaluateExpression('myVar', {
+        resolveVariable: (name) => name === 'myVar' ? 'resolved' : undefined,
+      });
+      expect(r.value).toBe('resolved');
+    });
+
+    it('handles unresolved bare identifier', () => {
+      const r = evaluateExpression('myVar');
+      expect(r.value).toBe('{{myVar}}');
+    });
+
+    it('handles boolean true as standalone', () => {
+      const r = evaluateExpression('$if(true, "a", "b")');
+      expect(r.value).toBe('a');
+    });
+
+    it('handles boolean false as standalone', () => {
+      const r = evaluateExpression('$if(false, "a", "b")');
+      expect(r.value).toBe('b');
+    });
+
+    it('handles empty token stream (all unknown chars)', () => {
+      const r = evaluateExpression('@@@');
+      expect(r.value).toBe('');
+    });
+
+    it('handles variable reference {{name}} in nested call', () => {
+      const r = evaluateExpression('$concat({{greeting}}, " ", {{name}})', {
+        resolveVariable: (name) => {
+          if (name === 'greeting') return 'Hello';
+          if (name === 'name') return 'World';
+          return undefined;
+        },
+      });
+      expect(r.value).toBe('Hello World');
+    });
+
+    it('handles function call that throws an error', () => {
+      // $parse with invalid input that causes the function to return null (not throw),
+      // but let's test a more complex case
+      const r = evaluateExpression('$parse("invalid json")');
+      expect(r.value).toBe(null);
+    });
+
+    it('handles identifier with dots', () => {
+      const r = evaluateExpression('$upper(data.name)', {
+        resolveVariable: (name) => name === 'data.name' ? 'test' : undefined,
+      });
+      expect(r.value).toBe('TEST');
+    });
+
+    it('handles nested parens properly', () => {
+      const r = evaluateExpression('$concat($upper("a"), $lower("B"), $trim("  c  "))');
+      expect(r.value).toBe('Abc');
+    });
+
+    it('evaluates rparen and comma tokens properly', () => {
+      // Multiple args separated by commas
+      const r = evaluateExpression('$concat("x", "y", "z")');
+      expect(r.value).toBe('xyz');
+    });
+
+    it('parse handles empty tokens array', () => {
+      // Empty expression after trimming
+      const r = evaluateExpression('');
+      expect(r.value).toBe('');
+    });
+  });
 });

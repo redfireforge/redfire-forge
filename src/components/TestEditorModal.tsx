@@ -17,6 +17,7 @@ import { BodyEditor } from './BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from './ParamsEditor';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import { useAuthVerify } from '../hooks/useAuthVerify';
+import { useModalDrag } from '../hooks/useModalDrag';
 import { useModalExpand } from '../hooks/useModalExpand';
 import { useModalResize } from '../hooks/useModalResize';
 import { validate } from '../engine/validator';
@@ -86,6 +87,7 @@ export default function TestEditorModal({
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true);
   const { expanded, toggleExpand, expandClass } = useModalExpand();
   const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
@@ -436,9 +438,9 @@ export default function TestEditorModal({
   const baseUrl = useMemo(() => (draft.url ? getBaseUrl(draft.url) : ''), [draft.url]);
 
   return (
-    <div className="modal-overlay">
-      <div className={`modal insomnia-modal ${expandClass}`} style={resizeStyle}>
-        <div className="insomnia-top-bar">
+    <div className="modal-overlay" style={overlayStyle}>
+      <div className={`modal insomnia-modal ${expandClass}`} role="dialog" style={{ ...modalStyle, ...resizeStyle }}>
+        <div className="insomnia-top-bar" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
           <h3>{isNew ? 'New Test' : 'Edit Test'}</h3>
           <div className="mode-toggle">
             <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>

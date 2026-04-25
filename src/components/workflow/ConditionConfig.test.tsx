@@ -119,8 +119,11 @@ describe('ConditionConfig', () => {
 
   it('renders variable hints in pick mode dropdown', () => {
     render(<ConditionConfig data={makeData()} onChange={vi.fn()} variableHints={defaultHints} />);
-    expect(screen.getByText('status (latest)')).toBeTruthy();
-    expect(screen.getByText('userId (latest)')).toBeTruthy();
+    const combobox = screen.getByLabelText('Variable for left operand');
+    fireEvent.focus(combobox);
+    // The dropdown should contain items with role="option"
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders with empty variable hints without crashing', () => {
@@ -140,24 +143,28 @@ describe('ConditionConfig', () => {
   it('selects a variable from the dropdown', () => {
     const onChange = vi.fn();
     render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
-    const select = screen.getByLabelText('Variable for left operand');
-    fireEvent.change(select, { target: { value: 'userId' } });
+    const combobox = screen.getByLabelText('Variable for left operand');
+    fireEvent.focus(combobox);
+    fireEvent.mouseDown(screen.getByText('userId'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '{{userId}}' }));
   });
 
-  it('clears left when empty option is selected', () => {
+  it('selects a variable via keyboard in pick mode', () => {
     const onChange = vi.fn();
     render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
-    const select = screen.getByLabelText('Variable for left operand');
-    fireEvent.change(select, { target: { value: '' } });
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '' }));
+    const combobox = screen.getByLabelText('Variable for left operand');
+    fireEvent.focus(combobox);
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+    fireEvent.keyDown(combobox, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '{{userId}}' }));
   });
 
   it('shows custom input when Custom name is selected', () => {
     const onChange = vi.fn();
     render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
-    const select = screen.getByLabelText('Variable for left operand');
-    fireEvent.change(select, { target: { value: '__custom__' } });
+    const combobox = screen.getByLabelText('Variable for left operand');
+    fireEvent.focus(combobox);
+    fireEvent.mouseDown(screen.getByText('Custom name…'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '' }));
   });
 

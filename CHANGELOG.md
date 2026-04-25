@@ -144,6 +144,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Shared Variable Source Map**: Extracted `workflowSourceMap.ts` utility for resolving variable sources across workflow nodes
 - **Variable Insert Modal Hook**: Shared `useVariableInsertModal` hook for consistent variable picker behavior across modals
 - **Snapshot Utility**: `snapshot<T>()` deep-clone helper in `helpers.ts` for draft/save/cancel patterns
+- **Inline Expression Autocomplete**: `ExpressionInput` and `ExpressionTextarea` components provide inline autocomplete across all expression-capable fields
+  - Type `{{` to trigger variable hints dropdown (filtered by what you type)
+  - Type `$` to trigger expression function hints (`$upper`, `$concat`, `$jsonpath`, etc.)
+  - Arrow keys navigate, Enter/Tab accepts, Escape dismisses
+  - Portal-rendered dropdown with proper z-index layering (10100) above config modal overlays
+  - `requestAnimationFrame`-based blur handling prevents dropdown from closing during React re-renders
+  - Applied to: HTTP node URL input, header value inputs, body textarea, extraction expression/fallback fields, Condition left operand expression textarea, Condition right operand input
+- **Searchable Variable Select**: Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode
+  - Type-to-filter search across variable names, labels, and source nodes
+  - Variables grouped by source node with section headers (e.g., "GET USERS", "WORKFLOW", "START")
+  - Alphabetically sorted items within each group
+  - Type badges (string, number) on each item
+  - Keyboard navigable (Arrow keys, Enter to select, Escape to close)
+  - "Custom name…" option for manual variable references
+  - Checkmark indicator on currently selected variable
+  - Click-outside-to-close and viewport-aware positioning
 
 ### Fixed
 - **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)

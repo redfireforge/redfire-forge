@@ -3059,7 +3059,7 @@
   padding: 0 16px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .wf-handle-label {
-  position: absolute; bottom: -16px; font-size: 0.55rem;
+  position: absolute; bottom: -18px; font-size: 0.7rem;
   font-weight: 700; color: var(--text-muted);
 }
 .wf-handle-label-true { left: 20%; }
@@ -4388,11 +4388,11 @@
   font-size: 0.68rem; color: var(--text-muted); padding: 0 16px 6px;
 }
 .wf-handle-label-case {
-  position: absolute; bottom: -16px; font-size: 0.5rem;
+  position: absolute; bottom: -18px; font-size: 0.65rem;
   font-weight: 700; color: #8b5cf6; transform: translateX(-50%);
 }
 .wf-handle-label-default {
-  position: absolute; bottom: -16px; font-size: 0.5rem;
+  position: absolute; bottom: -18px; font-size: 0.65rem;
   font-weight: 700; color: var(--text-muted); transform: translateX(-50%);
 }
 .wf-handle-case { background: #8b5cf6 !important; }
@@ -4443,11 +4443,11 @@
 .wf-handle-loop-body { background: #06b6d4 !important; }
 .wf-handle-loop-done { background: #22c55e !important; }
 .wf-handle-label-loop-body {
-  position: absolute; bottom: -16px; left: 25%; font-size: 0.55rem;
+  position: absolute; bottom: -18px; left: 25%; font-size: 0.7rem;
   font-weight: 700; color: #06b6d4;
 }
 .wf-handle-label-loop-done {
-  position: absolute; bottom: -16px; left: 60%; font-size: 0.55rem;
+  position: absolute; bottom: -18px; left: 60%; font-size: 0.7rem;
   font-weight: 700; color: #22c55e;
 }
 
@@ -4478,18 +4478,22 @@
   display: flex; gap: 4px; align-items: center;
 }
 .wf-setvar-assignment-name {
-  flex: 1; padding: 4px 6px; font-size: 0.8rem;
+  flex: 0 0 25%; padding: 4px 6px; font-size: 0.8rem;
   border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input);
 }
-.wf-setvar-assignment-eq { color: var(--text-muted); font-weight: 700; }
+.wf-setvar-assignment-eq { color: var(--text-muted); font-weight: 700; flex-shrink: 0; }
 .wf-setvar-assignment-expr {
-  flex: 1.5; padding: 4px 6px; font-size: 0.8rem;
+  flex: 1; min-width: 0; padding: 4px 6px; font-size: 0.8rem;
   border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input);
+}
+/* Ensure InsertVarField wrapper expands to fill remaining row space */
+.wf-setvar-assignment-row > .wf-config-field-with-insert {
+  flex: 1; min-width: 0;
 }
 .wf-setvar-assignment-move, .wf-setvar-assignment-remove {
-  padding: 2px 5px; font-size: 0.75rem; background: transparent;
+  padding: 2px 4px; font-size: 0.7rem; background: transparent;
   border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
-  color: var(--text-muted);
+  color: var(--text-muted); flex-shrink: 0;
 }
 .wf-setvar-assignment-move:disabled { opacity: 0.3; cursor: default; }
 .wf-setvar-assignment-remove:hover { color: #ef4444; border-color: #ef4444; }
@@ -5065,9 +5069,9 @@
 }
 
 /* Error Handler handle labels */
-.wf-handle-label-errhandler-body { left: 25%; bottom: -16px; }
-.wf-handle-label-errhandler-catch { left: 50%; bottom: -16px; color: #ef4444; }
-.wf-handle-label-errhandler-done { left: 75%; bottom: -16px; }
+.wf-handle-label-errhandler-body { left: 25%; bottom: -18px; }
+.wf-handle-label-errhandler-catch { left: 50%; bottom: -18px; color: #ef4444; }
+.wf-handle-label-errhandler-done { left: 75%; bottom: -18px; }
 
 /* Error Handler config */
 .wf-config-checkbox-label {
@@ -5186,5 +5190,78 @@
 }
 
 /* Wait for Condition handle labels */
-.wf-handle-label-waitcond-body { left: 35%; bottom: -16px; }
-.wf-handle-label-waitcond-done { left: 65%; bottom: -16px; }
+.wf-handle-label-waitcond-body { left: 35%; bottom: -18px; }
+.wf-handle-label-waitcond-done { left: 65%; bottom: -18px; }
+
+/* ── Expression Hint Dropdown (inline autocomplete) ── */
+.expr-input-wrapper { position: relative; flex: 1; min-width: 0; }
+.expr-hint-dropdown {
+  position: fixed; z-index: 10100;
+  min-width: 240px; max-width: 420px; max-height: 260px;
+  overflow-y: auto; overflow-x: hidden;
+  background: var(--surface, #1e1e2e); border: 1px solid var(--border, #3a3a5c);
+  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  padding: 4px 0; font-size: 0.8rem;
+}
+.expr-hint-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; cursor: pointer; white-space: nowrap;
+  color: var(--text, #e0e0e0);
+}
+.expr-hint-item:hover,
+.expr-hint-item-active {
+  background: var(--accent-bg, #2d2d44);
+}
+.expr-hint-icon {
+  flex-shrink: 0; width: 18px; height: 18px; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; border-radius: 3px;
+}
+.expr-hint-icon-fn {
+  background: #7c3aed22; color: #a78bfa;
+}
+.expr-hint-icon-var {
+  background: #2563eb22; color: #60a5fa;
+}
+.expr-hint-label {
+  font-weight: 600; flex-shrink: 0;
+}
+.expr-hint-detail {
+  color: var(--text-muted, #888); font-size: 0.72rem;
+  overflow: hidden; text-overflow: ellipsis; margin-left: auto;
+}
+
+/* ── Searchable Variable Select ── */
+.svs-wrapper { position: relative; display: flex; align-items: center; }
+.svs-input {
+  width: 100%; padding: 6px 28px 6px 10px;
+  background: var(--input-bg, #161625); color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, #3a3a5c); border-radius: 4px;
+  font-size: 0.85rem; outline: none;
+}
+.svs-input:focus { border-color: var(--accent, #7c3aed); }
+.svs-chevron {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted, #888); pointer-events: all; cursor: pointer;
+  font-size: 0.7rem; user-select: none;
+}
+.svs-group-header {
+  padding: 6px 10px 3px; font-size: 0.7rem; font-weight: 700;
+  color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.04em;
+  border-top: 1px solid var(--border, #3a3a5c20);
+}
+.svs-group-header:first-child { border-top: none; }
+.svs-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; cursor: pointer; color: var(--text, #e0e0e0);
+}
+.svs-item:hover, .svs-item-active { background: var(--accent-bg, #2d2d44); }
+.svs-item-selected { font-weight: 600; }
+.svs-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svs-item-type {
+  font-size: 0.7rem; color: var(--text-muted, #888);
+  background: var(--badge-bg, #ffffff10); padding: 1px 5px; border-radius: 3px;
+}
+.svs-item-check { color: var(--accent, #7c3aed); font-size: 0.8rem; }
+.svs-item-custom { font-style: italic; color: var(--text-muted, #888); }
+.svs-empty { padding: 12px; text-align: center; color: var(--text-muted, #888); font-size: 0.8rem; }

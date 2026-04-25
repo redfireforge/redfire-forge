@@ -75,10 +75,12 @@ describe('collectConditionVariableHints', () => {
     expect(refs(hints)).toContain('token');
     expect(refs(hints)).toContain('node:"H".token');
     expect(refs(hints)).toContain('status');
+    expect(refs(hints)).toContain('httpStatus');
     expect(refs(hints)).toContain('node:"H".status');
+    expect(refs(hints)).toContain('node:"H".httpStatus');
   });
 
-  it('does not add status without an HTTP ancestor', () => {
+  it('does not add status or httpStatus without an HTTP ancestor', () => {
     const nodes: WorkflowNode[] = [cond('c')];
     const edges: WorkflowEdge[] = [];
     const hints = collectConditionVariableHints(nodes, edges, 'c', { foo: '1' });
@@ -129,6 +131,30 @@ describe('collectConditionVariableHints', () => {
     const hints = collectConditionVariableHints(nodes, edges, 'c', {});
     // Should still have status since hasHttpAncestor is true
     expect(refs(hints)).toContain('status');
+  });
+
+  it('includes error.* hints when ErrorHandler is an ancestor', () => {
+    const errHandler: WorkflowNode = {
+      id: 'eh1', type: 'errorHandler', position: { x: 0, y: 0 },
+      data: { label: 'API Guard', errorFilter: 'all', retryCount: 0, retryDelayMs: 1000, retryBackoff: 'fixed', retryTimeoutMs: 0, continueOnError: false },
+    };
+    const nodes: WorkflowNode[] = [errHandler, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'eh1', target: 'c', sourceHandle: 'catch' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(refs(hints)).toContain('error.message');
+    expect(refs(hints)).toContain('error.statusCode');
+    expect(refs(hints)).toContain('error.nodeId');
+    expect(refs(hints)).toContain('error.nodeLabel');
+    expect(refs(hints)).toContain('error.retryCount');
+    expect(refs(hints)).toContain('error.type');
+  });
+
+  it('does not include error.* hints without an ErrorHandler ancestor', () => {
+    const nodes: WorkflowNode[] = [http('h1'), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(refs(hints)).not.toContain('error.message');
+    expect(refs(hints)).not.toContain('error.statusCode');
   });
 });
 
@@ -376,6 +402,68 @@ describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
     expect(totalHint?.description).toContain('Sum');
   });
 
+  it('aggregate concat strategy produces array type', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'items', strategy: 'concat' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const itemsHint = hints.find(h => h.ref === 'items');
+    expect(itemsHint?.type).toBe('array');
+    expect(itemsHint?.description).toContain('Append');
+  });
+
+  it('aggregate count strategy produces number type', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'total', strategy: 'count' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const totalHint = hints.find(h => h.ref === 'total');
+    expect(totalHint?.type).toBe('number');
+    expect(totalHint?.description).toContain('Count');
+  });
+
+  it('aggregate first strategy produces string type', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'first', strategy: 'first' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const firstHint = hints.find(h => h.ref === 'first');
+    expect(firstHint?.type).toBe('string');
+    expect(firstHint?.description).toContain('first');
+  });
+
+  it('aggregate last strategy produces string type', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'last', strategy: 'last' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const lastHint = hints.find(h => h.ref === 'last');
+    expect(lastHint?.type).toBe('string');
+    expect(lastHint?.description).toContain('last');
+  });
+
+  it('aggregate custom strategy produces string type', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'custom', strategy: 'custom' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const customHint = hints.find(h => h.ref === 'custom');
+    expect(customHint?.type).toBe('string');
+    expect(customHint?.description).toContain('Custom');
+  });
+
+  it('aggregate unknown strategy falls through to default', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'x', strategy: 'newStrategy' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const xHint = hints.find(h => h.ref === 'x');
+    expect(xHint?.type).toBe('string');
+    expect(xHint?.description).toContain('newStrategy');
+  });
+
+  it('aggregate skips mappings with empty targetVariable', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: '', strategy: 'sum' }, { targetVariable: '  ', strategy: 'sum' }, { targetVariable: 'valid', strategy: 'count' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.some(h => h.ref === 'valid')).toBe(true);
+    expect(hints.some(h => h.ref === '')).toBe(false);
+  });
+
   it('includes loop built-in variables from upstream', () => {
     const nodes = [loop('l1'), cond('c')];
     const edges: WorkflowEdge[] = [{ id: 'e', source: 'l1', target: 'c' }];
@@ -383,6 +471,133 @@ describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
     const refs = hints.map(h => h.ref);
     expect(refs).toContain('item');
     expect(refs).toContain('idx');
+  });
+
+  it('loop in count mode does not add item variable', () => {
+    const countLoop = (id: string): WorkflowNode => ({
+      id,
+      type: 'loop',
+      position: { x: 0, y: 0 },
+      data: { label: 'CountLoop', mode: 'count', sourceExpression: '10', itemVariable: 'item', indexVariable: 'i', maxIterations: 10 },
+    });
+    const nodes = [countLoop('l2'), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'l2', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    // count mode doesn't have item variable
+    expect(refs).not.toContain('item');
+    expect(refs).toContain('i');
+  });
+
+  it('loop with default item/index variable names', () => {
+    const defaultLoop: WorkflowNode = {
+      id: 'l3',
+      type: 'loop',
+      position: { x: 0, y: 0 },
+      data: { label: 'Loop', mode: 'forEach', sourceExpression: '{{items}}', itemVariable: '', indexVariable: '', maxIterations: 10 },
+    };
+    const nodes = [defaultLoop, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'l3', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('item');
+    expect(refs).toContain('i');
+  });
+
+  it('setVariable with empty name is skipped', () => {
+    const sv: WorkflowNode = {
+      id: 'sv1', type: 'setVariable', position: { x: 0, y: 0 },
+      data: { label: 'SetVar', assignments: [{ id: '1', name: '', expression: 'val' }, { id: '2', name: '  ', expression: 'val2' }, { id: '3', name: 'valid', expression: 'val3' }] },
+    };
+    const nodes = [sv, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sv1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.some(h => h.ref === 'valid')).toBe(true);
+    expect(hints.filter(h => h.ref === '' || h.ref === '  ').length).toBe(0);
+  });
+
+  it('setVariable with no label falls back to "Set Variable"', () => {
+    const sv: WorkflowNode = {
+      id: 'sv1', type: 'setVariable', position: { x: 0, y: 0 },
+      data: { label: '', assignments: [{ id: '1', name: 'x', expression: '1' }] },
+    };
+    const nodes = [sv, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sv1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const xHint = hints.find(h => h.ref === 'x');
+    expect(xHint?.description).toContain('Set Variable');
+  });
+
+  it('aggregate with no label falls back to "Aggregate"', () => {
+    const agg: WorkflowNode = {
+      id: 'a1', type: 'aggregate', position: { x: 0, y: 0 },
+      data: { label: '', mappings: [{ id: '1', sourceExpression: '{{x}}', targetVariable: 'total', strategy: 'sum' }] },
+    };
+    const nodes = [agg, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const totalHint = hints.find(h => h.ref === 'total');
+    expect(totalHint?.description).toContain('Aggregate');
+  });
+
+  it('loop with no label falls back to "Loop"', () => {
+    const loopNode: WorkflowNode = {
+      id: 'l1', type: 'loop', position: { x: 0, y: 0 },
+      data: { label: '', mode: 'forEach', sourceExpression: '{{x}}', itemVariable: 'it', indexVariable: 'idx', maxIterations: 10 },
+    };
+    const nodes = [loopNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'l1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const itHint = hints.find(h => h.ref === 'it');
+    expect(itHint?.description).toContain('Loop');
+  });
+
+  it('waitForCondition with no label falls back to "Wait"', () => {
+    const waitNode: WorkflowNode = {
+      id: 'w1', type: 'waitForCondition', position: { x: 0, y: 0 },
+      data: { label: '', conditionLeft: '{{x}}', conditionOperator: '==', conditionRight: '1', pollIntervalMs: 1000, timeoutMs: 5000 },
+    };
+    const nodes = [waitNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'w1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const attemptHint = hints.find(h => h.ref === 'wait.attempts');
+    expect(attemptHint?.description).toContain('Wait');
+  });
+
+  it('errorHandler with no label falls back to "Error Handler"', () => {
+    const errHandler: WorkflowNode = {
+      id: 'eh1', type: 'errorHandler', position: { x: 0, y: 0 },
+      data: { label: '', errorFilter: 'all', retryCount: 0, retryDelayMs: 1000, retryBackoff: 'fixed', retryTimeoutMs: 0, continueOnError: false },
+    };
+    const nodes = [errHandler, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'eh1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const msgHint = hints.find(h => h.ref === 'error.message');
+    expect(msgHint?.description).toContain('Error Handler');
+  });
+
+  it('start node with no label falls back to "Start"', () => {
+    const startNode: WorkflowNode = {
+      id: 's1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: '', inputVariables: { key: 'val' } },
+    };
+    const nodes = [startNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 's1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const keyHint = hints.find(h => h.ref === 'key');
+    expect(keyHint?.description).toContain('Start');
+  });
+
+  it('start node with whitespace-only inputVariable keys are skipped', () => {
+    const startNode: WorkflowNode = {
+      id: 's1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { '': 'x', '  ': 'y', 'valid': 'z' } },
+    };
+    const nodes = [startNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 's1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.some(h => h.ref === 'valid')).toBe(true);
+    expect(hints.some(h => h.ref === '' || h.ref === '  ')).toBe(false);
   });
 
   it('includes waitForCondition built-in variables from upstream', () => {

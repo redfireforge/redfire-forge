@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Scenario, FeatureGroup } from '../types';
+import { useModalDrag } from '../hooks/useModalDrag';
 import { useModalExpand } from '../hooks/useModalExpand';
 import { useModalResize } from '../hooks/useModalResize';
 import ModalExpandButton from './shared/ModalExpandButton';
@@ -17,13 +18,14 @@ interface Props {
 export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId, featureGroups, onConfirm, onClose }: Props) {
   const [targetFeature, setTargetFeature] = useState(sourceFeatureId);
   const [targetScenario, setTargetScenario] = useState(sourceScenarioId);
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true);
   const { expanded, toggleExpand, expandClass } = useModalExpand();
   const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal copy-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className="modal-overlay" onClick={onClose} style={overlayStyle}>
+      <div className={`modal copy-modal ${expandClass}`} role="dialog" onClick={(e) => e.stopPropagation()} style={{ ...modalStyle, ...resizeStyle }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'move' }} onMouseDown={onDragStart}>
           <h3 style={{ flex: 1 }}>Copy Test To...</h3>
           <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
         </div>
