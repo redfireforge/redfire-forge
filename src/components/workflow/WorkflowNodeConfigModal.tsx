@@ -12,6 +12,9 @@ import type {
   LoopNodeData,
   SetVariableNodeData,
   AggregateNodeData,
+  ErrorHandlerNodeData,
+  LogDebugNodeData,
+  WaitForConditionNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -30,6 +33,9 @@ import SwitchConfig from './SwitchConfig';
 import LoopConfig from './LoopConfig';
 import SetVariableConfig from './SetVariableConfig';
 import AggregateConfig from './AggregateConfig';
+import ErrorHandlerConfig from './ErrorHandlerConfig';
+import LogDebugConfig from './LogDebugConfig';
+import WaitForConditionConfig from './WaitForConditionConfig';
 import WebhookConfig from './WebhookConfig';
 import ScheduleConfig from './ScheduleConfig';
 import VariablesSection from './VariablesSection';
@@ -143,7 +149,60 @@ export default function WorkflowNodeConfigModal({
     return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
   }, [draftNode, draftVariableHints, workflowOnlyPickerHints]);
 
+  // Deduplicated hints for the Input tab — hide scoped refs when only one source exists
+  const inputTabHints = useMemo(() => {
+    const scopedCountMap = new Map<string, number>();
+    for (const h of variableInsertHints) {
+      const m = h.ref.match(/^node:"[^"]+"\.(.+)$/);
+      if (m) scopedCountMap.set(m[1], (scopedCountMap.get(m[1]) ?? 0) + 1);
+    }
+    const latestBaseNames = new Set(
+      variableInsertHints.filter(h => h.label.endsWith('(latest)')).map(h => h.ref)
+    );
+    return variableInsertHints.filter(h => {
+      const m = h.ref.match(/^node:"[^"]+"\.(.+)$/);
+      if (!m) return true;
+      return !latestBaseNames.has(m[1]) || (scopedCountMap.get(m[1]) ?? 0) > 1;
+    });
+  }, [variableInsertHints]);
+
   const title = `${node.type.toUpperCase()} — ${(draft as HttpNodeData).label || 'Step Config'}`;
+
+  // ── Drag-to-move ──────────────────────────────────────────────────────────
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    // Only drag from header area, not buttons
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    const modal = (e.currentTarget as HTMLElement).closest('.wf-config-modal') as HTMLElement;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    // On first drag, capture the modal's current centered position
+    const origX = dragPos?.x ?? rect.left;
+    const origY = dragPos?.y ?? rect.top;
+    dragState.current = { startX: e.clientX, startY: e.clientY, origX, origY };
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragState.current) return;
+      setDragPos({
+        x: dragState.current.origX + (ev.clientX - dragState.current.startX),
+        y: dragState.current.origY + (ev.clientY - dragState.current.startY),
+      });
+    };
+    const handleUp = () => {
+      dragState.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [dragPos]);
+
+  // Reset position when expanded/collapsed
+  useEffect(() => { setDragPos(null); }, [expanded]);
+
+  const isDragged = dragPos !== null && !expanded;
 
   return (
     <>
@@ -151,6 +210,7 @@ export default function WorkflowNodeConfigModal({
         className={`modal-overlay wf-config-modal-overlay${expanded ? ' wf-config-modal-expanded' : ''}`}
         role="presentation"
         onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}
+        style={isDragged ? { background: 'transparent', backdropFilter: 'none', pointerEvents: 'none' } : undefined}
       >
         <div
           className={`modal ram-modal wf-config-modal${expanded ? ' wf-config-modal-full' : ''}`}
@@ -158,8 +218,9 @@ export default function WorkflowNodeConfigModal({
           aria-labelledby="wf-config-modal-title"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
+          style={isDragged ? { position: 'fixed', left: dragPos.x, top: dragPos.y, margin: 0, pointerEvents: 'auto' } : undefined}
         >
-          <div className="ram-header">
+          <div className="ram-header" style={{ cursor: expanded ? undefined : 'move' }} onMouseDown={expanded ? undefined : handleDragStart}>
             <h3 id="wf-config-modal-title">{title}</h3>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               <button
@@ -181,6 +242,7 @@ export default function WorkflowNodeConfigModal({
               <button type="button" className="ram-modal-close" onClick={handleCancel} aria-label="Close">&times;</button>
             </div>
           </div>
+          {isHttpWorkflowNode(draftNode) && (
           <div className="wf-config-modal-tabs">
             <button className={`wf-config-modal-tab${panelTab === 'config' ? ' active' : ''}`} onClick={() => setPanelTab('config')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -189,7 +251,7 @@ export default function WorkflowNodeConfigModal({
             <button className={`wf-config-modal-tab${panelTab === 'input' ? ' active' : ''}`} onClick={() => setPanelTab('input')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 16 12"/><polyline points="22 12 18 8"/><polyline points="22 12 18 16"/><rect x="2" y="4" width="12" height="16" rx="2"/></svg>
               Input
-              {variableInsertHints.length > 0 && <span className="wf-config-modal-tab-badge">{variableInsertHints.length}</span>}
+              {inputTabHints.length > 0 && <span className="wf-config-modal-tab-badge">{inputTabHints.length}</span>}
             </button>
             <button className={`wf-config-modal-tab${panelTab === 'output' ? ' active' : ''}`} onClick={() => setPanelTab('output')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2 12 8 12"/><polyline points="2 12 6 8"/><polyline points="2 12 6 16"/><rect x="10" y="4" width="12" height="16" rx="2"/></svg>
@@ -200,8 +262,9 @@ export default function WorkflowNodeConfigModal({
               Logs
             </button>
           </div>
+          )}
           <div className="wf-config-modal-body">
-            {panelTab === 'config' && (<>
+            {(panelTab === 'config' || !isHttpWorkflowNode(draftNode)) && (<>
             {isHttpWorkflowNode(draftNode) && (
               <HttpConfig
                 data={draftNode.data as HttpNodeData}
@@ -298,6 +361,27 @@ export default function WorkflowNodeConfigModal({
               />
             )}
 
+            {draftNode.type === 'errorHandler' && (
+              <ErrorHandlerConfig
+                data={draftNode.data as ErrorHandlerNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'logDebug' && (
+              <LogDebugConfig
+                data={draftNode.data as LogDebugNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'waitForCondition' && (
+              <WaitForConditionConfig
+                data={draftNode.data as WaitForConditionNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
             {/* Generic label editor for fork, join, end nodes */}
             {(draftNode.type === 'fork' || draftNode.type === 'join' || draftNode.type === 'end') && (
               <div className="wf-config-section">
@@ -335,11 +419,11 @@ export default function WorkflowNodeConfigModal({
             {panelTab === 'input' && (
               <div className="wf-config-tab-content">
                 <div className="wf-config-tab-hint">Resolved variables available to this step at execution time:</div>
-                {variableInsertHints.length > 0 ? (
+                {inputTabHints.length > 0 ? (
                   <table className="wf-config-var-table">
                     <thead><tr><th>Variable</th><th>Source</th></tr></thead>
                     <tbody>
-                      {variableInsertHints.map(h => (
+                      {inputTabHints.map(h => (
                         <tr key={h.ref}>
                           <td className="wf-config-var-ref">{`{{${h.ref}}}`}</td>
                           <td className="wf-config-var-source">{h.label}</td>

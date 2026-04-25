@@ -137,6 +137,33 @@ const ICON_MAP: Record<string, { category: Category; svg: JSX.Element }> = {
       </>
     ),
   },
+  errorHandler: {
+    category: 'flow',
+    svg: (
+      <>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </>
+    ),
+  },
+  logDebug: {
+    category: 'data',
+    svg: (
+      <>
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+        <line x1="8" y1="7" x2="16" y2="7" />
+        <line x1="8" y1="11" x2="14" y2="11" />
+      </>
+    ),
+  },
+  waitForCondition: {
+    category: 'logic',
+    svg: (
+      <>
+        <path d="M6 2l.01 6L10 12l-3.99 4L6 22h12v-6l-4-4 4-4V2H6z" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {
