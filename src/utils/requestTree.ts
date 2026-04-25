@@ -263,7 +263,7 @@ export function reorderInFolders(folders: RequestFolder[], folderId: string, bef
   }
   const [moved] = flat.splice(srcIdx, 1);
   if (beforeId === null) { flat.push(moved); }
-  else { const tgt = flat.findIndex((f) => f.id === beforeId); tgt < 0 ? flat.push(moved) : flat.splice(tgt, 0, moved); }
+  else { const tgt = flat.findIndex((f) => f.id === beforeId); if (tgt < 0) { flat.push(moved); } else { flat.splice(tgt, 0, moved); } }
   return flat;
 }
 

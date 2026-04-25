@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import WorkflowToastProvider, { ToastContext, type ToastApi } from './WorkflowToastProvider';
+import WorkflowToastProvider, { ToastContext } from './WorkflowToastProvider';
 import { useContext } from 'react';
 
 function TestConsumer() {

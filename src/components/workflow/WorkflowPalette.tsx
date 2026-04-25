@@ -98,7 +98,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   }, []);
 
   const toggle = (id: string) => setExpanded(prev => {
-    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+    const next = new Set(prev); if (next.has(id)) { next.delete(id); } else { next.add(id); } return next;
   });
 
   return (

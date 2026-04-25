@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { FeatureGroup } from '../types';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 export type MoveType = 'scenario' | 'test';
 
@@ -24,6 +28,8 @@ export default function MoveDialog({
 }: Props) {
   const [targetFgId, setTargetFgId] = useState('');
   const [targetScenarioId, setTargetScenarioId] = useState('');
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   const targetFG = useMemo(
     () => featureGroups.find((fg) => fg.id === targetFgId),
@@ -59,9 +65,10 @@ export default function MoveDialog({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal move-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal move-dialog ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         <div className="move-dialog-header">
           <h3>Move {typeLabel}</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="btn btn-sm" onClick={onClose}>Cancel</button>
         </div>
 
@@ -131,7 +138,9 @@ export default function MoveDialog({
           <button className="btn btn-primary btn-sm" onClick={handleMove} disabled={!canMove}>
             Move
           </button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

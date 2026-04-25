@@ -132,6 +132,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       saveProgress(progressKey, data);
       setSavedProgress(data);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finalRun, isRunning]);
 
   const handleClearProgress = () => {
@@ -228,7 +229,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     return tests;
   }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useMemo(() => {
     const w: Record<string, number> = {};
     selectedTests.forEach((t) => (w[t.id] = weights[t.id] ?? 1));
@@ -241,7 +242,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const toggleFeature = (featureId: string) => {
     setExpandedFeatures((prev) => {
       const next = new Set(prev);
-      next.has(featureId) ? next.delete(featureId) : next.add(featureId);
+      if (next.has(featureId)) next.delete(featureId); else next.add(featureId);
       return next;
     });
   };
@@ -249,7 +250,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const toggleScenario = (scenarioId: string) => {
     setSelectedScenarios((prev) => {
       const next = new Set(prev);
-      next.has(scenarioId) ? next.delete(scenarioId) : next.add(scenarioId);
+      if (next.has(scenarioId)) next.delete(scenarioId); else next.add(scenarioId);
       return next;
     });
   };

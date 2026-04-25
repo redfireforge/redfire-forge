@@ -1,6 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CatalogEntry } from '../../types/catalog';
 import type { Environment, Microservice } from '../../types';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 
 interface Props {
   entry: CatalogEntry;
@@ -12,6 +16,8 @@ interface Props {
 
 export default function CatalogEditModal({ entry, microservices, environments, onSave, onClose }: Props) {
   const [selectedSvcId, setSelectedSvcId] = useState<string>(entry.microserviceId ?? '');
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   const linkedSvc = useMemo(
     () => microservices.find(s => s.id === selectedSvcId),
@@ -54,9 +60,10 @@ export default function CatalogEditModal({ entry, microservices, environments, o
 
   return (
     <div className="cat-modal-overlay" onClick={onClose}>
-      <div className="cat-modal cat-modal-wide" onClick={e => e.stopPropagation()}>
+      <div className={`cat-modal cat-modal-wide ${expandClass}`} onClick={e => e.stopPropagation()} style={resizeStyle}>
         <div className="cat-modal-header">
           <h3>Edit — {entry.name}</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="cat-modal-close" onClick={onClose}>×</button>
         </div>
 
@@ -120,7 +127,9 @@ export default function CatalogEditModal({ entry, microservices, environments, o
           <button className="cat-btn cat-btn-primary" onClick={handleSave}>
             Save Changes
           </button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

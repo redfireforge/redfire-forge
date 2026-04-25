@@ -75,3 +75,11 @@ alwaysApply: true
 - During development, rely on scoped unit tests and TypeScript (`npx tsc --noEmit`) for fast feedback.
 - E2E tests require the dev server running on port 5173 (`npm run dev`).
 - Target >90% code coverage on all four metrics (statements, branches, functions, lines).
+
+## Code Quality — Fix All Errors
+
+- **Fix ALL lint, type, and test errors across the entire codebase** — not just the files you touched. If you discover pre-existing issues while working on a feature, fix them as part of the same branch.
+- Before merging, `npx eslint src/ cli/` must report **0 errors and 0 warnings**.
+- Before merging, `npx tsc --noEmit` must report **0 errors**.
+- Before merging, `npx vitest run` must report **0 failures**.
+- Do NOT ignore pre-existing problems. Own the codebase quality.

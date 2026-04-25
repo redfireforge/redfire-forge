@@ -6,7 +6,7 @@ vi.mock('../../utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-let mockGetToken = vi.fn();
+const mockGetToken = vi.fn();
 
 vi.mock('../tokenManager', () => ({
   TokenManager: class MockTokenManager {

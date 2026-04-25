@@ -36,6 +36,7 @@ export function useResizablePanels({
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startDrag = (side: 'left' | 'right', e: React.MouseEvent) => {

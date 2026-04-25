@@ -248,7 +248,7 @@ export default function JsonPathBuilder({
   const hasArrayFields = expectedFields.some(f => /\[\d+\]/.test(f.jsonPath));
   const prevHasArray = useRef(false);
   useEffect(() => {
-    if (hasArrayFields && !prevHasArray.current) setRulesView('table');
+    if (hasArrayFields && !prevHasArray.current) setRulesView('table'); // eslint-disable-line react-hooks/set-state-in-effect
     prevHasArray.current = hasArrayFields;
   }, [hasArrayFields]);
 
@@ -427,7 +427,7 @@ export default function JsonPathBuilder({
             <div className="jpb-sample-actions">
               {sampleJson.trim() && (
                 <button className="btn btn-sm" onClick={() => {
-                  try { onSampleJsonChange(JSON.stringify(JSON.parse(sampleJson), null, 2)); } catch {}
+                  try { onSampleJsonChange(JSON.stringify(JSON.parse(sampleJson), null, 2)); } catch { /* intentionally empty */ }
                 }}>Prettify</button>
               )}
             </div>

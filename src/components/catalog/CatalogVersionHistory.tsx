@@ -4,6 +4,10 @@ import { parseOpenApiSpec } from '../../utils/openApiParser';
 import { formatBytes } from '../../utils/helpers';
 import { diffCatalogEntries } from '../../utils/catalogSpecDiff';
 import CatalogVersionDiff from './CatalogVersionDiff';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 
 interface Props {
   entry: CatalogEntry;
@@ -14,6 +18,8 @@ interface Props {
 }
 
 export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion, onReimport, loadRawSpec }: Props) {
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const [diffState, setDiffState] = useState<{
     loading: boolean;
     diff: CatalogSpecDiff | null;
@@ -66,9 +72,10 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
 
   return (
     <div className="cat-modal-overlay" onClick={onClose}>
-      <div className="cat-modal cat-modal-lg" onClick={e => e.stopPropagation()}>
+      <div className={`cat-modal cat-modal-lg ${expandClass}`} onClick={e => e.stopPropagation()} style={resizeStyle}>
         <div className="cat-modal-header">
           <h3>Version History — {entry.name}</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="cat-modal-close" onClick={onClose}>&times;</button>
         </div>
 
@@ -127,7 +134,9 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
 
         <div className="cat-modal-footer">
           <button className="cat-btn" onClick={onClose}>Close</button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

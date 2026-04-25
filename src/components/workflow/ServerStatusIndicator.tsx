@@ -13,12 +13,6 @@ export default function ServerStatusIndicator() {
     checking: true,
   });
 
-  useEffect(() => {
-    checkServerStatus();
-    const interval = setInterval(checkServerStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
   const checkServerStatus = async () => {
     try {
       const controller = new AbortController();
@@ -45,6 +39,12 @@ export default function ServerStatusIndicator() {
       setStatus({ online: false, checking: false });
     }
   };
+
+  useEffect(() => {
+    checkServerStatus(); // eslint-disable-line react-hooks/set-state-in-effect
+    const interval = setInterval(checkServerStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const stateClass = status.checking ? 'checking' : status.online ? 'online' : 'offline';
 

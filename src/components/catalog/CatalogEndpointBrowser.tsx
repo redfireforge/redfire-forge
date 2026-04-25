@@ -75,6 +75,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
       );
     }
     return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterLc, hideDeprecated]);
 
   const filteredFolders = useMemo(() =>

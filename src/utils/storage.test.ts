@@ -63,8 +63,12 @@ import {
   saveWorkflows,
   loadWorkflowSampleDismissed,
   saveWorkflowSampleDismissed,
+  loadPreviewSampleId,
+  savePreviewSampleId,
 } from './storage';
-import type { TestRun, GlobalAuthProfile } from '../types';
+import type { TestRun, GlobalAuthProfile, RequestsData } from '../types';
+import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
+import type { Workflow } from '../types/workflow';
 
 function makeRun(id: string, results: number = 1): TestRun {
   return {
@@ -374,7 +378,7 @@ describe('storage — requests', () => {
 
   it('saves and loads requests data', async () => {
     const data = { environments: [{ id: 'e1', name: 'dev' }], collections: [] };
-    await saveRequests(data as any);
+    await saveRequests(data as unknown as RequestsData);
     const loaded = await loadRequests();
     expect(loaded.environments).toHaveLength(1);
     expect(loaded.environments[0].name).toBe('dev');
@@ -412,7 +416,7 @@ describe('storage — catalog entries', () => {
   });
 
   it('saves and loads catalog entries', async () => {
-    const entries = [{ id: 'c1', name: 'API1' }] as any;
+    const entries = [{ id: 'c1', name: 'API1' }] as unknown as CatalogEntry[];
     await saveCatalogEntries(entries);
     const loaded = await loadCatalogEntries();
     expect(loaded).toHaveLength(1);
@@ -453,13 +457,13 @@ describe('storage — catalog endpoint values', () => {
 
   it('saves and loads endpoint values', async () => {
     const values = { ep1: { params: { id: '123' }, headers: {}, body: '{}' } };
-    await saveCatalogEndpointValues('c1', values as any);
+    await saveCatalogEndpointValues('c1', values as unknown as Record<string, SavedEndpointValues>);
     const loaded = await loadCatalogEndpointValues('c1');
     expect(loaded.ep1.params).toEqual({ id: '123' });
   });
 
   it('removes endpoint values', async () => {
-    await saveCatalogEndpointValues('c1', { ep1: {} as any });
+    await saveCatalogEndpointValues('c1', { ep1: {} as unknown as SavedEndpointValues });
     await removeCatalogEndpointValues('c1');
     expect(await loadCatalogEndpointValues('c1')).toEqual({});
   });
@@ -1064,7 +1068,7 @@ describe('workflow storage', () => {
   });
 
   it('saveWorkflows writes JSON', async () => {
-    await saveWorkflows([{ id: 'w1' }] as any);
+    await saveWorkflows([{ id: 'w1' }] as unknown as Workflow[]);
     expect(tauriSetItem).toHaveBeenCalledWith('workflows', '[{"id":"w1"}]');
   });
 
@@ -1091,5 +1095,31 @@ describe('workflow storage', () => {
   it('saveWorkflowSampleDismissed writes false', async () => {
     await saveWorkflowSampleDismissed(false);
     expect(tauriSetItem).toHaveBeenCalledWith('workflows_sample_dismissed', 'false');
+  });
+});
+
+describe('preview sample ID (sessionStorage)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it('loadPreviewSampleId returns null when nothing stored', () => {
+    expect(loadPreviewSampleId()).toBeNull();
+  });
+
+  it('savePreviewSampleId stores and loads the id', () => {
+    savePreviewSampleId('sample-workflow-001');
+    expect(loadPreviewSampleId()).toBe('sample-workflow-001');
+  });
+
+  it('savePreviewSampleId(null) clears the stored id', () => {
+    savePreviewSampleId('sample-workflow-001');
+    savePreviewSampleId(null);
+    expect(loadPreviewSampleId()).toBeNull();
+  });
+
+  it('loadPreviewSampleId returns null for empty string', () => {
+    sessionStorage.setItem('workflow_preview_sample_id', '');
+    expect(loadPreviewSampleId()).toBeNull();
   });
 });

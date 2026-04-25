@@ -1,8 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { SwitchNodeData, SwitchCase } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
+import InsertVarField from './InsertVarField';
+import AvailableVariables from './AvailableVariables';
 
-export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData; onChange: (d: SwitchNodeData) => void }) {
+export default function SwitchConfig({
+  data,
+  onChange,
+  onRequestVariableInsert,
+  variableHints = [],
+}: {
+  data: SwitchNodeData;
+  onChange: (d: SwitchNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
+}) {
   const cases = data.cases ?? [];
   const { update: updateCaseByIdx, remove: removeCaseByIdx, move: moveCase } = useListCrud(
     cases,
@@ -14,16 +27,6 @@ export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData;
     onChange({ ...data, cases: [...cases, newCase] });
   };
 
-  const updateCase = (id: string, patch: Partial<SwitchCase>) => {
-    const idx = cases.findIndex(c => c.id === id);
-    if (idx >= 0) updateCaseByIdx(idx, patch);
-  };
-
-  const removeCase = (id: string) => {
-    const idx = cases.findIndex(c => c.id === id);
-    if (idx >= 0) removeCaseByIdx(idx);
-  };
-
   return (
     <div className="wf-config-body">
       <div className="wf-config-field">
@@ -33,11 +36,16 @@ export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData;
 
       <div className="wf-config-field">
         <label>Expression</label>
-        <input
-          value={data.expression}
-          onChange={(e) => onChange({ ...data, expression: e.target.value })}
-          placeholder="e.g. {{status}} or {{category}}"
-        />
+        <InsertVarField
+          onRequestVariableInsert={onRequestVariableInsert}
+          onInsert={(snippet) => onChange({ ...data, expression: data.expression + snippet })}
+        >
+          <input
+            value={data.expression}
+            onChange={(e) => onChange({ ...data, expression: e.target.value })}
+            placeholder="e.g. {{status}} or {{category}}"
+          />
+        </InsertVarField>
         <span className="wf-config-hint">Variable or template expression to match against cases</span>
       </div>
 
@@ -49,13 +57,13 @@ export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData;
               <input
                 className="wf-switch-case-value"
                 value={c.value}
-                onChange={(e) => updateCase(c.id, { value: e.target.value })}
+                onChange={(e) => updateCaseByIdx(i, { value: e.target.value })}
                 placeholder="Match value"
               />
               <input
                 className="wf-switch-case-label"
                 value={c.label ?? ''}
-                onChange={(e) => updateCase(c.id, { label: e.target.value })}
+                onChange={(e) => updateCaseByIdx(i, { label: e.target.value })}
                 placeholder="Label (optional)"
               />
               <button
@@ -75,7 +83,7 @@ export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData;
               <button
                 type="button"
                 className="wf-switch-case-remove"
-                onClick={() => removeCase(c.id)}
+                onClick={() => removeCaseByIdx(i)}
                 title="Remove case"
               >✕</button>
             </div>
@@ -84,6 +92,8 @@ export default function SwitchConfig({ data, onChange }: { data: SwitchNodeData;
         <button type="button" className="wf-switch-add-case" onClick={addCase}>+ Add Case</button>
         <span className="wf-config-hint">If no case matches, the Default path is taken</span>
       </div>
+
+      <AvailableVariables hints={variableHints} />
     </div>
   );
 }

@@ -1,0 +1,484 @@
+# RedfireForge Workflow — Conditional Retry with Polling
+# Demonstrates: WaitForCondition, Condition (expression mode), LogDebug, Switch, ErrorHandler
+#
+# Scenario: Submit a long-running batch job, poll until completion,
+# then branch based on result quality. Uses variable expressions
+# throughout for dynamic condition evaluation.
+#
+# Flow:
+#   Start (batchSize=500, qualityThreshold=0.95)
+#     → POST /jobs/submit (extract jobId, estimatedMs)
+#       → LogDebug ("Job {{jobId}} submitted, est. {{estimatedMs}}ms")
+#         → WaitForCondition (poll GET /jobs/{{jobId}}/status until {{jobStatus}} == completed)
+#           → GET /jobs/{{jobId}}/results (extract passRate, failCount, totalProcessed)
+#             → LogDebug ("Results: {{passRate}} pass rate, {{failCount}} failures out of {{totalProcessed}}")
+#               → Condition ({{passRate}} >= {{qualityThreshold}})
+#                 ├─ Yes → Switch on {{totalProcessed}}
+#                 │          ├─ "500"  → POST /reports/full-batch
+#                 │          ├─ "0"    → LogDebug ("WARNING: Zero records processed") → End
+#                 │          └─ Default → POST /reports/partial-batch
+#                 │        → LogDebug ("Report submitted for {{totalProcessed}} records") → End
+#                 └─ No  → ErrorHandler
+#                           ├─ Body: POST /jobs/{{jobId}}/retry (retry up to 3×)
+#                           └─ Catch: POST /alerts/quality-failure → End
+
+name: Batch Job Conditional Retry
+description: Submit batch job, poll for completion, evaluate quality with expression-based conditions, route results through Switch
+
+schemaVersion: 4
+
+variables:
+  batchSize: "500"
+  qualityThreshold: "0.95"
+  apiBase: "https://api.example.com"
+  alertChannel: "ops-critical"
+
+services:
+  - id: svc-batch
+    name: Batch Processing API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/batch
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{BATCH_API_TOKEN}}"
+
+  - id: svc-reports
+    name: Reporting Service
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/reports
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-Report-Key
+      apiKeyValue: "{{REPORT_KEY}}"
+      apiKeyIn: header
+
+  - id: svc-alerts
+    name: Alert Service
+    endpoints:
+      - envId: env-prod
+        url: https://hooks.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        batchSize: "500"
+        qualityThreshold: "0.95"
+
+  # ── Submit the batch job ──
+  - id: http-submit
+    type: http
+    position: { x: 400, y: 120 }
+    data:
+      label: Submit Batch Job
+      serviceId: svc-batch
+      scenario:
+        id: sc-submit
+        name: Submit Job
+        url: "/jobs/submit"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "batchSize": {{batchSize}},
+            "priority": "high",
+            "callbackUrl": "{{apiBase}}/callbacks/batch"
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "202"
+        extractions:
+          - name: jobId
+            source: body
+            expression: $.jobId
+          - name: estimatedMs
+            source: body
+            expression: $.estimatedCompletionMs
+
+  # ── Log the submission ──
+  - id: log-submitted
+    type: logDebug
+    position: { x: 400, y: 260 }
+    data:
+      label: Log Submission
+      message: "Job {{jobId}} submitted with batchSize={{batchSize}}, estimated completion in {{estimatedMs}}ms"
+      logLevel: info
+      snapshotVariables: true
+
+  # ── Poll until job completes ──
+  - id: wait-complete
+    type: waitForCondition
+    position: { x: 400, y: 400 }
+    data:
+      label: Wait for Completion
+      conditionExpression: "{{jobStatus}} == completed"
+      pollIntervalMs: 2000
+      timeoutMs: 120000
+      maxAttempts: 60
+
+  # ── Poll body: check job status ──
+  - id: http-poll-status
+    type: http
+    position: { x: 400, y: 540 }
+    data:
+      label: Poll Job Status
+      serviceId: svc-batch
+      scenario:
+        id: sc-poll
+        name: Check Status
+        url: "/jobs/{{jobId}}/status"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: jobStatus
+            source: body
+            expression: $.status
+          - name: progressPct
+            source: body
+            expression: $.progressPercent
+
+  # ── Fetch full results ──
+  - id: http-results
+    type: http
+    position: { x: 400, y: 680 }
+    data:
+      label: Fetch Results
+      serviceId: svc-batch
+      scenario:
+        id: sc-results
+        name: Get Results
+        url: "/jobs/{{jobId}}/results"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "200"
+        extractions:
+          - name: passRate
+            source: body
+            expression: $.quality.passRate
+          - name: failCount
+            source: body
+            expression: $.quality.failedRecords
+          - name: totalProcessed
+            source: body
+            expression: $.summary.totalProcessed
+
+  # ── Log the results ──
+  - id: log-results
+    type: logDebug
+    position: { x: 400, y: 820 }
+    data:
+      label: Log Results
+      message: "Job {{jobId}} complete — passRate={{passRate}}, failures={{failCount}}/{{totalProcessed}}, threshold={{qualityThreshold}}"
+      logLevel: info
+      snapshotVariables: true
+
+  # ── Quality gate: expression-based condition ──
+  - id: cond-quality
+    type: condition
+    position: { x: 400, y: 960 }
+    data:
+      label: Quality Gate
+      left: "{{passRate}}"
+      operator: ">="
+      right: "{{qualityThreshold}}"
+
+  # ── YES branch: route by batch size ──
+  - id: switch-batch-size
+    type: switch
+    position: { x: 200, y: 1120 }
+    data:
+      label: Route by Volume
+      expression: "{{totalProcessed}}"
+      cases:
+        - id: c-full
+          value: "500"
+          label: Full Batch
+        - id: c-zero
+          value: "0"
+          label: Zero Records
+
+  # Full batch → submit full report
+  - id: http-full-report
+    type: http
+    position: { x: 50, y: 1300 }
+    data:
+      label: Full Batch Report
+      serviceId: svc-reports
+      scenario:
+        id: sc-full-report
+        name: Submit Full Report
+        url: "/submit"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "jobId": "{{jobId}}",
+            "type": "full-batch",
+            "passRate": {{passRate}},
+            "totalProcessed": {{totalProcessed}}
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "201"
+
+  # Partial batch → submit partial report
+  - id: http-partial-report
+    type: http
+    position: { x: 200, y: 1300 }
+    data:
+      label: Partial Batch Report
+      serviceId: svc-reports
+      scenario:
+        id: sc-partial-report
+        name: Submit Partial Report
+        url: "/submit"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "jobId": "{{jobId}}",
+            "type": "partial-batch",
+            "passRate": {{passRate}},
+            "totalProcessed": {{totalProcessed}},
+            "missing": {{batchSize}} - {{totalProcessed}}
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "201"
+
+  # Zero records → log warning
+  - id: log-zero
+    type: logDebug
+    position: { x: 380, y: 1300 }
+    data:
+      label: Zero Records Warning
+      message: "WARNING: Job {{jobId}} processed 0 records out of {{batchSize}} requested. Possible upstream data issue."
+      logLevel: warn
+      snapshotVariables: false
+
+  # Report submitted log
+  - id: log-report-done
+    type: logDebug
+    position: { x: 125, y: 1460 }
+    data:
+      label: Log Report Sent
+      message: "Report submitted for job {{jobId}} — {{totalProcessed}} records at {{passRate}} quality"
+      logLevel: info
+      snapshotVariables: false
+
+  # ── NO branch: retry with error handler ──
+  - id: error-retry
+    type: errorHandler
+    position: { x: 650, y: 1120 }
+    data:
+      label: Retry Low Quality
+      errorFilter: all
+      retryCount: 3
+      retryDelayMs: 5000
+      retryBackoff: exponential
+      retryTimeoutMs: 60000
+      continueOnError: true
+
+  # Retry body: reprocess the job
+  - id: http-retry
+    type: http
+    position: { x: 650, y: 1300 }
+    data:
+      label: Retry Job
+      serviceId: svc-batch
+      scenario:
+        id: sc-retry
+        name: Retry Processing
+        url: "/jobs/{{jobId}}/retry"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "jobId": "{{jobId}}",
+            "reason": "quality-below-threshold",
+            "threshold": {{qualityThreshold}},
+            "actualPassRate": {{passRate}}
+          }
+        auth: { type: none }
+        validation:
+          mode: status
+          expected: "202"
+
+  # Error catch: alert on persistent quality failure
+  - id: http-alert-failure
+    type: http
+    position: { x: 850, y: 1300 }
+    data:
+      label: Alert Quality Failure
+      serviceId: svc-alerts
+      scenario:
+        id: sc-alert
+        name: Quality Alert
+        url: "/webhooks/alerts"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "channel": "{{alertChannel}}",
+            "severity": "critical",
+            "message": "Batch job {{jobId}} failed quality gate after 3 retries. passRate={{passRate}}, threshold={{qualityThreshold}}, failures={{failCount}}/{{totalProcessed}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  # ── End nodes ──
+  - id: end-success
+    type: end
+    position: { x: 125, y: 1600 }
+    data:
+      label: Success
+
+  - id: end-zero
+    type: end
+    position: { x: 380, y: 1460 }
+    data:
+      label: End (Zero)
+
+  - id: end-failure
+    type: end
+    position: { x: 750, y: 1460 }
+    data:
+      label: End (Failure)
+
+edges:
+  - id: e-start-submit
+    source: start-1
+    target: http-submit
+
+  - id: e-submit-log
+    source: http-submit
+    target: log-submitted
+
+  - id: e-log-wait
+    source: log-submitted
+    target: wait-complete
+
+  # WaitForCondition poll body
+  - id: e-wait-poll
+    source: wait-complete
+    target: http-poll-status
+    sourceHandle: poll
+
+  # WaitForCondition done → fetch results
+  - id: e-wait-done
+    source: wait-complete
+    target: http-results
+    sourceHandle: done
+
+  - id: e-results-log
+    source: http-results
+    target: log-results
+
+  - id: e-log-quality
+    source: log-results
+    target: cond-quality
+
+  # Quality gate YES → switch
+  - id: e-quality-yes
+    source: cond-quality
+    target: switch-batch-size
+    sourceHandle: "true"
+    label: Yes
+
+  # Quality gate NO → retry handler
+  - id: e-quality-no
+    source: cond-quality
+    target: error-retry
+    sourceHandle: "false"
+    label: No
+
+  # Switch cases
+  - id: e-switch-full
+    source: switch-batch-size
+    target: http-full-report
+    sourceHandle: case-c-full
+    label: Full Batch
+
+  - id: e-switch-zero
+    source: switch-batch-size
+    target: log-zero
+    sourceHandle: case-c-zero
+    label: Zero Records
+
+  - id: e-switch-default
+    source: switch-batch-size
+    target: http-partial-report
+    sourceHandle: default
+    label: Default
+
+  # Reports → log → end
+  - id: e-full-report-log
+    source: http-full-report
+    target: log-report-done
+
+  - id: e-partial-report-log
+    source: http-partial-report
+    target: log-report-done
+
+  - id: e-log-done-end
+    source: log-report-done
+    target: end-success
+
+  - id: e-zero-end
+    source: log-zero
+    target: end-zero
+
+  # Error handler
+  - id: e-error-body
+    source: error-retry
+    target: http-retry
+    sourceHandle: body
+
+  - id: e-error-catch
+    source: error-retry
+    target: http-alert-failure
+    sourceHandle: catch
+
+  - id: e-alert-end
+    source: http-alert-failure
+    target: end-failure
+
+  - id: e-retry-end
+    source: http-retry
+    target: end-success

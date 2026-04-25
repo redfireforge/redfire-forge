@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath, validate, evaluateAssertions, matchesStatusPattern } from './validator';
+import { getByPath, validate, evaluateAssertions } from './validator';
+import type { Assertion } from '../types';
 
 // ---------------------------------------------------------------------------
 // getByPath
@@ -530,7 +531,7 @@ describe('evaluateAssertions', () => {
 
   it('handles unknown header operator (default branch)', () => {
     const { failures } = evaluateAssertions(
-      [{ type: 'header', name: 'content-type', operator: 'startsWith', value: 'app' } as any],
+      [{ type: 'header', name: 'content-type', operator: 'startsWith', value: 'app' } as unknown as Assertion],
       ctx
     );
     expect(failures).toHaveLength(1);

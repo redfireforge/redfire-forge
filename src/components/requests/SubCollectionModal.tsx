@@ -16,7 +16,8 @@ function getAuthType(auth?: AuthConfig, profiles?: GlobalAuthProfile[]): AuthTyp
   if (!auth) return 'inherit';
   if (auth.type === 'none') return 'none';
   if (auth.type === 'inherit') return 'inherit';
-  if ((auth as any).globalProfileId && profiles?.length) return 'global-profile';
+  if (auth.globalProfileId && profiles?.length) return 'global-profile';
+  if (auth.type === 'apikey') return 'api-key';
   return auth.type as AuthType;
 }
 
@@ -34,7 +35,7 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
   const [tokenUrl, setTokenUrl] = useState(subCollection.auth?.tokenUrl ?? '');
   const [clientId, setClientId] = useState(subCollection.auth?.clientId ?? '');
   const [clientSecret, setClientSecret] = useState(subCollection.auth?.clientSecret ?? '');
-  const [selectedProfileId, setSelectedProfileId] = useState<string>((subCollection.auth as any)?.globalProfileId ?? (globalAuthProfiles[0]?.id ?? ''));
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(subCollection.auth?.globalProfileId ?? (globalAuthProfiles[0]?.id ?? ''));
 
   const [baseUrlOverride, setBaseUrlOverride] = useState(
     selectedEnvId && subCollection.baseUrls?.[selectedEnvId]
@@ -55,11 +56,11 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
       case 'none': return { type: 'none' };
       case 'bearer': return { type: 'bearer', prefix: bearerPrefix, token: bearerToken };
       case 'basic': return { type: 'basic', username: basicUser, password: basicPass };
-      case 'api-key': return { type: 'api-key' as any, apiKeyName, apiKeyValue, apiKeyIn };
+      case 'api-key': return { type: 'apikey', apiKeyName, apiKeyValue, apiKeyIn };
       case 'oauth2': return { type: 'oauth2', tokenUrl, clientId, clientSecret };
       case 'global-profile': {
         const profile = globalAuthProfiles.find(p => p.id === selectedProfileId);
-        if (profile) return { ...profile.auth, globalProfileId: selectedProfileId } as any;
+        if (profile) return { ...profile.auth, globalProfileId: selectedProfileId };
         return { type: 'inherit' };
       }
       default: return undefined;

@@ -109,7 +109,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
     return new Set(ids);
   });
   useEffect(() => {
-    setSampleEps(prev => {
+    setSampleEps(prev => { // eslint-disable-line react-hooks/set-state-in-effect
       const next = new Set<string>();
       for (const id of sampleableIds) {
         next.add(id);

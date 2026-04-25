@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, snapshot } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -46,6 +46,28 @@ describe('toErrorMessage', () => {
 
   it('converts object to string', () => {
     expect(toErrorMessage({ code: 500 })).toBe('[object Object]');
+  });
+
+  it('walks error cause chain', () => {
+    const root = new Error('getaddrinfo ENOTFOUND example.com');
+    (root as NodeJS.ErrnoException).code = 'ENOTFOUND';
+    const mid = new Error('fetch failed', { cause: root });
+    const top = new Error('request to https://example.com failed', { cause: mid });
+    expect(toErrorMessage(top)).toBe('request to https://example.com failed — fetch failed — getaddrinfo ENOTFOUND example.com [ENOTFOUND]');
+  });
+
+  it('includes errno code when present', () => {
+    const err = new Error('connect ECONNREFUSED 127.0.0.1:443');
+    (err as NodeJS.ErrnoException).code = 'ECONNREFUSED';
+    expect(toErrorMessage(err)).toBe('connect ECONNREFUSED 127.0.0.1:443 [ECONNREFUSED]');
+  });
+
+  it('handles circular cause gracefully', () => {
+    const a = new Error('a');
+    const b = new Error('b', { cause: a });
+    // Manually create circular cause
+    (a as unknown as { cause: Error }).cause = b;
+    expect(toErrorMessage(b)).toBe('b — a');
   });
 });
 
@@ -98,5 +120,74 @@ describe('snapshot', () => {
   it('handles empty objects and arrays', () => {
     expect(snapshot({})).toEqual({});
     expect(snapshot([])).toEqual([]);
+  });
+});
+
+describe('humanizeError', () => {
+  it('humanizes ENOTFOUND with hostname', () => {
+    const msg = 'fetch failed — getaddrinfo ENOTFOUND api.example.com [ENOTFOUND]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Server not found');
+    expect(result).toContain('api.example.com');
+    expect(result).toContain('VPN');
+    expect(result).toContain('↳');
+  });
+
+  it('humanizes ECONNREFUSED', () => {
+    const msg = 'connect ECONNREFUSED 127.0.0.1:443 [ECONNREFUSED]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Connection refused');
+    expect(result).toContain('server may be down');
+  });
+
+  it('humanizes ETIMEDOUT', () => {
+    const msg = 'connect ETIMEDOUT 10.0.0.1:443 [ETIMEDOUT]';
+    const result = humanizeError(msg);
+    expect(result).toContain('timed out');
+    expect(result).toContain('network or firewall');
+  });
+
+  it('humanizes ECONNRESET', () => {
+    const msg = 'read ECONNRESET [ECONNRESET]';
+    const result = humanizeError(msg);
+    expect(result).toContain('reset');
+    expect(result).toContain('dropped');
+  });
+
+  it('humanizes SSL certificate expired', () => {
+    const result = humanizeError('CERT_HAS_EXPIRED');
+    expect(result).toContain('SSL certificate has expired');
+  });
+
+  it('humanizes self-signed certificate', () => {
+    const result = humanizeError('DEPTH_ZERO_SELF_SIGNED_CERT');
+    expect(result).toContain('self-signed');
+  });
+
+  it('humanizes OAuth2 with nested ENOTFOUND', () => {
+    const msg = 'OAuth2 token request failed: fetch failed — getaddrinfo ENOTFOUND auth.example.com [ENOTFOUND]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Authentication failed');
+    expect(result).toContain('Server not found');
+    expect(result).toContain('auth.example.com');
+  });
+
+  it('humanizes generic fetch failed', () => {
+    const result = humanizeError('fetch failed');
+    expect(result).toContain('Network request failed');
+    expect(result).toContain('connection or VPN');
+  });
+
+  it('passes through unrecognized errors unchanged', () => {
+    expect(humanizeError('Some unknown error')).toBe('Some unknown error');
+  });
+
+  it('handles empty string', () => {
+    expect(humanizeError('')).toBe('');
+  });
+
+  it('humanizes HTTP 0 with CORS', () => {
+    const result = humanizeError('CORS error: Access-Control-Allow-Origin missing');
+    expect(result).toContain('Cross-origin');
   });
 });

@@ -36,6 +36,11 @@ export interface AuthConfig {
   clientSecret?: string;
   // Links to a GlobalAuthProfile by id
   globalProfileId?: string;
+  // Catalog UI state: tracks inherited security scheme / global profile binding
+  __inherit?: boolean;
+  __schemeName?: string;
+  __globalProfileId?: string;
+  __globalProfileName?: string;
 }
 
 export type ValidationMode = 'none' | 'full' | 'selective';

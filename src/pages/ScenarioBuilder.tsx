@@ -7,7 +7,8 @@ import { useAuthVerify } from '../hooks/useAuthVerify';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
 import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport } from '../utils/scenarioImportExport';
 import { buildSearchText, evaluateQuery, parseSearchQuery } from '../utils/scenarioSearch';
-import TestEditorModal, { emptyTest, type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
+import TestEditorModal, { type TestEditorInputMode, type TestEditorTab } from '../components/TestEditorModal';
+import { emptyTest } from '../utils/testEditorUtils';
 import AuthConfigPanel from '../components/AuthConfigPanel';
 import CopyTestModal from '../components/CopyTestModal';
 
@@ -90,7 +91,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       { value: 'oauth2', label: 'OAuth2 Client Credentials' },
     );
     return opts;
-  }, [globalAuthProfiles]);
+  }, [allAuthProfiles]);
 
   const resolveEffectiveAuth = useCallback((t: Scenario, sc: TestScenario, fg: FeatureGroup): { label: string; source: string } | null => {
     if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
@@ -479,10 +480,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     downloadJson(wrapExport(t, 'test', exportMeta), fname('test', t.name));
 
   const toggleFeature = (id: string) => {
-    setExpandedFeatures((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedFeatures((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
   const toggleScenario = (id: string) => {
-    setExpandedScenarios((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedScenarios((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
 
   const totalTests = featureGroups.reduce((sum, fg) => sum + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);

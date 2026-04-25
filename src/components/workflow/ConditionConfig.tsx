@@ -6,6 +6,7 @@ import {
   validateConditionLeftRefs,
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
+import InsertVarField from './InsertVarField';
 
 const CUSTOM_SELECT = '__custom__';
 
@@ -13,10 +14,12 @@ export default function ConditionConfig({
   data,
   onChange,
   variableHints,
+  onRequestVariableInsert,
 }: {
   data: ConditionNodeData;
   onChange: (d: ConditionNodeData) => void;
   variableHints: WorkflowVariableHint[];
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
 }) {
   const [uiMode, setUiMode] = useState<'pick' | 'expr'>(() => guessConditionLeftMode(data.left));
   const [pickCustom, setPickCustom] = useState(false);
@@ -30,7 +33,9 @@ export default function ConditionConfig({
 
   useEffect(() => {
     const sn = parseSingleVariableRef(data.left);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset pick mode when left operand or available hints change
     if (sn !== null && !hintSet.has(sn)) setPickCustom(true);
+     
     else if (sn !== null && hintSet.has(sn)) setPickCustom(false);
   }, [data.left, hintSet]);
 
@@ -93,8 +98,8 @@ export default function ConditionConfig({
             >
               <option value="">— Select variable —</option>
               {variableHints.map((h) => (
-                <option key={h.ref} value={h.ref} title={h.label}>
-                  {h.label}
+                <option key={h.ref} value={h.ref} title={h.description || h.label}>
+                  {h.label}{h.type ? ` [${h.type}]` : ''}
                 </option>
               ))}
               <option value={CUSTOM_SELECT}>Custom name…</option>
@@ -121,15 +126,20 @@ export default function ConditionConfig({
         )}
 
         {uiMode === 'expr' && (
-          <textarea
-            className={`wf-config-textarea ${!validation.ok ? 'wf-input-invalid' : ''}`}
-            value={data.left}
-            onChange={(e) => onChange({ ...data, left: e.target.value })}
-            rows={3}
-            placeholder="Literal text or {{var}} placeholders"
-            spellCheck={false}
-            aria-label="Left operand expression"
-          />
+          <InsertVarField
+            onRequestVariableInsert={onRequestVariableInsert}
+            onInsert={(snippet) => onChange({ ...data, left: data.left + snippet })}
+          >
+            <textarea
+              className={`wf-config-textarea ${!validation.ok ? 'wf-input-invalid' : ''}`}
+              value={data.left}
+              onChange={(e) => onChange({ ...data, left: e.target.value })}
+              rows={3}
+              placeholder="Literal text or {{var}} placeholders"
+              spellCheck={false}
+              aria-label="Left operand expression"
+            />
+          </InsertVarField>
         )}
 
         {!validation.ok && (
@@ -166,7 +176,12 @@ export default function ConditionConfig({
       </div>
       <div className="wf-config-field">
         <label>Right (value to compare)</label>
-        <input value={data.right} onChange={(e) => onChange({ ...data, right: e.target.value })} placeholder="200" />
+        <InsertVarField
+          onRequestVariableInsert={onRequestVariableInsert}
+          onInsert={(snippet) => onChange({ ...data, right: data.right + snippet })}
+        >
+          <input value={data.right} onChange={(e) => onChange({ ...data, right: e.target.value })} placeholder="200" />
+        </InsertVarField>
       </div>
       <p className="wf-config-hint-text" style={{ marginTop: 4 }}>
         Connect multiple HTTP (or other) steps to the same Yes or No handle to run them all when that branch is taken; steps on the other branch are skipped.
