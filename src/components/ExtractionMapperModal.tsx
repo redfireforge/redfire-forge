@@ -4,6 +4,10 @@ import { buildTree, suggestedVariableNameFromJsonPath } from '../utils/jsonPathT
 import { PickerNode } from './RegexAssertionModal';
 import type { ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
 import { useDebounce } from '../hooks/useDebounce';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface Props {
   /** Current extractions (shown as pre-selected in right panel). */
@@ -38,7 +42,8 @@ export default function ExtractionMapperModal({
   );
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 200);
-  const [fullscreen, setFullscreen] = useState(true);
+  const { expanded: fullscreen, toggleExpand: toggleFullscreen, expandClass } = useModalExpand(true, 'fullscreen');
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const [expandAll, setExpandAll] = useState(true);
   // Incrementing key forces PickerNode tree to remount, resetting all manualExpanded states
   const [treeKey, setTreeKey] = useState(0);
@@ -143,21 +148,13 @@ export default function ExtractionMapperModal({
   // selectedPath for tree highlighting — show all mapped paths
 
   return (
-    <div className={`emm-overlay${fullscreen ? ' emm-overlay-fullscreen' : ''}`} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`emm-modal${fullscreen ? ' emm-fullscreen' : ''}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`emm-overlay ${expandClass}`} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`emm-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         {/* ── Header ── */}
         <div className="emm-header">
           <h3 className="emm-title">Extraction Mapper</h3>
           <div className="emm-window-controls">
-            <button
-              type="button"
-              className="emm-win-btn"
-              onClick={() => setFullscreen(f => !f)}
-              title={fullscreen ? 'Shrink' : 'Expand'}
-              aria-label={fullscreen ? 'Shrink' : 'Expand'}
-            >
-              {fullscreen ? '⊖' : '⊕'}
-            </button>
+            <ModalExpandButton expanded={fullscreen} onToggle={toggleFullscreen} />
             <button type="button" className="emm-win-btn emm-win-close" onClick={onClose} aria-label="Close">×</button>
           </div>
         </div>
@@ -345,8 +342,10 @@ export default function ExtractionMapperModal({
               {newCount > 0 && ` (${newCount} new)`}
               {changedCount > 0 && ` (${changedCount} changed)`}
             </button>
+            <ModalExpandButton expanded={fullscreen} onToggle={toggleFullscreen} position="footer" />
           </div>
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

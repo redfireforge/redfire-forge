@@ -133,7 +133,7 @@ export default function RequestEditor({
     })(responseTree, '');
     return paths;
   }, [responseTree]);
-  const isAllCollapsed = collapsedSet.size > 0 && collapsedSet.size >= allTreePaths.size;
+  const _isAllCollapsed = collapsedSet.size > 0 && collapsedSet.size >= allTreePaths.size;
   const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
   const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
   const searchMatchIdxRef = useRef(searchMatchIdx);
@@ -212,7 +212,7 @@ export default function RequestEditor({
     if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
     const matched = allKnownBaseUrls.find(b => url.startsWith(b));
     if (matched) return url.slice(matched.length) || '/';
-    try { return new URL(url).pathname + new URL(url).search + new URL(url).hash; } catch {}
+    try { return new URL(url).pathname + new URL(url).search + new URL(url).hash; } catch { /* intentionally empty */ }
     return url;
   }, [collection.mode, allKnownBaseUrls]);
 
@@ -404,7 +404,7 @@ export default function RequestEditor({
       if (auth.type === 'apikey') info(`Using API Key in ${auth.apiKeyIn ?? 'header'}`);
 
       let hostname = '';
-      try { hostname = new URL(scenario.url).hostname; } catch {}
+      try { hostname = new URL(scenario.url).hostname; } catch { /* intentionally empty */ }
       if (hostname) info(`Connecting to ${hostname}...`);
       info('Using browser fetch API');
       if (scenario.url.startsWith('https')) info('SSL/TLS handled by browser');
@@ -459,6 +459,7 @@ export default function RequestEditor({
       setActiveHistoryId(hid);
     }
     setSending(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asDraftScenario, buildRequestHeaders, resolveEffectiveAuth, urlCtx, pushHistory, request.url]);
 
   const handleDraftChange = useCallback((draft: Scenario) => {

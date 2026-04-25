@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { HttpNodeData, WorkflowNode } from '../../types/workflow';
 import { httpStepDisplayLabel, isHttpWorkflowNode } from '../../utils/workflowVariableHints';
+import { EXPRESSION_FUNCTION_MAP } from '../../utils/expressionFunctions';
 
 /**
  * Parsed inner template for node-scoped refs:
@@ -118,13 +119,30 @@ export class VariableContext {
   resolve(template: string): string {
     return template.replace(/\{\{([^}]+)\}\}/g, (_match, key: string) => {
       const trimmed = key.trim();
-      if (trimmed.startsWith('$')) return resolveGenerator(trimmed);
+      if (trimmed.startsWith('$')) return this.resolveExpression(trimmed);
       const scoped = parseNodeScopedInner(trimmed);
       if (scoped) {
         const v = this.resolveParsedScoped(scoped);
         return v ?? _match;
       }
       return this.get(trimmed) ?? _match;
+    });
+  }
+
+  /**
+   * Resolve a `$name(...)` expression. Tries built-in generators first,
+   * then falls back to expression functions from the registry.
+   */
+  private resolveExpression(expr: string): string {
+    // Try built-in generators first (simple $name or $name(args))
+    const builtIn = resolveBuiltInGenerator(expr);
+    if (builtIn !== undefined) return builtIn;
+
+    // Try expression function registry with variable resolution
+    return resolveExpressionFunction(expr, (name: string) => {
+      const scoped = parseNodeScopedInner(name);
+      if (scoped) return this.resolveParsedScoped(scoped) ?? undefined;
+      return this.get(name) ?? undefined;
     });
   }
 
@@ -187,9 +205,13 @@ export class VariableContext {
 
 const GENERATOR_RE = /^\$(\w+)(?:\(([^)]*)\))?$/;
 
-function resolveGenerator(expr: string): string {
+/**
+ * Try to resolve as a built-in generator ($uuid, $timestamp, etc.).
+ * Returns the resolved string or undefined if not a known generator.
+ */
+function resolveBuiltInGenerator(expr: string): string | undefined {
   const m = GENERATOR_RE.exec(expr);
-  if (!m) return `{{${expr}}}`;
+  if (!m) return undefined;
   const [, name, rawArgs] = m;
   const args = rawArgs?.split(',').map(s => s.trim()) ?? [];
 
@@ -214,6 +236,88 @@ function resolveGenerator(expr: string): string {
       return s;
     }
     default:
-      return `{{${expr}}}`;
+      return undefined;
   }
+}
+
+/**
+ * Resolve an expression using the expression function registry.
+ * Parses `$fnName(arg1, arg2, ...)` and evaluates with variable resolution.
+ */
+function resolveExpressionFunction(
+  expr: string,
+  resolveVar: (name: string) => string | undefined,
+): string {
+  const m = GENERATOR_RE.exec(expr);
+  if (!m) return `{{${expr}}}`;
+
+  const [, name, rawArgs] = m;
+  const fn = EXPRESSION_FUNCTION_MAP.get(`$${name}`);
+  if (!fn) return `{{${expr}}}`;
+
+  // Parse args: split by comma but respect quoted strings
+  const args = rawArgs ? parseExpressionArgs(rawArgs, resolveVar) : [];
+
+  try {
+    const result = fn.evaluate(...args);
+    if (result === null || result === undefined) return '';
+    if (typeof result === 'object') {
+      try { return JSON.stringify(result); } catch { return String(result); }
+    }
+    return String(result);
+  } catch {
+    return `{{${expr}}}`;
+  }
+}
+
+/**
+ * Parse comma-separated args, resolving variable references.
+ * Handles: quoted strings, numbers, booleans, and bare variable names.
+ */
+function parseExpressionArgs(
+  raw: string,
+  resolveVar: (name: string) => string | undefined,
+): unknown[] {
+  const args: unknown[] = [];
+  let i = 0;
+  const s = raw.trim();
+
+  while (i < s.length) {
+    // Skip whitespace
+    while (i < s.length && /\s/.test(s[i])) i++;
+    if (i >= s.length) break;
+
+    // Skip comma
+    if (s[i] === ',') { i++; continue; }
+
+    // Quoted string
+    if (s[i] === '"' || s[i] === "'") {
+      const q = s[i];
+      let val = '';
+      i++;
+      while (i < s.length && s[i] !== q) {
+        if (s[i] === '\\' && i + 1 < s.length) { val += s[i + 1]; i += 2; }
+        else { val += s[i]; i++; }
+      }
+      i++; // skip closing quote
+      args.push(val);
+      continue;
+    }
+
+    // Bare token (number, bool, or variable reference)
+    let token = '';
+    while (i < s.length && s[i] !== ',') { token += s[i]; i++; }
+    token = token.trim();
+    if (!token) continue;
+
+    if (token === 'true') { args.push(true); continue; }
+    if (token === 'false') { args.push(false); continue; }
+    if (!isNaN(Number(token))) { args.push(Number(token)); continue; }
+
+    // Try as variable reference
+    const resolved = resolveVar(token);
+    args.push(resolved ?? token);
+  }
+
+  return args;
 }

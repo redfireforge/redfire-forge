@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ConsoleLine } from '../../hooks/useResponseCache';
 import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
+import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
 
 const prefixClass: Record<string, string> = {
   '*': 'wf-cl-info',
@@ -8,6 +9,7 @@ const prefixClass: Record<string, string> = {
   '<': 'wf-cl-in',
   '#': 'wf-cl-extract',
   '!': 'wf-cl-error',
+  '---': 'wf-cl-separator',
   '': 'wf-cl-plain',
 };
 
@@ -17,6 +19,7 @@ const prefixIcon: Record<string, string> = {
   '<': '←',
   '#': '⬡',
   '!': '✗',
+  '---': '',
   '': '',
 };
 
@@ -27,6 +30,14 @@ function fmtTime(ts?: number): string {
 }
 
 type PanelMode = 'docked' | 'maximized' | 'floating';
+
+const CONSOLE_MODE_KEY = 'wf-console-default-mode';
+
+function loadDefaultMode(): PanelMode {
+  const stored = localStorage.getItem(CONSOLE_MODE_KEY);
+  if (stored === 'docked' || stored === 'maximized' || stored === 'floating') return stored;
+  return 'docked';
+}
 
 const MIN_DOCKED_H = 80;
 const MAX_DOCKED_H = 600;
@@ -39,21 +50,61 @@ interface Props {
   onClear: () => void;
   onClose: () => void;
   stepSummaries?: WorkflowRunStepSummary[];
+  runBehavior: ConsoleRunBehavior;
+  onRunBehaviorChange: (b: ConsoleRunBehavior) => void;
 }
 
-export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [] }: Props) {
-  const [mode, setMode] = useState<PanelMode>('docked');
+function highlightMatches(text: string, query: string): React.ReactNode {
+  if (!query) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} className="wf-console-match">{part}</mark>
+      : part
+  );
+}
+
+export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [], runBehavior, onRunBehaviorChange }: Props) {
+  const [mode, setMode] = useState<PanelMode>(loadDefaultMode);
   const [dockedHeight, setDockedHeight] = useState(DEFAULT_DOCKED_H);
   const [viewMode, setViewMode] = useState<'log' | 'timeline'>('log');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const lineRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // ── Floating state ──
-  const [floatPos, setFloatPos] = useState({ x: 80, y: 80 });
-  const [floatSize, setFloatSize] = useState({ w: 600, h: 340 });
+  const [floatPos, setFloatPos] = useState(() => ({
+    x: Math.round(window.innerWidth * 0.15),
+    y: Math.round(window.innerHeight * 0.1),
+  }));
+  const [floatSize, setFloatSize] = useState(() => ({
+    w: Math.max(MIN_FLOAT_W, Math.round(window.innerWidth * 0.45)),
+    h: Math.max(MIN_FLOAT_H, Math.round(window.innerHeight * 0.8)),
+  }));
 
   // ── Auto-scroll ──
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+
+  // Re-enable auto-scroll when a new run starts (separator line appears in append mode)
+  const prevLinesLenRef = useRef(lines.length);
+  useEffect(() => {
+    if (lines.length > prevLinesLenRef.current) {
+      // Check if the newly added lines include a separator (new run marker)
+      for (let i = prevLinesLenRef.current; i < lines.length; i++) {
+        if (lines[i].prefix === '---') {
+          autoScrollRef.current = true;
+          break;
+        }
+      }
+    }
+    prevLinesLenRef.current = lines.length;
+  }, [lines]);
 
   useEffect(() => {
     if (autoScrollRef.current && bottomRef.current) {
@@ -100,7 +151,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   const floatDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   const onFloatDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
+    if ((e.target as HTMLElement).closest('button, select, input')) return;
     e.preventDefault();
     floatDragRef.current = { startX: e.clientX, startY: e.clientY, origX: floatPos.x, origY: floatPos.y };
     document.body.style.cursor = 'grabbing';
@@ -137,19 +188,38 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
     document.body.style.userSelect = 'none';
   }, [floatSize]);
 
+  // ── Floating resize (right edge — horizontal only) ──
+  const floatEdgeResizeRef = useRef<{ startX: number; origW: number } | null>(null);
+
+  const onRightEdgeResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    floatEdgeResizeRef.current = { startX: e.clientX, origW: floatSize.w };
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  }, [floatSize]);
+
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (!floatResizeRef.current) return;
-      const dx = e.clientX - floatResizeRef.current.startX;
-      const dy = e.clientY - floatResizeRef.current.startY;
-      setFloatSize({
-        w: Math.max(MIN_FLOAT_W, floatResizeRef.current.origW + dx),
-        h: Math.max(MIN_FLOAT_H, floatResizeRef.current.origH + dy),
-      });
+      if (floatResizeRef.current) {
+        const dx = e.clientX - floatResizeRef.current.startX;
+        const dy = e.clientY - floatResizeRef.current.startY;
+        setFloatSize({
+          w: Math.max(MIN_FLOAT_W, floatResizeRef.current.origW + dx),
+          h: Math.max(MIN_FLOAT_H, floatResizeRef.current.origH + dy),
+        });
+      } else if (floatEdgeResizeRef.current) {
+        const dx = e.clientX - floatEdgeResizeRef.current.startX;
+        setFloatSize(prev => ({
+          ...prev,
+          w: Math.max(MIN_FLOAT_W, floatEdgeResizeRef.current!.origW + dx),
+        }));
+      }
     };
     const onUp = () => {
-      if (floatResizeRef.current) {
+      if (floatResizeRef.current || floatEdgeResizeRef.current) {
         floatResizeRef.current = null;
+        floatEdgeResizeRef.current = null;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
       }
@@ -160,8 +230,51 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   }, []);
 
   // ── Mode actions ──
-  const toggleMaximize = () => setMode(prev => prev === 'maximized' ? 'docked' : 'maximized');
-  const toggleFloat = () => setMode(prev => prev === 'floating' ? 'docked' : 'floating');
+  const setAsDefault = (m: PanelMode) => {
+    localStorage.setItem(CONSOLE_MODE_KEY, m);
+  };
+
+  // ── Search ──
+  const matchIndices = useMemo(() => {
+    if (!searchQuery) return [] as number[];
+    const q = searchQuery.toLowerCase();
+    const indices: number[] = [];
+    lines.forEach((l, i) => { if (l.text.toLowerCase().includes(q)) indices.push(i); });
+    return indices;
+  }, [lines, searchQuery]);
+
+  const matchCount = matchIndices.length;
+
+  // Reset current match when query or matches change
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset search position on new query
+    setCurrentMatchIdx(0);
+  }, [searchQuery]);
+
+  // Scroll to current match
+  useEffect(() => {
+    if (matchCount === 0) return;
+    const lineIdx = matchIndices[currentMatchIdx];
+    const el = lineRefsMap.current.get(lineIdx);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [currentMatchIdx, matchIndices, matchCount]);
+
+  const goNextMatch = () => {
+    if (matchCount === 0) return;
+    setCurrentMatchIdx(prev => (prev + 1) % matchCount);
+  };
+  const goPrevMatch = () => {
+    if (matchCount === 0) return;
+    setCurrentMatchIdx(prev => (prev - 1 + matchCount) % matchCount);
+  };
+
+  const toggleSearch = () => {
+    setSearchOpen(prev => {
+      if (!prev) setTimeout(() => searchInputRef.current?.focus(), 0);
+      else { setSearchQuery(''); setCurrentMatchIdx(0); }
+      return !prev;
+    });
+  };
 
   const rootClass = `wf-console-panel wf-console-${mode}`;
   const rootStyle: React.CSSProperties =
@@ -191,31 +304,77 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
           </button>
         </div>
         <div className="wf-console-actions">
+          <button type="button" className={`wf-console-action-btn${searchOpen ? ' wf-console-action-btn-active' : ''}`} onClick={toggleSearch} title="Search console">
+            Search
+          </button>
           <button type="button" className="wf-console-action-btn" onClick={onClear} title="Clear console">
             Clear
           </button>
+          <button
+            type="button"
+            className={`wf-console-run-toggle${runBehavior === 'clear' ? ' wf-console-run-toggle-on' : ''}`}
+            onClick={() => {
+              const next = runBehavior === 'clear' ? 'append' : 'clear';
+              onRunBehaviorChange(next);
+              saveConsoleRunBehavior(next);
+            }}
+            title={runBehavior === 'clear'
+              ? 'Auto-clear is ON: console clears before each run. Click to keep logs across runs.'
+              : 'Append mode: logs accumulate across runs. Click to auto-clear before each run.'}
+          >
+            {runBehavior === 'clear' ? '● Auto-clear' : '○ Append'}
+          </button>
           <span className="wf-console-actions-sep" />
-          <button
-            type="button"
-            className="wf-console-action-btn"
-            onClick={toggleFloat}
-            title={mode === 'floating' ? 'Dock panel' : 'Pop out to floating window'}
+          <select
+            className="wf-console-mode-select"
+            value={mode}
+            onChange={(e) => {
+              const m = e.target.value as PanelMode;
+              setMode(m);
+              setAsDefault(m);
+            }}
+            title="Console display mode (saved as default)"
           >
-            {mode === 'floating' ? '⬓' : '⧉'}
-          </button>
-          <button
-            type="button"
-            className="wf-console-action-btn"
-            onClick={toggleMaximize}
-            title={mode === 'maximized' ? 'Restore panel size' : 'Maximize panel'}
-          >
-            {mode === 'maximized' ? '⬒' : '⬜'}
-          </button>
+            <option value="docked">⬓ Bottom</option>
+            <option value="floating">⧉ Floating</option>
+            <option value="maximized">⬜ Full Screen</option>
+          </select>
           <button type="button" className="wf-console-action-btn" onClick={onClose} title="Close console">
             ✕
           </button>
         </div>
       </div>
+      {searchOpen && (
+        <div className="wf-console-search-bar">
+          <input
+            ref={searchInputRef}
+            className="wf-console-search-input"
+            type="text"
+            placeholder="Search console…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') toggleSearch();
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); goNextMatch(); }
+              if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); goPrevMatch(); }
+            }}
+          />
+          {searchQuery && (
+            <span className="wf-console-search-count">
+              {matchCount > 0 ? `${currentMatchIdx + 1}/${matchCount}` : 'No matches'}
+            </span>
+          )}
+          <button type="button" className="wf-console-action-btn" onClick={goPrevMatch} title="Previous match (Shift+Enter)" disabled={matchCount === 0}>
+            ▲
+          </button>
+          <button type="button" className="wf-console-action-btn" onClick={goNextMatch} title="Next match (Enter)" disabled={matchCount === 0}>
+            ▼
+          </button>
+          <button type="button" className="wf-console-action-btn" onClick={toggleSearch} title="Close search">
+            ✕
+          </button>
+        </div>
+      )}
       <div className="wf-console-body" ref={containerRef} onScroll={handleScroll}>
         {viewMode === 'timeline' && stepSummaries.length > 0 ? (
           <div className="wf-timeline">
@@ -239,11 +398,17 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
             const cls = prefixClass[line.prefix] ?? 'wf-cl-plain';
             const icon = prefixIcon[line.prefix] ?? '';
             const time = fmtTime(line.ts);
+            const isMatch = searchQuery && matchIndices.includes(i);
+            const isCurrent = isMatch && matchIndices[currentMatchIdx] === i;
             return (
-              <div key={i} className={`wf-cl-line ${cls}`}>
+              <div
+                key={i}
+                ref={(el) => { if (el) lineRefsMap.current.set(i, el); else lineRefsMap.current.delete(i); }}
+                className={`wf-cl-line ${cls}${isCurrent ? ' wf-cl-line-current-match' : isMatch ? ' wf-cl-line-match' : ''}`}
+              >
                 {time && <span className="wf-cl-ts">{time}</span>}
                 {icon && <span className="wf-cl-icon">{icon}</span>}
-                <span className="wf-cl-text">{line.text}</span>
+                <span className="wf-cl-text">{searchQuery ? highlightMatches(line.text, searchQuery) : line.text}</span>
               </div>
             );
           })
@@ -252,7 +417,10 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
       </div>
 
       {mode === 'floating' && (
-        <div className="wf-console-float-grip" onMouseDown={onFloatResizeStart} />
+        <>
+          <div className="wf-console-float-edge-right" onMouseDown={onRightEdgeResizeStart} />
+          <div className="wf-console-float-grip" onMouseDown={onFloatResizeStart} />
+        </>
       )}
     </div>
   );

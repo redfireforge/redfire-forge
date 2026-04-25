@@ -72,7 +72,7 @@ describe('formatPayload', () => {
   });
 
   it('falls back to String() for circular references', () => {
-    const obj: any = {};
+    const obj: Record<string, unknown> = {};
     obj.self = obj;
     const result = formatPayload(obj);
     expect(result).toBe('[object Object]');

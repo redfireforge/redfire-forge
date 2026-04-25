@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData, SetVariableNodeData, AggregateNodeData, NodeRunStatus } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData, SetVariableNodeData, AggregateNodeData, ErrorHandlerNodeData, LogDebugNodeData, WaitForConditionNodeData, NodeRunStatus, WorkflowErrorConfig } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -13,7 +13,7 @@ import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../../utils/wo
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
 import { stripTrailingSlash } from '../../utils/workflowHostResolve';
-import { escapeRegExp, toErrorMessage } from '../../utils/helpers';
+import { escapeRegExp, toErrorMessage, humanizeError } from '../../utils/helpers';
 import type { DebugController } from './debugController';
 
 /**
@@ -91,6 +91,8 @@ export async function runGraph(
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
   /** Optional debug controller for step-through execution. */
   debugController?: DebugController,
+  /** Workflow-level error handling config. */
+  errorConfig?: WorkflowErrorConfig,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -252,7 +254,7 @@ export async function runGraph(
           }
         }
         if (!rr.passed && !rr.failureDetails?.length) {
-          log({ prefix: '!', text: `[${label}] FAIL — ${status.error ?? 'request failed'}` });
+          log({ prefix: '!', text: `[${label}] ${humanizeError(status.error ?? 'request failed')}` });
         }
         callbacks.onNodeStateChange(nodeId, status);
         callbacks.onVariablesChange(ctx.snapshot());
@@ -568,16 +570,266 @@ export async function runGraph(
 
         await visitOutgoing(nodeId);
 
+      } else if (node.type === 'errorHandler') {
+        const data = node.data as ErrorHandlerNodeData;
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        const bodyEdges = nextEdges.filter(e => e.sourceHandle === 'body');
+        const catchEdges = nextEdges.filter(e => e.sourceHandle === 'catch');
+        const doneEdges = nextEdges.filter(e => e.sourceHandle === 'done');
+
+        const bodyNodeIds = collectReachableFromEdges(
+          bodyEdges, outgoing, nodeMap,
+          [...catchEdges.map(e => e.target), ...doneEdges.map(e => e.target)],
+        );
+
+        log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Error Handler — body: ${bodyNodeIds.size} nodes, retry: ${data.retryCount ?? 0}` });
+        callbacks.onNodeStateChange(nodeId, { state: 'running' });
+
+        let succeeded = false;
+        let lastError: { message: string; statusCode: number; nodeId: string; nodeLabel: string; type: string } | null = null;
+        let attempt = 0;
+        const retryStart = performance.now();
+        const maxRetries = data.retryCount ?? 0;
+
+        while (attempt <= maxRetries && !succeeded) {
+          if (abortSignal?.aborted || debugController?.isStopped) break;
+
+          // Check retry timeout
+          if (data.retryTimeoutMs > 0 && attempt > 0) {
+            const elapsed = performance.now() - retryStart;
+            if (elapsed >= data.retryTimeoutMs) {
+              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Retry timeout (${data.retryTimeoutMs}ms) exceeded` });
+              break;
+            }
+          }
+
+          // Clear visited state for body nodes on retry
+          if (attempt > 0) {
+            for (const bid of bodyNodeIds) {
+              visited.delete(bid);
+              joinArrived.delete(bid);
+            }
+          }
+
+          const preResultCount = results.length;
+          for (const e of bodyEdges) {
+            await visit(e.target, `${threadId}-try-${attempt}`);
+          }
+
+          // Check if any body node failed
+          const bodyResults = results.slice(preResultCount);
+          const failedResult = bodyResults.find(r => !r.passed);
+
+          if (!failedResult) {
+            succeeded = true;
+          } else {
+            const errType = classifyErrorType(failedResult);
+            lastError = {
+              message: failedResult.errorMessage || summarizeRequestFailure(failedResult),
+              statusCode: failedResult.httpStatus,
+              nodeId: failedResult.scenarioId ?? '',
+              nodeLabel: failedResult.scenarioName ?? '',
+              type: errType,
+            };
+
+            // Check if error matches filter
+            if (!matchesErrorFilter(errType, data.errorFilter)) {
+              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error type "${errType}" does not match filter "${data.errorFilter}" — not retrying` });
+              break;
+            }
+
+            attempt++;
+            if (attempt <= maxRetries) {
+              const delay = data.retryBackoff === 'exponential'
+                ? (data.retryDelayMs ?? 1000) * Math.pow(2, attempt - 1)
+                : (data.retryDelayMs ?? 1000);
+              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Retry ${attempt}/${maxRetries} in ${delay}ms...` });
+              await new Promise<void>((resolve) => {
+                const timer = setTimeout(resolve, delay);
+                if (abortSignal) {
+                  const onAbort = () => { clearTimeout(timer); resolve(); };
+                  abortSignal.addEventListener('abort', onAbort, { once: true });
+                }
+              });
+            }
+          }
+        }
+
+        if (succeeded) {
+          log({ prefix: '*', text: `[${nodeLabel(nodeId)}] Body succeeded${attempt > 0 ? ` after ${attempt} retry(ies)` : ''}` });
+          callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+          // Skip the catch path
+          for (const e of catchEdges) {
+            markSubtreeSkipped(e.target, outgoing, nodeMap, visited, callbacks, incomingCount);
+          }
+        } else {
+          // Inject error variables into context
+          if (lastError) {
+            ctx.set('error.message', lastError.message);
+            ctx.set('error.statusCode', String(lastError.statusCode));
+            ctx.set('error.nodeId', lastError.nodeId);
+            ctx.set('error.nodeLabel', lastError.nodeLabel);
+            ctx.set('error.retryCount', String(Math.max(0, attempt - 1)));
+            ctx.set('error.type', lastError.type);
+            // Ensure httpStatus is available in catch path for conditions/logging
+            ctx.set('httpStatus', String(lastError.statusCode));
+          }
+          callbacks.onVariablesChange(ctx.snapshot());
+          log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Body failed — executing catch path` });
+
+          if (data.continueOnError) {
+            callbacks.onNodeStateChange(nodeId, { state: 'pass', error: lastError?.message });
+          } else {
+            allPassed = false;
+            callbacks.onNodeStateChange(nodeId, { state: 'fail', error: lastError?.message });
+          }
+
+          // Execute catch path
+          for (const e of catchEdges) {
+            await visit(e.target, `${threadId}-catch`);
+          }
+        }
+
+        // Follow done edges
+        for (const e of doneEdges) {
+          await visit(e.target, threadId);
+        }
+
+      } else if (node.type === 'logDebug') {
+        // ── Log/Debug node ──
+        const data = node.data as LogDebugNodeData;
+        const resolvedMessage = ctx.resolve(data.message || '');
+        const levelPrefix = data.logLevel === 'error' ? '!' : data.logLevel === 'warn' ? '⚠' : data.logLevel === 'debug' ? '🐛' : 'ℹ';
+        log({ prefix: levelPrefix, text: `[${nodeLabel(nodeId)}] [${data.logLevel.toUpperCase()}] ${resolvedMessage}` });
+
+        // Warn about unresolved {{variables}} left in the message
+        const unresolvedVars = resolvedMessage.match(/\{\{([^}]+)\}\}/g);
+        if (unresolvedVars) {
+          const names = unresolvedVars.map(m => m.slice(2, -2).trim());
+          log({ prefix: '⚠', text: `[${nodeLabel(nodeId)}] Unresolved variable${names.length > 1 ? 's' : ''}: ${names.join(', ')} — not defined by any upstream step or extraction` });
+        }
+
+        if (data.snapshotVariables) {
+          const snap = ctx.snapshot();
+          const entries = Object.entries(snap).filter(([k]) => !k.startsWith('__'));
+          if (entries.length > 0) {
+            log({ prefix: '📋', text: `[${nodeLabel(nodeId)}] Variable snapshot (${entries.length}):` });
+            for (const [k, v] of entries) {
+              log({ prefix: ' ', text: `  ${k} = ${v.length > 80 ? v.slice(0, 77) + '…' : v}` });
+            }
+          }
+        }
+
+        callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+        await visitOutgoing(nodeId);
+
+      } else if (node.type === 'waitForCondition') {
+        // ── Wait for Condition node ──
+        const data = node.data as WaitForConditionNodeData;
+        const nextEdges = outgoing.get(nodeId) ?? [];
+        const bodyEdges = nextEdges.filter(e => e.sourceHandle === 'body');
+        const doneEdges = nextEdges.filter(e => e.sourceHandle === 'done');
+
+        const bodyNodeIds = collectReachableFromEdges(
+          bodyEdges, outgoing, nodeMap,
+          [...doneEdges.map(e => e.target)],
+        );
+
+        log({ prefix: '⏳', text: `[${nodeLabel(nodeId)}] Polling — interval ${data.pollIntervalMs}ms, timeout ${data.timeoutMs}ms` });
+        callbacks.onNodeStateChange(nodeId, { state: 'running' });
+
+        let conditionMet = false;
+        let attempt = 0;
+        const pollStart = performance.now();
+
+        while (!conditionMet) {
+          if (abortSignal?.aborted || debugController?.isStopped) break;
+
+          // Check timeout
+          if (data.timeoutMs > 0) {
+            const elapsed = performance.now() - pollStart;
+            if (elapsed >= data.timeoutMs) {
+              log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Timeout after ${Math.round(elapsed)}ms` });
+              break;
+            }
+          }
+
+          // Check max attempts
+          if (data.maxAttempts > 0 && attempt >= data.maxAttempts) {
+            log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Max attempts (${data.maxAttempts}) reached` });
+            break;
+          }
+
+          // Clear visited state for body nodes on each poll
+          if (attempt > 0) {
+            for (const bid of bodyNodeIds) {
+              visited.delete(bid);
+              joinArrived.delete(bid);
+            }
+          }
+
+          // Execute body (poll step)
+          for (const e of bodyEdges) {
+            await visit(e.target, `${threadId}-poll-${attempt}`);
+          }
+          attempt++;
+
+          // Evaluate condition
+          conditionMet = evaluateWaitCondition(data.conditionExpression, ctx);
+          if (conditionMet) {
+            log({ prefix: '✓', text: `[${nodeLabel(nodeId)}] Condition met after ${attempt} attempt(s)` });
+            break;
+          }
+
+          // Wait before next poll
+          log({ prefix: '⏳', text: `[${nodeLabel(nodeId)}] Attempt ${attempt} — condition not met, waiting ${data.pollIntervalMs}ms...` });
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, data.pollIntervalMs);
+            if (abortSignal) {
+              const onAbort = () => { clearTimeout(timer); resolve(); };
+              abortSignal.addEventListener('abort', onAbort, { once: true });
+            }
+          });
+        }
+
+        // Set wait metadata variables
+        const totalElapsed = Math.round(performance.now() - pollStart);
+        ctx.set('wait.attempts', String(attempt));
+        ctx.set('wait.elapsed', String(totalElapsed));
+        ctx.set('wait.conditionMet', String(conditionMet));
+        callbacks.onVariablesChange(ctx.snapshot());
+
+        if (conditionMet) {
+          callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+        } else {
+          allPassed = false;
+          callbacks.onNodeStateChange(nodeId, { state: 'fail', error: `Condition not met after ${attempt} attempt(s)` });
+        }
+
+        // Follow done edges
+        for (const e of doneEdges) {
+          await visit(e.target, threadId);
+        }
+
       } else if (node.type === 'end') {
         // End node: terminal — mark pass (no outgoing edges).
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
     } catch (err) {
       allPassed = false;
-      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${toErrorMessage(err)}` });
+      const technical = toErrorMessage(err);
+      const friendly = humanizeError(technical);
+      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${friendly}` });
+      // Ensure httpStatus is always available even when the node throws before setting it
+      if (isHttpWorkflowNode(node) && ctx.get('httpStatus') === undefined) {
+        ctx.set('httpStatus', '0');
+        ctx.set('status', '0');
+        ctx.setForNode(nodeId, 'httpStatus', '0');
+        ctx.setForNode(nodeId, 'status', '0');
+      }
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
-        error: toErrorMessage(err),
+        error: friendly,
       });
     }
   }
@@ -585,6 +837,27 @@ export async function runGraph(
   for (const startNode of startNodes) {
     if (abortSignal?.aborted) break;
     await visit(startNode.id);
+  }
+
+  // ── Workflow-level error handling ──
+  // If any node failed and we have a workflow-level error config with 'run-handler',
+  // execute the handler subgraph.
+  if (!allPassed && errorConfig?.mode === 'run-handler' && errorConfig.handlerEntryNodeId) {
+    const handlerNode = nodeMap.get(errorConfig.handlerEntryNodeId);
+    if (handlerNode && !visited.has(errorConfig.handlerEntryNodeId)) {
+      // Inject workflow-level error info
+      const failedResults = results.filter(r => !r.passed);
+      const firstFailed = failedResults[0];
+      const errVar = errorConfig.errorVariable || 'error.message';
+      if (firstFailed) {
+        ctx.set(errVar, firstFailed.errorMessage || summarizeRequestFailure(firstFailed));
+        ctx.set('error.statusCode', String(firstFailed.httpStatus));
+        ctx.set('error.failedCount', String(failedResults.length));
+      }
+      callbacks.onVariablesChange(ctx.snapshot());
+      log({ prefix: '!', text: `Workflow-level error handler triggered — executing handler node "${nodeLabel(errorConfig.handlerEntryNodeId)}"` });
+      await visit(errorConfig.handlerEntryNodeId);
+    }
   }
 
   // If any node failed, implicitly mark unvisited End nodes as failed.
@@ -595,7 +868,7 @@ export async function runGraph(
       if (!allPassed) {
         // Collect error messages from failed nodes
         const failedErrors: string[] = [];
-        for (const [nid, result] of results.entries()) {
+        for (const [_nid, result] of results.entries()) {
           if (result.error) failedErrors.push(result.error);
         }
         const errorSummary = failedErrors.length > 0
@@ -786,12 +1059,18 @@ async function executeHttpNode(
     const responseData: ResponseData = { status: httpStatus, headers: responseHeaders, body: responseObj };
     extracted = extractVariables(data.scenario.extractions, responseData, ctx, httpNodeId);
   }
-  // If nothing defined `status`, bind it to the numeric HTTP status so `{{status}}` works in conditions.
-  if (ctx.get('status') === undefined) {
-    ctx.set('status', String(httpStatus));
-    ctx.setForNode(httpNodeId, 'status', String(httpStatus));
-    extracted = { ...extracted, status: String(httpStatus) };
+  // Always bind `httpStatus` globally so `{{httpStatus}}` works everywhere.
+  // Only set global `status` when undefined (preserves user-defined `status` variables).
+  // Per-node scoping always gets both for `{{node:"Step".status}}`.
+  const statusStr = String(httpStatus);
+  ctx.set('httpStatus', statusStr);
+  ctx.setForNode(httpNodeId, 'status', statusStr);
+  ctx.setForNode(httpNodeId, 'httpStatus', statusStr);
+  if (!extracted.status && ctx.get('status') === undefined) {
+    ctx.set('status', statusStr);
+    extracted = { ...extracted, status: statusStr };
   }
+  if (!extracted.httpStatus) extracted = { ...extracted, httpStatus: statusStr };
 
   const requestResult: RequestResult = {
     id: uuidv4(),
@@ -830,4 +1109,55 @@ function evaluateCondition(data: ConditionNodeData, ctx: VariableContext): boole
     case 'regex': try { return new RegExp(right).test(left); } catch { return false; }
     default: return false;
   }
+}
+
+// ── Error Handler helpers ────────────────────────────
+
+/** Classify the type of error from a failed RequestResult. */
+function classifyErrorType(result: RequestResult): string {
+  if (result.httpStatus === 0) return 'network-error';
+  if (result.httpStatus >= 400) return 'http-error';
+  if (result.failureDetails && result.failureDetails.length > 0) return 'assertion-failure';
+  return 'http-error';
+}
+
+/** Check if an error type matches the configured filter. */
+function matchesErrorFilter(errorType: string, filter: string): boolean {
+  if (filter === 'all') return true;
+  return errorType === filter;
+}
+
+// ── Wait for Condition helpers ───────────────────────
+
+const WAIT_CONDITION_OPERATORS = ['==', '!=', '>=', '<=', '>', '<', 'contains', '!contains'] as const;
+
+/**
+ * Evaluate a wait condition expression like "{{status}} == done".
+ * Supports: ==, !=, >, <, >=, <=, contains, !contains.
+ */
+function evaluateWaitCondition(expression: string, ctx: VariableContext): boolean {
+  if (!expression.trim()) return false;
+  const resolved = ctx.resolve(expression);
+
+  // Try to find an operator in the resolved expression
+  for (const op of WAIT_CONDITION_OPERATORS) {
+    const idx = resolved.indexOf(` ${op} `);
+    if (idx === -1) continue;
+    const left = resolved.slice(0, idx).trim();
+    const right = resolved.slice(idx + op.length + 2).trim();
+    switch (op) {
+      case '==': return left === right;
+      case '!=': return left !== right;
+      case '>': return parseFloat(left) > parseFloat(right);
+      case '<': return parseFloat(left) < parseFloat(right);
+      case '>=': return parseFloat(left) >= parseFloat(right);
+      case '<=': return parseFloat(left) <= parseFloat(right);
+      case 'contains': return left.includes(right);
+      case '!contains': return !left.includes(right);
+    }
+  }
+
+  // Fallback: treat as truthy check (non-empty, not "false", not "0")
+  const val = resolved.trim().toLowerCase();
+  return val !== '' && val !== 'false' && val !== '0' && val !== 'null' && val !== 'undefined';
 }

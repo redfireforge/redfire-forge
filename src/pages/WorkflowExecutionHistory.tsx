@@ -82,6 +82,7 @@ export default function WorkflowExecutionHistory() {
 
   useEffect(() => {
     loadExecutions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadExecutions = async () => {

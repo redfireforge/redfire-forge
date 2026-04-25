@@ -8,12 +8,12 @@ interface Props {
 }
 
 export default function RequestAuthEditor({ auth, collection, globalAuthProfiles, onUpdate }: Props) {
-  const authSelectValue = (auth as any).globalProfileId ? 'global-profile' : auth.type;
+  const authSelectValue = auth.globalProfileId ? 'global-profile' : auth.type;
 
   const handleTypeChange = (val: string) => {
     if (val === 'global-profile') {
       const first = globalAuthProfiles[0];
-      if (first) onUpdate({ ...first.auth, globalProfileId: first.id } as any);
+      if (first) onUpdate({ ...first.auth, globalProfileId: first.id });
     } else {
       onUpdate({ type: val as AuthConfig['type'] });
     }
@@ -21,11 +21,11 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
 
   const handleProfileChange = (profileId: string) => {
     const profile = globalAuthProfiles.find(p => p.id === profileId);
-    if (profile) onUpdate({ ...profile.auth, globalProfileId: profile.id } as any);
+    if (profile) onUpdate({ ...profile.auth, globalProfileId: profile.id });
   };
 
-  const selectedProfile = (auth as any).globalProfileId
-    ? globalAuthProfiles.find(p => p.id === (auth as any).globalProfileId)
+  const selectedProfile = auth.globalProfileId
+    ? globalAuthProfiles.find(p => p.id === auth.globalProfileId)
     : null;
 
   return (
@@ -43,7 +43,7 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
       {authSelectValue === 'global-profile' && (
         <div className="req-auth-fields">
           <label className="req-auth-label">Select Profile</label>
-          <select className="req-select" value={(auth as any).globalProfileId ?? ''}
+          <select className="req-select" value={auth.globalProfileId ?? ''}
             onChange={(e) => handleProfileChange(e.target.value)}>
             {globalAuthProfiles.map((p) => (
               <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
@@ -99,8 +99,8 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
       )}
       {auth.type === 'inherit' && collection.auth && collection.auth.type !== 'none' && (
         <div className="req-auth-inherit-info">
-          Inheriting <strong>{(collection.auth as any).globalProfileId
-            ? globalAuthProfiles.find(p => p.id === (collection.auth as any).globalProfileId)?.name ?? collection.auth.type
+          Inheriting <strong>{collection.auth.globalProfileId
+            ? globalAuthProfiles.find(p => p.id === collection.auth.globalProfileId)?.name ?? collection.auth.type
             : collection.auth.type}</strong> auth from collection "{collection.name}"
         </div>
       )}

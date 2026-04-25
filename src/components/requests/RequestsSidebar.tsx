@@ -500,7 +500,7 @@ export default function RequestsSidebar({
   const handleReqDragOver = useCallback((e: React.DragEvent, _colId: string, reqId: string, folderId: string | undefined) => {
     const di = dragItemRef.current;
     if (!di || di.kind !== 'request') return;
-    if (di.kind === 'request' && (di as any).reqId === reqId) return;
+    if (di.kind === 'request' && di.reqId === reqId) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
@@ -521,8 +521,8 @@ export default function RequestsSidebar({
     const ins = dropInsert;
     setDragItem(null); setDropTarget(null); setDropInsert(null);
     if (!ins) {
-      if (di.colId === colId) onMoveRequest(colId, (di as any).reqId, folderId ?? null);
-      else onMoveRequestToCollection(di.colId, (di as any).reqId, colId, folderId ?? null);
+      if (di.colId === colId) onMoveRequest(colId, di.reqId, folderId ?? null);
+      else onMoveRequestToCollection(di.colId, di.reqId, colId, folderId ?? null);
       return;
     }
     const isAfter = ins.beforeReqId.endsWith(':after');
@@ -530,8 +530,8 @@ export default function RequestsSidebar({
     const idx = requests.findIndex(r => r.id === actualId);
     const nextReq = isAfter ? requests[idx + 1] : requests[idx];
     const beforeId = nextReq?.id;
-    if (di.colId === colId) onMoveRequest(colId, (di as any).reqId, folderId ?? null, beforeId);
-    else onMoveRequestToCollection(di.colId, (di as any).reqId, colId, folderId ?? null);
+    if (di.colId === colId) onMoveRequest(colId, di.reqId, folderId ?? null, beforeId);
+    else onMoveRequestToCollection(di.colId, di.reqId, colId, folderId ?? null);
   }, [dropInsert, onMoveRequest, onMoveRequestToCollection, setDragItem]);
 
   const handleRootDrop = useCallback((e: React.DragEvent) => {
@@ -546,7 +546,7 @@ export default function RequestsSidebar({
   // ─── Render helpers ──────────────────────────────────
 
   const renderRequest = (colId: string, reqId: string, method: string, name: string, url: string, inFolderId?: string, siblingRequests?: { id: string }[], meta?: CatalogRequestMeta) => {
-    const isDragging = dragItem?.kind === 'request' && (dragItem as any).reqId === reqId;
+    const isDragging = dragItem?.kind === 'request' && dragItem.reqId === reqId;
     const showBefore = dropInsert?.beforeReqId === reqId;
     const showAfter = dropInsert?.beforeReqId === reqId + ':after';
     return (
@@ -574,7 +574,7 @@ export default function RequestsSidebar({
     const isExpanded = expandedFolders.has(folder.id);
     const isRenaming = renamingFolder?.folderId === folder.id;
     const isDropTgt = dropTarget === folder.id;
-    const isDraggingThis = dragItem?.kind === 'folder' && (dragItem as any).folderId === folder.id;
+    const isDraggingThis = dragItem?.kind === 'folder' && dragItem.folderId === folder.id;
     const subFolders = folder.folders ?? [];
     const isNewFolderHere = newFolderTarget?.parentFolderId === folder.id;
 

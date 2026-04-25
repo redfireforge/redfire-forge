@@ -1,4 +1,8 @@
 import type { LoopNodeData, LoopMode } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
+import AvailableVariables from './AvailableVariables';
 
 const MODE_OPTIONS: { value: LoopMode; label: string; desc: string }[] = [
   { value: 'count', label: 'Repeat N times', desc: 'Execute the body a fixed number of times' },
@@ -18,7 +22,12 @@ const OPERATORS = [
   { value: 'regex', label: 'regex' },
 ] as const;
 
-export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onChange: (d: LoopNodeData) => void }) {
+export default function LoopConfig({ data, onChange, onRequestVariableInsert, variableHints = [] }: {
+  data: LoopNodeData;
+  onChange: (d: LoopNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
+}) {
   return (
     <div className="wf-config-body">
       <div className="wf-config-field">
@@ -49,11 +58,17 @@ export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onC
           </div>
           <div className="wf-config-field">
             <label>Or expression</label>
-            <input
-              value={data.countExpression ?? ''}
-              onChange={(e) => onChange({ ...data, countExpression: e.target.value })}
-              placeholder="e.g. {{retryCount}} (overrides fixed count)"
-            />
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              onInsert={(snippet) => onChange({ ...data, countExpression: (data.countExpression ?? '') + snippet })}
+            >
+              <ExpressionInput
+                value={data.countExpression ?? ''}
+                onChange={(val) => onChange({ ...data, countExpression: val })}
+                placeholder="e.g. {{retryCount}} (overrides fixed count)"
+                variableHints={variableHints}
+              />
+            </InsertVarField>
           </div>
           <div className="wf-config-field">
             <label>Index variable</label>
@@ -72,11 +87,17 @@ export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onC
         <>
           <div className="wf-config-field">
             <label>Source array</label>
-            <input
-              value={data.sourceExpression ?? ''}
-              onChange={(e) => onChange({ ...data, sourceExpression: e.target.value })}
-              placeholder="e.g. {{items}} or {{$.data.results}}"
-            />
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              onInsert={(snippet) => onChange({ ...data, sourceExpression: (data.sourceExpression ?? '') + snippet })}
+            >
+              <ExpressionInput
+                value={data.sourceExpression ?? ''}
+                onChange={(val) => onChange({ ...data, sourceExpression: val })}
+                placeholder="e.g. {{items}} or {{$.data.results}}"
+                variableHints={variableHints}
+              />
+            </InsertVarField>
             <span className="wf-config-hint">Expression that resolves to a JSON array</span>
           </div>
           <div className="wf-config-field">
@@ -104,11 +125,17 @@ export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onC
         <>
           <div className="wf-config-field">
             <label>Left operand</label>
-            <input
-              value={data.whileLeft ?? ''}
-              onChange={(e) => onChange({ ...data, whileLeft: e.target.value })}
-              placeholder="e.g. {{status}}"
-            />
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              onInsert={(snippet) => onChange({ ...data, whileLeft: (data.whileLeft ?? '') + snippet })}
+            >
+              <ExpressionInput
+                value={data.whileLeft ?? ''}
+                onChange={(val) => onChange({ ...data, whileLeft: val })}
+                placeholder="e.g. {{status}}"
+                variableHints={variableHints}
+              />
+            </InsertVarField>
           </div>
           <div className="wf-config-field">
             <label>Operator</label>
@@ -121,11 +148,17 @@ export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onC
           </div>
           <div className="wf-config-field">
             <label>Right operand</label>
-            <input
-              value={data.whileRight ?? ''}
-              onChange={(e) => onChange({ ...data, whileRight: e.target.value })}
-              placeholder="e.g. 200"
-            />
+            <InsertVarField
+              onRequestVariableInsert={onRequestVariableInsert}
+              onInsert={(snippet) => onChange({ ...data, whileRight: (data.whileRight ?? '') + snippet })}
+            >
+              <ExpressionInput
+                value={data.whileRight ?? ''}
+                onChange={(val) => onChange({ ...data, whileRight: val })}
+                placeholder="e.g. 200"
+                variableHints={variableHints}
+              />
+            </InsertVarField>
           </div>
         </>
       )}
@@ -141,6 +174,8 @@ export default function LoopConfig({ data, onChange }: { data: LoopNodeData; onC
         />
         <span className="wf-config-hint">Prevents infinite loops. Default 100.</span>
       </div>
+
+      <AvailableVariables hints={variableHints} />
     </div>
   );
 }

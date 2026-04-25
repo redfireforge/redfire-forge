@@ -1,13 +1,21 @@
 import { v4 as uuid } from 'uuid';
-import type { SetVariableNodeData, SetVariableAssignment } from '../../types/workflow';
+import type { SetVariableNodeData } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
+import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
+import AvailableVariables from './AvailableVariables';
 
 export default function SetVariableConfig({
   data,
   onChange,
+  onRequestVariableInsert,
+  variableHints = [],
 }: {
   data: SetVariableNodeData;
   onChange: (d: SetVariableNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
 }) {
   const assignments = data.assignments ?? [];
   const { update: updateAssignment, remove: removeAssignment, move: moveAssignment } = useListCrud(
@@ -39,12 +47,18 @@ export default function SetVariableConfig({
                 placeholder="Variable name"
               />
               <span className="wf-setvar-assignment-eq">=</span>
-              <input
-                className="wf-setvar-assignment-expr"
-                value={a.expression}
-                onChange={(e) => updateAssignment(i, { expression: e.target.value })}
-                placeholder="Value / {{expression}}"
-              />
+              <InsertVarField
+                onRequestVariableInsert={onRequestVariableInsert}
+                onInsert={(snippet) => updateAssignment(i, { expression: a.expression + snippet })}
+              >
+                <ExpressionInput
+                  className="wf-setvar-assignment-expr"
+                  value={a.expression}
+                  onChange={(val) => updateAssignment(i, { expression: val })}
+                  placeholder="Value / {{expression}}"
+                  variableHints={variableHints}
+                />
+              </InsertVarField>
               <button
                 type="button"
                 className="wf-setvar-assignment-move"
@@ -70,6 +84,8 @@ export default function SetVariableConfig({
         </div>
         <button type="button" className="wf-setvar-add-assignment" onClick={addAssignment}>+ Add Assignment</button>
       </div>
+
+      <AvailableVariables hints={variableHints} />
     </div>
   );
 }

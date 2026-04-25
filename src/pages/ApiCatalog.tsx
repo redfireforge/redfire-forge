@@ -33,11 +33,11 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     prevEnvId.current = entry.hostConfig.environmentId;
 
     if (entry.savedAuth && entry.savedAuth.type !== 'none') {
-      const saved = entry.savedAuth as any;
+      const saved = entry.savedAuth;
       if (saved.__globalProfileId && globalAuthProfiles?.length) {
         const liveProfile = globalAuthProfiles.find(p => p.id === saved.__globalProfileId);
         if (liveProfile) {
-          setAuth({ ...liveProfile.auth, __globalProfileId: liveProfile.id, __globalProfileName: liveProfile.name } as any);
+          setAuth({ ...liveProfile.auth, __globalProfileId: liveProfile.id, __globalProfileName: liveProfile.name }); // eslint-disable-line react-hooks/set-state-in-effect
           return;
         }
       }
@@ -53,7 +53,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
         if (profileId) {
           const profile = globalAuthProfiles.find(p => p.id === profileId);
           if (profile) {
-            setAuth({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any);
+            setAuth({ ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name });
             return;
           }
         }
@@ -71,7 +71,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       } else if (scheme.type === 'http' && scheme.scheme === 'basic') {
         base.type = 'basic';
       }
-      setAuth({ ...base, __inherit: true, __schemeName: schemeName } as any);
+      setAuth({ ...base, __inherit: true, __schemeName: schemeName });
     } else {
       setAuth({ type: 'none' });
     }
@@ -90,8 +90,8 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     if (profileId) {
       const profile = globalAuthProfiles.find(p => p.id === profileId);
       if (profile) {
-        const newAuth = { ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name } as any;
-        setAuth(newAuth);
+        const newAuth: AuthConfig = { ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name };
+        setAuth(newAuth); // eslint-disable-line react-hooks/set-state-in-effect
         catalog.updateEntry(entry.id, { savedAuth: newAuth });
         return;
       }

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { Node, Edge } from '@xyflow/react';
 import type { TestRun, RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from './types';
 import type { CatalogEntry, SavedEndpointValues } from './types/catalog';
 import { buildCatalogExport } from './utils/catalogExport';
 import { findFolderDeep } from './utils/requestTree';
-import { loadTestRuns, saveTheme, loadCatalogEndpointValues } from './utils/storage';
+import { loadTestRuns, saveTheme, loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from './utils/storage';
 import { useProjects } from './hooks/useProjects';
 import { useRequests } from './hooks/useRequests';
 import { useCatalog } from './hooks/useCatalog';
@@ -32,7 +33,8 @@ import TemplateGalleryModal from './components/workflow/TemplateGalleryModal';
 import ServerStatusIndicator from './components/workflow/ServerStatusIndicator';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from './hooks/useWorkflows';
-import type { SampleWorkflowEntry } from './data/sampleWorkflows';
+import { sampleWorkflowCatalog, type SampleWorkflowEntry } from './data/sampleWorkflows';
+import { getAutoLayoutNodes } from './utils/workflowAutoLayout';
 import type { Workflow } from './types/workflow';
 import RequestCollectionModal from './components/requests/RequestCollectionModal';
 import SubCollectionModal from './components/requests/SubCollectionModal';
@@ -128,7 +130,15 @@ export default function App() {
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
-  const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(null);
+  const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(() => {
+    const savedId = loadPreviewSampleId();
+    if (!savedId) return null;
+    const entry = sampleWorkflowCatalog.find(e => e.id === savedId);
+    if (!entry) return null;
+    const sample = entry.factory();
+    const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
+    return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
+  });
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
@@ -138,6 +148,7 @@ export default function App() {
     if (sendToReqEntry) {
       loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset when entry is cleared
       setSendToReqEpValues({});
     }
   }, [sendToReqEntry]);
@@ -152,7 +163,9 @@ export default function App() {
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
       setTheme(initialTheme as 'dark' | 'light');
+       
       setTestRunsCache(initialTestRuns);
     }
   }, [loading, initialTheme, initialTestRuns]);
@@ -546,6 +559,7 @@ export default function App() {
                 <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
                 <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
                 <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
+                <button className={`sub-nav-tab`} onClick={() => setShowTemplateGallery(true)}>Gallery</button>
                 <div className="sub-nav-spacer" />
                 <ServerStatusIndicator />
               </div>
@@ -579,11 +593,12 @@ export default function App() {
               onSvcSelect={setSelectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
               previewWorkflow={previewWorkflow}
-              onClearPreview={() => setPreviewWorkflow(null)}
+              onClearPreview={() => { setPreviewWorkflow(null); savePreviewSampleId(null); }}
               onUseAsTemplate={(wf) => {
                 const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
                 wfHook.insert(copy);
                 setPreviewWorkflow(null);
+                savePreviewSampleId(null);
               }}
             />
           </div>
@@ -809,7 +824,9 @@ export default function App() {
         onClose={() => setShowTemplateGallery(false)}
         onSelect={(entry: SampleWorkflowEntry) => {
           const sample = entry.factory();
-          setPreviewWorkflow(sample);
+          const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
+          setPreviewWorkflow({ ...sample, nodes: laidOut as unknown as typeof sample.nodes });
+          savePreviewSampleId(entry.id);
           setShowTemplateGallery(false);
           setActiveTab('workflow');
         }}

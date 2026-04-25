@@ -6,7 +6,7 @@ import { isTauri, isNode } from './platform';
 
 describe('isTauri', () => {
   afterEach(() => {
-    delete (window as any).__TAURI_INTERNALS__;
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
   });
 
   it('returns false when __TAURI_INTERNALS__ is not present', () => {
@@ -14,7 +14,7 @@ describe('isTauri', () => {
   });
 
   it('returns true when __TAURI_INTERNALS__ is present', () => {
-    (window as any).__TAURI_INTERNALS__ = {};
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
     expect(isTauri()).toBe(true);
   });
 });

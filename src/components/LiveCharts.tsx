@@ -19,7 +19,7 @@ const fmtConc = (v: any) => [`${v}`, 'In-Flight'];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fmtLabel = (l: any) => `${l}s`;
 
-export function LiveCharts({ data, isTimeBased }: { data: TimeSeriesPoint[]; isTimeBased: boolean }) {
+export function LiveCharts({ data, isTimeBased: _isTimeBased }: { data: TimeSeriesPoint[]; isTimeBased: boolean }) {
   return (
     <div className="live-charts">
       <div className="live-chart-card">
