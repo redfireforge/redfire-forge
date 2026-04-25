@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 export interface WorkflowInspectActions {
   openStepDetail: (nodeId: string) => void;
-  openVariableDetail: (key: string) => void;
+  openVariableDetail: (key: string, currentValue?: string, onApply?: (newValue: string) => void) => void;
   openNodeConfig: (nodeId: string) => void;
 }
 
@@ -19,6 +19,7 @@ export function WorkflowInspectProvider({
 }
 
 /** Safe no-ops when used outside the workflow designer shell. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkflowInspect(): WorkflowInspectActions {
   const v = useContext(WorkflowInspectContext);
   if (!v) {

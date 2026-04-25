@@ -79,6 +79,7 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
     setDropdownOpen(false);
   }, [draft, onDraftChange]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const bodyForm = draft.bodyForm ?? [{ key: '', value: '' }];
   const formCount = useMemo(() => bodyForm.filter(kv => kv.key.trim()).length, [bodyForm]);
 

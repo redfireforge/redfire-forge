@@ -1,4 +1,7 @@
 import type { LogDebugNodeData, LogLevel } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import InsertVarField from './InsertVarField';
+import AvailableVariables from './AvailableVariables';
 
 const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
   { value: 'info', label: 'Info' },
@@ -10,9 +13,13 @@ const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
 export default function LogDebugConfig({
   data,
   onChange,
+  onRequestVariableInsert,
+  variableHints = [],
 }: {
   data: LogDebugNodeData;
   onChange: (d: LogDebugNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
 }) {
   return (
     <div className="wf-config-body">
@@ -33,13 +40,18 @@ export default function LogDebugConfig({
 
       <div className="wf-config-field">
         <label>Message Template</label>
-        <textarea
-          className="wf-config-textarea"
-          rows={4}
-          value={data.message}
-          onChange={(e) => onChange({ ...data, message: e.target.value })}
-          placeholder="e.g. Status is {{status}}, user {{userId}} created"
-        />
+        <InsertVarField
+          onRequestVariableInsert={onRequestVariableInsert}
+          onInsert={(snippet) => onChange({ ...data, message: data.message + snippet })}
+        >
+          <textarea
+            className="wf-config-textarea"
+            rows={4}
+            value={data.message}
+            onChange={(e) => onChange({ ...data, message: e.target.value })}
+            placeholder="e.g. Status is {{status}}, user {{userId}} created"
+          />
+        </InsertVarField>
         <span className="wf-config-hint">
           Supports <code>{'{{variable}}'}</code> syntax. Variables are resolved at runtime.
         </span>
@@ -59,6 +71,8 @@ export default function LogDebugConfig({
           Useful for debugging variable state between steps.
         </span>
       </div>
+
+      <AvailableVariables hints={variableHints} />
 
       <div className="wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>

@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, ForkNodeData, JoinNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData, SetVariableNodeData, AggregateNodeData, ErrorHandlerNodeData, LogDebugNodeData, WaitForConditionNodeData, NodeRunStatus, WorkflowErrorConfig } from '../../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, DelayNodeData, StartNodeData, WebhookTriggerNodeData, ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData, SetVariableNodeData, AggregateNodeData, ErrorHandlerNodeData, LogDebugNodeData, WaitForConditionNodeData, NodeRunStatus, WorkflowErrorConfig } from '../../types/workflow';
 import { isHttpWorkflowNode } from '../../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../types';
 import { httpFetch } from '../../utils/httpClient';
@@ -13,7 +13,7 @@ import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../../utils/wo
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { v4 as uuidv4 } from 'uuid';
 import { stripTrailingSlash } from '../../utils/workflowHostResolve';
-import { escapeRegExp, toErrorMessage } from '../../utils/helpers';
+import { escapeRegExp, toErrorMessage, humanizeError } from '../../utils/helpers';
 import type { DebugController } from './debugController';
 
 /**
@@ -254,7 +254,7 @@ export async function runGraph(
           }
         }
         if (!rr.passed && !rr.failureDetails?.length) {
-          log({ prefix: '!', text: `[${label}] FAIL — ${status.error ?? 'request failed'}` });
+          log({ prefix: '!', text: `[${label}] ${humanizeError(status.error ?? 'request failed')}` });
         }
         callbacks.onNodeStateChange(nodeId, status);
         callbacks.onVariablesChange(ctx.snapshot());
@@ -814,10 +814,12 @@ export async function runGraph(
       }
     } catch (err) {
       allPassed = false;
-      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${toErrorMessage(err)}` });
+      const technical = toErrorMessage(err);
+      const friendly = humanizeError(technical);
+      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${friendly}` });
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
-        error: toErrorMessage(err),
+        error: friendly,
       });
     }
   }
@@ -856,7 +858,7 @@ export async function runGraph(
       if (!allPassed) {
         // Collect error messages from failed nodes
         const failedErrors: string[] = [];
-        for (const [nid, result] of results.entries()) {
+        for (const [_nid, result] of results.entries()) {
           if (result.error) failedErrors.push(result.error);
         }
         const errorSummary = failedErrors.length > 0

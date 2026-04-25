@@ -2,6 +2,10 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import type { Environment, Microservice, FeatureGroup, TestRun, GlobalAuthProfile } from '../types';
 import { isTauri } from '../utils/platform';
 import { openJsonFile } from '../utils/fileSaver';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface ParsedImport {
   environments: Environment[];
@@ -33,7 +37,8 @@ export default function ImportCenter({ environments, microservices, featureGroup
   const [parseError, setParseError] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [includeGlobalAuth, setIncludeGlobalAuth] = useState(true);
-  const [maximized, setMaximized] = useState(false);
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processJson = useCallback((jsonText: string, name: string) => {
@@ -53,10 +58,10 @@ export default function ImportCenter({ environments, microservices, featureGroup
             environments?: Environment[]; microservices?: Microservice[];
             globalAuthProfiles?: GlobalAuthProfile[]; featureGroups?: FeatureGroup[];
           }>;
-          let envs: Environment[] = [];
-          let svcs: Microservice[] = [];
-          let fgs: FeatureGroup[] = [];
-          let auth: GlobalAuthProfile[] = [];
+          const envs: Environment[] = [];
+          const svcs: Microservice[] = [];
+          const fgs: FeatureGroup[] = [];
+          const auth: GlobalAuthProfile[] = [];
           const envIds = new Set<string>();
           const svcIds = new Set<string>();
           const authIds = new Set<string>();
@@ -154,13 +159,11 @@ export default function ImportCenter({ environments, microservices, featureGroup
 
   return (
     <div className="modal-overlay settings-overlay" onClick={onClose}>
-      <div className={`modal settings-modal import-center-modal ${maximized ? 'modal-maximized' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`modal settings-modal import-center-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         <div className="settings-header">
           <h3>Import Data</h3>
           <div className="import-header-actions">
-            <button className="btn btn-sm" onClick={() => setMaximized((v) => !v)} title={maximized ? 'Restore' : 'Maximize'}>
-              {maximized ? '⊡' : '⊞'}
-            </button>
+            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
             <button className="btn btn-sm" onClick={onClose}>Close</button>
           </div>
         </div>
@@ -253,7 +256,9 @@ export default function ImportCenter({ environments, microservices, featureGroup
           >
             Import
           </button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

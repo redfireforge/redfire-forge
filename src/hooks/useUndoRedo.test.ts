@@ -1,20 +1,21 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useUndoRedo } from './useUndoRedo';
+import type { Node, Edge } from '@xyflow/react';
 
 function setup() {
-  let nodes = [{ id: 'a', position: { x: 0, y: 0 }, data: {} }];
-  let edges = [{ id: 'e1', source: 'a', target: 'b' }];
+  let nodes: Node[] = [{ id: 'a', position: { x: 0, y: 0 }, data: {} }];
+  let edges: Edge[] = [{ id: 'e1', source: 'a', target: 'b' }];
 
   return renderHook(() =>
     useUndoRedo(
       () => nodes,
       () => edges,
-      (n: any) => { nodes = n; },
-      (e: any) => { edges = e; },
+      (n: Node[]) => { nodes = n; },
+      (e: Edge[]) => { edges = e; },
     ),
   );
 }
@@ -126,14 +127,14 @@ describe('useUndoRedo', () => {
   });
 
   it('uses structuredClone for deep copies (mutations do not affect snapshots)', () => {
-    let nodes = [{ id: 'n1', position: { x: 0, y: 0 }, data: { nested: { val: 1 } } }];
-    let edges: any[] = [];
+    let nodes: Node[] = [{ id: 'n1', position: { x: 0, y: 0 }, data: { nested: { val: 1 } } }];
+    let edges: Edge[] = [];
     const { result } = renderHook(() =>
       useUndoRedo(
         () => nodes,
         () => edges,
-        (n: any) => { nodes = n; },
-        (e: any) => { edges = e; },
+        (n: Node[]) => { nodes = n; },
+        (e: Edge[]) => { edges = e; },
       ),
     );
     act(() => result.current.takeSnapshot('Before mutation'));

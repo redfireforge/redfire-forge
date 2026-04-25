@@ -1,7 +1,7 @@
 import type { Environment, GlobalAuthProfile, Microservice } from '../../types';
 import type { WorkflowService } from '../../types/workflow';
 import { resolveInheritLabel, authSummary } from './WorkflowServiceRegistryModal';
-import { authToState, emptyAuthState } from '../../utils/requestAuthState';
+import { authToState } from '../../utils/requestAuthState';
 
 interface Props {
   services: WorkflowService[];

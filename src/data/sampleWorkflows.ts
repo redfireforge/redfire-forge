@@ -885,7 +885,7 @@ function createBatchProvisioningWorkflow(): Workflow {
         data: {
           label: 'Start',
           inputVariables: {
-            users: '[{"name":"Alice","email":"alice@test.com"},{"name":"Bob","email":"bob@test.com"},{"name":"Carol","email":"carol@test.com"}]',
+            users: '[{"title":"Alice task","body":"Provision Alice","userId":1},{"title":"Bob task","body":"Provision Bob","userId":2},{"title":"Carol task","body":"Provision Carol","userId":3}]',
           },
         },
       },
@@ -912,7 +912,7 @@ function createBatchProvisioningWorkflow(): Workflow {
         id: 'bp-create', type: 'http', position: { x: 240, y: 410 },
         data: {
           label: 'Create User', scenario: {
-            id: 'bp-s1', name: 'Create User', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
+            id: 'bp-s1', name: 'Create User', url: 'https://jsonplaceholder.typicode.com/users', method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
             body: '{{user}}', bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
             extractions: [
@@ -970,7 +970,7 @@ function createBatchProvisioningWorkflow(): Workflow {
           label: 'Success Report', scenario: {
             id: 'bp-s2', name: 'Report OK', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"status":"success","summary":"{{summary}}","ids":{{createdIds}}}', bodyType: 'json',
+            body: '{"title":"Batch Report","body":"{{summary}}","userId":1}', bodyType: 'json',
             auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
           },
         },
@@ -981,7 +981,7 @@ function createBatchProvisioningWorkflow(): Workflow {
           label: 'Partial Report', scenario: {
             id: 'bp-s3', name: 'Report Partial', url: 'https://jsonplaceholder.typicode.com/posts', method: 'POST',
             headers: [{ key: 'Content-Type', value: 'application/json' }],
-            body: '{"status":"partial","summary":"{{summary}}","failures":{{failCount}}}', bodyType: 'json',
+            body: '{"title":"Batch Report (Partial)","body":"{{summary}}","userId":1}', bodyType: 'json',
             auth: { type: 'none' }, validation: { mode: 'none' }, extractions: [],
           },
         },
@@ -1191,7 +1191,7 @@ function createWaitConditionWorkflow(): Workflow {
       },
       {
         id: 'wc-wait', type: 'waitForCondition', position: { x: 200, y: 370 },
-        data: { label: 'Wait: Job Complete', conditionExpression: '{{jobStatus}} == completed', pollIntervalMs: 2000, timeoutMs: 30000, maxAttempts: 15 },
+        data: { label: 'Wait: Job Complete', conditionExpression: '{{jobStatus}} == 1', pollIntervalMs: 2000, timeoutMs: 30000, maxAttempts: 15 },
       },
       {
         id: 'wc-poll', type: 'http', position: { x: 50, y: 530 },
@@ -1203,7 +1203,7 @@ function createWaitConditionWorkflow(): Workflow {
             method: 'GET',
             headers: [{ key: 'Accept', value: 'application/json' }],
             body: '', auth: { type: 'none' }, validation: { mode: 'none' },
-            extractions: [{ name: 'jobStatus', source: 'body', expression: '$.title' }],
+            extractions: [{ name: 'jobStatus', source: 'body', expression: '$.userId' }],
           },
         },
       },

@@ -17,13 +17,17 @@ import { BodyEditor } from './BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from './ParamsEditor';
 import { proxyFetch, acquireOAuth2Token } from '../engine/executor';
 import { useAuthVerify } from '../hooks/useAuthVerify';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
 import { validate } from '../engine/validator';
 import CsvTemplateExportModal from './CsvTemplateExportModal';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import ExtractionEditor from './ExtractionEditor';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
-export { emptyTest } from '../utils/testEditorUtils';
+// emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
 export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
@@ -82,6 +86,8 @@ export default function TestEditorModal({
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   useEffect(() => {
     setQueryParams(toParamEntries(parseQueryParams(draft.url)));
@@ -91,6 +97,7 @@ export default function TestEditorModal({
     setFetchHostOverride(draft.fetchHostOverride || '');
     setFetchHostEnabled(!!draft.fetchHostEnabled);
     setAuthVerifyResult(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync local state only on test switch; adding draft.fetchHostOverride/fetchHostEnabled would loop
   }, [editingTest.fgId, editingTest.scenarioId, editingTest.testId, draft.id]);
 
   useEffect(() => {
@@ -157,7 +164,7 @@ export default function TestEditorModal({
       }
     }
     return { auth: { type: 'none' }, source: 'none' };
-  }, [draft.auth, editingTest.fgId, editingTest.scenarioId, featureGroups, allAuthProfiles]);
+  }, [editingTest.fgId, editingTest.scenarioId, featureGroups, allAuthProfiles]);
 
   /** Apply host override and API-key query param to a URL before fetching. */
   const applyFetchUrlOverrides = useCallback((url: string, auth: AuthConfig): string => {
@@ -283,7 +290,7 @@ export default function TestEditorModal({
     } finally {
       setFetchingResponse(false);
     }
-  }, [fetchHostEnabled, fetchHostOverride, onDraftChange, resolveEffectiveAuth]);
+  }, [applyFetchUrlOverrides, onDraftChange, resolveEffectiveAuth]);
 
   const handleValidateResponse = useCallback(async () => {
     const cur = draftRef.current;
@@ -366,7 +373,7 @@ export default function TestEditorModal({
     } finally {
       setValidating(false);
     }
-  }, [fetchHostEnabled, fetchHostOverride, resolveEffectiveAuth]);
+  }, [applyFetchUrlOverrides, resolveEffectiveAuth]);
 
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
@@ -430,7 +437,7 @@ export default function TestEditorModal({
 
   return (
     <div className="modal-overlay">
-      <div className="modal insomnia-modal">
+      <div className={`modal insomnia-modal ${expandClass}`} style={resizeStyle}>
         <div className="insomnia-top-bar">
           <h3>{isNew ? 'New Test' : 'Edit Test'}</h3>
           <div className="mode-toggle">
@@ -465,6 +472,7 @@ export default function TestEditorModal({
             <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
           </div>
           <div className="insomnia-top-actions">
+            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
             <button type="button" className="btn btn-primary" onClick={onSave} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
           </div>
@@ -676,6 +684,10 @@ export default function TestEditorModal({
             </div>
           </div>
         )}
+        <div className="insomnia-footer" style={{ display: 'flex', padding: '8px 16px', borderTop: '1px solid var(--border)', justifyContent: 'flex-end' }}>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
+        </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
 
       {csvExportOpen && (

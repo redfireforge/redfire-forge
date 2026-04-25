@@ -32,7 +32,7 @@ describe('WorkflowInspectContext', () => {
 
   it('no-op functions are stable references', () => {
     const { result, rerender } = renderHook(() => useWorkflowInspect());
-    const first = result.current;
+    const _first = result.current;
     rerender();
     // Each render returns a new object but same no-op functions since they're always freshly created
     expect(typeof result.current.openStepDetail).toBe('function');

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { migrateWorkflowSchema } from './workflowMigrations';
-import type { Workflow, HttpNodeData, WorkflowNode, WorkflowService } from '../types/workflow';
+import type { Workflow, HttpNodeData, WorkflowNode } from '../types/workflow';
 
 // Deterministic UUID for tests
 let uuidCounter = 0;

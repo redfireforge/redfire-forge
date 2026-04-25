@@ -16,6 +16,7 @@ export interface ToastApi {
   dismiss: (id: string) => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ToastContext = createContext<ToastApi | null>(null);
 
 const ICON_MAP: Record<ToastType, string> = {

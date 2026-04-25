@@ -3,9 +3,10 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import RegexAssertionModal, { PickerNode, PATTERN_LIBRARY } from './RegexAssertionModal';
+import RegexAssertionModal, { PickerNode } from './RegexAssertionModal';
+import { PATTERN_LIBRARY } from './regexAssertionUtils';
 import { buildTree } from '../utils/jsonPathTreeUtils';
+import type { JsonNode } from '../utils/jsonPathTreeUtils';
 
 const SAMPLE = { id: 'abc', name: 'Alice', tags: ['admin'], nested: { city: 'NYC' } };
 const SAMPLE_JSON = JSON.stringify(SAMPLE);
@@ -176,7 +177,7 @@ describe('RegexAssertionModal', () => {
   });
 
   it('search input filters tree nodes', () => {
-    const { container } = renderModal({ sampleJson: SAMPLE_JSON });
+    renderModal({ sampleJson: SAMPLE_JSON });
     const searchInput = screen.getByPlaceholderText(/Search fields/);
     fireEvent.change(searchInput, { target: { value: 'city' } });
     expect(screen.getByText('city')).toBeTruthy();
@@ -287,7 +288,7 @@ describe('PickerNode', () => {
   it('returns null when search does not match at all', () => {
     const leaf = { key: 'x', path: 'x', type: 'string' as const, value: 'v', children: [] };
     const { container } = render(
-      <PickerNode node={leaf as any} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="zzzzz" />
+      <PickerNode node={leaf as unknown as JsonNode} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="zzzzz" />
     );
     expect(container.querySelector('.ram-tree-node')).toBeFalsy();
   });
@@ -313,7 +314,7 @@ describe('PickerNode', () => {
   it('shows spacer for leaf nodes without children', () => {
     const leaf = { key: 'leaf', path: 'leaf', type: 'string' as const, value: 'val', children: [] };
     const { container } = render(
-      <PickerNode node={leaf as any} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
+      <PickerNode node={leaf as unknown as JsonNode} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
     );
     expect(container.querySelector('.jt-toggle-spacer')).toBeTruthy();
   });
@@ -324,5 +325,44 @@ describe('PickerNode', () => {
     );
     const row = container.querySelector('.ram-tree-row') as HTMLElement;
     expect(row.style.paddingLeft).toBe('62px'); // 3 * 18 + 8
+  });
+});
+
+describe('RegexAssertionModal expand/shrink', () => {
+  it('renders expand button in header and footer', () => {
+    const { container } = renderModal();
+    const btns = container.querySelectorAll('.modal-expand-btn');
+    expect(btns.length).toBe(2);
+    expect(btns[0].textContent).toBe('⊕');
+    expect(btns[1].textContent).toBe('⊕');
+    expect(btns[1].classList.contains('modal-expand-btn-bottom')).toBe(true);
+  });
+
+  it('toggles modal-expanded class when expand clicked', () => {
+    const { container } = renderModal();
+    const modal = container.querySelector('.ram-modal')!;
+    expect(modal.classList.contains('modal-expanded')).toBe(false);
+    fireEvent.click(container.querySelector('.modal-expand-btn')!);
+    expect(modal.classList.contains('modal-expanded')).toBe(true);
+    fireEvent.click(container.querySelector('.modal-expand-btn')!);
+    expect(modal.classList.contains('modal-expanded')).toBe(false);
+  });
+
+  it('shows shrink icon when expanded', () => {
+    const { container } = renderModal();
+    fireEvent.click(container.querySelector('.modal-expand-btn')!);
+    const btns = container.querySelectorAll('.modal-expand-btn');
+    expect(btns[0].textContent).toBe('⊖');
+    expect(btns[1].textContent).toBe('⊖');
+  });
+
+  it('footer expand button also toggles expansion', () => {
+    const { container } = renderModal();
+    const footer = container.querySelector('.modal-expand-btn-bottom')!;
+    const modal = container.querySelector('.ram-modal')!;
+    fireEvent.click(footer);
+    expect(modal.classList.contains('modal-expanded')).toBe(true);
+    fireEvent.click(footer);
+    expect(modal.classList.contains('modal-expanded')).toBe(false);
   });
 });

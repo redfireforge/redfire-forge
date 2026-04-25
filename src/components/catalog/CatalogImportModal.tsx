@@ -2,6 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedSpec, CatalogEntry } from '../../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../../utils/openApiParser';
 import { isTauri } from '../../utils/platform';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 
 interface Props {
   existingEntries: CatalogEntry[];
@@ -22,6 +26,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const [pasteText, setPasteText] = useState('');
   const [error, setError] = useState('');
   const [tauriDragHover, setTauriDragHover] = useState(false);
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
@@ -133,9 +139,10 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
 
   return (
     <div className="cat-modal-overlay" onClick={onClose}>
-      <div className="cat-modal" onClick={e => e.stopPropagation()}>
+      <div className={`cat-modal ${expandClass}`} onClick={e => e.stopPropagation()} style={resizeStyle}>
         <div className="cat-modal-header">
           <h3>{reimportEntryId ? 'Re-import / Update Specification' : 'Import OpenAPI Specification'}</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="cat-modal-close" onClick={onClose}>&times;</button>
         </div>
 
@@ -320,7 +327,9 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
               {duplicate && !hashMatch ? 'Update' : hashMatch ? 'Import Anyway' : 'Import'}
             </button>
           )}
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

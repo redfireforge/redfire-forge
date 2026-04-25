@@ -10,21 +10,21 @@ vi.mock('../utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-type Listener = (e: { data: WorkerToMainMessage }) => void;
-type ErrorListener = (e: { message: string }) => void;
+type _Listener = (e: { data: WorkerToMainMessage }) => void;
+type _ErrorListener = (e: { message: string }) => void;
 
 class MockWorker {
-  private listeners = new Map<string, Array<(...args: any[]) => void>>();
+  private listeners = new Map<string, Array<(...args: unknown[]) => void>>();
   public postMessage = vi.fn();
   public terminate = vi.fn();
 
-  addEventListener(type: string, fn: (...args: any[]) => void) {
+  addEventListener(type: string, fn: (...args: unknown[]) => void) {
     const list = this.listeners.get(type) ?? [];
     list.push(fn);
     this.listeners.set(type, list);
   }
 
-  removeEventListener(type: string, fn: (...args: any[]) => void) {
+  removeEventListener(type: string, fn: (...args: unknown[]) => void) {
     const list = this.listeners.get(type) ?? [];
     this.listeners.set(type, list.filter(f => f !== fn));
   }
@@ -43,7 +43,7 @@ class MockWorker {
 
   getStartMessage(): MainToWorkerMessage | undefined {
     const call = this.postMessage.mock.calls.find(
-      (c: any[]) => c[0]?.type === 'start'
+      (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'start'
     );
     return call?.[0];
   }
@@ -51,7 +51,7 @@ class MockWorker {
 
 let mockWorkerInstance: MockWorker;
 
-function WorkerCtor(this: any) {
+function WorkerCtor(this: MockWorker) {
   mockWorkerInstance = new MockWorker();
   Object.assign(this, mockWorkerInstance);
   // Forward method calls to the real mock instance
@@ -130,9 +130,10 @@ describe('workerBridge — runTestInWorker', () => {
     const startMsg = mockWorkerInstance.getStartMessage();
     expect(startMsg).toBeDefined();
     expect(startMsg!.type).toBe('start');
-    expect((startMsg as any).useTauriProxy).toBe(false);
-    expect((startMsg as any).config).toEqual(config);
-    expect((startMsg as any).scenarios).toEqual(scenarios);
+    const startData = startMsg as Extract<MainToWorkerMessage, { type: 'start' }>;
+    expect(startData.useTauriProxy).toBe(false);
+    expect(startData.config).toEqual(config);
+    expect(startData.scenarios).toEqual(scenarios);
 
     mockWorkerInstance.simulateMessage({ type: 'done', newResults: [] });
     await promise;
@@ -143,7 +144,7 @@ describe('workerBridge — runTestInWorker', () => {
     const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
 
     const startMsg = mockWorkerInstance.getStartMessage();
-    expect((startMsg as any).useTauriProxy).toBe(true);
+    expect((startMsg as Extract<MainToWorkerMessage, { type: 'start' }>).useTauriProxy).toBe(true);
 
     mockWorkerInstance.simulateMessage({ type: 'done', newResults: [] });
     await promise;
@@ -263,13 +264,13 @@ describe('workerBridge — runTestInWorker', () => {
       const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
 
       mockWorkerInstance.simulateMessage({
-        type: 'http-request' as any,
+        type: 'http-request',
         id: 'req-1',
         url: 'http://api.test/data',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
-      } as any);
+      });
 
       await vi.waitFor(() => {
         expect(mockedHttpFetch).toHaveBeenCalledWith(
@@ -280,7 +281,7 @@ describe('workerBridge — runTestInWorker', () => {
 
       await vi.waitFor(() => {
         const responseCall = mockWorkerInstance.postMessage.mock.calls.find(
-          (c: any[]) => c[0]?.type === 'http-response'
+          (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'http-response'
         );
         expect(responseCall).toBeDefined();
         expect(responseCall![0].id).toBe('req-1');
@@ -297,16 +298,16 @@ describe('workerBridge — runTestInWorker', () => {
       const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
 
       mockWorkerInstance.simulateMessage({
-        type: 'http-request' as any,
+        type: 'http-request',
         id: 'req-2',
         url: 'http://api.test/fail',
         method: 'GET',
         headers: {},
-      } as any);
+      });
 
       await vi.waitFor(() => {
         const responseCall = mockWorkerInstance.postMessage.mock.calls.find(
-          (c: any[]) => c[0]?.type === 'http-response'
+          (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'http-response'
         );
         expect(responseCall).toBeDefined();
         expect(responseCall![0].response.status).toBe(0);
@@ -354,16 +355,16 @@ describe('workerBridge — runTestInWorker', () => {
       const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
 
       mockWorkerInstance.simulateMessage({
-        type: 'http-request' as any,
+        type: 'http-request',
         id: 'req-str',
         url: 'http://a.test',
         method: 'GET',
         headers: {},
-      } as any);
+      });
 
       await vi.waitFor(() => {
         const resp = mockWorkerInstance.postMessage.mock.calls.find(
-          (c: any[]) => c[0]?.type === 'http-response'
+          (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'http-response'
         );
         expect(resp).toBeDefined();
         expect(resp![0].response.error).toBe('string rejection');

@@ -521,7 +521,7 @@ describe('runGraph - Loop Node', () => {
         { id: 'e2', source: 'loop1', target: 'body1', sourceHandle: 'body' },
       ];
 
-      const { vars, statesFor, callbacks } = makeCallbacks();
+      const { vars: _vars, statesFor, callbacks } = makeCallbacks();
       await runGraph(nodes, edges, {}, callbacks, new AbortController().signal, {});
 
       // Body should have been visited 3 times

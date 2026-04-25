@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   collectAncestorNodeIds,
   collectConditionVariableHints,
+  collectDescendantNodeIds,
+  collectWaitForConditionVariableHints,
   formatNodeScopedRef,
   guessConditionLeftMode,
+  guessValueType,
+  buildWorkflowOnlyHints,
   httpStepDisplayLabel,
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
@@ -264,5 +268,347 @@ describe('guessConditionLeftMode', () => {
   });
   it('returns expr for generator ref', () => {
     expect(guessConditionLeftMode('{{$uuid}}')).toBe('expr');
+  });
+});
+
+describe('guessValueType', () => {
+  it('returns boolean for "true"', () => {
+    expect(guessValueType('true')).toBe('boolean');
+  });
+  it('returns boolean for "false"', () => {
+    expect(guessValueType('false')).toBe('boolean');
+  });
+  it('returns number for numeric strings', () => {
+    expect(guessValueType('42')).toBe('number');
+    expect(guessValueType('3.14')).toBe('number');
+    expect(guessValueType('-1')).toBe('number');
+    expect(guessValueType('0')).toBe('number');
+  });
+  it('returns string for empty string', () => {
+    expect(guessValueType('')).toBe('string');
+  });
+  it('returns string for non-numeric strings', () => {
+    expect(guessValueType('hello')).toBe('string');
+    expect(guessValueType('https://example.com')).toBe('string');
+  });
+});
+
+describe('buildWorkflowOnlyHints', () => {
+  it('returns empty array for empty input', () => {
+    expect(buildWorkflowOnlyHints({})).toEqual([]);
+  });
+
+  it('returns sorted hints with type and description', () => {
+    const hints = buildWorkflowOnlyHints({ zVar: 'hello', aVar: '42' });
+    expect(hints.length).toBe(2);
+    expect(hints[0].ref).toBe('aVar');
+    expect(hints[0].type).toBe('number');
+    expect(hints[0].label).toBe('aVar (workflow)');
+    expect(hints[0].description).toContain('42');
+    expect(hints[0].source).toEqual({ nodeLabel: 'Workflow Defaults', nodeType: 'workflow', category: 'Workflow' });
+    expect(hints[0].defaultValue).toBe('42');
+    expect(hints[1].ref).toBe('zVar');
+    expect(hints[1].type).toBe('string');
+    expect(hints[1].source?.category).toBe('Workflow');
+  });
+
+  it('skips empty/whitespace-only keys', () => {
+    const hints = buildWorkflowOnlyHints({ '': 'x', '  ': 'y', valid: 'z' });
+    expect(hints.length).toBe(1);
+    expect(hints[0].ref).toBe('valid');
+  });
+
+  it('correctly types boolean values', () => {
+    const hints = buildWorkflowOnlyHints({ flag: 'true' });
+    expect(hints[0].type).toBe('boolean');
+  });
+});
+
+describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
+  const setVar = (id: string, vars: Record<string, string>): WorkflowNode => ({
+    id,
+    type: 'setVariable',
+    position: { x: 0, y: 0 },
+    data: { label: 'SetVar', assignments: Object.entries(vars).map(([name, expression], i) => ({ id: String(i), name, expression })) },
+  });
+
+  const aggregate = (id: string, mappings: { targetVariable: string; strategy: string }[]): WorkflowNode => ({
+    id,
+    type: 'aggregate',
+    position: { x: 0, y: 0 },
+    data: { label: 'Agg', mappings: mappings.map((m, i) => ({ id: String(i), sourceExpression: '{{x}}', ...m })) },
+  });
+
+  const loop = (id: string): WorkflowNode => ({
+    id,
+    type: 'loop',
+    position: { x: 0, y: 0 },
+    data: { label: 'Loop', mode: 'forEach', sourceExpression: '{{items}}', itemVariable: 'item', indexVariable: 'idx', maxIterations: 10 },
+  });
+
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+  });
+
+  it('includes setVariable assignments from upstream', () => {
+    const nodes = [setVar('sv1', { token: 'abc', count: '5' }), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sv1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('token');
+    expect(refs).toContain('count');
+    // Should have type and description
+    const tokenHint = hints.find(h => h.ref === 'token');
+    expect(tokenHint?.type).toBe('string');
+    expect(tokenHint?.description).toBeDefined();
+  });
+
+  it('includes aggregate mappings from upstream', () => {
+    const nodes = [aggregate('a1', [{ targetVariable: 'total', strategy: 'sum' }]), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'a1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const totalHint = hints.find(h => h.ref === 'total');
+    expect(totalHint).toBeDefined();
+    expect(totalHint?.type).toBe('number');
+    expect(totalHint?.description).toContain('Sum');
+  });
+
+  it('includes loop built-in variables from upstream', () => {
+    const nodes = [loop('l1'), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'l1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('item');
+    expect(refs).toContain('idx');
+  });
+
+  it('includes waitForCondition built-in variables from upstream', () => {
+    const waitNode: WorkflowNode = {
+      id: 'w1', type: 'waitForCondition', position: { x: 0, y: 0 },
+      data: {
+        label: 'Wait For It',
+        conditionLeft: '{{status}}', conditionOperator: '==', conditionRight: '200',
+        pollIntervalMs: 1000, timeoutMs: 30000,
+      },
+    };
+    const nodes = [waitNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'w1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('wait.attempts');
+    expect(refs).toContain('wait.elapsed');
+    expect(refs).toContain('wait.conditionMet');
+  });
+
+  it('includes start node inputVariables from upstream', () => {
+    const startNode: WorkflowNode = {
+      id: 's1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { jobId: '123', jobName: 'Test Job' } },
+    };
+    const nodes = [startNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 's1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('jobId');
+    expect(refs).toContain('jobName');
+    const jobIdHint = hints.find(h => h.ref === 'jobId');
+    expect(jobIdHint?.type).toBe('number');
+    expect(jobIdHint?.description).toContain('Start');
+    expect(jobIdHint?.label).toContain('trigger input');
+    expect(jobIdHint?.source).toEqual({ nodeId: 's1', nodeLabel: 'Start', nodeType: 'start', category: 'Triggers' });
+    expect(jobIdHint?.defaultValue).toBe('123');
+    const jobNameHint = hints.find(h => h.ref === 'jobName');
+    expect(jobNameHint?.type).toBe('string');
+    expect(jobNameHint?.source?.category).toBe('Triggers');
+  });
+
+  it('start node variables do not override workflow variables of the same name', () => {
+    const startNode: WorkflowNode = {
+      id: 's1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: { baseUrl: 'http://start' } },
+    };
+    const nodes = [startNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 's1', target: 'c' }];
+    // baseUrl exists in both workflow vars and start node
+    const hints = collectConditionVariableHints(nodes, edges, 'c', { baseUrl: 'http://default' });
+    const baseUrlHints = hints.filter(h => h.ref === 'baseUrl');
+    // Workflow variable is pushed first, so start node's duplicate is skipped
+    expect(baseUrlHints.length).toBe(1);
+    expect(baseUrlHints[0].label).toContain('workflow');
+  });
+
+  it('start node with empty inputVariables does not add hints', () => {
+    const startNode: WorkflowNode = {
+      id: 's1', type: 'start', position: { x: 0, y: 0 },
+      data: { label: 'Start', inputVariables: {} },
+    };
+    const nodes = [startNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 's1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.length).toBe(0);
+  });
+
+  it('populates source fields for workflow variables', () => {
+    const nodes = [cond('c')];
+    const hints = collectConditionVariableHints(nodes, [], 'c', { env: 'prod' });
+    const envHint = hints.find(h => h.ref === 'env');
+    expect(envHint?.source).toEqual({ nodeLabel: 'Workflow Defaults', nodeType: 'workflow', category: 'Workflow' });
+    expect(envHint?.defaultValue).toBe('prod');
+  });
+
+  it('populates source fields for setVariable nodes', () => {
+    const sv = setVar('sv1', { counter: '0' });
+    sv.data.label = 'Init Counter';
+    const nodes = [sv, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sv1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const counterHint = hints.find(h => h.ref === 'counter');
+    expect(counterHint?.source).toEqual({ nodeId: 'sv1', nodeLabel: 'Init Counter', nodeType: 'setVariable', category: 'Logic' });
+  });
+
+  it('populates source fields for HTTP ancestor nodes', () => {
+    const httpNode: WorkflowNode = {
+      id: 'h1', type: 'http', position: { x: 0, y: 0 },
+      data: { label: 'Login', scenario: { name: 'Login', requests: [], extractions: [{ name: 'token', source: 'body', expression: '$.token' }] }, initialVariables: { user: 'admin' } },
+    };
+    const nodes = [httpNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const tokenHint = hints.find(h => h.ref === 'token');
+    expect(tokenHint?.source).toEqual({ nodeId: 'h1', nodeLabel: 'Login', nodeType: 'http', category: 'HTTP Steps' });
+    const userHint = hints.find(h => h.ref === 'user');
+    expect(userHint?.source?.category).toBe('HTTP Steps');
+    expect(userHint?.defaultValue).toBe('admin');
+  });
+});
+
+describe('collectDescendantNodeIds', () => {
+  it('walks forward from a node', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'a', target: 'b' },
+      { id: 'e2', source: 'b', target: 'c' },
+    ];
+    expect(collectDescendantNodeIds(edges, 'a')).toEqual(new Set(['b', 'c']));
+  });
+
+  it('filters by sourceHandle when specified', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'wait', target: 'body1', sourceHandle: 'body' },
+      { id: 'e2', source: 'wait', target: 'done1', sourceHandle: 'done' },
+      { id: 'e3', source: 'body1', target: 'body2' },
+    ];
+    const bodyDescendants = collectDescendantNodeIds(edges, 'wait', 'body');
+    expect(bodyDescendants).toEqual(new Set(['body1', 'body2']));
+    expect(bodyDescendants.has('done1')).toBe(false);
+  });
+
+  it('does not loop back to the source node', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'a', target: 'b' },
+      { id: 'e2', source: 'b', target: 'a' }, // cycle back
+    ];
+    expect(collectDescendantNodeIds(edges, 'a')).toEqual(new Set(['b']));
+  });
+
+  it('returns empty set when no outgoing edges', () => {
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'x', target: 'a' }];
+    expect(collectDescendantNodeIds(edges, 'a').size).toBe(0);
+  });
+});
+
+describe('collectWaitForConditionVariableHints', () => {
+  const http = (id: string, extractions?: { name: string }[]): WorkflowNode => ({
+    id,
+    type: 'http',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Poll Step',
+      scenario: {
+        id: 's', name: 's', url: '/', method: 'GET', headers: [], body: '',
+        auth: { type: 'none' }, validation: { mode: 'none' },
+        extractions: extractions?.map((e) => ({ name: e.name, source: 'body' as const, expression: '$' })),
+      },
+    },
+  });
+
+  const wait = (id: string): WorkflowNode => ({
+    id,
+    type: 'waitForCondition',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Wait',
+      conditionLeft: '{{status}}',
+      conditionOperator: '==',
+      conditionRight: '200',
+      pollIntervalMs: 1000,
+      timeoutMs: 30000,
+    },
+  });
+
+  it('includes built-in wait variables', () => {
+    const nodes = [wait('w1')];
+    const edges: WorkflowEdge[] = [];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('wait.attempts');
+    expect(refs).toContain('wait.elapsed');
+    expect(refs).toContain('wait.conditionMet');
+    const condMetHint = hints.find(h => h.ref === 'wait.conditionMet');
+    expect(condMetHint?.type).toBe('boolean');
+  });
+
+  it('includes poll body HTTP extractions', () => {
+    const nodes = [wait('w1'), http('poll1', [{ name: 'result' }])];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'w1', target: 'poll1', sourceHandle: 'body' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('result');
+    const resultHint = hints.find(h => h.ref === 'result');
+    expect(resultHint?.label).toContain('poll body');
+  });
+
+  it('includes poll body HTTP initialVariables', () => {
+    const pollStep = http('poll1');
+    (pollStep.data as HttpNodeData).initialVariables = { pollVar: 'pv1' };
+    const nodes = [wait('w1'), pollStep];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'w1', target: 'poll1', sourceHandle: 'body' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('pollVar');
+  });
+
+  it('includes ancestor hints plus workflow defaults', () => {
+    const upstream = http('h1', [{ name: 'authToken' }]);
+    const nodes = [upstream, wait('w1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'h1', target: 'w1' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', { baseUrl: 'http://x' });
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('baseUrl');
+    expect(refs).toContain('authToken');
+    expect(refs).toContain('wait.attempts');
+  });
+
+  it('does not include extractions from nodes NOT in the poll body', () => {
+    const pollStep = http('poll1', [{ name: 'pollResult' }]);
+    const otherStep = http('other', [{ name: 'otherResult' }]);
+    const nodes = [wait('w1'), pollStep, otherStep];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'w1', target: 'poll1', sourceHandle: 'body' },
+      { id: 'e2', source: 'w1', target: 'other', sourceHandle: 'done' },
+    ];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('pollResult');
+    // 'otherResult' should NOT appear because it's in the 'done' branch, not 'body'
+    expect(refs).not.toContain('otherResult');
   });
 });

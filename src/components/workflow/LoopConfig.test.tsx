@@ -147,4 +147,27 @@ describe('LoopConfig', () => {
     fireEvent.change(screen.getByDisplayValue('200'), { target: { value: '404' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ whileRight: '404' }));
   });
+
+  it('does not render Insert button when onRequestVariableInsert is not provided', () => {
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.queryByText('Insert…')).toBeNull();
+  });
+
+  it('renders Insert button when onRequestVariableInsert is provided', () => {
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} onRequestVariableInsert={vi.fn()} />);
+    expect(screen.getByText('Insert…')).toBeTruthy();
+  });
+
+  it('calls onRequestVariableInsert when Insert button is clicked', () => {
+    const onRequest = vi.fn();
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} onRequestVariableInsert={onRequest} />);
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(onRequest).toHaveBeenCalled();
+  });
+
+  it('renders Available Variables section when variableHints are provided', () => {
+    const hints = [{ ref: 'status', label: 'status (latest)' }];
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} variableHints={hints} />);
+    expect(screen.getByText(/Available variables/)).toBeTruthy();
+  });
 });

@@ -1,6 +1,9 @@
 import { v4 as uuid } from 'uuid';
-import type { AggregateNodeData, AggregateMapping, AggregateStrategy } from '../../types/workflow';
+import type { AggregateNodeData, AggregateStrategy } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
+import InsertVarField from './InsertVarField';
+import AvailableVariables from './AvailableVariables';
 
 const STRATEGY_OPTIONS: { value: AggregateStrategy; label: string; desc: string }[] = [
   { value: 'concat', label: 'Concat', desc: 'Join all values into a JSON array' },
@@ -14,9 +17,13 @@ const STRATEGY_OPTIONS: { value: AggregateStrategy; label: string; desc: string 
 export default function AggregateConfig({
   data,
   onChange,
+  onRequestVariableInsert,
+  variableHints = [],
 }: {
   data: AggregateNodeData;
   onChange: (d: AggregateNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
 }) {
   const mappings = data.mappings ?? [];
   const { update: updateMapping, remove: removeMapping, move: moveMapping } = useListCrud(
@@ -42,12 +49,17 @@ export default function AggregateConfig({
           {mappings.map((m, i) => (
             <div key={m.id} className="wf-aggregate-mapping-row">
               <div className="wf-aggregate-mapping-fields">
-                <input
-                  className="wf-aggregate-mapping-source"
-                  value={m.sourceExpression}
-                  onChange={(e) => updateMapping(i, { sourceExpression: e.target.value })}
-                  placeholder="Source {{variable}}"
-                />
+                <InsertVarField
+                  onRequestVariableInsert={onRequestVariableInsert}
+                  onInsert={(snippet) => updateMapping(i, { sourceExpression: m.sourceExpression + snippet })}
+                >
+                  <input
+                    className="wf-aggregate-mapping-source"
+                    value={m.sourceExpression}
+                    onChange={(e) => updateMapping(i, { sourceExpression: e.target.value })}
+                    placeholder="Source {{variable}}"
+                  />
+                </InsertVarField>
                 <span className="wf-aggregate-mapping-arrow">→</span>
                 <input
                   className="wf-aggregate-mapping-target"
@@ -100,6 +112,8 @@ export default function AggregateConfig({
         </div>
         <button type="button" className="wf-aggregate-add-mapping" onClick={addMapping}>+ Add Mapping</button>
       </div>
+
+      <AvailableVariables hints={variableHints} />
     </div>
   );
 }

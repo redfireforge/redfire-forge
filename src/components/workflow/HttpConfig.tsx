@@ -71,8 +71,9 @@ function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
       </p>
       <ul className="wf-http-var-hints-list" role="list">
         {sorted.map((h) => (
-          <li key={h.ref} className="wf-http-var-hints-item">
+          <li key={h.ref} className="wf-http-var-hints-item" title={h.description || ''}>
             <span className="wf-http-var-hints-label">{h.label}</span>
+            {h.type && <span className="wf-http-var-hints-type">{h.type}</span>}
             <code className="wf-http-var-hints-code">{`{{${h.ref}}}`}</code>
           </li>
         ))}
@@ -102,7 +103,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   workflowServices?: WorkflowService[];
 }) {
   const s = data.scenario;
-  const update = (patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } });
+  const update = useCallback((patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } }), [onChange, s]);
   const urlInputRef = useRef<HTMLInputElement>(null);
 
   // Normalize encoded template vars on mount / when URL changes externally

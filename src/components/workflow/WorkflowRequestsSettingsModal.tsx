@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AuthConfig, Environment, GlobalAuthProfile, Microservice } from '../../types';
 import type { HttpNodeData, Workflow, WorkflowNode } from '../../types/workflow';
 import { resolveHttpNodeBaseUrl } from '../../utils/workflowHostResolve';
+import { useModalDrag } from '../../hooks/useModalDrag';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 
 interface Props {
   open: boolean;
@@ -38,6 +43,8 @@ export default function WorkflowRequestsSettingsModal({
 }: Props) {
   const [drafts, setDrafts] = useState<Record<string, HttpNodeData>>({});
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   const httpRows = useMemo(() => {
     if (!workflow) return [];
@@ -56,8 +63,10 @@ export default function WorkflowRequestsSettingsModal({
       if (!isHttpNode(node)) continue;
       next[node.id] = cloneHttpData(node.data as HttpNodeData);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset drafts when modal opens with workflow data
     setDrafts(next);
     const firstId = Object.keys(next)[0] ?? null;
+     
     setSelectedNodeId(firstId);
   }, [open, workflow]);
 
@@ -72,6 +81,8 @@ export default function WorkflowRequestsSettingsModal({
     if (!selectedDraft) return '—';
     return resolveHttpNodeBaseUrl(selectedDraft, microservices, workflow?.hostProfiles ?? []) || harnessBaseUrl.trim() || '—';
   }, [selectedDraft, microservices, workflow?.hostProfiles, harnessBaseUrl]);
+
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(open);
 
   if (!open || !workflow) return null;
 
@@ -106,10 +117,11 @@ export default function WorkflowRequestsSettingsModal({
   };
 
   return (
-    <div className="modal-overlay wf-req-settings-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal wf-req-settings-modal" role="dialog" aria-labelledby="wf-req-settings-title" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-header">
+    <div className="modal-overlay wf-req-settings-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={overlayStyle}>
+      <div className={`modal wf-req-settings-modal ${expandClass}`} role="dialog" aria-labelledby="wf-req-settings-title" onClick={(e) => e.stopPropagation()} style={{ ...modalStyle, ...resizeStyle }}>
+        <div className="settings-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
           <h3 id="wf-req-settings-title">{workflow.name} - Request Host/Auth Settings</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
 
@@ -296,7 +308,9 @@ export default function WorkflowRequestsSettingsModal({
         <div className="import-center-footer">
           <button className="btn btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={apply} disabled={httpRows.length === 0}>Apply</button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

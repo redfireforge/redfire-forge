@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import type { Scenario, FeatureGroup } from '../types';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface Props {
   test: Scenario;
@@ -13,11 +17,16 @@ interface Props {
 export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId, featureGroups, onConfirm, onClose }: Props) {
   const [targetFeature, setTargetFeature] = useState(sourceFeatureId);
   const [targetScenario, setTargetScenario] = useState(sourceScenarioId);
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal copy-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Copy Test To...</h3>
+      <div className={`modal copy-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h3 style={{ flex: 1 }}>Copy Test To...</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
+        </div>
         <p className="copy-test-name">Copying: <strong>{test.name}</strong></p>
 
         <div className="form-row">
@@ -48,7 +57,9 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
         <div className="copy-modal-actions">
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={() => onConfirm(targetFeature, targetScenario)} disabled={!targetScenario}>Copy Here</button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );
