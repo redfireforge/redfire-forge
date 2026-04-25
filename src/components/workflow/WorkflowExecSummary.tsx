@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RunProgress } from './WorkflowToolbar';
 
 interface Props {
@@ -10,20 +10,38 @@ interface Props {
 
 export default function WorkflowExecSummary({ runProgress, failedStepLabel, onOpenConsole }: Props) {
   const [visible, setVisible] = useState(false);
+  // Track the run fingerprint so dismiss sticks until a genuinely new result arrives
+  const dismissedRun = useRef<string | null>(null);
+
+  const runKey = runProgress
+    ? `${runProgress.lastRunStatus}-${runProgress.completed}-${runProgress.total}-${runProgress.elapsedMs}`
+    : null;
 
   useEffect(() => {
     if (!runProgress || runProgress.lastRunStatus === 'idle') {
-      setVisible(false);
+      setVisible(false); // eslint-disable-line react-hooks/set-state-in-effect
+      dismissedRun.current = null;
       return;
     }
+    // If user dismissed this exact run, stay hidden
+    if (dismissedRun.current === runKey) return;
+
     setVisible(true);
 
     // Auto-dismiss after 10s for pass results
     if (runProgress.lastRunStatus === 'pass') {
-      const t = window.setTimeout(() => setVisible(false), 10_000);
+      const t = window.setTimeout(() => {
+        setVisible(false);
+        dismissedRun.current = runKey;
+      }, 10_000);
       return () => window.clearTimeout(t);
     }
-  }, [runProgress]);
+  }, [runProgress, runKey]);
+
+  const handleDismiss = () => {
+    setVisible(false);
+    dismissedRun.current = runKey;
+  };
 
   if (!visible || !runProgress || runProgress.lastRunStatus === 'idle') return null;
 
@@ -77,7 +95,7 @@ export default function WorkflowExecSummary({ runProgress, failedStepLabel, onOp
       <button
         type="button"
         className="wf-exec-strip-close"
-        onClick={(e) => { e.stopPropagation(); setVisible(false); }}
+        onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
         title="Dismiss"
       >✕</button>
     </div>

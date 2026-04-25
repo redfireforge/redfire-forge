@@ -332,7 +332,7 @@ export default function TestEditorValidationTab({
       )}
 
       {regexModalIdx !== null && (() => {
-        const a = (draftRef.current.validation.assertions ?? [])[regexModalIdx];
+        const a = (draft.validation.assertions ?? [])[regexModalIdx];
         const regexA = a?.type === 'regex' ? a : undefined;
         return (
           <RegexAssertionModal

@@ -24,7 +24,7 @@ export function useWorkflows() {
         loadSelectedWorkflowId(),
       ]);
       if (cancelled) return;
-      let next = wfs.map(migrateWorkflowSchema);
+      const next = wfs.map(migrateWorkflowSchema);
       const migrated = JSON.stringify(next) !== JSON.stringify(wfs);
       if (migrated) {
         await saveWorkflows(next);
@@ -60,7 +60,7 @@ export function useWorkflows() {
     if (!missing && !invalid) return;
     const sorted = [...workflows].sort((a, b) => b.updatedAt - a.updatedAt);
     const pick = sorted[0]?.id ?? null;
-    setSelectedId(pick);
+    setSelectedId(pick); // eslint-disable-line react-hooks/set-state-in-effect
     void saveSelectedWorkflowId(pick);
   }, [loaded, workflows, selectedId]);
 

@@ -883,4 +883,162 @@ responses:
       expect(ok.schema!.properties!.name.example).toBe('Widget');
     });
   });
+
+  describe('Swagger 2 edge cases', () => {
+    const SWAGGER2_SPEC = JSON.stringify({
+      swagger: '2.0',
+      info: { title: 'Swagger2 API', version: '1.0.0' },
+      host: 'api.example.com',
+      basePath: '/v1',
+      schemes: ['https'],
+      securityDefinitions: {
+        apiKey: { type: 'apiKey', name: 'X-API-Key', in: 'header' },
+        oauth: { type: 'oauth2', flow: 'implicit', authorizationUrl: 'https://auth.example.com' },
+        basic: { type: 'basic' },
+        openId: { type: 'openIdConnect' },
+      },
+      paths: {
+        '/items': {
+          get: {
+            operationId: 'getItems',
+            tags: ['items'],
+            parameters: [
+              { name: 'limit', in: 'query', type: 'integer', description: 'Max items' },
+            ],
+            responses: {
+              '200': {
+                description: 'OK',
+                schema: { type: 'array' },
+                examples: { 'application/json': [{ id: 1 }] },
+              },
+            },
+          },
+          post: {
+            operationId: 'createItem',
+            tags: ['items'],
+            consumes: ['application/json'],
+            parameters: [
+              { name: 'body', in: 'body', required: true, schema: { type: 'object' }, description: 'Item body' },
+            ],
+            responses: {
+              '201': { description: 'Created' },
+            },
+          },
+          put: {
+            operationId: 'updateItem',
+            tags: ['items'],
+            parameters: [
+              { name: 'file', in: 'formData', type: 'file', required: true },
+              { name: 'name', in: 'formData', type: 'string' },
+            ],
+            responses: {
+              '200': { description: 'OK' },
+            },
+          },
+          delete: {
+            tags: ['items'],
+            responses: {
+              '204': { description: 'Deleted' },
+            },
+          },
+        },
+      },
+    });
+
+    it('parses Swagger 2.0 spec with securityDefinitions', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      expect(result.entry.securitySchemes.apiKey.type).toBe('apiKey');
+      expect(result.entry.securitySchemes.apiKey.in).toBe('header');
+      expect(result.entry.securitySchemes.oauth.type).toBe('oauth2');
+      expect(result.entry.securitySchemes.basic.type).toBe('http');
+      expect(result.entry.securitySchemes.basic.scheme).toBe('basic');
+      expect(result.entry.securitySchemes.openId.type).toBe('openIdConnect');
+    });
+
+    it('parses body parameter in Swagger 2', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const post = folder.endpoints.find(e => e.method === 'POST')!;
+      expect(post.requestBody).toBeDefined();
+      expect(post.requestBody!.required).toBe(true);
+      expect(post.requestBody!.description).toBe('Item body');
+    });
+
+    it('parses formData parameters with file type', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const put = folder.endpoints.find(e => e.method === 'PUT')!;
+      expect(put.requestBody).toBeDefined();
+      expect(put.requestBody!.contentTypes[0].mediaType).toBe('multipart/form-data');
+    });
+
+    it('generates operationId warning for endpoints without one', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      expect(result.warnings.some(w => w.includes('has no operationId'))).toBe(true);
+    });
+
+    it('extracts Swagger 2 response with schema and examples', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      const folder = result.entry.folders.find(f => f.name === 'items')!;
+      const get = folder.endpoints.find(e => e.method === 'GET')!;
+      const res200 = get.responses.find(r => r.statusCode === '200')!;
+      expect(res200.schema).toBeDefined();
+      expect(res200.example).toBeDefined();
+    });
+
+    it('uses server from host/basePath/schemes', async () => {
+      const result = await parseOpenApiSpec(SWAGGER2_SPEC);
+      expect(result.entry.servers[0].url).toBe('https://api.example.com/v1');
+    });
+  });
+
+  describe('edge case specs', () => {
+    it('handles spec with no info.title', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { version: '1.0.0' },
+        paths: {},
+      });
+      const result = await parseOpenApiSpec(spec);
+      expect(result.entry.name).toBe('Untitled API');
+      expect(result.warnings).toContain('Missing info.title — using "Untitled API"');
+    });
+
+    it('handles spec with no paths', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'Empty', version: '1.0.0' },
+      });
+      const result = await parseOpenApiSpec(spec);
+      expect(result.entry.folders).toHaveLength(0);
+      expect(result.entry.endpoints).toHaveLength(0);
+    });
+
+    it('handles null/non-object path items', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'Test', version: '1.0.0' },
+        paths: { '/a': null, '/b': 'invalid' },
+      });
+      const result = await parseOpenApiSpec(spec);
+      expect(result.entry.endpoints).toHaveLength(0);
+    });
+
+    it('handles untagged endpoints', async () => {
+      const spec = JSON.stringify({
+        openapi: '3.0.0',
+        info: { title: 'Test', version: '1.0.0' },
+        paths: {
+          '/test': {
+            get: {
+              operationId: 'testGet',
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      });
+      const result = await parseOpenApiSpec(spec);
+      expect(result.entry.endpoints.length).toBeGreaterThan(0);
+    });
+  });
 });

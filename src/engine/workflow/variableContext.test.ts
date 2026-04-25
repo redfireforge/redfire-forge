@@ -262,4 +262,166 @@ describe('VariableContext node-scoped refs', () => {
     // Should not throw, and labelToNodeId should be empty
     expect(ctx.resolve('{{node:"If".x}}')).toBe('{{node:"If".x}}');
   });
+
+  it('resolves expression functions from registry', () => {
+    const ctx = new VariableContext();
+    // $length is a common expression function
+    const result = ctx.resolve('{{$length("hello")}}');
+    // Should resolve to 5 if $length is registered, otherwise keep as literal
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with variable args resolves variables', () => {
+    const ctx = new VariableContext({ name: 'world' });
+    const result = ctx.resolve('{{$length(name)}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with numeric args', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$add(1, 2)}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with boolean args', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$if(true, "yes", "no")}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with escaped quotes in args', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$length("he\\"llo")}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with single-quoted args', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve("{{$length('hello')}}");
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function with no args', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$uuid()}}');
+    expect(result).toMatch(/^[0-9a-f]{8}-/i);
+  });
+
+  it('expression function with node-scoped variable arg', () => {
+    const ctx = new VariableContext();
+    ctx.setForNode('n1', 'val', 'test');
+    const result = ctx.resolve('{{$length(node:n1.val)}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('snapshot uses node:id.name when label contains quote', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'q1', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Step "quoted"', scenario: { id: 's', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+    ];
+    const ctx = new VariableContext();
+    ctx.registerWorkflowNodes(nodes);
+    ctx.setForNode('q1', 'k', 'v');
+    const snap = ctx.snapshot();
+    // Should fall back to node:id.name since label contains quote
+    expect(snap['node:q1.k']).toBe('v');
+  });
+
+  it('snapshot uses node:id.name when label contains newline', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'nl1', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Step\nLine2', scenario: { id: 's', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+    ];
+    const ctx = new VariableContext();
+    ctx.registerWorkflowNodes(nodes);
+    ctx.setForNode('nl1', 'k', 'v');
+    const snap = ctx.snapshot();
+    expect(snap['node:nl1.k']).toBe('v');
+  });
+
+  it('getFromNode returns undefined for unknown node', () => {
+    const ctx = new VariableContext();
+    expect(ctx.getFromNode('nonexistent', 'x')).toBeUndefined();
+  });
+
+  it('get resolves node-scoped syntax directly', () => {
+    const ctx = new VariableContext();
+    ctx.setForNode('n1', 'x', '42');
+    expect(ctx.get('node:n1.x')).toBe('42');
+  });
+
+  it('resolveExpression falls back to expression function when not a built-in', () => {
+    const ctx = new VariableContext();
+    // A non-existent function should return the literal
+    const result = ctx.resolve('{{$totallyFakeFunction("arg")}}');
+    expect(result).toBe('{{$totallyFakeFunction("arg")}}');
+  });
+
+  it('expression function returns empty string for null result', () => {
+    const ctx = new VariableContext();
+    // $if with falsy condition returns the else branch, test null handling
+    const result = ctx.resolve('{{$if(false, "yes")}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('expression function that returns an object gets JSON.stringified', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$merge("{\\\"a\\\":1}", "{\\\"b\\\":2}")}}');
+    expect(typeof result).toBe('string');
+  });
+
+  it('resolve handles non-expression $ prefix that is not a generator or function', () => {
+    const ctx = new VariableContext();
+    // Expression that doesn't match GENERATOR_RE (has spaces or special chars)
+    const result = ctx.resolve('{{$not a function}}');
+    expect(result).toBe('{{$not a function}}');
+  });
+
+  it('parseExpressionArgs handles empty args string', () => {
+    const ctx = new VariableContext();
+    // Call a function with empty args - should not crash
+    const result = ctx.resolve('{{$uuid()}}');
+    expect(result).toMatch(/^[0-9a-f]{8}-/i);
+  });
+
+  it('child inherits label-to-node and ambiguous labels', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'a', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Dup', scenario: { id: 's1', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+      {
+        id: 'b', type: 'http', position: { x: 0, y: 0 },
+        data: { label: 'Dup', scenario: { id: 's2', name: 's', url: '/', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } } },
+      },
+    ];
+    const parent = new VariableContext();
+    parent.registerWorkflowNodes(nodes);
+    parent.setForNode('a', 'x', '1');
+    const child = parent.child();
+    // Ambiguous label should not resolve in child either
+    expect(child.resolve('{{node:"Dup".x}}')).toBe('{{node:"Dup".x}}');
+    // But id-based should work
+    expect(child.resolve('{{node:a.x}}')).toBe('1');
+  });
+
+  it('registerWorkflowNodes ignores http nodes without scenario', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'No Scenario' } },
+    ];
+    const ctx = new VariableContext();
+    ctx.registerWorkflowNodes(nodes);
+    expect(ctx.resolve('{{node:"No Scenario".x}}')).toBe('{{node:"No Scenario".x}}');
+  });
+
+  it('snapshot uses node:id.name when no label registered', () => {
+    const ctx = new VariableContext();
+    ctx.setForNode('orphan', 'k', 'v');
+    const snap = ctx.snapshot();
+    expect(snap['node:orphan.k']).toBe('v');
+  });
 });

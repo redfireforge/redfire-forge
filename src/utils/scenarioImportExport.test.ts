@@ -16,7 +16,7 @@ describe('reIdScenarios', () => {
     const input = [
       { id: 'old-1', name: 'Sc1', tests: [{ id: 'old-t1', name: 'T1' }, { id: 'old-t2', name: 'T2' }] },
       { id: 'old-2', name: 'Sc2', tests: [] },
-    ] as any;
+    ] as unknown as Parameters<typeof reIdScenarios>[0];
     const result = reIdScenarios(input);
     expect(result[0].id).not.toBe('old-1');
     expect(result[0].tests[0].id).not.toBe('old-t1');
@@ -31,7 +31,7 @@ describe('reIdScenarios', () => {
   });
 
   it('preserves all fields except id', () => {
-    const input = [{ id: 'x', name: 'S', url: '/api', method: 'GET', tests: [{ id: 'y', name: 'T', assertions: [] }] }] as any;
+    const input = [{ id: 'x', name: 'S', url: '/api', method: 'GET', tests: [{ id: 'y', name: 'T', assertions: [] }] }] as unknown as Parameters<typeof reIdScenarios>[0];
     const result = reIdScenarios(input);
     expect(result[0].name).toBe('S');
     expect(result[0].url).toBe('/api');
@@ -84,8 +84,8 @@ describe('unwrapImport', () => {
 describe('pickJsonFile', () => {
   it('creates a file input, attaches a handler, and clicks it', () => {
     const click = vi.fn();
-    const mockInput = { type: '', accept: '', onchange: null as any, click };
-    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+    const mockInput = { type: '', accept: '', onchange: null as ((ev: unknown) => void) | null, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as unknown as HTMLInputElement);
 
     const onLoad = vi.fn();
     pickJsonFile(onLoad);
@@ -98,8 +98,8 @@ describe('pickJsonFile', () => {
 
   it('does not call onLoad when no file selected', () => {
     const click = vi.fn();
-    const mockInput = { type: '', accept: '', onchange: null as any, click };
-    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+    const mockInput = { type: '', accept: '', onchange: null as ((ev: unknown) => void) | null, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as unknown as HTMLInputElement);
 
     const onLoad = vi.fn();
     pickJsonFile(onLoad);
@@ -110,14 +110,14 @@ describe('pickJsonFile', () => {
 
   it('calls onLoad with parsed JSON when file is read', () => {
     const click = vi.fn();
-    const mockInput = { type: '', accept: '', onchange: null as any, click };
-    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+    const mockInput = { type: '', accept: '', onchange: null as ((ev: unknown) => void) | null, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as unknown as HTMLInputElement);
 
-    let capturedOnload: ((ev: any) => void) | null = null;
+    let capturedOnload: ((ev: { target: { result: string } }) => void) | null = null;
     const mockReadAsText = vi.fn();
     vi.stubGlobal('FileReader', class {
-      onload: any = null;
-      readAsText = (...args: any[]) => {
+      onload: ((ev: { target: { result: string } }) => void) | null = null;
+      readAsText = (...args: unknown[]) => {
         capturedOnload = this.onload;
         mockReadAsText(...args);
       };
@@ -137,14 +137,14 @@ describe('pickJsonFile', () => {
 
   it('alerts on invalid JSON in file', () => {
     const click = vi.fn();
-    const mockInput = { type: '', accept: '', onchange: null as any, click };
-    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+    const mockInput = { type: '', accept: '', onchange: null as ((ev: unknown) => void) | null, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as unknown as HTMLInputElement);
 
-    let capturedOnload: any = null;
+    let capturedOnload: ((ev: { target: { result: string } }) => void) | null = null;
     const mockReadAsText = vi.fn();
     vi.stubGlobal('FileReader', class {
-      onload: any = null;
-      readAsText = (...args: any[]) => {
+      onload: ((ev: { target: { result: string } }) => void) | null = null;
+      readAsText = (...args: unknown[]) => {
         capturedOnload = this.onload;
         mockReadAsText(...args);
       };
@@ -165,8 +165,8 @@ describe('pickJsonFile', () => {
 
   it('does not call onLoad when files is undefined', () => {
     const click = vi.fn();
-    const mockInput = { type: '', accept: '', onchange: null as any, click };
-    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as any);
+    const mockInput = { type: '', accept: '', onchange: null as ((ev: unknown) => void) | null, click };
+    vi.spyOn(document, 'createElement').mockReturnValue(mockInput as unknown as HTMLInputElement);
 
     const onLoad = vi.fn();
     pickJsonFile(onLoad);

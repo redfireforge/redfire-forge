@@ -37,9 +37,9 @@ describe('httpFetch', () => {
 
   describe('browser proxy mode', () => {
     it('sends request through proxy', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
         json: () => Promise.resolve({ status: 200, statusText: 'OK', headers: {}, body: 'ok' }),
-      });
+      } as unknown as Response);
 
       const result = await httpFetch('http://example.com', 'GET', {});
       expect(globalThis.fetch).toHaveBeenCalledWith('/__proxy', expect.objectContaining({ method: 'POST' }));
@@ -47,12 +47,12 @@ describe('httpFetch', () => {
     });
 
     it('includes body in proxy payload', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
         json: () => Promise.resolve({ status: 201, statusText: 'Created', headers: {}, body: '{}' }),
-      });
+      } as unknown as Response);
 
       await httpFetch('http://example.com/api', 'POST', { 'Content-Type': 'application/json' }, '{"a":1}');
-      const call = (globalThis.fetch as any).mock.calls[0];
+      const call = vi.mocked(globalThis.fetch).mock.calls[0];
       const parsed = JSON.parse(call[1].body);
       expect(parsed.url).toBe('http://example.com/api');
       expect(parsed.method).toBe('POST');
@@ -111,6 +111,16 @@ describe('httpFetch', () => {
       expect(result.status).toBe(0);
       expect(result.error).toBe('Connection refused');
     });
+
+    it('includes cause chain in error message', async () => {
+      const cause = new Error('getaddrinfo ENOTFOUND api.example.com');
+      (cause as NodeJS.ErrnoException).code = 'ENOTFOUND';
+      mockTFetch.mockRejectedValueOnce(new Error('fetch failed', { cause }));
+
+      const result = await httpFetch('http://api.example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('fetch failed — getaddrinfo ENOTFOUND api.example.com [ENOTFOUND]');
+    });
   });
 
   describe('node mode', () => {
@@ -131,11 +141,11 @@ describe('httpFetch', () => {
 
     it('uses global fetch in node mode', async () => {
       const mockHeaders = new Map([['x-custom', 'value']]);
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
         status: 200, statusText: 'OK',
         headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
         text: () => Promise.resolve('node-response'),
-      });
+      } as unknown as Response);
 
       const result = await nodeHttpFetch('http://example.com/api', 'GET', { 'Accept': 'application/json' });
       expect(result.status).toBe(200);
@@ -143,11 +153,21 @@ describe('httpFetch', () => {
     });
 
     it('handles node fetch errors', async () => {
-      (globalThis.fetch as any).mockRejectedValueOnce(new Error('DNS lookup failed'));
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('DNS lookup failed'));
 
       const result = await nodeHttpFetch('http://example.com', 'GET', {});
       expect(result.status).toBe(0);
       expect(result.error).toBe('DNS lookup failed');
+    });
+
+    it('includes cause chain in node fetch error', async () => {
+      const cause = new Error('connect ETIMEDOUT 10.0.0.1:443');
+      (cause as NodeJS.ErrnoException).code = 'ETIMEDOUT';
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('fetch failed', { cause }));
+
+      const result = await nodeHttpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('fetch failed — connect ETIMEDOUT 10.0.0.1:443 [ETIMEDOUT]');
     });
 
     it('uses EnvHttpProxyAgent when undici provides it and proxy env is set', async () => {

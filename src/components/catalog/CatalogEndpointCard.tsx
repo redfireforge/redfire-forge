@@ -129,7 +129,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 
   const [curlCmd, setCurlCmd] = useState('');
   useEffect(() => {
-    if (!showCurl) { setCurlCmd(''); return; }
+    if (!showCurl) { setCurlCmd(''); return; } // eslint-disable-line react-hooks/set-state-in-effect
     let cancelled = false;
     const params = { endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice };
     const builder = curlMultiline ? buildCatalogCurlCommand : buildCatalogCurlSingleLine;

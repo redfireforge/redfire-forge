@@ -1,4 +1,5 @@
 import type { RequestResult } from '../types';
+import { humanizeError } from './helpers';
 
 function tryPrettyResponseBody(s: string): string {
   try {
@@ -42,7 +43,7 @@ export function formatHttpNodeRunDetail(result: RequestResult, opts?: { fullResp
 
 /** One-line explanation for failed workflow HTTP steps (toolbar + node tooltips). */
 export function summarizeRequestFailure(r: RequestResult): string {
-  if (r.errorMessage?.trim()) return r.errorMessage.trim();
+  if (r.errorMessage?.trim()) return humanizeError(r.errorMessage.trim());
   const fd = r.failureDetails?.[0];
   if (fd) {
     const a = (fd.actual ?? '').slice(0, 240);
@@ -50,6 +51,6 @@ export function summarizeRequestFailure(r: RequestResult): string {
     return e ? `${fd.path}: ${a} (expected ${e})` : `${fd.path}: ${a}`;
   }
   if (r.httpStatus >= 400) return `HTTP ${r.httpStatus}`;
-  if (r.httpStatus === 0) return 'No response (network, CORS, invalid URL, or blocked)';
+  if (r.httpStatus === 0) return 'Network error — could not reach the server. Check your connection, VPN, or the URL.';
   return 'Step failed';
 }

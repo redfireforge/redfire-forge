@@ -33,6 +33,9 @@ const ALL_BLOCKS: BlockDef[] = [
   { type: 'loop', title: 'Loop', desc: 'Repeat / For-Each / While', category: 'logic' },
   { type: 'setVariable', title: 'Set Variable', desc: 'Assign or transform variables', category: 'data' },
   { type: 'aggregate', title: 'Aggregate', desc: 'Combine parallel results', category: 'data' },
+  { type: 'errorHandler', title: 'Error Handler', desc: 'Retry and catch errors', category: 'flow' },
+  { type: 'logDebug', title: 'Log/Debug', desc: 'Log messages and variable snapshots', category: 'data' },
+  { type: 'waitForCondition', title: 'Wait for Condition', desc: 'Poll until condition met', category: 'logic' },
   { type: 'fork', title: 'Parallel Fork', desc: 'Concurrent branches', category: 'flow' },
   { type: 'join', title: 'Join', desc: 'Wait for all branches', category: 'flow' },
   { type: 'end', title: 'End', desc: 'Workflow termination', category: 'flow' },
@@ -63,7 +66,7 @@ interface Props {
 
 export default function WorkflowPalette({ collections, catalogEntries, onAddNode, onAddFromRequest, onAddFromCatalog }: Props) {
   const [section, setSection] = useState<'blocks' | 'requests' | 'catalog'>('blocks');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic', 'flow', 'parallel']));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['triggers', 'actions', 'logic', 'data', 'flow', 'parallel']));
   const [searchQuery, setSearchQuery] = useState('');
   const dragGhostRef = useRef<HTMLDivElement | null>(null);
 
@@ -95,7 +98,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   }, []);
 
   const toggle = (id: string) => setExpanded(prev => {
-    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+    const next = new Set(prev); if (next.has(id)) { next.delete(id); } else { next.add(id); } return next;
   });
 
   return (
@@ -201,6 +204,8 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
             ))}
           </div>
         )}
+
+
       </div>
 
       <div className="wf-palette-hint" role="note">

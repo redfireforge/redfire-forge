@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveValue, testPattern, PATTERN_LIBRARY } from './RegexAssertionModal';
+import { resolveValue, testPattern, PATTERN_LIBRARY } from './regexAssertionUtils';
 
 const SAMPLE_JSON = JSON.stringify({
   id: 'abc-123',

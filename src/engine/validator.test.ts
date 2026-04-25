@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getByPath, validate, evaluateAssertions, matchesStatusPattern } from './validator';
+import type { Assertion } from '../types';
 
 // ---------------------------------------------------------------------------
 // getByPath
@@ -530,7 +531,7 @@ describe('evaluateAssertions', () => {
 
   it('handles unknown header operator (default branch)', () => {
     const { failures } = evaluateAssertions(
-      [{ type: 'header', name: 'content-type', operator: 'startsWith', value: 'app' } as any],
+      [{ type: 'header', name: 'content-type', operator: 'startsWith', value: 'app' } as unknown as Assertion],
       ctx
     );
     expect(failures).toHaveLength(1);
@@ -761,5 +762,197 @@ describe('deepCompare via validate', () => {
     );
     expect(failures.length).toBe(1);
     expect(failures[0].path).toBe('(root)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// matchesStatusPattern
+// ---------------------------------------------------------------------------
+describe('matchesStatusPattern', () => {
+  it('matches exact status number', () => {
+    expect(matchesStatusPattern(200, '200')).toBe(true);
+    expect(matchesStatusPattern(404, '200')).toBe(false);
+  });
+
+  it('matches range pattern', () => {
+    expect(matchesStatusPattern(200, '200-299')).toBe(true);
+    expect(matchesStatusPattern(300, '200-299')).toBe(false);
+    expect(matchesStatusPattern(250, '200-299')).toBe(true);
+  });
+
+  it('matches class pattern like 2xx', () => {
+    expect(matchesStatusPattern(200, '2xx')).toBe(true);
+    expect(matchesStatusPattern(201, '2xx')).toBe(true);
+    expect(matchesStatusPattern(301, '2xx')).toBe(false);
+    expect(matchesStatusPattern(500, '5xx')).toBe(true);
+  });
+
+  it('matches comma-separated patterns', () => {
+    expect(matchesStatusPattern(200, '200,201,202')).toBe(true);
+    expect(matchesStatusPattern(201, '200,201,202')).toBe(true);
+    expect(matchesStatusPattern(404, '200,201,202')).toBe(false);
+  });
+
+  it('matches comma-separated mixed patterns', () => {
+    expect(matchesStatusPattern(200, '2xx,404')).toBe(true);
+    expect(matchesStatusPattern(404, '2xx,404')).toBe(true);
+    expect(matchesStatusPattern(500, '2xx,404')).toBe(false);
+  });
+
+  it('handles whitespace in pattern', () => {
+    expect(matchesStatusPattern(200, ' 200 ')).toBe(true);
+    expect(matchesStatusPattern(200, ' 200 - 299 ')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions — additional regex branches
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions — regex assertion edge cases', () => {
+  it('regex assertion on undefined jsonPath value uses "undefined" string', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: { key: 'value' },
+      responseHeaders: {},
+    };
+    // Pattern that won't match "undefined"
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$.nonexistent', pattern: '^\\d+$' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('undefined');
+  });
+
+  it('regex assertion on object value stringifies it', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: { data: { nested: true } },
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$.data', pattern: '.*nested.*' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('regex assertion on number value', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: { count: 42 },
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$.count', pattern: '^\\d+$' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('regex assertion truncates long actual values', () => {
+    const longString = 'x'.repeat(300);
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: { data: longString },
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$.data', pattern: '^y' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual.length).toBeLessThanOrEqual(201); // 200 + '…'
+  });
+
+  it('status assertion fails for mismatched status', () => {
+    const ctx = {
+      httpStatus: 500,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: {},
+    };
+    const { failures, statusAsserted } = evaluateAssertions(
+      [{ type: 'status', expected: '200' }],
+      ctx
+    );
+    expect(statusAsserted).toBe(true);
+    expect(failures).toHaveLength(1);
+    expect(failures[0].path).toBe('(status)');
+    expect(failures[0].actual).toBe('500');
+  });
+
+  it('responseTime assertion passes when within limit', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'responseTime', maxMs: 100 }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header equals assertion succeeds', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'content-type': 'application/json' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'equals', value: 'application/json' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header equals assertion fails on mismatch', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'content-type': 'text/html' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'equals', value: 'application/json' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header contains fails when substring not found', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'content-type': 'text/html' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'contains', value: 'json' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header case-insensitive lookup', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'Content-Type': 'application/json' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'equals', value: 'application/json' }],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
   });
 });

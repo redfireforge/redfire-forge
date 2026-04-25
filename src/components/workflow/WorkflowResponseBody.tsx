@@ -88,6 +88,7 @@ function countTextMatches(text: string, term: string): number {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function splitWorkflowResponseDetail(body: string): { meta: string; jsonText: string | null } {
   const marker = '\nResponse body:\n';
   const i = body.indexOf(marker);
@@ -180,7 +181,7 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
   // For non-tree mode: keep searchMatchCount in sync
   useEffect(() => {
     if (!jTree) {
-      setSearchMatchCount(totalMatchCount);
+      setSearchMatchCount(totalMatchCount); // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, [jTree, totalMatchCount]);
 
@@ -212,7 +213,7 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
   }, []);
 
   const allPaths = useMemo(() => (jTree ? collectAllPaths(jTree, '') : []), [jTree]);
-  const isAllCollapsed = useMemo(
+  const _isAllCollapsed = useMemo(
     () => allPaths.length > 0 && allPaths.every(p => collapsedSet.has(p)),
     [allPaths, collapsedSet],
   );

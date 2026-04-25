@@ -147,4 +147,90 @@ describe('LoopConfig', () => {
     fireEvent.change(screen.getByDisplayValue('200'), { target: { value: '404' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ whileRight: '404' }));
   });
+
+  it('does not render Insert button when onRequestVariableInsert is not provided', () => {
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.queryByText('Insert…')).toBeNull();
+  });
+
+  it('renders Insert button when onRequestVariableInsert is provided', () => {
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} onRequestVariableInsert={vi.fn()} />);
+    expect(screen.getByText('Insert…')).toBeTruthy();
+  });
+
+  it('calls onRequestVariableInsert when Insert button is clicked', () => {
+    const onRequest = vi.fn();
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} onRequestVariableInsert={onRequest} />);
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(onRequest).toHaveBeenCalled();
+  });
+
+  it('renders Available Variables section when variableHints are provided', () => {
+    const hints = [{ ref: 'status', label: 'status (latest)' }];
+    render(<LoopConfig data={makeData()} onChange={vi.fn()} variableHints={hints} />);
+    expect(screen.getByText(/Available variables/)).toBeTruthy();
+  });
+
+  it('defaults count to 1 when input is empty (NaN)', () => {
+    const onChange = vi.fn();
+    render(<LoopConfig data={makeData({ count: 5 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ count: 1 }));
+  });
+
+  it('defaults maxIterations to 100 when input is empty (NaN)', () => {
+    const onChange = vi.fn();
+    render(<LoopConfig data={makeData({ maxIterations: 50 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('50'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxIterations: 100 }));
+  });
+
+  it('renders default values for count mode when count/indexVariable are undefined', () => {
+    const onChange = vi.fn();
+    const data = makeData({ count: undefined, indexVariable: undefined, countExpression: undefined });
+    render(<LoopConfig data={data} onChange={onChange} />);
+    expect(screen.getByDisplayValue('1')).toBeTruthy(); // default count
+    expect(screen.getByDisplayValue('i')).toBeTruthy(); // default indexVariable
+  });
+
+  it('renders default values for forEach mode when item/index vars are undefined', () => {
+    const onChange = vi.fn();
+    const data = makeData({ mode: 'forEach', sourceExpression: '{{x}}', itemVariable: undefined, indexVariable: undefined });
+    render(<LoopConfig data={data} onChange={onChange} />);
+    expect(screen.getByDisplayValue('item')).toBeTruthy();
+    expect(screen.getByDisplayValue('i')).toBeTruthy();
+  });
+
+  it('renders default values for while mode when whileLeft/Right/Operator are undefined', () => {
+    const onChange = vi.fn();
+    const data = makeData({ mode: 'while', whileLeft: undefined, whileOperator: undefined, whileRight: undefined });
+    const { container } = render(<LoopConfig data={data} onChange={onChange} />);
+    const selects = container.querySelectorAll('select');
+    const opSelect = selects[1] as HTMLSelectElement;
+    expect(opSelect.value).toBe('==');
+  });
+
+  it('calls onRequestVariableInsert with apply callback for forEach source', () => {
+    const onChange = vi.fn();
+    const onRequest = vi.fn();
+    const data = makeData({ mode: 'forEach', sourceExpression: '{{items}}', itemVariable: 'item', indexVariable: 'i' });
+    render(<LoopConfig data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
+    const insertButtons = screen.getAllByText('Insert…');
+    fireEvent.click(insertButtons[0]);
+    expect(onRequest).toHaveBeenCalled();
+    // Execute the callback to trigger the insert
+    const applyFn = onRequest.mock.calls[0][0];
+    applyFn('{{newVar}}');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sourceExpression: '{{items}}{{newVar}}' }));
+  });
+
+  it('mode hint text shows correct description for forEach', () => {
+    render(<LoopConfig data={makeData({ mode: 'forEach', sourceExpression: '', itemVariable: 'item', indexVariable: 'i' })} onChange={vi.fn()} />);
+    expect(screen.getByText('Iterate over a JSON array')).toBeTruthy();
+  });
+
+  it('mode hint text shows correct description for while', () => {
+    render(<LoopConfig data={makeData({ mode: 'while', whileLeft: '', whileOperator: '==', whileRight: '' })} onChange={vi.fn()} />);
+    expect(screen.getByText('Repeat while a condition is true')).toBeTruthy();
+  });
 });

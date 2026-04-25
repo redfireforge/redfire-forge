@@ -11,17 +11,17 @@ describe('supportsWorkers', () => {
     if (originalWorker) {
       globalThis.Worker = originalWorker;
     } else {
-      delete (globalThis as any).Worker;
+      delete (globalThis as unknown as Record<string, unknown>).Worker;
     }
   });
 
   it('returns true when Worker is defined', () => {
-    (globalThis as any).Worker = class {};
+    (globalThis as unknown as Record<string, unknown>).Worker = class {};
     expect(supportsWorkers()).toBe(true);
   });
 
   it('returns false when Worker is undefined', () => {
-    delete (globalThis as any).Worker;
+    delete (globalThis as unknown as Record<string, unknown>).Worker;
     expect(supportsWorkers()).toBe(false);
   });
 });

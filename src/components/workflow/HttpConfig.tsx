@@ -11,6 +11,8 @@ import ExtractionEditor from '../ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../ExtractionPathPickerModal';
 import { ParamsEditor } from '../ParamsEditor';
 import type { ParamEntry } from '../ParamsEditor';
+import ExpressionInput from './ExpressionInput';
+import ExpressionTextarea from './ExpressionTextarea';
 
 export type HttpTab = 'url' | 'headers' | 'body' | 'extract';
 
@@ -71,8 +73,9 @@ function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
       </p>
       <ul className="wf-http-var-hints-list" role="list">
         {sorted.map((h) => (
-          <li key={h.ref} className="wf-http-var-hints-item">
+          <li key={h.ref} className="wf-http-var-hints-item" title={h.description || ''}>
             <span className="wf-http-var-hints-label">{h.label}</span>
+            {h.type && <span className="wf-http-var-hints-type">{h.type}</span>}
             <code className="wf-http-var-hints-code">{`{{${h.ref}}}`}</code>
           </li>
         ))}
@@ -102,7 +105,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   workflowServices?: WorkflowService[];
 }) {
   const s = data.scenario;
-  const update = (patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } });
+  const update = useCallback((patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } }), [onChange, s]);
   const urlInputRef = useRef<HTMLInputElement>(null);
 
   // Normalize encoded template vars on mount / when URL changes externally
@@ -206,13 +209,13 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => <option key={m}>{m}</option>)}
         </select>
         <div className="wf-config-url-field-wrap">
-          <input
+          <ExpressionInput
             ref={urlInputRef}
             value={decodeTemplateVars(s.url).replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}')}
-            onChange={(e) => update({ url: e.target.value })}
+            onChange={(val) => update({ url: val })}
             placeholder="https://api.example.com/..."
             className="wf-config-url-input"
-            title={s.url}
+            variableHints={variableHints}
           />
           <button
             type="button"
@@ -284,9 +287,14 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                   const next = [...s.headers]; next[i] = { ...h, key: e.target.value }; update({ headers: next });
                 }} />
                 <div className="wf-config-kv-val-wrap">
-                  <input value={h.value} placeholder="Value (supports {{var}})" onChange={(e) => {
-                    const next = [...s.headers]; next[i] = { ...h, value: e.target.value }; update({ headers: next });
-                  }} />
+                  <ExpressionInput
+                    value={h.value}
+                    placeholder="Value (supports {{var}})"
+                    onChange={(val) => {
+                      const next = [...s.headers]; next[i] = { ...h, value: val }; update({ headers: next });
+                    }}
+                    variableHints={variableHints}
+                  />
                   <button
                     type="button"
                     className="btn btn-sm wf-config-insert-var-btn"
@@ -322,12 +330,13 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                 Insert variable…
               </button>
             </div>
-            <textarea
+            <ExpressionTextarea
               value={s.body}
-              onChange={(e) => update({ body: e.target.value })}
+              onChange={(val) => update({ body: val })}
               placeholder='{"key": "{{value}}"}'
               rows={6}
               className="wf-config-textarea"
+              variableHints={variableHints}
             />
           </div>
         )}
@@ -337,6 +346,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             extractions={s.extractions ?? []}
             onChange={(extractions) => update({ extractions })}
             sampleResponseBody={extractionSampleResponseBody}
+            variableHints={variableHints}
             fetchSample={
               extractionFetchSample
                 ? {

@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 import type { RequestResult } from '../types';
 import WaterfallBar from './WaterfallBar';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -8,6 +12,8 @@ type ResponseDetailModalProps = {
 };
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
+  const { expanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const formatResponseBody = useCallback((body: string) => {
     try {
       return JSON.stringify(JSON.parse(body), null, 2);
@@ -20,9 +26,10 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal response-detail-modal">
+      <div className={`modal response-detail-modal ${expandClass}`} style={resizeStyle}>
         <div className="modal-header">
           <h3>Response Detail</h3>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
         </div>
         <div className="response-detail-body">
           <div className="response-detail-meta">
@@ -83,7 +90,9 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
         </div>
         <div className="response-detail-footer">
           <button className="btn btn-primary" onClick={onClose}>Close</button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );
