@@ -36,7 +36,7 @@ export default function ExpressionHintDropdown({ open, items, selectedIndex, onS
   useEffect(() => {
     if (!open || !listRef.current) return;
     const el = listRef.current.children[selectedIndex] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: 'nearest' });
+    el?.scrollIntoView?.({ block: 'nearest' });
   }, [open, selectedIndex]);
 
   if (!open || items.length === 0 || !pos) return null;
