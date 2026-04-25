@@ -39,7 +39,7 @@ describe('InsertVarField', () => {
     );
     fireEvent.click(screen.getByText('Insert…'));
     expect(onRequest).toHaveBeenCalledTimes(1);
-    expect(onRequest).toHaveBeenCalledWith(onInsert);
+    expect(onRequest).toHaveBeenCalledWith(onInsert, false, undefined);
   });
 
   it('has correct title attribute on the button', () => {
@@ -49,6 +49,18 @@ describe('InsertVarField', () => {
       </InsertVarField>,
     );
     expect(screen.getByTitle('Insert variable from workflow or upstream step')).toBeTruthy();
+  });
+
+  it('passes initialSearch to onRequestVariableInsert when provided', () => {
+    const onRequest = vi.fn();
+    const onInsert = vi.fn();
+    render(
+      <InsertVarField onRequestVariableInsert={onRequest} onInsert={onInsert} initialSearch="status">
+        <input defaultValue="test" />
+      </InsertVarField>,
+    );
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(onRequest).toHaveBeenCalledWith(onInsert, false, 'status');
   });
 
   it('renders textarea children correctly', () => {

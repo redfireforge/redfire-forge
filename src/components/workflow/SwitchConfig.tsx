@@ -3,6 +3,7 @@ import type { SwitchNodeData, SwitchCase } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { useListCrud } from '../../hooks/useListCrud';
 import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
 import AvailableVariables from './AvailableVariables';
 
 export default function SwitchConfig({
@@ -40,10 +41,11 @@ export default function SwitchConfig({
           onRequestVariableInsert={onRequestVariableInsert}
           onInsert={(snippet) => onChange({ ...data, expression: data.expression + snippet })}
         >
-          <input
+          <ExpressionInput
             value={data.expression}
-            onChange={(e) => onChange({ ...data, expression: e.target.value })}
+            onChange={(val) => onChange({ ...data, expression: val })}
             placeholder="e.g. {{status}} or {{category}}"
+            variableHints={variableHints}
           />
         </InsertVarField>
         <span className="wf-config-hint">Variable or template expression to match against cases</span>

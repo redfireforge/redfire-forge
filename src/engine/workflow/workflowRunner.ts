@@ -60,11 +60,15 @@ export async function runWorkflow(
       };
       extracted = extractVariables(rawScenario.extractions, responseData, ctx, rawScenario.id);
     }
-    if (ctx.get('status') === undefined) {
-      ctx.set('status', String(result.httpStatus));
-      ctx.setForNode(rawScenario.id, 'status', String(result.httpStatus));
-      extracted = { ...extracted, status: String(result.httpStatus) };
+    const statusStr = String(result.httpStatus);
+    ctx.set('httpStatus', statusStr);
+    ctx.setForNode(rawScenario.id, 'status', statusStr);
+    ctx.setForNode(rawScenario.id, 'httpStatus', statusStr);
+    if (!extracted.status && ctx.get('status') === undefined) {
+      ctx.set('status', statusStr);
+      extracted = { ...extracted, status: statusStr };
     }
+    if (!extracted.httpStatus) extracted = { ...extracted, httpStatus: statusStr };
 
     onStepComplete?.({
       stepIndex: i,

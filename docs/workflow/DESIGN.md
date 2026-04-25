@@ -108,8 +108,8 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 | Node | Shape | Purpose | Config | Status |
 |---|---|---|---|---|
 | **Start** | Circle (green) | Workflow entry point | Initial variables, trigger settings | ✅ Done |
-| **HTTP Request** | Rounded rect | Execute an API call | Method, URL, headers, body, auth, extractions, assertions, service binding | ✅ Done |
-| **Condition (If/Else)** | Diamond | Branch based on variable/status | Left operand, operator, right operand, true/false edges | ✅ Done |
+| **HTTP Request** | Rounded rect | Execute an API call | Method, URL, headers, body, auth, extractions, assertions, service binding; inline `{{` autocomplete in all expression fields | ✅ Done |
+| **Condition (If/Else)** | Diamond | Branch based on variable/status | Left operand (searchable variable picker or expression with inline autocomplete), operator, right operand, true/false edges | ✅ Done |
 | **Delay** | Clock icon | Pause between steps | Duration (fixed or random), min/max ms | ✅ Done |
 | **Fork** | Split arrows | Start parallel branches | Fan-out to N children | ✅ Done |
 | **Join** | Merge arrows | Wait for parallel branches | Wait-all strategy | ✅ Done |
@@ -121,28 +121,20 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 | **Set Variable** | Assignment icon (📝) | Set or transform variables | Variable name, value expression, template resolution | ✅ Done |
 | **Aggregate** | Sigma icon (Σ) | Combine/accumulate values | Source/target mappings, strategy (concat, first, last, count, sum, custom) | ✅ Done |
 
-### Planned Nodes 🚧
+### Future Nodes 💡
 
 | Node | Shape | Purpose | Config | Priority |
 |---|---|---|---|---|
+| **Error Handler** | Shield icon | Catch and handle errors | Error type, retry config, fallback path | High |
 | **Script/Transform** | Code icon | Execute JavaScript | Code editor, input/output variables | Medium |
-| **Error Handler** | Shield icon | Catch and handle errors | Error type, retry config, fallback path | Medium |
-| **Log/Debug** | Bug icon | Log variables or messages | Message template, log level, variable snapshot | Low |
+| **Log/Debug** | Bug icon | Log variables or messages | Message template, log level, variable snapshot | Medium |
 | **Wait for Condition** | Hourglass icon | Poll until condition met | Condition, polling interval, timeout | Low |
-
-### Future Node Ideas 💡
-
-| Node | Purpose | Use Case |
-|---|---|---|
-| **Sub-workflow** | Call another workflow as a step | Reusable workflow components, modular design |
-| **Database Query** | Execute SQL queries | Direct DB testing, data setup/teardown |
-| **Rate Limiter** | Control request rate per step | Respect API rate limits, throttle load |
-| **Cache** | Cache responses by key | Avoid redundant calls, share data across iterations |
-| **File Operations** | Read/write files | CSV input, JSON export, test data generation |
-| **Email/Notification** | Send email/Slack/webhook | Alert on failures, report completion |
-| **HTTP Polling** | Poll endpoint until condition | Wait for async job completion (status=done) |
-| **Batch Request** | Execute multiple similar requests | Bulk operations (delete multiple resources) |
-| **Extract to File** | Save response to file | Debug large payloads, export test data |
+| **Sub-workflow** | Nested icon | Call another workflow as a step | Workflow reference, input/output mapping | Low |
+| **Database Query** | DB icon | Execute SQL queries | Connection, query, result mapping | Low |
+| **Rate Limiter** | Throttle icon | Control request rate per step | Requests/sec, burst limit | Low |
+| **Cache** | Cache icon | Cache responses by key | Cache key, TTL, invalidation | Low |
+| **File Operations** | File icon | Read/write files | File path, format (CSV/JSON), mapping | Low |
+| **Email/Notification** | Bell icon | Send email/Slack/webhook | Recipients, template, channel | Low |
 | **GraphQL Request** | Execute GraphQL queries | GraphQL API testing |
 
 ---
@@ -160,29 +152,27 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 - **Webhook Trigger** — Event-driven workflow initiation
 - **Schedule Trigger** — Time-based workflow automation
 
-### Phase 3: Advanced Control Flow (High Priority)
+### Phase 3: Advanced Control Flow (✅ Complete)
 - **Loop** — Iterate over arrays or repeat N times
-  - Essential for: data-driven testing, bulk operations, retry logic
-  - Config: for-each array variable, repeat count, while condition, max iterations
+  - Three modes: Count (fixed iterations), ForEach (iterate JSON array with item/index variables), While (condition-based)
+  - Config: for-each array variable, repeat count, while condition, max iterations safety cap
 - **Switch** — Multi-way branching (more than 2 paths)
-  - Essential for: status code routing (200/400/404/500), state machines
+  - Evaluate expression against defined cases; each case creates an output path; unmatched values follow Default
   - Config: multiple case conditions, default path
 - **Set Variable** — Explicit variable manipulation
-  - Essential for: data transformation, computed values, test data setup
-  - Config: variable assignments, transform functions (uppercase, JSON parse, etc.)
+  - Assign variable name/value pairs during execution with template expression support
+  - Config: variable assignments, transform functions
 
-### Phase 4: Reliability & Observability (Medium Priority)
-- **Error Handler** — Structured error handling
-  - Essential for: retry logic, graceful degradation, error logging
-  - Config: error type filters, retry count/backoff, fallback path
+### Phase 4: Reliability & Observability (✅ Complete)
 - **Aggregate** — Combine parallel branch results
-  - Essential for: gathering fork/join results, summary calculations
-  - Config: merge strategy (concat arrays, pick first/last, custom JSONPath)
-- **Log/Debug** — Workflow debugging and visibility
-  - Essential for: troubleshooting, audit trails, variable inspection
-  - Config: message template, log level, variable snapshot
+  - Source/target mappings with strategies: concat, sum, count, first, last, array
+  - Config: merge strategy, source expression, target variable
+- **Error Handler** — Structured error handling (planned)
+- **Log/Debug** — Workflow debugging and visibility (planned)
 
 ### Phase 5: Extended Capabilities (Future)
+- **Error Handler** — Structured error handling with retry/fallback
+- **Log/Debug** — Variable inspection and audit trails
 - **Script/Transform** — JavaScript execution for complex logic
 - **Database Query** — Direct SQL testing and data operations
 - **Sub-workflow** — Reusable workflow modules
@@ -193,20 +183,15 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 
 ### Priority Justification
 
-**Loop is the #1 priority** because:
-- Already designed in original spec
-- Blocks common use cases: array iteration, retry logic, bulk operations
-- Required for realistic load test scenarios (e.g., create N orders per user)
+Phases 1–4 are complete. Remaining priorities:
 
-**Switch is #2** because:
-- Improves UX over chained condition nodes
-- Natural for HTTP status code routing
-- Prevents "diamond spaghetti" diagrams
+**Error Handler is #1** because:
+- Blocks robust workflow patterns: retry on failure, graceful degradation
+- Required for production-grade API testing (transient failures are normal)
 
-**Set Variable is #3** because:
-- Currently no way to manually transform/compute variables
-- Needed for test data preparation
-- Fills gap between extractions and request inputs
+**Script/Transform is #2** because:
+- Fills gap for complex data manipulation beyond template expressions
+- Needed for response transformation, conditional logic beyond simple operators
 
 ---
 
@@ -454,6 +439,12 @@ src/
 │   ├── WorkflowCanvas.tsx       # React Flow canvas wrapper
 │   ├── WorkflowToolbar.tsx      # New/Open/Save/Run buttons
 │   ├── WorkflowPalette.tsx      # Left panel: node blocks + REQUESTS/CATALOG browser
+│   ├── HttpConfig.tsx            # HTTP node config with ExpressionInput in URL/headers/body
+│   ├── ConditionConfig.tsx       # Condition config with SearchableVariableSelect + ExpressionTextarea
+│   ├── ExpressionInput.tsx       # Input with inline {{variable}} and $function autocomplete
+│   ├── ExpressionTextarea.tsx    # Textarea variant of ExpressionInput
+│   ├── ExpressionHintDropdown.tsx # Portal-rendered autocomplete dropdown
+│   ├── SearchableVariableSelect.tsx # Searchable combobox for variable picking (grouped, sorted, filterable)
 │   ├── WorkflowConfigPanel.tsx  # Right panel: per-node config editor
 │   ├── WorkflowStatusBar.tsx    # Footer: step count, variable count, status
 │   ├── VariableContextBar.tsx   # Live variable display during execution
@@ -469,10 +460,10 @@ src/
 │       ├── JoinNode.tsx              # Parallel join node ✅
 │       ├── WebhookTriggerNode.tsx    # Webhook trigger node ✅
 │       ├── ScheduleTriggerNode.tsx   # Schedule trigger node ✅
-│       ├── LoopNode.tsx              # Loop node (planned)
-│       ├── SwitchNode.tsx            # Multi-branch node (planned)
-│       ├── SetVariableNode.tsx       # Variable assignment node (planned)
-│       └── AggregateNode.tsx         # Aggregation node (planned)
+│       ├── LoopNode.tsx              # Loop node ✅
+│       ├── SwitchNode.tsx            # Multi-branch node ✅
+│       ├── SetVariableNode.tsx       # Variable assignment node ✅
+│       └── AggregateNode.tsx         # Aggregation node ✅
 ├── engine/workflow/
 │   ├── variableContext.ts       # Variable store (done)
 │   ├── resolveScenario.ts       # Template resolution (done)
@@ -481,11 +472,15 @@ src/
 │   ├── graphRunner.ts           # Graph-based execution (traverses nodes/edges)
 │   └── index.ts                 # Barrel exports (done)
 ├── hooks/
-│   └── useWorkflows.ts          # CRUD + storage for workflows
+│   ├── useWorkflows.ts          # CRUD + storage for workflows
+│   └── useExpressionHints.ts    # Inline autocomplete for {{var}} and $function triggers
+├── utils/
+│   ├── expressionFunctions.ts   # Built-in expression function registry ($upper, $concat, etc.)
+│   └── workflowVariableHints.ts # Variable hint collection and validation
 └── styles/
     └── workflow.css              # All workflow-specific styles
 ```
 
 ---
 
-_Last updated: 2026-04-19_
+_Last updated: 2026-04-25_

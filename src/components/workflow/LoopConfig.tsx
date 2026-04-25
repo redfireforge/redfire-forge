@@ -1,6 +1,7 @@
 import type { LoopNodeData, LoopMode } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from './InsertVarField';
+import ExpressionInput from './ExpressionInput';
 import AvailableVariables from './AvailableVariables';
 
 const MODE_OPTIONS: { value: LoopMode; label: string; desc: string }[] = [
@@ -61,10 +62,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onRequestVariableInsert={onRequestVariableInsert}
               onInsert={(snippet) => onChange({ ...data, countExpression: (data.countExpression ?? '') + snippet })}
             >
-              <input
+              <ExpressionInput
                 value={data.countExpression ?? ''}
-                onChange={(e) => onChange({ ...data, countExpression: e.target.value })}
+                onChange={(val) => onChange({ ...data, countExpression: val })}
                 placeholder="e.g. {{retryCount}} (overrides fixed count)"
+                variableHints={variableHints}
               />
             </InsertVarField>
           </div>
@@ -89,10 +91,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onRequestVariableInsert={onRequestVariableInsert}
               onInsert={(snippet) => onChange({ ...data, sourceExpression: (data.sourceExpression ?? '') + snippet })}
             >
-              <input
+              <ExpressionInput
                 value={data.sourceExpression ?? ''}
-                onChange={(e) => onChange({ ...data, sourceExpression: e.target.value })}
+                onChange={(val) => onChange({ ...data, sourceExpression: val })}
                 placeholder="e.g. {{items}} or {{$.data.results}}"
+                variableHints={variableHints}
               />
             </InsertVarField>
             <span className="wf-config-hint">Expression that resolves to a JSON array</span>
@@ -126,10 +129,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onRequestVariableInsert={onRequestVariableInsert}
               onInsert={(snippet) => onChange({ ...data, whileLeft: (data.whileLeft ?? '') + snippet })}
             >
-              <input
+              <ExpressionInput
                 value={data.whileLeft ?? ''}
-                onChange={(e) => onChange({ ...data, whileLeft: e.target.value })}
+                onChange={(val) => onChange({ ...data, whileLeft: val })}
                 placeholder="e.g. {{status}}"
+                variableHints={variableHints}
               />
             </InsertVarField>
           </div>
@@ -148,10 +152,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onRequestVariableInsert={onRequestVariableInsert}
               onInsert={(snippet) => onChange({ ...data, whileRight: (data.whileRight ?? '') + snippet })}
             >
-              <input
+              <ExpressionInput
                 value={data.whileRight ?? ''}
-                onChange={(e) => onChange({ ...data, whileRight: e.target.value })}
+                onChange={(val) => onChange({ ...data, whileRight: val })}
                 placeholder="e.g. 200"
+                variableHints={variableHints}
               />
             </InsertVarField>
           </div>

@@ -498,4 +498,308 @@ describe('expressionFunctions', () => {
       expect(EXPRESSION_FUNCTION_MAP.get('$epoch')!.evaluate('not-a-date')).toBe(0);
     });
   });
+
+  // ── Edge-case branch coverage ──
+  describe('edge-case branches', () => {
+    // $length: array vs string branch
+    it('$length handles null', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$length')!.evaluate(null)).toBe(0);
+    });
+
+    // $substring: len != null branch (already covered above, but ensure both paths)
+    it('$substring with null length falls back to substr without length', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$substring')!.evaluate('hello', 1, null)).toBe('ello');
+    });
+
+    // $padEnd: default pad (space)
+    it('$padEnd uses space by default', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$padEnd')!.evaluate('hi', 4)).toBe('hi  ');
+    });
+
+    // $padStart/$padEnd with explicit null pad
+    it('$padStart with null pad uses space', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$padStart')!.evaluate('x', 3, null)).toBe('  x');
+    });
+
+    // $divide: non-zero path
+    it('$divide normal division', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$divide')!.evaluate(10, 3)).toBeCloseTo(3.333, 2);
+    });
+
+    // $round: dec == null path
+    it('$round with explicit null decimals', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$round')!.evaluate(3.7, null)).toBe(4);
+    });
+
+    // $random: partial null args
+    it('$random with only min', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$random')!.evaluate(100) as number;
+      expect(r).toBeGreaterThanOrEqual(100);
+    });
+    it('$random with only max null', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$random')!.evaluate(0, null) as number;
+      expect(r).toBeGreaterThanOrEqual(0);
+    });
+
+    // $mod: non-zero path
+    it('$mod normal modulo', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$mod')!.evaluate(7, 3)).toBe(1);
+    });
+
+    // $if: "null" and "undefined" as falsy
+    it('$if treats "null" as falsy', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$if')!.evaluate('null', 'A', 'B')).toBe('B');
+    });
+    it('$if treats "undefined" as falsy', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$if')!.evaluate('undefined', 'A', 'B')).toBe('B');
+    });
+    it('$if treats non-zero number string as truthy', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$if')!.evaluate('42', 'A', 'B')).toBe('A');
+    });
+
+    // $not: "0", "null", "undefined"
+    it('$not negates "0"', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$not')!.evaluate('0')).toBe(true);
+    });
+    it('$not negates "null"', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$not')!.evaluate('null')).toBe(true);
+    });
+    it('$not negates "undefined"', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$not')!.evaluate('undefined')).toBe(true);
+    });
+
+    // $isEmpty: non-empty array
+    it('$isEmpty returns false for non-empty array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$isEmpty')!.evaluate([1, 2])).toBe(false);
+    });
+    it('$isEmpty returns false for number', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$isEmpty')!.evaluate(42)).toBe(false);
+    });
+
+    // $matches: non-matching regex
+    it('$matches returns false for non-match', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$matches')!.evaluate('hello', '^\\d+$')).toBe(false);
+    });
+
+    // $coalesce: all non-empty returns first
+    it('$coalesce with all non-empty returns first', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$coalesce')!.evaluate('a', 'b', 'c')).toBe('a');
+    });
+    // $coalesce: no args path
+    it('$coalesce with no args returns null', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$coalesce')!.evaluate()).toBe(null);
+    });
+
+    // $default: undefined
+    it('$default returns fallback when undefined', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$default')!.evaluate(undefined, 'fb')).toBe('fb');
+    });
+
+    // $keys: returns [] for array input
+    it('$keys returns [] for array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$keys')!.evaluate([1, 2])).toEqual([]);
+    });
+
+    // $values: returns [] for non-object
+    it('$values returns [] for non-object', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$values')!.evaluate('not json')).toEqual([]);
+    });
+    it('$values returns [] for array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$values')!.evaluate([1, 2])).toEqual([]);
+    });
+    it('$values from JSON string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$values')!.evaluate('{"x":1,"y":2}')).toEqual([1, 2]);
+    });
+
+    // $count: non-array string not starting with [
+    it('$count returns string length for plain string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$count')!.evaluate('hello')).toBe(5);
+    });
+    it('$count handles invalid JSON array string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$count')!.evaluate('[invalid')).toBe(8);
+    });
+
+    // $flatten: JSON string input
+    it('$flatten handles JSON string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$flatten')!.evaluate('[[1,2],[3]]')).toEqual([1, 2, 3]);
+    });
+    it('$flatten returns [] for non-array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$flatten')!.evaluate('not json')).toEqual([]);
+    });
+    it('$flatten returns [] for non-array JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$flatten')!.evaluate('42')).toEqual([]);
+    });
+
+    // $sort: non-array returns []
+    it('$sort returns [] for non-array non-JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$sort')!.evaluate('not json')).toEqual([]);
+    });
+    it('$sort returns [] for non-array JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$sort')!.evaluate('42')).toEqual([]);
+    });
+
+    // $reverse: non-array
+    it('$reverse returns [] for non-array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$reverse')!.evaluate('not json')).toEqual([]);
+    });
+    it('$reverse returns [] for non-array JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$reverse')!.evaluate('42')).toEqual([]);
+    });
+
+    // $unique: non-array
+    it('$unique returns [] for non-array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$unique')!.evaluate('not json')).toEqual([]);
+    });
+    it('$unique returns [] for non-array JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$unique')!.evaluate('42')).toEqual([]);
+    });
+
+    // $first: JSON array string
+    it('$first parses JSON array string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$first')!.evaluate('[10,20,30]')).toBe(10);
+    });
+    it('$first returns null for empty JSON array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$first')!.evaluate('[]')).toBe(null);
+    });
+    it('$first handles invalid JSON starting with [', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$first')!.evaluate('[invalid');
+      expect(r).toBe('[');
+    });
+    it('$first returns empty string for empty string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$first')!.evaluate('')).toBe('');
+    });
+
+    // $last: JSON array string
+    it('$last parses JSON array string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate('[10,20,30]')).toBe(30);
+    });
+    it('$last returns null for empty JSON array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate('[]')).toBe(null);
+    });
+    it('$last handles invalid JSON starting with [', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate('[invalid');
+      expect(r).toBe('d');
+    });
+    it('$last returns empty for empty string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate('')).toBe('');
+    });
+    it('$last returns null for empty array', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate([])).toBe(null);
+    });
+
+    // $slice: JSON string input, non-array
+    it('$slice returns [] for non-array non-JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$slice')!.evaluate('not json', 0, 1)).toEqual([]);
+    });
+
+    // $jsonpath: null object, non-object segment
+    it('$jsonpath returns null for null input', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$jsonpath')!.evaluate(null, 'a.b')).toBe(null);
+    });
+    it('$jsonpath returns null for invalid JSON string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$jsonpath')!.evaluate('not json', 'a')).toBe(null);
+    });
+    it('$jsonpath returns null for primitive at intermediate path', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$jsonpath')!.evaluate({ a: 42 }, 'a.b')).toBe(null);
+    });
+
+    // $merge: non-object inputs
+    it('$merge handles invalid JSON', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$merge')!.evaluate('not json', 'also not')).toEqual({});
+    });
+    it('$merge handles array input', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$merge')!.evaluate([1, 2], { b: 2 })).toEqual({ b: 2 });
+    });
+
+    // $type: undefined
+    it('$type returns null for undefined', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$type')!.evaluate(undefined)).toBe('null');
+    });
+
+    // $stringify: error path (circular ref)
+    it('$stringify returns string for circular ref', () => {
+      const obj: Record<string, unknown> = {};
+      obj.self = obj;
+      const result = EXPRESSION_FUNCTION_MAP.get('$stringify')!.evaluate(obj);
+      expect(typeof result).toBe('string');
+    });
+
+    // $parse: handles empty string
+    it('$parse returns null for empty string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$parse')!.evaluate('')).toBe(null);
+    });
+
+    // $toIso: with timestamp number
+    it('$toIso converts numeric timestamp', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$toIso')!.evaluate(1705312200000)).toContain('2024');
+    });
+
+    // $formatDate: with HH:mm:ss
+    it('$formatDate with time tokens', () => {
+      const result = EXPRESSION_FUNCTION_MAP.get('$formatDate')!.evaluate('2024-01-15T10:30:45Z', 'HH:mm:ss');
+      expect(result).toBe('10:30:45');
+    });
+    // $formatDate with numeric timestamp
+    it('$formatDate with numeric timestamp', () => {
+      const result = EXPRESSION_FUNCTION_MAP.get('$formatDate')!.evaluate(0);
+      expect(result).toBe('1970-01-01');
+    });
+
+    // $diffMs with numeric timestamps
+    it('$diffMs with numeric timestamps', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$diffMs')!.evaluate(86400000, 0);
+      expect(r).toBe(86400000);
+    });
+
+    // $addDays with numeric timestamp
+    it('$addDays with numeric timestamp', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$addDays')!.evaluate(0, 1) as string;
+      expect(r).toContain('1970-01-02');
+    });
+
+    // $addHours with numeric timestamp
+    it('$addHours with numeric timestamp', () => {
+      const r = EXPRESSION_FUNCTION_MAP.get('$addHours')!.evaluate(0, 1);
+      expect(r).toBe('1970-01-01T01:00:00.000Z');
+    });
+
+    // String helper s() with undefined
+    it('$upper handles undefined', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$upper')!.evaluate(undefined)).toBe('');
+    });
+
+    // Number helper n() with non-number
+    it('$add handles NaN string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$add')!.evaluate('abc', 5)).toBe(5);
+    });
+
+    // $base64 with special chars
+    it('$base64 handles empty string', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$base64')!.evaluate('')).toBe('');
+    });
+
+    // $urlDecode handles valid encoded string
+    it('$urlDecode handles plus sign', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$urlDecode')!.evaluate('hello+world')).toBe('hello+world');
+    });
+
+    // $hash handles empty string
+    it('$hash handles empty string', () => {
+      const result = EXPRESSION_FUNCTION_MAP.get('$hash')!.evaluate('');
+      expect(typeof result).toBe('string');
+    });
+
+    // $first: non-array JSON string starting with [
+    it('$first handles JSON that parses to non-array starting with [', () => {
+      // This case is tricky - JSON starting with [ should be an array
+      // Testing a string that starts with [ but parses to non-array isn't really possible
+      // Instead test the sv[0] ?? '' fallback for empty string
+      expect(EXPRESSION_FUNCTION_MAP.get('$first')!.evaluate(null)).toBe('');
+    });
+
+    // $last: non-array JSON string starting with [
+    it('$last handles null', () => {
+      expect(EXPRESSION_FUNCTION_MAP.get('$last')!.evaluate(null)).toBe('');
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
 import { typeColor, getValuePreview, ChevronIcon } from './shared/jsonTreeShared';
+import { useModalDrag } from '../hooks/useModalDrag';
 import { useModalExpand } from '../hooks/useModalExpand';
 import { useModalResize } from '../hooks/useModalResize';
 import ModalExpandButton from './shared/ModalExpandButton';
@@ -141,6 +142,7 @@ export default function RegexAssertionModal({
   const [treeSearch, setTreeSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showPatternLibrary, setShowPatternLibrary] = useState(false);
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true);
   const { expanded, toggleExpand, expandClass } = useModalExpand();
   const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
@@ -192,10 +194,10 @@ export default function RegexAssertionModal({
     : PATTERN_LIBRARY;
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`modal ram-modal ${expandClass}`} style={resizeStyle}>
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={overlayStyle}>
+      <div className={`modal ram-modal ${expandClass}`} role="dialog" style={{ ...modalStyle, ...resizeStyle }}>
         {/* Header */}
-        <div className="ram-header">
+        <div className="ram-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
           <h3>Regex Assertion Builder</h3>
           <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
           <button className="ram-modal-close" onClick={onClose}>&times;</button>

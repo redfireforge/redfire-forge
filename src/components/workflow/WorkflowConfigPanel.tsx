@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
+import { useModalDrag } from '../../hooks/useModalDrag';
 import type {
   WorkflowNode,
   HttpNodeData,
@@ -62,6 +63,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
   const [variableInsertShortRef, setVariableInsertShortRef] = useState(false);
   const [variableInsertInitialSearch, setVariableInsertInitialSearch] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const { onDragStart: onExpandDragStart, overlayStyle: expandOverlayStyle, modalStyle: expandModalStyle } = useModalDrag(expanded);
   const collapsingRef = useRef(false);
   const insertApplyRef = useRef<(snippet: string) => void>(() => {});
 
@@ -234,6 +236,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
             className="modal-overlay wf-expand-modal-overlay"
             role="presentation"
             onClick={(e) => { if (e.target === e.currentTarget) collapse(); }}
+            style={expandOverlayStyle}
           >
             <div
               className="modal ram-modal wf-expand-modal"
@@ -241,8 +244,9 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
               aria-labelledby="wf-expand-title"
               aria-modal="true"
               onClick={(e) => e.stopPropagation()}
+              style={expandModalStyle}
             >
-              <div className="ram-header">
+              <div className="ram-header" style={{ cursor: 'move' }} onMouseDown={onExpandDragStart}>
                 <h3 id="wf-expand-title">{node.type.toUpperCase()} — {(node.data as HttpNodeData).label || 'Step Config'}</h3>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                   <button type="button" className="btn btn-sm" onClick={(e) => { e.stopPropagation(); collapse(); }} title="Shrink back to side panel">⛶</button>

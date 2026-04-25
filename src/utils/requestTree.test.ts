@@ -865,3 +865,166 @@ describe('findSiblingFolders', () => {
     expect(findSiblingFolders([f], 'nonexistent')).toBeNull();
   });
 });
+
+// ── Edge cases: folders property undefined (tests ?? [] fallback branches) ──
+
+function makeFolderNoSub(id: string, requests: RequestItem[] = []): RequestFolder {
+  return { id, name: id, requests } as RequestFolder;
+}
+
+describe('requestTree — folders undefined fallback branches', () => {
+  it('findFolderDeep handles folders without subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    expect(findFolderDeep([f], 'f1')).toEqual(f);
+    expect(findFolderDeep([f], 'not-found')).toBeNull();
+  });
+
+  it('findReqInFolders handles folders without subfolders', () => {
+    const req = makeReq('r1');
+    const f = makeFolderNoSub('f1', [req]);
+    expect(findReqInFolders([f], 'r1')).toEqual(req);
+    expect(findReqInFolders([f], 'not-found')).toBeNull();
+  });
+
+  it('findRequestInCollection handles collection with undefined folders', () => {
+    const req = makeReq('r1');
+    const col = makeCollection({ requests: [req] }) as RequestCollection;
+    delete (col as any).folders;
+    expect(findRequestInCollection(col, 'r1')).toEqual(req);
+  });
+
+  it('countReqsInFolders handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1'), makeReq('r2')]);
+    expect(countReqsInFolders([f])).toBe(2);
+  });
+
+  it('countFolderReqs handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    expect(countFolderReqs(f)).toBe(1);
+  });
+
+  it('findSiblingFolders handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    expect(findSiblingFolders([f], 'not-found')).toBeNull();
+  });
+
+  it('countAllRequests handles collection with undefined folders', () => {
+    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
+    delete (col as any).folders;
+    expect(countAllRequests(col)).toBe(1);
+  });
+
+  it('mapReqInFolders handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    const result = mapReqInFolders([f], 'r1', (r) => ({ ...r, name: 'updated' }));
+    expect(result[0].requests[0].name).toBe('updated');
+  });
+
+  it('mapRequests handles collection with undefined folders', () => {
+    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
+    delete (col as any).folders;
+    const result = mapRequests(col, 'r1', (r) => ({ ...r, name: 'up' }));
+    expect(result.requests[0].name).toBe('up');
+  });
+
+  it('removeReqFromFolders handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    const result = removeReqFromFolders([f], 'r1');
+    expect(result[0].requests).toHaveLength(0);
+  });
+
+  it('removeRequestFrom handles collection with undefined folders', () => {
+    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
+    delete (col as any).folders;
+    const result = removeRequestFrom(col, 'r1');
+    expect(result.requests).toHaveLength(0);
+  });
+
+  it('mapFolderDeep handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    const result = mapFolderDeep([f], 'f1', (folder) => ({ ...folder, name: 'updated' }));
+    expect(result[0].name).toBe('updated');
+  });
+
+  it('addToFolderDeep handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    const child = makeFolder('child');
+    const result = addToFolderDeep([f], 'f1', child);
+    expect(result[0].folders).toHaveLength(1);
+  });
+
+  it('removeFolderDeep handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    const { folders } = removeFolderDeep([f], 'not-found');
+    expect(folders).toHaveLength(1);
+  });
+
+  it('collectAllRequests handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    expect(collectAllRequests(f)).toHaveLength(1);
+  });
+
+  it('cloneFolder handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    const cloned = cloneFolder(f);
+    expect(cloned.id).not.toBe('f1');
+    expect(cloned.requests).toHaveLength(1);
+  });
+
+  it('extractFolderDeep handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    const { remaining, extracted } = extractFolderDeep([f], 'f1');
+    expect(remaining).toHaveLength(0);
+    expect(extracted).toEqual(f);
+  });
+
+  it('isDescendantOf handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    expect(isDescendantOf([f], 'f1', 'not-found')).toBe(false);
+  });
+
+  it('addReqToFolderDeep handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    const req = makeReq('r1');
+    const result = addReqToFolderDeep([f], 'f1', req);
+    expect(result[0].requests).toHaveLength(1);
+  });
+
+  it('findReqParentFolder handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1', [makeReq('r1')]);
+    expect(findReqParentFolder([f], 'r1')).toEqual(f);
+    expect(findReqParentFolder([f], 'not-found')).toBeNull();
+  });
+
+  it('reorderInFolders handles undefined subfolders', () => {
+    const f1 = makeFolderNoSub('f1');
+    const f2 = makeFolderNoSub('f2');
+    const result = reorderInFolders([f1, f2], 'f2', 'f1');
+    expect(result[0].id).toBe('f2');
+  });
+
+  it('swapInFolders handles undefined subfolders', () => {
+    const f = makeFolderNoSub('f1');
+    // folder not found at top level - should recurse into undefined subfolders
+    const result = swapInFolders([f], 'not-found', 'down');
+    expect(result).toHaveLength(1);
+  });
+
+  it('findAncestorSubCollection handles undefined subfolders', () => {
+    const req = makeReq('r1');
+    const f: RequestFolder = { id: 'f1', name: 'f1', requests: [req], isSubCollection: true } as RequestFolder;
+    expect(findAncestorSubCollection([f], 'r1')).toEqual(f);
+  });
+
+  it('findAncestorSubCollection with baseUrls ancestor', () => {
+    const req = makeReq('r1');
+    const f: RequestFolder = { id: 'f1', name: 'f1', requests: [req], baseUrls: { env1: 'https://example.com' } } as any;
+    expect(findAncestorSubCollection([f], 'r1')).toEqual(f);
+  });
+
+  it('findAncestorSubCollection returns null when no qualifying ancestor', () => {
+    const req = makeReq('r1');
+    const f = makeFolderNoSub('f1', [req]);
+    expect(findAncestorSubCollection([f], 'r1')).toBeNull();
+  });
+});

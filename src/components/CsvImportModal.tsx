@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import type { CsvParseResult } from '../utils/csvTemplate';
+import { useModalDrag } from '../hooks/useModalDrag';
 import { useModalExpand } from '../hooks/useModalExpand';
 import { useModalResize } from '../hooks/useModalResize';
 import ModalExpandButton from './shared/ModalExpandButton';
@@ -26,6 +27,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'append'>('append');
   const [dragging, setDragging] = useState(false);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(true);
   const { expanded: modalExpanded, toggleExpand, expandClass } = useModalExpand();
   const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const dragCounter = useRef(0);
@@ -166,9 +168,10 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     <div
       className="modal-overlay"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={overlayStyle}
     >
-      <div className={`modal csv-import-modal ${expandClass}`} style={resizeStyle}>
-        <div className="modal-header">
+      <div className={`modal csv-import-modal ${expandClass}`} role="dialog" style={{ ...modalStyle, ...resizeStyle }}>
+        <div className="modal-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
           <h3>Import Tests from CSV / Excel</h3>
           <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} />
           <button className="modal-close-btn" onClick={onClose}>✕</button>
