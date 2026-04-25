@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useWorkflowInspect } from './WorkflowInspectContext';
+import { useModalDrag } from '../../hooks/useModalDrag';
 
 interface Props {
   variables: Record<string, string>;
@@ -12,6 +13,7 @@ interface Props {
 export default function VariableContextBadge({ variables }: Props) {
   const { openVariableDetail } = useWorkflowInspect();
   const [open, setOpen] = useState(false);
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(open);
   const entries = Object.entries(variables);
   if (entries.length === 0) return null;
 
@@ -33,6 +35,7 @@ export default function VariableContextBadge({ variables }: Props) {
           className="modal-overlay wf-detail-modal-overlay"
           role="presentation"
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          style={overlayStyle}
         >
           <div
             className="modal ram-modal wf-vars-modal wf-vars-modal--card"
@@ -40,8 +43,9 @@ export default function VariableContextBadge({ variables }: Props) {
             aria-labelledby="wf-vars-modal-title"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
+            style={modalStyle}
           >
-            <div className="ram-header wf-vars-modal-header">
+            <div className="ram-header wf-vars-modal-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
               <h3 id="wf-vars-modal-title">Workflow context</h3>
               <button type="button" className="ram-modal-close" onClick={() => setOpen(false)} aria-label="Close">
                 &times;

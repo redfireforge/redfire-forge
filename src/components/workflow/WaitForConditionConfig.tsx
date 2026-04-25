@@ -1,11 +1,18 @@
 import type { WaitForConditionNodeData } from '../../types/workflow';
+import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import InsertVarField from './InsertVarField';
+import AvailableVariables from './AvailableVariables';
 
 export default function WaitForConditionConfig({
   data,
   onChange,
+  onRequestVariableInsert,
+  variableHints = [],
 }: {
   data: WaitForConditionNodeData;
   onChange: (d: WaitForConditionNodeData) => void;
+  onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
+  variableHints?: WorkflowVariableHint[];
 }) {
   return (
     <div className="wf-config-body">
@@ -16,11 +23,16 @@ export default function WaitForConditionConfig({
 
       <div className="wf-config-field">
         <label>Condition Expression</label>
-        <input
-          value={data.conditionExpression}
-          onChange={(e) => onChange({ ...data, conditionExpression: e.target.value })}
-          placeholder="e.g. {{status}} == done"
-        />
+        <InsertVarField
+          onRequestVariableInsert={onRequestVariableInsert}
+          onInsert={(snippet) => onChange({ ...data, conditionExpression: data.conditionExpression + snippet })}
+        >
+          <input
+            value={data.conditionExpression}
+            onChange={(e) => onChange({ ...data, conditionExpression: e.target.value })}
+            placeholder="e.g. {{status}} == done"
+          />
+        </InsertVarField>
         <span className="wf-config-hint">
           Evaluated after each poll. Supports <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>contains</code>, <code>!contains</code>.
           Uses <code>{'{{variable}}'}</code> syntax.
@@ -62,6 +74,8 @@ export default function WaitForConditionConfig({
         />
         <span className="wf-config-hint">Maximum polling attempts. 0 = unlimited (bounded by timeout).</span>
       </div>
+
+      <AvailableVariables hints={variableHints} />
 
       <div className="wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>

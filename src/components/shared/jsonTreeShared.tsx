@@ -4,6 +4,7 @@
  */
 
 /** Canonical type → color map used by all tree nodes. */
+// eslint-disable-next-line react-refresh/only-export-components
 export const TYPE_COLORS: Record<string, string> = {
   string: '#86efac',
   number: '#fbbf24',
@@ -12,11 +13,13 @@ export const TYPE_COLORS: Record<string, string> = {
 };
 
 /** Get the display color for a JSON value type. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function typeColor(type: string): string {
   return TYPE_COLORS[type] ?? 'var(--text-muted)';
 }
 
 /** Format a node for inline preview (collapsed objects/arrays show count). */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getValuePreview(
   type: string,
   value: unknown,

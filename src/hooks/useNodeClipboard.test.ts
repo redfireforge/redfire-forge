@@ -5,8 +5,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useNodeClipboard } from './useNodeClipboard';
 import type { ToastApi } from '../components/workflow/WorkflowToastProvider';
+import type { Node } from '@xyflow/react';
 
-function makeNodes() {
+function makeNodes(): Node[] {
   return [
     { id: 'n1', type: 'http', position: { x: 100, y: 200 }, data: { label: 'Get Users', scenario: {} } },
     { id: 'n2', type: 'condition', position: { x: 300, y: 400 }, data: { label: 'Check Status' } },
@@ -22,7 +23,7 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
     );
     expect(result.current.copiedNodeData).toBeNull();
     act(() => result.current.copyNode());
@@ -35,7 +36,7 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: null, toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: null, toast }),
     );
     act(() => result.current.copyNode('n2'));
     expect(result.current.copiedNodeData?.type).toBe('condition');
@@ -45,7 +46,7 @@ describe('useNodeClipboard', () => {
   it('copyNode does nothing when no node is found', () => {
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => [] as any, selectedNodeId: 'missing', toast }),
+      useNodeClipboard({ getNodes: () => [] as Node[], selectedNodeId: 'missing', toast }),
     );
     act(() => result.current.copyNode());
     expect(result.current.copiedNodeData).toBeNull();
@@ -55,7 +56,7 @@ describe('useNodeClipboard', () => {
   it('copyNode does nothing when selectedNodeId is null', () => {
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => makeNodes() as any, selectedNodeId: null, toast }),
+      useNodeClipboard({ getNodes: () => makeNodes(), selectedNodeId: null, toast }),
     );
     act(() => result.current.copyNode());
     expect(result.current.copiedNodeData).toBeNull();
@@ -64,7 +65,7 @@ describe('useNodeClipboard', () => {
   it('buildPasteNode returns null when nothing is copied', () => {
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => makeNodes() as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => makeNodes(), selectedNodeId: 'n1', toast }),
     );
     const node = result.current.buildPasteNode({ x: 100, y: 200 });
     expect(node).toBeNull();
@@ -74,14 +75,14 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
     );
     act(() => result.current.copyNode());
     const node = result.current.buildPasteNode({ x: 50, y: 60 });
     expect(node).not.toBeNull();
     expect(node!.type).toBe('http');
     expect(node!.position).toEqual({ x: 50, y: 60 });
-    expect((node!.data as any).label).toBe('Get Users (copy)');
+    expect((node!.data as Record<string, unknown>).label).toBe('Get Users (copy)');
     expect(node!.id).toBeTruthy();
     expect(node!.id).not.toBe('n1'); // new ID
   });
@@ -90,7 +91,7 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
     );
     act(() => result.current.copyNode());
     const node1 = result.current.buildPasteNode({ x: 0, y: 0 });
@@ -101,7 +102,7 @@ describe('useNodeClipboard', () => {
   it('buildDuplicateNode returns null when no node selected', () => {
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => makeNodes() as any, selectedNodeId: null, toast }),
+      useNodeClipboard({ getNodes: () => makeNodes(), selectedNodeId: null, toast }),
     );
     expect(result.current.buildDuplicateNode()).toBeNull();
   });
@@ -110,14 +111,14 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
     );
     const dup = result.current.buildDuplicateNode();
     expect(dup).not.toBeNull();
     expect(dup!.type).toBe('http');
     expect(dup!.position.x).toBe(140); // 100 + 40
     expect(dup!.position.y).toBe(280); // 200 + 80
-    expect((dup!.data as any).label).toBe('Get Users (copy)');
+    expect((dup!.data as Record<string, unknown>).label).toBe('Get Users (copy)');
     expect(dup!.id).not.toBe('n1');
   });
 
@@ -125,34 +126,34 @@ describe('useNodeClipboard', () => {
     const nodes = makeNodes();
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: null, toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: null, toast }),
     );
     const dup = result.current.buildDuplicateNode('n2');
     expect(dup).not.toBeNull();
     expect(dup!.type).toBe('condition');
     expect(dup!.position.x).toBe(340); // 300 + 40
-    expect((dup!.data as any).label).toBe('Check Status (copy)');
+    expect((dup!.data as Record<string, unknown>).label).toBe('Check Status (copy)');
   });
 
   it('buildDuplicateNode returns null for non-existent nodeId', () => {
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => makeNodes() as any, selectedNodeId: null, toast }),
+      useNodeClipboard({ getNodes: () => makeNodes(), selectedNodeId: null, toast }),
     );
     expect(result.current.buildDuplicateNode('missing')).toBeNull();
   });
 
   it('node label falls back to type when label is undefined', () => {
-    const nodes = [
+    const nodes: Node[] = [
       { id: 'n1', type: 'delay', position: { x: 0, y: 0 }, data: {} },
     ];
     const toast = mockToast();
     const { result } = renderHook(() =>
-      useNodeClipboard({ getNodes: () => nodes as any, selectedNodeId: 'n1', toast }),
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
     );
     act(() => result.current.copyNode());
     expect(toast.show).toHaveBeenCalledWith('info', 'Node copied', '"delay"');
     const dup = result.current.buildDuplicateNode();
-    expect((dup!.data as any).label).toBe('delay (copy)');
+    expect((dup!.data as Record<string, unknown>).label).toBe('delay (copy)');
   });
 });

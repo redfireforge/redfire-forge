@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react';
 import type { TestRun, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../types';
 import { saveJsonFile, buildExportFilename } from '../utils/fileSaver';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface Props {
   environments: Environment[];
@@ -16,6 +20,8 @@ export default function ExportCenter({ environments, microservices, featureGroup
   const [includeRuns, setIncludeRuns] = useState(false);
   const [selectedRuns, setSelectedRuns] = useState<Set<string>>(new Set());
   const [runsExpanded, setRunsExpanded] = useState(false);
+  const { expanded: modalExpanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   const toggle = (set: Set<string>, id: string, setter: (s: Set<string>) => void) => {
     const next = new Set(set);
@@ -53,9 +59,10 @@ export default function ExportCenter({ environments, microservices, featureGroup
 
   return (
     <div className="modal-overlay settings-overlay" onClick={onClose}>
-      <div className="modal settings-modal export-center-modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal settings-modal export-center-modal ${expandClass}`} onClick={(e) => e.stopPropagation()} style={resizeStyle}>
         <div className="settings-header">
           <h3>Export Data</h3>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} />
           <button className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
 
@@ -128,7 +135,9 @@ export default function ExportCenter({ environments, microservices, featureGroup
           <button className="btn btn-primary" onClick={handleExport}>
             Export JSON
           </button>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

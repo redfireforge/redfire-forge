@@ -148,13 +148,6 @@
   flex-direction: column;
   transition: all 0.2s ease;
 }
-.modal-maximized {
-  width: 96vw !important;
-  max-width: 96vw !important;
-  height: 96vh !important;
-  max-height: 96vh !important;
-  border-radius: 8px;
-}
 .import-header-actions {
   display: flex;
   gap: 6px;

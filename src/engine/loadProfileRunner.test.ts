@@ -87,7 +87,7 @@ describe('getTargetConcurrency', () => {
 
   describe('unknown type', () => {
     it('falls back to maxConcurrency', () => {
-      const profile = makeProfile({ type: 'unknown' as any });
+      const profile = makeProfile({ type: 'unknown' as LoadProfileConfig['type'] });
       expect(getTargetConcurrency(profile, 10_000)).toBe(10);
     });
   });

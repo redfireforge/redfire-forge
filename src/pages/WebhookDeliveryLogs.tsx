@@ -15,6 +15,7 @@ export default function WebhookDeliveryLogs() {
 
   useEffect(() => {
     loadDeliveries(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const loadDeliveries = async (date: string) => {

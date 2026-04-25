@@ -5,6 +5,11 @@ import type { WorkflowService, WorkflowErrorConfig, WorkflowErrorMode, WorkflowN
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { snapshot } from '../../utils/helpers';
 import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
+import { useModalDrag } from '../../hooks/useModalDrag';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 
 interface Props {
   open: boolean;
@@ -23,7 +28,8 @@ export default function WorkflowDefaultsModal({
 }: Props) {
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
-  const [expanded, setExpanded] = useState(false);
+  const { expanded, toggleExpand, expandClass } = useModalExpand(false, 'fullscreen');
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const {
     variableInsertOpen, variableInsertShortRef, variableInsertInitialSearch,
     requestVariableInsert, handleVariableInsertPicked, closeVariableInsert,
@@ -38,9 +44,9 @@ export default function WorkflowDefaultsModal({
   useEffect(() => {
     if (open) {
       originalRef.current = snapshot(workflowVariables);
-      setDraft(snapshot(workflowVariables));
+      setDraft(snapshot(workflowVariables)); // eslint-disable-line react-hooks/set-state-in-effect -- reset draft on modal open
       originalErrorRef.current = errorConfig ? snapshot(errorConfig) : undefined;
-      setErrorDraft(errorConfig ? snapshot(errorConfig) : undefined);
+      setErrorDraft(errorConfig ? snapshot(errorConfig) : undefined);  
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -68,33 +74,32 @@ export default function WorkflowDefaultsModal({
     [draft],
   );
 
+  const { onDragStart, overlayStyle, modalStyle } = useModalDrag(open);
+
   if (!open) return null;
+
+  const isDraggable = !expanded;
 
   return (
     <>
       <div
-        className={`modal-overlay wf-config-modal-overlay${expanded ? ' wf-config-modal-expanded' : ''}`}
+        className={`modal-overlay wf-config-modal-overlay ${expandClass}`}
         role="presentation"
         onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}
+        style={isDraggable ? overlayStyle : undefined}
       >
         <div
-          className={`modal ram-modal wf-config-modal${expanded ? ' wf-config-modal-full' : ''}`}
+          className={`modal ram-modal wf-config-modal ${expandClass}`}
           role="dialog"
           aria-labelledby="wf-defaults-modal-title"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
+          style={isDraggable ? { ...modalStyle, ...resizeStyle } : undefined}
         >
-          <div className="ram-header">
+          <div className="ram-header" style={{ cursor: isDraggable ? 'move' : undefined }} onMouseDown={isDraggable ? onDragStart : undefined}>
             <h3 id="wf-defaults-modal-title">Workflow Variables</h3>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setExpanded(e => !e)}
-                title={expanded ? 'Shrink to default size' : 'Expand to full screen'}
-              >
-                ⛶
-              </button>
+              <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
               <button type="button" className="ram-modal-close" onClick={handleCancel} aria-label="Close">&times;</button>
             </div>
           </div>
@@ -164,9 +169,11 @@ export default function WorkflowDefaultsModal({
             </div>
           </div>
           <div className="wf-config-modal-footer">
+            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
             <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Cancel</button>
             <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
           </div>
+          <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
         </div>
       </div>
 

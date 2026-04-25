@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowCommandPalette from './WorkflowCommandPalette';
 import type { WorkflowNodeType } from '../../types/workflow';
 
-function makeActions(overrides: Partial<Record<string, (...args: any[]) => void>> = {}) {
+function makeActions(overrides: Partial<Record<string, (...args: unknown[]) => void>> = {}) {
   return {
     onSave: vi.fn(),
     onQuickTest: vi.fn(),

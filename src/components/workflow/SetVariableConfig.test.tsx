@@ -121,4 +121,30 @@ describe('SetVariableConfig', () => {
     const { container } = render(<SetVariableConfig data={data} onChange={onChange} />);
     expect(container.querySelectorAll('.wf-setvar-assignment-row').length).toBe(0);
   });
+
+  it('does not render Insert button when onRequestVariableInsert is not provided', () => {
+    const data = makeData({ assignments: [{ id: 'a1', name: 'token', expression: '{{auth_token}}' }] });
+    render(<SetVariableConfig data={data} onChange={vi.fn()} />);
+    expect(screen.queryByText('Insert…')).toBeNull();
+  });
+
+  it('renders Insert button when onRequestVariableInsert is provided', () => {
+    const data = makeData({ assignments: [{ id: 'a1', name: 'token', expression: '{{auth_token}}' }] });
+    render(<SetVariableConfig data={data} onChange={vi.fn()} onRequestVariableInsert={vi.fn()} />);
+    expect(screen.getByText('Insert…')).toBeTruthy();
+  });
+
+  it('calls onRequestVariableInsert when Insert button is clicked', () => {
+    const onRequest = vi.fn();
+    const data = makeData({ assignments: [{ id: 'a1', name: 'token', expression: '{{auth_token}}' }] });
+    render(<SetVariableConfig data={data} onChange={vi.fn()} onRequestVariableInsert={onRequest} />);
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(onRequest).toHaveBeenCalled();
+  });
+
+  it('renders Available Variables section when variableHints are provided', () => {
+    const hints = [{ ref: 'status', label: 'status (latest)' }];
+    render(<SetVariableConfig data={makeData()} onChange={vi.fn()} variableHints={hints} />);
+    expect(screen.getByText(/Available variables/)).toBeTruthy();
+  });
 });

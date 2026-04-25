@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { escapeCsv, exportCsv, exportJson } from './export';
+import type { TestRun, RequestResult } from '../types';
 import * as fileSaver from './fileSaver';
 
 vi.mock('./fileSaver', () => ({
@@ -42,9 +43,9 @@ describe('exportJson', () => {
     const run = {
       id: '1', envName: 'dev', svcName: 'api', timestamp: Date.now(),
       results: [], totalRequests: 0, passedRequests: 0, failedRequests: 0,
-      avgResponseTime: 0, scenarios: [], config: {} as any,
+      avgResponseTime: 0, scenarios: [], config: {} as TestRun['config'],
     };
-    exportJson(run as any);
+    exportJson(run as TestRun);
     expect(fileSaver.saveJsonFile).toHaveBeenCalledWith(run, expect.stringContaining('test-'));
   });
 });
@@ -65,8 +66,8 @@ describe('exportCsv', () => {
       passed: true, failureDetails: [], errorMessage: null,
       timestamp: Date.now(),
     };
-    exportCsv([result as any]);
-    const call = (fileSaver.saveCsvFile as any).mock.calls.at(-1);
+    exportCsv([result as RequestResult]);
+    const call = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1);
     expect(call[0]).toContain('test');
     expect(call[0]).toContain('200');
     expect(call[0]).toContain('true');
@@ -79,8 +80,8 @@ describe('exportCsv', () => {
       passed: true, failureDetails: [], errorMessage: undefined,
       timestamp: Date.now(),
     };
-    exportCsv([result as any]);
-    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    exportCsv([result as RequestResult]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
     const dataLine = csv.split('\n')[1] ?? '';
     expect(dataLine).toMatch(/(^|,)none(,|$)/);
   });
@@ -95,8 +96,8 @@ describe('exportCsv', () => {
         { path: '$.b', expected: 'x', actual: 'y' },
       ],
     };
-    exportCsv([result as any]);
-    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    exportCsv([result as RequestResult]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
     const lines = csv.split('\n');
     expect(lines.length).toBe(3); // header + 2 failure rows
   });
@@ -108,8 +109,8 @@ describe('exportCsv', () => {
       passed: false, timestamp: Date.now(), errorMessage: 'bad',
       failureDetails: [{ path: '$.code', expected: '0', actual: '9' }],
     };
-    exportCsv([result as any]);
-    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    exportCsv([result as RequestResult]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
     expect(csv).toContain('$.code');
     expect(csv).toContain(',0,');
     expect(csv).toContain(',9,');
@@ -122,8 +123,8 @@ describe('exportCsv', () => {
       passed: false, timestamp: Date.now(),
       failureDetails: [{ path: 'p', expected: 'e', actual: 'a' }],
     };
-    exportCsv([result as any]);
-    const csv: string = (fileSaver.saveCsvFile as any).mock.calls.at(-1)[0];
+    exportCsv([result as RequestResult]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
     const cols = (csv.split('\n')[1] ?? '').split(',');
     const validationCol = cols[5];
     expect(validationCol).toBe('none');

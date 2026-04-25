@@ -19,7 +19,7 @@ export default function WorkflowExecSummary({ runProgress, failedStepLabel, onOp
 
   useEffect(() => {
     if (!runProgress || runProgress.lastRunStatus === 'idle') {
-      setVisible(false);
+      setVisible(false); // eslint-disable-line react-hooks/set-state-in-effect
       dismissedRun.current = null;
       return;
     }

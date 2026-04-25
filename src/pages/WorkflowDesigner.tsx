@@ -12,12 +12,10 @@ import {
   ReactFlowProvider,
   ConnectionMode,
   MarkerType,
-  applyNodeChanges,
   type OnConnect,
   type Node,
   type Edge,
   type Connection,
-  type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -54,6 +52,7 @@ import type {
 } from '../types/workflow';
 import {
   collectConditionVariableHints,
+  collectWaitForConditionVariableHints,
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
 } from '../utils/workflowVariableHints';
@@ -101,6 +100,7 @@ import WaitForConditionNode from '../components/workflow/nodes/WaitForConditionN
 import { DebugController } from '../engine/workflow/debugController';
 import WorkflowDebugBar from '../components/workflow/WorkflowDebugBar';
 import WorkflowConsolePanel from '../components/workflow/WorkflowConsolePanel';
+import { loadConsoleRunBehavior, loadConsoleOpen, saveConsoleOpen, type ConsoleRunBehavior } from '../utils/workflowSessionStorage';
 import WorkflowCanvasControls from '../components/workflow/WorkflowCanvasControls';
 import WorkflowShortcutsOverlay from '../components/workflow/WorkflowShortcutsOverlay';
 import WorkflowCommandPalette from '../components/workflow/WorkflowCommandPalette';
@@ -266,9 +266,7 @@ function WorkflowDesignerInner({
   microservices,
   globalAuthProfiles,
   selectedEnvId,
-  selectedSvcId: _selectedSvcId,
   onEnvSelect,
-  onSvcSelect: _onSvcSelect,
   resolvedBaseUrl,
   previewWorkflow,
   onClearPreview,
@@ -313,18 +311,25 @@ function WorkflowDesignerInner({
     clearHistory: clearRunHistory,
     consoleLines, pushConsoleLine, clearConsole,
   } = useWorkflowRunCache(selected?.id ?? null);
-  const [consoleOpen, setConsoleOpen] = useState(false);
-  const consoleOpenRef = useRef(false);
+  const [consoleOpen, setConsoleOpen] = useState(loadConsoleOpen);
+  const consoleOpenRef = useRef(consoleOpen);
+  const [consoleRunBehavior, setConsoleRunBehavior] = useState<ConsoleRunBehavior>(loadConsoleRunBehavior);
+  const consoleRunBehaviorRef = useRef(consoleRunBehavior);
+  useEffect(() => { consoleRunBehaviorRef.current = consoleRunBehavior; }, [consoleRunBehavior]);
+  const consoleLinesRef = useRef(consoleLines);
+  useEffect(() => { consoleLinesRef.current = consoleLines; }, [consoleLines]);
   const handleToggleConsole = useCallback(() => {
     setConsoleOpen(prev => {
       const next = !prev;
       consoleOpenRef.current = next;
+      saveConsoleOpen(next);
       return next;
     });
   }, []);
   const handleCloseConsole = useCallback(() => {
     setConsoleOpen(false);
     consoleOpenRef.current = false;
+    saveConsoleOpen(false);
   }, []);
 
   // ── Phase 5: Run progress tracking ──
@@ -430,6 +435,7 @@ function WorkflowDesignerInner({
   );
 
   // Clear undo stack on workflow switch
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo object identity changes every render; only clear on workflow switch
   useEffect(() => { undoRedo.clear(); }, [selected?.id]);
 
   // Stable refs so the keyboard-shortcut handler can call these
@@ -613,7 +619,7 @@ function WorkflowDesignerInner({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selected, previewWorkflow, persistWorkflow, toast, handleToggleConsole, handleUndoAction, handleRedoAction, handleCopyNode, handlePasteNode, handleDuplicateNode, rfInstance]);
+  }, [selected, previewWorkflow, persistWorkflow, toast, handleToggleConsole, handleUndoAction, handleRedoAction, handleCopyNode, handlePasteNode, handleDuplicateNode, rfInstance, setNodes]);
 
   // Sync canvas whenever the selected workflow changes (from sidebar or internal)
   const prevSelectedId = useRef<string | null>(null);
@@ -665,7 +671,7 @@ function WorkflowDesignerInner({
       prevSelectedId.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, setNodes, setEdges]);
 
   // Compute selected node from React Flow nodes for config panel
   const selectedNode = useMemo(() => {
@@ -698,13 +704,24 @@ function WorkflowDesignerInner({
   ), [edges]);
 
   const conditionVariableHints = useMemo(() => {
-    if (!selectedNode || selectedNode.type !== 'condition') return [];
-    return collectConditionVariableHints(
-      hintNodes,
-      hintEdges,
-      selectedNode.id,
-      workflowVariables,
-    );
+    if (!selectedNode) return [];
+    if (selectedNode.type === 'waitForCondition') {
+      return collectWaitForConditionVariableHints(
+        hintNodes,
+        hintEdges,
+        selectedNode.id,
+        workflowVariables,
+      );
+    }
+    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate'].includes(selectedNode.type)) {
+      return collectConditionVariableHints(
+        hintNodes,
+        hintEdges,
+        selectedNode.id,
+        workflowVariables,
+      );
+    }
+    return [];
   }, [selectedNode, hintNodes, hintEdges, workflowVariables]);
 
   const httpVariableHints = useMemo(() => {
@@ -788,14 +805,19 @@ function WorkflowDesignerInner({
     } finally {
       setExtractionFetching(false);
     }
-  }, [selectedNode, workflowVariables, microservices, resolvedBaseUrl]);
+  }, [selectedNode, workflowVariables, microservices, resolvedBaseUrl, selectedEnvId, workflowHostProfiles, workflowServices]);
 
   const openStepDetail = useCallback((nodeId: string) => {
     setDetailModal({ type: 'step', nodeId });
   }, []);
 
-  const openVariableDetail = useCallback((key: string) => {
-    if (selectedNode?.type === 'http') {
+  const variableDetailApplyRef = useRef<((newValue: string) => void) | null>(null);
+
+  const openVariableDetail = useCallback((key: string, currentValue?: string, onApply?: (newValue: string) => void) => {
+    variableDetailApplyRef.current = onApply ?? null;
+    if (currentValue !== undefined) {
+      setVariableDetailDraft(currentValue);
+    } else if (selectedNode?.type === 'http') {
       const iv = nodeInitialVarsRef.current[selectedNode.id];
       setVariableDetailDraft(iv?.[key] ?? '');
     } else {
@@ -889,7 +911,7 @@ function WorkflowDesignerInner({
         });
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [setEdges],
   );
 
@@ -1140,6 +1162,7 @@ function WorkflowDesignerInner({
     setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
     setNodeInitialVars((prev) => { const next = { ...prev }; delete next[id]; return next; });
     if (selectedNodeId === id) setSelectedNodeId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo object identity changes every render
   }, [setNodes, setEdges, selectedNodeId]);
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: WorkflowRFNode) => {
@@ -1172,7 +1195,10 @@ function WorkflowDesignerInner({
   const handleApplyVariableDetail = useCallback(() => {
     if (detailModal?.type !== 'variable') return;
     const key = detailModal.key;
-    if (selectedNode && isHttpWorkflowNode(selectedNode)) {
+    // If a callback was provided by the caller (e.g. config modal draft), use it
+    if (variableDetailApplyRef.current) {
+      variableDetailApplyRef.current(variableDetailDraft);
+    } else if (selectedNode && isHttpWorkflowNode(selectedNode)) {
       const nodeId = selectedNode.id;
       setNodeInitialVars((prev) => {
         const updatedVars = { ...(prev[nodeId] ?? {}), [key]: variableDetailDraft };
@@ -1182,6 +1208,7 @@ function WorkflowDesignerInner({
     } else {
       setWorkflowVariables((prev) => ({ ...prev, [key]: variableDetailDraft }));
     }
+    variableDetailApplyRef.current = null;
     setDetailModal(null);
   }, [detailModal, variableDetailDraft, selectedNode]);
 
@@ -1245,7 +1272,11 @@ function WorkflowDesignerInner({
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
     setNodeStatuses({});
-    clearConsole();
+    if (consoleRunBehaviorRef.current === 'append' && consoleLinesRef.current.length > 0) {
+      pushConsoleLine({ prefix: '---', text: `Run  ·  ${new Date().toLocaleTimeString()}`, ts: Date.now() });
+    } else {
+      clearConsole();
+    }
 
     abortRef.current = new AbortController();
 
@@ -1325,7 +1356,7 @@ function WorkflowDesignerInner({
     };
 
     const envLayer: Record<string, string> = {};
-    if (!workflowServices.length) {
+    if (!workflowServices.length && !previewWorkflow) {
       const bu = resolvedBaseUrl.trim();
       if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
     }
@@ -1353,14 +1384,22 @@ function WorkflowDesignerInner({
   }, [
     selected,
     nodes,
-    edges,
     resolvedBaseUrl,
     resolveHttpBaseUrlForGraph,
     resolveHttpAuthForGraph,
-    workflowHostProfiles,
     selectedEnvId,
     workflowServices,
     environments,
+    clearConsole,
+    pushConsoleLine,
+    pushRunHistory,
+    workflowErrorConfig,
+    setNodeStatuses,
+    setLastRunStatus,
+    setLastRunTime,
+    setLastRunError,
+    setRunVariableSnapshot,
+    previewWorkflow,
   ]);
 
   const handleQuickTest = useCallback(() => {
@@ -1777,6 +1816,8 @@ function WorkflowDesignerInner({
           onClear={clearConsole}
           onClose={handleCloseConsole}
           stepSummaries={latestStepSummaries}
+          runBehavior={consoleRunBehavior}
+          onRunBehaviorChange={setConsoleRunBehavior}
         />
       )}
 

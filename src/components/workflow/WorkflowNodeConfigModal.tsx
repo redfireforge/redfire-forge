@@ -1,4 +1,9 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useModalDrag } from '../../hooks/useModalDrag';
+import { useModalExpand } from '../../hooks/useModalExpand';
+import { useModalResize } from '../../hooks/useModalResize';
+import ModalExpandButton from '../shared/ModalExpandButton';
+import ModalResizeHandles from '../shared/ModalResizeHandles';
 import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
 import type {
   WorkflowNode,
@@ -21,6 +26,7 @@ import type {
 import {
   isHttpWorkflowNode,
   mergeHttpVariableHintsWithStepInitialVars,
+  buildWorkflowOnlyHints,
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
 import { snapshot } from '../../utils/helpers';
@@ -39,6 +45,9 @@ import WaitForConditionConfig from './WaitForConditionConfig';
 import WebhookConfig from './WebhookConfig';
 import ScheduleConfig from './ScheduleConfig';
 import VariablesSection from './VariablesSection';
+import NodeConfigInputTab from './NodeConfigInputTab';
+import NodeConfigOutputTab from './NodeConfigOutputTab';
+import NodeConfigLogsTab from './NodeConfigLogsTab';
 import type { ExtractionFetchSampleProps } from '../ExtractionPathPickerModal';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
@@ -78,7 +87,8 @@ export default function WorkflowNodeConfigModal({
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
-  const [expanded, setExpanded] = useState(false);
+  const { expanded, toggleExpand, expandClass } = useModalExpand(false, 'fullscreen');
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
   const {
     variableInsertOpen, variableInsertShortRef, variableInsertInitialSearch,
     requestVariableInsert, handleVariableInsertPicked, closeVariableInsert,
@@ -92,7 +102,7 @@ export default function WorkflowNodeConfigModal({
   // Reset draft if the modal is opened for a different node
   useEffect(() => {
     originalDataRef.current = snapshot(node.data);
-    setDraft(snapshot(node.data));
+    setDraft(snapshot(node.data)); // eslint-disable-line react-hooks/set-state-in-effect -- reset draft when switching nodes
   }, [node.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftNode = useMemo((): WorkflowNode => ({ ...node, data: draft }), [node, draft]);
@@ -122,14 +132,7 @@ export default function WorkflowNodeConfigModal({
   }, [node.id, onUpdateNode, onClose]);
 
   const workflowOnlyPickerHints = useMemo(
-    (): WorkflowVariableHint[] =>
-      Object.keys(workflowVariables)
-        .filter((k) => k.trim().length > 0)
-        .sort((a, b) => a.localeCompare(b))
-        .map((k) => {
-          const t = k.trim();
-          return { ref: t, label: `${t} (workflow)` };
-        }),
+    () => buildWorkflowOnlyHints(workflowVariables),
     [workflowVariables],
   );
 
@@ -141,13 +144,24 @@ export default function WorkflowNodeConfigModal({
   }, [draftNode, httpVariableHints]);
 
   const variableInsertHints = useMemo((): WorkflowVariableHint[] => {
-    if (!isHttpWorkflowNode(draftNode)) return workflowOnlyPickerHints;
+    if (!isHttpWorkflowNode(draftNode)) {
+      // For non-HTTP nodes with conditionVariableHints (switch, condition, logDebug, waitForCondition),
+      // merge those hints with workflow-level hints so the Insert Variable modal shows them.
+      if (conditionVariableHints.length > 0) {
+        const byRef = new Map<string, WorkflowVariableHint>(conditionVariableHints.map((h) => [h.ref, h]));
+        for (const h of workflowOnlyPickerHints) {
+          if (!byRef.has(h.ref)) byRef.set(h.ref, h);
+        }
+        return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
+      }
+      return workflowOnlyPickerHints;
+    }
     const byRef = new Map<string, WorkflowVariableHint>(draftVariableHints.map((h) => [h.ref, h]));
     for (const h of workflowOnlyPickerHints) {
       if (!byRef.has(h.ref)) byRef.set(h.ref, h);
     }
     return Array.from(byRef.values()).sort((a, b) => a.ref.localeCompare(b.ref));
-  }, [draftNode, draftVariableHints, workflowOnlyPickerHints]);
+  }, [draftNode, draftVariableHints, workflowOnlyPickerHints, conditionVariableHints]);
 
   // Deduplicated hints for the Input tab — hide scoped refs when only one source exists
   const inputTabHints = useMemo(() => {
@@ -168,59 +182,27 @@ export default function WorkflowNodeConfigModal({
 
   const title = `${node.type.toUpperCase()} — ${(draft as HttpNodeData).label || 'Step Config'}`;
 
-  // ── Drag-to-move ──────────────────────────────────────────────────────────
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    // Only drag from header area, not buttons
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
-    const modal = (e.currentTarget as HTMLElement).closest('.wf-config-modal') as HTMLElement;
-    if (!modal) return;
-    const rect = modal.getBoundingClientRect();
-    // On first drag, capture the modal's current centered position
-    const origX = dragPos?.x ?? rect.left;
-    const origY = dragPos?.y ?? rect.top;
-    dragState.current = { startX: e.clientX, startY: e.clientY, origX, origY };
-    const handleMove = (ev: MouseEvent) => {
-      if (!dragState.current) return;
-      setDragPos({
-        x: dragState.current.origX + (ev.clientX - dragState.current.startX),
-        y: dragState.current.origY + (ev.clientY - dragState.current.startY),
-      });
-    };
-    const handleUp = () => {
-      dragState.current = null;
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [dragPos]);
-
-  // Reset position when expanded/collapsed
-  useEffect(() => { setDragPos(null); }, [expanded]);
-
-  const isDragged = dragPos !== null && !expanded;
+  // ── Drag-to-move (shared hook) ────────────────────────────────────────────
+  const { onDragStart, isDragged: _isDragged, overlayStyle, modalStyle } = useModalDrag(!expanded);
+  const isDragged = _isDragged && !expanded;
 
   return (
     <>
       <div
-        className={`modal-overlay wf-config-modal-overlay${expanded ? ' wf-config-modal-expanded' : ''}`}
+        className={`modal-overlay wf-config-modal-overlay ${expandClass}`}
         role="presentation"
         onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}
-        style={isDragged ? { background: 'transparent', backdropFilter: 'none', pointerEvents: 'none' } : undefined}
+        style={isDragged ? overlayStyle : undefined}
       >
         <div
-          className={`modal ram-modal wf-config-modal${expanded ? ' wf-config-modal-full' : ''}`}
+          className={`modal ram-modal wf-config-modal ${expandClass}`}
           role="dialog"
           aria-labelledby="wf-config-modal-title"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
-          style={isDragged ? { position: 'fixed', left: dragPos.x, top: dragPos.y, margin: 0, pointerEvents: 'auto' } : undefined}
+          style={isDragged ? { ...modalStyle, ...resizeStyle } : undefined}
         >
-          <div className="ram-header" style={{ cursor: expanded ? undefined : 'move' }} onMouseDown={expanded ? undefined : handleDragStart}>
+          <div className="ram-header" style={{ cursor: expanded ? undefined : 'move' }} onMouseDown={expanded ? undefined : onDragStart}>
             <h3 id="wf-config-modal-title">{title}</h3>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               <button
@@ -231,14 +213,7 @@ export default function WorkflowNodeConfigModal({
               >
                 Delete
               </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setExpanded(e => !e)}
-                title={expanded ? 'Shrink to default size' : 'Expand to full screen'}
-              >
-                {expanded ? '⛶' : '⛶'}
-              </button>
+              <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
               <button type="button" className="ram-modal-close" onClick={handleCancel} aria-label="Close">&times;</button>
             </div>
           </div>
@@ -288,6 +263,7 @@ export default function WorkflowNodeConfigModal({
                 data={draftNode.data as ConditionNodeData}
                 onChange={(data) => updateDraft(data)}
                 variableHints={conditionVariableHints}
+                onRequestVariableInsert={requestVariableInsert}
               />
             )}
 
@@ -337,6 +313,8 @@ export default function WorkflowNodeConfigModal({
               <SwitchConfig
                 data={draftNode.data as SwitchNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -344,6 +322,8 @@ export default function WorkflowNodeConfigModal({
               <LoopConfig
                 data={draftNode.data as LoopNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -351,6 +331,8 @@ export default function WorkflowNodeConfigModal({
               <SetVariableConfig
                 data={draftNode.data as SetVariableNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -358,6 +340,8 @@ export default function WorkflowNodeConfigModal({
               <AggregateConfig
                 data={draftNode.data as AggregateNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -372,6 +356,8 @@ export default function WorkflowNodeConfigModal({
               <LogDebugConfig
                 data={draftNode.data as LogDebugNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -379,6 +365,8 @@ export default function WorkflowNodeConfigModal({
               <WaitForConditionConfig
                 data={draftNode.data as WaitForConditionNodeData}
                 onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 
@@ -417,124 +405,23 @@ export default function WorkflowNodeConfigModal({
             </>)}
 
             {panelTab === 'input' && (
-              <div className="wf-config-tab-content">
-                <div className="wf-config-tab-hint">Resolved variables available to this step at execution time:</div>
-                {inputTabHints.length > 0 ? (
-                  <table className="wf-config-var-table">
-                    <thead><tr><th>Variable</th><th>Source</th></tr></thead>
-                    <tbody>
-                      {inputTabHints.map(h => (
-                        <tr key={h.ref}>
-                          <td className="wf-config-var-ref">{`{{${h.ref}}}`}</td>
-                          <td className="wf-config-var-source">{h.label}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="wf-config-tab-empty">No variables available for this step</div>
-                )}
-              </div>
+              <NodeConfigInputTab hints={inputTabHints} />
             )}
 
             {panelTab === 'output' && (
-              <div className="wf-config-tab-content">
-                {nodeRunStatus && nodeRunStatus.state !== 'idle' && nodeRunStatus.state !== 'pending' ? (
-                  <>
-                    <div className="wf-output-header">
-                      <span className="wf-output-label">Last Quick Test</span>
-                      <span className={`wf-output-status wf-output-status-${nodeRunStatus.state}`}>
-                        {nodeRunStatus.state === 'pass' ? '●' : nodeRunStatus.state === 'fail' ? '●' : '●'}{' '}
-                        {nodeRunStatus.statusCode ? `${nodeRunStatus.statusCode}` : nodeRunStatus.state}
-                      </span>
-                    </div>
-                    <div className="wf-output-meta">
-                      {nodeRunStatus.statusCode != null && (
-                        <div className="wf-output-meta-item">
-                          <div className="wf-output-meta-label">Status</div>
-                          <div className={`wf-output-meta-value ${nodeRunStatus.statusCode < 400 ? 'wf-output-meta-ok' : 'wf-output-meta-err'}`}>{nodeRunStatus.statusCode}</div>
-                        </div>
-                      )}
-                      {nodeRunStatus.responseTimeMs != null && (
-                        <div className="wf-output-meta-item">
-                          <div className="wf-output-meta-label">Duration</div>
-                          <div className="wf-output-meta-value wf-output-meta-info">{nodeRunStatus.responseTimeMs}ms</div>
-                        </div>
-                      )}
-                    </div>
-                    {nodeRunStatus.extracted && Object.keys(nodeRunStatus.extracted).length > 0 && (
-                      <div className="wf-output-section">
-                        <div className="wf-output-section-title">Extracted Variables</div>
-                        <table className="wf-config-var-table">
-                          <thead><tr><th>Name</th><th>Value</th></tr></thead>
-                          <tbody>
-                            {Object.entries(nodeRunStatus.extracted).map(([k, v]) => (
-                              <tr key={k}>
-                                <td className="wf-config-var-ref">{k}</td>
-                                <td className="wf-config-var-source wf-config-var-mono">{v}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                    {nodeRunStatus.responseDetail && (
-                      <div className="wf-output-section">
-                        <div className="wf-output-section-title">Response</div>
-                        <pre className="wf-output-body">{nodeRunStatus.responseDetail}</pre>
-                      </div>
-                    )}
-                    {nodeRunStatus.error && (
-                      <div className="wf-output-section">
-                        <div className="wf-output-section-title">Error</div>
-                        <pre className="wf-output-body wf-output-body-err">{nodeRunStatus.error}</pre>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="wf-config-tab-empty">No execution data yet. Run a Quick Test to see results here.</div>
-                )}
-              </div>
+              <NodeConfigOutputTab nodeRunStatus={nodeRunStatus} />
             )}
 
             {panelTab === 'logs' && (
-              <div className="wf-config-tab-content">
-                {nodeRunStatus && nodeRunStatus.state !== 'idle' && nodeRunStatus.state !== 'pending' ? (
-                  <div className="wf-logs-list">
-                    {nodeRunStatus.statusCode != null && (
-                      <div className="wf-log-entry">
-                        <span className={`wf-log-level wf-log-level-${nodeRunStatus.state === 'pass' ? 'ok' : nodeRunStatus.state === 'fail' ? 'err' : 'info'}`}>
-                          {nodeRunStatus.state === 'pass' ? 'OK' : nodeRunStatus.state === 'fail' ? 'ERR' : 'INFO'}
-                        </span>
-                        <span className="wf-log-msg">
-                          HTTP {nodeRunStatus.statusCode}
-                          {nodeRunStatus.responseTimeMs != null && ` (${nodeRunStatus.responseTimeMs}ms)`}
-                        </span>
-                      </div>
-                    )}
-                    {nodeRunStatus.extracted && Object.entries(nodeRunStatus.extracted).map(([k, v]) => (
-                      <div key={k} className="wf-log-entry">
-                        <span className="wf-log-level wf-log-level-info">INFO</span>
-                        <span className="wf-log-msg">Extracted: {k} = &quot;{v}&quot;</span>
-                      </div>
-                    ))}
-                    {nodeRunStatus.error && (
-                      <div className="wf-log-entry">
-                        <span className="wf-log-level wf-log-level-err">ERR</span>
-                        <span className="wf-log-msg">{nodeRunStatus.error}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="wf-config-tab-empty">No logs yet. Run a Quick Test to see step logs here.</div>
-                )}
-              </div>
+              <NodeConfigLogsTab nodeRunStatus={nodeRunStatus} />
             )}
           </div>
           <div className="wf-config-modal-footer">
+            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
             <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Cancel</button>
             <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
           </div>
+          <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
         </div>
       </div>
 

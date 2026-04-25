@@ -39,7 +39,7 @@ describe('thinkTimeLabel', () => {
   });
 
   it('returns null for unknown mode', () => {
-    expect(thinkTimeLabel({ mode: 'custom' as any })).toBeNull();
+    expect(thinkTimeLabel({ mode: 'custom' as ThinkTimeConfig['mode'] })).toBeNull();
   });
 
   it('returns constant label with zero ms', () => {

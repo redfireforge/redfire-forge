@@ -7,6 +7,10 @@ import {
   downloadExcel,
 } from '../utils/csvTemplate';
 import type { ExportOptions, ColumnDef } from '../utils/csvTemplate';
+import { useModalExpand } from '../hooks/useModalExpand';
+import { useModalResize } from '../hooks/useModalResize';
+import ModalExpandButton from './shared/ModalExpandButton';
+import ModalResizeHandles from './shared/ModalResizeHandles';
 
 interface Props {
   test: Scenario;
@@ -19,6 +23,8 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
   const analysis = useMemo(() => analyzeUrlPath(test.url), [test.url]);
 
   const [step, setStep] = useState<Step>('variables');
+  const { expanded: modalExpanded, toggleExpand, expandClass } = useModalExpand();
+  const { resizeStyle, onRightEdge, onCorner } = useModalResize();
 
   // --- Step 1: path variable selections ---
   const [selections, setSelections] = useState<Record<number, { checked: boolean; name: string }>>(() => {
@@ -118,7 +124,7 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal csv-export-modal">
+      <div className={`modal csv-export-modal ${expandClass}`} style={resizeStyle}>
         {/* Header */}
         <div className="csv-export-header">
           <div>
@@ -128,6 +134,7 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
               {test.name}
             </span>
           </div>
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} />
           <button className="btn" onClick={onClose}>Cancel</button>
         </div>
 
@@ -389,7 +396,9 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
               Confirm &amp; Download .xlsx
             </button>
           )}
+          <ModalExpandButton expanded={modalExpanded} onToggle={toggleExpand} position="footer" />
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ export interface JNode {
   children?: JNode[];
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildJTree(val: unknown, key: string): JNode {
   if (val === null || val === undefined) return { key, value: null, type: 'null' };
   if (Array.isArray(val)) return { key, value: val, type: 'array', children: val.map((v, i) => buildJTree(v, String(i))) };
@@ -16,6 +17,7 @@ export function buildJTree(val: unknown, key: string): JNode {
   return { key, value: val, type: typeof val as 'string' | 'number' | 'boolean' };
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function nodeMatches(node: JNode, term: string): boolean {
   if (!term) return false;
   const lower = term.toLowerCase();
@@ -24,6 +26,7 @@ export function nodeMatches(node: JNode, term: string): boolean {
   return (node.children ?? []).some(c => nodeMatches(c, term));
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function collectMatchNodes(node: JNode, term: string, results: JNode[]): void {
   if (!term) return;
   const lower = term.toLowerCase();
