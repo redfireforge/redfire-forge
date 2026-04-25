@@ -809,8 +809,8 @@ Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workf
 | Node Type | Purpose | Features |
 |---|---|---|
 | **Start** | Entry point for workflow execution | Green node marking where execution begins; workflows auto-start from Start nodes when running Quick Test |
-| **HTTP** | Execute an API request | Same configuration as Harness tests: method, URL, headers, body, auth, validation; extract variables from response via JSONPath |
-| **Condition** | If/Else branching | Compare two values (left vs right) with operators (`==`, `!=`, `>`, `<`, contains, regex); supports template variables; branches to True/False output handles |
+| **HTTP** | Execute an API request | Same configuration as Harness tests: method, URL, headers, body, auth, validation; extract variables from response via JSONPath; inline `{{` autocomplete in URL, headers, body, and extraction fields |
+| **Condition** | If/Else branching | Compare two values (left vs right) with operators (`==`, `!=`, `>`, `<`, contains, regex); supports template variables; branches to True/False output handles; searchable variable picker with grouped results and type badges; expression mode with inline autocomplete |
 | **Delay** | Think time between steps | Pause execution for fixed/random duration (constant, uniform, gaussian); simulates realistic user behavior |
 | **Fork** | Parallel execution split | Spawns multiple parallel execution paths; each output handle runs concurrently |
 | **Join** | Parallel execution merge | Waits for all incoming paths to complete before continuing; synchronization point |
@@ -835,7 +835,8 @@ Fork and Join nodes enable true parallel execution:
 - **Workflow Variables**: Define default variables in the Workflow Variables modal (toolbar button) — shared across all nodes
 - **Node Variables**: Each HTTP node can define initial variables that override workflow defaults
 - **Variable Extraction**: Extract values from HTTP responses via JSONPath, headers, or status code — scoped to downstream nodes
-- **Template Resolution**: Use `{{variableName}}` syntax in URLs, headers, body, and auth fields
+- **Template Resolution**: Use `{{variableName}}` syntax in URLs, headers, body, and auth fields — inline autocomplete suggests available variables as you type `{{`
+- **Expression Functions**: Type `$` in any expression field to access built-in functions (`$upper`, `$concat`, `$jsonpath`, etc.) with inline autocomplete
 - **Built-in Generators**: `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`
 
 **Service Registry:**

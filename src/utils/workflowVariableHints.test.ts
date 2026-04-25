@@ -75,10 +75,12 @@ describe('collectConditionVariableHints', () => {
     expect(refs(hints)).toContain('token');
     expect(refs(hints)).toContain('node:"H".token');
     expect(refs(hints)).toContain('status');
+    expect(refs(hints)).toContain('httpStatus');
     expect(refs(hints)).toContain('node:"H".status');
+    expect(refs(hints)).toContain('node:"H".httpStatus');
   });
 
-  it('does not add status without an HTTP ancestor', () => {
+  it('does not add status or httpStatus without an HTTP ancestor', () => {
     const nodes: WorkflowNode[] = [cond('c')];
     const edges: WorkflowEdge[] = [];
     const hints = collectConditionVariableHints(nodes, edges, 'c', { foo: '1' });
@@ -129,6 +131,30 @@ describe('collectConditionVariableHints', () => {
     const hints = collectConditionVariableHints(nodes, edges, 'c', {});
     // Should still have status since hasHttpAncestor is true
     expect(refs(hints)).toContain('status');
+  });
+
+  it('includes error.* hints when ErrorHandler is an ancestor', () => {
+    const errHandler: WorkflowNode = {
+      id: 'eh1', type: 'errorHandler', position: { x: 0, y: 0 },
+      data: { label: 'API Guard', errorFilter: 'all', retryCount: 0, retryDelayMs: 1000, retryBackoff: 'fixed', retryTimeoutMs: 0, continueOnError: false },
+    };
+    const nodes: WorkflowNode[] = [errHandler, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'eh1', target: 'c', sourceHandle: 'catch' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(refs(hints)).toContain('error.message');
+    expect(refs(hints)).toContain('error.statusCode');
+    expect(refs(hints)).toContain('error.nodeId');
+    expect(refs(hints)).toContain('error.nodeLabel');
+    expect(refs(hints)).toContain('error.retryCount');
+    expect(refs(hints)).toContain('error.type');
+  });
+
+  it('does not include error.* hints without an ErrorHandler ancestor', () => {
+    const nodes: WorkflowNode[] = [http('h1'), cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'h1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(refs(hints)).not.toContain('error.message');
+    expect(refs(hints)).not.toContain('error.statusCode');
   });
 });
 

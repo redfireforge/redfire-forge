@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import type { Extraction, ExtractionSource } from '../types';
+import type { WorkflowVariableHint } from '../utils/workflowVariableHints';
 import { suggestedVariableNameFromJsonPath } from '../utils/jsonPathTreeUtils';
 import ExtractionPathPickerModal, { type ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
 import ExtractionMapperModal from './ExtractionMapperModal';
+import ExpressionInput from './workflow/ExpressionInput';
 
 interface Props {
   extractions: Extraction[];
@@ -11,6 +13,8 @@ interface Props {
   sampleResponseBody?: string;
   /** Optional: Fetch Response + host row inside the picker (Harness test editor). */
   fetchSample?: ExtractionFetchSampleProps;
+  /** Variable hints for autocomplete in expression/fallback fields. */
+  variableHints?: WorkflowVariableHint[];
 }
 
 const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
@@ -19,7 +23,7 @@ const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
   { value: 'status', label: 'Status', hint: '(auto)' },
 ];
 
-export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample }: Props) {
+export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [] }: Props) {
   const [pickerIdx, setPickerIdx] = useState<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -133,13 +137,14 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                 </span>
 
                 <span className="ext-cell ext-cell-expr">
-                  <input
+                  <ExpressionInput
                     value={ext.expression}
-                    onChange={(e) => update(i, { expression: e.target.value })}
+                    onChange={(val) => update(i, { expression: val })}
                     placeholder={sourceInfo.hint}
                     disabled={ext.source === 'status'}
                     className="ext-input"
                     aria-label="Expression"
+                    variableHints={variableHints}
                   />
                   {ext.source === 'body' && (
                     <button
@@ -154,12 +159,13 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                 </span>
 
                 <span className="ext-cell ext-cell-fb">
-                  <input
+                  <ExpressionInput
                     value={ext.fallback ?? ''}
-                    onChange={(e) => update(i, { fallback: e.target.value || undefined })}
+                    onChange={(val) => update(i, { fallback: val || undefined })}
                     placeholder="default"
                     className="ext-input"
                     aria-label="Fallback"
+                    variableHints={variableHints}
                   />
                 </span>
 

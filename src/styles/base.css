@@ -914,7 +914,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 .ext-thead {
   display: grid;
-  grid-template-columns: 22px 1fr 72px 1.2fr 0.7fr 26px;
+  grid-template-columns: 22px 0.8fr 72px 1.8fr 0.6fr 26px;
   gap: 4px;
   padding: 0 2px 4px;
 }
@@ -926,7 +926,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 .ext-row {
   display: grid;
-  grid-template-columns: 22px 1fr 72px 1.2fr 0.7fr 26px;
+  grid-template-columns: 22px 0.8fr 72px 1.8fr 0.6fr 26px;
   gap: 4px;
   align-items: center;
   padding: 4px 2px;
