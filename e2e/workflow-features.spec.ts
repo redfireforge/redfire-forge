@@ -187,7 +187,7 @@ test.describe('Node Config Modal', () => {
   test('Configure badge is visible on HTTP nodes', async ({ page }) => {
     const configBadge = page.locator('.wf-node-configure-badge').first();
     await expect(configBadge).toBeVisible({ timeout: 5000 });
-    await expect(configBadge).toHaveText(/Configure/);
+    await expect(configBadge).toHaveAttribute('title', /Configure/);
   });
 
   test('clicking Configure badge opens node config modal', async ({ page }) => {
