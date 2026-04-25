@@ -245,9 +245,62 @@ export interface AggregateNodeData {
   mappings: AggregateMapping[];
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate';
+// ── Error Handler node ───────────────────────────────
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData;
+export type ErrorFilter = 'all' | 'http-error' | 'assertion-failure' | 'network-error';
+export type RetryBackoffStrategy = 'fixed' | 'exponential';
+
+export interface ErrorHandlerNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** What counts as an error: HTTP failures, assertion failures, network errors, or all. */
+  errorFilter: ErrorFilter;
+  /** How many times to retry the body before falling through to catch path. */
+  retryCount: number;
+  /** Delay between retries in ms. */
+  retryDelayMs: number;
+  /** Backoff strategy for retries. */
+  retryBackoff: RetryBackoffStrategy;
+  /** Max total timeout for all retries combined (0 = unlimited). */
+  retryTimeoutMs: number;
+  /** Continue workflow after catch path (true) or mark as failed (false). */
+  continueOnError: boolean;
+}
+
+// ── Log/Debug node ───────────────────────────────────
+
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+export interface LogDebugNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Message template — supports {{variable}} syntax. */
+  message: string;
+  /** Log level for the message. */
+  logLevel: LogLevel;
+  /** Whether to snapshot all current variables at this point. */
+  snapshotVariables: boolean;
+}
+
+// ── Wait for Condition node ──────────────────────────
+
+export interface WaitForConditionNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** The HTTP node to poll (body subgraph edge). Polling re-executes body until condition is met. */
+  /** Condition expression evaluated against variables (e.g. "{{status}} == done"). */
+  conditionExpression: string;
+  /** Polling interval in ms between each check. */
+  pollIntervalMs: number;
+  /** Maximum time to wait before timing out (ms). 0 = unlimited. */
+  timeoutMs: number;
+  /** Maximum number of polling attempts. 0 = unlimited (bounded by timeoutMs). */
+  maxAttempts: number;
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 
@@ -283,8 +336,23 @@ export interface Workflow {
   hostProfiles?: WorkflowHostProfile[];
   /** @deprecated Use services instead. */
   authProfiles?: WorkflowAuthProfile[];
+  /** Workflow-level error handling configuration. */
+  errorConfig?: WorkflowErrorConfig;
   createdAt: number;
   updatedAt: number;
+}
+
+// ── Workflow-level error handling ────────────────────
+
+export type WorkflowErrorMode = 'stop' | 'continue' | 'run-handler';
+
+export interface WorkflowErrorConfig {
+  /** What to do when an unhandled node error occurs (no node-level Error Handler caught it). */
+  mode: WorkflowErrorMode;
+  /** Entry node ID of the error-handling subgraph (only when mode='run-handler'). */
+  handlerEntryNodeId?: string;
+  /** Variable name where the error message is stored (default: 'error.message'). */
+  errorVariable?: string;
 }
 
 // ── Execution state (for canvas animation) ──────────

@@ -716,6 +716,11 @@
 .wf-pb-title { font-size: 0.8rem; font-weight: 600; }
 .wf-pb-desc { font-size: 0.68rem; color: var(--text-muted); }
 
+.wf-palette-samples { display: flex; flex-direction: column; gap: 6px; }
+.wf-palette-sample-item { border-left: 3px solid var(--primary); }
+.wf-palette-sample-icon { font-size: 1.3rem; width: 28px; text-align: center; flex-shrink: 0; }
+.wf-palette-sample-meta { font-size: 0.6rem; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+
 .wf-palette-tree { display: flex; flex-direction: column; gap: 2px; }
 .wf-palette-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; padding: 8px 0; }
 
@@ -1975,6 +1980,9 @@
 .wf-loop-body > div:has(.wf-node-label),
 .wf-setvar-body > div:has(.wf-node-label),
 .wf-aggregate-body > div:has(.wf-node-label),
+.wf-errorhandler-body > div:has(.wf-node-label),
+.wf-logdebug-body > div:has(.wf-node-label),
+.wf-waitcond-body > div:has(.wf-node-label),
 .wf-webhook-body > div:has(.wf-node-label) {
   min-width: 0; overflow: hidden; flex: 1;
 }
@@ -2590,6 +2598,15 @@
 }
 @keyframes wf-edge-flow {
   to { stroke-dashoffset: -12; }
+}
+
+/* ── Drop-on-edge insertion highlight ── */
+.react-flow__edge.wf-edge-drop-target .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-width: 3;
+  stroke-dasharray: 8 4;
+  animation: wf-edge-flow 0.6s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
 }
 
 /* Edge labels for condition branches */
@@ -3443,6 +3460,68 @@
   transition: background 0.12s, color 0.12s;
 }
 .wf-console-action-btn:hover { background: var(--surface-hover); color: var(--text); }
+.wf-console-mode-default { color: var(--accent, #3b82f6); }
+
+.wf-console-mode-select {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+.wf-console-mode-select:hover { background: var(--surface-hover); color: var(--text); }
+.wf-console-mode-select:focus { border-color: var(--accent, #3b82f6); }
+.wf-console-mode-select option { background: var(--surface, #1e1e1e); color: var(--text); }
+
+.wf-console-action-btn-active { color: var(--accent, #3b82f6); }
+
+/* ── Console search bar ────────────────────── */
+.wf-console-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--surface-raised, #252526);
+  border-bottom: 1px solid var(--border);
+}
+.wf-console-search-input {
+  flex: 1;
+  font-size: 0.76rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  outline: none;
+  min-width: 0;
+}
+.wf-console-search-input:focus { border-color: var(--accent, #3b82f6); }
+.wf-console-search-input::placeholder { color: var(--text-muted); }
+.wf-console-search-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.wf-console-match {
+  background: rgba(255, 213, 79, 0.35);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.wf-cl-line-match {
+  background: rgba(255, 213, 79, 0.08);
+}
+.wf-cl-line-current-match {
+  background: rgba(255, 213, 79, 0.18);
+  border-left: 2px solid #ffd54f;
+  padding-left: 10px;
+}
 
 .wf-console-actions-sep {
   width: 1px;
@@ -4197,6 +4276,11 @@
   z-index: 10; pointer-events: none;
   animation: wf-drop-pulse 1.5s ease-in-out infinite;
 }
+.wf-drop-indicator-edge {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,0.08);
+  color: #60a5fa;
+}
 @keyframes wf-drop-pulse {
   0%, 100% { border-color: #6366f1; background: rgba(99,102,241,0.06); }
   50% { border-color: #818cf8; background: rgba(99,102,241,0.12); }
@@ -4205,3 +4289,87 @@
 /* Make palette blocks show grab cursor when draggable */
 .wf-palette-block[draggable="true"] { cursor: grab; }
 .wf-palette-block[draggable="true"]:active { cursor: grabbing; }
+
+/* ── Error Handler node ────────────────────────── */
+
+.wf-node-errorHandler { min-width: 200px; border-color: var(--cat-flow);
+  background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, var(--surface) 60%);
+  border-left: 3px solid #ef4444;
+}
+.wf-errorhandler-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-errorhandler-badge {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 16px 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wf-errorhandler-filter {
+  font-size: 0.65rem; color: #ef4444; padding: 0 16px 6px;
+  font-weight: 600; text-transform: capitalize;
+}
+
+/* Error Handler handle labels */
+.wf-handle-label-errhandler-body { left: 25%; bottom: -16px; }
+.wf-handle-label-errhandler-catch { left: 50%; bottom: -16px; color: #ef4444; }
+.wf-handle-label-errhandler-done { left: 75%; bottom: -16px; }
+
+/* Error Handler config */
+.wf-config-checkbox-label {
+  display: flex; align-items: center; gap: 8px; font-weight: 500;
+  cursor: pointer;
+}
+.wf-config-checkbox-label input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--primary);
+}
+.wf-config-section-info {
+  margin-top: 12px; padding: 12px; border-radius: 6px;
+  background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
+}
+.wf-config-info-title {
+  font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text);
+}
+
+/* ── Log/Debug node ────────────────────────────── */
+
+.wf-node-logDebug { min-width: 200px; border-color: var(--cat-data);
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, var(--surface) 60%);
+  border-left: 3px solid #10b981;
+}
+.wf-logdebug-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-logdebug-message {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 16px 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-style: italic;
+}
+.wf-logdebug-level {
+  font-size: 0.65rem; color: #10b981; padding: 0 16px 6px;
+  font-weight: 600;
+}
+
+/* ── Wait for Condition node ───────────────────── */
+
+.wf-node-waitForCondition { min-width: 200px; border-color: var(--cat-logic);
+  background: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, var(--surface) 60%);
+  border-left: 3px solid #f59e0b;
+}
+.wf-waitcond-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-waitcond-condition {
+  font-size: 0.68rem; color: var(--text-muted); padding: 0 16px 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-mono, monospace);
+}
+.wf-waitcond-meta {
+  font-size: 0.65rem; color: #f59e0b; padding: 0 16px 6px;
+  font-weight: 600;
+}
+
+/* Wait for Condition handle labels */
+.wf-handle-label-waitcond-body { left: 35%; bottom: -16px; }
+.wf-handle-label-waitcond-done { left: 65%; bottom: -16px; }

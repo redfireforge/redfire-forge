@@ -221,11 +221,7 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Data category — may need to expand since it starts collapsed
-    const dataHeader = page.locator('.wf-palette-category-title', { hasText: 'Data' });
-    // Click to expand if collapsed
-    await dataHeader.click();
-
+    // Data category is expanded by default — verify blocks are visible
     await expect(page.locator('.wf-palette-block-setVariable .wf-pb-title')).toHaveText('Set Variable');
     await expect(page.locator('.wf-palette-block-aggregate .wf-pb-title')).toHaveText('Aggregate');
   });
@@ -246,13 +242,13 @@ test.describe('New Node Types — Palette', () => {
 
     // Each category header should have a count badge
     const logicHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' });
-    await expect(logicHeader.locator('.wf-palette-count')).toHaveText('3');
+    await expect(logicHeader.locator('.wf-palette-count')).toHaveText('4');
 
     const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });
-    await expect(dataHeader.locator('.wf-palette-count')).toHaveText('2');
+    await expect(dataHeader.locator('.wf-palette-count')).toHaveText('3');
 
     const flowHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Flow' });
-    await expect(flowHeader.locator('.wf-palette-count')).toHaveText('3');
+    await expect(flowHeader.locator('.wf-palette-count')).toHaveText('4');
   });
 
   test('clicking Switch palette block adds a Switch node to canvas', async ({ page }) => {
@@ -282,9 +278,7 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Expand Data category
-    await page.locator('.wf-palette-category-header').filter({ hasText: 'Data' }).click();
-
+    // Data category is expanded by default
     await expect(page.locator('.wf-node-setVariable')).toHaveCount(1);
     await page.locator('.wf-palette-block-setVariable').click();
     await expect(page.locator('.wf-node-setVariable')).toHaveCount(2);
@@ -294,9 +288,7 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Expand Data category
-    await page.locator('.wf-palette-category-header').filter({ hasText: 'Data' }).click();
-
+    // Data category is expanded by default
     await expect(page.locator('.wf-node-aggregate')).toHaveCount(1);
     await page.locator('.wf-palette-block-aggregate').click();
     await expect(page.locator('.wf-node-aggregate')).toHaveCount(2);

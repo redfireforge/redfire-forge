@@ -5,7 +5,7 @@ const NODE_WIDTH = 220;
 const NODE_HEIGHT = 100;
 
 /** Compact node types get smaller layout dimensions. */
-const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule', 'switch', 'loop', 'setVariable', 'aggregate']);
+const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay', 'end', 'webhook', 'schedule', 'switch', 'loop', 'setVariable', 'aggregate', 'errorHandler', 'logDebug', 'waitForCondition']);
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
@@ -92,15 +92,18 @@ export function getAutoLayoutNodes<N extends Node>(
 
   // Detect whether the graph has fork/join — increase spacing for parallel branches
   const hasFork = nodes.some(n => n.type === 'fork');
+  // Detect switch nodes with multiple cases — they need wider spacing too
+  const hasSwitch = nodes.some(n => n.type === 'switch');
 
   // Dynamically adjust spacing based on workflow complexity
   const n = nodes.length;
   const baseNodesep = n <= 5 ? 40 : n <= 15 ? 30 : 20;
   const baseRanksep = n <= 5 ? 50 : n <= 15 ? 40 : 30;
 
-  // Use moderately wider node separation for fork/join to give branches room
-  const nodesep = hasFork ? Math.max(baseNodesep, 50) : baseNodesep;
-  const ranksep = hasFork ? Math.max(baseRanksep, 50) : baseRanksep;
+  // Use moderately wider node separation for fork/join or switch to give branches room
+  const needsWideSpacing = hasFork || hasSwitch;
+  const nodesep = needsWideSpacing ? Math.max(baseNodesep, 50) : baseNodesep;
+  const ranksep = needsWideSpacing ? Math.max(baseRanksep, 50) : baseRanksep;
 
   g.setGraph({
     rankdir: direction,
@@ -154,6 +157,9 @@ export function getAutoLayoutNodes<N extends Node>(
 
   // Post-process: center condition branch children symmetrically under their parent
   centerConditionBranches(nodes, edges, positioned, nodeWidths, direction);
+
+  // Post-process: spread switch case children evenly under the switch node
+  centerSwitchBranches(nodes, edges, positioned, nodeWidths, direction);
 
   // Post-process: center fork/join/start/end/trigger nodes over their branches
   if (hasFork) {
@@ -266,7 +272,7 @@ function resolveOverlaps<N extends Node>(
   const sizeMap = direction === 'TB' ? nodeWidths : nodeHeights;
 
   // Group nodes into ranks (within a tolerance)
-  const RANK_TOLERANCE = 20;
+  const RANK_TOLERANCE = 25;
   const ranks: { id: string; pos: { x: number; y: number }; size: number }[][] = [];
 
   for (const node of nodes) {
@@ -475,8 +481,8 @@ function centerConditionBranches<N extends Node>(
   const joinIds = new Set(nodes.filter(n => n.type === 'join').map(n => n.id));
 
   for (const node of nodes) {
-    // Handle condition nodes (true/false) and loop nodes (body/done)
-    if (node.type !== 'condition' && node.type !== 'loop') continue;
+    // Handle condition nodes (true/false), loop nodes (body/done), and waitForCondition (body/done)
+    if (node.type !== 'condition' && node.type !== 'loop' && node.type !== 'waitForCondition') continue;
     const outEdges = bySource.get(node.id) ?? [];
 
     let leftEdge: Edge | undefined;
@@ -485,6 +491,7 @@ function centerConditionBranches<N extends Node>(
       leftEdge = outEdges.find(e => e.sourceHandle === 'true' || e.label === 'Yes');
       rightEdge = outEdges.find(e => e.sourceHandle === 'false' || e.label === 'No');
     } else {
+      // loop and waitForCondition both use body/done
       leftEdge = outEdges.find(e => e.sourceHandle === 'body');
       rightEdge = outEdges.find(e => e.sourceHandle === 'done');
     }
@@ -691,6 +698,128 @@ function centerForkJoinNodes<N extends Node>(
         const minLeft = Math.min(...bounds.map(b => b.left));
         const maxRight = Math.max(...bounds.map(b => b.right));
         endPos[axis] = (minLeft + maxRight) / 2 - endW / 2;
+      }
+    }
+  }
+}
+
+/**
+ * Post-process: spread switch case children evenly under the switch node,
+ * and center the switch node over all its branches.
+ *
+ * Switch nodes have multiple sourceHandles (case-X, default) and each maps to
+ * a child branch. We lay them out evenly spaced, centered under the switch.
+ */
+function centerSwitchBranches<N extends Node>(
+  nodes: N[],
+  edges: Edge[],
+  positions: Map<string, { x: number; y: number }>,
+  nodeWidths: Map<string, number>,
+  direction: 'TB' | 'LR',
+): void {
+  const axis = direction === 'TB' ? 'x' : 'y';
+
+  const { bySource, childrenOf } = buildGraphAdjacency(edges);
+
+  // Stop subtree collection at nodes that converge (multiple incoming)
+  const incomingCount = new Map<string, number>();
+  for (const e of edges) {
+    incomingCount.set(e.target, (incomingCount.get(e.target) ?? 0) + 1);
+  }
+  const convergenceNodes = new Set<string>();
+  for (const [id, count] of incomingCount) {
+    if (count > 1) convergenceNodes.add(id);
+  }
+
+  for (const node of nodes) {
+    if (node.type !== 'switch' && node.type !== 'errorHandler') continue;
+    const outEdges = bySource.get(node.id) ?? [];
+    if (outEdges.length < 2) continue;
+
+    const switchPos = positions.get(node.id);
+    const switchW = nodeWidths.get(node.id) ?? 0;
+    if (!switchPos) continue;
+
+    // Collect each case branch subtree and compute its bounding box width
+    const branches: { edge: Edge; subtree: Set<string>; bounds: { min: number; max: number; width: number } }[] = [];
+    for (const e of outEdges) {
+      const subtree = collectSubtree(e.target, childrenOf, convergenceNodes);
+      const bounds = getSubtreeBounds(subtree, positions, nodeWidths, axis);
+      if (isFinite(bounds.min)) {
+        branches.push({ edge: e, subtree, bounds });
+      }
+    }
+
+    if (branches.length < 2) continue;
+
+    // Sort branches by sourceHandle order to match the visual case order (left to right).
+    // Switch: case-c1, case-c2, ..., default.  ErrorHandler: body, catch, done.
+    const handleOrder = (handle: string | null | undefined): number => {
+      if (!handle) return 999;
+      if (handle === 'body') return 0;
+      if (handle === 'catch') return 1;
+      if (handle === 'done') return 2;
+      if (handle === 'default') return 9000;
+      // case-cN → extract N for ordering
+      const m = handle.match(/^case-.*?(\d+)$/);
+      if (m) return parseInt(m[1], 10);
+      return 500;
+    };
+    branches.sort((a, b) => handleOrder(a.edge.sourceHandle) - handleOrder(b.edge.sourceHandle));
+
+    // Remove shared nodes from all subtrees (convergence points)
+    const allIds = new Map<string, number>();
+    for (const b of branches) {
+      for (const id of b.subtree) {
+        allIds.set(id, (allIds.get(id) ?? 0) + 1);
+      }
+    }
+    const shared = new Set<string>();
+    for (const [id, count] of allIds) {
+      if (count > 1) shared.add(id);
+    }
+    for (const b of branches) {
+      for (const id of shared) b.subtree.delete(id);
+      b.bounds = getSubtreeBounds(b.subtree, positions, nodeWidths, axis);
+    }
+
+    // Compute total width needed: sum of all branch widths + gaps
+    const BRANCH_GAP = MIN_GAP + 20; // extra gap for switch cases
+    const totalWidth = branches.reduce((sum, b) => sum + b.bounds.width, 0) + BRANCH_GAP * (branches.length - 1);
+
+    // Center everything under the switch node
+    const switchCenter = switchPos[axis] + switchW / 2;
+    let cursor = switchCenter - totalWidth / 2;
+
+    for (const branch of branches) {
+      const delta = cursor - branch.bounds.min;
+      for (const id of branch.subtree) {
+        const p = positions.get(id);
+        if (p) p[axis] += delta;
+      }
+      cursor += branch.bounds.width + BRANCH_GAP;
+    }
+
+    // Center the switch node itself over all branches
+    const allBranchNodes = new Set<string>();
+    for (const b of branches) {
+      for (const id of b.subtree) allBranchNodes.add(id);
+    }
+    const allBounds = getSubtreeBounds(allBranchNodes, positions, nodeWidths, axis);
+    if (isFinite(allBounds.min)) {
+      const branchesCenter = (allBounds.min + allBounds.max) / 2;
+      switchPos[axis] = branchesCenter - switchW / 2;
+    }
+
+    // Center shared convergence nodes under all branches
+    if (shared.size > 0) {
+      for (const id of shared) {
+        const p = positions.get(id);
+        const w = nodeWidths.get(id) ?? 0;
+        if (p) {
+          const branchesCenter = (allBounds.min + allBounds.max) / 2;
+          p[axis] = branchesCenter - w / 2;
+        }
       }
     }
   }

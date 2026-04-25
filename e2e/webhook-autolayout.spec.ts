@@ -64,14 +64,15 @@ test.describe('Webhook Sample Auto-Layout', () => {
       const initialGap = Math.abs(initialAlert.x - initialProcess.x);
       console.log(`Gap: ${initialGap}px`);
       
-      // Verify initial positions match the manual layout in the sample
-      expect(initialProcess.x).toBe(100);
-      expect(initialProcess.y).toBe(460);
-      expect(initialAlert.x).toBe(380);
-      expect(initialAlert.y).toBe(460);
-      expect(initialGap).toBe(280);
+      // Auto-layout is now applied on load, so verify nodes are well-spaced
+      // (no overlap: 160px width + 30px MIN_GAP = 190px minimum)
+      expect(initialGap).toBeGreaterThanOrEqual(190);
+      expect(initialProcess.x).toBeGreaterThanOrEqual(0);
+      expect(initialProcess.y).toBeGreaterThanOrEqual(0);
+      expect(initialAlert.x).toBeGreaterThanOrEqual(0);
+      expect(initialAlert.y).toBeGreaterThanOrEqual(0);
       
-      console.log('✅ Initial positions are correct (manual layout)!');
+      console.log('✅ Initial positions have auto-layout applied!');
     }
     
     // Take screenshot of initial state
