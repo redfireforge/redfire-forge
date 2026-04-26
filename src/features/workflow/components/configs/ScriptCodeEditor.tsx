@@ -28,13 +28,21 @@ export default function ScriptCodeEditor({
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const inputVarsRef = useRef(inputVariables);
   const outputVarsRef = useRef(outputVariables);
+  const valueRef = useRef(value);
 
   // Keep refs in sync with latest props
   inputVarsRef.current = inputVariables;
   outputVarsRef.current = outputVariables;
+  valueRef.current = value;
 
   const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
+
+    // Guard: ensure the editor has the current value after async Monaco load
+    const currentModel = editor.getModel();
+    if (currentModel && valueRef.current && currentModel.getValue() !== valueRef.current) {
+      currentModel.setValue(valueRef.current);
+    }
 
     // Register completion provider for `input.` and `output.` properties
     completionDisposableRef.current = monaco.languages.registerCompletionItemProvider('javascript', {
@@ -139,6 +147,7 @@ export default function ScriptCodeEditor({
         value={value}
         onChange={(v) => onChange(v ?? '')}
         onMount={handleEditorDidMount}
+        loading={<div style={{ padding: '12px', color: '#888', fontFamily: 'monospace', fontSize: '13px' }}>Loading editor…</div>}
         options={{
           minimap: { enabled: false },
           scrollBeyondLastLine: false,

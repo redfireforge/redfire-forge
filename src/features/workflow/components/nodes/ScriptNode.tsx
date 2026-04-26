@@ -3,6 +3,7 @@ import type { ScriptNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type ScriptWorkflowNode = Node<ScriptNodeData, 'script'>;
 type Props = NodeProps<ScriptWorkflowNode>;
@@ -14,7 +15,7 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 export default function ScriptNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
 
   const codePreview = data.code
     ? data.code.replace(/\/\/.*$/gm, '').trim().split('\n').filter(Boolean)[0]?.slice(0, 40) || 'Empty script'
@@ -36,6 +37,8 @@ export default function ScriptNode({ id, data, selected }: Props) {
       <div className="wf-node-footer">
         <NodeConfigureButton title="Configure script" onClick={handleConfigure} />
       </div>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} className="wf-handle" />

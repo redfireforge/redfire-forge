@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useModalFrame, type UseModalFrameOptions } from '../../../../shared/hooks/useModalFrame';
 import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
 import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
@@ -14,11 +14,14 @@ interface Props extends UseModalFrameOptions {
   headerActions?: ReactNode;
   overlayClassName?: string;
   dialogClassName?: string;
+  bodyClassName?: string;
   bodyViewportClassName?: string;
   footerClassName?: string;
   bodyScrollable?: boolean;
   closeAriaLabel?: string;
   headerClassName?: string;
+  /** When true, automatically expand the modal (e.g. when a side panel opens). */
+  forceExpanded?: boolean;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -35,23 +38,29 @@ export default function WorkflowEditorModalFrame({
   headerActions,
   overlayClassName = 'wf-config-modal-overlay',
   dialogClassName = 'wf-config-modal',
+  bodyClassName,
   bodyViewportClassName = 'wf-config-modal-scroll',
   footerClassName = 'wf-config-modal-footer',
   bodyScrollable = true,
   closeAriaLabel = 'Close',
   headerClassName,
+  forceExpanded,
   initialExpanded,
   expandMode,
   minWidth,
   minHeight,
 }: Props) {
-  const { expanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
+  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
     minWidth,
     minHeight,
   });
+
+  useEffect(() => {
+    if (forceExpanded && !expanded) setExpanded(true);
+  }, [forceExpanded, expanded, setExpanded]);
 
   if (!open) return null;
 
@@ -77,11 +86,11 @@ export default function WorkflowEditorModalFrame({
         </div>
 
         {bodyScrollable ? (
-          <WorkflowModalScrollBody className="wf-config-modal-body" viewportClassName={bodyViewportClassName}>
+          <WorkflowModalScrollBody className={joinClasses('wf-config-modal-body', bodyClassName)} viewportClassName={bodyViewportClassName}>
             {children}
           </WorkflowModalScrollBody>
         ) : (
-          <div className="wf-config-modal-body">{children}</div>
+          <div className={joinClasses('wf-config-modal-body', bodyClassName)}>{children}</div>
         )}
 
         {footer ? (

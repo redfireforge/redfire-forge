@@ -814,6 +814,96 @@ describe('graphRunnerNodeHandlers', () => {
       const doneVisits = visit.mock.calls.filter((c: string[]) => c[0] === 'done1');
       expect(doneVisits).toHaveLength(1);
     });
+
+    it('uses default while condition properties when not specified', async () => {
+      const ctx = makeCtx();
+      const visit = vi.fn();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('l1', [
+        makeEdge('e1', 'l1', 'body1', 'body'),
+        makeEdge('e2', 'l1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks, visit, outgoing, nodeMap });
+      // No whileLeft/whileOperator/whileRight — uses ?? '' and ?? '==' fallbacks
+      const node = makeNode('l1', 'loop', {
+        mode: 'while', maxIterations: 1,
+      });
+
+      await handleLoopNode('l1', node, hCtx);
+      expect(visit).toHaveBeenCalled();
+    });
+
+    it('handles non-array JSON in forEach source (line 407)', async () => {
+      const ctx = makeCtx({ items: '{"key": "value"}' });
+      const visit = vi.fn();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('l1', [
+        makeEdge('e1', 'l1', 'body1', 'body'),
+        makeEdge('e2', 'l1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks, visit, outgoing, nodeMap });
+      const node = makeNode('l1', 'loop', {
+        mode: 'forEach', sourceExpression: '{{items}}',
+        itemVariable: 'item', maxIterations: 100,
+      });
+
+      await handleLoopNode('l1', node, hCtx);
+      // Non-array falls back to [] — no body iterations, only done
+      const bodyVisits = visit.mock.calls.filter((c: string[]) => c[0] === 'body1');
+      expect(bodyVisits).toHaveLength(0);
+    });
+
+    it('handles forEach with no sourceExpression (line 404)', async () => {
+      const ctx = makeCtx();
+      const visit = vi.fn();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('l1', [
+        makeEdge('e1', 'l1', 'body1', 'body'),
+        makeEdge('e2', 'l1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks, visit, outgoing, nodeMap });
+      const node = makeNode('l1', 'loop', {
+        mode: 'forEach', maxIterations: 100,
+      });
+
+      await handleLoopNode('l1', node, hCtx);
+      const bodyVisits = visit.mock.calls.filter((c: string[]) => c[0] === 'body1');
+      expect(bodyVisits).toHaveLength(0);
+    });
+
+    it('uses count expression from variable (line 420)', async () => {
+      const ctx = makeCtx({ n: '3' });
+      const visit = vi.fn();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('l1', [
+        makeEdge('e1', 'l1', 'body1', 'body'),
+        makeEdge('e2', 'l1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks, visit, outgoing, nodeMap });
+      const node = makeNode('l1', 'loop', {
+        mode: 'count', countExpression: '{{n}}', maxIterations: 100,
+      });
+
+      await handleLoopNode('l1', node, hCtx);
+      const bodyVisits = visit.mock.calls.filter((c: string[]) => c[0] === 'body1');
+      expect(bodyVisits).toHaveLength(3);
+    });
   });
 
   // ── handleSetVariableNode ──
@@ -845,6 +935,17 @@ describe('graphRunnerNodeHandlers', () => {
       });
 
       await handleSetVariableNode('sv1', node, hCtx);
+    });
+
+    it('handles undefined assignments (uses ?? [] fallback)', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      // No assignments — uses ?? [] fallback
+      const node = makeNode('sv1', 'setVariable', {});
+
+      await handleSetVariableNode('sv1', node, hCtx);
+      expect(states['sv1']?.state).toBe('pass');
     });
   });
 
@@ -924,6 +1025,29 @@ describe('graphRunnerNodeHandlers', () => {
 
       expect(logLines.some(l => l.text.includes('hello from script'))).toBe(true);
       expect(logLines.some(l => l.text.includes('debug info'))).toBe(true);
+    });
+
+    it('passes library preamble when libraryIds are present', async () => {
+      mockExecuteScript.mockReturnValue({
+        success: true,
+        outputs: {},
+        consoleLogs: [],
+        error: undefined,
+      });
+
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks });
+      const node = makeNode('sc1', 'script', {
+        mode: 'expression',
+        inputVariables: [],
+        outputVariables: [],
+        code: 'return 1',
+        libraryIds: ['lib1'],
+      });
+
+      await handleScriptNode('sc1', node, hCtx, makePassedFlag());
+      // Should call executeScript with a preamble string (3rd argument)
+      expect(mockExecuteScript).toHaveBeenCalled();
     });
   });
 
@@ -1044,6 +1168,144 @@ describe('graphRunnerNodeHandlers', () => {
 
       await handleAggregateNode('a1', node, hCtx);
     });
+
+    it('first strategy uses source when target not set', async () => {
+      const ctx = makeCtx({ val: 'new-value' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'target', sourceExpression: '{{val}}', strategy: 'first' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{target}}')).toBe('new-value');
+    });
+
+    it('count strategy starts from 0 when not a number', async () => {
+      const ctx = makeCtx();
+      ctx.set('counter', 'not-a-number');
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'counter', sourceExpression: '', strategy: 'count' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{counter}}')).toBe('1');
+    });
+
+    it('sum strategy handles NaN source', async () => {
+      const ctx = makeCtx({ amount: 'abc' });
+      ctx.set('total', '5');
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'total', sourceExpression: '{{amount}}', strategy: 'sum' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{total}}')).toBe('5');
+    });
+
+    it('sum strategy handles NaN existing value', async () => {
+      const ctx = makeCtx({ amount: '10' });
+      ctx.set('total', 'xyz');
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'total', sourceExpression: '{{amount}}', strategy: 'sum' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{total}}')).toBe('10');
+    });
+
+    it('concat strategy handles non-array existing value', async () => {
+      const ctx = makeCtx({ source: '"item2"' });
+      ctx.set('collected', 'not-json');
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'collected', sourceExpression: '{{source}}', strategy: 'concat' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{collected}}')).toBe('["item2"]');
+    });
+
+    it('concat strategy handles non-JSON source', async () => {
+      const ctx = makeCtx({ source: 'plain-text' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'collected', sourceExpression: '{{source}}', strategy: 'concat' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{collected}}')).toBe('["plain-text"]');
+    });
+
+    it('concat strategy handles existing non-array JSON', async () => {
+      const ctx = makeCtx({ source: '"item"' });
+      ctx.set('collected', '{"key":"val"}');
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'collected', sourceExpression: '{{source}}', strategy: 'concat' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      // Existing is object (not array), so arr gets reset to []
+      expect(ctx.resolve('{{collected}}')).toBe('["item"]');
+    });
+
+    it('handles empty mappings array', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', { mappings: [] });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(states['a1']?.state).toBe('pass');
+    });
+
+    it('handles undefined mappings (uses ?? [] fallback)', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {});
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(states['a1']?.state).toBe('pass');
+    });
+
+    it('custom strategy without customExpression uses source', async () => {
+      const ctx = makeCtx({ val: 'hello' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('a1', 'aggregate', {
+        mappings: [
+          { targetVariable: 'result', sourceExpression: '{{val}}', strategy: 'custom' },
+        ],
+      });
+
+      await handleAggregateNode('a1', node, hCtx);
+      expect(ctx.resolve('{{result}}')).toBe('hello');
+    });
   });
 
   // ── handleLogDebugNode ──
@@ -1132,6 +1394,37 @@ describe('graphRunnerNodeHandlers', () => {
 
       await handleLogDebugNode('ld1', node, hCtx);
       expect(logLines[0]?.prefix).toBe('⚠');
+    });
+
+    it('handles debug log level', async () => {
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks,
+        log: (line) => logLines.push(line),
+      });
+      const node = makeNode('ld1', 'logDebug', {
+        message: 'debug msg', logLevel: 'debug',
+      });
+
+      await handleLogDebugNode('ld1', node, hCtx);
+      expect(logLines[0]?.prefix).toBe('🐛');
+    });
+
+    it('handles empty message', async () => {
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks,
+        log: (line) => logLines.push(line),
+      });
+      const node = makeNode('ld1', 'logDebug', {
+        message: '', logLevel: 'info',
+      });
+
+      await handleLogDebugNode('ld1', node, hCtx);
+      expect(logLines[0]?.prefix).toBe('ℹ');
+      expect(logLines[0]?.text).toContain('[INFO]');
     });
   });
 
@@ -1446,6 +1739,284 @@ describe('graphRunnerNodeHandlers', () => {
 
       const timeoutLog = logLines.find(l => l.text.includes('Retry timeout'));
       expect(timeoutLog).toBeDefined();
+    });
+
+    it('uses default retryCount when not specified', async () => {
+      const visit = vi.fn();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks, visit, outgoing, nodeMap, results: [] });
+      // No retryCount specified — uses ?? 0 fallback
+      const node = makeNode('eh1', 'errorHandler', {
+        errorFilter: 'all',
+        retryDelayMs: 1,
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+      expect(states['eh1']?.state).toBe('pass');
+    });
+
+    it('uses default retryDelayMs when not specified', async () => {
+      const visit = vi.fn();
+      const results: Array<{ passed: boolean; httpStatus: number; errorMessage?: string; scenarioId?: string; scenarioName?: string }> = [];
+      let callCount = 0;
+      visit.mockImplementation(async (nodeId: string) => {
+        if (nodeId === 'body1') {
+          callCount++;
+          if (callCount <= 1) {
+            results.push({ passed: false, httpStatus: 500, errorMessage: 'Error', scenarioId: 'body1', scenarioName: 'Body' });
+          }
+        }
+      });
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+        makeEdge('e2', 'eh1', 'catch1', 'catch'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('catch1', makeNode('catch1', 'http'));
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks, visit, outgoing, nodeMap,
+        results: results as unknown as import('../../../shared/types').RequestResult[],
+      });
+      // No retryDelayMs — uses ?? 1000 fallback, but retryCount=1 so it retries once
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 1,
+        errorFilter: 'all',
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+      expect(states['eh1']?.state).toBe('pass');
+      expect(callCount).toBe(2);
+    }, 10000);
+
+    it('handles no outgoing edges (uses ?? [] fallback)', async () => {
+      const { callbacks, states } = makeCallbacks();
+      // No outgoing edges for eh1
+      const hCtx = makeHandlerContext({ callbacks, results: [] });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 0,
+        errorFilter: 'all',
+        retryDelayMs: 0,
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+      expect(states['eh1']?.state).toBe('pass');
+    });
+
+    it('uses summarizeRequestFailure when errorMessage is empty', async () => {
+      const visit = vi.fn();
+      const results: Array<{ passed: boolean; httpStatus: number; errorMessage?: string; scenarioId?: string; scenarioName?: string }> = [];
+      visit.mockImplementation(async (nodeId: string) => {
+        if (nodeId === 'body1') {
+          // Push with empty errorMessage so || fallback triggers
+          results.push({ passed: false, httpStatus: 500, errorMessage: '', scenarioId: 'body1', scenarioName: 'Body' });
+        }
+      });
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+        makeEdge('e2', 'eh1', 'catch1', 'catch'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('catch1', makeNode('catch1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks, visit, outgoing, nodeMap,
+        results: results as unknown as import('../../../shared/types').RequestResult[],
+      });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 0,
+        errorFilter: 'all',
+        retryDelayMs: 0,
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+      // Should still complete — the error message comes from summarizeRequestFailure
+      expect(passed.value).toBe(false);
+    });
+
+    it('aborts retry delay when abort signal fires', async () => {
+      const abortController = new AbortController();
+      const visit = vi.fn();
+      const results: Array<{ passed: boolean; httpStatus: number; errorMessage?: string; scenarioId?: string; scenarioName?: string }> = [];
+      visit.mockImplementation(async (nodeId: string) => {
+        if (nodeId === 'body1') {
+          results.push({ passed: false, httpStatus: 500, errorMessage: 'Error', scenarioId: 'body1', scenarioName: 'Body' });
+          // Schedule abort shortly after — so it fires while the retry delay Promise is waiting
+          setTimeout(() => abortController.abort(), 5);
+        }
+      });
+
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+        makeEdge('e2', 'eh1', 'catch1', 'catch'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('catch1', makeNode('catch1', 'http'));
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks, visit, outgoing, nodeMap,
+        results: results as unknown as import('../../../shared/types').RequestResult[],
+        abortSignal: abortController.signal,
+      });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 5,
+        errorFilter: 'all',
+        retryDelayMs: 60000, // very long delay — abort must interrupt this
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+
+      // Should complete without hanging — abort interrupted the delay
+      expect(passed.value).toBe(false);
+    }, 10000);
+
+    it('stops when abortSignal is already aborted', async () => {
+      const abortController = new AbortController();
+      abortController.abort(); // pre-aborted
+      const { callbacks, states } = makeCallbacks();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      const hCtx = makeHandlerContext({
+        callbacks, outgoing, nodeMap,
+        abortSignal: abortController.signal,
+      });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 5,
+        errorFilter: 'all',
+        retryDelayMs: 1,
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+      // Should break immediately without visiting body
+      expect(states['eh1']?.state).toBe('fail');
+    });
+
+    it('uses exponential backoff delay (line 87)', async () => {
+      vi.useFakeTimers();
+      const visit = vi.fn();
+      const results: Array<{ passed: boolean; httpStatus: number; errorMessage?: string; scenarioId?: string; scenarioName?: string }> = [];
+      visit.mockImplementation(async (nodeId: string) => {
+        if (nodeId === 'body1') {
+          results.push({ passed: false, httpStatus: 500, errorMessage: 'fail' });
+        }
+      });
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+        makeEdge('e2', 'eh1', 'catch1', 'catch'),
+        makeEdge('e3', 'eh1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('catch1', makeNode('catch1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks, visit, outgoing, nodeMap, results, log: (line) => logLines.push(line) });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 1,
+        errorFilter: 'all',
+        retryDelayMs: undefined as unknown as number,
+        retryBackoff: 'exponential',
+        retryTimeoutMs: 0,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      const promise = handleErrorHandlerNode('eh1', node, hCtx, passed);
+      // Advance timers to resolve retry delay (1000ms default * 2^0 = 1000ms)
+      await vi.advanceTimersByTimeAsync(2000);
+      await promise;
+
+      vi.useRealTimers();
+      expect(states['eh1']?.state).toBe('fail');
+      const retryLogs = logLines.filter(l => l.text.includes('Retry'));
+      expect(retryLogs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('breaks on retry timeout exceeded (line 46)', async () => {
+      const visit = vi.fn();
+      const results: Array<{ passed: boolean; httpStatus: number; errorMessage?: string; scenarioId?: string; scenarioName?: string }> = [];
+      visit.mockImplementation(async (nodeId: string) => {
+        if (nodeId === 'body1') {
+          results.push({ passed: false, httpStatus: 500, errorMessage: 'fail' });
+        }
+      });
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('eh1', [
+        makeEdge('e1', 'eh1', 'body1', 'body'),
+        makeEdge('e2', 'eh1', 'catch1', 'catch'),
+        makeEdge('e3', 'eh1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('catch1', makeNode('catch1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks, states } = makeCallbacks();
+      // Mock performance.now: first call returns 0 (retryStart), subsequent return large value
+      let perfCallCount = 0;
+      const perfSpy = vi.spyOn(performance, 'now').mockImplementation(() => {
+        perfCallCount++;
+        return perfCallCount <= 1 ? 0 : 99999;
+      });
+      const hCtx = makeHandlerContext({ callbacks, visit, outgoing, nodeMap, results, log: (line) => logLines.push(line) });
+      const node = makeNode('eh1', 'errorHandler', {
+        retryCount: 10,
+        errorFilter: 'all',
+        retryDelayMs: 1,
+        retryBackoff: 'fixed',
+        retryTimeoutMs: 100,
+        continueOnError: false,
+      });
+      const passed = makePassedFlag();
+
+      await handleErrorHandlerNode('eh1', node, hCtx, passed);
+
+      perfSpy.mockRestore();
+      const timeoutLogs = logLines.filter(l => l.text.includes('Retry timeout'));
+      expect(timeoutLogs.length).toBeGreaterThanOrEqual(1);
+      expect(states['eh1']?.state).toBe('fail');
     });
   });
 
@@ -2033,6 +2604,392 @@ describe('graphRunnerNodeHandlers', () => {
       await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
 
       expect(onSubWorkflowComplete).toHaveBeenCalledTimes(2);
+    });
+
+    it('forwards logs with [sub] prefix when onLog is provided', async () => {
+      const ctx = makeCtx();
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks, states } = makeCallbacks();
+      callbacks.onLog = vi.fn((line) => logLines.push(line));
+      const childNodes = [makeNode('ch1', 'http')];
+      const childEdges: WorkflowEdge[] = [];
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => ({ nodes: childNodes, edges: childEdges }),
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'child-wf',
+        inputMappings: [],
+        outputMappings: [],
+      });
+      const mockRunGraph = vi.fn().mockImplementation(async (
+        _n: unknown, _e: unknown, _v: unknown,
+        cb: { onLog?: (line: { prefix: string; text: string }) => void; onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void; onNodeStateChange: (id: string, s: NodeRunStatus) => void },
+      ) => {
+        cb.onNodeStateChange('ch1', { state: 'pass', statusCode: 200, responseTimeMs: 10 });
+        cb.onLog?.({ prefix: '>', text: 'child log' });
+        cb.onVariablesChange({});
+        cb.onComplete([], true);
+        return [{ nodeId: 'ch1', passed: true, statusCode: 200, responseTimeMs: 10, url: '', method: 'GET', requestHeaders: {}, responseHeaders: {} }];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+
+      const subLog = logLines.find(l => l.text.includes('[sub]'));
+      expect(subLog).toBeDefined();
+      expect(subLog!.text).toContain('child log');
+    });
+
+    it('does not set onLog when parent has no onLog', async () => {
+      const ctx = makeCtx();
+      const { callbacks } = makeCallbacks();
+      callbacks.onLog = undefined;
+      const childNodes = [makeNode('ch1', 'http')];
+      const childEdges: WorkflowEdge[] = [];
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => ({ nodes: childNodes, edges: childEdges }),
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'child-wf',
+        inputMappings: [],
+        outputMappings: [],
+      });
+      const mockRunGraph = vi.fn().mockImplementation(async (
+        _n: unknown, _e: unknown, _v: unknown,
+        cb: { onLog?: (line: { prefix: string; text: string }) => void; onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void },
+      ) => {
+        expect(cb.onLog).toBeUndefined();
+        cb.onVariablesChange({});
+        cb.onComplete([], true);
+        return [];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+    });
+
+    it('maps skipped state for child nodes that are not pass or fail', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const onSubWorkflowComplete = vi.fn();
+      callbacks.onSubWorkflowComplete = onSubWorkflowComplete;
+      const childNodes = [makeNode('ch1', 'http', { label: 'Child HTTP' })];
+      const childEdges: WorkflowEdge[] = [];
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => ({ nodes: childNodes, edges: childEdges }),
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'child-wf',
+        workflowName: 'Child WF',
+        inputMappings: [],
+        outputMappings: [],
+        onChildFailure: 'fail',
+      });
+      const mockRunGraph = vi.fn().mockImplementation(async (
+        _n: unknown, _e: unknown, _v: unknown,
+        cb: { onNodeStateChange: (id: string, s: NodeRunStatus) => void; onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void },
+      ) => {
+        // Set a non-pass/non-fail state (e.g., 'running')
+        cb.onNodeStateChange('ch1', { state: 'running' });
+        cb.onVariablesChange({});
+        cb.onComplete([], true);
+        return [];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+
+      // buildChildSteps should map 'running' to 'skipped'
+      expect(onSubWorkflowComplete).toHaveBeenCalled();
+      const completeArgs = onSubWorkflowComplete.mock.calls[0][0];
+      expect(completeArgs.childSteps).toBeDefined();
+      expect(completeArgs.childSteps[0]?.state).toBe('skipped');
+    });
+
+    it('uses timeout and abort controller when timeoutMs is set (line 76)', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const childWorkflow = {
+        name: 'Child WF',
+        nodes: [makeNode('cs1', 'start'), makeNode('ce1', 'end')],
+        edges: [],
+      };
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => childWorkflow,
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'wf1',
+        workflowName: 'Child WF',
+        inputMappings: [],
+        outputMappings: [],
+        onChildFailure: 'fail',
+        timeoutMs: 60000,
+      });
+
+      const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onComplete: (r: unknown[], p: boolean) => void }) => {
+        cb.onComplete([], true);
+        return [];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+
+      expect(states['sub1']?.state).toBe('pass');
+    });
+
+    it('falls back to empty string for missing output variable (line 210)', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const childWorkflow = {
+        name: 'Child WF',
+        nodes: [makeNode('cs1', 'start'), makeNode('ce1', 'end')],
+        edges: [],
+      };
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => childWorkflow,
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'wf1',
+        workflowName: 'Child WF',
+        inputMappings: [],
+        // Map a variable that doesn't exist in child output
+        outputMappings: [{ sourceVariable: 'nonExistent', targetVariable: 'parentVar' }],
+        onChildFailure: 'fail',
+      });
+
+      const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+        cb.onVariablesChange({});
+        cb.onComplete([], true);
+        return [];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+
+      // nonExistent variable falls back to '' via ?? ''
+      expect(ctx.resolve('{{parentVar}}')).toBe('');
+      expect(states['sub1']?.state).toBe('pass');
+    });
+
+    it('sets passed.value to false on child failure with onChildFailure=fail (line 243)', async () => {
+      const ctx = makeCtx();
+      const { callbacks, states } = makeCallbacks();
+      const childWorkflow = {
+        name: 'Child WF',
+        nodes: [makeNode('cs1', 'start'), makeNode('ce1', 'end')],
+        edges: [],
+      };
+      const hCtx = makeHandlerContext({
+        ctx, callbacks,
+        resolveSubWorkflow: () => childWorkflow,
+      });
+      const node = makeNode('sub1', 'subWorkflow', {
+        workflowId: 'wf1',
+        workflowName: 'Child WF',
+        inputMappings: [],
+        outputMappings: [],
+        onChildFailure: 'fail',
+      });
+
+      const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onComplete: (r: unknown[], p: boolean) => void }) => {
+        // Child fails
+        cb.onComplete([{ passed: false, httpStatus: 500 }], false);
+        return [{ passed: false, httpStatus: 500 }];
+      });
+      const passed = makePassedFlag();
+
+      await handleSubWorkflowNode('sub1', node, hCtx, passed, mockRunGraph as never);
+
+      expect(passed.value).toBe(false);
+      expect(states['sub1']?.state).toBe('fail');
+    });
+  });
+
+  // ── handleHttpNode — additional branch coverage ──
+  describe('handleHttpNode — additional branch coverage', () => {
+    function httpNode(id: string, label = 'HTTP', url = 'https://api.example.com/test'): WorkflowNode {
+      return makeNode(id, 'http', {
+        label,
+        scenario: {
+          id, name: label, url, method: 'GET',
+          headers: [], body: '', auth: { type: 'none' },
+          validation: { mode: 'none', assertions: [] },
+        },
+      });
+    }
+
+    it('logs humanized error when request fails without failureDetails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 0,
+        statusText: '',
+        headers: {},
+        body: '',
+      });
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks, states } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks,
+        log: (line) => logLines.push(line),
+      });
+      const node = makeNode('h1', 'http', {
+        label: 'FailHTTP',
+        scenario: {
+          id: 'h1', name: 'FailHTTP', url: 'https://api.example.com/fail', method: 'GET',
+          headers: [], body: '', auth: { type: 'none' },
+          validation: { mode: 'none', assertions: [] },
+        },
+      });
+      const passed = makePassedFlag();
+
+      await handleHttpNode('h1', node, hCtx, passed);
+
+      expect(states['h1']?.state).toBe('fail');
+      const errorLog = logLines.find(l => l.prefix === '!');
+      expect(errorLog).toBeDefined();
+    });
+
+    it('logs extracted variable display truncated at 80 chars', async () => {
+      const longValue = 'x'.repeat(100);
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: longValue }),
+      });
+      const logLines: Array<{ prefix: string; text: string }> = [];
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks,
+        log: (line) => logLines.push(line),
+      });
+      const node = makeNode('h1', 'http', {
+        label: 'ExtractHTTP',
+        scenario: {
+          id: 'h1', name: 'ExtractHTTP', url: 'https://api.example.com/data', method: 'GET',
+          headers: [], body: '', auth: { type: 'none' },
+          validation: { mode: 'none', assertions: [] },
+          extractions: [{ name: 'token', source: 'body', expression: '$.token' }],
+        },
+      });
+      const passed = makePassedFlag();
+
+      await handleHttpNode('h1', node, hCtx, passed);
+
+      const extractLog = logLines.find(l => l.prefix === '#' && l.text.includes('token'));
+      expect(extractLog).toBeDefined();
+      expect(extractLog!.text).toContain('…');
+    });
+  });
+
+  // ── handleWaitForConditionNode — abort signal coverage ──
+  describe('handleWaitForConditionNode — abort signal', () => {
+    it('resolves early when abort signal fires during poll wait', async () => {
+      const ctx = makeCtx({ ready: 'false' });
+      const abortController = new AbortController();
+      const { callbacks, states } = makeCallbacks();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('wc1', [
+        makeEdge('e1', 'wc1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const hCtx = makeHandlerContext({
+        ctx, callbacks, outgoing, nodeMap,
+        abortSignal: abortController.signal,
+      });
+      const node = makeNode('wc1', 'waitForCondition', {
+        conditionExpression: '{{ready}} == true',
+        pollIntervalMs: 60000,
+        timeoutMs: 0,
+        maxAttempts: 5,
+      });
+      const passed = makePassedFlag();
+
+      const promise = handleWaitForConditionNode('wc1', node, hCtx, passed);
+      abortController.abort();
+      await promise;
+
+      expect(states['wc1']).toBeDefined();
+    });
+
+    it('handles no outgoing edges (uses ?? [] fallback)', async () => {
+      const ctx = makeCtx({ ready: 'true' });
+      const { callbacks, states } = makeCallbacks();
+      // Don't set any outgoing edges for wc1
+      const hCtx = makeHandlerContext({ ctx, callbacks });
+      const node = makeNode('wc1', 'waitForCondition', {
+        conditionExpression: '{{ready}} == true',
+        pollIntervalMs: 10,
+        timeoutMs: 1000,
+        maxAttempts: 10,
+      });
+      const passed = makePassedFlag();
+
+      await handleWaitForConditionNode('wc1', node, hCtx, passed);
+      expect(states['wc1']?.state).toBe('pass');
+    });
+
+    it('stops when debugController.isStopped is true', async () => {
+      const ctx = makeCtx({ ready: 'false' });
+      const { callbacks, states } = makeCallbacks();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('wc1', [
+        makeEdge('e1', 'wc1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const hCtx = makeHandlerContext({
+        ctx, callbacks, outgoing, nodeMap,
+        debugController: { isStopped: true, breakpoints: new Set(), shouldPause: () => false, waitForResume: async () => {} },
+      });
+      const node = makeNode('wc1', 'waitForCondition', {
+        conditionExpression: '{{ready}} == true',
+        pollIntervalMs: 10,
+        timeoutMs: 0,
+        maxAttempts: 5,
+      });
+      const passed = makePassedFlag();
+
+      await handleWaitForConditionNode('wc1', node, hCtx, passed);
+      expect(states['wc1']?.state).toBe('fail');
+    });
+
+    it('runs body edges and re-visits them on subsequent attempts', async () => {
+      let callCount = 0;
+      const ctx = makeCtx({ ready: 'false' });
+      const { callbacks, states } = makeCallbacks();
+      const outgoing = new Map<string, WorkflowEdge[]>();
+      outgoing.set('wc1', [
+        makeEdge('e1', 'wc1', 'body1', 'body'),
+        makeEdge('e2', 'wc1', 'done1', 'done'),
+      ]);
+      const nodeMap = new Map<string, WorkflowNode>();
+      nodeMap.set('body1', makeNode('body1', 'http'));
+      nodeMap.set('done1', makeNode('done1', 'http'));
+      const visit = vi.fn(async () => {
+        callCount++;
+        if (callCount >= 2) ctx.set('ready', 'true');
+      });
+      const hCtx = makeHandlerContext({
+        ctx, callbacks, outgoing, nodeMap, visit,
+      });
+      const node = makeNode('wc1', 'waitForCondition', {
+        conditionExpression: '{{ready}} == true',
+        pollIntervalMs: 1,
+        timeoutMs: 5000,
+        maxAttempts: 10,
+      });
+      const passed = makePassedFlag();
+
+      await handleWaitForConditionNode('wc1', node, hCtx, passed);
+
+      expect(states['wc1']?.state).toBe('pass');
+      expect(visit).toHaveBeenCalledTimes(3); // 2 body visits + 1 done visit
     });
   });
 });
