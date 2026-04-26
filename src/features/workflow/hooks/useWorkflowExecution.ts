@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
+import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type {
   WorkflowNode,
-  WorkflowEdge,
   HttpNodeData,
-  StartNodeData,
-  ScheduleTriggerNodeData,
   NodeRunStatus,
   WorkflowService,
   WorkflowErrorConfig,
@@ -20,7 +17,9 @@ import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import type { RunProgress } from '../components/canvas/WorkflowToolbar';
-import type { Environment } from '../../../shared/types';
+import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
+import type { WorkflowRunHistoryEntry } from './useWorkflowRunCache';
+import type { CachedWorkflowRun } from './useWorkflowRunCache';
 
 interface UseWorkflowExecutionOptions {
   selected: Workflow | null;
@@ -31,10 +30,10 @@ interface UseWorkflowExecutionOptions {
   nodeInitialVarsRef: React.RefObject<Record<string, Record<string, string>>>;
   consoleOpenRef: React.RefObject<boolean>;
   consoleRunBehaviorRef: React.RefObject<string>;
-  consoleLinesRef: React.RefObject<{ prefix?: string; text: string; ts: number }[]>;
+  consoleLinesRef: React.RefObject<ConsoleLine[]>;
   resolvedBaseUrl: string;
   selectedEnvId: string;
-  environments: Environment[];
+  environments: { id: string; name: string }[];
   workflowServices: WorkflowService[];
   workflowErrorConfig: WorkflowErrorConfig | undefined;
   resolveHttpBaseUrlForGraph: (data: HttpNodeData) => string | undefined;
@@ -44,16 +43,16 @@ interface UseWorkflowExecutionOptions {
   // Run cache callbacks
   nodeStatuses: Record<string, NodeRunStatus>;
   setNodeStatuses: (s: Record<string, NodeRunStatus> | ((prev: Record<string, NodeRunStatus>) => Record<string, NodeRunStatus>)) => void;
-  lastRunStatus: string;
-  setLastRunStatus: (s: string) => void;
-  lastRunTime: number | null;
-  setLastRunTime: (t: number | null) => void;
+  lastRunStatus: CachedWorkflowRun['lastRunStatus'];
+  setLastRunStatus: (s: CachedWorkflowRun['lastRunStatus']) => void;
+  lastRunTime: number | undefined;
+  setLastRunTime: (t: number | undefined) => void;
   lastRunError: string | null;
   setLastRunError: (e: string | null) => void;
   setRunVariableSnapshot: (v: Record<string, string> | null) => void;
-  pushRunHistory: (entry: unknown) => string;
+  pushRunHistory: (entry: Omit<WorkflowRunHistoryEntry, 'id'>) => string;
   clearConsole: () => void;
-  pushConsoleLine: (line: { prefix?: string; text: string; ts: number }) => void;
+  pushConsoleLine: (line: ConsoleLine) => void;
   sampleWorkflowCatalog: { id: string; companionFactories?: (() => Workflow)[] }[];
 }
 
@@ -69,7 +68,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     nodeStatuses, setNodeStatuses,
     lastRunStatus, setLastRunStatus,
     lastRunTime, setLastRunTime,
-    lastRunError, setLastRunError,
+    setLastRunError,
     setRunVariableSnapshot,
     pushRunHistory, clearConsole, pushConsoleLine,
     sampleWorkflowCatalog,
@@ -316,7 +315,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const handleResetRunStatus = useCallback(() => {
     setNodeStatuses({});
     setLastRunStatus('idle');
-    setLastRunTime(null);
+    setLastRunTime(undefined);
     setLastRunError(null);
   }, [setNodeStatuses, setLastRunStatus, setLastRunTime, setLastRunError]);
 

@@ -175,8 +175,6 @@ export default function WorkflowServiceRegistryModal({
     return 'missing';
   };
 
-  const _currentEnvName = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
-
   return (
     <WorkflowEditorModalFrame
       open={open}

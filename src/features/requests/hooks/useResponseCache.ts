@@ -2,7 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
 import type { LogLine } from '../../../shared/types/server-api';
 
-export type { LogLine as ConsoleLine };
+type ConsoleLine = LogLine;
+export type { ConsoleLine };
 
 export interface ResponseHistoryEntry {
   id: string;

@@ -1,4 +1,4 @@
-import type { AuthConfig, Scenario } from '../engine/index';
+import type { AuthConfig, Scenario } from '../../../shared/types';
 
 export interface WorkflowHostProfile {
   id: string;

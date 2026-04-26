@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { loadConsoleRunBehavior, loadConsoleOpen, saveConsoleOpen, type ConsoleRunBehavior } from '../utils/workflowSessionStorage';
 
+import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
+
 interface UseWorkflowConsoleOptions {
   hasWebhookNode: boolean;
-  pushConsoleLine: (line: { prefix?: string; text: string; ts: number }) => void;
+  pushConsoleLine: (line: ConsoleLine) => void;
 }
 
 export function useWorkflowConsole({ hasWebhookNode, pushConsoleLine }: UseWorkflowConsoleOptions) {

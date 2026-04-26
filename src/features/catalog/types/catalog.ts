@@ -1,4 +1,4 @@
-import type { AuthConfig, HttpMethod } from '../../workflow/engine/index';
+import type { AuthConfig, HttpMethod } from '../../../shared/types';
 
 // ─── Environments ────────────────────────────────────────
 

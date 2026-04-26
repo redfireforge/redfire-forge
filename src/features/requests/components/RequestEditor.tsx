@@ -35,10 +35,10 @@ const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 interface Props {
   collection: RequestCollection;
   request: RequestItem;
-  parentSubCollection?: import('../../types').RequestFolder;
+  parentSubCollection?: import('../../../shared/types').RequestFolder;
   environments: RequestEnv[];
-  appMicroservices?: import('../../types').Microservice[];
-  appEnvironments?: import('../../types').Environment[];
+  appMicroservices?: import('../../../shared/types').Microservice[];
+  appEnvironments?: import('../../../shared/types').Environment[];
   selectedEnvId?: string;
   onEnvChange: (envId: string | undefined) => void;
   onUpdateRequest: (patch: Partial<RequestItem>) => void;
@@ -127,7 +127,6 @@ export default function RequestEditor({
     })(responseTree, '');
     return paths;
   }, [responseTree]);
-  const _isAllCollapsed = collapsedSet.size > 0 && collapsedSet.size >= allTreePaths.size;
   const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
   const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
   const searchMatchIdxRef = useRef(searchMatchIdx);
@@ -185,7 +184,7 @@ export default function RequestEditor({
         const appEnv = allSvcEnvs.find(e => e.id === appEnvId);
         if (!appEnv) continue;
         const wbEnv = environments.find(e => e.name === appEnv.name);
-        if (wbEnv) mapped[wbEnv.id] = url;
+        if (wbEnv) mapped[wbEnv.id] = url as string;
       }
       return mapped;
     }
@@ -196,7 +195,7 @@ export default function RequestEditor({
     const urls: string[] = [];
     for (const u of Object.values(resolvedColBaseUrls)) urls.push(u.replace(/\/+$/, ''));
     if (parentSubCollection?.baseUrls) {
-      for (const u of Object.values(parentSubCollection.baseUrls)) urls.push(u.replace(/\/+$/, ''));
+      for (const u of Object.values(parentSubCollection.baseUrls)) urls.push((u as string).replace(/\/+$/, ''));
     }
     return urls.sort((a, b) => b.length - a.length);
   }, [resolvedColBaseUrls, parentSubCollection?.baseUrls]);
