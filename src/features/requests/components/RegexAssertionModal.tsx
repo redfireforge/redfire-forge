@@ -3,7 +3,7 @@ import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPath
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { PATTERN_LIBRARY, testPattern, resolveValue } from './regexAssertionUtils';
+import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
 export interface RegexAssertionResult {

@@ -1,4 +1,4 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations';

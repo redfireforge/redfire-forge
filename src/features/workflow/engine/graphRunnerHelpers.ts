@@ -2,7 +2,7 @@
  * Extracted helper functions for the graph runner engine.
  * These were previously inline at the bottom of graphRunner.ts.
  */
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData, WorkflowErrorConfig } from '../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData } from '../types/workflow';
 import type { RequestResult, Scenario } from '../../../shared/types';
 import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';

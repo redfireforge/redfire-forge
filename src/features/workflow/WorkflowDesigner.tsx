@@ -72,7 +72,6 @@ import WorkflowServicesPanelInline from './components/panels/WorkflowServicesPan
 import WorkflowDebugBar from './components/WorkflowDebugBar';
 import WorkflowConsolePanel from './components/panels/WorkflowConsolePanel';
 import WorkflowBreadcrumb from './components/WorkflowBreadcrumb';
-import { loadConsoleRunBehavior, loadConsoleOpen, saveConsoleOpen, type ConsoleRunBehavior } from './utils/workflowSessionStorage';
 import WorkflowCanvasControls from './components/canvas/WorkflowCanvasControls';
 import WorkflowShortcutsOverlay from './components/canvas/WorkflowShortcutsOverlay';
 import WorkflowCommandPalette from './components/canvas/WorkflowCommandPalette';
@@ -923,7 +922,7 @@ function WorkflowDesignerInner({
     isRunning, setIsRunning, isDebugMode, setIsDebugMode,
     debugControllerRef, abortRef,
     runProgress, failedStepLabel,
-    lastQuickTestRequestUrl, setLastQuickTestRequestUrl,
+    lastQuickTestRequestUrl,
     handleQuickTest, handleDebugQuickTest,
     handleDebugStep, handleDebugStop, handleResetRunStatus,
   } = useWorkflowExecution({
