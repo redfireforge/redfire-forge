@@ -2097,6 +2097,510 @@ function createWorkflowErrorHandlerSample(): Workflow {
   };
 }
 
+// ────────────────────────────────────────────────────────
+// Script / Transform sample workflows
+// ────────────────────────────────────────────────────────
+
+/**
+ * ★☆☆ Easy: JSON Formatter
+ * Fetches a user from jsonplaceholder, uses a Script node to parse and
+ * reformat the JSON (extract + build a summary object), then checks
+ * the output with a Condition.
+ *
+ * Flow: Start → GET /users/1 → Script (transform) → Condition (valid?)
+ *         → End
+ */
+function createScriptEasyWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-script-easy',
+    name: 'Script: JSON Formatter',
+    description: 'Fetch a user profile, use a Script to parse and reformat the JSON, then verify the result.',
+    variables: {},
+    nodes: [
+      {
+        id: 'se-start',
+        type: 'start',
+        position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'se-get-user',
+        type: 'http',
+        position: { x: 250, y: 120 },
+        data: {
+          label: '1. Fetch User',
+          scenario: {
+            id: 'se-s1',
+            name: 'Get User',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'userJson', source: 'body', expression: '$' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'se-script-format',
+        type: 'script',
+        position: { x: 250, y: 280 },
+        data: {
+          label: '2. Format User Card',
+          code: [
+            '// Parse the raw API response and build a summary card',
+            'const user = JSON.parse(input.userJson);',
+            '',
+            'output.displayName = user.name;',
+            'output.contactInfo = JSON.stringify({',
+            '  email: user.email,',
+            '  phone: user.phone,',
+            '  website: user.website,',
+            '});',
+            'output.location = user.address.city + ", " + user.address.zipcode;',
+            'output.company = user.company.name;',
+            '',
+            'console.log("Formatted card for: " + user.name);',
+            'console.log("Location: " + output.location);',
+          ].join('\n'),
+          mode: 'transform',
+          inputVariables: ['userJson'],
+          outputVariables: ['displayName', 'contactInfo', 'location', 'company'],
+          timeoutMs: 5000,
+          captureConsole: true,
+        },
+      },
+      {
+        id: 'se-check',
+        type: 'condition',
+        position: { x: 250, y: 460 },
+        data: {
+          label: '3. Has Display Name?',
+          left: '{{displayName}}',
+          operator: '!=',
+          right: '',
+        },
+      },
+      {
+        id: 'se-end',
+        type: 'end',
+        position: { x: 300, y: 600 },
+        data: { label: 'Done' },
+      },
+    ],
+    edges: [
+      { id: 'se-e1', source: 'se-start', target: 'se-get-user' },
+      { id: 'se-e2', source: 'se-get-user', target: 'se-script-format' },
+      { id: 'se-e3', source: 'se-script-format', target: 'se-check' },
+      { id: 'se-e4', source: 'se-check', target: 'se-end', sourceHandle: 'true' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * ★★☆ Medium: Cross-API Validator
+ * Fetches a user and their posts, uses a Script node in "validate" mode
+ * to cross-check that the posts belong to the user, wrapped in an
+ * ErrorHandler. LogDebug traces the outcome.
+ *
+ * Flow: Start → Fork → [GET user, GET posts] → Join
+ *         → Script (validate) [inside ErrorHandler]
+ *           → LogDebug → End
+ */
+function createScriptMediumWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-script-medium',
+    name: 'Script: Cross-API Validator',
+    description: 'Fetch user and their posts in parallel, validate data consistency with a Script node, ErrorHandler catches failures.',
+    variables: {},
+    nodes: [
+      {
+        id: 'sm-start',
+        type: 'start',
+        position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { userId: '1' } },
+      },
+      {
+        id: 'sm-fork',
+        type: 'fork',
+        position: { x: 300, y: 120 },
+        data: { label: '1. Parallel Fetch' },
+      },
+      {
+        id: 'sm-get-user',
+        type: 'http',
+        position: { x: 100, y: 250 },
+        data: {
+          label: '2a. Get User',
+          scenario: {
+            id: 'sm-s1',
+            name: 'Get User',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'userJson', source: 'body', expression: '$' },
+              { name: 'userName', source: 'body', expression: '$.name' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sm-get-posts',
+        type: 'http',
+        position: { x: 500, y: 250 },
+        data: {
+          label: '2b. Get User Posts',
+          scenario: {
+            id: 'sm-s2',
+            name: 'Get Posts',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'postsJson', source: 'body', expression: '$' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sm-join',
+        type: 'join',
+        position: { x: 300, y: 390 },
+        data: { label: '3. Merge Results' },
+      },
+      {
+        id: 'sm-error-handler',
+        type: 'errorHandler',
+        position: { x: 300, y: 500 },
+        data: {
+          label: '4. Validation Guard',
+          retryCount: 0,
+          errorFilter: 'all',
+          retryDelayMs: 0,
+          retryBackoff: 'fixed',
+          retryTimeoutMs: 0,
+          continueOnError: false,
+        },
+      },
+      {
+        id: 'sm-script-validate',
+        type: 'script',
+        position: { x: 200, y: 620 },
+        data: {
+          label: '4a. Validate Data',
+          code: [
+            '// Validate that all posts belong to the correct user',
+            'const user = JSON.parse(input.userJson);',
+            'const posts = JSON.parse(input.postsJson);',
+            '',
+            'console.log("Checking " + posts.length + " posts for user: " + user.name);',
+            '',
+            'let mismatchCount = 0;',
+            'for (const post of posts) {',
+            '  if (post.userId !== user.id) {',
+            '    console.warn("Post " + post.id + " userId mismatch: " + post.userId + " != " + user.id);',
+            '    mismatchCount++;',
+            '  }',
+            '}',
+            '',
+            'output.postCount = String(posts.length);',
+            'output.mismatchCount = String(mismatchCount);',
+            'output.result = mismatchCount === 0;',
+            '',
+            'console.log("Validation " + (mismatchCount === 0 ? "PASSED" : "FAILED") + " — " + mismatchCount + " mismatches");',
+          ].join('\n'),
+          mode: 'validate',
+          inputVariables: ['userJson', 'postsJson'],
+          outputVariables: ['postCount', 'mismatchCount', 'result'],
+          timeoutMs: 5000,
+          captureConsole: true,
+        },
+      },
+      {
+        id: 'sm-catch',
+        type: 'logDebug',
+        position: { x: 450, y: 620 },
+        data: {
+          label: '4b. Log Failure',
+          message: 'Validation failed: {{mismatchCount}} mismatches in {{postCount}} posts for user {{userName}}',
+          logLevel: 'error',
+          snapshotVariables: true,
+        },
+      },
+      {
+        id: 'sm-log-success',
+        type: 'logDebug',
+        position: { x: 300, y: 770 },
+        data: {
+          label: '5. Log Result',
+          message: 'User {{userName}}: {{postCount}} posts validated, {{mismatchCount}} mismatches',
+          logLevel: 'info',
+          snapshotVariables: false,
+        },
+      },
+      {
+        id: 'sm-end',
+        type: 'end',
+        position: { x: 300, y: 900 },
+        data: { label: 'Done' },
+      },
+    ],
+    edges: [
+      { id: 'sm-e1', source: 'sm-start', target: 'sm-fork' },
+      { id: 'sm-e2', source: 'sm-fork', target: 'sm-get-user' },
+      { id: 'sm-e3', source: 'sm-fork', target: 'sm-get-posts' },
+      { id: 'sm-e4', source: 'sm-get-user', target: 'sm-join' },
+      { id: 'sm-e5', source: 'sm-get-posts', target: 'sm-join' },
+      { id: 'sm-e6', source: 'sm-join', target: 'sm-error-handler' },
+      { id: 'sm-e7', source: 'sm-error-handler', target: 'sm-script-validate', sourceHandle: 'body' },
+      { id: 'sm-e8', source: 'sm-error-handler', target: 'sm-catch', sourceHandle: 'catch' },
+      { id: 'sm-e9', source: 'sm-error-handler', target: 'sm-log-success', sourceHandle: 'done' },
+      { id: 'sm-e10', source: 'sm-log-success', target: 'sm-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * ★★★ Advanced: Data Aggregation Pipeline & Report Generator
+ * Loops over multiple "pages" of posts, uses a Script node to transform
+ * each page (extract titles + compute word counts), aggregates results,
+ * then uses a second Script node in "generate" mode to build a summary
+ * report and decides whether to POST it based on a threshold.
+ *
+ * Flow: Start → SetVariable (init) → Loop (count=3, simulates pages)
+ *         ├─ Body: GET /posts?_start=N&_limit=3 → Script (transform page)
+ *         │        → Aggregate (collect titles, sum wordCount)
+ *         └─ Done: Script (generate report) → Condition (wordCount>100?)
+ *                   ├─ Yes → POST /posts (publish report)
+ *                   └─ No  → LogDebug (skip publish)
+ *                     → End
+ */
+function createScriptAdvancedWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-script-advanced',
+    name: 'Script: Data Pipeline & Report',
+    description: 'Loop over paginated API, Script transforms each page, Aggregate collects, Script generates a summary report.',
+    variables: {},
+    nodes: [
+      {
+        id: 'sa-start',
+        type: 'start',
+        position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { pageSize: '3', totalPages: '3' } },
+      },
+      {
+        id: 'sa-init',
+        type: 'setVariable',
+        position: { x: 300, y: 120 },
+        data: {
+          label: '1. Init Counters',
+          assignments: [
+            { id: 'a1', name: 'pageIndex', expression: '0' },
+            { id: 'a2', name: 'allTitles', expression: '[]' },
+            { id: 'a3', name: 'totalWordCount', expression: '0' },
+          ],
+        },
+      },
+      {
+        id: 'sa-loop',
+        type: 'loop',
+        position: { x: 300, y: 260 },
+        data: {
+          label: '2. Page Loop',
+          mode: 'count',
+          count: 3,
+          maxIterations: 10,
+        },
+      },
+      {
+        id: 'sa-get-page',
+        type: 'http',
+        position: { x: 100, y: 400 },
+        data: {
+          label: '2a. Fetch Page',
+          scenario: {
+            id: 'sa-s1',
+            name: 'Get Posts Page',
+            url: 'https://jsonplaceholder.typicode.com/posts?_start={{pageIndex}}&_limit={{pageSize}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'pageJson', source: 'body', expression: '$' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'sa-script-transform',
+        type: 'script',
+        position: { x: 100, y: 560 },
+        data: {
+          label: '2b. Transform Page',
+          code: [
+            '// Parse the page of posts and extract titles + word counts',
+            'const posts = JSON.parse(input.pageJson);',
+            'const currentPage = parseInt(input.pageIndex) || 0;',
+            'const pageSize = parseInt(input.pageSize) || 3;',
+            '',
+            'const titles = posts.map(function(p) { return p.title; });',
+            'let wordCount = 0;',
+            'for (const p of posts) {',
+            '  wordCount += p.body.split(/\\s+/).length;',
+            '}',
+            '',
+            'output.pageTitles = JSON.stringify(titles);',
+            'output.pageWordCount = String(wordCount);',
+            'output.pageIndex = String(currentPage + pageSize);',
+            '',
+            'console.log("Page " + (currentPage / pageSize + 1) + ": " + posts.length + " posts, " + wordCount + " words");',
+          ].join('\n'),
+          mode: 'transform',
+          inputVariables: ['pageJson', 'pageIndex', 'pageSize'],
+          outputVariables: ['pageTitles', 'pageWordCount', 'pageIndex'],
+          timeoutMs: 5000,
+          captureConsole: true,
+        },
+      },
+      {
+        id: 'sa-aggregate',
+        type: 'aggregate',
+        position: { x: 100, y: 720 },
+        data: {
+          label: '2c. Collect Results',
+          mappings: [
+            {
+              id: 'ag1',
+              sourceExpression: '{{pageTitles}}',
+              targetVariable: 'allTitles',
+              strategy: 'concat',
+            },
+            {
+              id: 'ag2',
+              sourceExpression: '{{pageWordCount}}',
+              targetVariable: 'totalWordCount',
+              strategy: 'sum',
+            },
+          ],
+        },
+      },
+      {
+        id: 'sa-script-report',
+        type: 'script',
+        position: { x: 500, y: 400 },
+        data: {
+          label: '3. Generate Report',
+          code: [
+            '// Build a summary report from aggregated data',
+            'let titles;',
+            'try { titles = JSON.parse(input.allTitles); } catch(e) { titles = []; }',
+            'const wordCount = parseInt(input.totalWordCount) || 0;',
+            '',
+            'const report = {',
+            '  generatedAt: new Date().toISOString(),',
+            '  totalPosts: titles.length,',
+            '  totalWordCount: wordCount,',
+            '  avgWordsPerPost: titles.length > 0 ? Math.round(wordCount / titles.length) : 0,',
+            '  topTitles: titles.slice(0, 5),',
+            '};',
+            '',
+            'output.reportJson = JSON.stringify(report, null, 2);',
+            'output.postCount = String(report.totalPosts);',
+            'output.wordCount = String(report.totalWordCount);',
+            '',
+            'console.log("Report: " + report.totalPosts + " posts, " + report.totalWordCount + " words");',
+            'console.log("Avg: " + report.avgWordsPerPost + " words/post");',
+          ].join('\n'),
+          mode: 'generate',
+          inputVariables: ['allTitles', 'totalWordCount'],
+          outputVariables: ['reportJson', 'postCount', 'wordCount'],
+          timeoutMs: 5000,
+          captureConsole: true,
+        },
+      },
+      {
+        id: 'sa-check-threshold',
+        type: 'condition',
+        position: { x: 500, y: 570 },
+        data: {
+          label: '4. Worth Publishing?',
+          left: '{{wordCount}}',
+          operator: '>',
+          right: '100',
+        },
+      },
+      {
+        id: 'sa-publish',
+        type: 'http',
+        position: { x: 350, y: 720 },
+        data: {
+          label: '5a. Publish Report',
+          scenario: {
+            id: 'sa-s2',
+            name: 'Publish Report',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [
+              { key: 'Content-Type', value: 'application/json' },
+            ],
+            body: '{{reportJson}}',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+          },
+        },
+      },
+      {
+        id: 'sa-skip-log',
+        type: 'logDebug',
+        position: { x: 650, y: 720 },
+        data: {
+          label: '5b. Skip — Too Short',
+          message: 'Report has only {{wordCount}} words (threshold: 100). Skipping publish.',
+          logLevel: 'warn',
+          snapshotVariables: false,
+        },
+      },
+      {
+        id: 'sa-end',
+        type: 'end',
+        position: { x: 500, y: 870 },
+        data: { label: 'Done' },
+      },
+    ],
+    edges: [
+      { id: 'sa-e1', source: 'sa-start', target: 'sa-init' },
+      { id: 'sa-e2', source: 'sa-init', target: 'sa-loop' },
+      { id: 'sa-e3', source: 'sa-loop', target: 'sa-get-page', sourceHandle: 'body' },
+      { id: 'sa-e4', source: 'sa-get-page', target: 'sa-script-transform' },
+      { id: 'sa-e5', source: 'sa-script-transform', target: 'sa-aggregate' },
+      { id: 'sa-e6', source: 'sa-loop', target: 'sa-script-report', sourceHandle: 'done' },
+      { id: 'sa-e7', source: 'sa-script-report', target: 'sa-check-threshold' },
+      { id: 'sa-e8', source: 'sa-check-threshold', target: 'sa-publish', sourceHandle: 'true' },
+      { id: 'sa-e9', source: 'sa-check-threshold', target: 'sa-skip-log', sourceHandle: 'false' },
+      { id: 'sa-e10', source: 'sa-publish', target: 'sa-end' },
+      { id: 'sa-e11', source: 'sa-skip-log', target: 'sa-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
@@ -2245,5 +2749,34 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     icon: '🚨',
     nodeCount: 9,
     factory: createWorkflowErrorHandlerSample,
+  },
+
+  // ── Script / Transform samples ───────────────────────
+  {
+    id: 'sample-workflow-script-easy',
+    name: 'Script: JSON Formatter',
+    description: 'Fetch an API response, use a Script node to parse and reformat JSON, then verify the output',
+    category: 'basics',
+    icon: '📜',
+    nodeCount: 5,
+    factory: createScriptEasyWorkflow,
+  },
+  {
+    id: 'sample-workflow-script-medium',
+    name: 'Script: Cross-API Validator',
+    description: 'Fetch user and posts, Script validates data consistency with console logging, ErrorHandler wraps validation',
+    category: 'logic',
+    icon: '✅',
+    nodeCount: 10,
+    factory: createScriptMediumWorkflow,
+  },
+  {
+    id: 'sample-workflow-script-advanced',
+    name: 'Script: Data Pipeline & Report',
+    description: 'Loop over paginated API, Script transforms each page, Aggregate collects results, Script generates summary report',
+    category: 'advanced',
+    icon: '📊',
+    nodeCount: 11,
+    factory: createScriptAdvancedWorkflow,
   },
 ];
