@@ -1,6 +1,6 @@
-import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../types';
+import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../shared/types';
 import { buildHeaders } from './executor';
-import { serializeWithContentType } from '../utils/bodySerializer';
+import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { executeWithRetry, type RunOpts } from './requestExecution';
 import { applyThinkTime } from './thinkTime';
 

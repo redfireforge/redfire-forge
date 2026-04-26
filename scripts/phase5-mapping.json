@@ -1,0 +1,17 @@
+{
+  "src/components/RunnerExecutionConfig.tsx": "src/features/test-runner/components/RunnerExecutionConfig.tsx",
+  "src/components/RunnerExecutionConfig.test.tsx": "src/features/test-runner/components/RunnerExecutionConfig.test.tsx",
+  "src/components/LiveCharts.tsx": "src/features/test-runner/components/LiveCharts.tsx",
+  "src/components/WaterfallBar.tsx": "src/features/test-runner/components/WaterfallBar.tsx",
+
+  "src/hooks/useTestExecution.ts": "src/features/test-runner/hooks/useTestExecution.ts",
+
+  "src/utils/resultsGrouping.ts": "src/features/test-runner/utils/resultsGrouping.ts",
+  "src/utils/resultsGrouping.test.ts": "src/features/test-runner/utils/resultsGrouping.test.ts",
+  "src/utils/runnerProgressStorage.ts": "src/features/test-runner/utils/runnerProgressStorage.ts",
+  "src/utils/runnerProgressStorage.test.ts": "src/features/test-runner/utils/runnerProgressStorage.test.ts",
+  "src/utils/serverFormatters.ts": "src/features/test-runner/utils/serverFormatters.ts",
+  "src/utils/serverFormatters.test.ts": "src/features/test-runner/utils/serverFormatters.test.ts",
+
+  "src/pages/TestRunner.tsx": "src/features/test-runner/TestRunner.tsx"
+}

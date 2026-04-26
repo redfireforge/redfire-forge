@@ -1,0 +1,29 @@
+{
+  "src/components/TestEditorModal.tsx": "src/features/scenarios/components/TestEditorModal.tsx",
+  "src/components/TestEditorAuthTab.tsx": "src/features/scenarios/components/TestEditorAuthTab.tsx",
+  "src/components/TestEditorValidationTab.tsx": "src/features/scenarios/components/TestEditorValidationTab.tsx",
+  "src/components/CsvImportModal.tsx": "src/features/scenarios/components/CsvImportModal.tsx",
+  "src/components/CsvTemplateExportModal.tsx": "src/features/scenarios/components/CsvTemplateExportModal.tsx",
+  "src/components/CopyTestModal.tsx": "src/features/scenarios/components/CopyTestModal.tsx",
+  "src/components/MoveDialog.tsx": "src/features/scenarios/components/MoveDialog.tsx",
+
+  "src/hooks/useProjects.ts": "src/features/scenarios/hooks/useProjects.ts",
+
+  "src/utils/csvTemplate.ts": "src/features/scenarios/utils/csvTemplate.ts",
+  "src/utils/csvTemplateCsv.ts": "src/features/scenarios/utils/csvTemplateCsv.ts",
+  "src/utils/csvTemplateCsv.download.test.ts": "src/features/scenarios/utils/csvTemplateCsv.download.test.ts",
+  "src/utils/csvTemplateExcel.ts": "src/features/scenarios/utils/csvTemplateExcel.ts",
+  "src/utils/csvTemplateTypes.ts": "src/features/scenarios/utils/csvTemplateTypes.ts",
+  "src/utils/csvTemplateUrl.ts": "src/features/scenarios/utils/csvTemplateUrl.ts",
+  "src/utils/csvTemplateUrl.test.ts": "src/features/scenarios/utils/csvTemplateUrl.test.ts",
+  "src/utils/csvTemplateRoundtrip.test.ts": "src/features/scenarios/utils/csvTemplateRoundtrip.test.ts",
+  "src/utils/excelTemplateRoundtrip.test.ts": "src/features/scenarios/utils/excelTemplateRoundtrip.test.ts",
+  "src/utils/scenarioImportExport.ts": "src/features/scenarios/utils/scenarioImportExport.ts",
+  "src/utils/scenarioImportExport.test.ts": "src/features/scenarios/utils/scenarioImportExport.test.ts",
+  "src/utils/scenarioSearch.ts": "src/features/scenarios/utils/scenarioSearch.ts",
+  "src/utils/scenarioSearch.test.ts": "src/features/scenarios/utils/scenarioSearch.test.ts",
+  "src/utils/testEditorUtils.ts": "src/features/scenarios/utils/testEditorUtils.ts",
+  "src/utils/testEditorUtils.test.ts": "src/features/scenarios/utils/testEditorUtils.test.ts",
+
+  "src/pages/ScenarioBuilder.tsx": "src/features/scenarios/ScenarioBuilder.tsx"
+}

@@ -2,12 +2,12 @@
  * Shared workflow execution logic used by both webhook-server and cron-scheduler.
  * Eliminates duplicated runGraph → collect results → save execution result pattern.
  */
-import { runGraph } from '../src/engine/workflow/graphRunner.js';
+import { runGraph } from '../src/features/workflow/engine/graphRunner';
 import { saveExecutionResult } from './file-storage.js';
-import type { ExecutionResult, LogLine } from '../src/types/server-api.js';
-import type { Workflow, NodeRunStatus } from '../src/types/workflow.js';
-import type { RequestResult } from '../src/types/index.js';
-import { getErrorMessage } from '../src/utils/serverFormatters.js';
+import type { ExecutionResult, LogLine } from '../src/shared/types/server-api';
+import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
+import type { RequestResult } from '../src/shared/types/index';
+import { getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
 
 export interface WorkflowExecutionInput {
   executionId: string;

@@ -3,9 +3,9 @@ import {
   loadScheduleTriggers,
   getWorkflow,
 } from './file-storage.js';
-import type { ScheduleTrigger } from '../src/types/server-api.js';
+import type { ScheduleTrigger } from '../src/shared/types/server-api';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
-import { generateExecutionId, getErrorMessage } from '../src/utils/serverFormatters.js';
+import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
 
 // Map to keep track of active cron jobs
 const activeJobs = new Map<string, cron.ScheduledTask>();

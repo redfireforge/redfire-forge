@@ -1,0 +1,19 @@
+{
+  "src/pages/ResultsDashboard.tsx": "src/features/results/ResultsDashboard.tsx",
+  "src/pages/EnvironmentManager.tsx": "src/features/environments/EnvironmentManager.tsx",
+  "src/pages/WebhookDeliveryLogs.tsx": "src/features/webhooks/WebhookDeliveryLogs.tsx",
+  "src/pages/WorkflowExecutionHistory.tsx": "src/features/workflow/WorkflowExecutionHistory.tsx",
+
+  "src/components/SettingsModal.tsx": "src/features/settings/SettingsModal.tsx",
+  "src/components/SettingsStorageTab.tsx": "src/features/settings/SettingsStorageTab.tsx",
+
+  "src/components/ExportCenter.tsx": "src/shared/components/ExportCenter.tsx",
+  "src/components/ImportCenter.tsx": "src/shared/components/ImportCenter.tsx",
+
+  "src/components/Sidebar.tsx": "src/app/Sidebar.tsx",
+  "src/App.tsx": "src/app/App.tsx",
+  "src/main.tsx": "src/app/main.tsx",
+
+  "src/utils/export.ts": "src/shared/utils/export.ts",
+  "src/utils/export.test.ts": "src/shared/utils/export.test.ts"
+}

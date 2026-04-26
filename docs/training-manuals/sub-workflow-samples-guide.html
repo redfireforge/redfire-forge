@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Sub-Workflow Samples Training Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-basic { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Sub-Workflow Samples</h1>
+  <div class="subtitle">Training Manual &amp; Development Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    A comprehensive guide to the three built-in sub-workflow sample templates in
+    RedfireForge. Learn how to build, configure, and extend sub-workflow
+    orchestration patterns for API testing pipelines.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Document Version 1.0 — April 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">Sub-Workflow Feature Overview</a></li>
+  <li><a href="#features">Complete Feature Reference</a></li>
+  <li><a href="#sample1">Sample 1 — Sub-Workflow Orchestrator</a>
+    <ol>
+      <li>Purpose &amp; Use Case</li>
+      <li>Architecture &amp; Flow Diagram</li>
+      <li>Node-by-Node Walkthrough</li>
+      <li>Child Workflow: User Processor</li>
+      <li>Step-by-Step Development Guide</li>
+    </ol>
+  </li>
+  <li><a href="#sample2">Sample 2 — Order Pipeline with Sub-Workflow</a>
+    <ol>
+      <li>Purpose &amp; Use Case</li>
+      <li>Architecture &amp; Flow Diagram</li>
+      <li>Node-by-Node Walkthrough</li>
+      <li>Child Workflow: Shipping Processor</li>
+      <li>Step-by-Step Development Guide</li>
+    </ol>
+  </li>
+  <li><a href="#sample3">Sample 3 — Multi-Region Deploy Orchestrator</a>
+    <ol>
+      <li>Purpose &amp; Use Case</li>
+      <li>Architecture &amp; Flow Diagram</li>
+      <li>Node-by-Node Walkthrough</li>
+      <li>Child Workflows: Region Deployer &amp; Rollback Handler</li>
+      <li>Step-by-Step Development Guide</li>
+    </ol>
+  </li>
+  <li><a href="#comparison">Sample Comparison Matrix</a></li>
+  <li><a href="#best-practices">Best Practices &amp; Tips</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="overview">1. Sub-Workflow Feature Overview</h2>
+<p>
+  Sub-Workflows allow you to <strong>compose workflows from reusable building blocks</strong>.
+  A parent workflow can invoke a child workflow via the <strong>Sub-Workflow node</strong>,
+  passing data in through <em>input mappings</em> and receiving results back through
+  <em>output mappings</em>.
+</p>
+
+<h3>Why Sub-Workflows?</h3>
+<ul>
+  <li><strong>Reusability</strong> — Build once, use in many parent workflows</li>
+  <li><strong>Modularity</strong> — Break complex flows into manageable pieces</li>
+  <li><strong>Iteration</strong> — Process collections with multi-instance forEach</li>
+  <li><strong>Resilience</strong> — Configure retry, timeout, and failure handling per child</li>
+  <li><strong>Dynamic dispatch</strong> — Select child workflows at runtime via expressions</li>
+</ul>
+
+<h3>How It Works</h3>
+<div class="flow-diagram">
+┌──────────────────┐     Input Mappings      ┌──────────────────┐
+│                  │  ──────────────────────► │                  │
+│  Parent Workflow │                          │  Child Workflow  │
+│                  │  ◄──────────────────────  │                  │
+└──────────────────┘     Output Mappings     └──────────────────┘
+
+  Parent variables               →    Child initial variables
+  Child final variables          →    Parent variables
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. FEATURE REFERENCE                        -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="features">2. Complete Feature Reference</h2>
+
+<h3>Sub-Workflow Node Properties</h3>
+<table>
+  <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>workflowId</code></td><td>string</td><td>—</td><td>UUID of the child workflow to execute. Supports <code>{{expression}}</code> for dynamic dispatch.</td></tr>
+  <tr><td><code>workflowName</code></td><td>string?</td><td>—</td><td>Cached display name shown on the canvas when child isn't loaded.</td></tr>
+  <tr><td><code>inputMappings</code></td><td>Array</td><td>[]</td><td>Maps parent expressions → child input variables. Each entry: <code>{ sourceExpression, targetVariable }</code></td></tr>
+  <tr><td><code>outputMappings</code></td><td>Array</td><td>[]</td><td>Maps child final variables → parent variables. Each entry: <code>{ sourceVariable, targetVariable }</code></td></tr>
+  <tr><td><code>propagateAllOutputs</code></td><td>boolean</td><td>false</td><td>Pass all child final variables to parent (excluding internal <code>__</code> prefixed vars).</td></tr>
+  <tr><td><code>maxDepth</code></td><td>number</td><td>10</td><td>Recursion depth limit. Prevents infinite loops in self-referencing workflows.</td></tr>
+  <tr><td><code>timeoutMs</code></td><td>number</td><td>0</td><td>Abort child execution after this many milliseconds. 0 = unlimited.</td></tr>
+  <tr><td><code>retryCount</code></td><td>number</td><td>0</td><td>Number of retry attempts when child fails. 0 = no retry.</td></tr>
+  <tr><td><code>retryDelayMs</code></td><td>number</td><td>1000</td><td>Delay between retry attempts in milliseconds.</td></tr>
+  <tr><td><code>onChildFailure</code></td><td>string</td><td>"fail"</td><td><code>"fail"</code>: parent node fails. <code>"continue"</code>: mark pass, set <code>__subWorkflowFailed=true</code>.</td></tr>
+  <tr><td><code>multiInstance</code></td><td>object?</td><td>—</td><td>Enable forEach iteration. See Multi-Instance section below.</td></tr>
+</table>
+
+<h3>Multi-Instance (forEach) Properties</h3>
+<table>
+  <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>collection</code></td><td>string</td><td>Expression resolving to a JSON array, e.g. <code>{{userIds}}</code> or <code>{{regions}}</code></td></tr>
+  <tr><td><code>elementVariable</code></td><td>string</td><td>Variable name injected into each child run with the current array element</td></tr>
+  <tr><td><code>mode</code></td><td>string</td><td><code>"sequential"</code>: one at a time. <code>"parallel"</code>: all concurrently via Promise.all</td></tr>
+</table>
+
+<h3>Automatic Variables Set by the Engine</h3>
+<table>
+  <tr><th>Variable</th><th>Set When</th><th>Value</th></tr>
+  <tr><td><code>__subWorkflowDepth</code></td><td>Always</td><td>Current recursion depth (integer string). Injected into child inputs.</td></tr>
+  <tr><td><code>__subWorkflowFailed</code></td><td>onChildFailure=continue + failure</td><td><code>"true"</code> — indicates at least one iteration failed.</td></tr>
+  <tr><td><code>__subWorkflowResults</code></td><td>Multi-instance mode</td><td>JSON array of per-item results: <code>[{passed, vars}, ...]</code></td></tr>
+  <tr><td><code>__subWorkflowIndex</code></td><td>Multi-instance mode</td><td>Current iteration index (0-based) within child execution.</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Dynamic Workflow ID</strong>
+  Set <code>workflowId</code> to an expression like <code>{{rollbackWorkflowId}}</code> to select the child
+  workflow at runtime based on a variable. The expression is resolved against the parent's variable context
+  before looking up the child. Validation will show a warning icon (⚠) for dynamic IDs since static checks
+  (self-reference, cycle detection) cannot be performed.
+</div>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔗 Input Mappings</strong>
+    <p>Map parent <code>{{expression}}</code> → child variable. Resolved at execution time against parent context.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📤 Output Mappings</strong>
+    <p>Map child final variable → parent variable. Captured from child's variable snapshot after execution completes.</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔄 Multi-Instance</strong>
+    <p>Iterate over a JSON array, running the child once per element. Sequential or parallel execution modes.</p>
+  </div>
+  <div class="feature-card">
+    <strong>🛡️ Resilience</strong>
+    <p>Retry on failure with configurable count and delay. Timeout with automatic abort. Continue-on-failure mode.</p>
+  </div>
+  <div class="feature-card">
+    <strong>ƒ Dynamic Dispatch</strong>
+    <p>Use <code>{{variable}}</code> expressions in workflowId to select the child workflow at runtime.</p>
+  </div>
+  <div class="feature-card">
+    <strong>👁️ Canvas Preview</strong>
+    <p>See child workflow node/edge counts and pass/fail status directly on the Sub-Workflow node.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SAMPLE 1                                    -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="sample1">3. Sample 1 — Sub-Workflow Orchestrator <span class="badge badge-basic">Basic</span></h2>
+
+<h3>3.1 Purpose &amp; Use Case</h3>
+<p>
+  This sample demonstrates the foundational sub-workflow pattern: a parent workflow fetches a list of
+  users from an API, then uses a <strong>multi-instance forEach</strong> sub-workflow node to process
+  each user individually through a child workflow. Results are checked for partial failures.
+</p>
+<p><strong>Real-world analogy:</strong> A batch job that processes user records one by one — e.g., sending
+  welcome emails, syncing profiles to a CRM, or running compliance checks per user.</p>
+
+<h3>3.2 Architecture &amp; Flow Diagram</h3>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  inputVariables: { apiBase }
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────┐
+  │ 1. Fetch User List  │  GET {{apiBase}}/users
+  │     (HTTP)          │  extracts: usersJson, userCount
+  └──────┬──────────────┘
+         ▼
+  ┌─────────────────────┐
+  │ 2. Extract User IDs │  userIds = [1,2,3]
+  │   (SetVariable)     │  processedCount = 0
+  └──────┬──────────────┘
+         ▼
+  ┌─────────────────────────────────────────────┐
+  │ 3. Process Each User  (Sub-Workflow)        │
+  │                                             │
+  │   workflowId: "sample-subwf-child"          │
+  │   multiInstance:                            │
+  │     collection: {{userIds}}                 │
+  │     elementVariable: userId                 │
+  │     mode: sequential                        │
+  │   retryCount: 1 · retryDelay: 2s           │
+  │   onChildFailure: continue                  │
+  │   timeout: 30s                              │
+  └──────┬──────────────────────────────────────┘
+         ▼
+  ┌─────────────────────┐
+  │   4. Log Results    │  "Sub-workflow completed. Last status: {{lastUserStatus}}"
+  │    (LogDebug)       │
+  └──────┬──────────────┘
+         ▼
+  ┌─────────────────────┐
+  │ 5. All Succeeded?   │  {{__subWorkflowFailed}} != "true"
+  │   (Condition)       │
+  └──┬──────────────┬───┘
+     │ Yes          │ No
+     ▼              ▼
+  ┌────────┐   ┌───────────────┐
+  │All Good│   │Partial Failure│
+  └───┬────┘   └──────┬────────┘
+      └───────┬───────┘
+              ▼
+         ┌─────────┐
+         │   End   │
+         └─────────┘
+</div>
+
+<h3>3.3 Node-by-Node Walkthrough</h3>
+
+<h4><span class="step-num">1</span> Fetch User List (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>{{apiBase}}/users</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>usersJson</code> ← full body, <code>userCount</code> ← <code>$.length</code></td></tr>
+</table>
+<p>Calls the JSONPlaceholder API to fetch the user list. The full JSON array is stored for reference, and the count is extracted for logging.</p>
+
+<h4><span class="step-num">2</span> Extract User IDs (SetVariable Node)</h4>
+<table>
+  <tr><td><code>userIds</code></td><td><code>[1,2,3]</code> — a JSON array of user IDs to process</td></tr>
+  <tr><td><code>processedCount</code></td><td><code>0</code> — counter for tracking</td></tr>
+</table>
+<p>Creates the collection array that the multi-instance sub-workflow will iterate over. In production, you'd use an expression like <code>{{$map(usersJson, 'id')}}</code>.</p>
+
+<h4><span class="step-num">3</span> Process Each User (Sub-Workflow Node) — <em>Key Node</em></h4>
+<table>
+  <tr><td><strong>Child workflow</strong></td><td><code>sample-subwf-child</code> (User Processor)</td></tr>
+  <tr><td><strong>Input mappings</strong></td><td><code>{{apiBase}}</code> → <code>apiBase</code></td></tr>
+  <tr><td><strong>Output mappings</strong></td><td><code>userStatus</code> → <code>lastUserStatus</code></td></tr>
+  <tr><td><strong>Multi-instance</strong></td><td>Collection: <code>{{userIds}}</code>, Element: <code>userId</code>, Mode: <code>sequential</code></td></tr>
+  <tr><td><strong>Retry</strong></td><td>1 retry with 2s delay</td></tr>
+  <tr><td><strong>On failure</strong></td><td><code>continue</code> — sets <code>__subWorkflowFailed=true</code> but doesn't stop</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>30 seconds</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 How Multi-Instance Works</strong>
+  The engine parses <code>{{userIds}}</code> → <code>[1,2,3]</code>, then runs the child workflow
+  <strong>3 times</strong> sequentially. Each run receives <code>userId</code> set to the current element
+  (e.g., <code>"1"</code>, <code>"2"</code>, <code>"3"</code>) and <code>__subWorkflowIndex</code> set to
+  <code>"0"</code>, <code>"1"</code>, <code>"2"</code>.
+</div>
+
+<h4><span class="step-num">4</span> Log Results (LogDebug Node)</h4>
+<p>Logs the last output mapping value. With <code>snapshotVariables: true</code>, captures all variables at this point for debugging.</p>
+
+<h4><span class="step-num">5</span> All Succeeded? (Condition Node)</h4>
+<p>Checks the engine-set <code>__subWorkflowFailed</code> variable. If any iteration failed and <code>onChildFailure=continue</code> was used, this variable is <code>"true"</code>.</p>
+
+<h3>3.4 Child Workflow: User Processor</h3>
+<div class="flow-diagram">
+  ┌────────┐   ┌────────────────┐   ┌──────────────┐   ┌──────┐
+  │ Start  │──►│   Fetch User   │──►│ Build Status │──►│ End  │
+  │        │   │ GET /users/{{  │   │ userStatus = │   │      │
+  │userId=1│   │   userId}}     │   │ processed:   │   │      │
+  │apiBase │   │ → userName     │   │ {{userName}} │   │      │
+  └────────┘   │ → userEmail    │   └──────────────┘   └──────┘
+               └────────────────┘
+</div>
+<p>A minimal 4-node workflow. Receives <code>apiBase</code> and <code>userId</code> from the parent,
+  fetches the user, builds a status string, and returns <code>userStatus</code> via output mapping.</p>
+
+<h3>3.5 Step-by-Step Development Guide</h3>
+<ol>
+  <li>
+    <strong>Create the child workflow first.</strong><br>
+    Go to <em>Workflows → + New</em>. Name it "User Processor". Add: Start → HTTP → SetVariable → End.<br>
+    Configure the HTTP node with <code>{{apiBase}}/users/{{userId}}</code> and extract <code>userName</code>.<br>
+    In SetVariable, set <code>userStatus = processed:{{userName}}</code>.<br>
+    In Start, define input variables: <code>apiBase</code>, <code>userId</code>.
+  </li>
+  <li>
+    <strong>Create the parent workflow.</strong><br>
+    Name it "User Orchestrator". Add: Start → HTTP → SetVariable → Sub-Workflow → LogDebug → Condition → two LogDebug → End.
+  </li>
+  <li>
+    <strong>Configure the Sub-Workflow node.</strong><br>
+    Click the Sub-Workflow node → open the config panel:<br>
+    <ul>
+      <li><em>Select workflow</em>: Choose "User Processor" from the dropdown</li>
+      <li><em>Input Mappings</em>: Add <code>{{apiBase}}</code> → <code>apiBase</code></li>
+      <li><em>Output Mappings</em>: Add <code>userStatus</code> → <code>lastUserStatus</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Enable multi-instance.</strong><br>
+    Check the "Multi-Instance (forEach)" checkbox:<br>
+    <ul>
+      <li><em>Collection Expression</em>: <code>{{userIds}}</code></li>
+      <li><em>Element Variable</em>: <code>userId</code></li>
+      <li><em>Execution Mode</em>: Sequential</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Configure resilience.</strong><br>
+    <ul>
+      <li><em>Retry Count</em>: 1</li>
+      <li><em>Retry Delay</em>: 2000ms</li>
+      <li><em>On Child Failure</em>: Continue</li>
+      <li><em>Timeout</em>: 30000ms</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Wire the condition.</strong><br>
+    Set Condition left to <code>{{__subWorkflowFailed}}</code>, operator <code>!=</code>, right to <code>true</code>.<br>
+    Connect Yes → "All Good", No → "Partial Failure". Both → End.
+  </li>
+  <li>
+    <strong>Test.</strong> Click Quick Test. Watch the console — you'll see <code>[sub]</code> prefixed logs for each child iteration.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SAMPLE 2                                    -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="sample2">4. Sample 2 — Order Pipeline with Sub-Workflow <span class="badge badge-medium">Medium</span></h2>
+
+<h3>4.1 Purpose &amp; Use Case</h3>
+<p>
+  This sample demonstrates <strong>conditional sub-workflow dispatch</strong>: a parent workflow fetches
+  an order, checks whether it requires express or standard shipping, and routes to the appropriate
+  sub-workflow branch. Both branches call the <strong>same child workflow</strong> but with different
+  input parameters.
+</p>
+<p><strong>Real-world analogy:</strong> An e-commerce order pipeline that routes to different fulfillment
+  processes based on shipping tier — same processor, different configurations.</p>
+
+<h3>4.2 Architecture &amp; Flow Diagram</h3>
+<div class="flow-diagram">
+  ┌────────────┐
+  │   Start    │  orderId=12345, shippingType=express
+  └─────┬──────┘
+        ▼
+  ┌────────────────┐
+  │ 1. Fetch Order │  GET /posts/{{orderId}}
+  │    (HTTP)      │  → orderTitle, orderBody
+  └─────┬──────────┘
+        ▼
+  ┌──────────────────────┐
+  │ 2. Express Shipping? │  {{shippingType}} == "express"
+  │    (Condition)       │
+  └──┬───────────────┬───┘
+     │ Yes           │ No
+     ▼               ▼
+  ┌───────────────┐  ┌────────────────┐
+  │3a. Express    │  │3b. Standard    │
+  │  Shipping     │  │   Shipping     │
+  │(Sub-Workflow) │  │ (Sub-Workflow) │
+  │               │  │                │
+  │ tier=express  │  │ tier=standard  │
+  │ retry=2       │  │ timeout=30s    │
+  │ timeout=15s   │  │                │
+  └──────┬────────┘  └───────┬────────┘
+         └──────┬────────────┘
+                ▼
+  ┌──────────────────────┐
+  │ 4. Build Confirmation│  confirmation = "Order {{orderId}} shipped..."
+  │   (SetVariable)      │
+  └──────┬───────────────┘
+         ▼
+  ┌──────────┐
+  │  5. Log  │  {{confirmation}}
+  └────┬─────┘
+       ▼
+  ┌──────────┐
+  │   End    │
+  └──────────┘
+</div>
+
+<h3>4.3 Node-by-Node Walkthrough</h3>
+
+<h4><span class="step-num">1</span> Fetch Order (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts/{{orderId}}</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>orderTitle</code> ← <code>$.title</code>, <code>orderBody</code> ← <code>$.body</code></td></tr>
+</table>
+
+<h4><span class="step-num">2</span> Express Shipping? (Condition Node)</h4>
+<p>Evaluates <code>{{shippingType}} == "express"</code>. Routes to the express branch (Yes) or standard branch (No).</p>
+
+<h4><span class="step-num">3a</span> Express Shipping (Sub-Workflow Node)</h4>
+<table>
+  <tr><td><strong>Child workflow</strong></td><td><code>sample-shipping-child</code> (Shipping Processor)</td></tr>
+  <tr><td><strong>Input mappings</strong></td><td><code>{{orderId}}</code> → <code>orderId</code>, <code>"express"</code> → <code>tier</code></td></tr>
+  <tr><td><strong>Output mappings</strong></td><td><code>trackingNumber</code> → <code>trackingNumber</code></td></tr>
+  <tr><td><strong>Retry</strong></td><td>2 retries, 1s delay</td></tr>
+  <tr><td><strong>On failure</strong></td><td><code>fail</code> (express shipments are critical)</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>15s (faster SLA for express)</td></tr>
+</table>
+
+<h4><span class="step-num">3b</span> Standard Shipping (Sub-Workflow Node)</h4>
+<table>
+  <tr><td><strong>Child workflow</strong></td><td><code>sample-shipping-child</code> (same child!)</td></tr>
+  <tr><td><strong>Input mappings</strong></td><td><code>{{orderId}}</code> → <code>orderId</code>, <code>"standard"</code> → <code>tier</code></td></tr>
+  <tr><td><strong>Output mappings</strong></td><td><code>trackingNumber</code> → <code>trackingNumber</code></td></tr>
+  <tr><td><strong>Retry</strong></td><td>0 (no retry for standard)</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>30s (relaxed SLA)</td></tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠ Key Pattern: Same Child, Different Config</strong>
+  Both branches reference the same <code>sample-shipping-child</code> workflow but pass different
+  <code>tier</code> values and have different retry/timeout policies. This is a powerful pattern for
+  reusing a workflow with environment-specific or tier-specific configurations.
+</div>
+
+<h4><span class="step-num">4</span> Build Confirmation (SetVariable Node)</h4>
+<p>Both branches converge here. Builds a confirmation string using the <code>trackingNumber</code> returned by whichever branch executed.</p>
+
+<h3>4.4 Child Workflow: Shipping Processor</h3>
+<div class="flow-diagram">
+  ┌────────┐   ┌──────────────────────┐   ┌───────────────────┐   ┌──────┐
+  │ Start  │──►│    Ship Order        │──►│  Build Tracking   │──►│ End  │
+  │        │   │ POST /posts          │   │ trackingNumber =  │   │      │
+  │orderId │   │ {"orderId","tier"}   │   │ TRK-{{tier}}-     │   │      │
+  │tier    │   │ → shipmentId         │   │ {{shipmentId}}    │   │      │
+  └────────┘   └──────────────────────┘   └───────────────────┘   └──────┘
+</div>
+<p>A 4-node child workflow. POSTs a shipment request, extracts the <code>shipmentId</code>, and builds
+  a tracking number like <code>TRK-express-101</code>. The <code>trackingNumber</code> variable is
+  captured by the parent's output mapping.</p>
+
+<h3>4.5 Step-by-Step Development Guide</h3>
+<ol>
+  <li>
+    <strong>Create the Shipping Processor child.</strong><br>
+    New workflow → Start (inputs: <code>orderId</code>, <code>tier</code>) → HTTP POST → SetVariable (<code>trackingNumber</code>) → End.
+  </li>
+  <li>
+    <strong>Create the parent Order Pipeline.</strong><br>
+    Start (inputs: <code>orderId</code>, <code>shippingType</code>) → HTTP GET → Condition → two Sub-Workflow nodes → SetVariable → LogDebug → End.
+  </li>
+  <li>
+    <strong>Wire the condition branches.</strong><br>
+    From the Condition node: connect the <em>Yes</em> handle to "Express Shipping" and <em>No</em> handle to "Standard Shipping".<br>
+    <strong>Both sub-workflow outputs connect to the same "Build Confirmation" node.</strong>
+  </li>
+  <li>
+    <strong>Configure each Sub-Workflow node.</strong><br>
+    Both point to the same child workflow. Set different <code>tier</code> input values and different retry/timeout policies.
+  </li>
+  <li>
+    <strong>Configure output mapping.</strong><br>
+    Both sub-workflow nodes map <code>trackingNumber → trackingNumber</code>. Since only one branch executes,
+    the parent receives the result from whichever path was taken.
+  </li>
+  <li>
+    <strong>Test with both scenarios.</strong><br>
+    Run Quick Test with <code>shippingType=express</code> → verify express branch executes with 15s timeout.<br>
+    Change to <code>shippingType=standard</code> → verify standard branch executes with 30s timeout.
+  </li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>💡 Design Tip: Convergence Points</strong>
+  When two branches of a condition merge into a single downstream node (like "Build Confirmation"),
+  the engine automatically handles the convergence. The skipped branch's subtree won't block the
+  taken branch from reaching the convergence point.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SAMPLE 3                                    -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="sample3">5. Sample 3 — Multi-Region Deploy Orchestrator <span class="badge badge-advanced">Advanced</span></h2>
+
+<h3>5.1 Purpose &amp; Use Case</h3>
+<p>
+  This is the most complex sample — a full <strong>CI/CD deployment pipeline</strong> that validates a
+  build artifact, runs parallel pre-checks via Fork/Join, deploys to multiple regions in parallel using
+  multi-instance forEach, analyzes results, and conditionally triggers a dynamic rollback sub-workflow.
+</p>
+<p><strong>Real-world analogy:</strong> A deployment orchestrator like Spinnaker or ArgoCD — validate → pre-check → deploy → monitor → rollback.</p>
+
+<h3>Key Sub-Workflow Features Demonstrated</h3>
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔄 Multi-Instance Parallel</strong>
+    <p>Deploys to 3 regions concurrently using <code>mode: "parallel"</code></p>
+  </div>
+  <div class="feature-card">
+    <strong>ƒ Dynamic Workflow ID</strong>
+    <p>Rollback uses <code>{{rollbackWorkflowId}}</code> — selected at runtime</p>
+  </div>
+  <div class="feature-card">
+    <strong>🛡️ Continue on Failure</strong>
+    <p>Deploy continues even if one region fails (<code>onChildFailure: continue</code>)</p>
+  </div>
+  <div class="feature-card">
+    <strong>⑃ Fork/Join + Sub-Workflow</strong>
+    <p>Combines parallel pre-checks with sub-workflow orchestration</p>
+  </div>
+</div>
+
+<h3>5.2 Architecture &amp; Flow Diagram</h3>
+<div class="flow-diagram">
+  ┌──────────────┐
+  │    Start     │  version, regions (JSON array), rollbackWorkflowId, successThreshold
+  └──────┬───────┘
+         ▼
+  ┌──────────────────┐
+  │ 1. Validate Build│  GET /posts/1 → buildTitle
+  │     (HTTP)       │
+  └──────┬───────────┘
+         ▼
+  ┌──────────────────┐
+  │ 2. Pre-Check Fork│
+  └──┬────────────┬──┘
+     │            │
+     ▼            ▼
+  ┌────────┐  ┌────────────┐
+  │2a.Smoke│  │2b. Feature │
+  │  Test  │  │   Flags    │
+  └───┬────┘  └─────┬──────┘
+      └──────┬──────┘
+             ▼
+  ┌──────────────────┐
+  │ 2c. Join         │
+  └──────┬───────────┘
+         ▼
+  ┌───────────────────────────────────────────────────┐
+  │ 3. Deploy to Regions  (Sub-Workflow)              │
+  │                                                   │
+  │   workflowId: "sample-region-deploy-child"        │
+  │   multiInstance:                                  │
+  │     collection: {{regions}}  ← ["us-east-1",     │
+  │                     "eu-west-1","ap-southeast-1"] │
+  │     elementVariable: region                       │
+  │     mode: parallel  ← all 3 regions at once       │
+  │   retryCount: 1 · onChildFailure: continue        │
+  │   timeout: 60s                                    │
+  └──────┬────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────┐
+  │ 4. Analyze       │  deployStatus = {{__subWorkflowFailed}}
+  │  (SetVariable)   │
+  └──────┬───────────┘
+         ▼
+  ┌───────────────────┐
+  │ 5. All Succeeded? │  {{deployStatus}} != "true"
+  │   (Condition)     │
+  └──┬─────────────┬──┘
+     │ Yes         │ No
+     ▼             ▼
+  ┌──────────┐  ┌───────────────────────────────────────────┐
+  │ Deploy   │  │ 6. Rollback (Dynamic Sub-Workflow)        │
+  │ Success  │  │                                           │
+  │(LogDebug)│  │   workflowId: {{rollbackWorkflowId}}      │
+  └────┬─────┘  │   ← resolved at runtime!                 │
+       │        │   retryCount: 2 · timeout: 120s           │
+       │        └──────────────┬────────────────────────────┘
+       └───────────┬───────────┘
+                   ▼
+              ┌──────────┐
+              │   End    │
+              └──────────┘
+</div>
+
+<h3>5.3 Node-by-Node Walkthrough</h3>
+
+<h4><span class="step-num">1</span> Validate Build (HTTP Node)</h4>
+<p>GETs the build artifact endpoint and extracts <code>buildTitle</code>. Has a status=200 assertion to fail fast on invalid builds.</p>
+
+<h4><span class="step-num">2</span> Pre-Check Fork/Join</h4>
+<p>Fork splits into two parallel HTTP checks (smoke test + feature flags). Join waits for both to complete before proceeding.</p>
+
+<h4><span class="step-num">3</span> Deploy to Regions (Sub-Workflow Node) — <em>Key Node</em></h4>
+<table>
+  <tr><td><strong>Child workflow</strong></td><td><code>sample-region-deploy-child</code></td></tr>
+  <tr><td><strong>Input mappings</strong></td><td><code>{{version}}</code> → <code>version</code>, <code>{{buildTitle}}</code> → <code>buildInfo</code></td></tr>
+  <tr><td><strong>Multi-instance</strong></td><td>Collection: <code>{{regions}}</code> → <code>["us-east-1","eu-west-1","ap-southeast-1"]</code></td></tr>
+  <tr><td><strong>Element variable</strong></td><td><code>region</code></td></tr>
+  <tr><td><strong>Mode</strong></td><td><strong>parallel</strong> — all 3 regions deploy concurrently</td></tr>
+  <tr><td><strong>On failure</strong></td><td><code>continue</code> — don't abort other regions if one fails</td></tr>
+  <tr><td><strong>Retry</strong></td><td>1 retry, 5s delay</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>60s per child execution</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Parallel Multi-Instance Execution</strong>
+  With <code>mode: "parallel"</code>, the engine runs all 3 child instances concurrently using
+  <code>Promise.all</code>. Each child receives its <code>region</code> value and
+  <code>__subWorkflowIndex</code>. Console logs show interleaved output like:<br>
+  <code style="font-size: 11px;">[sub] [Deploy to us-east-1] POST ...</code><br>
+  <code style="font-size: 11px;">[sub] [Deploy to eu-west-1] POST ...</code><br>
+  <code style="font-size: 11px;">[sub] [Deploy to ap-southeast-1] POST ...</code>
+</div>
+
+<h4><span class="step-num">6</span> Rollback — Dynamic Workflow ID (Sub-Workflow Node)</h4>
+<table>
+  <tr><td><strong>Workflow ID</strong></td><td><code>{{rollbackWorkflowId}}</code> — <strong>expression, not static UUID!</strong></td></tr>
+  <tr><td><strong>Input mappings</strong></td><td><code>{{version}}</code> → <code>version</code>, <code>{{regions}}</code> → <code>regions</code></td></tr>
+  <tr><td><strong>Output mappings</strong></td><td><code>rollbackStatus</code> → <code>rollbackStatus</code></td></tr>
+  <tr><td><strong>Retry</strong></td><td>2 retries, 10s delay (rollback is critical)</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>120s</td></tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠ Dynamic Workflow ID</strong>
+  The <code>workflowId</code> is <code>{{rollbackWorkflowId}}</code> — it's resolved from the parent's
+  variable context at runtime. The Start node sets this to <code>"sample-rollback-child"</code>, but it
+  could be changed to any workflow ID (e.g., <code>"full-rollback"</code> vs <code>"partial-rollback"</code>
+  based on conditions). On the canvas, dynamic IDs show a <code>ƒ {{...}}</code> indicator, and the
+  "Open" button is hidden since the target can't be determined statically.
+</div>
+
+<h3>5.4 Child Workflows</h3>
+
+<h4>Region Deployer (sample-region-deploy-child)</h4>
+<div class="flow-diagram">
+  ┌────────┐   ┌────────────────────┐   ┌────────────────────────┐   ┌──────┐
+  │ Start  │──►│  Deploy to Region  │──►│     Set Status         │──►│ End  │
+  │        │   │ POST /posts        │   │ regionStatus =         │   │      │
+  │region  │   │ {"region","version"}│   │ {{region}}:deployed:  │   │      │
+  │version │   │ → deployId         │   │ {{deployId}}           │   │      │
+  └────────┘   └────────────────────┘   └────────────────────────┘   └──────┘
+</div>
+
+<h4>Rollback Handler (sample-rollback-child)</h4>
+<div class="flow-diagram">
+  ┌────────┐   ┌──────────────┐   ┌─────────────────────┐   ┌────────────┐   ┌──────┐
+  │ Start  │──►│ Log Rollback │──►│  Execute Rollback   │──►│ Set Status │──►│ End  │
+  │        │   │ ⚠ Rolling    │   │ POST /posts         │   │rollbackStat│   │      │
+  │version │   │ back...      │   │ {"action":"rollback"}│   │=rolled-back│   │      │
+  │regions │   │              │   │ → rollbackId        │   │:{{id}}     │   │      │
+  └────────┘   └──────────────┘   └─────────────────────┘   └────────────┘   └──────┘
+</div>
+
+<h3>5.5 Step-by-Step Development Guide</h3>
+<ol>
+  <li>
+    <strong>Create both child workflows first.</strong><br>
+    <em>Region Deployer:</em> Start (region, version) → HTTP POST → SetVariable (regionStatus) → End.<br>
+    <em>Rollback Handler:</em> Start (version, regions) → LogDebug → HTTP POST → SetVariable (rollbackStatus) → End.
+  </li>
+  <li>
+    <strong>Create the parent orchestrator.</strong><br>
+    Add: Start → HTTP → Fork → 2× HTTP → Join → Sub-Workflow → SetVariable → Condition → LogDebug + Sub-Workflow → End.
+  </li>
+  <li>
+    <strong>Configure the deploy Sub-Workflow node.</strong><br>
+    Select "Region Deployer". Enable multi-instance:<br>
+    <ul>
+      <li>Collection: <code>{{regions}}</code></li>
+      <li>Element variable: <code>region</code></li>
+      <li>Mode: <strong>Parallel</strong></li>
+    </ul>
+    Set <code>onChildFailure: continue</code> so one failed region doesn't abort others.
+  </li>
+  <li>
+    <strong>Configure the rollback Sub-Workflow node.</strong><br>
+    Instead of selecting a workflow from the dropdown, click the <strong>⇄ Expression</strong> toggle.<br>
+    Enter <code>{{rollbackWorkflowId}}</code> as the workflow ID expression. This makes the child
+    workflow selection dynamic.
+  </li>
+  <li>
+    <strong>Define Start variables.</strong><br>
+    <code>version=v2.5.0</code>, <code>regions=["us-east-1","eu-west-1","ap-southeast-1"]</code>,
+    <code>rollbackWorkflowId=sample-rollback-child</code>.
+  </li>
+  <li>
+    <strong>Test the happy path.</strong><br>
+    Quick Test → all 3 regions deploy in parallel → condition evaluates true → "Deploy Success" log.
+  </li>
+  <li>
+    <strong>Test the failure path.</strong><br>
+    Modify the Region Deployer child to fail (e.g., invalid URL) → re-run → condition evaluates false
+    → dynamic rollback sub-workflow executes.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COMPARISON MATRIX                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="comparison">6. Sample Comparison Matrix</h2>
+
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>🔗 Orchestrator</th>
+    <th>📦 Order Pipeline</th>
+    <th>🚀 Deploy Orchestrator</th>
+  </tr>
+  <tr>
+    <td><strong>Difficulty</strong></td>
+    <td><span class="badge badge-basic">Basic</span></td>
+    <td><span class="badge badge-medium">Medium</span></td>
+    <td><span class="badge badge-advanced">Advanced</span></td>
+  </tr>
+  <tr><td><strong>Parent nodes</strong></td><td>9</td><td>8</td><td>12</td></tr>
+  <tr><td><strong>Child workflows</strong></td><td>1</td><td>1 (shared)</td><td>2</td></tr>
+  <tr><td><strong>Sub-Workflow nodes</strong></td><td>1</td><td>2</td><td>2</td></tr>
+  <tr><td><strong>Input Mappings</strong></td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td><strong>Output Mappings</strong></td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td><strong>Multi-Instance</strong></td><td>✅ Sequential</td><td>—</td><td>✅ Parallel</td></tr>
+  <tr><td><strong>Retry</strong></td><td>1× / 2s</td><td>2× / 1s (express only)</td><td>1× / 5s (deploy), 2× / 10s (rollback)</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>30s</td><td>15s / 30s</td><td>60s / 120s</td></tr>
+  <tr><td><strong>On Failure</strong></td><td>continue</td><td>fail (express), default (standard)</td><td>continue</td></tr>
+  <tr><td><strong>Dynamic Workflow ID</strong></td><td>—</td><td>—</td><td>✅ <code>{{rollbackWorkflowId}}</code></td></tr>
+  <tr><td><strong>Fork/Join</strong></td><td>—</td><td>—</td><td>✅</td></tr>
+  <tr><td><strong>Condition branching</strong></td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td><strong>Same child, different config</strong></td><td>—</td><td>✅</td><td>—</td></tr>
+  <tr><td><strong>__subWorkflowFailed</strong></td><td>✅</td><td>—</td><td>✅</td></tr>
+  <tr><td><strong>__subWorkflowResults</strong></td><td>✅</td><td>—</td><td>✅</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- BEST PRACTICES                              -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="best-practices">7. Best Practices &amp; Tips</h2>
+
+<h3>Design Guidelines</h3>
+<ol>
+  <li><strong>Build children first, then wire parents.</strong> The child must exist before you can select it in the Sub-Workflow config dropdown.</li>
+  <li><strong>Use explicit input/output mappings</strong> over <code>propagateAllOutputs</code>. Explicit mappings make data flow visible and avoid variable name collisions.</li>
+  <li><strong>Set maxDepth conservatively.</strong> Default is 10, but most use cases need 2-3 levels. Lower values catch accidental infinite recursion faster.</li>
+  <li><strong>Always configure a timeout</strong> for sub-workflows that call external APIs. Without a timeout, a hanging API call will block the parent indefinitely.</li>
+  <li><strong>Use <code>onChildFailure: continue</code></strong> for batch/multi-instance patterns where partial success is acceptable. Check <code>__subWorkflowFailed</code> afterward.</li>
+</ol>
+
+<h3>Multi-Instance Tips</h3>
+<ol>
+  <li><strong>Keep collections small for sequential mode.</strong> 10-50 items is fine. For 100+ items, use <code>parallel</code> mode.</li>
+  <li><strong>Parallel mode fires all at once.</strong> If the target API has rate limits, prefer sequential or add delays in the child.</li>
+  <li><strong>Empty collections skip cleanly.</strong> The engine sets <code>__subWorkflowResults=[]</code> and continues without error.</li>
+  <li><strong>Access per-item results</strong> via <code>{{__subWorkflowResults}}</code> — a JSON array of <code>{passed, vars}</code> objects.</li>
+</ol>
+
+<h3>Dynamic Workflow ID Tips</h3>
+<ol>
+  <li><strong>Validation shows warnings, not errors.</strong> Static checks (cycle detection, self-reference) are skipped for dynamic IDs — the target isn't known until runtime.</li>
+  <li><strong>Canvas shows <code>ƒ {{...}}</code> indicator.</strong> The "Open" button and inline preview are hidden since the target can't be resolved statically.</li>
+  <li><strong>Always provide a fallback.</strong> If the expression resolves to a non-existent workflow, the node fails with "not found". Use a Condition before the node to validate the ID.</li>
+</ol>
+
+<h3>Debugging Sub-Workflows</h3>
+<ol>
+  <li><strong>Console logs are prefixed with <code>[sub]</code>.</strong> Child workflow output is indented under the parent's log entries.</li>
+  <li><strong>Use Debug mode.</strong> Step-through debugging pauses at each node, including inside child workflows.</li>
+  <li><strong>Check <code>__subWorkflowResults</code>.</strong> After multi-instance execution, this JSON array shows which iterations passed and what variables each produced.</li>
+  <li><strong>LogDebug with <code>snapshotVariables: true</code></strong> captures all variables (including <code>__</code> internals) at that point for forensic analysis.</li>
+</ol>
+
+<footer>
+  <p>RedfireForge Sub-Workflow Training Manual v1.0 — Generated April 2026</p>
+  <p>For the latest documentation, visit the Gallery tab in the Workflow Designer and select a sub-workflow sample.</p>
+</footer>
+
+</body>
+</html>

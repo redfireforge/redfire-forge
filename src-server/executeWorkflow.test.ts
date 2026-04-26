@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // Mock dependencies
-vi.mock('../src/engine/workflow/graphRunner.js', () => ({
+vi.mock('../src/features/workflow/engine/graphRunner', () => ({
   runGraph: vi.fn(),
 }));
 
@@ -11,7 +11,7 @@ vi.mock('./file-storage.js', () => ({
   saveExecutionResult: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { runGraph } from '../src/engine/workflow/graphRunner.js';
+import { runGraph } from '../src/features/workflow/engine/graphRunner';
 import { saveExecutionResult } from './file-storage.js';
 
 const mockRunGraph = vi.mocked(runGraph);

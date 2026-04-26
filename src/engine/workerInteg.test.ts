@@ -6,16 +6,16 @@
  * (receives start, posts progress/done, handles abort & http proxy).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { TestConfig, Scenario, RequestResult } from '../types';
+import type { TestConfig, Scenario, RequestResult } from '../shared/types';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import type { ProgressMeta } from './executor';
 
 
-vi.mock('../utils/platform', () => ({
+vi.mock('../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
@@ -137,8 +137,8 @@ function WorkerCtor(this: SimulatedWorker) {
 vi.stubGlobal('Worker', WorkerCtor);
 
 import { runTestInWorker } from './workerBridge';
-import { httpFetch } from '../utils/httpClient';
-import { isTauri } from '../utils/platform';
+import { httpFetch } from '../shared/utils/httpClient';
+import { isTauri } from '../shared/utils/platform';
 
 const mockedHttpFetch = vi.mocked(httpFetch);
 const mockedIsTauri = vi.mocked(isTauri);

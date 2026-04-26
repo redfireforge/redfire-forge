@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../types';
+import type { Scenario } from '../shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../utils/httpClient';
+import { httpFetch } from '../shared/utils/httpClient';
 const mockedFetch = vi.mocked(httpFetch);
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
