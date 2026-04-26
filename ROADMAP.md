@@ -330,6 +330,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Webhook Trigger Node** — HTTP endpoint trigger for workflows; configure method, path, sample payload; extract variables from webhook body via JSONPath; visual badge showing method, path, and extraction count
 - [x] **Schedule Trigger Node** — Cron-based workflow scheduling; 5-field cron expressions with timezone support; human-readable schedule description; automatic `{{triggerTime}}` and `{{triggerTimestamp}}` variables
 - [x] **Webhook & Schedule Backend** — Node.js webhook HTTP server (`src-server/`) with cron scheduler; file-based workflow storage; webhook delivery logs; execution history; auto-registration on workflow save
+- [x] **Script Transform Node** — Custom JavaScript data transformation node with Monaco editor, 3 modes (transform/validate/generate), sandboxed execution with timeout protection, complexity analysis warnings, code template gallery (12 templates across 4 categories), reusable script libraries with localStorage persistence
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---

@@ -174,6 +174,15 @@ const ICON_MAP: Record<string, { category: Category; svg: JSX.Element }> = {
       </>
     ),
   },
+  script: {
+    category: 'data',
+    svg: (
+      <>
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {
