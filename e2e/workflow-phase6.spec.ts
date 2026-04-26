@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
   return {
@@ -147,7 +147,7 @@ test.describe('Phase 6 – Keyboard Shortcuts Overlay', () => {
     await expect(overlay).toBeVisible({ timeout: 3000 });
 
     // Should have shortcut entries
-    const entries = overlay.locator('.wf-shortcut-row');
+    const entries = overlay.locator('.wf-shortcuts-row');
     expect(await entries.count()).toBeGreaterThan(0);
 
     // Close by pressing Escape
@@ -225,8 +225,8 @@ test.describe('Phase 6 – Node Context Menu', () => {
     await node.click({ button: 'right' });
     await expect(page.locator('.wf-node-ctx-menu')).toBeVisible({ timeout: 3000 });
 
-    // Click on the canvas background
-    await page.locator('.react-flow__pane').click();
+    // Click the explicit backdrop rendered behind the context menu.
+    await page.locator('.wf-node-ctx-backdrop').click();
     await expect(page.locator('.wf-node-ctx-menu')).not.toBeVisible();
   });
 });

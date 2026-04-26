@@ -1,4 +1,4 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../shared/types';
 
 const STAR = '__PATH_STAR__';
 

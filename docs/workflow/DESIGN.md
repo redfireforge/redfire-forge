@@ -120,22 +120,22 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 | **Loop** | Rounded rect (🔄) | Repeat steps | Count / ForEach / While modes, index/item variables, max iterations safety cap | ✅ Done |
 | **Set Variable** | Assignment icon (📝) | Set or transform variables | Variable name, value expression, template resolution | ✅ Done |
 | **Aggregate** | Sigma icon (Σ) | Combine/accumulate values | Source/target mappings, strategy (concat, first, last, count, sum, custom) | ✅ Done |
+| **Error Handler** | Shield icon (🛡) | Catch and handle step errors | Error filter (HTTP/assertion/network/all), retry count/delay/backoff, retry timeout, continue-on-error flag; body (try) and catch edge paths | ✅ Done |
+| **Log/Debug** | Bug icon (🐛) | Log variables or messages | Message template with `{{variable}}` support, log level (info/warn/error/debug), snapshot-all-variables toggle | ✅ Done |
+| **Wait for Condition** | Hourglass icon (⏳) | Poll until condition met | Condition expression, polling interval (ms), timeout (ms), max attempts; re-executes body subgraph each poll | ✅ Done |
 
 ### Future Nodes 💡
 
 | Node | Shape | Purpose | Config | Priority |
 |---|---|---|---|---|
-| **Error Handler** | Shield icon | Catch and handle errors | Error type, retry config, fallback path | High |
 | **Script/Transform** | Code icon | Execute JavaScript | Code editor, input/output variables | Medium |
-| **Log/Debug** | Bug icon | Log variables or messages | Message template, log level, variable snapshot | Medium |
-| **Wait for Condition** | Hourglass icon | Poll until condition met | Condition, polling interval, timeout | Low |
 | **Sub-workflow** | Nested icon | Call another workflow as a step | Workflow reference, input/output mapping | Low |
 | **Database Query** | DB icon | Execute SQL queries | Connection, query, result mapping | Low |
 | **Rate Limiter** | Throttle icon | Control request rate per step | Requests/sec, burst limit | Low |
 | **Cache** | Cache icon | Cache responses by key | Cache key, TTL, invalidation | Low |
 | **File Operations** | File icon | Read/write files | File path, format (CSV/JSON), mapping | Low |
 | **Email/Notification** | Bell icon | Send email/Slack/webhook | Recipients, template, channel | Low |
-| **GraphQL Request** | Execute GraphQL queries | GraphQL API testing |
+| **GraphQL Request** | GraphQL icon | Execute GraphQL queries | Query editor, variables, introspection | Low |
 
 ---
 
@@ -167,12 +167,20 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 - **Aggregate** — Combine parallel branch results
   - Source/target mappings with strategies: concat, sum, count, first, last, array
   - Config: merge strategy, source expression, target variable
-- **Error Handler** — Structured error handling (planned)
-- **Log/Debug** — Workflow debugging and visibility (planned)
+- **Error Handler** — Structured error handling with retry/fallback
+  - Error filter: HTTP failures, assertion failures, network errors, or all
+  - Retry: configurable count, delay, backoff (none/linear/exponential), max timeout
+  - Two edge paths: body (try) and catch (fallback)
+  - Continue-on-error flag: resume workflow after catch or mark as failed
+- **Log/Debug** — Workflow debugging and variable inspection
+  - Message template with `{{variable}}` resolution
+  - Log levels: info, warn, error, debug
+  - Snapshot-all-variables toggle for debugging
+- **Wait for Condition** — Polling-based condition wait
+  - Re-executes body subgraph on each poll until condition expression is satisfied
+  - Configurable polling interval, max timeout, max attempts
 
 ### Phase 5: Extended Capabilities (Future)
-- **Error Handler** — Structured error handling with retry/fallback
-- **Log/Debug** — Variable inspection and audit trails
 - **Script/Transform** — JavaScript execution for complex logic
 - **Database Query** — Direct SQL testing and data operations
 - **Sub-workflow** — Reusable workflow modules
@@ -183,15 +191,15 @@ The WORKFLOW section is a full-width page (no sidebar tree needed):
 
 ### Priority Justification
 
-Phases 1–4 are complete. Remaining priorities:
+Phases 1–4 are complete (all 16 node types implemented). Remaining priorities:
 
-**Error Handler is #1** because:
-- Blocks robust workflow patterns: retry on failure, graceful degradation
-- Required for production-grade API testing (transient failures are normal)
-
-**Script/Transform is #2** because:
+**Script/Transform is #1** because:
 - Fills gap for complex data manipulation beyond template expressions
 - Needed for response transformation, conditional logic beyond simple operators
+
+**Sub-workflow is #2** because:
+- Enables reusable workflow modules (DRY principle)
+- Required for complex test suites with shared setup/teardown steps
 
 ---
 
@@ -213,9 +221,9 @@ interface Workflow {
 
 interface WorkflowNode {
   id: string;
-  type: 'http' | 'condition' | 'delay' | 'start' | 'end' | 'webhook' | 'schedule' | 'fork' | 'join' | 'loop' | 'aggregate' | 'switch';
+  type: 'http' | 'condition' | 'delay' | 'start' | 'end' | 'webhook' | 'schedule' | 'fork' | 'join' | 'loop' | 'aggregate' | 'switch' | 'setVariable' | 'errorHandler' | 'logDebug' | 'waitForCondition';
   position: { x: number; y: number };
-  data: HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | ForkNodeData | JoinNodeData | LoopNodeData | AggregateNodeData;
+  data: HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | ForkNodeData | JoinNodeData | LoopNodeData | AggregateNodeData | SwitchNodeData | SetVariableNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData;
 }
 
 interface HttpNodeData {
@@ -314,6 +322,31 @@ interface AggregateNodeData {
   strategy: 'concat' | 'first' | 'last' | 'custom';
   arrayVariable?: string;                    // where to store aggregated results
   customJsonPath?: string;                   // JSONPath for custom aggregation
+}
+
+interface ErrorHandlerNodeData {
+  label: string;
+  errorFilter: 'http' | 'assertion' | 'network' | 'all';  // what counts as an error
+  retryCount: number;                        // how many times to retry body
+  retryDelayMs: number;                      // delay between retries
+  retryBackoff: 'none' | 'linear' | 'exponential';
+  retryTimeoutMs: number;                    // max total timeout (0 = unlimited)
+  continueOnError: boolean;                  // resume or fail after catch path
+}
+
+interface LogDebugNodeData {
+  label: string;
+  message: string;                           // template with {{variable}} syntax
+  logLevel: 'info' | 'warn' | 'error' | 'debug';
+  snapshotVariables: boolean;                // snapshot all variables at this point
+}
+
+interface WaitForConditionNodeData {
+  label: string;
+  conditionExpression: string;               // evaluated against variables
+  pollIntervalMs: number;                    // ms between polls
+  timeoutMs: number;                         // max wait (0 = unlimited)
+  maxAttempts: number;                       // max polls (0 = unlimited)
 }
 ```
 
@@ -432,24 +465,58 @@ Each workflow is a self-contained document — all node data, edges, positions, 
 ```
 src/
 ├── types/
-│   └── workflow.ts              # Workflow, WorkflowNode, WorkflowEdge types
+│   └── workflow.ts              # Workflow, WorkflowNode, WorkflowEdge, all 16 node data types
 ├── pages/
 │   └── WorkflowDesigner.tsx     # Top-level page component
 ├── components/workflow/
 │   ├── WorkflowCanvas.tsx       # React Flow canvas wrapper
 │   ├── WorkflowToolbar.tsx      # New/Open/Save/Run buttons
 │   ├── WorkflowPalette.tsx      # Left panel: node blocks + REQUESTS/CATALOG browser
-│   ├── HttpConfig.tsx            # HTTP node config with ExpressionInput in URL/headers/body
-│   ├── ConditionConfig.tsx       # Condition config with SearchableVariableSelect + ExpressionTextarea
-│   ├── ExpressionInput.tsx       # Input with inline {{variable}} and $function autocomplete
-│   ├── ExpressionTextarea.tsx    # Textarea variant of ExpressionInput
-│   ├── ExpressionHintDropdown.tsx # Portal-rendered autocomplete dropdown
-│   ├── SearchableVariableSelect.tsx # Searchable combobox for variable picking (grouped, sorted, filterable)
+│   ├── WorkflowSidebar.tsx      # Sidebar navigation
 │   ├── WorkflowConfigPanel.tsx  # Right panel: per-node config editor
 │   ├── WorkflowStatusBar.tsx    # Footer: step count, variable count, status
-│   ├── VariableContextBar.tsx   # Live variable display during execution
-│   ├── VariablePanel.tsx        # Variable chip display (done)
-│   ├── WorkflowVariablesInput.tsx  # Initial variables editor (done)
+│   ├── WorkflowConsolePanel.tsx # Execution console with search, timeline, log output
+│   ├── WorkflowDebugBar.tsx     # Debug controls (step, continue, breakpoints)
+│   ├── WorkflowExecSummary.tsx  # Post-run execution summary
+│   ├── WorkflowDetailModal.tsx  # Workflow details/metadata modal
+│   ├── WorkflowDefaultsModal.tsx # Default variables modal
+│   ├── WorkflowNodeConfigModal.tsx # Full-screen node config modal
+│   ├── WorkflowNodeContextMenu.tsx # Right-click context menu on nodes
+│   ├── WorkflowNodeRunContext.tsx  # Run-time node context display
+│   ├── WorkflowRunHistoryDropdown.tsx # Run history selector
+│   ├── WorkflowHarnessContextBar.tsx # Harness integration bar
+│   ├── WorkflowResponseBody.tsx # Response body viewer in config panel
+│   ├── WorkflowRequestsSettingsModal.tsx # Request settings modal
+│   ├── WorkflowServiceRegistryModal.tsx # Service registry management
+│   ├── WorkflowServicesPanelInline.tsx  # Inline services panel
+│   ├── WorkflowInspectContext.tsx # Variable inspector during debug
+│   ├── WorkflowShortcutsOverlay.tsx # Keyboard shortcuts help overlay
+│   ├── WorkflowToastProvider.tsx # Toast notification provider
+│   ├── WorkflowVariableInsertModal.tsx # Variable picker modal
+│   ├── WorkflowVariablesInput.tsx # Initial variables editor
+│   ├── VariablePanel.tsx        # Variable chip display
+│   ├── AvailableVariables.tsx   # Available variables display
+│   ├── ComposeStrip.tsx         # Compose/send strip
+│   ├── ServerStatusIndicator.tsx # Server connection status
+│   ├── InsertVarField.tsx       # Insert variable field component
+│   ├── HttpConfig.tsx           # HTTP node config with ExpressionInput in URL/headers/body
+│   ├── ConditionConfig.tsx      # Condition config with SearchableVariableSelect + ExpressionTextarea
+│   ├── DelayConfig.tsx          # Delay node configuration
+│   ├── ScheduleConfig.tsx       # Schedule trigger configuration
+│   ├── LoopConfig.tsx           # Loop node configuration (Count/ForEach/While modes)
+│   ├── SwitchConfig.tsx         # Switch node configuration (cases + default)
+│   ├── SetVariableConfig.tsx    # SetVariable node configuration
+│   ├── AggregateConfig.tsx      # Aggregate node configuration
+│   ├── ErrorHandlerConfig.tsx   # Error handler config (retry, backoff, catch path)
+│   ├── LogDebugConfig.tsx       # Log/debug node configuration
+│   ├── NodeConfigInputTab.tsx   # Config modal input tab
+│   ├── NodeConfigOutputTab.tsx  # Config modal output tab
+│   ├── NodeConfigLogsTab.tsx    # Config modal logs tab
+│   ├── ExpressionInput.tsx      # Input with inline {{variable}} and $function autocomplete
+│   ├── ExpressionTextarea.tsx   # Textarea variant of ExpressionInput
+│   ├── ExpressionHintDropdown.tsx # Portal-rendered autocomplete dropdown
+│   ├── ExpressionBuilderView.tsx # Visual expression builder
+│   ├── SearchableVariableSelect.tsx # Searchable combobox for variable picking
 │   └── nodes/
 │       ├── HttpStepNode.tsx          # HTTP request node ✅
 │       ├── ConditionNode.tsx         # If/Else diamond node ✅
@@ -463,20 +530,44 @@ src/
 │       ├── LoopNode.tsx              # Loop node ✅
 │       ├── SwitchNode.tsx            # Multi-branch node ✅
 │       ├── SetVariableNode.tsx       # Variable assignment node ✅
-│       └── AggregateNode.tsx         # Aggregation node ✅
+│       ├── AggregateNode.tsx         # Aggregation node ✅
+│       ├── ErrorHandlerNode.tsx      # Error handler node ✅
+│       ├── LogDebugNode.tsx          # Log/debug node ✅
+│       ├── WaitForConditionNode.tsx  # Wait-for-condition node ✅
+│       ├── NodeIcon.tsx              # Shared node icon component
+│       ├── NodePausedOverlay.tsx     # Debug pause overlay
+│       └── useNodeBase.ts            # Shared node base hook
 ├── engine/workflow/
-│   ├── variableContext.ts       # Variable store (done)
-│   ├── resolveScenario.ts       # Template resolution (done)
-│   ├── extractVariables.ts      # Response extraction (done)
-│   ├── workflowRunner.ts        # Sequential execution (done)
-│   ├── graphRunner.ts           # Graph-based execution (traverses nodes/edges)
-│   └── index.ts                 # Barrel exports (done)
+│   ├── variableContext.ts       # Variable store (layered: env → manual → extracted)
+│   ├── resolveScenario.ts       # Template resolution in URL/headers/body/auth
+│   ├── extractVariables.ts      # Response extraction (JSONPath/header/status)
+│   ├── graphRunner.ts           # Graph-based execution engine (all 16 node types)
+│   ├── workflowRunner.ts        # Sequential/load execution modes
+│   ├── debugController.ts       # Step-through debug controller
+│   ├── fetchScenarioSample.ts   # Fetch sample data for preview
+│   ├── absoluteUrl.ts           # URL resolution utilities
+│   └── index.ts                 # Barrel exports
 ├── hooks/
 │   ├── useWorkflows.ts          # CRUD + storage for workflows
-│   └── useExpressionHints.ts    # Inline autocomplete for {{var}} and $function triggers
+│   ├── useWorkflowRunCache.ts   # Run result caching
+│   ├── useExpressionHints.ts    # Inline autocomplete for {{var}} and $function triggers
+│   ├── useVariableInsertModal.ts # Variable picker modal hook
+│   ├── useNodeClipboard.ts      # Copy/paste nodes
+│   ├── useUndoRedo.ts           # Undo/redo for workflow edits
+│   ├── useListCrud.ts           # Generic ordered-list CRUD (shared by config panels)
+│   └── useDebounce.ts           # Debounce hook
 ├── utils/
-│   ├── expressionFunctions.ts   # Built-in expression function registry ($upper, $concat, etc.)
-│   └── workflowVariableHints.ts # Variable hint collection and validation
+│   ├── workflowAutoLayout.ts    # Dagre-based hierarchical auto-layout
+│   ├── workflowMigrations.ts    # Data migration for workflow schema changes
+│   ├── workflowSourceMap.ts     # Variable source resolution across nodes
+│   ├── workflowVariableHints.ts # Variable hint collection and validation
+│   ├── workflowNodeMerge.ts     # Node merge/update utilities
+│   ├── workflowHostResolve.ts   # Host/base URL resolution for workflow requests
+│   ├── workflowEnvReadiness.ts  # Environment readiness checks
+│   ├── workflowRequestHost.ts   # Per-request host resolution
+│   ├── workflowRunErrors.ts     # Run error handling utilities
+│   ├── workflowSessionStorage.ts # Session-scoped workflow state persistence
+│   └── expressionFunctions.ts   # Built-in expression function registry ($upper, $concat, etc.)
 └── styles/
     └── workflow.css              # All workflow-specific styles
 ```

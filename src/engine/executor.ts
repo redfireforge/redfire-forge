@@ -1,12 +1,12 @@
-import type { TestConfig, Scenario, RequestResult } from '../types';
-import { httpFetch, type HttpResponse } from '../utils/httpClient';
-import { getEffectiveBodyType } from '../utils/bodySerializer';
+import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
+import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
-import { runWorkflow, runWorkflowLoad, VariableContext } from './workflow';
+import { runWorkflow, runWorkflowLoad, VariableContext } from '../features/workflow/engine';
 
 export interface ProgressMeta {
   elapsedMs: number;

@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeVisualWorkflow(): Workflow {
   return {
@@ -217,8 +217,8 @@ test.describe('Phase 2 – Edge Labels', () => {
   });
 
   test('condition edges show Yes/No labels', async ({ page }) => {
-    // React Flow renders edge labels as text in the edge layer
-    const edgeLabels = page.locator('.react-flow__edgelabel');
+    // React Flow renders edge labels as SVG text nodes in the edge layer.
+    const edgeLabels = page.locator('.react-flow__edge-text');
     await expect(edgeLabels.first()).toBeVisible({ timeout: 5000 });
     const texts = await edgeLabels.allTextContents();
     expect(texts.some(t => t.includes('Yes'))).toBe(true);

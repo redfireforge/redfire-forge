@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeWorkflowWithNodes(): Workflow {
   return {
@@ -122,18 +122,21 @@ test.describe('Workflow - Log/Debug, Error Handler, Wait for Condition nodes', (
     await expect(page.locator('.wf-palette').getByText('Wait for Condition')).toBeVisible();
   });
 
-  test('opens Log/Debug config panel on click', async ({ page }) => {
+  test('opens Log/Debug config modal on double-click', async ({ page }) => {
     const logNode = page.locator('.wf-node-logDebug');
     await expect(logNode).toBeVisible({ timeout: 5000 });
-    await logNode.click();
-    // Config panel should appear with Log/Debug fields
-    await expect(page.locator('.wf-config-panel')).toBeVisible({ timeout: 3000 });
+    await logNode.dispatchEvent('dblclick');
+    const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
+    await expect(modal).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#wf-config-modal-title')).toContainText('LOGDEBUG');
   });
 
-  test('opens Wait for Condition config panel on click', async ({ page }) => {
+  test('opens Wait for Condition config modal on double-click', async ({ page }) => {
     const waitNode = page.locator('.wf-node-waitForCondition');
     await expect(waitNode).toBeVisible({ timeout: 5000 });
-    await waitNode.click();
-    await expect(page.locator('.wf-config-panel')).toBeVisible({ timeout: 3000 });
+    await waitNode.dispatchEvent('dblclick');
+    const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
+    await expect(modal).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#wf-config-modal-title')).toContainText('WAITFORCONDITION');
   });
 });

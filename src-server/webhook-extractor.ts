@@ -1,4 +1,4 @@
-import type { WebhookTriggerNodeData } from '../src/types/workflow.js';
+import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 
 /**
  * Extract variables from webhook request using JSONPath.

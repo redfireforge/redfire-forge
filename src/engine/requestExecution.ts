@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestResult, TimingBreakdown } from '../types';
+import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
 import { validate, evaluateAssertions } from './validator';
-import { httpFetch, type HttpResponse } from '../utils/httpClient';
-import { serializeWithContentType } from '../utils/bodySerializer';
+import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
+import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';

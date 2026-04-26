@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, TestConfig } from '../types';
+import type { Scenario, TestConfig } from '../shared/types';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
@@ -170,7 +170,7 @@ describe('proxyFetch', () => {
   });
 
   it('delegates to httpFetch with the same arguments', async () => {
-    const { httpFetch } = await import('../utils/httpClient');
+    const { httpFetch } = await import('../shared/utils/httpClient');
     const res = await proxyFetch('https://api.example.com/r', 'PATCH', { 'X-Req': '1' }, '{"a":1}');
     expect(vi.mocked(httpFetch)).toHaveBeenCalledWith(
       'https://api.example.com/r',

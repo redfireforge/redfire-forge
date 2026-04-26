@@ -1,0 +1,646 @@
+# RedfireForge Workflow — Hard: Multi-Region Deployment Orchestrator
+# A complex deployment pipeline that validates, deploys to multiple regions
+# in parallel using sub-workflows with multi-instance forEach, monitors
+# health, and performs automatic rollback on failure.
+#
+# Difficulty: ★★★ (Hard)
+# Features demonstrated:
+#   • Fork/Join for parallel execution
+#   • Sub-Workflow with multi-instance forEach (parallel mode)
+#   • Dynamic workflow ID via {{expression}}
+#   • Error Handler with retry + fallback
+#   • Loop (while) for health-check polling
+#   • WaitForCondition with timeout
+#   • Aggregate (collect + sum)
+#   • Switch for multi-way routing
+#   • SetVariable with complex expression functions
+#   • LogDebug for observability
+#   • Condition for threshold gates
+#   • Input/Output mappings on sub-workflow
+#   • onChildFailure: continue (resilient iteration)
+#   • Retry policy on sub-workflow
+#
+# Flow:
+#   Start (version, regions, rollbackOnFailure)
+#     → GET /builds/:version (validate artifact exists)
+#       → Fork ─┬─ POST /deployments/pre-check (smoke tests)
+#               └─ GET /config/feature-flags (load flags)
+#         → Join
+#           → SetVariable (parse regions array, build deployment plan)
+#             → Sub-Workflow: Deploy to Regions (forEach: parallel over regions)
+#               → Aggregate (collect deployment results)
+#                 → SetVariable (compute success rate)
+#                   → Condition (successRate >= 80%?)
+#                     ├─ Yes → Loop (while: poll health until stable)
+#                     │         → WaitForCondition (all healthy for 60s)
+#                     │           → LogDebug (deployment success)
+#                     │             → POST /notifications/success
+#                     └─ No  → Switch on rollbackStrategy
+#                               ├─ "full"    → Sub-Workflow: Rollback (dynamic ID)
+#                               ├─ "partial" → Sub-Workflow: Rollback Failed Only
+#                               └─ Default   → LogDebug (manual intervention)
+#                       → POST /notifications/failure
+#                         → End
+
+name: Multi-Region Deployment Orchestrator
+description: >
+  Full deployment pipeline: validate build artifact, deploy to multiple
+  regions in parallel via sub-workflows, monitor health, and auto-rollback
+  on failure. Exercises every workflow node type.
+
+schemaVersion: 5
+
+variables:
+  ciBaseUrl: "https://ci.example.com/api"
+  deployBaseUrl: "https://deploy.example.com/api"
+  monitorBaseUrl: "https://monitor.example.com/api"
+  healthPollIntervalMs: "5000"
+  healthStableThresholdSec: "60"
+
+services:
+  - id: svc-ci
+    name: CI/CD Service
+    endpoints:
+      - envId: env-prod
+        url: https://ci.example.com/api
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{CI_TOKEN}}"
+
+  - id: svc-deploy
+    name: Deployment Service
+    endpoints:
+      - envId: env-prod
+        url: https://deploy.example.com/api
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{DEPLOY_TOKEN}}"
+
+  - id: svc-monitor
+    name: Monitoring Service
+    endpoints:
+      - envId: env-prod
+        url: https://monitor.example.com/api
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-Monitor-Key
+      apiKeyValue: "{{MONITOR_KEY}}"
+      apiKeyIn: header
+
+nodes:
+  # ══════════════════════════════════════════════
+  # Stage 1: Validate Build Artifact
+  # ══════════════════════════════════════════════
+  - id: start-1
+    type: start
+    position: { x: 500, y: 0 }
+    data:
+      label: Start Deployment
+      inputVariables:
+        version: "v2.5.0"
+        regions: '["us-east-1","eu-west-1","ap-southeast-1"]'
+        rollbackOnFailure: "true"
+        rollbackStrategy: "full"
+
+  - id: http-validate-build
+    type: http
+    position: { x: 500, y: 140 }
+    data:
+      label: Validate Build Artifact
+      serviceId: svc-ci
+      scenario:
+        id: sc-validate
+        name: Validate Build
+        url: "/builds/{{version}}"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions:
+            - type: status
+              expected: "200"
+        extractions:
+          - name: buildSha
+            source: body
+            expression: $.sha
+          - name: buildTimestamp
+            source: body
+            expression: $.createdAt
+          - name: artifactUrl
+            source: body
+            expression: $.artifactUrl
+
+  # ══════════════════════════════════════════════
+  # Stage 2: Parallel Pre-Checks (Fork/Join)
+  # ══════════════════════════════════════════════
+  - id: fork-prechecks
+    type: fork
+    position: { x: 500, y: 300 }
+    data:
+      label: Pre-Check Fork
+
+  - id: http-smoke-test
+    type: http
+    position: { x: 250, y: 450 }
+    data:
+      label: Run Smoke Tests
+      serviceId: svc-ci
+      scenario:
+        id: sc-smoke
+        name: Smoke Test
+        url: "/builds/{{version}}/smoke-test"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          { "sha": "{{buildSha}}", "artifactUrl": "{{artifactUrl}}" }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions:
+            - type: status
+              expected: "200"
+        extractions:
+          - name: smokeTestPassed
+            source: body
+            expression: $.passed
+          - name: smokeTestReport
+            source: body
+            expression: $.reportUrl
+
+  - id: http-feature-flags
+    type: http
+    position: { x: 750, y: 450 }
+    data:
+      label: Load Feature Flags
+      serviceId: svc-ci
+      scenario:
+        id: sc-flags
+        name: Get Feature Flags
+        url: "/config/feature-flags?version={{version}}"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: featureFlags
+            source: body
+            expression: $
+          - name: canaryPercentage
+            source: body
+            expression: $.canaryPercentage
+
+  - id: join-prechecks
+    type: join
+    position: { x: 500, y: 620 }
+    data:
+      label: Pre-Check Join
+
+  # ══════════════════════════════════════════════
+  # Stage 3: Build Deployment Plan
+  # ══════════════════════════════════════════════
+  - id: setvar-plan
+    type: setVariable
+    position: { x: 500, y: 760 }
+    data:
+      label: Build Deployment Plan
+      assignments:
+        - id: a1
+          name: regionCount
+          expression: "$count('{{regions}}')"
+        - id: a2
+          name: deploymentId
+          expression: "$concat('deploy-', '{{version}}', '-', '$substring($string($now()), 0, 10)')"
+        - id: a3
+          name: deployConfig
+          expression: "$concat('{\"version\":\"', '{{version}}', '\",\"sha\":\"', '{{buildSha}}', '\",\"canary\":', '{{canaryPercentage}}', '}')"
+
+  - id: log-plan
+    type: logDebug
+    position: { x: 500, y: 900 }
+    data:
+      label: Log Deploy Plan
+      message: "Deploying {{version}} (SHA: {{buildSha}}) to {{regionCount}} regions. Canary: {{canaryPercentage}}%"
+
+  # ══════════════════════════════════════════════
+  # Stage 4: Deploy to All Regions (Multi-Instance)
+  # ══════════════════════════════════════════════
+  - id: sub-deploy-regions
+    type: subWorkflow
+    position: { x: 500, y: 1060 }
+    data:
+      label: Deploy to Regions
+      workflowId: "region-deployer"
+      workflowName: "Region Deployer"
+      inputMappings:
+        - sourceExpression: "{{version}}"
+          targetVariable: version
+        - sourceExpression: "{{buildSha}}"
+          targetVariable: sha
+        - sourceExpression: "{{artifactUrl}}"
+          targetVariable: artifactUrl
+        - sourceExpression: "{{deployConfig}}"
+          targetVariable: config
+      outputMappings: []
+      propagateAllOutputs: false
+      multiInstance:
+        collection: "{{regions}}"
+        elementVariable: region
+        mode: parallel
+      maxDepth: 5
+      timeoutMs: 300000
+      retryCount: 1
+      retryDelayMs: 10000
+      onChildFailure: continue
+
+  # ══════════════════════════════════════════════
+  # Stage 5: Analyze Results
+  # ══════════════════════════════════════════════
+  - id: setvar-analyze
+    type: setVariable
+    position: { x: 500, y: 1220 }
+    data:
+      label: Compute Success Rate
+      assignments:
+        - id: a1
+          name: deployResults
+          expression: "{{__subWorkflowResults}}"
+        - id: a2
+          name: successCount
+          expression: "$count($filter('{{__subWorkflowResults}}', 'passed', true))"
+        - id: a3
+          name: failCount
+          expression: "$subtract($count('{{regions}}'), $count($filter('{{__subWorkflowResults}}', 'passed', true)))"
+        - id: a4
+          name: successRate
+          expression: "$round($multiply($divide($count($filter('{{__subWorkflowResults}}', 'passed', true)), $count('{{regions}}')), 100), 1)"
+
+  - id: log-results
+    type: logDebug
+    position: { x: 500, y: 1360 }
+    data:
+      label: Log Deploy Results
+      message: "Deployment {{deploymentId}}: {{successCount}}/{{regionCount}} regions succeeded ({{successRate}}%)"
+
+  - id: cond-success-threshold
+    type: condition
+    position: { x: 500, y: 1500 }
+    data:
+      label: Success Rate ≥ 80%?
+      left: "{{successRate}}"
+      operator: ">="
+      right: "80"
+
+  # ══════════════════════════════════════════════
+  # Stage 6a: Success Path — Health Monitoring
+  # ══════════════════════════════════════════════
+  - id: loop-health
+    type: loop
+    position: { x: 200, y: 1660 }
+    data:
+      label: Health Check Loop
+      mode: while
+      whileLeft: "{{allHealthy}}"
+      whileOperator: "!="
+      whileRight: "true"
+      indexVariable: healthCheckIdx
+      maxIterations: 20
+
+  - id: http-health-check
+    type: http
+    position: { x: 200, y: 1820 }
+    data:
+      label: Poll Health Status
+      serviceId: svc-monitor
+      scenario:
+        id: sc-health
+        name: Health Check
+        url: "/deployments/{{deploymentId}}/health"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: allHealthy
+            source: body
+            expression: $.allHealthy
+          - name: healthDetails
+            source: body
+            expression: $.regions
+
+  - id: setvar-health-wait
+    type: setVariable
+    position: { x: 200, y: 1960 }
+    data:
+      label: Health Check Delay
+      assignments:
+        - id: a1
+          name: _healthNote
+          expression: "Waiting {{healthPollIntervalMs}}ms before next health check (attempt {{healthCheckIdx}})"
+
+  # After health loop completes (allHealthy = true)
+  - id: wait-stable
+    type: waitForCondition
+    position: { x: 200, y: 2120 }
+    data:
+      label: Wait for Stability
+      expression: "{{allHealthy}}"
+      operator: "=="
+      expectedValue: "true"
+      pollIntervalMs: 10000
+      timeoutMs: 120000
+
+  - id: log-success
+    type: logDebug
+    position: { x: 200, y: 2280 }
+    data:
+      label: Deployment Successful
+      message: "✅ {{version}} deployed to {{regionCount}} regions. All healthy for {{healthStableThresholdSec}}s."
+
+  - id: http-notify-success
+    type: http
+    position: { x: 200, y: 2420 }
+    data:
+      label: Notify Success
+      serviceId: svc-ci
+      scenario:
+        id: sc-notify-ok
+        name: Success Notification
+        url: "/notifications"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "channel": "deployments",
+            "severity": "info",
+            "title": "Deployment {{version}} Succeeded",
+            "body": "All {{regionCount}} regions healthy. SHA: {{buildSha}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+
+  # ══════════════════════════════════════════════
+  # Stage 6b: Failure Path — Rollback
+  # ══════════════════════════════════════════════
+  - id: log-failure
+    type: logDebug
+    position: { x: 800, y: 1660 }
+    data:
+      label: Deployment Failed
+      message: "❌ Deployment {{deploymentId}} failed: {{successCount}}/{{regionCount}} regions. Rolling back..."
+
+  - id: switch-rollback
+    type: switch
+    position: { x: 800, y: 1820 }
+    data:
+      label: Rollback Strategy
+      expression: "{{rollbackStrategy}}"
+      cases:
+        - id: case-full
+          value: "full"
+          label: Full Rollback
+        - id: case-partial
+          value: "partial"
+          label: Partial Rollback
+      defaultLabel: Manual Intervention
+
+  # Full rollback — uses dynamic workflow ID expression
+  - id: sub-rollback-full
+    type: subWorkflow
+    position: { x: 600, y: 1980 }
+    data:
+      label: Full Rollback
+      workflowId: "{{rollbackWorkflowId}}"
+      workflowName: ""
+      inputMappings:
+        - sourceExpression: "{{deploymentId}}"
+          targetVariable: deploymentId
+        - sourceExpression: "{{regions}}"
+          targetVariable: regions
+        - sourceExpression: "{{version}}"
+          targetVariable: version
+      outputMappings:
+        - sourceVariable: rollbackStatus
+          targetVariable: rollbackStatus
+      maxDepth: 5
+      timeoutMs: 600000
+      retryCount: 2
+      retryDelayMs: 15000
+      onChildFailure: continue
+
+  # Partial rollback — only failed regions, uses multi-instance
+  - id: error-handler-rollback
+    type: errorHandler
+    position: { x: 900, y: 1980 }
+    data:
+      label: Rollback Error Guard
+      strategy: retry
+      maxRetries: 3
+      retryDelayMs: 5000
+      fallbackExpression: "Rollback failed — escalating to on-call"
+
+  - id: sub-rollback-partial
+    type: subWorkflow
+    position: { x: 900, y: 2140 }
+    data:
+      label: Rollback Failed Regions
+      workflowId: "region-rollback"
+      workflowName: "Region Rollback"
+      inputMappings:
+        - sourceExpression: "{{deploymentId}}"
+          targetVariable: deploymentId
+        - sourceExpression: "{{version}}"
+          targetVariable: version
+      outputMappings:
+        - sourceVariable: rollbackStatus
+          targetVariable: rollbackStatus
+      multiInstance:
+        collection: "$filter('{{regions}}', 'failed', true)"
+        elementVariable: failedRegion
+        mode: sequential
+      maxDepth: 5
+      timeoutMs: 300000
+      retryCount: 1
+      retryDelayMs: 10000
+      onChildFailure: continue
+
+  - id: log-manual
+    type: logDebug
+    position: { x: 1100, y: 1980 }
+    data:
+      label: Manual Intervention
+      message: "⚠ No auto-rollback configured. Manual intervention required for deployment {{deploymentId}}"
+
+  # ── Failure notification ──
+  - id: http-notify-failure
+    type: http
+    position: { x: 800, y: 2340 }
+    data:
+      label: Notify Failure
+      serviceId: svc-ci
+      scenario:
+        id: sc-notify-fail
+        name: Failure Notification
+        url: "/notifications"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "channel": "deployments",
+            "severity": "critical",
+            "title": "Deployment {{version}} Failed",
+            "body": "{{failCount}} of {{regionCount}} regions failed. Strategy: {{rollbackStrategy}}",
+            "deploymentId": "{{deploymentId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+
+  # ══════════════════════════════════════════════
+  # End
+  # ══════════════════════════════════════════════
+  - id: end-1
+    type: end
+    position: { x: 500, y: 2560 }
+    data:
+      label: Pipeline Complete
+
+edges:
+  # Stage 1 → 2
+  - id: e1
+    source: start-1
+    target: http-validate-build
+  - id: e2
+    source: http-validate-build
+    target: fork-prechecks
+
+  # Fork branches
+  - id: e3
+    source: fork-prechecks
+    target: http-smoke-test
+  - id: e4
+    source: fork-prechecks
+    target: http-feature-flags
+  - id: e5
+    source: http-smoke-test
+    target: join-prechecks
+  - id: e6
+    source: http-feature-flags
+    target: join-prechecks
+
+  # Stage 3 → 4
+  - id: e7
+    source: join-prechecks
+    target: setvar-plan
+  - id: e8
+    source: setvar-plan
+    target: log-plan
+  - id: e9
+    source: log-plan
+    target: sub-deploy-regions
+
+  # Stage 5
+  - id: e10
+    source: sub-deploy-regions
+    target: setvar-analyze
+  - id: e11
+    source: setvar-analyze
+    target: log-results
+  - id: e12
+    source: log-results
+    target: cond-success-threshold
+
+  # Success path
+  - id: e13
+    source: cond-success-threshold
+    target: loop-health
+    sourceHandle: "true"
+  - id: e14
+    source: loop-health
+    target: http-health-check
+    sourceHandle: "body"
+  - id: e15
+    source: http-health-check
+    target: setvar-health-wait
+  - id: e16
+    source: setvar-health-wait
+    target: loop-health
+    targetHandle: "loopBack"
+  - id: e17
+    source: loop-health
+    target: wait-stable
+    sourceHandle: "done"
+  - id: e18
+    source: wait-stable
+    target: log-success
+  - id: e19
+    source: log-success
+    target: http-notify-success
+  - id: e20
+    source: http-notify-success
+    target: end-1
+
+  # Failure path
+  - id: e21
+    source: cond-success-threshold
+    target: log-failure
+    sourceHandle: "false"
+  - id: e22
+    source: log-failure
+    target: switch-rollback
+  - id: e23
+    source: switch-rollback
+    target: sub-rollback-full
+    sourceHandle: "case-full"
+  - id: e24
+    source: switch-rollback
+    target: error-handler-rollback
+    sourceHandle: "case-partial"
+  - id: e25
+    source: error-handler-rollback
+    target: sub-rollback-partial
+  - id: e26
+    source: switch-rollback
+    target: log-manual
+    sourceHandle: "default"
+
+  # All failure branches → notification → end
+  - id: e27
+    source: sub-rollback-full
+    target: http-notify-failure
+  - id: e28
+    source: sub-rollback-partial
+    target: http-notify-failure
+  - id: e29
+    source: log-manual
+    target: http-notify-failure
+  - id: e30
+    source: http-notify-failure
+    target: end-1

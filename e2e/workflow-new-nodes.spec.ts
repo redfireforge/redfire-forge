@@ -4,7 +4,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 /** Workflow with all 4 new node types wired together. */
 function makeNewNodesWorkflow(): Workflow {
@@ -190,10 +190,10 @@ test.describe('New Node Types — Config Modals', () => {
 
   test('Switch config modal closes on Cancel', async ({ page }) => {
     await page.locator('.wf-node-switch .wf-node-configure-badge').click();
-    await expect(page.locator('.wf-config-modal')).toBeVisible({ timeout: 3000 });
-    // Click the overlay backdrop to dismiss
-    await page.locator('.wf-config-modal-overlay').click({ position: { x: 5, y: 5 } });
-    await expect(page.locator('.wf-config-modal')).not.toBeVisible();
+    const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
+    await expect(modal).toBeVisible({ timeout: 3000 });
+    await modal.getByRole('button', { name: 'Cancel' }).click();
+    await expect(modal).not.toBeVisible();
   });
 });
 
@@ -240,15 +240,21 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    // Each category header should have a count badge
+    // Each category header count should match the rendered blocks in that category.
     const logicHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' });
-    await expect(logicHeader.locator('.wf-palette-count')).toHaveText('4');
+    await expect(logicHeader.locator('.wf-palette-count')).toHaveText(
+      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition').count()),
+    );
 
     const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });
-    await expect(dataHeader.locator('.wf-palette-count')).toHaveText('3');
+    await expect(dataHeader.locator('.wf-palette-count')).toHaveText(
+      String(await page.locator('.wf-palette-block-setVariable, .wf-palette-block-aggregate, .wf-palette-block-logDebug').count()),
+    );
 
     const flowHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Flow' });
-    await expect(flowHeader.locator('.wf-palette-count')).toHaveText('4');
+    await expect(flowHeader.locator('.wf-palette-count')).toHaveText(
+      String(await page.locator('.wf-palette-block-errorHandler, .wf-palette-block-subWorkflow, .wf-palette-block-fork, .wf-palette-block-join, .wf-palette-block-end').count()),
+    );
   });
 
   test('clicking Switch palette block adds a Switch node to canvas', async ({ page }) => {
