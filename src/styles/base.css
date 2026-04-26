@@ -755,6 +755,23 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 
 /* Extraction path picker — same full-viewport shell as Regex Assertion Modal */
+.epp-overlay.modal-overlay {
+  z-index: 10090;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.sidebar-visible .epp-overlay.modal-overlay {
+  left: 0;
+}
 .epp-path-modal {
   max-width: none;
   width: 100%;
@@ -763,6 +780,16 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   border-radius: 0;
   border: none;
   box-shadow: none;
+}
+/* Shrunk state: when epp-path-modal loses modal-fullscreen, resize to smaller modal */
+.epp-path-modal:not(.modal-fullscreen) {
+  width: 90vw;
+  max-width: 1100px;
+  height: 80vh;
+  margin: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 .epp-hint {
   font-size: 11px; color: var(--text-muted); margin: 6px 0 0; line-height: 1.35;

@@ -1,4 +1,4 @@
-import type { RequestResult, TestSummary } from '../types';
+import type { RequestResult, TestSummary } from '../shared/types';
 
 export function computeMetrics(results: RequestResult[], totalDurationMs: number): TestSummary {
   const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);

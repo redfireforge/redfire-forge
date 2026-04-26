@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Canvas-First v2 (Accurate Layout)</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #222238;
+    --surface-hover: #2a2a44;
+    --surface3: #333355;
+    --border: #3a3a5c;
+    --text: #e0e0f0;
+    --text-muted: #8888aa;
+    --text3: #606080;
+    --primary: #6366f1;
+    --primary2: #818cf8;
+    --green: #22c55e;
+    --green-bg: #1a3a2a;
+    --yellow: #f59e0b;
+    --yellow-bg: #3a351a;
+    --red: #ef4444;
+    --red-bg: #3a1a1a;
+    --blue: #60a5fa;
+    --blue-bg: #1a2a3a;
+    --radius: 6px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 13px; }
+
+  /* ===== SCENARIO TABS (mockup only) ===== */
+  .scenario-nav { display:flex; background: #16162a; border-bottom: 2px solid var(--primary); flex-wrap: wrap; z-index:999; position:relative; }
+  .scenario-nav button { padding: 8px 14px; background: none; border:none; color: var(--text-muted); font-size:11px; cursor:pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .scenario-nav button:hover { color: var(--text); background: var(--surface); }
+  .scenario-nav button.active { color: var(--primary2); border-bottom-color: var(--primary); background: var(--surface); font-weight:600; }
+  .scenario { display:none; height: calc(100vh - 38px); flex-direction:column; }
+  .scenario.active { display:flex; }
+
+  /* ===== APP HEADER ===== */
+  .app-header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 8px 20px; display:flex; align-items:center; gap:20px; flex-shrink:0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .app-logo { font-size:15px; font-weight:700; white-space:nowrap; display:flex; align-items:center; gap:8px; }
+  .app-logo .version { font-size:10px; color: var(--text-muted); background: var(--surface-hover); padding:2px 6px; border-radius:10px; }
+  .header-spacer { flex:1; }
+  .header-group { display:flex; flex-direction:column; gap:1px; }
+  .header-group label { font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color: var(--text-muted); }
+  .header-group select { background: var(--surface-hover); color: var(--text); border:1px solid var(--border); padding:3px 6px; border-radius:4px; font-size:11px; min-width:120px; }
+  .server-status { display:flex; align-items:center; gap:6px; font-size:11px; color: var(--green); background: var(--green-bg); padding:4px 10px; border-radius:12px; border:1px solid rgba(34,197,94,0.3); }
+  .server-dot { width:6px; height:6px; border-radius:50%; background: var(--green); }
+
+  /* ===== APP BODY ===== */
+  .app-body { display:flex; flex:1; overflow:hidden; }
+
+  /* ── Activity Bar ── */
+  .activity-bar { width:48px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding-top:8px; gap:4px; background: var(--bg); border-right:1px solid var(--border); }
+  .ab-btn { width:40px; height:40px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:none; background:transparent; color: var(--text-muted); font-size:16px; cursor:pointer; border-radius:8px; border-left:2px solid transparent; transition:all 0.15s; }
+  .ab-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .ab-btn.active { color: var(--text); background: var(--surface-hover); border-left-color: var(--primary); }
+  .ab-label { font-size:8px; margin-top:1px; }
+  .ab-spacer { flex:1; }
+
+  /* ── Unified Sidebar ── */
+  .unified-sidebar { width:220px; flex-shrink:0; display:flex; flex-direction:column; background: var(--bg); border-right:1px solid var(--border); overflow:hidden; }
+  .usb-content { flex:1; overflow-y:auto; }
+  .usb-settings-btn { margin:0 8px 8px; padding:5px 10px; border-radius:6px; background: var(--surface-hover); border:1px solid var(--border); color: var(--text-muted); font-size:11px; cursor:pointer; flex-shrink:0; text-align:center; }
+  .usb-settings-btn:hover { color: var(--text); border-color: var(--primary); }
+  .usb-resize { width:4px; background: var(--border); cursor:col-resize; flex-shrink:0; }
+  .usb-resize:hover { background: var(--primary); }
+
+  /* ── Workflow Sidebar (inside unified-sidebar) ── */
+  .wf-sidebar-header { display:flex; align-items:center; padding:10px 12px; gap:8px; }
+  .wf-sidebar-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color: var(--text-muted); flex:1; }
+  .wf-new-btn { padding:3px 10px; font-size:11px; font-weight:600; background: var(--primary); color:#fff; border:none; border-radius:4px; cursor:pointer; }
+  .wf-new-btn:hover { background: var(--primary2); }
+  .wf-sidebar-list { padding:0; }
+  .wf-sidebar-item { display:flex; align-items:center; gap:6px; padding:7px 12px; cursor:pointer; transition:background 0.1s; border-left:2px solid transparent; }
+  .wf-sidebar-item:hover { background: var(--surface-hover); }
+  .wf-sidebar-item.active { background: rgba(99,102,241,0.12); border-left-color: var(--primary); }
+  .wf-sidebar-item-name { flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wf-sidebar-item.active .wf-sidebar-item-name { font-weight:600; }
+  .wf-sidebar-item-badge { font-size:10px; color: var(--text-muted); background: var(--surface3); padding:1px 6px; border-radius:8px; min-width:18px; text-align:center; }
+  .wf-sidebar-item-icon { font-size:12px; color: var(--yellow); }
+
+  /* ── Main area ── */
+  .app-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; position:relative; }
+
+  /* ── Sub-nav ── */
+  .sub-nav { display:flex; flex-shrink:0; border-bottom:1px solid var(--border); background: var(--surface); padding: 0 16px; }
+  .sub-nav-tab { padding:8px 14px; font-size:12px; font-weight:500; color: var(--text-muted); background:none; border:none; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; }
+  .sub-nav-tab:hover { color: var(--text); }
+  .sub-nav-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+  .sub-nav-spacer { flex:1; }
+
+  /* ===== WORKFLOW DESIGNER (inside main) ===== */
+  .wf-designer { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+
+  /* ── Toolbar ── */
+  .wf-toolbar { display:flex; justify-content:space-between; align-items:center; padding:5px 10px; border-bottom:1px solid var(--border); background: var(--surface); flex-shrink:0; gap:6px; min-height:38px; }
+  .wf-toolbar-left { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+  .wf-toolbar-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .wf-toolbar-divider { width:1px; height:18px; background: var(--border); flex-shrink:0; }
+  .tb { padding:4px 8px; border-radius:4px; border:1px solid var(--border); background: var(--surface-hover); color: var(--text); cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s; white-space:nowrap; height:26px; }
+  .tb:hover { background: var(--surface3); border-color: var(--primary); }
+  .tb.primary { background: var(--primary); border-color: var(--primary); color:#fff; }
+  .tb.primary:hover { background: var(--primary2); }
+  .tb.ghost { border-color: transparent; background:none; }
+  .tb.ghost:hover { background: var(--surface-hover); }
+  .tb.danger { color: var(--red); }
+  .tb-badge { font-size:9px; background: var(--primary); color:#fff; border-radius:6px; padding:0 4px; min-width:14px; text-align:center; }
+  .tb-select { padding:3px 6px; border-radius:4px; border:1px solid var(--border); background: var(--surface-hover); color: var(--text); font-size:11px; height:26px; min-width:80px; }
+  .tb-icon { font-size:12px; }
+  .tb-saved { font-size:10px; font-weight:600; color: var(--green); margin-left:2px; }
+
+  /* ── Workflow body: palette + canvas ── */
+  .wf-body { display:flex; flex:1; overflow:hidden; position:relative; }
+
+  /* ── Palette ── */
+  .wf-palette { width:180px; flex-shrink:0; display:flex; flex-direction:column; background: var(--surface); overflow:hidden; border-right:1px solid var(--border); }
+  .wf-palette-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .wf-palette-tab { flex:1; padding:6px 0; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; text-align:center; color: var(--text-muted); background:none; border:none; cursor:pointer; border-bottom:2px solid transparent; }
+  .wf-palette-tab:hover { color: var(--text); }
+  .wf-palette-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+  .wf-palette-search { margin:6px 8px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background: var(--bg); color: var(--text); font-size:11px; }
+  .wf-palette-search::placeholder { color: var(--text3); }
+  .wf-palette-search:focus { outline:none; border-color: var(--primary); }
+  .wf-palette-body { flex:1; overflow-y:auto; padding:4px 0; }
+  .wf-palette-group { padding:0 8px; margin-bottom:8px; }
+  .wf-palette-group-label { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color: var(--text-muted); padding:4px 0; display:flex; align-items:center; gap:4px; }
+  .wf-palette-group-count { margin-left:auto; font-size:9px; color: var(--text3); }
+  .wf-palette-block { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:4px; cursor:grab; transition:background 0.1s; font-size:11px; }
+  .wf-palette-block:hover { background: var(--surface-hover); }
+  .wf-palette-block-icon { width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .wf-palette-block-icon.trigger { background: rgba(34,197,94,0.15); color: var(--green); }
+  .wf-palette-block-icon.action { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .wf-palette-block-icon.logic { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .wf-palette-block-label { font-weight:500; }
+  .wf-palette-block-desc { font-size:10px; color: var(--text-muted); }
+  .wf-palette-collapse { position:absolute; left:180px; top:50%; transform:translateY(-50%); width:12px; height:40px; background: var(--border); border-radius:0 4px 4px 0; cursor:pointer; display:flex; align-items:center; justify-content:center; color: var(--text-muted); font-size:8px; z-index:5; }
+  .wf-palette-collapse:hover { background: var(--primary); color:#fff; }
+
+  /* ── Canvas ── */
+  .canvas { flex:1; position:relative; background: var(--bg); overflow:hidden; }
+  .canvas-grid { position:absolute; inset:0; background-image: radial-gradient(circle, rgba(100,100,140,0.15) 1px, transparent 1px); background-size: 22px 22px; }
+
+  /* Fake nodes */
+  .node { position:absolute; background: var(--surface); border:2px solid var(--border); border-radius:8px; padding:8px 14px; font-size:11px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width:130px; cursor:grab; }
+  .node .n-type { font-size:9px; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; display:flex; align-items:center; gap:4px; }
+  .node .n-label { font-weight:600; margin-top:2px; font-size:12px; }
+  .node .n-detail { font-size:9px; color: var(--text3); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px; }
+  .node .n-status { display:flex; align-items:center; gap:4px; margin-top:4px; font-size:9px; }
+  .node .n-status .pass { color: var(--green); background: var(--green-bg); padding:1px 6px; border-radius:8px; }
+  .node .n-status .detail-link { color: var(--blue); cursor:pointer; }
+  .node .port { position:absolute; width:7px; height:7px; border-radius:50%; background: var(--primary2); border:2px solid var(--surface); }
+  .node .port-in { left:-4px; top:50%; transform:translateY(-50%); }
+  .node .port-out { right:-4px; top:50%; transform:translateY(-50%); }
+  .node.trigger { border-color: var(--green); }
+  .node.subwf { border-color: var(--primary); }
+  .node.condition { border-color: var(--yellow); }
+  .node .n-config { position:absolute; top:4px; right:4px; font-size:10px; color: var(--text-muted); cursor:pointer; }
+  .node .n-config:hover { color: var(--text); }
+
+  /* ── Bottom bar ── */
+  .canvas-bottom { position:absolute; bottom:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:4px 12px; background: rgba(26,26,46,0.9); border-top:1px solid var(--border); z-index:10; }
+  .ctx-tab { font-size:11px; color: var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:4px; padding:3px 8px; border-radius:4px; background: var(--surface-hover); border:1px solid var(--border); }
+  .ctx-tab:hover { color: var(--text); }
+  .ctx-count { font-size:10px; background: var(--surface3); padding:1px 5px; border-radius:6px; }
+  .canvas-controls { display:flex; gap:2px; }
+  .canvas-ctrl { width:26px; height:26px; display:flex; align-items:center; justify-content:center; background: var(--surface-hover); border:1px solid var(--border); border-radius:4px; color: var(--text-muted); cursor:pointer; font-size:12px; }
+  .canvas-ctrl:hover { color: var(--text); border-color: var(--primary); }
+  .minimap { width:120px; height:70px; background: var(--surface); border:1px solid var(--border); border-radius:4px; position:relative; overflow:hidden; }
+  .minimap-viewport { position:absolute; border:1px solid var(--primary); border-radius:2px; background: rgba(99,102,241,0.1); }
+
+  /* ===== OVERLAYS (modals, drawers, context menus, popovers) ===== */
+
+  /* Overflow menu */
+  .overflow-menu { position:relative; }
+  .overflow-dropdown { display:none; position:absolute; top:100%; right:0; margin-top:4px; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:3px 0; min-width:200px; box-shadow: var(--shadow); z-index:200; }
+  .overflow-dropdown.open { display:block; }
+  .ov-item { display:flex; align-items:center; gap:8px; padding:6px 12px; font-size:11px; cursor:pointer; color: var(--text); }
+  .ov-item:hover { background: var(--surface-hover); }
+  .ov-shortcut { margin-left:auto; color: var(--text3); font-size:10px; font-family:monospace; }
+  .ov-sep { height:1px; background: var(--border); margin:2px 0; }
+
+  /* Right drawer */
+  .right-drawer { position:absolute; top:0; right:0; width:300px; height:100%; background: var(--surface); border-left:1px solid var(--border); box-shadow: -4px 0 16px rgba(0,0,0,0.3); z-index:80; display:flex; flex-direction:column; }
+  .drawer-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .drawer-header h3 { font-size:13px; margin:0; }
+  .drawer-close { background:none; border:none; color: var(--text-muted); cursor:pointer; font-size:14px; padding:2px 6px; border-radius:4px; }
+  .drawer-close:hover { color: var(--text); background: var(--surface-hover); }
+  .drawer-body { flex:1; overflow-y:auto; padding:10px 14px; }
+
+  /* Version timeline */
+  .vtl { position:relative; padding-left:18px; }
+  .vtl::before { content:''; position:absolute; left:5px; top:0; bottom:0; width:2px; background: var(--border); }
+  .vtl-entry { position:relative; padding:7px 0; }
+  .vtl-entry::before { content:''; position:absolute; left:-16px; top:11px; width:7px; height:7px; border-radius:50%; background: var(--surface3); border:2px solid var(--border); }
+  .vtl-entry.current::before { background: var(--primary); border-color: var(--primary); }
+  .vtl-head { display:flex; align-items:center; gap:5px; }
+  .vtl-num { font-size:12px; font-weight:600; }
+  .vtl-tag { font-size:9px; color: var(--green); }
+  .vtl-date { font-size:9px; color: var(--text3); }
+  .vtl-note { font-size:10px; color: var(--text-muted); margin-top:1px; }
+  .vtl-actions { display:flex; gap:4px; margin-top:3px; }
+  .vtl-action { font-size:9px; color: var(--primary2); cursor:pointer; background:none; border:none; padding:2px 5px; border-radius:3px; }
+  .vtl-action:hover { background: var(--surface-hover); text-decoration:underline; }
+
+  /* Context menu */
+  .ctx-menu { position:absolute; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:3px 0; min-width:180px; box-shadow: var(--shadow); z-index:250; }
+  .ctx-item { display:flex; align-items:center; gap:8px; padding:5px 12px; font-size:11px; cursor:pointer; color: var(--text); }
+  .ctx-item:hover { background: var(--surface-hover); }
+  .ctx-item.danger { color: var(--red); }
+  .ctx-item.danger:hover { background: var(--red-bg); }
+  .ctx-sep { height:1px; background: var(--border); margin:2px 0; }
+  .ctx-shortcut { margin-left:auto; color: var(--text3); font-size:9px; font-family:monospace; }
+
+  /* Modal */
+  .modal-overlay { position:absolute; inset:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:300; }
+  .modal { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); width:460px; max-height:80vh; overflow-y:auto; box-shadow: var(--shadow); }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); }
+  .modal-header h3 { margin:0; font-size:14px; }
+  .modal-close { background:none; border:none; color: var(--text-muted); cursor:pointer; font-size:14px; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding:14px 16px; }
+  .modal-footer { display:flex; justify-content:flex-end; gap:6px; padding:10px 16px; border-top:1px solid var(--border); }
+
+  /* Export items */
+  .export-item { display:flex; align-items:center; gap:6px; padding:5px 8px; background: var(--surface-hover); border-radius:4px; margin-bottom:4px; font-size:11px; }
+  .export-pin { color: var(--text3); font-size:9px; margin-left:auto; }
+
+  /* Import conflict */
+  .conflict-item { padding:8px; background: var(--surface-hover); border-radius:4px; margin-bottom:5px; border-left:3px solid var(--border); }
+  .conflict-item.new { border-left-color: var(--green); }
+  .conflict-item.conflict { border-left-color: var(--yellow); }
+  .conflict-name { font-size:12px; font-weight:500; margin-bottom:2px; }
+  .conflict-desc { font-size:10px; color: var(--text3); margin-bottom:5px; }
+  .conflict-opts { display:flex; flex-direction:column; gap:2px; }
+  .conflict-opt { display:flex; align-items:center; gap:5px; font-size:10px; color: var(--text-muted); cursor:pointer; }
+  .conflict-opt input { accent-color: var(--primary); }
+  .conflict-opt .rec { color: var(--green); font-size:9px; }
+  .import-steps { display:flex; gap:5px; margin-bottom:12px; align-items:center; }
+  .import-step { font-size:10px; color: var(--text3); display:flex; align-items:center; gap:3px; }
+  .import-step.active { color: var(--primary2); font-weight:600; }
+  .import-step.done { color: var(--green); }
+  .import-step-dot { width:5px; height:5px; border-radius:50%; background: var(--text3); }
+  .import-step.active .import-step-dot { background: var(--primary); }
+  .import-step.done .import-step-dot { background: var(--green); }
+
+  /* Drop zone */
+  .drop-zone { border:2px dashed var(--border); border-radius: var(--radius); padding:28px; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .drop-zone:hover { border-color: var(--primary); background: rgba(99,102,241,0.05); }
+  .drop-zone .dz-icon { font-size:24px; margin-bottom:4px; }
+  .drop-zone .dz-label { font-size:12px; color: var(--text-muted); }
+  .drop-zone .dz-sub { font-size:10px; color: var(--text3); margin-top:2px; }
+
+  /* Delete guard */
+  .guard-list { padding:4px 0; }
+  .guard-item { display:flex; align-items:center; gap:5px; padding:3px 8px; font-size:11px; color: var(--text-muted); }
+
+  /* Tag popover */
+  .tag-popover { position:absolute; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:8px; width:210px; box-shadow: var(--shadow); z-index:300; }
+  .tag-row { display:flex; align-items:center; gap:6px; padding:3px 5px; border-radius:4px; cursor:pointer; font-size:11px; }
+  .tag-row:hover { background: var(--surface-hover); }
+  .tag-color { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .tag-label { flex:1; }
+  .tag-count { font-size:9px; color: var(--text3); }
+  .tag-check { color: var(--green); font-size:12px; }
+  .tag-create-row { display:flex; gap:4px; margin-top:6px; border-top:1px solid var(--border); padding-top:6px; }
+  .tag-input { flex:1; padding:3px 6px; border-radius:4px; border:1px solid var(--border); background: var(--surface-hover); color: var(--text); font-size:11px; }
+  .tag-input:focus { outline:none; border-color: var(--primary); }
+
+  /* Shortcuts table */
+  .shortcut-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .shortcut-table th { text-align:left; padding:5px 8px; color: var(--text3); font-weight:500; border-bottom:1px solid var(--border); }
+  .shortcut-table td { padding:5px 8px; border-bottom:1px solid rgba(58,58,92,0.3); }
+  .shortcut-key { display:inline-block; padding:1px 5px; background: var(--surface3); border-radius:3px; font-family:monospace; font-size:10px; }
+
+  /* Breadcrumb */
+  .wf-breadcrumb { display:flex; align-items:center; gap:5px; padding:4px 12px; background: var(--surface); border-bottom:1px solid var(--border); font-size:11px; flex-shrink:0; }
+  .bc-link { color: var(--primary2); cursor:pointer; }
+  .bc-link:hover { text-decoration:underline; }
+  .bc-sep { color: var(--text3); }
+  .bc-current { font-weight:600; }
+
+  /* Tag chips */
+  .tag-chip { padding:1px 5px; border-radius:6px; font-size:9px; font-weight:500; }
+  .tag-prod { background: var(--green-bg); color: var(--green); }
+  .tag-auth { background: var(--blue-bg); color: var(--blue); }
+  .tag-infra { background: var(--yellow-bg); color: var(--yellow); }
+
+  /* Annotation */
+  .ann { position:absolute; font-size:9px; color: var(--primary2); background: rgba(99,102,241,0.08); border:1px dashed rgba(99,102,241,0.3); border-radius:4px; padding:3px 7px; pointer-events:none; z-index:60; white-space:nowrap; }
+
+  /* Info bar */
+  .info-bar { padding:6px 14px; background: rgba(99,102,241,0.06); border-bottom:1px solid rgba(99,102,241,0.12); font-size:10px; color: var(--text-muted); flex-shrink:0; }
+  .info-bar strong { color: var(--primary2); }
+
+  /* ===== Sidebar enhancements (new additions shown in scenarios) ===== */
+  .wf-sidebar-search { margin:4px 8px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background: var(--surface); color: var(--text); font-size:11px; display:block; width: calc(100% - 16px); }
+  .wf-sidebar-search:focus { outline:none; border-color: var(--primary); }
+  .wf-sidebar-search::placeholder { color: var(--text3); }
+  .wf-sidebar-filters { display:flex; gap:3px; padding:2px 8px 6px; flex-wrap:wrap; }
+  .filter-chip { padding:1px 6px; border-radius:8px; font-size:9px; cursor:pointer; border:1px solid var(--border); background:none; color: var(--text3); }
+  .filter-chip:hover { border-color: var(--primary); color: var(--primary2); }
+  .filter-chip.active { background: rgba(99,102,241,0.12); border-color: var(--primary); color: var(--primary2); }
+
+  /* Folder groups */
+  .sb-folder-header { display:flex; align-items:center; gap:4px; padding:5px 8px; cursor:pointer; font-size:11px; color: var(--text-muted); }
+  .sb-folder-header:hover { background: var(--surface-hover); }
+  .sb-folder-arrow { font-size:8px; width:10px; color: var(--text3); }
+  .sb-folder-name { font-weight:600; flex:1; font-size:11px; }
+  .sb-folder-count { font-size:9px; color: var(--text3); }
+
+  /* New dropdown */
+  .wf-new-dropdown { position:absolute; top:100%; left:0; margin-top:2px; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:3px 0; min-width:160px; box-shadow: var(--shadow); z-index:200; }
+  .wf-new-item { display:flex; align-items:center; gap:6px; padding:5px 12px; font-size:11px; cursor:pointer; color: var(--text); }
+  .wf-new-item:hover { background: var(--surface-hover); }
+  .wf-new-hint { font-size:9px; color: var(--text-muted); }
+
+  /* Inline rename */
+  .inline-rename { background:transparent; border:1px solid transparent; color: var(--text); font-size:12px; font-weight:600; padding:1px 4px; border-radius:3px; width:auto; }
+  .inline-rename:hover { border-color: var(--border); }
+  .inline-rename:focus { outline:none; border-color: var(--primary); background: var(--surface-hover); }
+
+  /* Workflow name in toolbar */
+  .wf-name-display { font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px; }
+  .wf-name-version { font-size:9px; color: var(--text-muted); background: var(--surface3); padding:1px 5px; border-radius:6px; }
+</style>
+</head>
+<body>
+
+<!-- ===== SCENARIO TABS ===== -->
+<nav class="scenario-nav">
+  <button class="active" onclick="showSc('full')">① Full Layout</button>
+  <button onclick="showSc('enhanced-sidebar')">② Enhanced Sidebar</button>
+  <button onclick="showSc('overflow')">③ ⋯ Overflow Menu</button>
+  <button onclick="showSc('ctx-menu')">④ Right-Click Menu</button>
+  <button onclick="showSc('export')">⑤ Export Modal</button>
+  <button onclick="showSc('import')">⑥ Import Modal</button>
+  <button onclick="showSc('delete')">⑦ Delete Guards</button>
+  <button onclick="showSc('versions')">⑧ Version Drawer</button>
+  <button onclick="showSc('tags')">⑨ Tag Popover</button>
+  <button onclick="showSc('breadcrumb')">⑩ Breadcrumb</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 1: FULL CURRENT LAYOUT (baseline)                    -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-full" class="scenario active">
+  <div class="info-bar"><strong>Current Layout (baseline):</strong> Matches the actual app. Activity Bar → Sidebar (Workflows) → Sub-nav tabs → Toolbar → Palette + Canvas. Changes are minimal & surgical.</div>
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="app-logo">🔥 RedfireForge <span class="version">v0.5.4-beta.1</span></div>
+    <div class="header-spacer"></div>
+    <div class="header-group"><label>Environment</label><select><option>t01</option><option>prod</option></select></div>
+    <div class="header-group"><label>Service</label><select><option>sales-product-autoassign</option></select></div>
+    <div class="server-status"><span class="server-dot"></span> ✓ Server Running :3001</div>
+  </div>
+
+  <div class="app-body">
+    <!-- Activity Bar -->
+    <nav class="activity-bar">
+      <button class="ab-btn"><span class="ab-label">API</span>🔌</button>
+      <button class="ab-btn active"><span class="ab-label">Workflow</span>🔧</button>
+      <button class="ab-btn"><span class="ab-label">Testing</span>🏋</button>
+      <div class="ab-spacer"></div>
+      <button class="ab-btn"><span class="ab-label">Settings</span>⚙️</button>
+    </nav>
+
+    <!-- Sidebar -->
+    <div class="unified-sidebar">
+      <div class="usb-content">
+        <div class="wf-sidebar-header">
+          <span class="wf-sidebar-title">Workflows</span>
+          <button class="wf-new-btn">+ New</button>
+        </div>
+        <div class="wf-sidebar-list">
+          <div class="wf-sidebar-item active">
+            <span class="wf-sidebar-item-name">Test Workflow</span>
+            <span class="wf-sidebar-item-badge">9</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Retrieve Kafka Status and Rulefacts</span>
+            <span class="wf-sidebar-item-badge">5</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Webhook Trigger from Sample</span>
+            <span class="wf-sidebar-item-badge">7</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Schedule Trigger from Sample</span>
+            <span class="wf-sidebar-item-badge">9</span>
+          </div>
+        </div>
+      </div>
+      <button class="usb-settings-btn">⚙ Settings</button>
+    </div>
+    <div class="usb-resize"></div>
+
+    <!-- Main -->
+    <div class="app-main">
+      <div class="sub-nav">
+        <button class="sub-nav-tab active">Designer</button>
+        <button class="sub-nav-tab">Executions</button>
+        <button class="sub-nav-tab">Webhooks</button>
+        <button class="sub-nav-tab">Gallery</button>
+        <div class="sub-nav-spacer"></div>
+      </div>
+      <div class="wf-designer">
+        <!-- Toolbar -->
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left">
+            <button class="tb primary" style="font-size:11px;">+ New</button>
+            <select class="tb-select" style="max-width:200px;"><option>Sample: Create → Extract → Verify</option></select>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb"><span class="tb-icon">🔗</span> Services</button>
+            <button class="tb"><span class="tb-icon">📋</span> Workflow Variables</button>
+            <select class="tb-select" style="min-width:50px;"><option>t01</option></select>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb"><span class="tb-icon">💾</span> Save</button>
+          </div>
+          <div class="wf-toolbar-right">
+            <button class="tb primary">▶ Quick Test</button>
+            <button class="tb">Q Debug</button>
+            <span style="font-size:10px; color:var(--green);">● 6/2 passed · 1.5s</span>
+            <button class="tb ghost" style="font-size:10px;">↺ Clear</button>
+          </div>
+        </div>
+        <!-- Body -->
+        <div class="wf-body">
+          <!-- Palette -->
+          <div class="wf-palette">
+            <div class="wf-palette-tabs">
+              <button class="wf-palette-tab active">Blocks</button>
+              <button class="wf-palette-tab">Requests</button>
+              <button class="wf-palette-tab">Catalog</button>
+            </div>
+            <input class="wf-palette-search" placeholder="🔍 Search blocks…" />
+            <div class="wf-palette-body">
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Triggers <span class="wf-palette-group-count">3</span></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">▶</div><div><div class="wf-palette-block-label">Manual Start</div><div class="wf-palette-block-desc">Workflow entry point</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">🌐</div><div><div class="wf-palette-block-label">Webhook Trigger</div><div class="wf-palette-block-desc">Incoming HTTP request</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">📅</div><div><div class="wf-palette-block-label">Schedule Trigger</div><div class="wf-palette-block-desc">Cron-based execution</div></div></div>
+              </div>
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Actions <span class="wf-palette-group-count">2</span></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon action">🌐</div><div><div class="wf-palette-block-label">HTTP Request</div><div class="wf-palette-block-desc">API call with extraction</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon action">⏱</div><div><div class="wf-palette-block-label">Delay</div><div class="wf-palette-block-desc">Pause between steps</div></div></div>
+              </div>
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Logic <span class="wf-palette-group-count">4</span></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon logic">✦</div><div><div class="wf-palette-block-label">Condition</div><div class="wf-palette-block-desc">If/Else branching</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon logic">⇄</div><div><div class="wf-palette-block-label">Switch</div><div class="wf-palette-block-desc">Multi-way branching</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon logic">🔁</div><div><div class="wf-palette-block-label">Loop</div><div class="wf-palette-block-desc">Repeat / For-Each</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="usb-resize" style="width:4px;"></div>
+          <!-- Canvas -->
+          <div class="canvas">
+            <div class="canvas-grid"></div>
+            <div class="node trigger" style="top:40px;left:120px;">
+              <div class="n-type"><span style="color:var(--green)">▶</span> Trigger</div>
+              <div class="n-label">Start</div>
+              <div class="port port-out"></div>
+              <div class="n-config">⚙</div>
+            </div>
+            <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+              <line x1="257" y1="60" x2="320" y2="120" stroke="var(--green)" stroke-width="2" opacity="0.4"/>
+              <line x1="457" y1="140" x2="320" y2="220" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+              <line x1="457" y1="140" x2="520" y2="220" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+            </svg>
+            <div class="node" style="top:100px;left:320px;">
+              <div class="port port-in"></div>
+              <div class="n-type"><span style="color:var(--blue)">POST</span> Action</div>
+              <div class="n-label">1. Create Post</div>
+              <div class="n-detail">.../jsonplaceholder.typicode.com/pos…</div>
+              <div class="n-status"><span class="pass">✓ 201 · 222.9ms</span> <span class="detail-link">Details</span></div>
+              <div class="port port-out"></div>
+              <div class="n-config">⚙</div>
+            </div>
+            <div class="node condition" style="top:220px;left:320px;">
+              <div class="port port-in"></div>
+              <div class="n-type"><span style="color:var(--yellow)">✦</span> Logic</div>
+              <div class="n-label">2. Was it Created?</div>
+              <div class="n-detail">{{httpStatus}} == 201</div>
+              <div class="port port-out"></div>
+            </div>
+
+            <!-- Bottom bar -->
+            <div class="canvas-bottom">
+              <div class="ctx-tab">CONTEXT <span class="ctx-count">12</span></div>
+              <div class="canvas-controls">
+                <div class="canvas-ctrl">−</div>
+                <div class="canvas-ctrl">+</div>
+                <div class="canvas-ctrl">◎</div>
+                <div class="canvas-ctrl">↔</div>
+                <div class="canvas-ctrl">⊞</div>
+                <div class="canvas-ctrl">📐</div>
+              </div>
+              <div class="minimap">
+                <div class="minimap-viewport" style="left:20px;top:10px;width:40px;height:30px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 2: ENHANCED SIDEBAR (search, folders, tags, import)  -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-enhanced-sidebar" class="scenario">
+  <div class="info-bar"><strong>Enhanced Sidebar:</strong> Add search, folder groups, tag filter chips, and "Import" to the + New dropdown. Zero new panels — just upgrade the existing sidebar.</div>
+
+  <div class="app-header">
+    <div class="app-logo">🔥 RedfireForge <span class="version">v0.5.4-beta.1</span></div>
+    <div class="header-spacer"></div>
+    <div class="header-group"><label>Environment</label><select><option>t01</option></select></div>
+    <div class="header-group"><label>Service</label><select><option>sales-product-autoassign</option></select></div>
+    <div class="server-status"><span class="server-dot"></span> ✓ Server :3001</div>
+  </div>
+  <div class="app-body">
+    <nav class="activity-bar">
+      <button class="ab-btn">🔌</button>
+      <button class="ab-btn active">🔧</button>
+      <button class="ab-btn">🏋</button>
+      <div class="ab-spacer"></div>
+      <button class="ab-btn">⚙️</button>
+    </nav>
+    <div class="unified-sidebar">
+      <div class="usb-content">
+        <div class="wf-sidebar-header">
+          <span class="wf-sidebar-title">Workflows</span>
+          <div style="position:relative;">
+            <button class="wf-new-btn">+ New ▾</button>
+            <!-- NEW: dropdown with Import option -->
+            <div class="wf-new-dropdown" style="right:0; left:auto;">
+              <div class="wf-new-item">📄 <div><div>Blank Workflow</div><div class="wf-new-hint">Start from scratch</div></div></div>
+              <div class="wf-new-item">📚 <div><div>From Template</div><div class="wf-new-hint">Browse gallery</div></div></div>
+              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+              <div class="wf-new-item" style="color:var(--primary2);">⬆ <div><div>Import Bundle…</div><div class="wf-new-hint">Import .json bundle</div></div></div>
+            </div>
+          </div>
+        </div>
+        <!-- NEW: Search -->
+        <input class="wf-sidebar-search" placeholder="🔍 Search workflows…" />
+        <!-- NEW: Tag filter chips -->
+        <div class="wf-sidebar-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">auth</button>
+          <button class="filter-chip">prod</button>
+          <button class="filter-chip">infra</button>
+          <button class="filter-chip" style="border-style:dashed;">+</button>
+        </div>
+        <!-- NEW: Folder groups -->
+        <div class="wf-sidebar-list">
+          <div class="sb-folder-header"><span class="sb-folder-arrow">▾</span> 📁 <span class="sb-folder-name">Auth Flows</span><span class="sb-folder-count">3</span></div>
+          <div class="wf-sidebar-item active">
+            <span class="wf-sidebar-item-icon">★</span>
+            <span class="wf-sidebar-item-name">Login Flow</span>
+            <span class="wf-sidebar-item-badge">9</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Token Refresh</span>
+            <span class="wf-sidebar-item-badge">5</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">OAuth Callback</span>
+            <span class="wf-sidebar-item-badge">4</span>
+          </div>
+
+          <div class="sb-folder-header"><span class="sb-folder-arrow">▾</span> 📁 <span class="sb-folder-name">Deployments</span><span class="sb-folder-count">2</span></div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Multi-Region Deploy</span>
+            <span class="wf-sidebar-item-badge">12</span>
+          </div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Canary Rollout</span>
+            <span class="wf-sidebar-item-badge">8</span>
+          </div>
+
+          <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text3); padding:8px 8px 3px;">Ungrouped</div>
+          <div class="wf-sidebar-item">
+            <span class="wf-sidebar-item-name">Health Check</span>
+            <span class="wf-sidebar-item-badge">3</span>
+          </div>
+        </div>
+      </div>
+      <button class="usb-settings-btn">⚙ Settings</button>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav">
+        <button class="sub-nav-tab active">Designer</button>
+        <button class="sub-nav-tab">Executions</button>
+        <button class="sub-nav-tab">Webhooks</button>
+        <button class="sub-nav-tab">Gallery</button>
+      </div>
+      <div class="wf-designer">
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left">
+            <!-- CHANGE: Replace <select> with workflow name display -->
+            <div class="wf-name-display">Login Flow <span class="wf-name-version">v5</span></div>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">🔗 Services <span class="tb-badge">3</span></button>
+            <button class="tb">📋 Variables <span class="tb-badge">5</span></button>
+            <select class="tb-select" style="min-width:50px;"><option>t01</option></select>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">💾 Save</button>
+          </div>
+          <div class="wf-toolbar-right">
+            <button class="tb primary">▶ Quick Test</button>
+            <button class="tb">Q Debug</button>
+            <div class="wf-toolbar-divider"></div>
+            <!-- CHANGE: Add overflow button -->
+            <div class="overflow-menu"><button class="tb ghost" style="font-size:14px; letter-spacing:2px;">⋯</button></div>
+          </div>
+        </div>
+        <div class="wf-body">
+          <div class="wf-palette" style="width:160px;">
+            <div class="wf-palette-tabs">
+              <button class="wf-palette-tab active">Blocks</button>
+              <button class="wf-palette-tab">Requests</button>
+              <button class="wf-palette-tab">Catalog</button>
+            </div>
+            <div class="wf-palette-body">
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Triggers <span class="wf-palette-group-count">3</span></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">▶</div><div><div class="wf-palette-block-label">Manual Start</div></div></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">🌐</div><div><div class="wf-palette-block-label">Webhook</div></div></div>
+              </div>
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Actions <span class="wf-palette-group-count">2</span></div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon action">🌐</div><div><div class="wf-palette-block-label">HTTP Request</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="usb-resize" style="width:4px;"></div>
+          <div class="canvas">
+            <div class="canvas-grid"></div>
+            <div class="node trigger" style="top:50px;left:80px;"><div class="n-type"><span style="color:var(--green)">▶</span> Trigger</div><div class="n-label">Start</div><div class="port port-out"></div></div>
+            <div class="node" style="top:130px;left:240px;"><div class="port port-in"></div><div class="n-type">Action</div><div class="n-label">Validate Token</div><div class="port port-out"></div></div>
+            <div class="node subwf" style="top:130px;left:440px;"><div class="port port-in"></div><div class="n-type" style="color:var(--primary2)">⧉ Sub-workflow</div><div class="n-label">Token Refresh ↗</div><div class="port port-out"></div></div>
+            <div class="ann" style="left:60px; bottom:60px;">Changes: ① Search + folder groups + tag chips in sidebar ② Workflow name replaces select in toolbar ③ ⋯ overflow button added</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 3: OVERFLOW MENU                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-overflow" class="scenario">
+  <div class="info-bar"><strong>⋯ Overflow Menu:</strong> Replaces the need for any new toolbar buttons. Export, Import, Version History, Shortcuts all live here.</div>
+
+  <div class="app-header">
+    <div class="app-logo">🔥 RedfireForge <span class="version">v0.5.4-beta.1</span></div>
+    <div class="header-spacer"></div>
+    <div class="header-group"><label>Environment</label><select><option>t01</option></select></div>
+    <div class="header-group"><label>Service</label><select><option>sales-product-autoassign</option></select></div>
+  </div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:200px;">
+      <div class="usb-content">
+        <div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span><button class="wf-new-btn">+ New</button></div>
+        <div class="wf-sidebar-list">
+          <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Login Flow</span><span class="wf-sidebar-item-badge">9</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Token Refresh</span><span class="wf-sidebar-item-badge">5</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button><button class="sub-nav-tab">Webhooks</button><button class="sub-nav-tab">Gallery</button></div>
+      <div class="wf-designer">
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left">
+            <div class="wf-name-display">Login Flow <span class="wf-name-version">v5</span></div>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">🔗 Services</button>
+            <button class="tb">📋 Variables</button>
+            <select class="tb-select"><option>t01</option></select>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">💾 Save</button>
+          </div>
+          <div class="wf-toolbar-right">
+            <button class="tb primary">▶ Quick Test</button>
+            <button class="tb">Q Debug</button>
+            <div class="wf-toolbar-divider"></div>
+            <div class="overflow-menu" style="position:relative;">
+              <button class="tb ghost" style="font-size:14px; letter-spacing:2px; background:var(--surface-hover);">⋯</button>
+              <div class="overflow-dropdown open">
+                <div class="ov-item">📦 Export as bundle… <span class="ov-shortcut">⌘⇧E</span></div>
+                <div class="ov-item">⬆ Import bundle… <span class="ov-shortcut">⌘⇧I</span></div>
+                <div class="ov-sep"></div>
+                <div class="ov-item">🕐 Version history <span class="ov-shortcut">⌘⇧H</span></div>
+                <div class="ov-item">📋 Duplicate workflow</div>
+                <div class="ov-sep"></div>
+                <div class="ov-item">⌨ Keyboard shortcuts <span class="ov-shortcut">⌘/</span></div>
+                <div class="ov-item" style="color:var(--text3);">ℹ Workflow info…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="wf-body">
+          <div class="wf-palette" style="width:160px;">
+            <div class="wf-palette-tabs"><button class="wf-palette-tab active">Blocks</button><button class="wf-palette-tab">Requests</button><button class="wf-palette-tab">Catalog</button></div>
+            <div class="wf-palette-body"><div class="wf-palette-group"><div class="wf-palette-group-label">▾ Triggers</div></div></div>
+          </div>
+          <div class="canvas">
+            <div class="canvas-grid"></div>
+            <div class="ann" style="right:220px; top:15px;">← Single ⋯ button houses all infrequent actions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 4: RIGHT-CLICK CONTEXT MENU (enhanced)               -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-ctx-menu" class="scenario">
+  <div class="info-bar"><strong>Enhanced Right-Click:</strong> Existing context menu gets Export, Move to folder, Tags additions. Same pattern, more options.</div>
+
+  <div class="app-header">
+    <div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div>
+    <div class="header-group"><label>Environment</label><select><option>t01</option></select></div>
+  </div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="position:relative;">
+      <div class="usb-content">
+        <div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span><button class="wf-new-btn">+ New</button></div>
+        <input class="wf-sidebar-search" placeholder="🔍 Search…" />
+        <div class="wf-sidebar-list">
+          <div class="sb-folder-header"><span class="sb-folder-arrow">▾</span> 📁 <span class="sb-folder-name">Auth Flows</span><span class="sb-folder-count">3</span></div>
+          <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Login Flow</span><span class="wf-sidebar-item-badge">9</span></div>
+          <div class="wf-sidebar-item" style="background:var(--surface-hover);"><span class="wf-sidebar-item-name">Token Refresh</span><span class="wf-sidebar-item-badge">5</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">OAuth Callback</span><span class="wf-sidebar-item-badge">4</span></div>
+        </div>
+      </div>
+      <!-- Enhanced context menu -->
+      <div class="ctx-menu" style="top:160px; left:130px;">
+        <div class="ctx-item">✏️ Rename Workflow <span class="ctx-shortcut">F2</span></div>
+        <div class="ctx-item">📋 Duplicate Workflow</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item">📦 Export as bundle…</div>
+        <div class="ctx-item">📁 Move to folder ▸</div>
+        <div class="ctx-item">🏷 Tags… ▸</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item">🕐 Version history</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item danger">🗑 Delete Workflow <span class="ctx-shortcut">⌫</span></div>
+      </div>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button><button class="sub-nav-tab">Webhooks</button><button class="sub-nav-tab">Gallery</button></div>
+      <div class="wf-designer">
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left"><div class="wf-name-display">Login Flow <span class="wf-name-version">v5</span></div><div class="wf-toolbar-divider"></div><button class="tb">🔗 Services</button><button class="tb">📋 Variables</button><div class="wf-toolbar-divider"></div><button class="tb">💾 Save</button></div>
+          <div class="wf-toolbar-right"><button class="tb primary">▶ Quick Test</button><button class="tb ghost">⋯</button></div>
+        </div>
+        <div class="wf-body">
+          <div class="wf-palette" style="width:150px;"><div class="wf-palette-tabs"><button class="wf-palette-tab active">Blocks</button><button class="wf-palette-tab">Requests</button></div><div class="wf-palette-body"></div></div>
+          <div class="canvas"><div class="canvas-grid"></div>
+            <div class="ann" style="left:20px; top:20px;">Existing right-click menu + 3 new items: Export, Move, Tags</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 5: EXPORT MODAL                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-export" class="scenario">
+  <div class="info-bar"><strong>Export Modal:</strong> Triggered from ⋯ or right-click → Export. Modal overlays the designer area.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div></div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:180px;">
+      <div class="usb-content"><div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span></div>
+        <div class="wf-sidebar-list"><div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Login Flow</span></div></div>
+      </div>
+    </div>
+    <div class="app-main" style="position:relative;">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button></div>
+      <div class="wf-designer" style="filter:blur(1px) brightness(0.6);">
+        <div class="wf-toolbar"><div class="wf-toolbar-left"><div class="wf-name-display">Login Flow</div></div></div>
+        <div class="wf-body"><div class="wf-palette" style="width:140px;"></div><div class="canvas"><div class="canvas-grid"></div></div></div>
+      </div>
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header"><h3>📦 Export Workflow Bundle</h3><button class="modal-close">✕</button></div>
+          <div class="modal-body">
+            <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Includes the workflow and all referenced sub-workflows.</p>
+            <div class="export-item"><span>⚡</span> Login Flow <span style="color:var(--green);font-size:9px;">root</span><span class="export-pin">v5 · 9 nodes</span></div>
+            <div class="export-item"><span style="color:var(--text3);">↳</span> Token Refresh <span style="color:var(--text3);font-size:9px;">child</span><span class="export-pin">v2 · 5 nodes</span></div>
+            <div class="export-item"><span style="color:var(--text3);">↳</span> OAuth Callback <span style="color:var(--text3);font-size:9px;">child</span><span class="export-pin">v1 · 4 nodes</span></div>
+            <div style="margin-top:10px;"><label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" checked style="accent-color:var(--primary);"> Include version history</label></div>
+            <div style="margin-top:8px; padding:6px 8px; background:var(--surface-hover); border-radius:4px; font-family:monospace; font-size:9px; color:var(--text3); max-height:60px; overflow:auto;">
+              { "format": "redfire-bundle-v1",<br>&nbsp;&nbsp;"workflows": [ ... 3 ],<br>&nbsp;&nbsp;"exportedAt": "2026-04-26T..." }
+            </div>
+          </div>
+          <div class="modal-footer"><button class="tb">Cancel</button><button class="tb primary">⬇ Download .json</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 6: IMPORT MODAL                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-import" class="scenario">
+  <div class="info-bar"><strong>Import Modal:</strong> Triggered from + New dropdown → Import Bundle or ⋯ → Import. Step 2: conflict resolution shown.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div></div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:180px;">
+      <div class="usb-content"><div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span></div>
+        <div class="wf-sidebar-list"><div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Login Flow</span></div></div>
+      </div>
+    </div>
+    <div class="app-main" style="position:relative;">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button></div>
+      <div class="wf-designer" style="filter:blur(1px) brightness(0.6);">
+        <div class="wf-toolbar"><div class="wf-toolbar-left"></div></div>
+        <div class="wf-body"><div class="canvas"><div class="canvas-grid"></div></div></div>
+      </div>
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header"><h3>⬆ Import Workflow Bundle</h3><button class="modal-close">✕</button></div>
+          <div class="modal-body">
+            <div class="import-steps">
+              <div class="import-step done"><div class="import-step-dot"></div> Drop file</div>
+              <span style="color:var(--text3);">→</span>
+              <div class="import-step active"><div class="import-step-dot"></div> Resolve conflicts</div>
+              <span style="color:var(--text3);">→</span>
+              <div class="import-step"><div class="import-step-dot"></div> Done</div>
+            </div>
+            <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">3 workflows found. 1 conflict:</p>
+            <div class="conflict-item new"><div class="conflict-name">✅ OAuth Callback <span style="font-size:9px; color:var(--green);">new</span></div><div class="conflict-desc">Will be added.</div></div>
+            <div class="conflict-item conflict">
+              <div class="conflict-name">⚠️ Login Flow <span style="font-size:9px; color:var(--yellow);">conflict</span></div>
+              <div class="conflict-desc">Already exists (v3 local → v5 incoming).</div>
+              <div class="conflict-opts">
+                <label class="conflict-opt"><input type="radio" name="c1"> Keep existing</label>
+                <label class="conflict-opt"><input type="radio" name="c1" checked> Replace <span class="rec">recommended</span></label>
+                <label class="conflict-opt"><input type="radio" name="c1"> Import as copy</label>
+              </div>
+            </div>
+            <div class="conflict-item new"><div class="conflict-name">✅ Token Refresh <span style="font-size:9px; color:var(--green);">new</span></div></div>
+          </div>
+          <div class="modal-footer"><button class="tb">Cancel</button><button class="tb primary">Import 3 workflows</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 7: DELETE GUARDS                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-delete" class="scenario">
+  <div class="info-bar"><strong>Delete Guards:</strong> Enhance existing confirmDelete dialog in WorkflowSidebar. Three tiers based on usage check.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div></div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:200px;">
+      <div class="usb-content"><div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span></div>
+        <div class="wf-sidebar-list">
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-icon">★</span><span class="wf-sidebar-item-name">Login Flow</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Token Refresh</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Health Check</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="app-main" style="position:relative;">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button></div>
+      <div class="wf-designer" style="filter:blur(1px) brightness(0.6);">
+        <div class="wf-toolbar"><div class="wf-toolbar-left"></div></div>
+        <div class="wf-body"><div class="canvas"><div class="canvas-grid"></div></div></div>
+      </div>
+      <div class="modal-overlay" style="flex-direction:column; gap:12px; padding:20px; overflow-y:auto;">
+        <!-- BLOCKED -->
+        <div class="modal" style="width:400px;">
+          <div class="modal-header"><h3>🛑 Cannot Delete "Login Flow"</h3><button class="modal-close">✕</button></div>
+          <div class="modal-body">
+            <p style="font-size:11px; color:var(--red); margin-bottom:8px;">Shared workflow — used by others:</p>
+            <div class="guard-list">
+              <div class="guard-item">📌 <strong>Token Refresh</strong> → node "Validate Session"</div>
+              <div class="guard-item">📌 <strong>Multi-Region Deploy</strong> → node "Auth Check"</div>
+            </div>
+            <p style="font-size:10px; color:var(--text3); margin-top:8px;">Remove references and unmark as shared first.</p>
+          </div>
+          <div class="modal-footer"><button class="tb">Close</button></div>
+        </div>
+        <!-- WARNING -->
+        <div class="modal" style="width:400px;">
+          <div class="modal-header"><h3>⚠️ Delete "Token Refresh"?</h3><button class="modal-close">✕</button></div>
+          <div class="modal-body">
+            <p style="font-size:11px; color:var(--yellow); margin-bottom:8px;">Referenced by 1 workflow:</p>
+            <div class="guard-list"><div class="guard-item">⚠ <strong>Login Flow</strong> → node "Refresh Token"</div></div>
+            <p style="font-size:10px; color:var(--text3); margin-top:8px;">Deleting will break this reference.</p>
+          </div>
+          <div class="modal-footer"><button class="tb">Cancel</button><button class="tb danger" style="border-color:var(--red);">Delete anyway</button></div>
+        </div>
+        <!-- NORMAL -->
+        <div class="modal" style="width:400px;">
+          <div class="modal-header"><h3>🗑 Delete "Health Check"?</h3><button class="modal-close">✕</button></div>
+          <div class="modal-body"><p style="font-size:11px; color:var(--text-muted);">Not referenced by any workflows. Cannot be undone.</p></div>
+          <div class="modal-footer"><button class="tb">Cancel</button><button class="tb danger" style="border-color:var(--red);">Delete</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 8: VERSION HISTORY DRAWER                            -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-versions" class="scenario">
+  <div class="info-bar"><strong>Version History Drawer:</strong> Slides in from the right over the canvas. Same pattern as config modals. Canvas stays visible.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div></div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:200px;">
+      <div class="usb-content"><div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span></div>
+        <div class="wf-sidebar-list">
+          <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Login Flow</span><span class="wf-sidebar-item-badge">9</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Token Refresh</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button><button class="sub-nav-tab">Webhooks</button></div>
+      <div class="wf-designer">
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left"><div class="wf-name-display">Login Flow <span class="wf-name-version">v5</span></div><div class="wf-toolbar-divider"></div><button class="tb">🔗 Services</button><button class="tb">📋 Variables</button><div class="wf-toolbar-divider"></div><button class="tb">💾 Save</button></div>
+          <div class="wf-toolbar-right"><button class="tb primary">▶ Quick Test</button><button class="tb ghost">⋯</button></div>
+        </div>
+        <div class="wf-body">
+          <div class="wf-palette" style="width:150px;">
+            <div class="wf-palette-tabs"><button class="wf-palette-tab active">Blocks</button><button class="wf-palette-tab">Requests</button></div>
+            <div class="wf-palette-body"></div>
+          </div>
+          <div class="canvas" style="position:relative;">
+            <div class="canvas-grid"></div>
+            <div class="node trigger" style="top:40px;left:40px; opacity:0.5;"><div class="n-type">Trigger</div><div class="n-label">Start</div></div>
+            <div class="node" style="top:120px;left:200px; opacity:0.5;"><div class="n-type">Action</div><div class="n-label">Validate Token</div></div>
+
+            <!-- Drawer -->
+            <div class="right-drawer">
+              <div class="drawer-header">
+                <h3>🕐 Version History</h3>
+                <button class="drawer-close">✕</button>
+              </div>
+              <div class="drawer-body">
+                <button class="tb" style="width:100%; justify-content:center; margin-bottom:10px; font-size:10px;">💾 Save with note…</button>
+                <div class="vtl">
+                  <div class="vtl-entry current">
+                    <div class="vtl-head"><span class="vtl-num">v5</span><span class="vtl-tag">current</span><span class="vtl-date">2h ago</span></div>
+                    <div class="vtl-note">Added retry logic to token refresh</div>
+                  </div>
+                  <div class="vtl-entry">
+                    <div class="vtl-head"><span class="vtl-num">v4</span><span class="vtl-date">Yesterday</span></div>
+                    <div class="vtl-note">Refactored condition branching</div>
+                    <div class="vtl-actions"><button class="vtl-action">Diff</button><button class="vtl-action">Rollback</button></div>
+                  </div>
+                  <div class="vtl-entry">
+                    <div class="vtl-head"><span class="vtl-num">v3</span><span class="vtl-date">3 days ago</span></div>
+                    <div class="vtl-note">Added OAuth callback sub-workflow</div>
+                    <div class="vtl-actions"><button class="vtl-action">Diff</button><button class="vtl-action">Rollback</button></div>
+                  </div>
+                  <div class="vtl-entry">
+                    <div class="vtl-head"><span class="vtl-num">v2</span><span class="vtl-date">1 week ago</span></div>
+                    <div class="vtl-actions"><button class="vtl-action">Diff</button><button class="vtl-action">Rollback</button></div>
+                  </div>
+                  <div class="vtl-entry">
+                    <div class="vtl-head"><span class="vtl-num">v1</span><span class="vtl-date">2 weeks ago</span></div>
+                    <div class="vtl-note">Initial version</div>
+                    <div class="vtl-actions"><button class="vtl-action">Diff</button><button class="vtl-action">Rollback</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 9: TAG POPOVER                                       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-tags" class="scenario">
+  <div class="info-bar"><strong>Tag Popover:</strong> Small popover from the sidebar filter area or right-click → Tags. Not a full page — just a tiny dropdown.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div></div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="position:relative;">
+      <div class="usb-content">
+        <div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span><button class="wf-new-btn">+ New</button></div>
+        <input class="wf-sidebar-search" placeholder="🔍 Search…" />
+        <div class="wf-sidebar-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">auth</button>
+          <button class="filter-chip">prod</button>
+          <button class="filter-chip" style="border-style:dashed; border-color:var(--primary); color:var(--primary2);">+</button>
+        </div>
+        <div class="wf-sidebar-list">
+          <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Login Flow</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Token Refresh</span></div>
+        </div>
+      </div>
+      <!-- Tag popover -->
+      <div class="tag-popover" style="display:block; top:92px; left:60px;">
+        <div style="font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Filter by tag</div>
+        <div class="tag-row"><div class="tag-color" style="background:var(--green);"></div><span class="tag-label">prod</span><span class="tag-count">4</span><span class="tag-check">✓</span></div>
+        <div class="tag-row"><div class="tag-color" style="background:var(--blue);"></div><span class="tag-label">auth</span><span class="tag-count">3</span><span class="tag-check">✓</span></div>
+        <div class="tag-row"><div class="tag-color" style="background:var(--yellow);"></div><span class="tag-label">infra</span><span class="tag-count">2</span></div>
+        <div class="tag-row"><div class="tag-color" style="background:var(--red);"></div><span class="tag-label">critical</span><span class="tag-count">1</span></div>
+        <div class="tag-row"><div class="tag-color" style="background:var(--primary);"></div><span class="tag-label">demo</span><span class="tag-count">2</span></div>
+        <div class="tag-create-row">
+          <input class="tag-input" placeholder="New tag…" />
+          <button class="tb" style="font-size:9px; padding:2px 6px; height:22px;">Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button></div>
+      <div class="wf-designer">
+        <div class="wf-toolbar"><div class="wf-toolbar-left"><div class="wf-name-display">Login Flow</div><div class="wf-toolbar-divider"></div><button class="tb">💾 Save</button></div><div class="wf-toolbar-right"><button class="tb primary">▶ Quick Test</button><button class="tb ghost">⋯</button></div></div>
+        <div class="wf-body"><div class="wf-palette" style="width:150px;"><div class="wf-palette-tabs"><button class="wf-palette-tab active">Blocks</button></div></div><div class="canvas"><div class="canvas-grid"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 10: BREADCRUMB (sub-workflow navigation)             -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="sc-breadcrumb" class="scenario">
+  <div class="info-bar"><strong>Sub-WF Breadcrumb (existing):</strong> Already works. Added: inline rename, tag chips, version info in the breadcrumb bar.</div>
+
+  <div class="app-header"><div class="app-logo">🔥 RedfireForge</div><div class="header-spacer"></div>
+    <div class="header-group"><label>Environment</label><select><option>Staging</option></select></div>
+  </div>
+  <div class="app-body">
+    <nav class="activity-bar"><button class="ab-btn">🔌</button><button class="ab-btn active">🔧</button><button class="ab-btn">🏋</button><div class="ab-spacer"></div><button class="ab-btn">⚙️</button></nav>
+    <div class="unified-sidebar" style="width:200px;">
+      <div class="usb-content">
+        <div class="wf-sidebar-header"><span class="wf-sidebar-title">Workflows</span></div>
+        <input class="wf-sidebar-search" placeholder="🔍 Search…" />
+        <div class="wf-sidebar-list">
+          <div class="sb-folder-header"><span class="sb-folder-arrow">▾</span> 📁 <span class="sb-folder-name">Auth Flows</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Login Flow</span><span class="wf-sidebar-item-badge">9</span></div>
+          <div class="wf-sidebar-item"><span class="wf-sidebar-item-name">Token Refresh</span><span class="wf-sidebar-item-badge">5</span></div>
+          <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">OAuth Callback</span><span class="wf-sidebar-item-badge">4</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="usb-resize"></div>
+    <div class="app-main">
+      <div class="sub-nav"><button class="sub-nav-tab active">Designer</button><button class="sub-nav-tab">Executions</button><button class="sub-nav-tab">Webhooks</button><button class="sub-nav-tab">Gallery</button></div>
+      <div class="wf-designer">
+        <div class="wf-toolbar">
+          <div class="wf-toolbar-left">
+            <div class="wf-name-display"><input class="inline-rename" value="OAuth Callback" size="14" /> <span class="wf-name-version">v1</span></div>
+            <span class="tag-chip tag-auth">auth</span>
+            <span class="tag-chip tag-prod">prod</span>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">🔗 Services</button>
+            <button class="tb">📋 Variables <span class="tb-badge">2</span></button>
+            <select class="tb-select"><option>Staging</option></select>
+            <div class="wf-toolbar-divider"></div>
+            <button class="tb">💾 Save</button>
+          </div>
+          <div class="wf-toolbar-right">
+            <span style="font-size:10px; color:var(--text3);">4 nodes · Saved 5m ago</span>
+            <button class="tb primary">▶ Quick Test</button>
+            <button class="tb ghost">⋯</button>
+          </div>
+        </div>
+        <!-- Breadcrumb -->
+        <div class="wf-breadcrumb">
+          <span class="bc-link">Login Flow</span>
+          <span class="bc-sep">›</span>
+          <span class="bc-link">Token Refresh</span>
+          <span class="bc-sep">›</span>
+          <span class="bc-current">OAuth Callback</span>
+        </div>
+        <div class="wf-body">
+          <div class="wf-palette" style="width:150px;">
+            <div class="wf-palette-tabs"><button class="wf-palette-tab active">Blocks</button><button class="wf-palette-tab">Requests</button><button class="wf-palette-tab">Catalog</button></div>
+            <div class="wf-palette-body">
+              <div class="wf-palette-group">
+                <div class="wf-palette-group-label">▾ Triggers</div>
+                <div class="wf-palette-block"><div class="wf-palette-block-icon trigger">▶</div><div><div class="wf-palette-block-label">Manual Start</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="usb-resize" style="width:4px;"></div>
+          <div class="canvas">
+            <div class="canvas-grid"></div>
+            <div class="node trigger" style="top:40px;left:60px;"><div class="n-type"><span style="color:var(--green)">▶</span> Trigger</div><div class="n-label">OAuth Redirect</div><div class="port port-out"></div></div>
+            <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+              <line x1="197" y1="60" x2="260" y2="60" stroke="var(--border)" stroke-width="2" stroke-dasharray="4"/>
+            </svg>
+            <div class="node" style="top:40px;left:260px;"><div class="port port-in"></div><div class="n-type"><span style="color:var(--blue)">POST</span> Action</div><div class="n-label">Exchange Code</div><div class="port port-out"></div></div>
+            <div class="ann" style="left:40px; top:140px;">Breadcrumb shows nav depth. Sidebar highlights current in tree. Inline rename + tags in toolbar.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showSc(id) {
+  document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.scenario-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('sc-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import type { Workflow } from '../types/workflow';
+import type { Workflow } from '../features/workflow/types/workflow';
 
 export type SampleCategory = 'basics' | 'triggers' | 'logic' | 'advanced';
 
@@ -10,6 +10,8 @@ export interface SampleWorkflowEntry {
   icon: string;
   nodeCount: number;
   factory: () => Workflow;
+  /** Additional workflows bundled with this sample (e.g. child sub-workflows). */
+  companionFactories?: Array<() => Workflow>;
 }
 
 /**
@@ -1363,6 +1365,738 @@ function createExpressionFunctionsWorkflow(): Workflow {
   };
 }
 
+/**
+ * Sample workflow demonstrating Sub-Workflow orchestration with input/output mappings.
+ * Parent: fetches users list → Sub-Workflow iterates each user (multi-instance)
+ *         → Aggregate results → Condition on success rate.
+ * The child workflow is a second Workflow object returned alongside the parent.
+ */
+function createSubWorkflowOrchestrator(): Workflow {
+  const CHILD_ID = 'sample-subwf-child';
+  return {
+    id: 'sample-workflow-sub-workflow',
+    name: 'Sample: Sub-Workflow Orchestrator',
+    description: 'Demonstrates Sub-Workflow nodes with input/output mappings, multi-instance forEach, retry, and on-failure continue.',
+    variables: {},
+    nodes: [
+      {
+        id: 'swf-start', type: 'start', position: { x: 300, y: 0 },
+        data: {
+          label: 'Start',
+          inputVariables: { apiBase: 'https://jsonplaceholder.typicode.com' },
+        },
+      },
+      {
+        id: 'swf-fetch-users', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: '1. Fetch User List',
+          scenario: {
+            id: 'swf-s1', name: 'Get Users',
+            url: '{{apiBase}}/users',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'usersJson', source: 'body', expression: '' },
+              { name: 'userCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'swf-set-ids', type: 'setVariable', position: { x: 250, y: 280 },
+        data: {
+          label: '2. Extract User IDs',
+          assignments: [
+            { id: 'a1', name: 'userIds', expression: '[1,2,3]' },
+            { id: 'a2', name: 'processedCount', expression: '0' },
+          ],
+        },
+      },
+      {
+        id: 'swf-sub', type: 'subWorkflow', position: { x: 250, y: 440 },
+        data: {
+          label: '3. Process Each User',
+          workflowId: CHILD_ID,
+          workflowName: 'User Processor',
+          inputMappings: [
+            { sourceExpression: '{{apiBase}}', targetVariable: 'apiBase' },
+          ],
+          outputMappings: [
+            { sourceVariable: 'userStatus', targetVariable: 'lastUserStatus' },
+          ],
+          propagateAllOutputs: false,
+          multiInstance: {
+            collection: '{{userIds}}',
+            elementVariable: 'userId',
+            mode: 'sequential',
+          },
+          maxDepth: 5,
+          timeoutMs: 30000,
+          retryCount: 1,
+          retryDelayMs: 2000,
+          onChildFailure: 'continue',
+        },
+      },
+      {
+        id: 'swf-log', type: 'logDebug', position: { x: 250, y: 600 },
+        data: {
+          label: '4. Log Results',
+          logLevel: 'info',
+          message: 'Sub-workflow completed. Last status: {{lastUserStatus}}',
+          snapshotVariables: true,
+        },
+      },
+      {
+        id: 'swf-cond', type: 'condition', position: { x: 300, y: 740 },
+        data: {
+          label: '5. All Succeeded?',
+          left: '{{__subWorkflowFailed}}',
+          operator: '!=',
+          right: 'true',
+        },
+      },
+      {
+        id: 'swf-log-ok', type: 'logDebug', position: { x: 100, y: 880 },
+        data: { label: 'All Good', logLevel: 'info', message: 'All users processed successfully', snapshotVariables: false },
+      },
+      {
+        id: 'swf-log-fail', type: 'logDebug', position: { x: 480, y: 880 },
+        data: { label: 'Partial Failure', logLevel: 'warn', message: 'Some user processing failed. Check __subWorkflowResults.', snapshotVariables: true },
+      },
+      {
+        id: 'swf-end', type: 'end', position: { x: 300, y: 1020 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'swf-e1', source: 'swf-start', target: 'swf-fetch-users' },
+      { id: 'swf-e2', source: 'swf-fetch-users', target: 'swf-set-ids' },
+      { id: 'swf-e3', source: 'swf-set-ids', target: 'swf-sub' },
+      { id: 'swf-e4', source: 'swf-sub', target: 'swf-log' },
+      { id: 'swf-e5', source: 'swf-log', target: 'swf-cond' },
+      { id: 'swf-e6', source: 'swf-cond', target: 'swf-log-ok', sourceHandle: 'true', label: 'Yes' },
+      { id: 'swf-e7', source: 'swf-cond', target: 'swf-log-fail', sourceHandle: 'false', label: 'No' },
+      { id: 'swf-e8', source: 'swf-log-ok', target: 'swf-end' },
+      { id: 'swf-e9', source: 'swf-log-fail', target: 'swf-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Child workflow used by the Sub-Workflow Orchestrator sample.
+ * Flow: Start → GET user by ID → SetVariable (build status) → End
+ */
+function createSubWorkflowChild(): Workflow {
+  return {
+    id: 'sample-subwf-child',
+    name: 'Sample: User Processor (Child)',
+    description: 'Child workflow that fetches a single user and returns a status. Called by Sub-Workflow Orchestrator.',
+    variables: {},
+    nodes: [
+      {
+        id: 'child-start', type: 'start', position: { x: 300, y: 0 },
+        data: {
+          label: 'Start',
+          inputVariables: { apiBase: 'https://jsonplaceholder.typicode.com', userId: '1' },
+        },
+      },
+      {
+        id: 'child-fetch', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: 'Fetch User',
+          scenario: {
+            id: 'child-s1', name: 'Get User',
+            url: '{{apiBase}}/users/{{userId}}',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'userName', source: 'body', expression: '$.name' },
+              { name: 'userEmail', source: 'body', expression: '$.email' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'child-set', type: 'setVariable', position: { x: 250, y: 280 },
+        data: {
+          label: 'Build Status',
+          assignments: [
+            { id: 'c1', name: 'userStatus', expression: 'processed:{{userName}}' },
+          ],
+        },
+      },
+      {
+        id: 'child-end', type: 'end', position: { x: 300, y: 400 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'child-e1', source: 'child-start', target: 'child-fetch' },
+      { id: 'child-e2', source: 'child-fetch', target: 'child-set' },
+      { id: 'child-e3', source: 'child-set', target: 'child-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Medium sample: Order pipeline that delegates shipping to a sub-workflow.
+ * Flow: Start → HTTP (fetch order) → Condition (is express?) →
+ *       Yes: Sub-Workflow (express shipping) / No: Sub-Workflow (standard shipping) →
+ *       SetVariable (build confirmation) → End
+ */
+function createOrderPipelineWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-order-pipeline',
+    name: 'Sample: Order Pipeline with Sub-Workflow',
+    description: 'Demonstrates conditional branching into different sub-workflows for express vs standard shipping.',
+    variables: {},
+    nodes: [
+      {
+        id: 'op-start', type: 'start', position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { orderId: '12345', shippingType: 'express' } },
+      },
+      {
+        id: 'op-fetch', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: '1. Fetch Order',
+          scenario: {
+            id: 'op-s1', name: 'Get Order',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{orderId}}',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'orderTitle', source: 'body', expression: '$.title' },
+              { name: 'orderBody', source: 'body', expression: '$.body' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'op-cond', type: 'condition', position: { x: 300, y: 280 },
+        data: { label: '2. Express Shipping?', left: '{{shippingType}}', operator: '==', right: 'express' },
+      },
+      {
+        id: 'op-sub-express', type: 'subWorkflow', position: { x: 80, y: 440 },
+        data: {
+          label: '3a. Express Shipping',
+          workflowId: 'sample-shipping-child',
+          workflowName: 'Shipping Processor',
+          inputMappings: [
+            { sourceExpression: '{{orderId}}', targetVariable: 'orderId' },
+            { sourceExpression: 'express', targetVariable: 'tier' },
+          ],
+          outputMappings: [
+            { sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' },
+          ],
+          timeoutMs: 15000,
+          retryCount: 2,
+          retryDelayMs: 1000,
+          onChildFailure: 'fail',
+        },
+      },
+      {
+        id: 'op-sub-standard', type: 'subWorkflow', position: { x: 480, y: 440 },
+        data: {
+          label: '3b. Standard Shipping',
+          workflowId: 'sample-shipping-child',
+          workflowName: 'Shipping Processor',
+          inputMappings: [
+            { sourceExpression: '{{orderId}}', targetVariable: 'orderId' },
+            { sourceExpression: 'standard', targetVariable: 'tier' },
+          ],
+          outputMappings: [
+            { sourceVariable: 'trackingNumber', targetVariable: 'trackingNumber' },
+          ],
+          timeoutMs: 30000,
+        },
+      },
+      {
+        id: 'op-confirm', type: 'setVariable', position: { x: 250, y: 600 },
+        data: {
+          label: '4. Build Confirmation',
+          assignments: [
+            { id: 'a1', name: 'confirmation', expression: 'Order {{orderId}} shipped via {{shippingType}}. Tracking: {{trackingNumber}}' },
+          ],
+        },
+      },
+      {
+        id: 'op-log', type: 'logDebug', position: { x: 250, y: 740 },
+        data: { label: '5. Log', logLevel: 'info', message: '{{confirmation}}', snapshotVariables: true },
+      },
+      {
+        id: 'op-end', type: 'end', position: { x: 300, y: 860 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'op-e1', source: 'op-start', target: 'op-fetch' },
+      { id: 'op-e2', source: 'op-fetch', target: 'op-cond' },
+      { id: 'op-e3', source: 'op-cond', target: 'op-sub-express', sourceHandle: 'true', label: 'Express' },
+      { id: 'op-e4', source: 'op-cond', target: 'op-sub-standard', sourceHandle: 'false', label: 'Standard' },
+      { id: 'op-e5', source: 'op-sub-express', target: 'op-confirm' },
+      { id: 'op-e6', source: 'op-sub-standard', target: 'op-confirm' },
+      { id: 'op-e7', source: 'op-confirm', target: 'op-log' },
+      { id: 'op-e8', source: 'op-log', target: 'op-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/** Child workflow for the Order Pipeline sample — processes shipping for one order. */
+function createShippingChildWorkflow(): Workflow {
+  return {
+    id: 'sample-shipping-child',
+    name: 'Sample: Shipping Processor (Child)',
+    description: 'Child workflow that simulates shipping an order and returns a tracking number.',
+    variables: {},
+    nodes: [
+      {
+        id: 'ship-start', type: 'start', position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { orderId: '1', tier: 'standard' } },
+      },
+      {
+        id: 'ship-http', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: 'Ship Order',
+          scenario: {
+            id: 'ship-s1', name: 'Create Shipment',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"orderId": "{{orderId}}", "tier": "{{tier}}"}',
+            bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'shipmentId', source: 'body', expression: '$.id' }],
+          },
+        },
+      },
+      {
+        id: 'ship-set', type: 'setVariable', position: { x: 250, y: 280 },
+        data: {
+          label: 'Build Tracking',
+          assignments: [
+            { id: 's1', name: 'trackingNumber', expression: 'TRK-{{tier}}-{{shipmentId}}' },
+          ],
+        },
+      },
+      {
+        id: 'ship-end', type: 'end', position: { x: 300, y: 400 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'ship-e1', source: 'ship-start', target: 'ship-http' },
+      { id: 'ship-e2', source: 'ship-http', target: 'ship-set' },
+      { id: 'ship-e3', source: 'ship-set', target: 'ship-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Hard sample: Multi-region deployment orchestrator.
+ * Flow: Start → HTTP (validate build) → Fork/Join (parallel pre-checks) →
+ *       Sub-Workflow with multi-instance forEach (parallel, deploy to regions) →
+ *       Condition (success rate >= threshold) →
+ *       Yes: Log success / No: Sub-Workflow (rollback with dynamic ID) →
+ *       End
+ */
+function createDeployOrchestratorWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-deploy-orchestrator',
+    name: 'Sample: Multi-Region Deploy Orchestrator',
+    description: 'Deployment pipeline with Fork/Join pre-checks, multi-instance parallel deploy via sub-workflow, and dynamic rollback sub-workflow.',
+    variables: {},
+    nodes: [
+      {
+        id: 'dep-start', type: 'start', position: { x: 300, y: 0 },
+        data: {
+          label: 'Start',
+          inputVariables: {
+            version: 'v2.5.0',
+            regions: '["us-east-1","eu-west-1","ap-southeast-1"]',
+            rollbackWorkflowId: 'sample-rollback-child',
+            successThreshold: '80',
+          },
+        },
+      },
+      {
+        id: 'dep-validate', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: '1. Validate Build',
+          scenario: {
+            id: 'dep-s1', name: 'Check Build',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' },
+            validation: { mode: 'none', assertions: [{ type: 'status', expected: '200' }] },
+            extractions: [
+              { name: 'buildTitle', source: 'body', expression: '$.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'dep-fork', type: 'fork', position: { x: 300, y: 280 },
+        data: { label: '2. Pre-Check Fork' },
+      },
+      {
+        id: 'dep-smoke', type: 'http', position: { x: 100, y: 400 },
+        data: {
+          label: '2a. Smoke Test',
+          scenario: {
+            id: 'dep-s2', name: 'Smoke',
+            url: 'https://jsonplaceholder.typicode.com/posts/2',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'smokeResult', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'dep-flags', type: 'http', position: { x: 500, y: 400 },
+        data: {
+          label: '2b. Feature Flags',
+          scenario: {
+            id: 'dep-s3', name: 'Flags',
+            url: 'https://jsonplaceholder.typicode.com/posts/3',
+            method: 'GET', headers: [], body: '', bodyType: 'none',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'flagsResult', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'dep-join', type: 'join', position: { x: 300, y: 540 },
+        data: { label: '2c. Pre-Check Join' },
+      },
+      {
+        id: 'dep-deploy', type: 'subWorkflow', position: { x: 250, y: 680 },
+        data: {
+          label: '3. Deploy to Regions',
+          workflowId: 'sample-region-deploy-child',
+          workflowName: 'Region Deployer',
+          inputMappings: [
+            { sourceExpression: '{{version}}', targetVariable: 'version' },
+            { sourceExpression: '{{buildTitle}}', targetVariable: 'buildInfo' },
+          ],
+          outputMappings: [],
+          propagateAllOutputs: false,
+          multiInstance: {
+            collection: '{{regions}}',
+            elementVariable: 'region',
+            mode: 'parallel',
+          },
+          maxDepth: 5,
+          timeoutMs: 60000,
+          retryCount: 1,
+          retryDelayMs: 5000,
+          onChildFailure: 'continue',
+        },
+      },
+      {
+        id: 'dep-analyze', type: 'setVariable', position: { x: 250, y: 840 },
+        data: {
+          label: '4. Analyze Results',
+          assignments: [
+            { id: 'a1', name: 'deployStatus', expression: '{{__subWorkflowFailed}}' },
+          ],
+        },
+      },
+      {
+        id: 'dep-cond', type: 'condition', position: { x: 300, y: 960 },
+        data: {
+          label: '5. All Succeeded?',
+          left: '{{deployStatus}}',
+          operator: '!=',
+          right: 'true',
+        },
+      },
+      {
+        id: 'dep-log-ok', type: 'logDebug', position: { x: 80, y: 1100 },
+        data: { label: 'Deploy Success', logLevel: 'info', message: '✅ {{version}} deployed to all regions', snapshotVariables: true },
+      },
+      {
+        id: 'dep-rollback', type: 'subWorkflow', position: { x: 480, y: 1100 },
+        data: {
+          label: '6. Rollback (Dynamic)',
+          workflowId: '{{rollbackWorkflowId}}',
+          workflowName: '',
+          inputMappings: [
+            { sourceExpression: '{{version}}', targetVariable: 'version' },
+            { sourceExpression: '{{regions}}', targetVariable: 'regions' },
+          ],
+          outputMappings: [
+            { sourceVariable: 'rollbackStatus', targetVariable: 'rollbackStatus' },
+          ],
+          maxDepth: 5,
+          timeoutMs: 120000,
+          retryCount: 2,
+          retryDelayMs: 10000,
+          onChildFailure: 'continue',
+        },
+      },
+      {
+        id: 'dep-end', type: 'end', position: { x: 300, y: 1260 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'dep-e1', source: 'dep-start', target: 'dep-validate' },
+      { id: 'dep-e2', source: 'dep-validate', target: 'dep-fork' },
+      { id: 'dep-e3', source: 'dep-fork', target: 'dep-smoke' },
+      { id: 'dep-e4', source: 'dep-fork', target: 'dep-flags' },
+      { id: 'dep-e5', source: 'dep-smoke', target: 'dep-join' },
+      { id: 'dep-e6', source: 'dep-flags', target: 'dep-join' },
+      { id: 'dep-e7', source: 'dep-join', target: 'dep-deploy' },
+      { id: 'dep-e8', source: 'dep-deploy', target: 'dep-analyze' },
+      { id: 'dep-e9', source: 'dep-analyze', target: 'dep-cond' },
+      { id: 'dep-e10', source: 'dep-cond', target: 'dep-log-ok', sourceHandle: 'true', label: 'All OK' },
+      { id: 'dep-e11', source: 'dep-cond', target: 'dep-rollback', sourceHandle: 'false', label: 'Failed' },
+      { id: 'dep-e12', source: 'dep-log-ok', target: 'dep-end' },
+      { id: 'dep-e13', source: 'dep-rollback', target: 'dep-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/** Child workflow for the Deploy Orchestrator — deploys to a single region. */
+function createRegionDeployChildWorkflow(): Workflow {
+  return {
+    id: 'sample-region-deploy-child',
+    name: 'Sample: Region Deployer (Child)',
+    description: 'Child workflow that simulates deploying to a single region.',
+    variables: {},
+    nodes: [
+      {
+        id: 'rd-start', type: 'start', position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { region: 'us-east-1', version: 'v1.0', buildInfo: '' } },
+      },
+      {
+        id: 'rd-deploy', type: 'http', position: { x: 250, y: 120 },
+        data: {
+          label: 'Deploy to {{region}}',
+          scenario: {
+            id: 'rd-s1', name: 'Deploy',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"region": "{{region}}", "version": "{{version}}"}',
+            bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'deployId', source: 'body', expression: '$.id' }],
+          },
+        },
+      },
+      {
+        id: 'rd-set', type: 'setVariable', position: { x: 250, y: 280 },
+        data: {
+          label: 'Set Status',
+          assignments: [
+            { id: 'r1', name: 'regionStatus', expression: '{{region}}:deployed:{{deployId}}' },
+          ],
+        },
+      },
+      {
+        id: 'rd-end', type: 'end', position: { x: 300, y: 400 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'rd-e1', source: 'rd-start', target: 'rd-deploy' },
+      { id: 'rd-e2', source: 'rd-deploy', target: 'rd-set' },
+      { id: 'rd-e3', source: 'rd-set', target: 'rd-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/** Child workflow for rollback — referenced by dynamic workflow ID in the deploy orchestrator. */
+function createRollbackChildWorkflow(): Workflow {
+  return {
+    id: 'sample-rollback-child',
+    name: 'Sample: Rollback Handler (Child)',
+    description: 'Child workflow that rolls back a deployment. Referenced dynamically via {{rollbackWorkflowId}}.',
+    variables: {},
+    nodes: [
+      {
+        id: 'rb-start', type: 'start', position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: { version: 'v1.0', regions: '[]' } },
+      },
+      {
+        id: 'rb-log', type: 'logDebug', position: { x: 250, y: 120 },
+        data: { label: 'Log Rollback', logLevel: 'warn', message: '⚠ Rolling back {{version}} across regions: {{regions}}', snapshotVariables: true },
+      },
+      {
+        id: 'rb-http', type: 'http', position: { x: 250, y: 260 },
+        data: {
+          label: 'Execute Rollback',
+          scenario: {
+            id: 'rb-s1', name: 'Rollback',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST', headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: '{"action": "rollback", "version": "{{version}}"}',
+            bodyType: 'json',
+            auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'rollbackId', source: 'body', expression: '$.id' }],
+          },
+        },
+      },
+      {
+        id: 'rb-set', type: 'setVariable', position: { x: 250, y: 400 },
+        data: {
+          label: 'Set Status',
+          assignments: [{ id: 'rb1', name: 'rollbackStatus', expression: 'rolled-back:{{rollbackId}}' }],
+        },
+      },
+      {
+        id: 'rb-end', type: 'end', position: { x: 300, y: 520 },
+        data: { label: 'End' },
+      },
+    ],
+    edges: [
+      { id: 'rb-e1', source: 'rb-start', target: 'rb-log' },
+      { id: 'rb-e2', source: 'rb-log', target: 'rb-http' },
+      { id: 'rb-e3', source: 'rb-http', target: 'rb-set' },
+      { id: 'rb-e4', source: 'rb-set', target: 'rb-end' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Sample workflow: Workflow-level error handler with notification subgraph.
+ * Main flow calls a deliberate bad URL to trigger failure.
+ * An isolated error-handler subgraph (LogDebug → HTTP POST notification) fires
+ * when ANY unhandled node error occurs, demonstrating the "On Unhandled Error →
+ * Run error handler subgraph" feature with {{error.message}}, {{error.statusCode}},
+ * and {{error.failedCount}} variables.
+ *
+ * Flow (main):       Start → Fetch Valid → Call Bad URL (fails!) → End
+ * Flow (error):      Log Error Info → POST Notification
+ * ErrorConfig:       mode=run-handler, handlerEntryNodeId=weh-log-err
+ */
+function createWorkflowErrorHandlerSample(): Workflow {
+  return {
+    id: 'sample-workflow-wf-error-handler',
+    name: 'Sample: Workflow Error Handler – Failure Notification',
+    description: 'Demonstrates workflow-level error handling: when any step fails, an isolated notification subgraph executes with error details.',
+    variables: {
+      notifyUrl: 'https://jsonplaceholder.typicode.com/posts',
+    },
+    errorConfig: {
+      mode: 'run-handler',
+      handlerEntryNodeId: 'weh-log-err',
+    },
+    nodes: [
+      // ── Main flow ──
+      {
+        id: 'weh-start', type: 'start', position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: { userId: '1' } },
+      },
+      {
+        id: 'weh-fetch', type: 'http', position: { x: 200, y: 120 },
+        data: {
+          label: '1. Fetch User (OK)',
+          scenario: {
+            id: 'weh-s1', name: 'Fetch User',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [
+              { name: 'userName', source: 'body', expression: '$.name' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'weh-log-ok', type: 'logDebug', position: { x: 200, y: 260 },
+        data: { label: '2. Log Success', message: 'Fetched user: {{userName}}', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'weh-bad', type: 'http', position: { x: 200, y: 380 },
+        data: {
+          label: '3. Call Bad URL (will fail)',
+          scenario: {
+            id: 'weh-s2', name: 'Bad Request',
+            url: 'https://jsonplaceholder.typicode.com/invalid-endpoint-404',
+            method: 'GET',
+            headers: [],
+            body: '', auth: { type: 'none' },
+            validation: { mode: 'none', assertions: [{ type: 'status', expected: '200' }] },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'weh-never', type: 'logDebug', position: { x: 200, y: 500 },
+        data: { label: '4. This Never Runs', message: 'You should not see this — the workflow stopped at step 3.', logLevel: 'info', snapshotVariables: false },
+      },
+      {
+        id: 'weh-end', type: 'end', position: { x: 250, y: 620 },
+        data: { label: 'End' },
+      },
+
+      // ── Error handler subgraph (disconnected from main flow) ──
+      {
+        id: 'weh-log-err', type: 'logDebug', position: { x: 620, y: 120 },
+        data: {
+          label: '⚠ Error Caught',
+          message: '🔴 Workflow-level error handler triggered!\n  Error: {{error.message}}\n  Status Code: {{error.statusCode}}\n  Failed Nodes: {{error.failedCount}}',
+          logLevel: 'error', snapshotVariables: true,
+        },
+      },
+      {
+        id: 'weh-notify', type: 'http', position: { x: 620, y: 280 },
+        data: {
+          label: '📧 POST Notification',
+          scenario: {
+            id: 'weh-s3', name: 'Error Notification',
+            url: '{{notifyUrl}}',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              channel: '#alerts',
+              text: 'Workflow failed! Error: {{error.message}} | Status: {{error.statusCode}} | Failed: {{error.failedCount}} node(s)',
+            }, null, 2),
+            bodyType: 'json', auth: { type: 'none' }, validation: { mode: 'none' },
+            extractions: [{ name: 'notificationId', source: 'body', expression: '$.id' }],
+          },
+        },
+      },
+      {
+        id: 'weh-log-sent', type: 'logDebug', position: { x: 620, y: 440 },
+        data: {
+          label: '✅ Notification Sent',
+          message: 'Error notification posted (id={{notificationId}}). Recovery complete.',
+          logLevel: 'info', snapshotVariables: false,
+        },
+      },
+    ],
+    edges: [
+      // Main flow edges
+      { id: 'weh-e1', source: 'weh-start', target: 'weh-fetch' },
+      { id: 'weh-e2', source: 'weh-fetch', target: 'weh-log-ok' },
+      { id: 'weh-e3', source: 'weh-log-ok', target: 'weh-bad' },
+      { id: 'weh-e4', source: 'weh-bad', target: 'weh-never' },
+      { id: 'weh-e5', source: 'weh-never', target: 'weh-end' },
+      // Error subgraph edges (no connection to main flow)
+      { id: 'weh-e6', source: 'weh-log-err', target: 'weh-notify' },
+      { id: 'weh-e7', source: 'weh-notify', target: 'weh-log-sent' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
   {
@@ -1380,7 +2114,7 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     description: 'Fork/Join pattern splits execution into concurrent HTTP requests and merges results',
     category: 'basics',
     icon: '⑃',
-    nodeCount: 8,
+    nodeCount: 7,
     factory: createParallelForkWorkflow,
   },
   {
@@ -1389,7 +2123,7 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     description: 'If/Else paths leading to different API endpoints',
     category: 'basics',
     icon: '◆',
-    nodeCount: 6,
+    nodeCount: 5,
     factory: createConditionalBranchWorkflow,
   },
   {
@@ -1398,7 +2132,7 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     description: 'Order processing triggered by incoming HTTP webhooks with payload extraction',
     category: 'triggers',
     icon: '🪝',
-    nodeCount: 7,
+    nodeCount: 6,
     factory: createWebhookTriggerWorkflow,
   },
   {
@@ -1472,5 +2206,44 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     icon: 'ƒx',
     nodeCount: 9,
     factory: createExpressionFunctionsWorkflow,
+  },
+  {
+    id: 'sample-workflow-sub-workflow',
+    name: 'Sub-Workflow Orchestrator',
+    description: 'Parent calls child workflow per user via multi-instance forEach with retry and on-failure continue',
+    category: 'advanced',
+    icon: '🔗',
+    nodeCount: 9,
+    factory: createSubWorkflowOrchestrator,
+    companionFactories: [createSubWorkflowChild],
+  },
+  {
+    id: 'sample-workflow-order-pipeline',
+    name: 'Order Pipeline with Sub-Workflow',
+    description: 'Conditional branching into express vs standard shipping sub-workflows with retry and output mapping',
+    category: 'advanced',
+    icon: '📦',
+    nodeCount: 8,
+    factory: createOrderPipelineWorkflow,
+    companionFactories: [createShippingChildWorkflow],
+  },
+  {
+    id: 'sample-workflow-deploy-orchestrator',
+    name: 'Multi-Region Deploy Orchestrator',
+    description: 'Fork/Join pre-checks, multi-instance parallel deploy via sub-workflow, dynamic rollback sub-workflow',
+    category: 'advanced',
+    icon: '🚀',
+    nodeCount: 12,
+    factory: createDeployOrchestratorWorkflow,
+    companionFactories: [createRegionDeployChildWorkflow, createRollbackChildWorkflow],
+  },
+  {
+    id: 'sample-workflow-wf-error-handler',
+    name: 'Workflow Error Handler – Failure Notification',
+    description: 'Workflow-level error handling: when any step fails, an isolated notification subgraph fires with error details',
+    category: 'advanced',
+    icon: '🚨',
+    nodeCount: 9,
+    factory: createWorkflowErrorHandlerSample,
   },
 ];

@@ -18,7 +18,7 @@ import {
   loadWebhookTriggers,
   saveWebhookTriggers,
 } from './file-storage';
-import type { ExecutionResult, WebhookDelivery, ScheduleTrigger, WebhookTrigger } from '../src/types/server-api';
+import type { ExecutionResult, WebhookDelivery, ScheduleTrigger, WebhookTrigger } from '../src/shared/types/server-api';
 
 vi.mock('fs', () => {
   const actual = vi.importActual('fs');

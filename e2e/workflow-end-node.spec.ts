@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeWorkflowWithEndNode(): Workflow {
   return {
