@@ -293,10 +293,36 @@ describe('ScriptConfig', () => {
   });
 
   it('skips empty input variable names when building mock inputs', () => {
-    // Ensures the `if (v)` branch is covered for falsy input variable names
     render(<ScriptConfig data={makeData({ code: 'output.result = "ok";', inputVariables: ['', 'valid'], outputVariables: ['result'] })} onChange={vi.fn()} />);
     fireEvent.click(screen.getByText(/Test Script/));
     expect(screen.getByText(/Passed/)).toBeTruthy();
+  });
+
+  it('uses inferred defaults when test inputs are empty', () => {
+    // userJson should auto-default to a skeleton object based on code analysis
+    render(<ScriptConfig data={makeData({ code: 'var d = JSON.parse(input.userJson); output.name = d.name;', inputVariables: ['userJson'], outputVariables: ['name'] })} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText(/Test Script/));
+    expect(screen.getByText(/Passed/)).toBeTruthy();
+  });
+
+  it('renders Test Inputs section when input variables exist', () => {
+    render(<ScriptConfig data={makeData({ inputVariables: ['userJson'] })} onChange={vi.fn()} />);
+    expect(screen.getByText('Test Inputs')).toBeTruthy();
+  });
+
+  it('does not render Test Inputs section when no input variables', () => {
+    render(<ScriptConfig data={makeData({ inputVariables: [] })} onChange={vi.fn()} />);
+    expect(screen.queryByText('Test Inputs')).toBeNull();
+  });
+
+  it('uses mock input values when testing script', () => {
+    render(<ScriptConfig data={makeData({ code: 'var d = JSON.parse(input.userJson); output.name = d.name;', inputVariables: ['userJson'], outputVariables: ['name'] })} onChange={vi.fn()} />);
+    // Find the input field by its role within the test inputs section
+    const inputs = document.querySelectorAll('.wf-script-test-input-row input');
+    fireEvent.change(inputs[0], { target: { value: '{"name":"Alice"}' } });
+    fireEvent.click(screen.getByText(/Test Script/));
+    expect(screen.getByText(/Passed/)).toBeTruthy();
+    expect(screen.getByText('Alice')).toBeTruthy();
   });
 
   // ── Complexity Warnings (Phase C) ──

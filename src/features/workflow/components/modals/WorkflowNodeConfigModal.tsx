@@ -76,6 +76,8 @@ interface Props {
   nodeRunStatus?: import('../../types/workflow').NodeRunStatus | null;
   /** All saved workflows for sub-workflow picker. */
   workflows?: WorkflowPickerItem[];
+  /** Full variable scope from last run — includes upstream extracted values. */
+  runtimeVariables?: Record<string, string>;
 }
 
 export default function WorkflowNodeConfigModal({
@@ -86,6 +88,7 @@ export default function WorkflowNodeConfigModal({
   conditionVariableHints = [], httpVariableHints = [], workflowServices = [],
   nodeRunStatus,
   workflows = [],
+  runtimeVariables,
 }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
@@ -359,7 +362,8 @@ export default function WorkflowNodeConfigModal({
                 data={draftNode.data as ScriptNodeData}
                 onChange={(data) => updateDraft(data)}
                 onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
+                variableHints={variableInsertHints}
+                workflowVariables={runtimeVariables ?? workflowVariables}
               />
             )}
 

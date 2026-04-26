@@ -3,6 +3,7 @@ import {
   detectOutputVariables,
   analyzeScriptComplexity,
   validateOutputSize,
+  inferMockInputs,
   MAX_OUTPUT_SIZE_BYTES,
 } from './scriptAnalysis';
 
@@ -171,5 +172,218 @@ describe('validateOutputSize', () => {
     // This should be valid (way under limit)
     expect(result.valid).toBe(true);
     expect(result.totalBytes).toBe(2048);
+  });
+});
+
+describe('inferMockInputs', () => {
+  it('returns empty for no input variables', () => {
+    expect(inferMockInputs('output.x = "ok";', [])).toEqual({});
+  });
+
+  it('returns empty for empty variable names', () => {
+    expect(inferMockInputs('output.x = "ok";', [''])).toEqual({});
+  });
+
+  it('infers nested structure from JSON.parse + property access', () => {
+    const code = [
+      'const user = JSON.parse(input.userJson);',
+      'output.name = user.name;',
+      'output.city = user.address.city;',
+      'output.zip = user.address.zipcode;',
+      'output.company = user.company.name;',
+    ].join('\n');
+    const result = inferMockInputs(code, ['userJson']);
+    const parsed = JSON.parse(result.userJson);
+    expect(parsed.name).toBe('test');
+    expect(parsed.address.city).toBe('test');
+    expect(parsed.address.zipcode).toBe('test');
+    expect(parsed.company.name).toBe('test');
+  });
+
+  it('handles let/var declarations too', () => {
+    const code = 'let data = JSON.parse(input.payload);\noutput.id = data.id;';
+    const result = inferMockInputs(code, ['payload']);
+    expect(JSON.parse(result.payload).id).toBe('test');
+  });
+
+  it('handles multiple input variables', () => {
+    const code = [
+      'const u = JSON.parse(input.userJson);',
+      'const p = JSON.parse(input.postsJson);',
+      'output.name = u.name;',
+      'output.title = p.title;',
+    ].join('\n');
+    const result = inferMockInputs(code, ['userJson', 'postsJson']);
+    expect(JSON.parse(result.userJson).name).toBe('test');
+    expect(JSON.parse(result.postsJson).title).toBe('test');
+  });
+
+  it('falls back to name-based heuristic for no property access', () => {
+    const code = 'output.result = input.someData;';
+    const result = inferMockInputs(code, ['someData']);
+    expect(result.someData).toBe('{}'); // name contains "data"
+  });
+
+  it('returns name-based defaults for simple variables', () => {
+    const result = inferMockInputs('output.x = input.pageIndex;', ['pageIndex']);
+    expect(result.pageIndex).toBe('0'); // name contains "index"
+  });
+
+  it('handles array-like variable names', () => {
+    const result = inferMockInputs('', ['itemList']);
+    expect(result.itemList).toBe('[]');
+  });
+
+  it('handles boolean-like variable names', () => {
+    const result = inferMockInputs('', ['isEnabled']);
+    expect(result.isEnabled).toBe('false');
+  });
+
+  it('defaults to "test" for unknown names', () => {
+    const result = inferMockInputs('', ['foo']);
+    expect(result.foo).toBe('test');
+  });
+
+  it('handles deep nesting (3+ levels)', () => {
+    const code = 'const d = JSON.parse(input.resp);\noutput.x = d.a.b.c;';
+    const result = inferMockInputs(code, ['resp']);
+    const parsed = JSON.parse(result.resp);
+    expect(parsed.a.b.c).toBe('test');
+  });
+
+  it('handles the easy sample (Format User Card) script', () => {
+    const code = [
+      'const user = JSON.parse(input.userJson);',
+      'output.displayName = user.name;',
+      'output.contactInfo = JSON.stringify({',
+      '  email: user.email,',
+      '  phone: user.phone,',
+      '  website: user.website,',
+      '});',
+      'output.location = user.address.city + ", " + user.address.zipcode;',
+      'output.company = user.company.name;',
+    ].join('\n');
+    const result = inferMockInputs(code, ['userJson']);
+    const parsed = JSON.parse(result.userJson);
+    expect(parsed.name).toBe('test');
+    expect(parsed.email).toBe('test');
+    expect(parsed.phone).toBe('test');
+    expect(parsed.website).toBe('test');
+    expect(parsed.address.city).toBe('test');
+    expect(parsed.address.zipcode).toBe('test');
+    expect(parsed.company.name).toBe('test');
+  });
+
+  it('handles the medium sample (validator) script', () => {
+    const code = [
+      'const user = JSON.parse(input.userJson);',
+      'const posts = JSON.parse(input.postsJson);',
+      'const userId = parseInt(user.id);',
+      'const mismatch = posts.filter(function(p) { return p.userId !== userId; });',
+      'output.result = String(mismatch.length === 0);',
+    ].join('\n');
+    const result = inferMockInputs(code, ['userJson', 'postsJson']);
+    const user = JSON.parse(result.userJson);
+    expect(user.id).toBe('test');
+    const posts = JSON.parse(result.postsJson);
+    expect(Array.isArray(posts)).toBe(true);
+    expect(posts[0].userId).toBe('test');
+  });
+
+  it('detects for-of array pattern and builds array skeleton', () => {
+    const code = [
+      'const posts = JSON.parse(input.postsJson);',
+      'for (const post of posts) {',
+      '  console.log(post.userId, post.id);',
+      '}',
+    ].join('\n');
+    const result = inferMockInputs(code, ['postsJson']);
+    const posts = JSON.parse(result.postsJson);
+    expect(Array.isArray(posts)).toBe(true);
+    expect(posts[0].userId).toBe('test');
+    expect(posts[0].id).toBe('test');
+  });
+
+  it('detects .map() array pattern and builds array skeleton', () => {
+    const code = [
+      'const posts = JSON.parse(input.pageJson);',
+      'const titles = posts.map(function(p) { return p.title; });',
+    ].join('\n');
+    const result = inferMockInputs(code, ['pageJson']);
+    const posts = JSON.parse(result.pageJson);
+    expect(Array.isArray(posts)).toBe(true);
+    expect(posts[0].title).toBe('test');
+  });
+
+  it('combines for-of and .map element properties into array skeleton', () => {
+    const code = [
+      'const posts = JSON.parse(input.pageJson);',
+      'const titles = posts.map(function(p) { return p.title; });',
+      'for (const p of posts) {',
+      '  wordCount += p.body.split(/\\s+/).length;',
+      '}',
+    ].join('\n');
+    const result = inferMockInputs(code, ['pageJson']);
+    const posts = JSON.parse(result.pageJson);
+    expect(Array.isArray(posts)).toBe(true);
+    expect(posts[0].title).toBe('test');
+    expect(posts[0].body).toBe('test'); // body.split is stripped as built-in
+  });
+
+  it('strips built-in method names from element property paths', () => {
+    const code = [
+      'const items = JSON.parse(input.data);',
+      'for (const item of items) {',
+      '  const parts = item.name.split("-");',
+      '  const lower = item.label.toLowerCase();',
+      '  output.x = item.id;',
+      '}',
+    ].join('\n');
+    const result = inferMockInputs(code, ['data']);
+    const items = JSON.parse(result.data);
+    expect(Array.isArray(items)).toBe(true);
+    expect(items[0].name).toBe('test');
+    expect(items[0].label).toBe('test');
+    expect(items[0].id).toBe('test');
+  });
+
+  it('handles the real Validate Data sample script', () => {
+    const code = [
+      'const user = JSON.parse(input.userJson);',
+      'const posts = JSON.parse(input.postsJson);',
+      'console.log("Checking " + posts.length + " posts for user: " + user.name);',
+      'let mismatchCount = 0;',
+      'for (const post of posts) {',
+      '  if (post.userId !== user.id) {',
+      '    console.warn("Post " + post.id + " userId mismatch");',
+      '    mismatchCount++;',
+      '  }',
+      '}',
+      'output.postCount = String(posts.length);',
+      'output.mismatchCount = String(mismatchCount);',
+      'output.result = mismatchCount === 0;',
+    ].join('\n');
+    const result = inferMockInputs(code, ['userJson', 'postsJson']);
+    const user = JSON.parse(result.userJson);
+    expect(user.name).toBe('test');
+    expect(user.id).toBe('test');
+    const posts = JSON.parse(result.postsJson);
+    expect(Array.isArray(posts)).toBe(true);
+    expect(posts[0].userId).toBe('test');
+    expect(posts[0].id).toBe('test');
+  });
+
+  it('does not overwrite deep path with leaf when both exist', () => {
+    // If code accesses both user.address and user.address.city
+    const code = [
+      'const u = JSON.parse(input.data);',
+      'console.log(u.address);',
+      'output.city = u.address.city;',
+    ].join('\n');
+    const result = inferMockInputs(code, ['data']);
+    const parsed = JSON.parse(result.data);
+    // address should be an object with city, not a simple string
+    expect(typeof parsed.address).toBe('object');
+    expect(parsed.address.city).toBe('test');
   });
 });

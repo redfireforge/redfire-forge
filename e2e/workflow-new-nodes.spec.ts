@@ -248,7 +248,7 @@ test.describe('New Node Types — Palette', () => {
 
     const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });
     await expect(dataHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-setVariable, .wf-palette-block-aggregate, .wf-palette-block-logDebug').count()),
+      String(await page.locator('.wf-palette-block-setVariable, .wf-palette-block-aggregate, .wf-palette-block-logDebug, .wf-palette-block-script').count()),
     );
 
     const flowHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Flow' });

@@ -1,38 +1,40 @@
-import { useState, useMemo } from 'react';
-import type { ScriptNodeData, ScriptMode } from '../../types/workflow';
+import { useState } from 'react';
+import type { ScriptNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
 import ScriptCodeEditor from './ScriptCodeEditor';
+import ScriptCodeModal from './ScriptCodeModal';
 import ScriptTemplateGallery from './ScriptTemplateGallery';
 import ScriptLibraryManager from './ScriptLibraryManager';
-import { detectOutputVariables, analyzeScriptComplexity } from '../../engine/scriptAnalysis';
-import { executeScript } from '../../engine/scriptSandbox';
-import { loadScriptLibraries, saveScriptLibraries, buildLibraryPreamble } from '../../engine/scriptLibraries';
+import ScriptTestResult from './ScriptTestResult';
+import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
+import { saveScriptLibraries } from '../../engine/scriptLibraries';
 import type { ScriptTemplate } from '../../engine/scriptTemplates';
 import type { ScriptLibrary } from '../../engine/scriptLibraries';
-
-const MODE_OPTIONS: { value: ScriptMode; label: string; description: string }[] = [
-  { value: 'transform', label: 'Transform', description: 'Transform data from input to output variables' },
-  { value: 'validate', label: 'Validate', description: 'Validate data — set output.result to true/false' },
-  { value: 'generate', label: 'Generate', description: 'Generate new data from scratch' },
-];
 
 export default function ScriptConfig({
   data,
   onChange,
   onRequestVariableInsert,
   variableHints = [],
+  workflowVariables = {},
 }: {
   data: ScriptNodeData;
   onChange: (d: ScriptNodeData) => void;
   onRequestVariableInsert?: (apply: (snippet: string) => void) => void;
   variableHints?: WorkflowVariableHint[];
+  workflowVariables?: Record<string, string>;
 }) {
-  const [testResult, setTestResult] = useState<{ success: boolean; outputs: Record<string, string>; error?: string; consoleLogs: string[]; durationMs: number } | null>(null);
+  const {
+    testResult, mockInputs, libraries,
+    inferredDefaults, complexityWarnings,
+    handleTestScript, handleAutoDetect, handleMockInputChange,
+  } = useScriptTest(data, workflowVariables);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showLibraries, setShowLibraries] = useState(false);
-  const [libraries, setLibraries] = useState<ScriptLibrary[]>(() => loadScriptLibraries());
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [localLibraries, setLocalLibraries] = useState<ScriptLibrary[]>(libraries);
 
   const handleAddInputVar = () => {
     onChange({ ...data, inputVariables: [...data.inputVariables, ''] });
@@ -62,23 +64,11 @@ export default function ScriptConfig({
     onChange({ ...data, outputVariables: updated });
   };
 
-  const handleAutoDetect = () => {
-    const detected = detectOutputVariables(data.code);
+  const handleAutoDetectOutputs = () => {
+    const detected = handleAutoDetect();
     if (detected.length > 0) {
       onChange({ ...data, outputVariables: detected });
     }
-  };
-
-  const handleTestScript = () => {
-    // Build mock inputs (empty strings for each declared input variable)
-    const mockInputs: Record<string, string> = {};
-    for (const v of data.inputVariables) {
-      if (v) mockInputs[v] = '';
-    }
-    const result = executeScript(data, mockInputs,
-      data.libraryIds?.length ? buildLibraryPreamble(libraries, data.libraryIds) : undefined,
-    );
-    setTestResult(result);
   };
 
   const handleApplyTemplate = (template: ScriptTemplate) => {
@@ -93,19 +83,13 @@ export default function ScriptConfig({
   };
 
   const handleLibrariesChange = (updated: ScriptLibrary[]) => {
-    setLibraries(updated);
+    setLocalLibraries(updated);
     saveScriptLibraries(updated);
   };
 
   const handleLibrarySelectionChange = (ids: string[]) => {
     onChange({ ...data, libraryIds: ids });
   };
-
-  // Complexity warnings — memoized on code changes
-  const complexityWarnings = useMemo(
-    () => analyzeScriptComplexity(data.code),
-    [data.code],
-  );
 
   return (
     <div className="wf-config-body">
@@ -118,12 +102,12 @@ export default function ScriptConfig({
         <label>Mode</label>
         <select
           value={data.mode}
-          onChange={(e) => onChange({ ...data, mode: e.target.value as ScriptMode })}
+          onChange={(e) => onChange({ ...data, mode: e.target.value as import('../../types/workflow').ScriptMode })}
         >
-          {MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {SCRIPT_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <span className="wf-config-hint">
-          {MODE_OPTIONS.find(o => o.value === data.mode)?.description}
+          {SCRIPT_MODE_OPTIONS.find(o => o.value === data.mode)?.description}
         </span>
       </div>
 
@@ -147,7 +131,7 @@ export default function ScriptConfig({
 
       {showLibraries && (
         <ScriptLibraryManager
-          libraries={libraries}
+          libraries={localLibraries}
           selectedIds={data.libraryIds ?? []}
           onLibrariesChange={handleLibrariesChange}
           onSelectionChange={handleLibrarySelectionChange}
@@ -168,6 +152,11 @@ export default function ScriptConfig({
             outputVariables={data.outputVariables}
           />
         </InsertVarField>
+        <div className="wf-config-button-row" style={{ marginTop: 4 }}>
+          <button className="wf-config-add-btn" onClick={() => setShowCodeModal(true)} title="Open full-screen editor with test panel">
+            🖥 Open Editor
+          </button>
+        </div>
         <span className="wf-config-hint">
           JavaScript code. Use <code>input.varName</code> to read and <code>output.varName</code> to write variables.
         </span>
@@ -215,7 +204,7 @@ export default function ScriptConfig({
         ))}
         <div className="wf-config-button-row">
           <button className="wf-config-add-btn" onClick={handleAddOutputVar}>+ Add Output Variable</button>
-          <button className="wf-config-add-btn" onClick={handleAutoDetect} title="Scan code for output.xxx = assignments">Auto-detect from code</button>
+          <button className="wf-config-add-btn" onClick={handleAutoDetectOutputs} title="Scan code for output.xxx = assignments">Auto-detect from code</button>
         </div>
         <span className="wf-config-hint">
           Variables written by the script via <code>output.varName</code> and exported back to the workflow.
@@ -248,38 +237,28 @@ export default function ScriptConfig({
         </span>
       </div>
 
+      {data.inputVariables.filter(Boolean).length > 0 && (
+        <div className="wf-config-field">
+          <label>Test Inputs</label>
+          <span className="wf-config-hint">Provide sample values for testing. Variables expecting JSON should contain valid JSON (e.g. <code>{'{}'}</code>).</span>
+          {data.inputVariables.filter(Boolean).map(v => (
+            <div key={v} className="wf-script-test-input-row">
+              <label className="wf-script-test-input-label">{v}</label>
+              <input
+                value={mockInputs[v] ?? ''}
+                onChange={(e) => handleMockInputChange(v, e.target.value)}
+                placeholder={inferredDefaults[v] ? `default: ${inferredDefaults[v].length > 40 ? inferredDefaults[v].slice(0, 37) + '…' : inferredDefaults[v]}` : 'Sample value'}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="wf-config-field">
         <button className="wf-config-test-btn" onClick={handleTestScript}>
           ▶ Test Script
         </button>
-        {testResult && (
-          <div className={`wf-script-test-result ${testResult.success ? 'wf-script-test-pass' : 'wf-script-test-fail'}`}>
-            <div className="wf-script-test-header">
-              {testResult.success ? '✅ Passed' : '❌ Failed'} ({testResult.durationMs.toFixed(1)}ms)
-            </div>
-            {testResult.error && (
-              <div className="wf-script-test-error">{testResult.error}</div>
-            )}
-            {Object.keys(testResult.outputs).length > 0 && (
-              <div className="wf-script-test-outputs">
-                <strong>Outputs:</strong>
-                {Object.entries(testResult.outputs).map(([k, v]) => (
-                  <div key={k} className="wf-script-test-output-row">
-                    <code>{k}</code> = <code>{v.length > 100 ? v.slice(0, 97) + '…' : v}</code>
-                  </div>
-                ))}
-              </div>
-            )}
-            {testResult.consoleLogs.length > 0 && (
-              <div className="wf-script-test-console">
-                <strong>Console:</strong>
-                {testResult.consoleLogs.map((line, i) => (
-                  <div key={i} className="wf-script-test-console-line">{line}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {testResult && <ScriptTestResult result={testResult} maxOutputLength={100} />}
       </div>
 
       <AvailableVariables hints={variableHints} />
@@ -294,6 +273,16 @@ export default function ScriptConfig({
           <li>Maximum output size: 1 MB total across all output variables.</li>
         </ul>
       </div>
+
+      {showCodeModal && (
+        <ScriptCodeModal
+          data={data}
+          onSave={(updated) => onChange(updated)}
+          onClose={() => setShowCodeModal(false)}
+          onRequestVariableInsert={onRequestVariableInsert}
+          workflowVariables={workflowVariables}
+        />
+      )}
     </div>
   );
 }

@@ -33,6 +33,7 @@ function createMockMonaco() {
     },
     editor: {
       // Mock editor instance
+      getModel: vi.fn(() => ({ getValue: vi.fn(() => ''), setValue: vi.fn() })),
     },
     disposable,
   };

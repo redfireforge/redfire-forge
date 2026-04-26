@@ -3,12 +3,13 @@ import type { SetVariableNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type SetVariableWorkflowNode = Node<SetVariableNodeData, 'setVariable'>;
 type Props = NodeProps<SetVariableWorkflowNode>;
 
 export default function SetVariableNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
 
   const count = data.assignments?.length ?? 0;
 
@@ -37,6 +38,8 @@ export default function SetVariableNode({ id, data, selected }: Props) {
       <div className="wf-node-footer">
         <NodeConfigureButton title="Configure variables" onClick={handleConfigure} />
       </div>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} className="wf-handle" />
