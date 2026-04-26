@@ -16,6 +16,7 @@ import type {
   LogDebugNodeData,
   WaitForConditionNodeData,
   SubWorkflowNodeData,
+  ScriptNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -40,6 +41,7 @@ import LogDebugConfig from '../configs/LogDebugConfig';
 import WaitForConditionConfig from '../configs/WaitForConditionConfig';
 import SubWorkflowConfig from '../configs/SubWorkflowConfig';
 import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
+import ScriptConfig from '../configs/ScriptConfig';
 import WebhookConfig from '../configs/WebhookConfig';
 import ScheduleConfig from '../configs/ScheduleConfig';
 import VariablesSection from '../panels/VariablesSection';
@@ -74,6 +76,8 @@ interface Props {
   nodeRunStatus?: import('../../types/workflow').NodeRunStatus | null;
   /** All saved workflows for sub-workflow picker. */
   workflows?: WorkflowPickerItem[];
+  /** Full variable scope from last run — includes upstream extracted values. */
+  runtimeVariables?: Record<string, string>;
 }
 
 export default function WorkflowNodeConfigModal({
@@ -84,6 +88,7 @@ export default function WorkflowNodeConfigModal({
   conditionVariableHints = [], httpVariableHints = [], workflowServices = [],
   nodeRunStatus,
   workflows = [],
+  runtimeVariables,
 }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
@@ -349,6 +354,16 @@ export default function WorkflowNodeConfigModal({
                 onChange={(data) => updateDraft(data)}
                 workflows={workflows}
                 currentWorkflowId={workflowId}
+              />
+            )}
+
+            {draftNode.type === 'script' && (
+              <ScriptConfig
+                data={draftNode.data as ScriptNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                workflowVariables={runtimeVariables ?? workflowVariables}
               />
             )}
 

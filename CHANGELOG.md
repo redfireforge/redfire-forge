@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Script Transform Node — Phase D: Code Templates & Script Libraries**
+  - Code template gallery with 12 templates across 4 categories (transform, validate, generate, utility)
+  - Category filter tabs and search functionality for templates
+  - Script libraries: reusable function modules shared across script nodes
+  - Library manager UI with create, edit, delete, and checkbox selection
+  - Library preamble injection into script execution sandbox
+  - localStorage persistence for script libraries
+
 ---
 
 ## [0.5.4] — 2026-04-24

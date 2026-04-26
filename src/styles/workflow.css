@@ -886,7 +886,8 @@
   align-items: flex-start;
 }
 .wf-config-field-with-insert > input,
-.wf-config-field-with-insert > textarea {
+.wf-config-field-with-insert > textarea,
+.wf-config-field-with-insert > .wf-script-code-editor {
   flex: 1;
   min-width: 0;
 }
@@ -1024,14 +1025,14 @@
 
 /* Insert variable modal — two-column layout, sits above the config modal overlay */
 .wf-var-insert-modal-overlay.modal-overlay {
-  z-index: 10090;
-  position: fixed;
+  position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  z-index: 10200;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
 }
 .wf-var-insert-modal {
   max-width: 680px;
@@ -5215,6 +5216,573 @@
 }
 .wf-config-info-title {
   font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text);
+}
+
+/* ── Shared config list/button classes ─────────── */
+.wf-config-list-row {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+}
+.wf-config-list-row input {
+  flex: 1; min-width: 0;
+}
+.wf-config-button-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+}
+.wf-config-add-btn {
+  all: unset; cursor: pointer;
+  font-size: 0.72rem; font-weight: 600; color: var(--primary, #6366f1);
+  padding: 4px 8px; border-radius: 4px;
+  border: 1px dashed var(--border, #3a3a5c);
+  transition: border-color 0.15s, color 0.15s;
+}
+.wf-config-add-btn:hover {
+  border-color: var(--primary, #6366f1); color: var(--accent, #7c3aed);
+}
+.wf-config-remove-btn {
+  all: unset; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px;
+  font-size: 0.75rem; color: var(--text-muted, #888);
+  border: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.wf-config-remove-btn:hover {
+  color: #ef4444; border-color: #ef4444;
+}
+.wf-config-test-btn {
+  all: unset; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; font-weight: 600;
+  color: #10b981; padding: 6px 12px; border-radius: 5px;
+  border: 1px solid rgba(16,185,129,0.35);
+  background: rgba(16,185,129,0.06);
+  transition: background 0.15s, border-color 0.15s;
+}
+.wf-config-test-btn:hover {
+  background: rgba(16,185,129,0.12); border-color: #10b981;
+}
+
+/* ── Script Node (canvas) ──────────────────────── */
+/* ── Script Code Editor ───────────────────────── */
+.wf-script-code-editor {
+  position: relative;
+  min-height: 250px;
+  border: 1px solid var(--border, #2d2d3d);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.wf-script-code-editor .monaco-editor {
+  border-radius: 6px;
+}
+
+/* ── Script Code Modal (pop-up IDE) ───────────── */
+.wf-script-modal-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
+}
+.wf-script-modal.wf-config-modal.modal.ram-modal {
+  width: 90vw;
+  max-width: 900px;
+  height: 85vh;
+  max-height: 85vh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.wf-script-modal.wf-config-modal .wf-config-modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 0;
+}
+.wf-script-modal-mode-select {
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  background: var(--input-bg, #1e1e2e);
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, #2d2d3d);
+}
+.wf-script-modal-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Left: Code editor pane */
+.wf-script-modal-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-script-modal-editor .wf-config-field-with-insert {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+}
+.wf-script-modal-editor .wf-script-code-editor {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+.wf-script-modal-editor .wf-config-insert-var-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 5;
+}
+.wf-script-modal-editor .wf-config-field-with-insert {
+  position: relative;
+}
+/* Right: Test sidebar */
+/* Draggable splitter between editor and sidebar */
+.wf-script-modal-splitter {
+  width: 1px;
+  cursor: col-resize;
+  background: var(--border, #2d2d3d);
+  flex-shrink: 0;
+  position: relative;
+}
+.wf-script-modal-splitter::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -3px;
+  width: 7px;
+  z-index: 1;
+}
+.wf-script-modal-splitter:hover,
+.wf-script-modal-splitter:active {
+  background: var(--primary, #6366f1);
+}
+.wf-script-modal-sidebar {
+  min-width: 260px;
+  max-width: min(700px, 40%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-alt, rgba(0,0,0,0.15));
+  flex-shrink: 0;
+  min-height: 0;
+  box-sizing: border-box;
+}
+/* Scrollable config zone: input/output vars + test values */
+.wf-script-sidebar-config {
+  flex: 0 1 auto;
+  max-height: calc(100% - 50px);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #2d2d3d);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+/* Scrollable results zone */
+.wf-script-sidebar-test {
+  flex: 1;
+  max-height: 40%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+/* Collapsible test value row */
+.wf-script-test-value-row {
+  border: 1px solid var(--border, #2d2d3d);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wf-script-test-value-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text, #e0e0e0);
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-align: left;
+}
+.wf-script-test-value-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+.wf-script-test-value-chevron {
+  font-size: 0.65rem;
+  color: var(--text-muted, #888);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.wf-script-test-value-chevron.open {
+  transform: rotate(90deg);
+}
+.wf-script-test-value-name {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--primary, #6366f1);
+  flex-shrink: 0;
+}
+.wf-script-test-value-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: var(--text-muted, #888);
+  font-family: monospace;
+}
+.wf-script-test-value-auto {
+  font-size: 0.6rem;
+  color: var(--text-muted, #888);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.wf-script-test-value-editor {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  background: var(--input-bg, #1e1e2e);
+  border: none;
+  border-top: 1px solid var(--border, #2d2d3d);
+  color: var(--text, #e0e0e0);
+  resize: vertical;
+  min-height: 40px;
+  max-height: 200px;
+  box-sizing: border-box;
+  word-break: break-all;
+}
+.wf-script-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.wf-script-modal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+.wf-script-modal-section-header strong { font-weight: 600; }
+.wf-script-modal-var-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.wf-script-modal-var-name {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border, #2d2d3d);
+  border-radius: 4px;
+  color: var(--text, #e0e0e0);
+}
+.wf-script-modal-run-btn {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+/* Fixed run button zone between config and test scroll */
+.wf-script-sidebar-run {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border, #2d2d3d);
+  border-top: 1px solid var(--border, #2d2d3d);
+  overflow: hidden;
+  min-width: 0;
+}
+/* ── Test Value Panel (inline right-side panel) ── */
+.wf-script-value-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  max-width: 50%;
+  flex: 1;
+  border-left: 1px solid var(--border, #2d2d3d);
+  background: var(--surface, #1e1e2e);
+  overflow: hidden;
+}
+.wf-script-value-panel-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #2d2d3d);
+  background: var(--surface-alt, rgba(0,0,0,0.15));
+  flex-shrink: 0;
+}
+.wf-script-value-popup-name {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  color: var(--primary, #6366f1);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.wf-script-value-popup-search {
+  flex: 1;
+  min-width: 80px;
+  max-width: 200px;
+  padding: 3px 8px !important;
+  font-size: 0.72rem !important;
+}
+.wf-script-value-popup-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.wf-script-value-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg, #161625);
+  padding: 8px 0;
+  font-size: 0.78rem;
+}
+.wf-script-value-panel-editor {
+  flex: 1;
+  padding: 12px 14px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text, #e0e0e0);
+  background: var(--bg, #161625);
+  border: none;
+  resize: none;
+  overflow-y: auto;
+  tab-size: 2;
+}
+.wf-script-value-panel-editor:focus {
+  outline: none;
+}
+.wf-script-modal-unsaved {
+  font-size: 0.75rem;
+  color: #f59e0b;
+  font-weight: 500;
+  margin-right: auto;
+}
+
+.wf-node-script {
+  min-width: 200px; border-color: var(--cat-data, #f59e0b);
+  background: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, var(--surface) 60%);
+  border-left: 3px solid #f59e0b;
+}
+.wf-script-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-script-mode {
+  font-size: 0.65rem; color: #f59e0b; padding: 0 16px 2px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.wf-script-preview {
+  font-size: 0.65rem; color: var(--text-muted); padding: 0 16px 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-style: italic;
+}
+
+/* ── Script Config (modal body) ────────────────── */
+.wf-script-warnings {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.wf-script-warning {
+  font-size: 0.72rem; color: #f59e0b; padding: 4px 8px;
+  background: rgba(245,158,11,0.08); border-radius: 4px;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+.wf-script-test-result {
+  margin-top: 8px; padding: 10px 12px; border-radius: 6px;
+  font-size: 0.75rem; border: 1px solid var(--border);
+  background: var(--bg, #161625);
+  min-width: 0; overflow-wrap: break-word;
+  max-height: 300px; overflow-y: auto;
+}
+.wf-script-test-pass { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.05); }
+.wf-script-test-fail { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
+.wf-script-test-header {
+  font-weight: 600; font-size: 0.78rem; margin-bottom: 6px;
+}
+.wf-script-test-error {
+  color: #ef4444; font-size: 0.72rem; margin: 4px 0;
+  font-family: 'SF Mono', monospace; white-space: pre-wrap; word-break: break-word;
+}
+.wf-script-test-outputs { margin-top: 6px; }
+.wf-script-test-outputs strong { font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.wf-script-test-output-row {
+  font-family: 'SF Mono', monospace; font-size: 0.72rem;
+  padding: 2px 0; color: var(--text);
+  word-break: break-all; overflow-wrap: break-word;
+}
+.wf-script-test-output-row code {
+  color: var(--accent, #7c3aed); background: rgba(124,58,237,0.08);
+  padding: 1px 4px; border-radius: 3px; font-size: 0.7rem;
+}
+.wf-script-test-console { margin-top: 6px; }
+.wf-script-test-console strong { font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.wf-script-test-console-line {
+  font-family: 'SF Mono', monospace; font-size: 0.7rem;
+  color: var(--text-muted); padding: 1px 0;
+}
+.wf-script-test-input-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.wf-script-test-input-label {
+  flex-shrink: 0; min-width: 90px; font-size: 0.72rem;
+  font-weight: 600; color: var(--accent, #7c3aed);
+  font-family: 'SF Mono', monospace; text-transform: none; letter-spacing: 0;
+}
+.wf-script-test-input-row input {
+  flex: 1; min-width: 0; padding: 4px 8px;
+  background: var(--bg, #161625); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 0.78rem;
+  font-family: 'SF Mono', monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Script Template Gallery ───────────────────── */
+.wf-script-template-gallery {
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg, #161625); padding: 10px 12px; margin-bottom: 8px;
+}
+.wf-script-template-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.wf-script-template-header h4 {
+  margin: 0; font-size: 0.82rem; color: var(--text);
+}
+.wf-script-template-controls { margin-bottom: 8px; }
+.wf-script-template-search {
+  width: 100%; padding: 5px 8px; margin-bottom: 6px;
+  background: var(--surface, #1e1e2e); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 0.78rem;
+}
+.wf-script-template-tabs {
+  display: flex; gap: 2px; flex-wrap: wrap;
+}
+.wf-script-template-tab {
+  all: unset; cursor: pointer;
+  font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+  padding: 3px 8px; border-radius: 4px;
+  border: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.wf-script-template-tab:hover { color: var(--text); }
+.wf-script-template-tab.active {
+  color: var(--primary, #6366f1); border-color: var(--primary, #6366f1);
+}
+.wf-script-template-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 220px; overflow-y: auto;
+}
+.wf-script-template-empty {
+  text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 16px;
+}
+.wf-script-template-card {
+  all: unset; cursor: pointer;
+  display: block; padding: 8px 10px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--surface, #1e1e2e);
+  transition: border-color 0.15s;
+}
+.wf-script-template-card:hover { border-color: var(--primary, #6366f1); }
+.wf-script-template-name {
+  font-size: 0.78rem; font-weight: 600; color: var(--text); margin-bottom: 2px;
+}
+.wf-script-template-desc {
+  font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;
+}
+.wf-script-template-meta {
+  display: flex; gap: 8px; font-size: 0.65rem; color: var(--text-muted);
+}
+.wf-script-template-category {
+  background: rgba(245,158,11,0.12); color: #f59e0b;
+  padding: 1px 6px; border-radius: 3px; font-weight: 600;
+}
+.wf-script-template-vars {
+  color: var(--text-muted); font-family: 'SF Mono', monospace;
+}
+
+/* ── Script Library Manager ────────────────────── */
+.wf-script-library-manager {
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg, #161625); padding: 10px 12px; margin-bottom: 8px;
+}
+.wf-script-library-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.wf-script-library-header h4 {
+  margin: 0; font-size: 0.82rem; color: var(--text);
+}
+.wf-script-library-empty {
+  text-align: center; font-size: 0.75rem; color: var(--text-muted);
+  padding: 12px; font-style: italic;
+}
+.wf-script-library-list {
+  display: flex; flex-direction: column; gap: 6px; margin: 8px 0;
+}
+.wf-script-library-item {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--surface, #1e1e2e);
+}
+.wf-script-library-checkbox {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 0.78rem; font-weight: 600;
+}
+.wf-script-library-checkbox input[type="checkbox"] {
+  width: 14px; height: 14px; accent-color: var(--primary);
+}
+.wf-script-library-name { color: var(--text); }
+.wf-script-library-desc {
+  font-size: 0.7rem; color: var(--text-muted); margin: 2px 0 4px 22px;
+}
+.wf-script-library-actions {
+  display: flex; gap: 4px; margin-top: 4px; margin-left: 22px;
+}
+.wf-script-library-create {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; border: 1px dashed var(--border); border-radius: 5px;
+  margin-top: 6px;
+}
+.wf-script-library-create input,
+.wf-script-library-create textarea {
+  width: 100%; padding: 5px 8px;
+  background: var(--bg, #161625); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 0.78rem;
+}
+.wf-script-library-create textarea {
+  font-family: 'SF Mono', monospace; font-size: 0.75rem; resize: vertical;
 }
 
 /* ── Available Variables (collapsible) ─────────── */

@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Script: Data Pipeline &amp; Report (Advanced Sample)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .badge-transform { background: #d4edda; color: #155724; }
+  .badge-generate { background: #cce5ff; color: #004085; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-danger { background: #fce4ec; border-left-color: #c62828; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+  <h1>Script: Data Pipeline &amp; Report</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 540px; color: #495057; font-size: 14px;">
+    Loop over a paginated API, use Script nodes to transform each page and generate a
+    summary report, aggregate results across iterations, and conditionally publish the
+    report based on a word count threshold.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 11 &nbsp;|&nbsp; Category: Advanced<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#script1">Script 1 Deep Dive: Transform Page</a></li>
+  <li><a href="#aggregate">Aggregate Deep Dive</a></li>
+  <li><a href="#script2">Script 2 Deep Dive: Generate Report</a></li>
+  <li><a href="#variables">Variable Flow Across Loop Iterations</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates a full <strong>ETL (Extract-Transform-Load) pipeline</strong>
+  within a workflow: extract data from a paginated API, transform each page with a Script
+  node, aggregate the results, generate a summary report with a second Script node, and
+  conditionally publish the report.
+</p>
+<p>
+  <strong>Real-world analogies:</strong>
+</p>
+<ul>
+  <li>A content analytics pipeline that processes blog posts across multiple pages and generates a word count report</li>
+  <li>An API integration that fetches paginated records, transforms them, and pushes a summary to a reporting endpoint</li>
+  <li>A data quality pipeline that iterates through pages, computes statistics, and decides whether to alert based on thresholds</li>
+</ul>
+
+<h3>Key Patterns Demonstrated</h3>
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔄 Loop + Pagination</strong>
+    <p>Count-based loop simulates paginated API fetches with <code>_start</code> and <code>_limit</code> parameters.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📝 Script Transform</strong>
+    <p>First Script extracts titles and counts words from each page of posts.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📦 Aggregate</strong>
+    <p>Collects results across loop iterations using <code>concat</code> and <code>sum</code> strategies.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📊 Script Generate</strong>
+    <p>Second Script builds a JSON summary report from aggregated data.</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔀 Conditional Publish</strong>
+    <p>Condition node decides whether to POST the report based on word count threshold.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📋 SetVariable Init</strong>
+    <p>Initializes counters and accumulators before the loop starts.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>How to use a <strong>Loop node</strong> in count mode for paginated API fetches</li>
+  <li>Writing a Script node in <strong>Transform mode</strong> inside a loop body</li>
+  <li>Using <strong>Aggregate node</strong> with <code>concat</code> and <code>sum</code> strategies</li>
+  <li>Writing a Script node in <strong>Generate mode</strong> to create a report</li>
+  <li>Connecting Loop <strong>body</strong> (iteration) vs. <strong>done</strong> (post-loop) branches</li>
+  <li>Updating a pagination offset variable (<code>pageIndex</code>) inside the Script</li>
+  <li>Using a <strong>Condition node</strong> for threshold-based decision making</li>
+  <li>How <strong>multiple Script nodes</strong> work together in a pipeline</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌──────────────────┐
+  │      Start       │  pageSize=3, totalPages=3
+  └────────┬─────────┘
+           ▼
+  ┌──────────────────┐
+  │  1. Init Counters│  pageIndex=0, allTitles=[], totalWordCount=0
+  │  (SetVariable)   │
+  └────────┬─────────┘
+           ▼
+  ┌──────────────────────────────────────────────────────────┐
+  │  2. Page Loop (count=3)                                  │
+  │                                                          │
+  │  ┌─── body (runs 3×) ────────────────────────────────┐   │
+  │  │                                                    │   │
+  │  │  ┌───────────────────┐                             │   │
+  │  │  │ 2a. Fetch Page    │  GET /posts?_start=N&       │   │
+  │  │  │    (HTTP)         │      _limit=3               │   │
+  │  │  │  → pageJson       │                             │   │
+  │  │  └────────┬──────────┘                             │   │
+  │  │           ▼                                        │   │
+  │  │  ┌───────────────────┐                             │   │
+  │  │  │ 2b. Transform     │  Script (transform)        │   │
+  │  │  │    Page           │  → pageTitles (JSON array)  │   │
+  │  │  │                   │  → pageWordCount (number)   │   │
+  │  │  │                   │  → pageIndex (incremented)  │   │
+  │  │  └────────┬──────────┘                             │   │
+  │  │           ▼                                        │   │
+  │  │  ┌───────────────────┐                             │   │
+  │  │  │ 2c. Collect       │  Aggregate:                 │   │
+  │  │  │    Results        │  allTitles += pageTitles     │   │
+  │  │  │  (Aggregate)      │  totalWordCount += pageWC   │   │
+  │  │  └───────────────────┘                             │   │
+  │  └────────────────────────────────────────────────────┘   │
+  │                                                          │
+  │  ┌─── done (after 3 iterations) ─────────────────────┐   │
+  │  │                                                    │   │
+  │  │  ┌───────────────────┐                             │   │
+  │  │  │ 3. Generate       │  Script (generate)          │   │
+  │  │  │    Report         │  → reportJson, postCount,   │   │
+  │  │  │                   │    wordCount                │   │
+  │  │  └────────┬──────────┘                             │   │
+  │  │           ▼                                        │   │
+  │  │  ┌───────────────────┐                             │   │
+  │  │  │ 4. Worth          │  {{wordCount}} > "100"      │   │
+  │  │  │ Publishing?       │                             │   │
+  │  │  │  (Condition)      │                             │   │
+  │  │  └───┬───────────┬───┘                             │   │
+  │  │   Yes│           │No                               │   │
+  │  │      ▼           ▼                                 │   │
+  │  │ ┌──────────┐ ┌──────────────┐                      │   │
+  │  │ │5a.Publish│ │5b. Skip —    │                      │   │
+  │  │ │ Report   │ │ Too Short    │                      │   │
+  │  │ │(HTTP     │ │ (LogDebug)   │                      │   │
+  │  │ │ POST)    │ │              │                      │   │
+  │  │ └────┬─────┘ └──────┬───────┘                      │   │
+  │  │      └──────┬───────┘                              │   │
+  │  └─────────────┼──────────────────────────────────────┘   │
+  └────────────────┼──────────────────────────────────────────┘
+                   ▼
+           ┌──────────┐
+           │   Done   │
+           │  (End)   │
+           └──────────┘
+</div>
+
+<p>
+  <strong>11 nodes, 11 edges</strong> — a two-phase pipeline. Phase 1 (loop body) extracts
+  and aggregates page-by-page. Phase 2 (loop done) generates a report and decides whether
+  to publish it.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h4><span class="step-num">S</span> Start Node</h4>
+<table>
+  <tr><td><strong>Input Variables</strong></td><td><code>pageSize</code> = <code>"3"</code>, <code>totalPages</code> = <code>"3"</code></td></tr>
+</table>
+<p>
+  Configures the pagination parameters. <code>pageSize</code> controls how many posts per
+  API call. <code>totalPages</code> is informational (the loop count is set separately).
+</p>
+
+<h4><span class="step-num">1</span> Init Counters (SetVariable Node)</h4>
+<table>
+  <tr><td><code>pageIndex</code></td><td><code>0</code> — the starting offset for pagination</td></tr>
+  <tr><td><code>allTitles</code></td><td><code>[]</code> — empty JSON array to collect titles</td></tr>
+  <tr><td><code>totalWordCount</code></td><td><code>0</code> — running word count accumulator</td></tr>
+</table>
+<p>
+  Initializes the variables that will be updated by the loop body. Without this, the
+  Aggregate node's first iteration would not have valid starting values.
+</p>
+
+<div class="callout">
+  <strong>📘 Why Initialize Before the Loop?</strong>
+  The Aggregate node reads the current value of its target variables. On the first iteration,
+  if <code>allTitles</code> doesn't exist, the <code>concat</code> strategy would try to parse
+  <code>undefined</code> — initializing to <code>[]</code> ensures clean accumulation from
+  the start.
+</div>
+
+<h4><span class="step-num">2</span> Page Loop (Loop Node)</h4>
+<table>
+  <tr><td><strong>Mode</strong></td><td>count</td></tr>
+  <tr><td><strong>Count</strong></td><td>3</td></tr>
+  <tr><td><strong>Max Iterations</strong></td><td>10 (safety limit)</td></tr>
+</table>
+<p>
+  Executes the body branch 3 times (one per "page"). Each iteration fetches a different
+  page of posts, transforms it, and aggregates results. After 3 iterations, the <strong>done</strong>
+  branch executes.
+</p>
+
+<h4><span class="step-num">2a</span> Fetch Page (HTTP Node) — <em>Loop Body</em></h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts?_start={{pageIndex}}&amp;_limit={{pageSize}}</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>pageJson</code> ← body <code>$</code></td></tr>
+</table>
+<p>
+  Fetches posts with pagination. On iteration 1: <code>_start=0&amp;_limit=3</code>,
+  on iteration 2: <code>_start=3&amp;_limit=3</code>, on iteration 3: <code>_start=6&amp;_limit=3</code>.
+  The <code>pageIndex</code> variable is updated by the Script node at the end of each iteration.
+</p>
+
+<h4><span class="step-num">2b</span> Transform Page (Script Node) — <em>Key Node 1</em></h4>
+<table>
+  <tr><td><strong>Mode</strong></td><td>Transform <span class="badge badge-transform">Transform</span></td></tr>
+  <tr><td><strong>Input Variables</strong></td><td><code>pageJson</code>, <code>pageIndex</code>, <code>pageSize</code></td></tr>
+  <tr><td><strong>Output Variables</strong></td><td><code>pageTitles</code>, <code>pageWordCount</code>, <code>pageIndex</code></td></tr>
+  <tr><td><strong>Timeout</strong></td><td>5,000 ms</td></tr>
+  <tr><td><strong>Console Capture</strong></td><td>Enabled</td></tr>
+</table>
+<p>
+  Extracts post titles and counts words from each page. Also increments <code>pageIndex</code>
+  by <code>pageSize</code> for the next iteration's HTTP URL. See
+  <a href="#script1">Script 1 Deep Dive</a>.
+</p>
+
+<div class="callout callout-warn">
+  <strong>⚠ Script Updates the Loop Counter</strong>
+  Notice that <code>pageIndex</code> appears in both <code>inputVariables</code> and
+  <code>outputVariables</code>. The script reads the current value, adds <code>pageSize</code>,
+  and writes the new value back. This is the pagination mechanism — the next HTTP call
+  will use the updated <code>pageIndex</code>.
+</div>
+
+<h4><span class="step-num">2c</span> Collect Results (Aggregate Node)</h4>
+<table>
+  <tr><th>Source</th><th>Target</th><th>Strategy</th></tr>
+  <tr><td><code>{{pageTitles}}</code></td><td><code>allTitles</code></td><td><code>concat</code></td></tr>
+  <tr><td><code>{{pageWordCount}}</code></td><td><code>totalWordCount</code></td><td><code>sum</code></td></tr>
+</table>
+<p>
+  Accumulates results across loop iterations. See <a href="#aggregate">Aggregate Deep Dive</a>
+  for how <code>concat</code> and <code>sum</code> strategies work.
+</p>
+
+<h4><span class="step-num">3</span> Generate Report (Script Node) — <em>Key Node 2</em></h4>
+<table>
+  <tr><td><strong>Mode</strong></td><td>Generate <span class="badge badge-generate">Generate</span></td></tr>
+  <tr><td><strong>Input Variables</strong></td><td><code>allTitles</code>, <code>totalWordCount</code></td></tr>
+  <tr><td><strong>Output Variables</strong></td><td><code>reportJson</code>, <code>postCount</code>, <code>wordCount</code></td></tr>
+  <tr><td><strong>Timeout</strong></td><td>5,000 ms</td></tr>
+  <tr><td><strong>Console Capture</strong></td><td>Enabled</td></tr>
+</table>
+<p>
+  Executes on the Loop's <strong>done</strong> branch (after all 3 iterations). Receives
+  the aggregated data and builds a JSON summary report. See <a href="#script2">Script 2 Deep Dive</a>.
+</p>
+
+<h4><span class="step-num">4</span> Worth Publishing? (Condition Node)</h4>
+<table>
+  <tr><td><strong>Left</strong></td><td><code>{{wordCount}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>&gt;</code></td></tr>
+  <tr><td><strong>Right</strong></td><td><code>100</code></td></tr>
+</table>
+<p>
+  Checks if the total word count exceeds the publishing threshold (100 words).
+  With 3 pages × 3 posts each, the total word count from JSONPlaceholder data is
+  well above 100, so this will typically take the <strong>Yes</strong> branch.
+</p>
+
+<h4><span class="step-num">5a</span> Publish Report (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>POST</td></tr>
+  <tr><td><strong>Body</strong></td><td><code>{{reportJson}}</code></td></tr>
+</table>
+<p>POSTs the generated report JSON to the API. In a real scenario, this would go to a reporting or analytics endpoint.</p>
+
+<h4><span class="step-num">5b</span> Skip — Too Short (LogDebug Node)</h4>
+<table>
+  <tr><td><strong>Message</strong></td><td><code>Report has only {{wordCount}} words (threshold: 100). Skipping publish.</code></td></tr>
+  <tr><td><strong>Log Level</strong></td><td>warn</td></tr>
+</table>
+<p>
+  Executes when the word count doesn't meet the threshold. Logs a warning explaining why
+  the report was skipped.
+</p>
+
+<h4><span class="step-num">E</span> Done (End Node)</h4>
+<p>Both branches (publish and skip) converge at the End node.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. SCRIPT 1 DEEP DIVE                       -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="script1">5. Script 1 Deep Dive: Transform Page</h2>
+
+<pre>
+<span class="comment">// Parse the page of posts and extract titles + word counts</span>
+<span class="keyword">const</span> posts = JSON.parse(input.pageJson);
+<span class="keyword">const</span> currentPage = parseInt(input.pageIndex) || 0;
+<span class="keyword">const</span> pageSize = parseInt(input.pageSize) || 3;
+
+<span class="keyword">const</span> titles = posts.map(<span class="keyword">function</span>(p) { <span class="keyword">return</span> p.title; });
+<span class="keyword">let</span> wordCount = 0;
+<span class="keyword">for</span> (<span class="keyword">const</span> p <span class="keyword">of</span> posts) {
+  wordCount += p.body.split(<span class="string">/\s+/</span>).length;
+}
+
+output.pageTitles = JSON.stringify(titles);
+output.pageWordCount = String(wordCount);
+output.pageIndex = String(currentPage + pageSize);
+
+console.log(<span class="string">"Page "</span> + (currentPage / pageSize + 1)
+  + <span class="string">": "</span> + posts.length + <span class="string">" posts, "</span>
+  + wordCount + <span class="string">" words"</span>);</pre>
+
+<h3>Line-by-Line Explanation</h3>
+<table>
+  <tr><th>Lines</th><th>What It Does</th></tr>
+  <tr>
+    <td><code>JSON.parse(input.pageJson)</code></td>
+    <td>Deserializes the page of posts (array of 3 objects with <code>title</code> and <code>body</code>).</td>
+  </tr>
+  <tr>
+    <td><code>parseInt(input.pageIndex) || 0</code></td>
+    <td>Parses the current pagination offset. Falls back to 0 if undefined. On first iteration, this is <code>0</code>.</td>
+  </tr>
+  <tr>
+    <td><code>posts.map(function(p) { return p.title; })</code></td>
+    <td>Extracts an array of post titles from the page. Uses <code>function</code> syntax for compatibility.</td>
+  </tr>
+  <tr>
+    <td><code>p.body.split(/\s+/).length</code></td>
+    <td>Counts words in each post body by splitting on whitespace. Sums across all posts on the page.</td>
+  </tr>
+  <tr>
+    <td><code>output.pageTitles = JSON.stringify(titles)</code></td>
+    <td>Exports the titles array as a JSON string. The Aggregate node will use <code>concat</code> to merge across iterations.</td>
+  </tr>
+  <tr>
+    <td><code>output.pageIndex = String(currentPage + pageSize)</code></td>
+    <td><strong>Key: advances the pagination offset.</strong> After page 1 (offset=0), sets to 3. After page 2 (offset=3), sets to 6. This value is used in the next iteration's HTTP URL.</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. AGGREGATE DEEP DIVE                      -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="aggregate">6. Aggregate Deep Dive</h2>
+<p>
+  The Aggregate node runs once per loop iteration, accumulating values across iterations.
+  This sample uses two aggregation strategies:
+</p>
+
+<h3>Strategy: <code>concat</code> (allTitles)</h3>
+<table>
+  <tr><th>Iteration</th><th>pageTitles (source)</th><th>allTitles (before)</th><th>allTitles (after)</th></tr>
+  <tr>
+    <td>1</td>
+    <td><code>["title-1","title-2","title-3"]</code></td>
+    <td><code>[]</code></td>
+    <td><code>[["title-1","title-2","title-3"]]</code></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><code>["title-4","title-5","title-6"]</code></td>
+    <td><code>[["title-1",...]]</code></td>
+    <td><code>[["title-1",...],["title-4",...]]</code></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><code>["title-7","title-8","title-9"]</code></td>
+    <td><code>[...2 arrays...]</code></td>
+    <td><code>[...3 arrays of titles...]</code></td>
+  </tr>
+</table>
+<p>
+  The <code>concat</code> strategy parses the existing target as a JSON array, then pushes
+  the new source value. Since <code>pageTitles</code> is itself a JSON array, the result
+  is a <strong>nested array</strong> — the report generator script handles this with
+  <code>JSON.parse()</code>.
+</p>
+
+<h3>Strategy: <code>sum</code> (totalWordCount)</h3>
+<table>
+  <tr><th>Iteration</th><th>pageWordCount</th><th>totalWordCount (before)</th><th>totalWordCount (after)</th></tr>
+  <tr><td>1</td><td><code>45</code></td><td><code>0</code></td><td><code>45</code></td></tr>
+  <tr><td>2</td><td><code>52</code></td><td><code>45</code></td><td><code>97</code></td></tr>
+  <tr><td>3</td><td><code>48</code></td><td><code>97</code></td><td><code>145</code></td></tr>
+</table>
+<p>
+  The <code>sum</code> strategy parses both values as floats and adds them.
+  After 3 iterations, <code>totalWordCount</code> contains the total across all pages.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. SCRIPT 2 DEEP DIVE                       -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="script2">7. Script 2 Deep Dive: Generate Report</h2>
+
+<pre>
+<span class="comment">// Build a summary report from aggregated data</span>
+<span class="keyword">let</span> titles;
+<span class="keyword">try</span> { titles = JSON.parse(input.allTitles); }
+<span class="keyword">catch</span>(e) { titles = []; }
+<span class="keyword">const</span> wordCount = parseInt(input.totalWordCount) || 0;
+
+<span class="keyword">const</span> report = {
+  generatedAt: <span class="keyword">new</span> Date().toISOString(),
+  totalPosts: titles.length,
+  totalWordCount: wordCount,
+  avgWordsPerPost: titles.length > 0
+    ? Math.round(wordCount / titles.length) : 0,
+  topTitles: titles.slice(0, 5),
+};
+
+output.reportJson = JSON.stringify(report, <span class="keyword">null</span>, 2);
+output.postCount = String(report.totalPosts);
+output.wordCount = String(report.totalWordCount);
+
+console.log(<span class="string">"Report: "</span> + report.totalPosts
+  + <span class="string">" posts, "</span> + report.totalWordCount + <span class="string">" words"</span>);
+console.log(<span class="string">"Avg: "</span> + report.avgWordsPerPost
+  + <span class="string">" words/post"</span>);</pre>
+
+<h3>Line-by-Line Explanation</h3>
+<table>
+  <tr><th>Lines</th><th>What It Does</th></tr>
+  <tr>
+    <td><code>try { JSON.parse(input.allTitles) } catch { [] }</code></td>
+    <td>Safely parses the aggregated titles array. The try/catch handles the case where the value isn't valid JSON (defensive coding).</td>
+  </tr>
+  <tr>
+    <td><code>parseInt(input.totalWordCount) || 0</code></td>
+    <td>Parses the aggregated word count. Falls back to 0 if not a valid number.</td>
+  </tr>
+  <tr>
+    <td><code>const report = { ... }</code></td>
+    <td>Builds the report object with a timestamp, totals, averages, and the top 5 titles.</td>
+  </tr>
+  <tr>
+    <td><code>output.reportJson = JSON.stringify(report, null, 2)</code></td>
+    <td>Pretty-prints the report JSON. This is used as the body for the POST request if the threshold is met.</td>
+  </tr>
+  <tr>
+    <td><code>output.wordCount = String(...)</code></td>
+    <td>Exports the word count as a separate variable for the downstream Condition node to check against the threshold.</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Generate vs. Transform</strong>
+  This script uses <strong>Generate</strong> mode even though it works identically to Transform.
+  The distinction is semantic: this script <em>creates new content</em> (the report) rather
+  than reshaping existing data. Use Generate mode for report builders, message formatters,
+  payload constructors, and other content-creation scripts.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. VARIABLE FLOW                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="variables">8. Variable Flow Across Loop Iterations</h2>
+
+<h3>Before Loop (after Init)</h3>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>pageSize</code></td><td><code>3</code></td></tr>
+  <tr><td><code>pageIndex</code></td><td><code>0</code></td></tr>
+  <tr><td><code>allTitles</code></td><td><code>[]</code></td></tr>
+  <tr><td><code>totalWordCount</code></td><td><code>0</code></td></tr>
+</table>
+
+<h3>After Loop Iteration 1</h3>
+<table>
+  <tr><th>Variable</th><th>Value</th><th>Changed By</th></tr>
+  <tr><td><code>pageIndex</code></td><td><code>3</code></td><td>Script (0 + 3)</td></tr>
+  <tr><td><code>pageTitles</code></td><td><code>["sunt aut...","qui est...","ea molestias..."]</code></td><td>Script</td></tr>
+  <tr><td><code>pageWordCount</code></td><td><code>~45</code></td><td>Script</td></tr>
+  <tr><td><code>allTitles</code></td><td><code>[["sunt aut...","qui est...","ea molestias..."]]</code></td><td>Aggregate (concat)</td></tr>
+  <tr><td><code>totalWordCount</code></td><td><code>~45</code></td><td>Aggregate (sum)</td></tr>
+</table>
+
+<h3>After Loop Iteration 3 (Final)</h3>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>pageIndex</code></td><td><code>9</code></td></tr>
+  <tr><td><code>allTitles</code></td><td><code>[[...3 titles],[...3 titles],[...3 titles]]</code></td></tr>
+  <tr><td><code>totalWordCount</code></td><td><code>~145</code></td></tr>
+</table>
+
+<h3>After Report Script</h3>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>reportJson</code></td><td>Pretty-printed JSON report object</td></tr>
+  <tr><td><code>postCount</code></td><td><code>3</code> (number of title arrays)</td></tr>
+  <tr><td><code>wordCount</code></td><td><code>~145</code></td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 9. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">9. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"📊 Script: Data Pipeline &amp; Report"</strong>
+    in the <em>Advanced</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually (11 steps): —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Name it "Data Pipeline". Set Start inputs: <code>pageSize=3</code>, <code>totalPages=3</code>.
+  </li>
+  <li>
+    <strong>Add the SetVariable node.</strong><br>
+    Initialize: <code>pageIndex=0</code>, <code>allTitles=[]</code>, <code>totalWordCount=0</code>.
+    Connect Start → SetVariable.
+  </li>
+  <li>
+    <strong>Add the Loop node.</strong><br>
+    Set mode to <code>count</code>, count to <code>3</code>, max iterations to <code>10</code>.
+    Connect SetVariable → Loop.
+  </li>
+  <li>
+    <strong>Build the loop body: HTTP node.</strong><br>
+    Connect Loop's <strong>body</strong> handle to an HTTP node:
+    <ul>
+      <li>URL: <code>https://jsonplaceholder.typicode.com/posts?_start={{pageIndex}}&amp;_limit={{pageSize}}</code></li>
+      <li>Extraction: <code>pageJson</code> ← body <code>$</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Build the loop body: Script (Transform) node.</strong><br>
+    Connect HTTP → Script:
+    <ul>
+      <li>Mode: Transform</li>
+      <li>Inputs: <code>pageJson</code>, <code>pageIndex</code>, <code>pageSize</code></li>
+      <li>Outputs: <code>pageTitles</code>, <code>pageWordCount</code>, <code>pageIndex</code></li>
+      <li>Code: Copy from <a href="#script1">Script 1 Deep Dive</a></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Build the loop body: Aggregate node.</strong><br>
+    Connect Script → Aggregate:
+    <ul>
+      <li>Mapping 1: <code>{{pageTitles}}</code> → <code>allTitles</code> (concat)</li>
+      <li>Mapping 2: <code>{{pageWordCount}}</code> → <code>totalWordCount</code> (sum)</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Build the done branch: Script (Generate) node.</strong><br>
+    Connect Loop's <strong>done</strong> handle to a Script node:
+    <ul>
+      <li>Mode: Generate</li>
+      <li>Inputs: <code>allTitles</code>, <code>totalWordCount</code></li>
+      <li>Outputs: <code>reportJson</code>, <code>postCount</code>, <code>wordCount</code></li>
+      <li>Code: Copy from <a href="#script2">Script 2 Deep Dive</a></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Connect Script → Condition:
+    <ul>
+      <li>Left: <code>{{wordCount}}</code>, Operator: <code>&gt;</code>, Right: <code>100</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add the two outcome nodes.</strong><br>
+    <ul>
+      <li>Yes → HTTP POST to <code>.../posts</code> with body <code>{{reportJson}}</code></li>
+      <li>No → LogDebug with warning about skipped publish</li>
+    </ul>
+    Connect both to the End node.
+  </li>
+  <li>
+    <strong>Test.</strong><br>
+    Click Quick Test. Watch the console for 3 page iterations, then the report generation.
+    The condition should pass (word count &gt; 100) and the report should be POSTed.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 10. EXPECTED RESULTS                        -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="expected-results">10. Expected Execution Results</h2>
+
+<h3>Console Output</h3>
+<pre>
+# [1. Init Counters] Set 3 variable(s)
+# [2. Page Loop] Loop iteration 1/3
+# [2a. Fetch Page] HTTP GET 200 — 1 extraction(s)
+# [2b. Transform Page] Executing script (transform)...
+# [2b. Transform Page] console: Page 1: 3 posts, 45 words
+# [2c. Collect Results] Aggregated 2 mapping(s)
+# [2. Page Loop] Loop iteration 2/3
+# [2a. Fetch Page] HTTP GET 200 — 1 extraction(s)
+# [2b. Transform Page] Executing script (transform)...
+# [2b. Transform Page] console: Page 2: 3 posts, 52 words
+# [2c. Collect Results] Aggregated 2 mapping(s)
+# [2. Page Loop] Loop iteration 3/3
+# [2a. Fetch Page] HTTP GET 200 — 1 extraction(s)
+# [2b. Transform Page] Executing script (transform)...
+# [2b. Transform Page] console: Page 3: 3 posts, 48 words
+# [2c. Collect Results] Aggregated 2 mapping(s)
+# [3. Generate Report] Executing script (generate)...
+# [3. Generate Report] console: Report: 3 posts, 145 words
+# [3. Generate Report] console: Avg: 48 words/post
+# [5a. Publish Report] HTTP POST 201</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>pageSize=3</td></tr>
+  <tr><td>1. Init Counters</td><td>✅ Pass</td><td>3 vars set</td></tr>
+  <tr><td>2. Page Loop</td><td>✅ Pass</td><td>3/3 iterations</td></tr>
+  <tr><td>2a. Fetch Page</td><td>✅ Pass (×3)</td><td>HTTP 200 each</td></tr>
+  <tr><td>2b. Transform Page</td><td>✅ Pass (×3)</td><td>3 outputs each</td></tr>
+  <tr><td>2c. Collect Results</td><td>✅ Pass (×3)</td><td>2 mappings each</td></tr>
+  <tr><td>3. Generate Report</td><td>✅ Pass</td><td>3 outputs</td></tr>
+  <tr><td>4. Worth Publishing?</td><td>✅ Pass (true)</td><td>145 &gt; 100</td></tr>
+  <tr><td>5a. Publish Report</td><td>✅ Pass</td><td>HTTP 201</td></tr>
+  <tr><td>5b. Skip</td><td>⏭ Skipped</td><td>(threshold met)</td></tr>
+  <tr><td>Done</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Generated Report (Example)</h3>
+<pre>
+{
+  "generatedAt": "2026-04-26T18:30:00.000Z",
+  "totalPosts": 3,
+  "totalWordCount": 145,
+  "avgWordsPerPost": 48,
+  "topTitles": [
+    ["sunt aut facere...", "qui est esse", "ea molestias..."],
+    ["eum et est occaecati", "nesciunt quas odio", "dolorem eum..."],
+    ["magnam facilis autem", "dolorem dolore est...", "nesciunt iure omnis"]
+  ]
+}</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 11. EXERCISES                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="exercises">11. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Change the Page Size</h3>
+<p>
+  Set <code>pageSize=10</code> and <code>count=5</code>. Observe how the word count changes.
+  Does the threshold still pass?
+</p>
+
+<h3>Exercise 2: Flatten the Titles</h3>
+<p>
+  The report's <code>topTitles</code> is currently a nested array (array of arrays).
+  Modify the Generate Report script to flatten it into a single array using
+  <code>titles.flat()</code> before slicing the top 5.
+</p>
+
+<h3>Exercise 3: Add Error Handling</h3>
+<p>
+  Wrap the Loop in an ErrorHandler. If any page fetch fails (e.g., change the URL to
+  an invalid one for page 2), the catch branch should log which page failed and the
+  done branch should still generate a partial report.
+</p>
+
+<h3>Exercise 4: Dynamic Threshold</h3>
+<p>
+  Add a <code>publishThreshold</code> input variable to the Start node. Update the
+  Condition to use <code>{{publishThreshold}}</code> instead of the hardcoded <code>100</code>.
+  Test with different threshold values.
+</p>
+
+<h3>Exercise 5: Add a Validate Step</h3>
+<p>
+  After the Generate Report script, add another Script node in <strong>Validate mode</strong>
+  that checks whether the report has valid data (e.g., <code>postCount &gt; 0</code> and
+  <code>wordCount &gt; 0</code>). Only proceed to the publish threshold if validation passes.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Mastery Check</strong>
+  If you can complete all 5 exercises, you've mastered the Script node's three modes,
+  Loop + Aggregate patterns, and conditional pipeline logic. You're ready to build
+  production-grade data processing workflows!
+</div>
+
+<footer>
+  RedfireForge v0.5.4 — Script: Data Pipeline &amp; Report Training Guide — April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>
