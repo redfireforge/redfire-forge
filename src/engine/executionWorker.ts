@@ -1,6 +1,6 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
-import type { HttpResponse } from '../utils/httpClient';
-import { setHttpTransport } from '../utils/httpClient';
+import type { HttpResponse } from '../shared/utils/httpClient';
+import { setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
 
 interface WorkerContext {

@@ -156,18 +156,17 @@ test.describe('Template Gallery Modal', () => {
     await openGallery(page);
     await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
 
-    // Check count badges on category tabs
-    const basicsCount = page.locator('.tg-tab', { hasText: 'Basics' }).locator('.tg-tab-count');
-    await expect(basicsCount).toHaveText('3');
+    const categories = ['Basics', 'Triggers', 'Logic', 'Advanced'] as const;
 
-    const triggersCount = page.locator('.tg-tab', { hasText: 'Triggers' }).locator('.tg-tab-count');
-    await expect(triggersCount).toHaveText('2');
+    for (const category of categories) {
+      const tab = page.locator('.tg-tab', { hasText: category });
+      const badge = tab.locator('.tg-tab-count');
+      const expectedCount = await badge.textContent();
+      expect(expectedCount).toBeTruthy();
 
-    const logicCount = page.locator('.tg-tab', { hasText: 'Logic' }).locator('.tg-tab-count');
-    await expect(logicCount).toHaveText('2');
-
-    const advancedCount = page.locator('.tg-tab', { hasText: 'Advanced' }).locator('.tg-tab-count');
-    await expect(advancedCount).toHaveText('4');
+      await tab.click();
+      await expect(page.locator('.tg-card')).toHaveCount(Number(expectedCount));
+    }
   });
 });
 

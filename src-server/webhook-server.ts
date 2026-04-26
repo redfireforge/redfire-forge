@@ -8,9 +8,9 @@ import {
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
-import type { WebhookTriggerNodeData } from '../src/types/workflow.js';
-import type { LogLine } from '../src/types/server-api.js';
-import { generateExecutionId, getErrorMessage } from '../src/utils/serverFormatters.js';
+import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
+import type { LogLine } from '../src/shared/types/server-api';
+import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
 
 const app = express();
 

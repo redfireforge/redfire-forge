@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getByPath, validate, evaluateAssertions, matchesStatusPattern } from './validator';
-import type { Assertion } from '../types';
+import type { Assertion } from '../shared/types';
 
 // ---------------------------------------------------------------------------
 // getByPath
@@ -954,5 +954,227 @@ describe('evaluateAssertions — regex assertion edge cases', () => {
       ctx
     );
     expect(failures).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional branch coverage tests
+// ---------------------------------------------------------------------------
+
+describe('getByPath – edge cases', () => {
+  it('returns root object for $ path', () => {
+    const obj = { a: 1 };
+    expect(getByPath(obj, '$')).toEqual({ a: 1 });
+  });
+
+  it('handles [*] on non-array returns undefined', () => {
+    expect(getByPath({ a: 'hello' }, 'a[*]')).toBeUndefined();
+  });
+
+  it('handles .length on arrays', () => {
+    expect(getByPath([1, 2, 3], 'length')).toBe(3);
+  });
+
+  it('handles path with unclosed bracket gracefully', () => {
+    // unclosed bracket causes tokenizer to break early, returns root
+    expect(getByPath({ a: 1 }, '[unclosed')).toEqual({ a: 1 });
+  });
+
+  it('handles walkPath on primitive', () => {
+    expect(getByPath('hello', 'length')).toBeUndefined();
+  });
+
+  it('handles non-numeric key on array', () => {
+    expect(getByPath([1, 2, 3], 'foo')).toBeUndefined();
+  });
+
+  it('handles [*] at last position returns full array', () => {
+    expect(getByPath({ items: [1, 2, 3] }, 'items[*]')).toEqual([1, 2, 3]);
+  });
+});
+
+describe('validate – tryRemapPaths', () => {
+  it('remaps paths when response is array and fields have wrapper prefix', () => {
+    const response = [{ name: 'Alice' }, { name: 'Bob' }];
+    const result = validate(
+      {
+        mode: 'selective',
+        expectedFields: [{ jsonPath: 'users[0].name', expectedValue: 'Alice' }],
+      },
+      response
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it('remaps paths when response wraps array in key', () => {
+    const response = { data: [{ name: 'Alice' }] };
+    const result = validate(
+      {
+        mode: 'selective',
+        expectedFields: [{ jsonPath: '[0].name', expectedValue: 'Alice' }],
+      },
+      response
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it('validates null responseBody returns failures for selective mode', () => {
+    const result = validate(
+      {
+        mode: 'selective',
+        expectedFields: [{ jsonPath: 'a', expectedValue: '1' }],
+      },
+      null
+    );
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe('evaluateAssertions – header operator edge cases', () => {
+  const baseCtx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseBody: {},
+    responseHeaders: { 'X-Custom': 'hello-world' },
+  };
+
+  it('header contains operator', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'X-Custom', operator: 'contains', value: 'hello' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header contains fails when header missing', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'Missing', operator: 'contains', value: 'x' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header regex operator', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'X-Custom', operator: 'regex', value: 'hello.*' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(0);
+  });
+
+  it('header regex with invalid pattern', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'X-Custom', operator: 'regex', value: '[invalid' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header unknown operator', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'X-Custom', operator: 'unknown-op', value: 'x' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header regex fails when header missing', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'Missing', operator: 'regex', value: '.*' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('regex assertion with invalid regex pattern', () => {
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: '$', pattern: '[invalid' } as Assertion],
+      baseCtx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toContain('invalid regex');
+  });
+
+  it('regex assertion with non-string value uses JSON.stringify', () => {
+    const ctx = { ...baseCtx, responseBody: { count: 42 } };
+    const { failures } = evaluateAssertions(
+      [{ type: 'regex', jsonPath: 'count', pattern: '^42$' } as Assertion],
+      ctx
+    );
+    expect(failures).toHaveLength(0);
+  });
+});
+
+describe('validate – full mode edge cases', () => {
+  it('returns parse error for invalid expectedJson', () => {
+    const result = validate({ mode: 'full', expectedJson: '{invalid' }, {});
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe('(parse)');
+  });
+
+  it('deep compare arrays of different lengths', () => {
+    const result = validate({ mode: 'full', expectedJson: '[1,2,3]' }, [1, 2]);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('deep compare array vs non-array', () => {
+    const result = validate({ mode: 'full', expectedJson: '[1]' }, { a: 1 });
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('deep compare null vs value', () => {
+    const result = validate({ mode: 'full', expectedJson: 'null' }, { a: 1 });
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe('validate – unordered arrays', () => {
+  it('validates unordered array with partial match reports best partial', () => {
+    const response = [
+      { name: 'Alice', code: 'A1' },
+      { name: 'Bob', code: 'B1' },
+    ];
+    const result = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '[0].name', expectedValue: 'Alice' },
+          { jsonPath: '[0].code', expectedValue: 'WRONG' },
+        ],
+      },
+      response
+    );
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('validates unordered array with no match at all', () => {
+    const response = [{ name: 'Alice' }];
+    const result = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '[0].name', expectedValue: 'Charlie' },
+        ],
+      },
+      response
+    );
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('non-array fields pass through unordered validation', () => {
+    const response = { status: 'ok', items: [{ id: 1 }] };
+    const result = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: 'status', expectedValue: 'ok' },
+        ],
+      },
+      response
+    );
+    expect(result).toHaveLength(0);
   });
 });

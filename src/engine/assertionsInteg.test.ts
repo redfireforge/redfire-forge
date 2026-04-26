@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, Assertion } from '../types';
+import type { Scenario, Assertion } from '../shared/types';
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-vi.mock('../utils/bodySerializer', () => ({
+vi.mock('../shared/utils/bodySerializer', () => ({
   serializeWithContentType: (s: Scenario) => ({ body: s.body || undefined, contentType: 'application/json' }),
   getEffectiveBodyType: () => 'json',
 }));
 
-import { httpFetch } from '../utils/httpClient';
+import { httpFetch } from '../shared/utils/httpClient';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 

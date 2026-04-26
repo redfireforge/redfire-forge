@@ -1,0 +1,31 @@
+{
+  "src/components/catalog/CatalogAuthPanel.tsx": "src/features/catalog/components/CatalogAuthPanel.tsx",
+  "src/components/catalog/CatalogEditModal.tsx": "src/features/catalog/components/CatalogEditModal.tsx",
+  "src/components/catalog/CatalogEndpointBrowser.tsx": "src/features/catalog/components/CatalogEndpointBrowser.tsx",
+  "src/components/catalog/CatalogEndpointCard.tsx": "src/features/catalog/components/CatalogEndpointCard.tsx",
+  "src/components/catalog/CatalogImportModal.tsx": "src/features/catalog/components/CatalogImportModal.tsx",
+  "src/components/catalog/CatalogOverview.tsx": "src/features/catalog/components/CatalogOverview.tsx",
+  "src/components/catalog/CatalogSendToRequestsModal.tsx": "src/features/catalog/components/CatalogSendToRequestsModal.tsx",
+  "src/components/catalog/CatalogSidebar.tsx": "src/features/catalog/components/CatalogSidebar.tsx",
+  "src/components/catalog/CatalogVersionDiff.tsx": "src/features/catalog/components/CatalogVersionDiff.tsx",
+  "src/components/catalog/CatalogVersionHistory.tsx": "src/features/catalog/components/CatalogVersionHistory.tsx",
+  "src/components/catalog/CatalogWelcome.tsx": "src/features/catalog/components/CatalogWelcome.tsx",
+
+  "src/hooks/useCatalog.ts": "src/features/catalog/hooks/useCatalog.ts",
+
+  "src/utils/catalogExport.ts": "src/features/catalog/utils/catalogExport.ts",
+  "src/utils/catalogExport.test.ts": "src/features/catalog/utils/catalogExport.test.ts",
+  "src/utils/catalogCurlGenerator.ts": "src/features/catalog/utils/catalogCurlGenerator.ts",
+  "src/utils/catalogCurlGenerator.test.ts": "src/features/catalog/utils/catalogCurlGenerator.test.ts",
+  "src/utils/catalogSpecDiff.ts": "src/features/catalog/utils/catalogSpecDiff.ts",
+  "src/utils/catalogSpecDiff.test.ts": "src/features/catalog/utils/catalogSpecDiff.test.ts",
+  "src/utils/catalogStorage.test.ts": "src/features/catalog/utils/catalogStorage.test.ts",
+  "src/utils/openApiParser.ts": "src/features/catalog/utils/openApiParser.ts",
+  "src/utils/openApiParser.test.ts": "src/features/catalog/utils/openApiParser.test.ts",
+  "src/utils/schemaStubGenerator.ts": "src/features/catalog/utils/schemaStubGenerator.ts",
+  "src/utils/schemaStubGenerator.test.ts": "src/features/catalog/utils/schemaStubGenerator.test.ts",
+
+  "src/types/catalog.ts": "src/features/catalog/types/catalog.ts",
+
+  "src/pages/ApiCatalog.tsx": "src/features/catalog/ApiCatalog.tsx"
+}

@@ -38,12 +38,13 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 ### Positioning Recommendation
 
 - **Current tagline**: "API Performance Studio" — overpromises on raw load-generation capability
+
 - **Recommended tagline**: "Visual API Testing Workbench" or "API Testing Studio"
 - **Elevator pitch**: "Build API tests visually, validate responses with precision, run them under load — all from a modern desktop app or your browser. The JMeter replacement for teams who hate XML."
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 2143 unit/integration tests (Vitest, 98.11% line coverage, 90.2% branch coverage) + 180 E2E tests (Playwright) = 2323 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 2991 unit/integration tests (Vitest, 96.69% line coverage, 90.03% branch coverage) + 180 E2E tests (Playwright) = 3171 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -172,7 +173,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (728 tests, 91.5% line coverage, <2s) + Playwright E2E (17 tests, <10s)
+- [x] **`npm test` Script** — Vitest (2991 tests, 96.69% line coverage, <7s) + Playwright E2E (180 tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
@@ -278,10 +279,6 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Catalog Origin Indicators** — Clipboard icon (📋) for catalog-origin requests and warning icon (⚠️) with strikethrough for deprecated endpoints in sidebar
 - [x] **Group Tree Utilities** — `countGroupRequests`, `collectGroupIds`, `collectAllGroups` functions in `requestTree.ts` with full test coverage
 
----
-
-## Upcoming Phases
-
 ### Phase 0.5.4 — UI/UX Visual Foundation ✅
 
 > Redesign the app shell with a modern Activity Bar + contextual workspace layout inspired by VS Code/Postman/Grafana. Improve workflow node visual clarity.
@@ -291,8 +288,14 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Clear Run Status** — Toolbar button to reset all workflow node execution status (checkmarks, response times, edge highlights) back to clean state
 - [x] **Workflow Node Label Overflow Fix** — Labels truncate with ellipsis instead of overflowing node boundary; `min-width: 0` and `overflow: hidden` on flex containers; node max-width increased to 320px
 - [x] **SVG Configure Icon** — Replaced tiny Unicode ⚙ with a 14×14px SVG pencil/edit icon; hover tooltip preserved
+- [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
+- [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
 - [x] **E2E Test Selectors Updated** — All 180 E2E tests updated for new nav structure
-- [x] **2143 Unit Tests** — 97.19% statements, 90.2% branches, 98.03% functions, 98.11% lines
+- [x] **2991 Unit Tests** — 95.78% statements, 90.03% branches, 95.9% functions, 96.69% lines
+
+---
+
+## Upcoming Phases
 
 ### Phase 0.7.5 — CI/CD Pipeline
 
@@ -434,13 +437,14 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
 | 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
-| 0.9.0 | Variables & Chaining | → Good | 6 | 6 |
+| **0.5.4** | **UI/UX Visual Foundation** | **—** | **9** | **9** |
+| 0.9.0 | Variables & Chaining | → Good | 16 | 15 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
 | 0.10.0 | Assertions & Observability | → Good | 7 | 5 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **148** | **101** |
+| **Total** | | | **167** | **123** |
 
 ### Load Testing Level Milestones
 
@@ -472,7 +476,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 1781 unit/integration + 109 E2E = 1890 tests
+Phase 0.8.0 (Tests) ✅ DONE — 2991 unit/integration + 180 E2E = 3171 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
@@ -488,4 +492,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-04-22 (v0.5.2 — Variables & Chaining complete, load testing at Good; 97/148 items done)_
+_Last updated: 2026-04-25 (v0.5.4-beta.2 — UI/UX Visual Foundation, inline expression autocomplete, searchable variable select; load testing at Good; 123/167 items done)_

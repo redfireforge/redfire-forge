@@ -1,5 +1,5 @@
-import type { TestConfig, Scenario, RequestResult } from '../types';
-import type { HttpResponse } from '../utils/httpClient';
+import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import type { HttpResponse } from '../shared/utils/httpClient';
 import type { ProgressMeta } from './executor';
 
 /** Messages sent from the main thread to the execution worker. */

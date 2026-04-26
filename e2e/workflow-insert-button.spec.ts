@@ -4,7 +4,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeInsertBtnWorkflow(): Workflow {
   return {

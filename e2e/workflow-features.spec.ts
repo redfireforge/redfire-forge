@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
-import type { Workflow } from '../src/types/workflow';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
   return {
@@ -170,12 +170,12 @@ test.describe('Defaults Modal', () => {
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
 
-    // Click expand button (use dispatchEvent because workflow-designer-mount intercepts pointer events)
-    const expandBtn = modal.locator('.btn.btn-sm', { hasText: '⛶' });
+    // Click the shared expand control in the modal header.
+    const expandBtn = modal.getByRole('button', { name: 'Expand modal' }).first();
     await expandBtn.dispatchEvent('click');
 
-    // Modal overlay should have expanded class
-    await expect(page.locator('.wf-config-modal-expanded')).toBeVisible();
+    // Shared fullscreen expand mode adds the modal-fullscreen class.
+    await expect(page.locator('.modal-fullscreen').first()).toBeVisible();
   });
 });
 

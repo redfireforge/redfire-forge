@@ -1,13 +1,13 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import os from 'os';
-import type { Workflow } from '../src/types/workflow.js';
+import type { Workflow } from '../src/features/workflow/types/workflow';
 import type {
   ExecutionResult,
   WebhookDelivery,
   ScheduleTrigger,
   WebhookTrigger,
-} from '../src/types/server-api.js';
+} from '../src/shared/types/server-api';
 
 export type { ExecutionResult, WebhookDelivery, ScheduleTrigger, WebhookTrigger };
 

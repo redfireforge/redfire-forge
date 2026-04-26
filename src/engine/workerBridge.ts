@@ -1,8 +1,8 @@
-import type { TestConfig, Scenario, RequestResult } from '../types';
+import type { TestConfig, Scenario, RequestResult } from '../shared/types';
 import type { ProgressMeta } from './executor';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
-import { httpFetch } from '../utils/httpClient';
-import { isTauri } from '../utils/platform';
+import { httpFetch } from '../shared/utils/httpClient';
+import { isTauri } from '../shared/utils/platform';
 
 type ProgressCallback = (
   completed: number,

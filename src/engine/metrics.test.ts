@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMetrics } from './metrics';
-import type { RequestResult } from '../types';
+import type { RequestResult } from '../shared/types';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
   return {
