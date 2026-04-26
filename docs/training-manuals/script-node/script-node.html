@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Script Node Feature Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-transform { background: #d4edda; color: #155724; }
+  .badge-validate { background: #fff3cd; color: #856404; }
+  .badge-generate { background: #cce5ff; color: #004085; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout-danger {
+    background: #fce4ec; border-left-color: #c62828;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .mode-card {
+    border: 2px solid #dee2e6; border-radius: 8px; padding: 16px 18px; margin: 12px 0;
+  }
+  .mode-card.transform { border-color: #28a745; }
+  .mode-card.validate { border-color: #ffc107; }
+  .mode-card.generate { border-color: #007bff; }
+  .mode-card h4 { margin-top: 0; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">⚡</div>
+  <h1>Script Node</h1>
+  <div class="subtitle">Feature Manual &amp; Reference Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    A comprehensive guide to the Script node in RedfireForge. Learn how to write
+    inline JavaScript to transform data, validate API responses, and generate
+    dynamic content within your workflow pipelines.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Document Version 1.0 — April 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">What Is the Script Node?</a></li>
+  <li><a href="#modes">Execution Modes: Transform, Validate, Generate</a></li>
+  <li><a href="#sandbox">Sandbox &amp; Security Model</a></li>
+  <li><a href="#properties">Complete Property Reference</a></li>
+  <li><a href="#io">Input &amp; Output Variables</a></li>
+  <li><a href="#console">Console Capture &amp; Debugging</a></li>
+  <li><a href="#libraries">Script Libraries</a></li>
+  <li><a href="#limits">Limits &amp; Constraints</a></li>
+  <li><a href="#patterns">Common Patterns &amp; Recipes</a></li>
+  <li><a href="#samples">Sample Workflows</a></li>
+  <li><a href="#troubleshooting">Troubleshooting</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="overview">1. What Is the Script Node?</h2>
+<p>
+  The <strong>Script node</strong> lets you write inline JavaScript that executes during
+  a workflow run. It bridges the gap between no-code workflow building and the full
+  expressiveness of a programming language — use it for data transformation, validation
+  logic, dynamic content generation, or any computation that can't be expressed with
+  built-in node types alone.
+</p>
+
+<h3>Key Capabilities</h3>
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔄 Transform Data</strong>
+    <p>Parse JSON, reshape objects, compute derived fields, and write results back to workflow variables.</p>
+  </div>
+  <div class="feature-card">
+    <strong>✅ Validate Responses</strong>
+    <p>Cross-check data from multiple API calls. Set <code>output.result</code> to pass or fail the node.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📝 Generate Content</strong>
+    <p>Build reports, format messages, or create request bodies dynamically from aggregated data.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📋 Console Logging</strong>
+    <p>Use <code>console.log</code>, <code>console.warn</code>, <code>console.error</code> — output is captured in the workflow console.</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔒 Sandboxed Execution</strong>
+    <p>Scripts run in an isolated <code>Function()</code> scope. No access to DOM, network, file system, or global state.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📚 Script Libraries</strong>
+    <p>Reuse shared utility code via Script Libraries. Reference by ID and the preamble is injected automatically.</p>
+  </div>
+</div>
+
+<h3>How It Fits in a Workflow</h3>
+<div class="flow-diagram">
+ ┌──────────┐    Variables    ┌──────────────────┐    Variables    ┌──────────┐
+ │ Upstream │  ────────────►  │   Script Node    │  ────────────►  │Downstream│
+ │  Nodes   │   input.*      │                  │   output.*     │  Nodes   │
+ └──────────┘                │  mode: transform │                └──────────┘
+                              │  code: ...       │
+                              │  inputVariables  │
+                              │  outputVariables │
+                              └──────────────────┘
+
+ Workflow context variables are mapped into input.* (read-only).
+ Script writes to output.* and those values are set back into the workflow context.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. EXECUTION MODES                          -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="modes">2. Execution Modes</h2>
+<p>
+  Every Script node has a <strong>mode</strong> that determines how the engine interprets
+  the script's output. All three modes run the same JavaScript sandbox — the difference
+  is in what happens <em>after</em> execution.
+</p>
+
+<div class="mode-card transform">
+  <h4><span class="badge badge-transform">Transform</span> — Data Transformation</h4>
+  <p>
+    The most common mode. The script reads from <code>input.*</code>, processes data,
+    and writes results to <code>output.*</code>. All output variables are set into the
+    workflow context. The node always passes (unless the script throws an error).
+  </p>
+  <pre>
+<span class="comment">// Transform mode: parse API response, extract fields</span>
+<span class="keyword">const</span> user = JSON.parse(input.userJson);
+
+output.displayName = user.name;
+output.email = user.email;
+output.company = user.company.name;
+
+console.log(<span class="string">"Processed: "</span> + user.name);</pre>
+  <p><strong>Use when:</strong> Reshaping data, extracting fields, computing values, formatting strings.</p>
+</div>
+
+<div class="mode-card validate">
+  <h4><span class="badge badge-validate">Validate</span> — Pass/Fail Assertion</h4>
+  <p>
+    The script must set <code>output.result</code> to a truthy or falsy value. If truthy,
+    the node <strong>passes</strong>. If falsy, the node <strong>fails</strong> with
+    error <code>"Validation failed: output.result = ..."</code>. Other output variables
+    are still set into context regardless of pass/fail.
+  </p>
+  <pre>
+<span class="comment">// Validate mode: check all posts belong to the user</span>
+<span class="keyword">const</span> posts = JSON.parse(input.postsJson);
+<span class="keyword">let</span> mismatches = 0;
+
+<span class="keyword">for</span> (<span class="keyword">const</span> post <span class="keyword">of</span> posts) {
+  <span class="keyword">if</span> (post.userId !== parseInt(input.userId)) mismatches++;
+}
+
+output.result = mismatches === 0;  <span class="comment">// ← determines pass/fail</span>
+output.mismatchCount = String(mismatches);</pre>
+  <p><strong>Use when:</strong> Cross-checking data consistency, asserting business rules, gating workflow progress.</p>
+  <div class="callout">
+    <strong>📘 Truthy Values</strong>
+    The following are considered truthy: <code>true</code>, non-zero numbers, non-empty strings
+    (except <code>"false"</code> and <code>"0"</code>), and objects. <code>null</code>,
+    <code>undefined</code>, <code>false</code>, <code>0</code>, <code>""</code> are falsy.
+  </div>
+</div>
+
+<div class="mode-card generate">
+  <h4><span class="badge badge-generate">Generate</span> — Content Generation</h4>
+  <p>
+    Functionally identical to Transform mode — outputs are written to context and the node
+    passes unless the script throws. The distinction is <strong>semantic</strong>: use
+    Generate when the script creates new content (reports, summaries, payloads) rather than
+    reshaping existing data.
+  </p>
+  <pre>
+<span class="comment">// Generate mode: build a summary report</span>
+<span class="keyword">const</span> titles = JSON.parse(input.allTitles);
+<span class="keyword">const</span> wordCount = parseInt(input.totalWordCount);
+
+<span class="keyword">const</span> report = {
+  generatedAt: <span class="keyword">new</span> Date().toISOString(),
+  totalPosts: titles.length,
+  totalWordCount: wordCount,
+  avgWords: Math.round(wordCount / titles.length),
+};
+
+output.reportJson = JSON.stringify(report, <span class="keyword">null</span>, 2);</pre>
+  <p><strong>Use when:</strong> Building reports, generating request bodies, creating dynamic content from aggregated data.</p>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. SANDBOX                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="sandbox">3. Sandbox &amp; Security Model</h2>
+<p>
+  Script code executes inside a <code>new Function('input', 'output', 'console', code)</code>
+  scope. This provides isolation from the application and other scripts.
+</p>
+
+<h3>What's Available Inside the Script</h3>
+<table>
+  <tr><th>Object</th><th>Access</th><th>Description</th></tr>
+  <tr>
+    <td><code>input</code></td>
+    <td>Read-only (frozen)</td>
+    <td>Contains the input variables declared in <code>inputVariables</code>. Each value is a string resolved from the workflow context.</td>
+  </tr>
+  <tr>
+    <td><code>output</code></td>
+    <td>Write</td>
+    <td>Write results here. Only keys listed in <code>outputVariables</code> are captured. Values are stringified automatically.</td>
+  </tr>
+  <tr>
+    <td><code>console</code></td>
+    <td>Proxy</td>
+    <td><code>.log()</code>, <code>.warn()</code>, <code>.error()</code>, <code>.info()</code> — all captured to the workflow console output.</td>
+  </tr>
+  <tr>
+    <td>JavaScript builtins</td>
+    <td>Available</td>
+    <td><code>JSON</code>, <code>Math</code>, <code>Date</code>, <code>String</code>, <code>Array</code>, <code>Object</code>, <code>parseInt</code>, <code>parseFloat</code>, <code>RegExp</code>, etc.</td>
+  </tr>
+</table>
+
+<h3>What's NOT Available</h3>
+<table>
+  <tr><th>Blocked</th><th>Reason</th></tr>
+  <tr><td><code>fetch</code>, <code>XMLHttpRequest</code></td><td>No network access. Use HTTP nodes for API calls.</td></tr>
+  <tr><td><code>document</code>, <code>window</code>, <code>globalThis</code></td><td>No DOM or global scope access.</td></tr>
+  <tr><td><code>require</code>, <code>import</code></td><td>No module loading. Use Script Libraries for shared code.</td></tr>
+  <tr><td><code>setTimeout</code>, <code>setInterval</code></td><td>No async scheduling. Scripts must be synchronous.</td></tr>
+  <tr><td><code>eval</code></td><td>No dynamic code evaluation within scripts.</td></tr>
+  <tr><td>File system access</td><td>No <code>fs</code>, no file reads/writes.</td></tr>
+</table>
+
+<div class="callout callout-danger">
+  <strong>⛔ Async Code Is Not Supported</strong>
+  If a script returns a Promise (e.g., uses <code>await</code>), the node will fail with
+  <code>"Async code (await/Promise) is not supported in script nodes."</code> All code
+  must execute synchronously.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. PROPERTY REFERENCE                       -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="properties">4. Complete Property Reference</h2>
+<table>
+  <tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr>
+    <td><code>label</code></td><td>string</td><td>—</td>
+    <td>Display name shown on the canvas node.</td>
+  </tr>
+  <tr>
+    <td><code>code</code></td><td>string</td><td>—</td>
+    <td>JavaScript source code. Edited in the Monaco code editor panel.</td>
+  </tr>
+  <tr>
+    <td><code>mode</code></td><td>string</td><td><code>"transform"</code></td>
+    <td>Execution mode: <code>"transform"</code>, <code>"validate"</code>, or <code>"generate"</code>.</td>
+  </tr>
+  <tr>
+    <td><code>inputVariables</code></td><td>string[]</td><td><code>[]</code></td>
+    <td>List of workflow variable names to pass into the <code>input</code> object.</td>
+  </tr>
+  <tr>
+    <td><code>outputVariables</code></td><td>string[]</td><td><code>[]</code></td>
+    <td>List of variable names to capture from <code>output</code> and set back into workflow context.</td>
+  </tr>
+  <tr>
+    <td><code>timeoutMs</code></td><td>number</td><td><code>5000</code></td>
+    <td>Maximum execution time in milliseconds. Range: 0–30,000.</td>
+  </tr>
+  <tr>
+    <td><code>captureConsole</code></td><td>boolean</td><td><code>true</code></td>
+    <td>Whether <code>console.*</code> calls are captured and displayed in the workflow console.</td>
+  </tr>
+  <tr>
+    <td><code>libraryIds</code></td><td>string[]?</td><td><code>undefined</code></td>
+    <td>Optional list of Script Library IDs. Library code is prepended to the script before execution.</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. INPUT & OUTPUT VARIABLES                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="io">5. Input &amp; Output Variables</h2>
+
+<h3>Input Variables</h3>
+<p>
+  Input variables are <strong>explicitly declared</strong> — only the variables listed in
+  <code>inputVariables</code> are available inside the script as <code>input.varName</code>.
+  Each value is resolved from the workflow context at execution time using
+  <code>ctx.resolve(&laquo;{{varName}}&raquo;)</code>.
+</p>
+<ul>
+  <li>Values are always <strong>strings</strong>. Use <code>JSON.parse()</code> to deserialize objects/arrays.</li>
+  <li>If a variable doesn't exist in the context, its value will be an empty string <code>""</code>.</li>
+  <li>The <code>input</code> object is <strong>frozen</strong> — attempting to modify it will silently fail.</li>
+</ul>
+
+<h3>Output Variables</h3>
+<p>
+  The script writes to <code>output.varName</code>. After execution, only keys listed in
+  <code>outputVariables</code> are read from the output object and set into the workflow context.
+</p>
+<ul>
+  <li>Non-string values are automatically <strong>JSON-stringified</strong> (objects, arrays, numbers, booleans).</li>
+  <li>If a declared output variable is <code>undefined</code> in the output, it is <strong>not set</strong> (existing context value preserved).</li>
+  <li>Total output size is limited to <strong>1 MB</strong>. Exceeding this fails the node.</li>
+</ul>
+
+<h3>Data Flow Example</h3>
+<div class="flow-diagram">
+  Workflow Context               Script Sandbox              Workflow Context
+  ┌──────────────┐              ┌───────────────┐            ┌──────────────┐
+  │ userJson =   │   resolve    │ input.userJson │            │ displayName  │
+  │ '{"name":    │ ──────────► │ = '{"name":...'│            │ = "John"     │
+  │  "John"..}'  │              │                │   set()    │              │
+  │              │              │ output.display │ ─────────► │ email        │
+  │              │              │  Name = "John" │            │ = "john@..." │
+  └──────────────┘              └───────────────┘            └──────────────┘
+
+  inputVariables: ["userJson"]
+  outputVariables: ["displayName", "email"]
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. CONSOLE CAPTURE                          -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="console">6. Console Capture &amp; Debugging</h2>
+<p>
+  When <code>captureConsole</code> is <code>true</code>, all <code>console.*</code> calls
+  are captured and logged to the workflow console with a <code>#</code> prefix.
+</p>
+
+<table>
+  <tr><th>Method</th><th>Output Format</th></tr>
+  <tr><td><code>console.log("msg")</code></td><td><code>[Node Label] console: msg</code></td></tr>
+  <tr><td><code>console.warn("msg")</code></td><td><code>[Node Label] console: [warn] msg</code></td></tr>
+  <tr><td><code>console.error("msg")</code></td><td><code>[Node Label] console: [error] msg</code></td></tr>
+  <tr><td><code>console.info("msg")</code></td><td><code>[Node Label] console: msg</code></td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Debugging Tip</strong>
+  Use <code>console.log(JSON.stringify(input, null, 2))</code> to inspect all input
+  variables. Use <code>console.log(typeof input.varName)</code> to verify value types.
+  Console output appears in the workflow console panel during and after execution.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. SCRIPT LIBRARIES                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="libraries">7. Script Libraries</h2>
+<p>
+  Script Libraries let you share utility functions across multiple Script nodes.
+  When a Script node references library IDs, the library code is <strong>prepended</strong>
+  to the script before execution — functions and constants defined in the library
+  are available in the script's scope.
+</p>
+
+<h3>How It Works</h3>
+<ol>
+  <li>Create a Script Library in <em>Settings → Script Libraries</em></li>
+  <li>Write utility functions (e.g., <code>function formatDate(d) { ... }</code>)</li>
+  <li>In your Script node config, select the library under <em>Libraries</em></li>
+  <li>Call library functions directly in your script code</li>
+</ol>
+
+<div class="callout">
+  <strong>📘 Library Execution Order</strong>
+  If multiple libraries are referenced, they are concatenated in the order listed.
+  Libraries execute in the same sandbox scope as the main script — they share
+  <code>input</code>, <code>output</code>, and <code>console</code> objects.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. LIMITS                                   -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="limits">8. Limits &amp; Constraints</h2>
+<table>
+  <tr><th>Constraint</th><th>Value</th><th>Behavior on Violation</th></tr>
+  <tr>
+    <td>Maximum timeout</td><td>30,000 ms</td>
+    <td>Values above 30s are clamped to 30s. Values ≤ 0 default to 5s.</td>
+  </tr>
+  <tr>
+    <td>Output size limit</td><td>1 MB total</td>
+    <td>Node fails with size error if combined output exceeds 1 MB.</td>
+  </tr>
+  <tr>
+    <td>Async code</td><td>Not supported</td>
+    <td>If a Promise is returned, node fails with an explicit error message.</td>
+  </tr>
+  <tr>
+    <td>Code type</td><td>Synchronous JavaScript</td>
+    <td>ES2015+ syntax is supported (const, let, arrow functions, template literals, destructuring).</td>
+  </tr>
+  <tr>
+    <td>Network access</td><td>Blocked</td>
+    <td><code>fetch</code>, <code>XMLHttpRequest</code> are not available.</td>
+  </tr>
+  <tr>
+    <td>Input modification</td><td>Frozen</td>
+    <td><code>input</code> object is <code>Object.freeze()</code>'d. Write attempts silently fail.</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 9. COMMON PATTERNS                          -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="patterns">9. Common Patterns &amp; Recipes</h2>
+
+<h3>Pattern 1: Parse &amp; Extract from JSON Response</h3>
+<pre>
+<span class="comment">// Input: responseBody (raw JSON string from HTTP node)</span>
+<span class="keyword">const</span> data = JSON.parse(input.responseBody);
+output.userName = data.user.name;
+output.userEmail = data.user.email;
+output.itemCount = String(data.items.length);</pre>
+
+<h3>Pattern 2: Build a Request Body</h3>
+<pre>
+<span class="comment">// Input: orderId, productName, quantity</span>
+<span class="keyword">const</span> payload = {
+  order: { id: input.orderId },
+  product: input.productName,
+  qty: parseInt(input.quantity),
+  timestamp: <span class="keyword">new</span> Date().toISOString(),
+};
+output.requestBody = JSON.stringify(payload);</pre>
+
+<h3>Pattern 3: Cross-Check Two API Responses</h3>
+<pre>
+<span class="comment">// Validate mode — Input: usersJson, ordersJson</span>
+<span class="keyword">const</span> users = JSON.parse(input.usersJson);
+<span class="keyword">const</span> orders = JSON.parse(input.ordersJson);
+<span class="keyword">const</span> userIds = <span class="keyword">new</span> Set(users.map(u => u.id));
+
+<span class="keyword">const</span> orphans = orders.filter(o => !userIds.has(o.userId));
+output.orphanCount = String(orphans.length);
+output.result = orphans.length === 0;  <span class="comment">// ← pass only if no orphans</span></pre>
+
+<h3>Pattern 4: Aggregate Loop Data</h3>
+<pre>
+<span class="comment">// Transform mode — called inside a Loop, used with Aggregate</span>
+<span class="keyword">const</span> items = JSON.parse(input.pageItems);
+output.pageTotal = String(items.reduce((sum, i) => sum + i.price, 0));
+output.pageCount = String(items.length);</pre>
+
+<h3>Pattern 5: Conditional String Building</h3>
+<pre>
+<span class="comment">// Generate mode — build a dynamic message</span>
+<span class="keyword">const</span> status = input.isActive === <span class="string">"true"</span> ? <span class="string">"Active"</span> : <span class="string">"Inactive"</span>;
+<span class="keyword">const</span> msg = <span class="string">`User ${input.userName} is ${status} since ${input.joinDate}`</span>;
+output.statusMessage = msg;</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 10. SAMPLES                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="samples">10. Sample Workflows</h2>
+<p>
+  Three sample workflows are included in the Template Gallery, each demonstrating
+  different Script node capabilities at increasing complexity levels.
+</p>
+
+<table>
+  <tr><th>Sample</th><th>Difficulty</th><th>Mode</th><th>Key Concepts</th><th>Nodes</th></tr>
+  <tr>
+    <td><strong>📜 JSON Formatter</strong></td>
+    <td><span class="badge badge-transform">Easy</span></td>
+    <td>Transform</td>
+    <td>Parse JSON, extract fields, build user card, condition check</td>
+    <td>5</td>
+  </tr>
+  <tr>
+    <td><strong>✅ Cross-API Validator</strong></td>
+    <td><span class="badge badge-validate">Medium</span></td>
+    <td>Validate</td>
+    <td>Fork/Join parallelism, cross-check data, ErrorHandler, console.warn</td>
+    <td>10</td>
+  </tr>
+  <tr>
+    <td><strong>📊 Data Pipeline &amp; Report</strong></td>
+    <td><span class="badge badge-generate">Advanced</span></td>
+    <td>Transform + Generate</td>
+    <td>Loop pagination, Aggregate, multi-script pipeline, conditional publish</td>
+    <td>11</td>
+  </tr>
+</table>
+
+<p>
+  Each sample has its own detailed training manual with node-by-node walkthrough,
+  flow diagrams, and step-by-step development guide. See the companion documents
+  in this directory:
+</p>
+<ul>
+  <li><a href="json-formatter.html">json-formatter.html</a> — Easy: JSON Formatter</li>
+  <li><a href="cross-api-validator.html">cross-api-validator.html</a> — Medium: Cross-API Validator</li>
+  <li><a href="data-pipeline-report.html">data-pipeline-report.html</a> — Advanced: Data Pipeline &amp; Report</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 11. TROUBLESHOOTING                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="troubleshooting">11. Troubleshooting</h2>
+
+<h3>Common Errors</h3>
+<table>
+  <tr><th>Error Message</th><th>Cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>Unexpected token</code></td>
+    <td>Syntax error in the script code</td>
+    <td>Check for missing brackets, semicolons, or typos. The Monaco editor highlights errors in real-time.</td>
+  </tr>
+  <tr>
+    <td><code>Async code ... is not supported</code></td>
+    <td>Script uses <code>await</code>, <code>async</code>, or returns a Promise</td>
+    <td>Remove all async code. Use synchronous patterns only.</td>
+  </tr>
+  <tr>
+    <td><code>Validation failed: output.result = undefined</code></td>
+    <td>Validate mode script didn't set <code>output.result</code></td>
+    <td>Ensure the script sets <code>output.result</code> to <code>true</code> or <code>false</code>.</td>
+  </tr>
+  <tr>
+    <td><code>Output size exceeds 1 MB</code></td>
+    <td>Combined output variables exceed the size limit</td>
+    <td>Reduce output size — summarize data instead of dumping raw responses.</td>
+  </tr>
+  <tr>
+    <td><code>input.varName is undefined</code></td>
+    <td>Variable not listed in <code>inputVariables</code></td>
+    <td>Add the variable name to the Input Variables list in the config panel.</td>
+  </tr>
+  <tr>
+    <td>Output variable not appearing in context</td>
+    <td>Variable not listed in <code>outputVariables</code></td>
+    <td>Add the variable name to the Output Variables list. Only declared outputs are captured.</td>
+  </tr>
+</table>
+
+<h3>Debugging Checklist</h3>
+<ol>
+  <li><strong>Enable console capture</strong> — Set <code>captureConsole: true</code> and add <code>console.log</code> statements.</li>
+  <li><strong>Log all inputs</strong> — Add <code>console.log(JSON.stringify(input, null, 2))</code> at the top.</li>
+  <li><strong>Check variable names</strong> — Ensure input/output variable names match exactly (case-sensitive).</li>
+  <li><strong>Test JSON parsing</strong> — Wrap <code>JSON.parse()</code> in try/catch to see the actual value if parsing fails.</li>
+  <li><strong>Inspect the response detail</strong> — Click the Script node after execution to see the output JSON in the node detail panel.</li>
+</ol>
+
+<footer>
+  RedfireForge v0.5.4 — Script Node Feature Manual — April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>
