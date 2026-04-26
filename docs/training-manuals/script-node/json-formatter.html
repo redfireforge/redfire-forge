@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Script: JSON Formatter (Easy Sample)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📜</div>
+  <h1>Script: JSON Formatter</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Fetch a user profile from an API, use a Script node in Transform mode to parse
+    the JSON and build a formatted user card, then verify the output with a
+    Condition node.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Basics<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#script-deep-dive">Script Code Deep Dive</a></li>
+  <li><a href="#variables">Variable Flow</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates the most basic Script node pattern: <strong>fetching data from
+  an API, transforming it with JavaScript, and using the result downstream</strong>.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> An API returns a complex JSON response with nested
+  objects, but your downstream workflow only needs a few specific fields formatted in a
+  certain way. Instead of writing complex JSONPath extractions or chaining multiple
+  SetVariable nodes, you use a single Script node to parse, reshape, and format the data
+  exactly how you need it.
+</p>
+<p><strong>Examples:</strong></p>
+<ul>
+  <li>Extracting a display name, email, and company from a user profile response</li>
+  <li>Reformatting a date field from ISO to a human-readable format</li>
+  <li>Computing a derived field (e.g., full address from city + zipcode)</li>
+  <li>Cleaning/normalizing API response data before passing to the next node</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>How to configure a Script node with <strong>input and output variables</strong></li>
+  <li>Writing JavaScript in <strong>Transform mode</strong></li>
+  <li>Reading data via <code>input.*</code> and writing results via <code>output.*</code></li>
+  <li>Using <code>JSON.parse()</code> to deserialize API responses inside a script</li>
+  <li>Using <code>console.log()</code> for debugging script output</li>
+  <li>Connecting Script output to a <strong>Condition node</strong> for verification</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │    1. Fetch User            │  GET https://jsonplaceholder
+  │       (HTTP)                │      .typicode.com/users/1
+  │                             │
+  │  Extractions:               │  → userJson (full body $)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │    2. Format User Card      │  Script (Transform mode)
+  │       (Script)              │
+  │                             │  input:  userJson
+  │  Parse JSON, extract:       │  output: displayName,
+  │  • displayName              │          contactInfo,
+  │  • contactInfo (JSON)       │          location,
+  │  • location (city+zip)      │          company
+  │  • company                  │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │    3. Has Display Name?     │  {{displayName}} != ""
+  │       (Condition)           │
+  └──────┬──────────────────────┘
+         │ Yes (true)
+         ▼
+  ┌─────────────┐
+  │    Done     │
+  │    (End)    │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The HTTP node fetches the raw
+  JSON, the Script node parses and formats it, and the Condition node verifies the
+  script produced a valid display name.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h4><span class="step-num">S</span> Start Node</h4>
+<table>
+  <tr><td><strong>Input Variables</strong></td><td>(none)</td></tr>
+</table>
+<p>
+  This sample uses a hardcoded URL (<code>/users/1</code>), so no input variables are needed.
+  In a real workflow, you might add <code>userId</code> as an input variable and use it in the
+  HTTP URL.
+</p>
+
+<h4><span class="step-num">1</span> Fetch User (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Headers</strong></td><td><code>Accept: application/json</code></td></tr>
+  <tr><td><strong>Validation</strong></td><td>None (we trust the public API)</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>userJson</code> ← body <code>$</code> (full response body)</td></tr>
+</table>
+<p>
+  Calls the JSONPlaceholder public API to fetch user #1. The entire response body is
+  extracted as a JSON string into the <code>userJson</code> variable. This raw JSON will be
+  the Script node's input.
+</p>
+
+<div class="callout">
+  <strong>📘 Why Extract the Full Body?</strong>
+  Instead of using multiple JSONPath extractions to pull individual fields, we extract
+  the <em>entire</em> body and let the Script node do the parsing. This is more flexible —
+  the script can access any field, compute derived values, and format output however needed.
+</div>
+
+<h4><span class="step-num">2</span> Format User Card (Script Node) — <em>Key Node</em></h4>
+<table>
+  <tr><td><strong>Mode</strong></td><td>Transform</td></tr>
+  <tr><td><strong>Input Variables</strong></td><td><code>userJson</code></td></tr>
+  <tr><td><strong>Output Variables</strong></td><td><code>displayName</code>, <code>contactInfo</code>, <code>location</code>, <code>company</code></td></tr>
+  <tr><td><strong>Timeout</strong></td><td>5,000 ms</td></tr>
+  <tr><td><strong>Console Capture</strong></td><td>Enabled</td></tr>
+</table>
+<p>
+  This is the core of the sample. The script receives the raw JSON, parses it, and
+  extracts four formatted fields. See the <a href="#script-deep-dive">Script Code Deep Dive</a>
+  section for a line-by-line explanation.
+</p>
+
+<h4><span class="step-num">3</span> Has Display Name? (Condition Node)</h4>
+<table>
+  <tr><td><strong>Left</strong></td><td><code>{{displayName}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>!=</code> (not equal)</td></tr>
+  <tr><td><strong>Right</strong></td><td><code></code> (empty string)</td></tr>
+</table>
+<p>
+  Verifies the Script node produced a non-empty <code>displayName</code>. If the script
+  failed or the JSON didn't contain a name, the condition would fail. The <code>true</code>
+  output connects to the End node.
+</p>
+
+<h4><span class="step-num">E</span> Done (End Node)</h4>
+<p>Marks the workflow as complete. At this point, all four output variables
+  (<code>displayName</code>, <code>contactInfo</code>, <code>location</code>,
+  <code>company</code>) are available in the workflow context.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. SCRIPT DEEP DIVE                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="script-deep-dive">5. Script Code Deep Dive</h2>
+<p>Here is the complete script with line-by-line explanation:</p>
+
+<pre>
+<span class="comment">// Parse the raw API response and build a summary card</span>
+<span class="keyword">const</span> user = JSON.parse(input.userJson);
+
+output.displayName = user.name;
+output.contactInfo = JSON.stringify({
+  email: user.email,
+  phone: user.phone,
+  website: user.website,
+});
+output.location = user.address.city + <span class="string">", "</span> + user.address.zipcode;
+output.company = user.company.name;
+
+console.log(<span class="string">"Formatted card for: "</span> + user.name);
+console.log(<span class="string">"Location: "</span> + output.location);</pre>
+
+<h3>Line-by-Line Explanation</h3>
+<table>
+  <tr><th>Line</th><th>What It Does</th></tr>
+  <tr>
+    <td><code>const user = JSON.parse(input.userJson);</code></td>
+    <td>Deserializes the raw JSON string from the HTTP extraction into a JavaScript object. The <code>input.userJson</code> value comes from the <code>inputVariables</code> configuration.</td>
+  </tr>
+  <tr>
+    <td><code>output.displayName = user.name;</code></td>
+    <td>Sets the <code>displayName</code> output to the user's name (e.g., <code>"Leanne Graham"</code>). Because <code>displayName</code> is listed in <code>outputVariables</code>, it will be written to the workflow context.</td>
+  </tr>
+  <tr>
+    <td><code>output.contactInfo = JSON.stringify({...});</code></td>
+    <td>Builds a contact info JSON object from email, phone, and website. It's stringified because workflow variables are always strings.</td>
+  </tr>
+  <tr>
+    <td><code>output.location = user.address.city + ", " + user.address.zipcode;</code></td>
+    <td>Computes a derived field by combining two nested properties: <code>address.city</code> and <code>address.zipcode</code>. This is a transformation that would be cumbersome with JSONPath alone.</td>
+  </tr>
+  <tr>
+    <td><code>output.company = user.company.name;</code></td>
+    <td>Extracts the company name from the nested <code>company</code> object.</td>
+  </tr>
+  <tr>
+    <td><code>console.log(...);</code></td>
+    <td>Debugging output. With <code>captureConsole: true</code>, these messages appear in the workflow console. Useful for verifying the script is processing data correctly.</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Why JSON.stringify for contactInfo?</strong>
+  Workflow variables are always strings. If you assign an object directly to
+  <code>output.contactInfo</code>, the engine will JSON-stringify it automatically.
+  However, explicitly stringifying gives you control over the format and makes
+  the intent clear.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. VARIABLES                                -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="variables">6. Variable Flow</h2>
+<p>This table shows how variables flow through the workflow at each stage:</p>
+
+<table class="var-table">
+  <tr><th>Variable</th><th>Set By</th><th>Value (Example)</th><th>Used By</th></tr>
+  <tr>
+    <td><code>userJson</code></td>
+    <td>HTTP Node (extraction)</td>
+    <td><code>{"id":1,"name":"Leanne Graham","email":"Sincere@april.biz",...}</code></td>
+    <td>Script Node (input)</td>
+  </tr>
+  <tr>
+    <td><code>displayName</code></td>
+    <td>Script Node (output)</td>
+    <td><code>Leanne Graham</code></td>
+    <td>Condition Node</td>
+  </tr>
+  <tr>
+    <td><code>contactInfo</code></td>
+    <td>Script Node (output)</td>
+    <td><code>{"email":"Sincere@april.biz","phone":"1-770-736-8031 x56442","website":"hildegard.org"}</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>location</code></td>
+    <td>Script Node (output)</td>
+    <td><code>Gwenborough, 92998-3874</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>company</code></td>
+    <td>Script Node (output)</td>
+    <td><code>Romaguera-Crona</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">7. Step-by-Step Development Guide</h2>
+<p>Follow these steps to build this workflow from scratch:</p>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"📜 Script: JSON Formatter"</strong>
+    in the <em>Basics</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "JSON Formatter".
+  </li>
+  <li>
+    <strong>Add the HTTP node.</strong><br>
+    Drag an HTTP node onto the canvas. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/users/1</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Headers</em>: Add <code>Accept: application/json</code></li>
+      <li><em>Extractions</em>: Add one extraction — Name: <code>userJson</code>, Source: <code>body</code>, Expression: <code>$</code></li>
+    </ul>
+    Connect Start → HTTP.
+  </li>
+  <li>
+    <strong>Add the Script node.</strong><br>
+    Drag a Script node onto the canvas. Open the config panel:
+    <ul>
+      <li><em>Mode</em>: Transform</li>
+      <li><em>Input Variables</em>: Add <code>userJson</code></li>
+      <li><em>Output Variables</em>: Add <code>displayName</code>, <code>contactInfo</code>, <code>location</code>, <code>company</code></li>
+      <li><em>Code</em>: Copy the script from the <a href="#script-deep-dive">Script Code Deep Dive</a> section</li>
+      <li><em>Console Capture</em>: Enabled</li>
+    </ul>
+    Connect HTTP → Script.
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Drag a Condition node onto the canvas. Configure:
+    <ul>
+      <li><em>Left</em>: <code>{{displayName}}</code></li>
+      <li><em>Operator</em>: <code>!=</code></li>
+      <li><em>Right</em>: (leave empty)</li>
+    </ul>
+    Connect Script → Condition. Connect Condition (true) → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Watch the console for the two <code>console.log</code> messages.
+    Verify the Condition node passes (green check).
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">8. Expected Execution Results</h2>
+
+<h3>Console Output</h3>
+<pre>
+# [2. Format User Card] Executing script (transform)...
+# [2. Format User Card] console: Formatted card for: Leanne Graham
+# [2. Format User Card] console: Location: Gwenborough, 92998-3874</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Fetch User</td><td>✅ Pass</td><td>HTTP 200, body extracted</td></tr>
+  <tr><td>2. Format User Card</td><td>✅ Pass</td><td>4 output variables set</td></tr>
+  <tr><td>3. Has Display Name?</td><td>✅ Pass (true)</td><td>"Leanne Graham" != ""</td></tr>
+  <tr><td>Done</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Script Node Response Detail</h3>
+<pre>
+{
+  "displayName": "Leanne Graham",
+  "contactInfo": "{\"email\":\"Sincere@april.biz\",\"phone\":\"1-770-736-8031 x56442\",\"website\":\"hildegard.org\"}",
+  "location": "Gwenborough, 92998-3874",
+  "company": "Romaguera-Crona"
+}</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 9. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">9. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add More Output Fields</h3>
+<p>
+  Modify the script to also extract the user's <code>username</code> and <code>website</code>
+  as separate output variables. Don't forget to add them to the <code>outputVariables</code>
+  list in the config panel.
+</p>
+
+<h3>Exercise 2: Parameterize the User ID</h3>
+<p>
+  Change the Start node to accept a <code>userId</code> input variable. Update the HTTP URL
+  to <code>https://jsonplaceholder.typicode.com/users/{{userId}}</code>. Run with different
+  user IDs (1–10) and observe the different outputs.
+</p>
+
+<h3>Exercise 3: Add a "Full Address" Output</h3>
+<p>
+  The API response includes <code>address.street</code>, <code>address.suite</code>,
+  <code>address.city</code>, and <code>address.zipcode</code>. Modify the script to combine
+  all four into a single <code>fullAddress</code> output variable.
+</p>
+
+<h3>Exercise 4: Switch to Validate Mode</h3>
+<p>
+  Change the Script node's mode to <strong>Validate</strong>. Add a check that verifies
+  the user has a valid email (contains <code>@</code>). Set <code>output.result</code>
+  accordingly. Remove the Condition node — the Script node itself now handles pass/fail.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with this sample, move on to the
+  <a href="cross-api-validator.html">Cross-API Validator</a> (Medium) to learn
+  Validate mode, Fork/Join, and ErrorHandler integration.
+</div>
+
+<footer>
+  RedfireForge v0.5.4 — Script: JSON Formatter Training Guide — April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>
