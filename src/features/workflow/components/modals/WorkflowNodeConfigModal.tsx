@@ -16,6 +16,7 @@ import type {
   LogDebugNodeData,
   WaitForConditionNodeData,
   SubWorkflowNodeData,
+  ScriptNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -40,6 +41,7 @@ import LogDebugConfig from '../configs/LogDebugConfig';
 import WaitForConditionConfig from '../configs/WaitForConditionConfig';
 import SubWorkflowConfig from '../configs/SubWorkflowConfig';
 import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
+import ScriptConfig from '../configs/ScriptConfig';
 import WebhookConfig from '../configs/WebhookConfig';
 import ScheduleConfig from '../configs/ScheduleConfig';
 import VariablesSection from '../panels/VariablesSection';
@@ -349,6 +351,15 @@ export default function WorkflowNodeConfigModal({
                 onChange={(data) => updateDraft(data)}
                 workflows={workflows}
                 currentWorkflowId={workflowId}
+              />
+            )}
+
+            {draftNode.type === 'script' && (
+              <ScriptConfig
+                data={draftNode.data as ScriptNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={conditionVariableHints}
               />
             )}
 

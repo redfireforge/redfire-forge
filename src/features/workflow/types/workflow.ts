@@ -334,9 +334,32 @@ export interface SubWorkflowNodeData {
   };
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow';
+// ── Script/Transform Node ────────────────────────────
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData;
+export type ScriptMode = 'transform' | 'validate' | 'generate';
+
+export interface ScriptNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** JavaScript source code */
+  code: string;
+  /** Execution mode */
+  mode: ScriptMode;
+  /** Variables explicitly passed into the script sandbox */
+  inputVariables: string[];
+  /** Variables the script exports back to the workflow context */
+  outputVariables: string[];
+  /** Timeout in milliseconds (default 5000, max 30000) */
+  timeoutMs: number;
+  /** Whether to log console.log output to workflow console */
+  captureConsole: boolean;
+  /** Optional script library IDs to include before execution */
+  libraryIds?: string[];
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData | ScriptNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 

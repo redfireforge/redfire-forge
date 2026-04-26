@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Script/Transform Node — UI/UX Design Mockup</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface-hover: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --primary: #6366f1; --primary-hover: #818cf8;
+    --success: #22c55e; --error: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+    --purple: #a855f7; --purple-dim: rgba(168,85,247,0.15);
+    --purple-border: rgba(168,85,247,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+
+  .mockup-header { text-align: center; padding: 40px 20px 20px; border-bottom: 1px solid var(--border); }
+  .mockup-header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .mockup-header p { color: var(--text-muted); font-size: 15px; max-width: 720px; margin: 0 auto; line-height: 1.6; }
+  .mockup-header .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; background: var(--purple-dim); color: #c084fc; margin-top: 12px; }
+
+  .section { padding: 40px 20px; max-width: 1200px; margin: 0 auto; }
+  .section h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-mode { background: var(--purple-dim); color: #c084fc; }
+  .badge-canvas { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .badge-config { background: rgba(59,130,246,0.15); color: #93c5fd; }
+  .badge-run { background: rgba(245,158,11,0.15); color: #fcd34d; }
+  .section .desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Canvas Nodes ── */
+  .canvas-demo {
+    background: #0b1120; border: 1px solid var(--border); border-radius: 12px;
+    padding: 40px; display: flex; gap: 32px; justify-content: center; flex-wrap: wrap;
+    position: relative; overflow: hidden;
+  }
+  .canvas-demo::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(99,102,241,0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .wf-node {
+    position: relative; z-index: 1;
+    min-width: 180px; border-radius: 10px; font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3); cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .wf-node:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+
+  .wf-node-script { background: var(--surface); border: 2px solid var(--purple-border); }
+  .wf-node-script.selected { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(168,85,247,0.25), 0 8px 24px rgba(0,0,0,0.4); }
+
+  .wf-node-header {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-bottom: 1px solid rgba(168,85,247,0.15);
+  }
+  .wf-node-icon {
+    width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  }
+  .wf-node-script .wf-node-icon { background: var(--purple-dim); color: var(--purple); }
+  .wf-node-label { font-weight: 600; font-size: 13px; }
+  .wf-node-sublabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .wf-node-body { padding: 8px 14px 10px; }
+  .wf-node-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
+  .wf-node-meta span { display: flex; align-items: center; gap: 4px; }
+
+  .wf-handle {
+    width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--purple-border);
+    background: var(--surface); position: absolute; left: 50%; transform: translateX(-50%);
+  }
+  .wf-handle-top { top: -6px; }
+  .wf-handle-bottom { bottom: -6px; }
+
+  /* State badges on node */
+  .wf-node-state {
+    position: absolute; top: -8px; right: -8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; z-index: 2;
+  }
+  .wf-node-state-pass { background: var(--success); color: #fff; }
+  .wf-node-state-fail { background: var(--error); color: #fff; }
+  .wf-node-state-running { background: var(--warning); color: #000; animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* ── Config Panel ── */
+  .config-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; max-width: 700px; margin: 0 auto;
+  }
+  .config-title-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: rgba(168,85,247,0.05);
+  }
+  .config-title {
+    font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .config-title .icon { color: var(--purple); }
+  .config-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+  .config-close:hover { color: var(--text); }
+
+  .config-body { padding: 0; }
+
+  .config-section {
+    padding: 16px; border-bottom: 1px solid var(--border);
+  }
+  .config-section:last-child { border-bottom: none; }
+  .config-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 10px;
+  }
+
+  .config-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; }
+  .config-row:last-child { margin-bottom: 0; }
+  .config-label { font-size: 13px; font-weight: 500; min-width: 80px; flex-shrink: 0; }
+  .config-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 7px 10px; font-size: 13px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .config-input:focus { border-color: var(--purple); }
+  .config-select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 7px 10px; font-size: 13px; outline: none;
+    cursor: pointer; min-width: 140px;
+  }
+  .config-select:focus { border-color: var(--purple); }
+
+  /* Variable chips */
+  .var-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .var-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .var-chip.active { border-color: var(--purple); background: var(--purple-dim); }
+  .var-chip .check { font-size: 10px; }
+  .var-chip-add {
+    border-style: dashed; color: var(--text-muted);
+  }
+  .var-chip-add:hover { border-color: var(--purple); color: var(--purple); }
+
+  /* Code editor */
+  .code-editor-wrapper {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    background: #0b1120;
+  }
+  .code-editor-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border);
+  }
+  .code-editor-toolbar-left { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
+  .code-editor-toolbar-right { display: flex; align-items: center; gap: 6px; }
+  .code-editor-btn {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text-muted); font-size: 11px; padding: 3px 8px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .code-editor-btn:hover { border-color: var(--purple); color: var(--purple); }
+  .code-editor-btn.primary { background: var(--purple-dim); border-color: var(--purple-border); color: #c084fc; }
+  .code-editor-btn.primary:hover { background: rgba(168,85,247,0.25); }
+
+  .code-editor {
+    padding: 12px 16px; min-height: 200px;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 13px; line-height: 1.6; color: #e2e8f0; white-space: pre;
+    overflow-x: auto;
+  }
+  .code-editor .line-num {
+    display: inline-block; width: 28px; text-align: right; margin-right: 16px;
+    color: #475569; user-select: none; font-size: 12px;
+  }
+  .code-comment { color: #64748b; font-style: italic; }
+  .code-keyword { color: #c084fc; }
+  .code-string { color: #34d399; }
+  .code-property { color: #93c5fd; }
+  .code-method { color: #fbbf24; }
+  .code-number { color: #fb923c; }
+  .code-const { color: #f472b6; }
+  .code-operator { color: #94a3b8; }
+  .code-var { color: #67e8f9; }
+
+  /* Output variables auto-detected */
+  .output-vars {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .output-var {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; color: #4ade80;
+  }
+  .output-var .arrow { font-size: 10px; }
+
+  /* Settings row */
+  .settings-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .setting-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .setting-item input[type="number"] {
+    width: 70px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); padding: 4px 8px; font-size: 12px; text-align: center;
+  }
+  .toggle {
+    width: 36px; height: 20px; border-radius: 10px; background: var(--border);
+    position: relative; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle.on { background: var(--purple); }
+  .toggle::after {
+    content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; top: 2px; left: 2px; transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); }
+
+  /* Config footer */
+  .config-footer {
+    display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
+    border-top: 1px solid var(--border); background: rgba(0,0,0,0.1);
+  }
+  .btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+  .btn-primary { background: var(--purple); color: #fff; }
+  .btn-primary:hover { background: #9333ea; }
+  .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+  .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+  /* ── Workflow Canvas Demo ── */
+  .workflow-canvas {
+    background: #0b1120; border: 1px solid var(--border); border-radius: 12px;
+    padding: 60px 40px; position: relative; overflow: hidden; min-height: 420px;
+  }
+  .workflow-canvas::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(99,102,241,0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .wf-flow { display: flex; flex-direction: column; align-items: center; gap: 0; position: relative; z-index: 1; }
+
+  .wf-edge {
+    width: 2px; height: 36px; background: var(--border); position: relative;
+  }
+  .wf-edge::after {
+    content: '▼'; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; color: var(--border);
+  }
+  .wf-edge-label {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: var(--text-muted); background: #0b1120; padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  /* Mini nodes for canvas flow */
+  .wf-mini-node {
+    min-width: 180px; border-radius: 8px; font-size: 12px; padding: 10px 14px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .wf-mini-icon {
+    width: 24px; height: 24px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+  }
+  .wf-mini-label { font-weight: 600; font-size: 12px; }
+  .wf-mini-sub { font-size: 10px; color: var(--text-muted); }
+
+  .wf-mini-node.start { border-color: rgba(34,197,94,0.4); }
+  .wf-mini-node.start .wf-mini-icon { background: rgba(34,197,94,0.15); color: var(--success); }
+  .wf-mini-node.http { border-color: rgba(59,130,246,0.4); }
+  .wf-mini-node.http .wf-mini-icon { background: rgba(59,130,246,0.15); color: var(--info); }
+  .wf-mini-node.script { border-color: var(--purple-border); }
+  .wf-mini-node.script .wf-mini-icon { background: var(--purple-dim); color: var(--purple); }
+  .wf-mini-node.script.highlight { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(168,85,247,0.2), 0 4px 16px rgba(0,0,0,0.3); }
+  .wf-mini-node.condition { border-color: rgba(245,158,11,0.4); }
+  .wf-mini-node.condition .wf-mini-icon { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .wf-mini-node.end { border-color: rgba(239,68,68,0.4); }
+  .wf-mini-node.end .wf-mini-icon { background: rgba(239,68,68,0.15); color: var(--error); }
+
+  /* ── Execution Result Panel ── */
+  .result-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; max-width: 700px; margin: 0 auto;
+  }
+  .result-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  .result-header-left { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .result-status { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .result-status.pass { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .result-status.fail { background: rgba(239,68,68,0.15); color: #f87171; }
+  .result-body { padding: 0; }
+  .result-section { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .result-section:last-child { border-bottom: none; }
+  .result-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .result-kv { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+  .result-kv-key { color: var(--text-muted); }
+  .result-kv-value { font-family: 'SF Mono', monospace; color: var(--text); }
+  .result-kv-value.success { color: #4ade80; }
+  .result-console-line {
+    display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; font-size: 12px;
+    font-family: 'SF Mono', monospace;
+  }
+  .result-console-prefix { color: var(--purple); font-weight: 600; }
+  .result-console-msg { color: var(--text-muted); }
+
+  /* ── Mode Cards ── */
+  .mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 700px) { .mode-cards { grid-template-columns: 1fr; } }
+  .mode-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center; transition: all 0.15s; cursor: pointer;
+  }
+  .mode-card:hover { border-color: var(--purple-border); }
+  .mode-card.active { border-color: var(--purple); background: rgba(168,85,247,0.05); }
+  .mode-card-icon { font-size: 28px; margin-bottom: 10px; }
+  .mode-card-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .mode-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── Comparison Grid ── */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 800px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-panel { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .compare-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+  .compare-body { padding: 16px; }
+
+  /* ── Template Gallery ── */
+  .template-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .template-gallery { grid-template-columns: 1fr; } }
+  .template-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; cursor: pointer; transition: all 0.15s;
+  }
+  .template-card:hover { border-color: var(--purple-border); background: rgba(168,85,247,0.03); }
+  .template-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .template-card-icon { font-size: 16px; }
+  .template-card-title { font-size: 13px; font-weight: 600; }
+  .template-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+  .template-card-code {
+    margin-top: 8px; padding: 8px 10px; background: #0b1120; border-radius: 5px;
+    font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-muted);
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+
+  /* ── Node Palette Entry ── */
+  .palette-demo {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    max-width: 280px; overflow: hidden;
+  }
+  .palette-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .palette-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    cursor: pointer; transition: background 0.1s; border-bottom: 1px solid rgba(51,65,85,0.3);
+  }
+  .palette-item:hover { background: var(--surface-hover); }
+  .palette-item.highlight { background: rgba(168,85,247,0.08); }
+  .palette-item:last-child { border-bottom: none; }
+  .palette-icon {
+    width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+  .palette-icon.logic { background: var(--purple-dim); color: var(--purple); }
+  .palette-icon.flow { background: rgba(99,102,241,0.15); color: #818cf8; }
+  .palette-icon.data { background: rgba(59,130,246,0.15); color: var(--info); }
+  .palette-label { font-size: 13px; font-weight: 500; }
+  .palette-sub { font-size: 11px; color: var(--text-muted); }
+  .palette-badge-new {
+    margin-left: auto; font-size: 9px; font-weight: 700; padding: 2px 6px;
+    border-radius: 3px; background: var(--purple-dim); color: #c084fc; text-transform: uppercase;
+  }
+
+  /* ── Insert Var Button ── */
+  .insert-var-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(103,232,249,0.1); border: 1px solid rgba(103,232,249,0.3); border-radius: 4px;
+    color: #67e8f9; font-size: 11px; padding: 2px 8px; cursor: pointer;
+  }
+  .insert-var-btn:hover { background: rgba(103,232,249,0.2); }
+</style>
+</head>
+<body>
+
+<!-- ====== HEADER ====== -->
+<div class="mockup-header">
+  <h1>Script/Transform Node</h1>
+  <p>Phase 5 Feature — Execute custom JavaScript within workflow steps for complex data manipulation, custom validation, and dynamic test data generation.</p>
+  <span class="badge">Priority #1 — Extended Capabilities</span>
+</div>
+
+<!-- ====== SECTION 1: Execution Modes ====== -->
+<div class="section">
+  <h2>1. Execution Modes <span class="badge badge-mode">3 Modes</span></h2>
+  <p class="desc">Each Script node operates in one of three modes, determining how the script's output affects the workflow.</p>
+
+  <div class="mode-cards">
+    <div class="mode-card active">
+      <div class="mode-card-icon">🔄</div>
+      <div class="mode-card-title">Transform</div>
+      <div class="mode-card-desc">Map and reshape data. Parse JSON responses, extract fields, convert formats. Always passes unless the script throws an error.</div>
+    </div>
+    <div class="mode-card">
+      <div class="mode-card-icon">✅</div>
+      <div class="mode-card-title">Validate</div>
+      <div class="mode-card-desc">Custom assertion logic. Script sets <code style="color:#c084fc">output.result</code> to <code style="color:#4ade80">true</code> or <code style="color:#f87171">false</code> to pass or fail the node.</div>
+    </div>
+    <div class="mode-card">
+      <div class="mode-card-icon">⚡</div>
+      <div class="mode-card-title">Generate</div>
+      <div class="mode-card-desc">Produce dynamic test data — random payloads, computed timestamps, sequential IDs. Always passes unless script throws.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 2: Canvas Node Appearance ====== -->
+<div class="section">
+  <h2>2. Canvas Node <span class="badge badge-canvas">Visual Design</span></h2>
+  <p class="desc">How the Script/Transform node appears on the workflow canvas. Purple/violet theme distinguishes it from HTTP (blue), Condition (yellow), and Flow (gray) nodes.</p>
+
+  <div class="canvas-demo">
+    <!-- Default state -->
+    <div class="wf-node wf-node-script" style="min-width: 190px;">
+      <div class="wf-handle wf-handle-top"></div>
+      <div class="wf-node-header">
+        <div class="wf-node-icon">&lt;/&gt;</div>
+        <div>
+          <div class="wf-node-label">Transform Data</div>
+          <div class="wf-node-sublabel">Script</div>
+        </div>
+      </div>
+      <div class="wf-node-body">
+        <div class="wf-node-meta">
+          <span>📥 3 inputs</span>
+          <span>📤 2 outputs</span>
+        </div>
+      </div>
+      <div class="wf-handle wf-handle-bottom"></div>
+    </div>
+
+    <!-- Selected state -->
+    <div class="wf-node wf-node-script selected" style="min-width: 190px;">
+      <div class="wf-handle wf-handle-top"></div>
+      <div class="wf-node-header">
+        <div class="wf-node-icon">&lt;/&gt;</div>
+        <div>
+          <div class="wf-node-label">Validate Schema</div>
+          <div class="wf-node-sublabel">Script</div>
+        </div>
+      </div>
+      <div class="wf-node-body">
+        <div class="wf-node-meta">
+          <span>📥 2 inputs</span>
+          <span>📤 1 output</span>
+        </div>
+      </div>
+      <div class="wf-handle wf-handle-bottom"></div>
+    </div>
+
+    <!-- Pass state -->
+    <div class="wf-node wf-node-script" style="min-width: 190px;">
+      <div class="wf-node-state wf-node-state-pass">✓</div>
+      <div class="wf-handle wf-handle-top"></div>
+      <div class="wf-node-header">
+        <div class="wf-node-icon">&lt;/&gt;</div>
+        <div>
+          <div class="wf-node-label">Parse Response</div>
+          <div class="wf-node-sublabel">Script</div>
+        </div>
+      </div>
+      <div class="wf-node-body">
+        <div class="wf-node-meta">
+          <span style="color:#4ade80">✓ 12ms</span>
+          <span>📤 3 vars</span>
+        </div>
+      </div>
+      <div class="wf-handle wf-handle-bottom"></div>
+    </div>
+
+    <!-- Fail state -->
+    <div class="wf-node wf-node-script" style="min-width: 190px;">
+      <div class="wf-node-state wf-node-state-fail">✗</div>
+      <div class="wf-handle wf-handle-top"></div>
+      <div class="wf-node-header">
+        <div class="wf-node-icon">&lt;/&gt;</div>
+        <div>
+          <div class="wf-node-label">Validate Users</div>
+          <div class="wf-node-sublabel">Script</div>
+        </div>
+      </div>
+      <div class="wf-node-body">
+        <div class="wf-node-meta">
+          <span style="color:#f87171">✗ Timeout</span>
+        </div>
+      </div>
+      <div class="wf-handle wf-handle-bottom"></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 3: Node Palette ====== -->
+<div class="section">
+  <h2>3. Node Palette <span class="badge badge-canvas">Add Node Menu</span></h2>
+  <p class="desc">Script node in the "Logic" category of the node palette, alongside Condition, Switch, and Set Variable.</p>
+
+  <div style="display: flex; justify-content: center;">
+    <div class="palette-demo">
+      <div class="palette-header">Logic Nodes</div>
+      <div class="palette-item">
+        <div class="palette-icon logic">⑂</div>
+        <div>
+          <div class="palette-label">Condition</div>
+          <div class="palette-sub">If/Else branching</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-icon logic">⇅</div>
+        <div>
+          <div class="palette-label">Switch</div>
+          <div class="palette-sub">Multi-way branching</div>
+        </div>
+      </div>
+      <div class="palette-item">
+        <div class="palette-icon logic">📝</div>
+        <div>
+          <div class="palette-label">Set Variable</div>
+          <div class="palette-sub">Assign values</div>
+        </div>
+      </div>
+      <div class="palette-item highlight">
+        <div class="palette-icon logic">&lt;/&gt;</div>
+        <div>
+          <div class="palette-label">Script</div>
+          <div class="palette-sub">Execute JavaScript</div>
+        </div>
+        <span class="palette-badge-new">New</span>
+      </div>
+      <div class="palette-item">
+        <div class="palette-icon logic">🔁</div>
+        <div>
+          <div class="palette-label">Loop</div>
+          <div class="palette-sub">Iterate over items</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 4: Config Panel ====== -->
+<div class="section">
+  <h2>4. Configuration Panel <span class="badge badge-config">Full Config</span></h2>
+  <p class="desc">The full configuration panel when editing a Script node. Includes label, mode selector, input variables, code editor, auto-detected outputs, and settings.</p>
+
+  <div class="config-panel">
+    <!-- Title bar -->
+    <div class="config-title-bar">
+      <div class="config-title">
+        <span class="icon">&lt;/&gt;</span>
+        SCRIPT — Transform Response
+      </div>
+      <button class="config-close">✕</button>
+    </div>
+
+    <div class="config-body">
+      <!-- Label + Mode -->
+      <div class="config-section">
+        <div class="config-row">
+          <span class="config-label">Label</span>
+          <input class="config-input" type="text" value="Transform Response" />
+        </div>
+        <div class="config-row" style="margin-top: 10px;">
+          <span class="config-label">Mode</span>
+          <select class="config-select">
+            <option selected>🔄 Transform</option>
+            <option>✅ Validate</option>
+            <option>⚡ Generate</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Input Variables -->
+      <div class="config-section">
+        <div class="config-section-title">Input Variables <span style="color: var(--text-muted); font-weight: 400; text-transform: none;">(available as <code style="color:#67e8f9">input.varName</code>)</span></div>
+        <div class="var-chips">
+          <div class="var-chip active"><span class="check">☑</span> response_body</div>
+          <div class="var-chip active"><span class="check">☑</span> status</div>
+          <div class="var-chip active"><span class="check">☑</span> headers</div>
+          <div class="var-chip"><span class="check">☐</span> url</div>
+          <div class="var-chip"><span class="check">☐</span> method</div>
+          <div class="var-chip var-chip-add">+ Add</div>
+        </div>
+      </div>
+
+      <!-- Code Editor -->
+      <div class="config-section">
+        <div class="config-section-title">Code</div>
+        <div class="code-editor-wrapper">
+          <div class="code-editor-toolbar">
+            <div class="code-editor-toolbar-left">
+              <span>JavaScript</span>
+              <span style="color: var(--border);">│</span>
+              <span>12 lines</span>
+            </div>
+            <div class="code-editor-toolbar-right">
+              <button class="insert-var-btn">{{ }} Insert Variable</button>
+              <button class="code-editor-btn">Format</button>
+              <button class="code-editor-btn primary">▶ Test</button>
+            </div>
+          </div>
+          <div class="code-editor">
+<span class="line-num"> 1</span><span class="code-comment">// Transform the API response</span>
+<span class="line-num"> 2</span><span class="code-keyword">const</span> <span class="code-var">data</span> <span class="code-operator">=</span> <span class="code-const">JSON</span>.<span class="code-method">parse</span>(<span class="code-var">input</span>.<span class="code-property">response_body</span>);
+<span class="line-num"> 3</span>
+<span class="line-num"> 4</span><span class="code-comment">// Extract user metrics</span>
+<span class="line-num"> 5</span><span class="code-var">output</span>.<span class="code-property">totalUsers</span> <span class="code-operator">=</span> <span class="code-const">String</span>(<span class="code-var">data</span>.<span class="code-property">users</span>.<span class="code-property">length</span>);
+<span class="line-num"> 6</span><span class="code-var">output</span>.<span class="code-property">activeUsers</span> <span class="code-operator">=</span> <span class="code-const">String</span>(
+<span class="line-num"> 7</span>  <span class="code-var">data</span>.<span class="code-property">users</span>.<span class="code-method">filter</span>(<span class="code-var">u</span> <span class="code-operator">=></span> <span class="code-var">u</span>.<span class="code-property">active</span>).<span class="code-property">length</span>
+<span class="line-num"> 8</span>);
+<span class="line-num"> 9</span><span class="code-var">output</span>.<span class="code-property">firstEmail</span> <span class="code-operator">=</span> <span class="code-var">data</span>.<span class="code-property">users</span>[<span class="code-number">0</span>]?.<span class="code-property">email</span> <span class="code-operator">||</span> <span class="code-string">'N/A'</span>;
+<span class="line-num">10</span>
+<span class="line-num">11</span><span class="code-var">console</span>.<span class="code-method">log</span>(<span class="code-string">'Processed'</span>, <span class="code-var">data</span>.<span class="code-property">users</span>.<span class="code-property">length</span>, <span class="code-string">'users'</span>);
+          </div>
+        </div>
+      </div>
+
+      <!-- Auto-detected Output Variables -->
+      <div class="config-section">
+        <div class="config-section-title">Output Variables <span style="color: var(--text-muted); font-weight: 400; text-transform: none;">(auto-detected from <code style="color:#4ade80">output.*</code> assignments)</span></div>
+        <div class="output-vars">
+          <div class="output-var"><span class="arrow">→</span> totalUsers</div>
+          <div class="output-var"><span class="arrow">→</span> activeUsers</div>
+          <div class="output-var"><span class="arrow">→</span> firstEmail</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">These variables become available as <code style="color:#67e8f9">{{totalUsers}}</code>, <code style="color:#67e8f9">{{activeUsers}}</code>, <code style="color:#67e8f9">{{firstEmail}}</code> in downstream nodes.</div>
+      </div>
+
+      <!-- Settings -->
+      <div class="config-section">
+        <div class="config-section-title">Settings</div>
+        <div class="settings-row">
+          <div class="setting-item">
+            <span>Timeout</span>
+            <input type="number" value="5000" />
+            <span style="font-size: 12px; color: var(--text-muted);">ms</span>
+          </div>
+          <div class="setting-item">
+            <span>Capture console</span>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="config-footer">
+      <button class="btn btn-danger">Delete</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost">Cancel</button>
+      <button class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 5: Workflow Integration ====== -->
+<div class="section">
+  <h2>5. Workflow Integration <span class="badge badge-canvas">In-Context</span></h2>
+  <p class="desc">Script node placed between an HTTP request and a Condition node in a typical workflow. Shows how data flows through the script.</p>
+
+  <div class="workflow-canvas">
+    <div class="wf-flow">
+      <!-- Start -->
+      <div class="wf-mini-node start">
+        <div class="wf-mini-icon">▶</div>
+        <div>
+          <div class="wf-mini-label">Start</div>
+          <div class="wf-mini-sub">Trigger</div>
+        </div>
+      </div>
+      <div class="wf-edge"></div>
+
+      <!-- HTTP Request -->
+      <div class="wf-mini-node http">
+        <div class="wf-mini-icon">⚡</div>
+        <div>
+          <div class="wf-mini-label">GET /api/users</div>
+          <div class="wf-mini-sub">HTTP Request</div>
+        </div>
+      </div>
+      <div class="wf-edge">
+        <span class="wf-edge-label" style="left: auto; right: -130px; color: #4ade80; font-size: 9px;">response_body, status →</span>
+      </div>
+
+      <!-- Script Node (highlighted) -->
+      <div class="wf-mini-node script highlight">
+        <div class="wf-mini-icon">&lt;/&gt;</div>
+        <div>
+          <div class="wf-mini-label">Transform Response</div>
+          <div class="wf-mini-sub">Script — Transform</div>
+        </div>
+      </div>
+      <div class="wf-edge">
+        <span class="wf-edge-label" style="left: auto; right: -130px; color: #c084fc; font-size: 9px;">totalUsers, activeUsers →</span>
+      </div>
+
+      <!-- Condition -->
+      <div class="wf-mini-node condition">
+        <div class="wf-mini-icon">⑂</div>
+        <div>
+          <div class="wf-mini-label">Users > 0?</div>
+          <div class="wf-mini-sub">Condition</div>
+        </div>
+      </div>
+      <div class="wf-edge"></div>
+
+      <!-- End -->
+      <div class="wf-mini-node end">
+        <div class="wf-mini-icon">■</div>
+        <div>
+          <div class="wf-mini-label">End</div>
+          <div class="wf-mini-sub">Complete</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 6: Execution Result ====== -->
+<div class="section">
+  <h2>6. Execution Result <span class="badge badge-run">After Run</span></h2>
+  <p class="desc">What the user sees after the Script node executes — output variables, console logs, and execution metrics.</p>
+
+  <div class="compare-grid">
+    <!-- Pass result -->
+    <div class="result-panel">
+      <div class="result-header">
+        <div class="result-header-left">
+          <span>&lt;/&gt;</span> Transform Response
+        </div>
+        <span class="result-status pass">✓ Pass</span>
+      </div>
+      <div class="result-body">
+        <div class="result-section">
+          <div class="result-section-title">Output Variables</div>
+          <div class="result-kv"><span class="result-kv-key">totalUsers</span><span class="result-kv-value success">"42"</span></div>
+          <div class="result-kv"><span class="result-kv-key">activeUsers</span><span class="result-kv-value success">"38"</span></div>
+          <div class="result-kv"><span class="result-kv-key">firstEmail</span><span class="result-kv-value success">"alice@example.com"</span></div>
+        </div>
+        <div class="result-section">
+          <div class="result-section-title">Console Output</div>
+          <div class="result-console-line">
+            <span class="result-console-prefix">#</span>
+            <span class="result-console-msg">Processed 42 users</span>
+          </div>
+        </div>
+        <div class="result-section">
+          <div class="result-section-title">Execution</div>
+          <div class="result-kv"><span class="result-kv-key">Duration</span><span class="result-kv-value">12ms</span></div>
+          <div class="result-kv"><span class="result-kv-key">Mode</span><span class="result-kv-value">Transform</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fail result -->
+    <div class="result-panel">
+      <div class="result-header">
+        <div class="result-header-left">
+          <span>&lt;/&gt;</span> Validate Schema
+        </div>
+        <span class="result-status fail">✗ Fail</span>
+      </div>
+      <div class="result-body">
+        <div class="result-section">
+          <div class="result-section-title">Output Variables</div>
+          <div class="result-kv"><span class="result-kv-key">result</span><span class="result-kv-value" style="color:#f87171">"false"</span></div>
+          <div class="result-kv"><span class="result-kv-key">missingKeys</span><span class="result-kv-value" style="color:#f87171">["age","role"]</span></div>
+        </div>
+        <div class="result-section">
+          <div class="result-section-title">Console Output</div>
+          <div class="result-console-line">
+            <span class="result-console-prefix" style="color:#f87171">!</span>
+            <span class="result-console-msg">Schema validation failed: missing 2 required keys</span>
+          </div>
+        </div>
+        <div class="result-section">
+          <div class="result-section-title">Execution</div>
+          <div class="result-kv"><span class="result-kv-key">Duration</span><span class="result-kv-value">3ms</span></div>
+          <div class="result-kv"><span class="result-kv-key">Mode</span><span class="result-kv-value">Validate</span></div>
+          <div class="result-kv"><span class="result-kv-key">Failure</span><span class="result-kv-value" style="color:#f87171">output.result ≠ true</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 7: Code Templates ====== -->
+<div class="section">
+  <h2>7. Code Templates <span class="badge badge-config">Quick Start</span></h2>
+  <p class="desc">Pre-built code snippets users can choose from when creating a new Script node (Phase B feature).</p>
+
+  <div class="template-gallery">
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">📦</span>
+        <span class="template-card-title">Parse JSON Response</span>
+      </div>
+      <div class="template-card-desc">Extract fields from a JSON API response body.</div>
+      <div class="template-card-code">const data = JSON.parse(input.response_body);</div>
+    </div>
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">✅</span>
+        <span class="template-card-title">Schema Validation</span>
+      </div>
+      <div class="template-card-desc">Verify all required keys exist in the response.</div>
+      <div class="template-card-code">output.result = requiredKeys.every(k => k in body);</div>
+    </div>
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">🎲</span>
+        <span class="template-card-title">Random Test Data</span>
+      </div>
+      <div class="template-card-desc">Generate random payloads with unique IDs and timestamps.</div>
+      <div class="template-card-code">output.payload = JSON.stringify({ id: `test-${...}` });</div>
+    </div>
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">📊</span>
+        <span class="template-card-title">CSV to JSON</span>
+      </div>
+      <div class="template-card-desc">Convert CSV string data into a JSON array of objects.</div>
+      <div class="template-card-code">const rows = input.csv_data.split('\n').map(...);</div>
+    </div>
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">🔐</span>
+        <span class="template-card-title">Base64 Encode/Decode</span>
+      </div>
+      <div class="template-card-desc">Encode or decode base64 strings for auth tokens.</div>
+      <div class="template-card-code">output.encoded = btoa(input.payload);</div>
+    </div>
+    <div class="template-card">
+      <div class="template-card-header">
+        <span class="template-card-icon">🔍</span>
+        <span class="template-card-title">Regex Extraction</span>
+      </div>
+      <div class="template-card-desc">Extract values using regular expressions.</div>
+      <div class="template-card-code">const match = input.text.match(/id=(\d+)/);</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 8: Validate Mode Detail ====== -->
+<div class="section">
+  <h2>8. Validate Mode <span class="badge badge-mode">Deep Dive</span></h2>
+  <p class="desc">In Validate mode, the node passes or fails based on <code style="color:#c084fc">output.result</code>. This enables custom assertions beyond simple operators.</p>
+
+  <div class="compare-grid">
+    <div class="compare-panel">
+      <div class="compare-label">✅ Validate — Pass Example</div>
+      <div class="compare-body">
+        <div class="code-editor-wrapper">
+          <div class="code-editor" style="min-height: 120px; font-size: 12px;">
+<span class="line-num">1</span><span class="code-keyword">const</span> <span class="code-var">body</span> <span class="code-operator">=</span> <span class="code-const">JSON</span>.<span class="code-method">parse</span>(<span class="code-var">input</span>.<span class="code-property">response_body</span>);
+<span class="line-num">2</span><span class="code-keyword">const</span> <span class="code-var">users</span> <span class="code-operator">=</span> <span class="code-var">body</span>.<span class="code-property">users</span>;
+<span class="line-num">3</span>
+<span class="line-num">4</span><span class="code-comment">// Pass if all users have valid emails</span>
+<span class="line-num">5</span><span class="code-var">output</span>.<span class="code-property">result</span> <span class="code-operator">=</span> <span class="code-var">users</span>.<span class="code-method">every</span>(
+<span class="line-num">6</span>  <span class="code-var">u</span> <span class="code-operator">=></span> <span class="code-var">u</span>.<span class="code-property">email</span>.<span class="code-method">includes</span>(<span class="code-string">'@'</span>)
+<span class="line-num">7</span>);
+          </div>
+        </div>
+        <div style="padding: 10px; text-align: center;">
+          <span class="result-status pass" style="font-size: 13px; padding: 4px 12px;">✓ PASS — output.result = true</span>
+        </div>
+      </div>
+    </div>
+    <div class="compare-panel">
+      <div class="compare-label">✗ Validate — Fail Example</div>
+      <div class="compare-body">
+        <div class="code-editor-wrapper">
+          <div class="code-editor" style="min-height: 120px; font-size: 12px;">
+<span class="line-num">1</span><span class="code-keyword">const</span> <span class="code-var">body</span> <span class="code-operator">=</span> <span class="code-const">JSON</span>.<span class="code-method">parse</span>(<span class="code-var">input</span>.<span class="code-property">response_body</span>);
+<span class="line-num">2</span><span class="code-keyword">const</span> <span class="code-var">latency</span> <span class="code-operator">=</span> <span class="code-const">Number</span>(<span class="code-var">input</span>.<span class="code-property">response_time</span>);
+<span class="line-num">3</span>
+<span class="line-num">4</span><span class="code-comment">// Fail if latency exceeds SLA</span>
+<span class="line-num">5</span><span class="code-var">output</span>.<span class="code-property">result</span> <span class="code-operator">=</span> <span class="code-var">latency</span> <span class="code-operator">&lt;</span> <span class="code-number">500</span>;
+<span class="line-num">6</span><span class="code-var">output</span>.<span class="code-property">message</span> <span class="code-operator">=</span> <span class="code-string">`Latency: ${</span><span class="code-var">latency</span><span class="code-string">}ms`</span>;
+          </div>
+        </div>
+        <div style="padding: 10px; text-align: center;">
+          <span class="result-status fail" style="font-size: 13px; padding: 4px 12px;">✗ FAIL — output.result = false</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 9: I/O Model ====== -->
+<div class="section">
+  <h2>9. Input/Output Model <span class="badge badge-config">Data Flow</span></h2>
+  <p class="desc">How variables flow into and out of the Script node sandbox.</p>
+
+  <div style="max-width: 700px; margin: 0 auto;">
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+      <div style="display: flex; align-items: stretch; gap: 16px; flex-wrap: wrap;">
+        <!-- Input side -->
+        <div style="flex: 1; min-width: 180px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #67e8f9; margin-bottom: 10px;">📥 Input (Read-Only)</div>
+          <div style="background: var(--bg); border: 1px solid rgba(103,232,249,0.2); border-radius: 8px; padding: 12px;">
+            <div style="font-family: monospace; font-size: 12px; line-height: 1.8;">
+              <div><span style="color:#67e8f9">input</span>.<span style="color:#93c5fd">response_body</span> <span style="color:#475569">→ string</span></div>
+              <div><span style="color:#67e8f9">input</span>.<span style="color:#93c5fd">status</span> <span style="color:#475569">→ string</span></div>
+              <div><span style="color:#67e8f9">input</span>.<span style="color:#93c5fd">headers</span> <span style="color:#475569">→ string</span></div>
+            </div>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px;">Frozen — cannot be modified</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display: flex; align-items: center; font-size: 24px; color: var(--purple);">→</div>
+
+        <!-- Sandbox -->
+        <div style="flex: 1.2; min-width: 200px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--purple); margin-bottom: 10px;">⚙ Sandbox</div>
+          <div style="background: #0b1120; border: 1px solid var(--purple-border); border-radius: 8px; padding: 12px;">
+            <div style="font-family: monospace; font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+              <div style="color: #64748b;">// Available globals:</div>
+              <div><span style="color:#c084fc">JSON</span> <span style="color:#c084fc">Math</span> <span style="color:#c084fc">Date</span> <span style="color:#c084fc">RegExp</span></div>
+              <div><span style="color:#c084fc">String</span> <span style="color:#c084fc">Number</span> <span style="color:#c084fc">Array</span> <span style="color:#c084fc">Object</span></div>
+              <div><span style="color:#c084fc">Map</span> <span style="color:#c084fc">Set</span> <span style="color:#c084fc">parseInt</span> <span style="color:#c084fc">btoa</span></div>
+              <div style="margin-top: 6px; color: #64748b;">// Blocked:</div>
+              <div><span style="color:#f87171; text-decoration: line-through;">fetch</span> <span style="color:#f87171; text-decoration: line-through;">eval</span> <span style="color:#f87171; text-decoration: line-through;">window</span> <span style="color:#f87171; text-decoration: line-through;">document</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display: flex; align-items: center; font-size: 24px; color: var(--purple);">→</div>
+
+        <!-- Output side -->
+        <div style="flex: 1; min-width: 180px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #4ade80; margin-bottom: 10px;">📤 Output (Writable)</div>
+          <div style="background: var(--bg); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 12px;">
+            <div style="font-family: monospace; font-size: 12px; line-height: 1.8;">
+              <div><span style="color:#4ade80">output</span>.<span style="color:#93c5fd">totalUsers</span> <span style="color:#475569">= "42"</span></div>
+              <div><span style="color:#4ade80">output</span>.<span style="color:#93c5fd">activeUsers</span> <span style="color:#475569">= "38"</span></div>
+              <div><span style="color:#4ade80">output</span>.<span style="color:#93c5fd">firstEmail</span> <span style="color:#475569">= "..."</span></div>
+            </div>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px;">Serialized to workflow variables</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ====== SECTION 10: Error Handling ====== -->
+<div class="section">
+  <h2>10. Error Handling <span class="badge badge-run">Edge Cases</span></h2>
+  <p class="desc">How the Script node handles various failure scenarios.</p>
+
+  <div style="max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;">
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+      <span style="font-size: 18px;">⏱</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Timeout (5s default)</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Script exceeds configured timeout → node fails with <code style="color:#f87171">"Script timed out after 5000ms"</code>. Note: synchronous infinite loops block the main thread until timeout (Phase C adds Web Worker isolation).</div>
+      </div>
+    </div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+      <span style="font-size: 18px;">💥</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Runtime Error</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Script throws an exception (e.g., <code style="color:#f87171">TypeError: Cannot read property 'x' of undefined</code>) → node fails, error message shown in result panel and workflow console.</div>
+      </div>
+    </div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+      <span style="font-size: 18px;">🚫</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Syntax Error</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Invalid JavaScript syntax → node fails immediately with <code style="color:#f87171">"SyntaxError: Unexpected token..."</code>. Phase B adds real-time syntax checking in the editor.</div>
+      </div>
+    </div>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+      <span style="font-size: 18px;">📭</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Empty Code</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Code field is empty → node passes with no output variables (no-op). Useful as a placeholder during workflow construction.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px;">
+  RedfireForge — Script/Transform Node Design Mockup — Phase 5
+</div>
+
+</body>
+</html>
