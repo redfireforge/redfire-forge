@@ -3,6 +3,7 @@ import type { LoopNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type LoopWorkflowNode = Node<LoopNodeData, 'loop'>;
 type Props = NodeProps<LoopWorkflowNode>;
@@ -25,7 +26,7 @@ function modeBadge(data: LoopNodeData): string {
 }
 
 export default function LoopNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
 
   const badge = modeBadge(data);
 
@@ -45,6 +46,8 @@ export default function LoopNode({ id, data, selected }: Props) {
       <div className="wf-node-footer">
         <NodeConfigureButton title="Configure this loop" onClick={handleConfigure} />
       </div>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} id="body" className="wf-handle wf-handle-loop-body" style={{ left: '35%' }} />

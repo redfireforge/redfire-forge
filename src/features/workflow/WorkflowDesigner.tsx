@@ -431,7 +431,7 @@ function WorkflowDesignerInner({
         workflowVariables,
       );
     }
-    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate'].includes(selectedNode.type)) {
+    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate', 'script'].includes(selectedNode.type)) {
       return collectConditionVariableHints(
         hintNodes,
         hintEdges,
@@ -1267,6 +1267,7 @@ function WorkflowDesignerInner({
           key={configModalNode.id}
           node={configModalNode}
           workflowVariables={workflowVariables}
+          runtimeVariables={runVariableSnapshot ?? undefined}
           onUpdateNode={handleUpdateNode}
           onDeleteNode={handleDeleteNode}
           onClose={() => setConfigModalNodeId(null)}

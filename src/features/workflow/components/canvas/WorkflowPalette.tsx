@@ -34,6 +34,7 @@ const ALL_BLOCKS: BlockDef[] = [
   { type: 'errorHandler', title: 'Error Handler', desc: 'Retry and catch errors', category: 'flow' },
   { type: 'subWorkflow', title: 'Sub-Workflow', desc: 'Execute another workflow', category: 'flow' },
   { type: 'logDebug', title: 'Log/Debug', desc: 'Log messages and variable snapshots', category: 'data' },
+  { type: 'script', title: 'Script', desc: 'Custom JavaScript data transformation', category: 'data' },
   { type: 'waitForCondition', title: 'Wait for Condition', desc: 'Poll until condition met', category: 'logic' },
   { type: 'fork', title: 'Parallel Fork', desc: 'Concurrent branches', category: 'flow' },
   { type: 'join', title: 'Join', desc: 'Wait for all branches', category: 'flow' },
