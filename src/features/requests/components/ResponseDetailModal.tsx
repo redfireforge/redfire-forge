@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
+import { prettyJson } from '../../../shared/utils/helpers';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -9,13 +9,7 @@ type ResponseDetailModalProps = {
 };
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
-  const formatResponseBody = useCallback((body: string) => {
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch {
-      return body;
-    }
-  }, []);
+  const formatResponseBody = prettyJson;
 
   if (!result) return null;
 

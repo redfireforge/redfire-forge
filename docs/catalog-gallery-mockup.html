@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalog Sample Gallery — Design Mockup</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --surface: #252535;
+    --surface2: #2a2a3d;
+    --surface3: #313145;
+    --border: #3a3a50;
+    --text: #e0e0e8;
+    --text-dim: #8888a0;
+    --accent: #5b8def;
+    --accent-hover: #6e9df5;
+    --success: #4ec98c;
+    --warning: #e8a84c;
+    --danger: #e85c5c;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #15151f;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 60px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .section-label {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .mockup-section {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ─── Modal Frame ─── */
+  .modal-overlay {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+  }
+  .modal-close:hover { background: var(--surface3); color: var(--text); }
+
+  .modal-body {
+    padding: 20px;
+    min-height: 420px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  /* ─── Tabs ─── */
+  .import-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .import-tab {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .import-tab:hover { color: var(--text); }
+  .import-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ─── Gallery Grid ─── */
+  .gallery-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .gallery-search {
+    flex: 1;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+  }
+  .gallery-search::placeholder { color: var(--text-dim); }
+  .gallery-search:focus { border-color: var(--accent); }
+
+  .gallery-category-pills {
+    display: flex;
+    gap: 6px;
+  }
+
+  .gallery-pill {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .gallery-pill:hover { border-color: var(--accent); color: var(--text); }
+  .gallery-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .gallery-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .gallery-card:hover {
+    border-color: var(--accent);
+    background: var(--surface3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .gallery-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .gallery-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .gallery-card-icon {
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+  }
+
+  .gallery-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .gallery-card-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  .gallery-card-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: auto;
+  }
+
+  .gallery-card-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-webhooks { background: rgba(91,141,239,0.15); color: var(--accent); }
+  .badge-rest-api { background: rgba(78,201,140,0.15); color: var(--success); }
+  .badge-microservices { background: rgba(232,168,76,0.15); color: var(--warning); }
+
+  .gallery-card-endpoints {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ─── Buttons ─── */
+  .btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface3);
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--surface2); }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  /* ─── Annotations ─── */
+  .annotation {
+    background: rgba(91,141,239,0.08);
+    border: 1px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--accent);
+    line-height: 1.5;
+  }
+  .annotation strong { color: var(--text); }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .comparison-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .comparison-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .flow-arrow {
+    text-align: center;
+    color: var(--accent);
+    font-size: 20px;
+    padding: 8px;
+  }
+
+  /* ─── Preview Step ─── */
+  .preview-panel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .preview-icon { font-size: 28px; }
+
+  .preview-info {
+    flex: 1;
+  }
+
+  .preview-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .preview-version {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .preview-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .preview-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .preview-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .preview-stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .preview-endpoints {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .preview-endpoint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+  }
+
+  .method-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    min-width: 42px;
+    text-align: center;
+  }
+  .method-post { background: rgba(78,201,140,0.15); color: var(--success); }
+  .method-get { background: rgba(91,141,239,0.15); color: var(--accent); }
+  .method-delete { background: rgba(232,92,92,0.15); color: var(--danger); }
+
+  .endpoint-path {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-dim);
+  }
+
+  .endpoint-name {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Catalog Sample Gallery — Design Mockup</h1>
+
+<!-- ─────────────────────────────────────────── -->
+<!-- MOCKUP 1: Import Modal with 3rd "Sample Gallery" tab -->
+<!-- ─────────────────────────────────────────── -->
+
+<div class="mockup-section">
+  <div class="section-label">Step 1 — Import Modal with new "Sample Gallery" tab</div>
+
+  <div class="modal-overlay">
+    <div class="modal-header">
+      <span class="modal-title">Import OpenAPI Specification</span>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="import-tabs">
+        <button class="import-tab">Upload File</button>
+        <button class="import-tab">Paste YAML / JSON</button>
+        <button class="import-tab active">Sample Gallery</button>
+      </div>
+
+      <div class="gallery-controls">
+        <input class="gallery-search" type="text" placeholder="Search sample APIs..." />
+        <div class="gallery-category-pills">
+          <button class="gallery-pill active">All</button>
+          <button class="gallery-pill">Webhooks</button>
+          <button class="gallery-pill">REST API</button>
+          <button class="gallery-pill">Microservices</button>
+        </div>
+      </div>
+
+      <div class="gallery-grid">
+
+        <!-- Card 1: Correlation Wait API (our new sample) -->
+        <div class="gallery-card selected">
+          <div class="gallery-card-header">
+            <div class="gallery-card-icon">🔗</div>
+            <div class="gallery-card-name">Correlation Wait API</div>
+          </div>
+          <div class="gallery-card-desc">
+            Webhook correlation endpoints — pause workflows, receive callbacks, manage async operations.
+          </div>
+          <div class="gallery-card-meta">
+            <span class="gallery-card-badge badge-webhooks">Webhooks</span>
+            <span class="gallery-card-endpoints">7 endpoints</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Pet Store (classic example) -->
+        <div class="gallery-card">
+          <div class="gallery-card-header">
+            <div class="gallery-card-icon">🐾</div>
+            <div class="gallery-card-name">Pet Store API</div>
+          </div>
+          <div class="gallery-card-desc">
+            Classic OpenAPI example — CRUD operations for pets with tags, categories, and auth.
+          </div>
+          <div class="gallery-card-meta">
+            <span class="gallery-card-badge badge-rest-api">REST API</span>
+            <span class="gallery-card-endpoints">12 endpoints</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Payment Gateway -->
+        <div class="gallery-card">
+          <div class="gallery-card-header">
+            <div class="gallery-card-icon">💳</div>
+            <div class="gallery-card-name">Payment Gateway</div>
+          </div>
+          <div class="gallery-card-desc">
+            Charge cards, process refunds, and manage payment methods with webhook notifications.
+          </div>
+          <div class="gallery-card-meta">
+            <span class="gallery-card-badge badge-webhooks">Webhooks</span>
+            <span class="gallery-card-endpoints">9 endpoints</span>
+          </div>
+        </div>
+
+        <!-- Card 4: User Management -->
+        <div class="gallery-card">
+          <div class="gallery-card-header">
+            <div class="gallery-card-icon">👤</div>
+            <div class="gallery-card-name">User Management</div>
+          </div>
+          <div class="gallery-card-desc">
+            User CRUD, authentication, roles & permissions. Bearer token and API key auth.
+          </div>
+          <div class="gallery-card-meta">
+            <span class="gallery-card-badge badge-microservices">Microservices</span>
+            <span class="gallery-card-endpoints">8 endpoints</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn">Cancel</button>
+      <button class="btn btn-primary">Import Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────── -->
+<!-- MOCKUP 2: After clicking a sample → Preview step -->
+<!-- ─────────────────────────────────────────── -->
+
+<div class="mockup-section">
+  <div class="section-label">Step 2 — Preview (same as existing import preview)</div>
+
+  <div class="modal-overlay">
+    <div class="modal-header">
+      <span class="modal-title">Import OpenAPI Specification</span>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="preview-panel">
+        <div class="preview-header">
+          <div class="preview-icon">🔗</div>
+          <div class="preview-info">
+            <div class="preview-title">RedfireForge Correlation Wait API</div>
+            <div class="preview-version">v1.0.0 · OpenAPI 3.0.3 · from Sample Gallery</div>
+          </div>
+        </div>
+
+        <div class="preview-stats">
+          <div class="preview-stat">
+            <div class="preview-stat-value">7</div>
+            <div class="preview-stat-label">Endpoints</div>
+          </div>
+          <div class="preview-stat">
+            <div class="preview-stat-value">3</div>
+            <div class="preview-stat-label">Tags</div>
+          </div>
+          <div class="preview-stat">
+            <div class="preview-stat-value">1</div>
+            <div class="preview-stat-label">Server</div>
+          </div>
+        </div>
+
+        <div class="preview-endpoints">
+          <div class="preview-endpoint">
+            <span class="method-badge method-post">POST</span>
+            <span class="endpoint-path">/api/correlations/pause</span>
+            <span class="endpoint-name">pauseCorrelation</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-post">POST</span>
+            <span class="endpoint-path">/api/correlations/resume</span>
+            <span class="endpoint-name">resumeCorrelation</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-get">GET</span>
+            <span class="endpoint-path">/api/correlations</span>
+            <span class="endpoint-name">listCorrelations</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-delete">DELETE</span>
+            <span class="endpoint-path">/api/correlations/{correlationId}</span>
+            <span class="endpoint-name">cancelCorrelation</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-post">POST</span>
+            <span class="endpoint-path">/webhooks/callback/{path}</span>
+            <span class="endpoint-name">webhookCallbackPost</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-get">GET</span>
+            <span class="endpoint-path">/api/correlations/unmatched</span>
+            <span class="endpoint-name">getUnmatchedWebhooks</span>
+          </div>
+          <div class="preview-endpoint">
+            <span class="method-badge method-get">GET</span>
+            <span class="endpoint-path">/api/correlations/idempotency</span>
+            <span class="endpoint-name">getIdempotencyStats</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn">Back</button>
+      <button class="btn btn-primary">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────── -->
+<!-- Flow annotation -->
+<!-- ─────────────────────────────────────────── -->
+
+<div class="mockup-section">
+  <div class="section-label">User Flow</div>
+
+  <div class="annotation">
+    <strong>1.</strong> User clicks <strong>"+ Import Spec"</strong> in sidebar → Import modal opens<br>
+    <strong>2.</strong> User clicks <strong>"Sample Gallery"</strong> tab → sees sample API cards with search + category filter<br>
+    <strong>3.</strong> User clicks a card → <strong>same preview step</strong> as Upload/Paste (reuses existing preview UI)<br>
+    <strong>4.</strong> User clicks <strong>"Import"</strong> → sample API appears in catalog sidebar, fully browsable<br><br>
+    <strong>Implementation:</strong><br>
+    • Data: <code>src/data/sampleCatalogSpecs.ts</code> — array of { id, name, description, icon, category, specYaml }<br>
+    • UI: 3rd tab in <code>CatalogImportModal.tsx</code> — card grid with search + pills<br>
+    • On select: calls <code>parseOpenApiSpec(entry.specYaml)</code> → jumps to existing preview step<br>
+    • <strong>No new modal, no new routes</strong> — plugs into existing import flow
+  </div>
+</div>
+
+</body>
+</html>

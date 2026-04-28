@@ -17,6 +17,7 @@ import type {
   WaitForConditionNodeData,
   SubWorkflowNodeData,
   ScriptNodeData,
+  CorrelationWaitNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -42,6 +43,7 @@ import WaitForConditionConfig from '../configs/WaitForConditionConfig';
 import SubWorkflowConfig from '../configs/SubWorkflowConfig';
 import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
 import ScriptConfig from '../configs/ScriptConfig';
+import CorrelationWaitConfig from '../configs/CorrelationWaitConfig';
 import WebhookConfig from '../configs/WebhookConfig';
 import ScheduleConfig from '../configs/ScheduleConfig';
 import VariablesSection from '../panels/VariablesSection';
@@ -364,6 +366,15 @@ export default function WorkflowNodeConfigModal({
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}
                 workflowVariables={runtimeVariables ?? workflowVariables}
+              />
+            )}
+
+            {draftNode.type === 'correlationWait' && (
+              <CorrelationWaitConfig
+                data={draftNode.data as CorrelationWaitNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
               />
             )}
 

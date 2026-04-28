@@ -4,7 +4,10 @@ import type { TestRun, RequestCollection, Environment, Microservice, FeatureGrou
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { findFolderDeep } from '../features/requests/utils/requestTree';
-import { loadTestRuns, saveTheme, loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
+import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomizer';
+import { loadTestRuns, loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
+import { saveFile } from '../shared/utils/fileSaver';
+import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
 import { useCatalog } from '../features/catalog/hooks/useCatalog';
@@ -30,7 +33,7 @@ import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
-import TemplateGalleryModal from '../features/workflow/components/modals/TemplateGalleryModal';
+import { TemplateGalleryContent } from '../features/workflow/components/modals/TemplateGalleryModal';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
@@ -41,13 +44,13 @@ import RequestCollectionModal from '../features/requests/components/RequestColle
 import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import '../styles/index.css';
 
-type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
 
 type Domain = 'api' | 'workflow' | 'testing' | 'settings';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries', 'gallery']);
 const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
 const API_TABS = new Set<Tab>(['requests', 'catalog']);
 const isApiTab = (t: Tab) => API_TABS.has(t);
@@ -62,7 +65,7 @@ function domainOf(tab: Tab): Domain {
   return 'settings'; // environments
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -113,10 +116,11 @@ export default function App() {
   const wb = useRequests();
   const catalog = useCatalog();
   const wfHook = useWorkflows();
+  const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const [showSettings, setShowSettings] = useState(false);
   const [showExportCenter, setShowExportCenter] = useState(false);
@@ -138,7 +142,7 @@ export default function App() {
     const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
     return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
   });
-  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+  // Gallery is now a proper tab — no separate modal state needed.
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
@@ -163,7 +167,7 @@ export default function App() {
   useEffect(() => {
     if (!loading) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
-      setTheme(initialTheme as 'dark' | 'light');
+      setTheme(initialTheme);
        
       setTestRunsCache(initialTestRuns);
     }
@@ -188,11 +192,6 @@ export default function App() {
   }, [syncHeaderHeight]);
 
   // ---- Theme ----
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    saveTheme(theme);
-  }, [theme]);
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   // ---- Derived view state ----
   const selectedEnv = environments.find((e) => e.id === selectedEnvId);
@@ -289,6 +288,16 @@ export default function App() {
     setActiveTab('requests');
   }, [wb, sendToReqEntry, catalog]);
 
+  const handleExportSpec = useCallback(async (entryId: string) => {
+    const entry = catalog.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
+    if (!raw) return;
+    const filename = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
+    const blob = new Blob([raw], { type: 'text/yaml' });
+    await saveFile(blob, { filename, mimeType: 'text/yaml', description: 'YAML spec' });
+  }, [catalog]);
+
   const handleImportData = useCallback(async (data: {
     environments?: Environment[];
     microservices?: Microservice[];
@@ -340,24 +349,62 @@ export default function App() {
         </h1>
         <div className="header-selectors">
           <div className="header-select-group">
-            <label>Environment</label>
             <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
-              <option value="">— select —</option>
+              <option value="">Environment…</option>
               {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
             </select>
           </div>
           <div className="header-select-group">
-            <label>Service</label>
             <select value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
-              <option value="">— select —</option>
+              <option value="">Service…</option>
               {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
             </select>
           </div>
-          <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
+          <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
+            <button className="theme-toggle" onClick={() => setThemePickerOpen(o => !o)}
+              title={`Theme: ${isCustomThemeId(theme) ? (findSavedTheme(theme)?.name ?? 'Custom') : theme}`}>
+              {THEME_ICONS[theme] ?? '🎨'}
+            </button>
+            <div className="theme-dropdown">
+              {THEMES.map(g => (
+                <div key={g.group}>
+                  <div className="theme-dropdown-label">{g.group}</div>
+                  {g.items.map(t => (
+                    <button key={t.id} className={`theme-option${theme === t.id ? ' active' : ''}`}
+                      onClick={() => { setTheme(t.id); setThemePickerOpen(false); }}>
+                      <span className="theme-opt-icon">{t.icon}</span>
+                      {t.label}
+                      <span className="theme-opt-swatch" style={{ background: t.bg }} />
+                    </button>
+                  ))}
+                </div>
+              ))}
+              <div className="theme-dropdown-divider" />
+              {isCustomThemeId(theme) && (
+                <div className="theme-active-custom">
+                  <span className="theme-opt-icon">🎨</span>
+                  {findSavedTheme(theme)?.name ?? 'Custom'}
+                  <span className="theme-active-badge">active</span>
+                </div>
+              )}
+              <button className={`theme-customize-btn${isCustomThemeId(theme) ? ' active' : ''}`}
+                onClick={() => { setThemePickerOpen(false); setShowCustomizer(true); }}>
+                🎨 Customize…
+              </button>
+            </div>
+          </div>
         </div>
       </header>
+      {showCustomizer && (
+        <ThemeCustomizer
+          currentTheme={theme}
+          onClose={() => {
+            setShowCustomizer(false);
+            reapplyTheme();
+          }}
+          onApply={(id) => setTheme(id)}
+        />
+      )}
 
       <div className="app-body">
       {/* ── Activity Bar ── */}
@@ -420,19 +467,7 @@ export default function App() {
                 onDeleteEntry={catalog.removeEntry}
                 onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
                 onEdit={(entryId) => setCatalogEditId(entryId)}
-                onExportSpec={async (entryId) => {
-                  const entry = catalog.entries.find(e => e.id === entryId);
-                  if (!entry) return;
-                  const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
-                  if (!raw) return;
-                  const blob = new Blob([raw], { type: 'text/yaml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
+                onExportSpec={handleExportSpec}
               />
             )}
           </div>
@@ -484,7 +519,7 @@ export default function App() {
               onNew={(name: string) => {
                 wfHook.create(name); setActiveTab('workflow');
               }}
-              onBrowseTemplates={() => setShowTemplateGallery(true)}
+              onBrowseTemplates={() => setActiveTab('gallery')}
               onRename={(id, name) => {
                 wfHook.update(id, { name });
               }}
@@ -534,7 +569,7 @@ export default function App() {
                 <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
                 <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
                 <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
-                <button className={`sub-nav-tab`} onClick={() => setShowTemplateGallery(true)}>Gallery</button>
+                <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Gallery</button>
                 <div className="sub-nav-spacer" />
                 <ServerStatusIndicator />
               </div>
@@ -587,6 +622,19 @@ export default function App() {
               }}
             />
           </div>
+          {activeTab === 'gallery' && (
+            <div className="app-tab-pane tg-pane">
+              <TemplateGalleryContent
+                onSelect={(entry: SampleWorkflowEntry) => {
+                  const sample = entry.factory();
+                  const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
+                  setPreviewWorkflow({ ...sample, nodes: laidOut as unknown as typeof sample.nodes });
+                  savePreviewSampleId(entry.id);
+                  setActiveTab('workflow');
+                }}
+              />
+            </div>
+          )}
           {activeTab === 'workflow-executions' && (
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
               <WorkflowExecutionHistory />
@@ -651,19 +699,7 @@ export default function App() {
               onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
               onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
               onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
-              onExportSpec={async (entryId) => {
-                const entry = catalog.entries.find(e => e.id === entryId);
-                if (!entry) return;
-                const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
-                if (!raw) return;
-                const blob = new Blob([raw], { type: 'text/yaml' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
+              onExportSpec={handleExportSpec}
               onSendToRequests={handleSendToRequests}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
               globalAuthProfiles={appGlobalAuthProfiles}
@@ -804,18 +840,6 @@ export default function App() {
         </div>
       )}
 
-      <TemplateGalleryModal
-        open={showTemplateGallery}
-        onClose={() => setShowTemplateGallery(false)}
-        onSelect={(entry: SampleWorkflowEntry) => {
-          const sample = entry.factory();
-          const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
-          setPreviewWorkflow({ ...sample, nodes: laidOut as unknown as typeof sample.nodes });
-          savePreviewSampleId(entry.id);
-          setShowTemplateGallery(false);
-          setActiveTab('workflow');
-        }}
-      />
     </div>
   );
 }

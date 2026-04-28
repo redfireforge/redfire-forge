@@ -10,6 +10,7 @@ import JsonPreview, { buildJTree, collectMatchNodes } from '../../../requests/co
 import type { JNode } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
+import { prettyJson } from '../../../../shared/utils/helpers';
 
 function collectAllPaths(node: { key: string; children?: { key: string; children?: unknown[] }[] }, prefix: string): string[] {
   const paths: string[] = [];
@@ -47,9 +48,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
 
   const isPretty = draft.includes('\n');
 
-  const tryPretty = (text: string): string => {
-    try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
-  };
+  const tryPretty = prettyJson;
   const tryMinify = (text: string): string => {
     try { return JSON.stringify(JSON.parse(text)); } catch { return text; }
   };
@@ -89,7 +88,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
   const effectiveCount = viewMode === 'tree' ? searchMatchCount : textMatchCount;
 
   return (
-    <div className="wf-script-value-panel">
+    <div className="wf-script-value-panel" style={style}>
       {/* Header */}
       <div className="wf-script-value-panel-header">
         <code className="wf-script-value-popup-name">{varName}</code>

@@ -25,6 +25,7 @@ import {
   handleLogDebugNode,
   handleWaitForConditionNode,
   handleSubWorkflowNode,
+  handleCorrelationWaitNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
@@ -221,6 +222,8 @@ export async function runGraph(
         await handleWaitForConditionNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'subWorkflow') {
         await handleSubWorkflowNode(nodeId, node, hCtx, passedFlag, runGraph);
+      } else if (node.type === 'correlationWait') {
+        await handleCorrelationWaitNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
