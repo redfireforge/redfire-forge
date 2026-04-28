@@ -703,6 +703,7 @@ tr:hover td { background: var(--surface-hover); }
   max-height: 85vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .response-detail-header {
   display: flex;
@@ -723,6 +724,8 @@ tr:hover td { background: var(--surface-hover); }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
 }
 .response-detail-body::-webkit-scrollbar { width: 8px; }
 .response-detail-body::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
