@@ -332,6 +332,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Webhook & Schedule Backend** — Node.js webhook HTTP server (`src-server/`) with cron scheduler; file-based workflow storage; webhook delivery logs; execution history; auto-registration on workflow save
 - [x] **Script Transform Node** — Custom JavaScript data transformation node with Monaco editor, 3 modes (transform/validate/generate), sandboxed execution with timeout protection, complexity analysis warnings, code template gallery (12 templates across 4 categories), reusable script libraries with localStorage persistence
 - [x] **Correlation Wait Node (Phase 7A)** — Async correlation node: pause workflow execution and wait for external webhook callback; correlation ID expression with variable interpolation; configurable source (body JSONPath, header, query); extract variables from webhook payload; timeout support; in-memory correlation store; backend webhook callback handler with unmatched webhook logging
+- [x] **Phase 7A Refactoring** — Refactored expressionFunctions.ts (957→9 modules), App.tsx (910→858 lines, useTheme extracted), WorkflowDesigner.tsx (1432→1061 lines, 4 hooks extracted); consolidated 7 duplicate prettyJson implementations; 192 new unit tests + 14 E2E tests; 91.47% line coverage (4546 tests passing)
 - [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 
 ---

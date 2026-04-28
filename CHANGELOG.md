@@ -57,6 +57,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Full config panel with InsertVarField, AvailableVariables, extract variables table
   - Node palette entry under Actions category
   - 41 backend integration tests, 15 handler tests, 52 UI component tests, E2E tests
+- **Phase 7A Refactoring & Test Coverage**
+  - Refactored `expressionFunctions.ts` (957 lines → 9 modular files: types, helpers, string/math/json/dateTime/conditional/encoding functions, index)
+  - Refactored `App.tsx` (910 → 858 lines) — extracted `useTheme` hook
+  - Refactored `WorkflowDesigner.tsx` (1432 → 1061 lines) — extracted 4 hooks: `useWorkflowNodeActions`, `useWorkflowCanvasSync`, `useWorkflowEdgeOps`, `useWorkflowDetailModal`
+  - Extracted common utilities: `prettyJson()` (consolidated 7 duplicates), `formatBytes()`, `saveFile()`
+  - Fixed async/await in 5 file download functions
+  - Fixed 3 initialization order bugs in WorkflowDesigner hook ordering
+  - Added 192 new unit tests across 7 files (executionMode, useSidebarResize, expressionFunctions helpers/index, csvTemplateTypes, httpMethodColors, regexAssertionUtils)
+  - Added 14 E2E tests for refactored features (theme customization, sidebar resize, workflow navigation)
+  - Total: 4546 unit tests passing (193 files), 91.47% line coverage
 - **Script Transform Node — Phase D: Code Templates & Script Libraries**
   - Code template gallery with 12 templates across 4 categories (transform, validate, generate, utility)
   - Category filter tabs and search functionality for templates
