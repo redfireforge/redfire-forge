@@ -74,3 +74,56 @@ Both servers successfully restarted and responding to requests.
    - Increasing Node.js heap size
    - Enabling memory profiling
    - Reviewing recent code changes for memory leaks
+
+---
+
+## Modal Refactoring Session - April 28, 2026
+
+### Issue Report
+User reported Response Detail modal didn't follow standard pattern:
+- Should have close and expand/shrink buttons in top right
+- Badges should be in one row, not wrapping
+- Expanded mode cut off right side
+
+### Mistake Made
+**Wrong approach (commits 1004a5b, b30706a, 4ee28cb)**:
+- Misinterpreted "badges at top-right" as "move to header"
+- Moved badges from body to headerActions prop
+- Changed headerClassName to "ram-header"
+- Lost original styled gray box design
+
+### Root Cause
+- Did NOT check original code first (`git show develop:path/to/file.tsx`)
+- Assumed how it should work instead of understanding existing design
+- Made structural changes instead of minimal feature additions
+
+### Correct Fix (commit 5e6a6e1)
+**Restored original layout with proper improvements**:
+1. Badges back in BODY in `.response-detail-meta` styled box
+2. Changed `flex-wrap: wrap` → `flex-wrap: nowrap`
+3. Added `overflow-x: auto` with styled scrollbar
+4. Kept expand/close button functionality (`initialExpanded`, `expandMode`)
+5. Kept expanded mode overflow fix (`height: 100%`, `flex: 1`, `min-height: 0`)
+
+### Lesson Learned
+**Always check git history FIRST before refactoring**:
+```bash
+git show develop:path/to/file.tsx
+git show develop:path/to/file.css
+```
+
+**Documented in**: `/memories/repo/modal-patterns.md`
+- Don't move content between header/body/footer unless explicitly requested
+- Minimal changes only - add feature, don't restructure
+- Respect existing styled layouts and design patterns
+
+### Files Changed
+- `src/features/requests/components/ResponseDetailModal.tsx`
+- `src/styles/test-runner.css`
+- `/memories/repo/modal-patterns.md` (lesson documented)
+
+### Final State
+- Badges: In body, one row, horizontal scroll if needed
+- Header: Standard title + expand/shrink + close buttons
+- Expanded mode: Proper overflow handling, no cut-off
+- Design: Original styled gray box preserved
