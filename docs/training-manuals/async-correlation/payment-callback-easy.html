@@ -172,7 +172,21 @@ and <code>{{transactionId}}</code> are available.</p>
 <!-- ════════════════════════════════ -->
 <h2>Testing the Flow</h2>
 
-<h3>Option A: Test Webhook (Built-in)</h3>
+<h3>Option A: Counterpart Simulator (recommended demo)</h3>
+<ol>
+  <li>Open <strong>Template Gallery</strong> &rarr; Event-Driven tab</li>
+  <li>Pick <code>Sample: Payment Callback (Simulator)</code> &rarr; Use Template (in a second tab)</li>
+  <li>Run the main workflow first &mdash; it pauses on the CorrelationWait node</li>
+  <li>Run the simulator workflow &mdash; it waits 3s then POSTs a fake gateway callback</li>
+  <li>The paused main workflow resumes and completes</li>
+</ol>
+<div class="callout callout-tip">
+  <strong>💡 Why this works</strong>
+  The main sample's <em>Submit Payment</em> HTTP node calls <code>jsonplaceholder.typicode.com/posts</code> which always returns <code>$.id&nbsp;=&nbsp;101</code>, so <code>{{paymentId}}</code> resolves to <code>101</code>.
+  The simulator hard-codes <code>paymentId=101</code> so the body correlation matches.
+</div>
+
+<h3>Option B: Test Webhook (Built-in)</h3>
 <ol>
   <li>Run the workflow — it pauses at the CorrelationWait node</li>
   <li>Click the CorrelationWait node → open config modal</li>
@@ -182,7 +196,7 @@ and <code>{{transactionId}}</code> are available.</p>
   <li>The workflow resumes and completes</li>
 </ol>
 
-<h3>Option B: cURL</h3>
+<h3>Option C: cURL</h3>
 <pre>
 curl -X POST http://localhost:3001/webhooks/callback/payment \
   -H "Content-Type: application/json" \
@@ -202,7 +216,7 @@ curl -X POST http://localhost:3001/webhooks/callback/payment \
   }'
 </pre>
 
-<h3>Option C: Manual Resume</h3>
+<h3>Option D: Manual Resume</h3>
 <ol>
   <li>Open <strong>Execution History</strong> panel</li>
   <li>Click the <strong>"Paused"</strong> tab</li>

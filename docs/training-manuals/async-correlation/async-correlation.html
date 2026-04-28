@@ -514,6 +514,7 @@ subsequent duplicates return the cached response.</p>
 <table>
   <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
   <tr><td><span class="badge badge-feature">POST</span></td><td><code>/api/correlations/pause</code></td><td>Register a paused correlation</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations/:id/wait</code></td><td>Long-poll until paused entry is resumed (browser bridge)</td></tr>
   <tr><td><span class="badge badge-feature">POST</span></td><td><code>/api/correlations/resume</code></td><td>Resume directly (manual/test)</td></tr>
   <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations</code></td><td>List all paused correlations</td></tr>
   <tr><td><span class="badge badge-hard">DELETE</span></td><td><code>/api/correlations/:id</code></td><td>Cancel a paused correlation</td></tr>
@@ -701,6 +702,38 @@ subsequent duplicates return the cached response.</p>
     <td><code>correlation-wait-api.yaml</code></td>
   </tr>
 </table>
+
+<h3>Counterpart Simulators (Demo)</h3>
+<p>
+  The three samples above pause on a <code>CorrelationWait</code> node and require an external HTTP POST to resume.
+  To demonstrate the full round-trip without a real gateway, the Template Gallery also ships matching
+  <strong>simulator</strong> workflows. Each simulator waits 3&nbsp;seconds, then POSTs a fake webhook callback to
+  <code>http://localhost:3001/webhooks/...</code>, resuming the paused main workflow.
+</p>
+<table>
+  <tr><th>Main Sample</th><th>Simulator (run in second tab)</th><th>What it sends</th></tr>
+  <tr>
+    <td>Payment Callback</td>
+    <td><code>Sample: Payment Callback (Simulator)</code></td>
+    <td>POST <code>/webhooks/callback/payment</code> with <code>paymentId=101</code> (body correlation)</td>
+  </tr>
+  <tr>
+    <td>Manager Approval</td>
+    <td><code>Sample: Manager Approval (Simulator)</code></td>
+    <td>POST <code>/webhooks/callback/approval</code> with header <code>X-Correlation-ID: REQ-2024-0042</code></td>
+  </tr>
+  <tr>
+    <td>Parallel Payment</td>
+    <td><code>Sample: Parallel Payment (Simulator)</code></td>
+    <td>Fork/Join — POSTs <code>/webhooks/callback/card-payment</code> and <code>/webhooks/callback/loyalty-payment</code> in parallel</td>
+  </tr>
+</table>
+<div class="callout callout-tip">
+  <strong>💡 How to demo</strong>
+  (1) Open the main sample from the Gallery and click <em>Quick Test</em> — it pauses on the
+  CorrelationWait node. (2) Open the matching <em>Simulator</em> sample in another tab and click <em>Quick Test</em>.
+  After ~3&nbsp;seconds it posts the callback and the paused main workflow resumes.
+</div>
 
 <footer>
   RedfireForge &mdash; Async Correlation Wait Feature Manual &mdash; April 2026

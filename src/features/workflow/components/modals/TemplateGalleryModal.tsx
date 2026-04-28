@@ -25,6 +25,7 @@ const NODE_TYPES = [
   { value: 'SetVariable', label: 'Set Variable' },
   { value: 'SubWorkflow', label: 'Sub-Workflow' },
   { value: 'WaitCondition', label: 'Wait for Condition' },
+  { value: 'CorrelationWait', label: 'Correlation Wait' },
   { value: 'Webhook', label: 'Webhook Trigger' },
   { value: 'Schedule', label: 'Schedule Trigger' },
 ] as const;
@@ -59,12 +60,59 @@ export function TemplateGalleryContent({ onSelect }: { onSelect: (entry: SampleW
       result = result.filter(e => e.category === category);
     }
     if (nodeFilter) {
-      result = result.filter(e =>
-        e.primaryNodes.includes(nodeFilter) || e.secondaryNodes.includes(nodeFilter)
-      );
+      const directMatch = (e: SampleWorkflowEntry) =>
+        e.primaryNodes.includes(nodeFilter) || e.secondaryNodes.includes(nodeFilter);
+      // Pair-aware: if either half of a pair matches, include both halves.
+      const matchedIds = new Set(result.filter(directMatch).map(e => e.id));
+      const expandedIds = new Set(matchedIds);
+      result.forEach(e => {
+        if (matchedIds.has(e.id) && e.simulatorOf) {
+          expandedIds.add(e.simulatorOf);
+        }
+        // If a main is matched and has a companion simulator in result, include it
+        const sim = sampleWorkflowCatalog.find(s => s.simulatorOf === e.id);
+        if (matchedIds.has(e.id) && sim) {
+          expandedIds.add(sim.id);
+        }
+      });
+      result = result.filter(e => expandedIds.has(e.id));
     }
     return result;
   }, [category, nodeFilter]);
+
+  /**
+   * Group entries so that each main + its simulator render together inside a
+   * pair-wrapper. Standalone entries render as a single-item "group".
+   * Output preserves catalog order.
+   */
+  const groups = useMemo(() => {
+    const filteredIds = new Set(filtered.map(e => e.id));
+    const consumed = new Set<string>();
+    const out: Array<{ key: string; main: SampleWorkflowEntry; simulator?: SampleWorkflowEntry }> = [];
+    for (const entry of filtered) {
+      if (consumed.has(entry.id)) continue;
+      // Skip simulators here — they are picked up via their main.
+      if (entry.simulatorOf) {
+        // Orphan simulator (its main not in filtered list) → render alone
+        const main = sampleWorkflowCatalog.find(m => m.id === entry.simulatorOf);
+        if (!main || !filteredIds.has(main.id)) {
+          out.push({ key: entry.id, main: entry });
+          consumed.add(entry.id);
+        }
+        continue;
+      }
+      const sim = sampleWorkflowCatalog.find(s => s.simulatorOf === entry.id && filteredIds.has(s.id));
+      if (sim) {
+        out.push({ key: entry.id, main: entry, simulator: sim });
+        consumed.add(entry.id);
+        consumed.add(sim.id);
+      } else {
+        out.push({ key: entry.id, main: entry });
+        consumed.add(entry.id);
+      }
+    }
+    return out;
+  }, [filtered]);
 
   const selectedNodeLabel = nodeOptions.find(opt => opt.value === nodeFilter)?.label;
 
@@ -123,54 +171,89 @@ export function TemplateGalleryContent({ onSelect }: { onSelect: (entry: SampleW
       )}
 
       <div className="tg-grid">
-        {filtered.map(entry => {
-          const catKey = entry.category === 'api-patterns' ? 'api'
-            : entry.category === 'flow-control' ? 'flow'
-            : entry.category === 'event-driven' ? 'event'
-            : 'orch';
-          return (
-            <button
-              key={entry.id}
-              className="tg-card"
-              data-cat={catKey}
-              onClick={() => onSelect(entry)}
-            >
-              <div className="tg-card-top">
-                <div className="tg-card-icon">{entry.icon}</div>
-                <div className="tg-card-body">
-                  <div className="tg-card-name">{entry.name}</div>
-                  <div className="tg-card-desc">{entry.description}</div>
+        {groups.map(group => {
+          if (group.simulator) {
+            return (
+              <div key={group.key} className="tg-pair" data-cat={catKeyOf(group.main.category)}>
+                <div className="tg-pair-header">
+                  <span className="tg-pair-icon">🔗</span>
+                  <span className="tg-pair-title">Paired Sample &amp; Simulator</span>
+                  <span className="tg-pair-hint">Run main first → it pauses → run simulator → main resumes</span>
+                </div>
+                <div className="tg-pair-body">
+                  <SampleCard entry={group.main} role="main" onSelect={onSelect} />
+                  <span className="tg-pair-arrow" aria-hidden>→</span>
+                  <SampleCard entry={group.simulator} role="simulator" onSelect={onSelect} />
                 </div>
               </div>
-
-              <div className="tg-card-node-pills">
-                {entry.primaryNodes.map(node => (
-                  <span key={node} className="tg-node-pill primary">
-                    {node}
-                  </span>
-                ))}
-                {entry.secondaryNodes.map(node => (
-                  <span key={node} className="tg-node-pill">
-                    {node}
-                  </span>
-                ))}
-              </div>
-
-              <div className="tg-card-meta">
-                <span className="tg-card-count">{entry.nodeCount} nodes</span>
-                <span className="tg-meta-spacer" />
-                <div className="tg-difficulty-dots" data-level={entry.difficulty}>
-                  <span className="tg-dot" />
-                  <span className="tg-dot" />
-                  <span className="tg-dot" />
-                </div>
-                <span className="tg-difficulty-label">{entry.difficulty}</span>
-              </div>
-            </button>
-          );
+            );
+          }
+          return <SampleCard key={group.key} entry={group.main} role="solo" onSelect={onSelect} />;
         })}
       </div>
     </div>
+  );
+}
+
+function catKeyOf(category: SampleCategory): string {
+  return category === 'api-patterns' ? 'api'
+    : category === 'flow-control' ? 'flow'
+    : category === 'event-driven' ? 'event'
+    : 'orch';
+}
+
+interface SampleCardProps {
+  entry: SampleWorkflowEntry;
+  role: 'main' | 'simulator' | 'solo';
+  onSelect: (entry: SampleWorkflowEntry) => void;
+}
+
+function SampleCard({ entry, role, onSelect }: SampleCardProps) {
+  const catKey = catKeyOf(entry.category);
+  return (
+    <button
+      className={`tg-card${role === 'simulator' ? ' tg-card-sim' : ''}${role === 'main' ? ' tg-card-paired-main' : ''}`}
+      data-cat={catKey}
+      onClick={() => onSelect(entry)}
+    >
+      {role === 'simulator' && (
+        <div className="tg-card-role-tag" data-role="simulator">SIMULATOR</div>
+      )}
+      {role === 'main' && (
+        <div className="tg-card-role-tag" data-role="main">MAIN</div>
+      )}
+      <div className="tg-card-top">
+        <div className="tg-card-icon">{entry.icon}</div>
+        <div className="tg-card-body">
+          <div className="tg-card-name">{entry.name}</div>
+          <div className="tg-card-desc">{entry.description}</div>
+        </div>
+      </div>
+
+      <div className="tg-card-node-pills">
+        {entry.primaryNodes.map(node => (
+          <span key={node} className="tg-node-pill primary">
+            {node}
+          </span>
+        ))}
+        {entry.secondaryNodes.map(node => (
+          <span key={node} className="tg-node-pill">
+            {node}
+          </span>
+        ))}
+      </div>
+
+      <div className="tg-card-meta">
+        <span className="tg-card-count">{entry.nodeCount} nodes</span>
+        <span className="tg-meta-spacer" />
+        <div className="tg-difficulty-dots" data-level={entry.difficulty}>
+          <span className="tg-dot" />
+          <span className="tg-dot" />
+          <span className="tg-dot" />
+        </div>
+        <span className="tg-difficulty-label">{entry.difficulty}</span>
+      </div>
+    </button>
   );
 }
 

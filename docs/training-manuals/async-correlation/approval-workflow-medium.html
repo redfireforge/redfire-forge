@@ -192,6 +192,16 @@ POST https://api.example.com/notifications
 
 <h2>Testing the Flow</h2>
 
+<h3>Counterpart Simulator (recommended demo)</h3>
+<ol>
+  <li>Open <strong>Template Gallery</strong> &rarr; Event-Driven tab in a second tab</li>
+  <li>Pick <code>Sample: Manager Approval (Simulator)</code> &rarr; Use Template</li>
+  <li>Run the main approval workflow first &mdash; it pauses on the CorrelationWait node (header correlation on <code>X-Correlation-ID</code>)</li>
+  <li>Run the simulator workflow &mdash; it waits 3s then POSTs a fake approval webhook with <code>X-Correlation-ID: REQ-2024-0042</code> and body <code>{ type: "approval", decision: "approved" }</code></li>
+  <li>The webhook filter (<code>{{webhook.type}} == approval</code>) accepts it; the main workflow resumes and routes through the Switch's <em>approved</em> branch</li>
+</ol>
+<p>You can edit the simulator's input <code>decision</code> variable to <code>rejected</code> or any other value to test the other Switch branches.</p>
+
 <h3>Simulate Approval (cURL)</h3>
 <pre>
 curl -X POST http://localhost:3001/webhooks/callback/approval \
