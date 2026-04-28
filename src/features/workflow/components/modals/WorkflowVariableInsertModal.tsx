@@ -441,6 +441,6 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
         <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
       </div>
     </div>,
-    document.body,
+    document.querySelector('.workflow-designer-mount') || document.body,
   );
 }

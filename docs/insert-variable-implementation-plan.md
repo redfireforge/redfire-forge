@@ -144,12 +144,12 @@ interface ComposeToken {
 
 | File | Purpose |
 |------|---------|
-| `src/utils/expressionFunctions.ts` | **NEW** — Function registry (`ExpressionFunction[]`), evaluator, categories |
-| `src/utils/expressionEvaluator.ts` | **NEW** — Parse and evaluate `$fn(args)` syntax in templates |
-| `src/components/workflow/ExpressionBuilderView.tsx` | **NEW** — Three-column expression builder: function catalog, composer, preview |
-| `src/utils/expressionFunctions.test.ts` | **NEW** — Tests for all functions |
-| `src/utils/expressionEvaluator.test.ts` | **NEW** — Tests for parser and evaluator |
-| `src/components/workflow/ExpressionBuilderView.test.tsx` | **NEW** — Component tests |
+| `src/features/workflow/utils/expressionFunctions/` | **DONE** — Modular function registry (refactored from single 957-line file into 9 modules: index, types, helpers, stringFunctions, mathFunctions, jsonFunctions, dateTimeFunctions, conditionalFunctions, encodingFunctions) |
+| `src/features/workflow/utils/expressionEvaluator.ts` | **DONE** — Parse and evaluate `$fn(args)` syntax in templates |
+| `src/features/workflow/components/expression/ExpressionBuilderView.tsx` | **DONE** — Three-column expression builder: function catalog, composer, preview |
+| `src/features/workflow/utils/expressionFunctions/helpers.test.ts` | **DONE** — 29 tests for coercion helpers |
+| `src/features/workflow/utils/expressionFunctions/index.test.ts` | **DONE** — 29 tests for registry and grouping |
+| `src/features/workflow/components/expression/ExpressionBuilderView.test.tsx` | **DONE** — Component tests |
 
 ### Expression Function Registry
 

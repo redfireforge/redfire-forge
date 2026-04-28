@@ -2,6 +2,11 @@ import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, G
 import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
+import {
+  idbLoadTestRuns, idbSaveTestRun, idbDeleteTestRun,
+  idbSaveTestRunsBulk, idbPruneToMax, idbMigrateFromLocalStorage,
+  idbGetRunsInfo, idbDeleteRunsOlderThan, idbClearAllRuns,
+} from './idbTestRuns';
 
 const STORAGE_KEY = 'perf-test-runs';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
@@ -107,12 +112,27 @@ function capAndTruncateResults(run: TestRun): TestRun {
 }
 
 async function pruneOldRuns(): Promise<void> {
-  const runs = await loadTestRuns();
   const max = await getMaxRuns();
-  if (runs.length > max) {
-    runs.length = max;
-    await writeKey(STORAGE_KEY, JSON.stringify(runs));
+  if (isTauri()) {
+    const runs = await loadTestRuns();
+    if (runs.length > max) {
+      runs.length = max;
+      await writeKey(STORAGE_KEY, JSON.stringify(runs));
+    }
+  } else {
+    await idbPruneToMax(max);
   }
+}
+
+// ---------- IDB migration (browser only) ----------
+
+let _idbMigrated = false;
+
+/** Ensure localStorage test runs are migrated to IndexedDB (browser only, no-op for Tauri). */
+async function ensureIdbMigration(): Promise<void> {
+  if (isTauri() || _idbMigrated) return;
+  _idbMigrated = true;
+  await idbMigrateFromLocalStorage(STORAGE_KEY);
 }
 
 // ---------- Storage usage ----------
@@ -131,6 +151,14 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
       total += size;
     }
   }
+  // Add IDB test runs info
+  try {
+    const idbInfo = await idbGetRunsInfo();
+    if (idbInfo.count > 0) {
+      entries['test-runs (IndexedDB)'] = idbInfo.approxBytes;
+      total += idbInfo.approxBytes;
+    }
+  } catch { /* IDB unavailable */ }
   return { usedBytes: total, entries };
 }
 
@@ -138,50 +166,57 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
 
 export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaError?: boolean }> {
   const truncated = capAndTruncateResults(run);
-  let runs = await loadTestRuns();
-  runs.unshift(truncated);
-  const max = await getMaxRuns();
-  if (runs.length > max) runs.length = max;
-  try {
-    await writeKey(STORAGE_KEY, JSON.stringify(runs));
-    return { ok: true };
-  } catch {
-    // Auto-shrink: remove oldest runs until it fits
-    for (let attempt = 0; attempt < 5 && runs.length > 1; attempt++) {
-      runs = runs.slice(0, Math.max(1, Math.ceil(runs.length * 0.75)));
-      try {
-        await writeKey(STORAGE_KEY, JSON.stringify(runs));
-        return { ok: true };
-      } catch { /* keep shrinking */ }
-    }
-    // Last resort: save only the new run
+  if (isTauri()) {
+    // Tauri: file-system backed, keep existing approach
+    let runs = await loadTestRuns();
+    runs.unshift(truncated);
+    const max = await getMaxRuns();
+    if (runs.length > max) runs.length = max;
     try {
-      await writeKey(STORAGE_KEY, JSON.stringify([truncated]));
+      await writeKey(STORAGE_KEY, JSON.stringify(runs));
       return { ok: true };
     } catch {
       return { ok: false, quotaError: true };
     }
   }
+  // Browser: IndexedDB
+  try {
+    await ensureIdbMigration();
+    await idbSaveTestRun(truncated);
+    const max = await getMaxRuns();
+    await idbPruneToMax(max);
+    return { ok: true };
+  } catch {
+    return { ok: false, quotaError: true };
+  }
 }
 
 export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
   const truncated = capAndTruncateResults(run);
-  let runs = await loadTestRuns();
-  runs.unshift(truncated);
-
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const keep = Math.max(1, Math.floor(runs.length / 2));
-    runs = runs.slice(0, keep);
+  if (isTauri()) {
+    let runs = await loadTestRuns();
+    runs.unshift(truncated);
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const keep = Math.max(1, Math.floor(runs.length / 2));
+      runs = runs.slice(0, keep);
+      try {
+        await writeKey(STORAGE_KEY, JSON.stringify(runs));
+        await setMaxRuns(keep);
+        return { ok: true };
+      } catch { /* keep shrinking */ }
+    }
     try {
-      await writeKey(STORAGE_KEY, JSON.stringify(runs));
-      await setMaxRuns(keep);
+      await writeKey(STORAGE_KEY, JSON.stringify([truncated]));
+      await setMaxRuns(1);
       return { ok: true };
-    } catch { /* keep shrinking */ }
+    } catch {
+      return { ok: false };
+    }
   }
-
+  // Browser: IndexedDB — no quota issue
   try {
-    await writeKey(STORAGE_KEY, JSON.stringify([truncated]));
-    await setMaxRuns(1);
+    await ensureIdbMigration();
+    await idbSaveTestRun(truncated);
     return { ok: true };
   } catch {
     return { ok: false };
@@ -189,22 +224,64 @@ export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
 }
 
 export async function loadTestRuns(): Promise<TestRun[]> {
+  if (isTauri()) {
+    try {
+      const raw = await readKey(STORAGE_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw) as TestRun[];
+    } catch {
+      return [];
+    }
+  }
+  // Browser: IndexedDB
   try {
-    const raw = await readKey(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as TestRun[];
+    await ensureIdbMigration();
+    return await idbLoadTestRuns();
   } catch {
     return [];
   }
 }
 
 export async function saveTestRunsBulk(runs: TestRun[]): Promise<void> {
-  await writeKey(STORAGE_KEY, JSON.stringify(runs));
+  if (isTauri()) {
+    await writeKey(STORAGE_KEY, JSON.stringify(runs));
+    return;
+  }
+  await ensureIdbMigration();
+  await idbSaveTestRunsBulk(runs);
 }
 
 export async function deleteTestRun(runId: string): Promise<void> {
-  const runs = (await loadTestRuns()).filter((r) => r.id !== runId);
-  await writeKey(STORAGE_KEY, JSON.stringify(runs));
+  if (isTauri()) {
+    const runs = (await loadTestRuns()).filter((r) => r.id !== runId);
+    await writeKey(STORAGE_KEY, JSON.stringify(runs));
+    return;
+  }
+  await ensureIdbMigration();
+  await idbDeleteTestRun(runId);
+}
+
+/** Delete all test runs older than `cutoffMs` (epoch). Returns count deleted. */
+export async function deleteRunsOlderThan(cutoffMs: number): Promise<number> {
+  if (isTauri()) {
+    const runs = await loadTestRuns();
+    const kept = runs.filter(r => (r.timestamp ?? 0) >= cutoffMs);
+    const deleted = runs.length - kept.length;
+    if (deleted > 0) await writeKey(STORAGE_KEY, JSON.stringify(kept));
+    return deleted;
+  }
+  await ensureIdbMigration();
+  return idbDeleteRunsOlderThan(cutoffMs);
+}
+
+/** Delete all test runs. */
+export async function clearAllTestRuns(): Promise<void> {
+  if (isTauri()) {
+    await writeKey(STORAGE_KEY, JSON.stringify([]));
+    return;
+  }
+  await ensureIdbMigration();
+  await idbClearAllRuns();
 }
 
 // ---------- Flat app-level data (v3) ----------

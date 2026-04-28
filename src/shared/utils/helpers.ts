@@ -4,6 +4,12 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+/** Pretty-print a JSON string. Returns the original string if it's not valid JSON. */
+export function prettyJson(text: string): string {
+  try { return JSON.stringify(JSON.parse(text), null, 2); }
+  catch { return text; }
+}
+
 /** Escape special regex characters so the string can be used in `new RegExp(...)`. */
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

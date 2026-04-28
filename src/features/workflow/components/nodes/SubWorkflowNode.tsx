@@ -4,12 +4,13 @@ import { useNodeBase } from './useNodeBase';
 import { useWorkflowInspect } from '../panels/WorkflowInspectContext';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type SubWorkflowWorkflowNode = Node<SubWorkflowNodeData, 'subWorkflow'>;
 type Props = NodeProps<SubWorkflowWorkflowNode>;
 
 export default function SubWorkflowNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
   const { navigateToWorkflow, getWorkflowPreview } = useWorkflowInspect();
 
   const inCount = data.inputMappings?.length ?? 0;
@@ -66,6 +67,8 @@ export default function SubWorkflowNode({ id, data, selected }: Props) {
         )}
         <NodeConfigureButton title="Configure sub-workflow" onClick={handleConfigure} />
       </div>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} className="wf-handle" />

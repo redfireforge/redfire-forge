@@ -1,8 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import WorkflowResponseBody from '../panels/WorkflowResponseBody';
-import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
-import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
-import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
+import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 
 interface Props {
   open: boolean;
@@ -40,9 +38,8 @@ export default function WorkflowDetailModal({
 
   // ── Pretty-print toggle ───────────────────────────────────────────────────
   const [pretty, setPretty] = useState(false);
-  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({ open, expandMode: 'fullscreen' });
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state when modal opens/closes
-  useEffect(() => { setPretty(false); setExpanded(false); }, [open, setExpanded]);
+  useEffect(() => { setPretty(false); }, [open]);
 
   const prettyValue = (() => {
     if (!pretty || !variableMode) return null;
@@ -62,60 +59,20 @@ export default function WorkflowDetailModal({
     try { JSON.parse(raw); return true; } catch { return false; }
   })();
 
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-overlay wf-detail-modal-overlay"
-      role="presentation"
-      style={overlayStyle}
-    >
-      <div
-        className={`modal ram-modal wf-detail-modal ${variableMode ? '' : 'wf-detail-modal--wide'} ${expandClass}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="wf-detail-title"
-        onClick={(e) => e.stopPropagation()}
-        style={dialogStyle}
-      >
-        <div className="ram-header" style={headerDragStyle} onMouseDown={onHeaderMouseDown}>
-          <h3 id="wf-detail-title">{title}</h3>
-          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
-          <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
-        </div>
-        <div className="ram-body wf-detail-modal-body">
-          {variableMode ? (
-            <>
-              {subtitle && <p className="wf-detail-modal-sub">{subtitle}</p>}
-              {isJson && (
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    className={`btn btn-sm${pretty ? ' btn-accent' : ''}`}
-                    onClick={() => setPretty(p => !p)}
-                    title={pretty ? 'Show raw value' : 'Pretty-print JSON (read-only)'}
-                  >
-                    {pretty ? '{ } Raw' : '{ } Pretty'}
-                  </button>
-                </div>
-              )}
-              {pretty && prettyValue != null ? (
-                <pre className="wf-detail-modal-pretty">{prettyValue}</pre>
-              ) : (
-                <textarea
-                  className="wf-detail-modal-textarea"
-                  value={variableValue ?? ''}
-                  onChange={(e) => onVariableChange?.(e.target.value)}
-                  spellCheck={false}
-                  rows={16}
-                />
-              )}
-            </>
-          ) : (
-            <WorkflowResponseBody body={body ?? ''} subtitle={subtitle} />
-          )}
-        </div>
-        <div className="ram-footer wf-detail-modal-footer">
+    <WorkflowEditorModalFrame
+      open={open}
+      title={<span id="wf-detail-title">{title}</span>}
+      titleId="wf-detail-title"
+      onClose={onClose}
+      overlayClassName="wf-detail-modal-overlay"
+      dialogClassName={`wf-detail-modal ${variableMode ? '' : 'wf-detail-modal--wide'}`}
+      bodyClassName="ram-body wf-detail-modal-body"
+      bodyScrollable={false}
+      expandMode="fullscreen"
+      footerClassName="ram-footer wf-detail-modal-footer"
+      footer={
+        <>
           <button type="button" className="btn btn-sm" onClick={copy}>
             Copy
           </button>
@@ -128,10 +85,39 @@ export default function WorkflowDetailModal({
           <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
             Close
           </button>
-          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
-        </div>
-        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
-      </div>
-    </div>
+        </>
+      }
+    >
+      {variableMode ? (
+        <>
+          {subtitle && <p className="wf-detail-modal-sub">{subtitle}</p>}
+          {isJson && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <button
+                type="button"
+                className={`btn btn-sm${pretty ? ' btn-accent' : ''}`}
+                onClick={() => setPretty(p => !p)}
+                title={pretty ? 'Show raw value' : 'Pretty-print JSON (read-only)'}
+              >
+                {pretty ? '{ } Raw' : '{ } Pretty'}
+              </button>
+            </div>
+          )}
+          {pretty && prettyValue != null ? (
+            <pre className="wf-detail-modal-pretty">{prettyValue}</pre>
+          ) : (
+            <textarea
+              className="wf-detail-modal-textarea"
+              value={variableValue ?? ''}
+              onChange={(e) => onVariableChange?.(e.target.value)}
+              spellCheck={false}
+              rows={16}
+            />
+          )}
+        </>
+      ) : (
+        <WorkflowResponseBody body={body ?? ''} subtitle={subtitle} />
+      )}
+    </WorkflowEditorModalFrame>
   );
 }

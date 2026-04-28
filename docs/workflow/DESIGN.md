@@ -567,11 +567,33 @@ src/
 │   ├── workflowRequestHost.ts   # Per-request host resolution
 │   ├── workflowRunErrors.ts     # Run error handling utilities
 │   ├── workflowSessionStorage.ts # Session-scoped workflow state persistence
-│   └── expressionFunctions.ts   # Built-in expression function registry ($upper, $concat, etc.)
+│   └── expressionFunctions/     # Built-in expression function registry (refactored from single file)
+│       ├── index.ts             # Registry exports: EXPRESSION_FUNCTIONS, EXPRESSION_FUNCTION_MAP, groupedExpressionFunctions()
+│       ├── types.ts             # ExpressionFunction interface
+│       ├── helpers.ts           # Coercion helpers: s() string, n() number
+│       ├── stringFunctions.ts   # $upper, $lower, $trim, $replace, $substring, etc.
+│       ├── mathFunctions.ts     # $abs, $round, $floor, $ceil, $min, $max, $random
+│       ├── jsonFunctions.ts     # $jsonpath, $jsonStringify, $jsonParse, $keys, $values
+│       ├── dateTimeFunctions.ts # $now, $timestamp, $dateFormat, $dateDiff
+│       ├── conditionalFunctions.ts # $if, $default, $coalesce, $switch
+│       └── encodingFunctions.ts # $base64encode, $base64decode, $urlEncode, $urlDecode
+├── hooks/
+│   ├── useWorkflowNodeActions.ts    # Node CRUD operations (extracted from WorkflowDesigner)
+│   ├── useWorkflowCanvasSync.ts     # Canvas state sync (extracted from WorkflowDesigner)
+│   ├── useWorkflowEdgeOps.ts        # Edge operations (extracted from WorkflowDesigner)
+│   ├── useWorkflowDetailModal.ts    # Detail modal logic (extracted from WorkflowDesigner)
+│   ├── useWorkflows.ts              # CRUD + storage for workflows
+│   ├── useNodeClipboard.ts          # Copy/paste nodes
+│   ├── useUndoRedo.ts               # Undo/redo for workflow edits
+│   ├── useVariableInsertModal.ts    # Variable picker modal hook
+│   ├── useExpressionHints.ts        # Inline autocomplete for {{var}} and $function triggers
+│   ├── useWorkflowRunCache.ts       # Run result caching
+│   ├── useListCrud.ts               # Generic ordered-list CRUD (shared by config panels)
+│   └── useDebounce.ts               # Debounce hook
 └── styles/
     └── workflow.css              # All workflow-specific styles
 ```
 
 ---
 
-_Last updated: 2026-04-25_
+_Last updated: 2026-04-27_

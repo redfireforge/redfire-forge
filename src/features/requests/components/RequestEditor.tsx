@@ -13,6 +13,7 @@ import { useResponseCache } from '../hooks/useResponseCache';
 import type { ConsoleLine } from '../hooks/useResponseCache';
 import { buildDisplayUrl, resolveFullSendUrl } from '../utils/requestUrlResolver';
 import { formatBytes } from '../../../shared/utils/helpers';
+import { saveFile } from '../../../shared/utils/fileSaver';
 import type { UrlResolverContext } from '../utils/requestUrlResolver';
 import { BodyEditor } from './BodyEditor';
 import { ParamsEditor, fromParamEntries } from './ParamsEditor';
@@ -338,15 +339,14 @@ export default function RequestEditor({
     });
   }, [onUpdateRequest, stripToRelative]);
 
-  const handleJsonExport = useCallback(() => {
+  const handleJsonExport = useCallback(async () => {
     const payload = { _exportMeta: { type: 'requests-request', version: 1, exportedAt: new Date().toISOString() },
       data: { name: request.name, method: request.method, url: request.url, headers: request.headers,
         body: request.body, bodyType: request.bodyType, bodyForm: request.bodyForm, auth: request.auth },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${request.name || 'request'}.json`; a.click();
-    URL.revokeObjectURL(url);
+    const filename = `${request.name || 'request'}.json`;
+    await saveFile(blob, { filename, mimeType: 'application/json', description: 'JSON file' });
   }, [request]);
 
   const handleSend = useCallback(async () => {

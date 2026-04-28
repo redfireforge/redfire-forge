@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Testing the Correlation Wait API (YAML Spec)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6; max-width: 900px;
+    margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  pre .status { color: #2ecc71; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-api { background: #e0d4f5; color: #5b21b6; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-danger { background: #fde8e8; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .back-link { font-size: 13px; margin-bottom: 16px; }
+  .back-link a { color: #457b9d; text-decoration: none; }
+  .back-link a:hover { text-decoration: underline; }
+  .scenario-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px 18px; margin: 14px 0 18px;
+  }
+  .scenario-box h4 { margin-top: 0; }
+  .response-label {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; margin-right: 6px;
+  }
+  .res-201 { background: #d4edda; color: #155724; }
+  .res-200 { background: #d4edda; color: #155724; }
+  .res-404 { background: #fde8e8; color: #8b0000; }
+  .res-422 { background: #fff3cd; color: #856404; }
+  .res-401 { background: #fde8e8; color: #8b0000; }
+  .http-method {
+    display: inline-block; padding: 2px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; color: #fff; margin-right: 6px;
+  }
+  .method-post { background: #49cc90; }
+  .method-get { background: #61affe; }
+  .method-delete { background: #f93e3e; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="back-link">← <a href="async-correlation.html">Back to Async Correlation Manual</a></div>
+
+<h1>Testing the Correlation Wait API <span class="badge badge-api">YAML Spec</span></h1>
+<p style="color: #457b9d; font-size: 15px; margin-bottom: 24px;">
+  Step-by-step guide to testing every endpoint in the
+  <code>correlation-wait-api.yaml</code> spec using the API Catalog "Try" feature or cURL.
+</p>
+
+<!-- ════════════════════════════════ -->
+<h2>Prerequisites</h2>
+
+<ol>
+  <li><strong>RedfireForge server running</strong> on <code>http://localhost:3001</code></li>
+  <li><strong>Import the spec</strong> — Open API Catalog → Import → Sample Gallery → select
+    <em>"Correlation Wait API"</em> → Import</li>
+  <li>Once imported, each endpoint shows a <strong>"Try"</strong> button in the Catalog detail view</li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>💡 Two Ways to Test</strong>
+  You can use the <strong>"Try"</strong> button in the API Catalog UI, or copy the cURL commands below
+  into your terminal. Both hit the same server at <code>localhost:3001</code>.
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>Endpoint Map</h2>
+
+<table>
+  <tr><th>#</th><th>Method</th><th>Endpoint</th><th>Purpose</th></tr>
+  <tr><td>1</td><td><span class="http-method method-post">POST</span></td><td><code>/api/correlations/pause</code></td><td>Register a paused correlation</td></tr>
+  <tr><td>2</td><td><span class="http-method method-get">GET</span></td><td><code>/api/correlations</code></td><td>List all paused correlations</td></tr>
+  <tr><td>3</td><td><span class="http-method method-post">POST</span></td><td><code>/webhooks/callback/{path}</code></td><td>Send webhook to resume workflow</td></tr>
+  <tr><td>4</td><td><span class="http-method method-post">POST</span></td><td><code>/api/correlations/resume</code></td><td>Resume directly (manual / test)</td></tr>
+  <tr><td>5</td><td><span class="http-method method-delete">DEL</span></td><td><code>/api/correlations/{id}</code></td><td>Cancel a paused correlation</td></tr>
+  <tr><td>6</td><td><span class="http-method method-post">POST</span></td><td><code>/api/correlations/cleanup</code></td><td>Cleanup expired correlations</td></tr>
+  <tr><td>7</td><td><span class="http-method method-get">GET</span></td><td><code>/api/correlations/unmatched</code></td><td>View unmatched webhook log</td></tr>
+  <tr><td>8</td><td><span class="http-method method-get">GET</span></td><td><code>/api/correlations/idempotency</code></td><td>Idempotency cache stats</td></tr>
+</table>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Test Scenario A: Full Webhook Lifecycle</h2>
+<p>This is the most important test — it simulates the complete pause → webhook → resume flow.</p>
+
+<div class="flow-diagram">
+  Step 1: Pause          Step 2: List          Step 3: Webhook          Step 4: Verify
+  ┌──────────┐          ┌──────────┐          ┌──────────────┐          ┌──────────┐
+  │  POST    │────✓────▶│  GET     │────✓────▶│  POST        │────✓────▶│  GET     │
+  │  /pause  │  201     │  /list   │  shows   │  /webhooks/  │  200     │  /list   │
+  │          │          │          │  1 entry  │  callback/   │  resumed │          │
+  └──────────┘          └──────────┘          │  payment     │          └──────────┘
+                                              └──────────────┘           0 entries
+</div>
+
+<!-- Step 1 -->
+<h3><span class="step-num">1</span> Register a Paused Correlation</h3>
+<p><span class="http-method method-post">POST</span> <code>/api/correlations/pause</code></p>
+<pre>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-try-001</span>",
+    "<span class="field">workflowId</span>": "<span class="string">wf-try-test</span>",
+    "<span class="field">pausedNodeId</span>": "<span class="string">cw-1</span>",
+    "<span class="field">timeoutMs</span>": 300000,
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+</pre>
+
+<h4><span class="response-label res-201">201</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">paused</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">timeoutAt</span>": 1706097600000
+}
+</pre>
+
+<div class="callout">
+  <strong>📋 What Just Happened</strong>
+  The server registered <code>pay_4kF9xR2mNqLp</code> as a waiting correlation.
+  Any webhook to <code>/webhooks/callback/payment</code> whose body has
+  <code>$.paymentId == "pay_4kF9xR2mNqLp"</code> will match and resume this entry.
+</div>
+
+<!-- Step 2 -->
+<h3><span class="step-num">2</span> Verify It's Listed</h3>
+<p><span class="http-method method-get">GET</span> <code>/api/correlations</code></p>
+<pre>
+curl http://localhost:3001/api/correlations
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">correlations</span>": [
+    {
+      "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+      "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+      "<span class="field">executionId</span>": "<span class="string">exec-try-001</span>",
+      "<span class="field">workflowId</span>": "<span class="string">wf-try-test</span>",
+      "<span class="field">pausedNodeId</span>": "<span class="string">cw-1</span>",
+      "<span class="field">pausedAt</span>": 1706097300000,
+      "<span class="field">timeoutAt</span>": 1706097600000,
+      "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+      "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+    }
+  ],
+  "<span class="field">count</span>": 1
+}
+</pre>
+
+<!-- Step 3 -->
+<h3><span class="step-num">3</span> Send the Webhook Callback</h3>
+<p><span class="http-method method-post">POST</span> <code>/webhooks/callback/payment</code></p>
+<p>This simulates what a payment gateway (Stripe, PayPal, etc.) sends back after processing:</p>
+<pre>
+curl -X POST http://localhost:3001/webhooks/callback/payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">pay_4kF9xR2mNqLp-result</span>" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>",
+    "<span class="field">amount</span>": 99.99,
+    "<span class="field">currency</span>": "<span class="string">USD</span>",
+    "<span class="field">cardBrand</span>": "<span class="string">visa</span>",
+    "<span class="field">last4</span>": "<span class="string">4242</span>",
+    "<span class="field">authorizationCode</span>": "<span class="string">AUTH-779231</span>",
+    "<span class="field">riskScore</span>": 12,
+    "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:26:14.392Z</span>",
+    "<span class="field">receiptUrl</span>": "<span class="string">https://pay.example.com/receipts/txn_8mK3vP7wXjRs</span>"
+  }'
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-try-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-try-test</span>",
+  "<span class="field">webhookData</span>": {
+    "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>",
+    "<span class="field">amount</span>": 99.99,
+    "<span class="field">currency</span>": "<span class="string">USD</span>",
+    "<span class="field">cardBrand</span>": "<span class="string">visa</span>",
+    "<span class="field">last4</span>": "<span class="string">4242</span>",
+    "<span class="field">authorizationCode</span>": "<span class="string">AUTH-779231</span>",
+    "<span class="field">riskScore</span>": 12,
+    "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:26:14.392Z</span>",
+    "<span class="field">receiptUrl</span>": "<span class="string">https://pay.example.com/receipts/txn_8mK3vP7wXjRs</span>"
+  }
+}
+</pre>
+
+<div class="callout callout-tip">
+  <strong>💡 Key Insight</strong>
+  The server matched <code>$.paymentId</code> in the webhook body to the paused correlation.
+  The full webhook body is echoed back in <code>webhookData</code>.
+</div>
+
+<!-- Step 4 -->
+<h3><span class="step-num">4</span> Verify It's Removed</h3>
+<p><span class="http-method method-get">GET</span> <code>/api/correlations</code></p>
+<pre>
+curl http://localhost:3001/api/correlations
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">correlations</span>": [],
+  "<span class="field">count</span>": 0
+}
+</pre>
+<p>The matched correlation was consumed and removed from the paused list.</p>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Test Scenario B: Idempotent Duplicate Webhook</h2>
+<p>Verify that sending the same webhook twice (same <code>x-idempotency-key</code>) returns a cached response
+without resuming the workflow again.</p>
+
+<h3><span class="step-num">1</span> Register (same as Scenario A Step 1)</h3>
+<pre>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">pay_IDEMP_test</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-idemp-001</span>",
+    "<span class="field">workflowId</span>": "<span class="string">wf-idemp-test</span>",
+    "<span class="field">pausedNodeId</span>": "<span class="string">cw-1</span>",
+    "<span class="field">timeoutMs</span>": 300000,
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+</pre>
+
+<h3><span class="step-num">2</span> Send Webhook (first time)</h3>
+<pre>
+curl -X POST http://localhost:3001/webhooks/callback/payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">idemp-key-001</span>" \
+  -d '{ "<span class="field">paymentId</span>": "<span class="string">pay_IDEMP_test</span>", "<span class="field">status</span>": "<span class="string">approved</span>" }'
+</pre>
+<p><span class="response-label res-200">200</span> → <code>"resumed": true</code></p>
+
+<h3><span class="step-num">3</span> Send Same Webhook Again (duplicate)</h3>
+<pre>
+<span class="comment"># Exact same request — same idempotency key</span>
+curl -X POST http://localhost:3001/webhooks/callback/payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">idemp-key-001</span>" \
+  -d '{ "<span class="field">paymentId</span>": "<span class="string">pay_IDEMP_test</span>", "<span class="field">status</span>": "<span class="string">approved</span>" }'
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected (Cached)</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_IDEMP_test</span>",
+  "<span class="field">idempotent</span>": <span class="keyword">true</span>,
+  "<span class="field">cachedResponse</span>": {
+    "<span class="field">resumed</span>": <span class="keyword">true</span>,
+    "<span class="field">correlationId</span>": "<span class="string">pay_IDEMP_test</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-idemp-001</span>"
+  }
+}
+</pre>
+
+<div class="callout callout-tip">
+  <strong>💡 No Duplicate Execution</strong>
+  The workflow was NOT resumed twice. The server returned the cached first response.
+  Always send <code>x-idempotency-key</code> to prevent accidental duplicate processing.
+</div>
+
+<h3><span class="step-num">4</span> Verify Idempotency Cache</h3>
+<p><span class="http-method method-get">GET</span> <code>/api/correlations/idempotency</code></p>
+<pre>
+curl http://localhost:3001/api/correlations/idempotency
+</pre>
+<h4><span class="response-label res-200">200</span> Response</h4>
+<pre>
+{ "<span class="field">size</span>": 1 }
+</pre>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Test Scenario C: Unmatched Webhook (404)</h2>
+<p>Send a webhook that doesn't match any paused correlation.</p>
+
+<pre>
+<span class="comment"># No correlation paused for "pay_DOES_NOT_EXIST"</span>
+curl -X POST http://localhost:3001/webhooks/callback/payment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">pay_DOES_NOT_EXIST</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>"
+  }'
+</pre>
+
+<h4><span class="response-label res-404">404</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">false</span>,
+  "<span class="field">error</span>": "<span class="string">No matching paused workflow found</span>",
+  "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>"
+}
+</pre>
+
+<h4>Then Check Unmatched Log</h4>
+<pre>
+curl http://localhost:3001/api/correlations/unmatched
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected</h4>
+<pre>
+{
+  "<span class="field">unmatched</span>": [
+    {
+      "<span class="field">path</span>": "<span class="string">/webhooks/callback/payment</span>",
+      "<span class="field">correlationId</span>": "<span class="string">pay_DOES_NOT_EXIST</span>",
+      "<span class="field">payload</span>": {
+        "<span class="field">paymentId</span>": "<span class="string">pay_DOES_NOT_EXIST</span>",
+        "<span class="field">status</span>": "<span class="string">approved</span>"
+      },
+      "<span class="field">receivedAt</span>": 1706097400000
+    }
+  ],
+  "<span class="field">count</span>": 1
+}
+</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Debugging 404s</strong>
+  Common causes: wrong <code>paymentId</code>, wrong webhook path (<code>/payment</code> vs <code>/payment-result</code>),
+  correlation already timed out, or correlation already consumed by a previous webhook.
+  Check <code>GET /api/correlations</code> to see what's currently paused.
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>Test Scenario D: Manual Resume (Without Webhook)</h2>
+<p>Resume a paused correlation directly — the same as clicking "Resume Manually" in the UI.</p>
+
+<h3><span class="step-num">1</span> Register a Correlation</h3>
+<pre>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">REQ-2024-0042</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/approval</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-manual-001</span>",
+    "<span class="field">workflowId</span>": "<span class="string">wf-approval-flow</span>",
+    "<span class="field">pausedNodeId</span>": "<span class="string">cw-2</span>",
+    "<span class="field">timeoutMs</span>": 259200000,
+    "<span class="field">correlationSource</span>": "<span class="string">header</span>",
+    "<span class="field">correlationHeader</span>": "<span class="string">x-request-id</span>"
+  }'
+</pre>
+
+<h3><span class="step-num">2</span> Resume Directly</h3>
+<p><span class="http-method method-post">POST</span> <code>/api/correlations/resume</code></p>
+<pre>
+curl -X POST http://localhost:3001/api/correlations/resume \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">REQ-2024-0042</span>",
+    "<span class="field">webhookData</span>": {
+      "<span class="field">requestId</span>": "<span class="string">REQ-2024-0042</span>",
+      "<span class="field">decision</span>": "<span class="string">approved</span>",
+      "<span class="field">decidedBy</span>": {
+        "<span class="field">email</span>": "<span class="string">jane.manager@example.com</span>",
+        "<span class="field">name</span>": "<span class="string">Jane Chen</span>",
+        "<span class="field">role</span>": "<span class="string">Engineering Manager</span>"
+      },
+      "<span class="field">comment</span>": "<span class="string">Looks good, approved.</span>",
+      "<span class="field">decidedAt</span>": "<span class="string">2024-01-15T16:42:33.891Z</span>"
+    }
+  }'
+</pre>
+
+<h4><span class="response-label res-200">200</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">REQ-2024-0042</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-manual-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-approval-flow</span>",
+  "<span class="field">webhookData</span>": {
+    "<span class="field">requestId</span>": "<span class="string">REQ-2024-0042</span>",
+    "<span class="field">decision</span>": "<span class="string">approved</span>",
+    "<span class="field">decidedBy</span>": { "<span class="field">email</span>": "<span class="string">jane.manager@example.com</span>", "<span class="comment">...</span>" },
+    "<span class="field">comment</span>": "<span class="string">Looks good, approved.</span>",
+    "<span class="field">decidedAt</span>": "<span class="string">2024-01-15T16:42:33.891Z</span>"
+  }
+}
+</pre>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Test Scenario E: Cancel and Cleanup</h2>
+
+<h3><span class="step-num">1</span> Register Two Correlations</h3>
+<pre>
+<span class="comment"># Correlation 1</span>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">cancel-test-1</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-cancel-001</span>",
+    "<span class="field">timeoutMs</span>": 5000,
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+
+<span class="comment"># Correlation 2</span>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">cancel-test-2</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-cancel-002</span>",
+    "<span class="field">timeoutMs</span>": 300000,
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+</pre>
+
+<h3><span class="step-num">2</span> Cancel One</h3>
+<p><span class="http-method method-delete">DELETE</span> <code>/api/correlations/cancel-test-2</code></p>
+<pre>
+curl -X DELETE http://localhost:3001/api/correlations/cancel-test-2
+</pre>
+
+<h4><span class="response-label res-200">200</span> Response</h4>
+<pre>
+{
+  "<span class="field">cancelled</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">cancel-test-2</span>"
+}
+</pre>
+
+<h3><span class="step-num">3</span> Wait 6 Seconds, Then Cleanup</h3>
+<p>The first correlation has a 5-second timeout. After it expires:</p>
+<p><span class="http-method method-post">POST</span> <code>/api/correlations/cleanup</code></p>
+<pre>
+<span class="comment"># Wait for cancel-test-1 to expire (5s timeout)</span>
+curl -X POST http://localhost:3001/api/correlations/cleanup
+</pre>
+
+<h4><span class="response-label res-200">200</span> Response</h4>
+<pre>
+{
+  "<span class="field">cleaned</span>": 1,
+  "<span class="field">idempotencyCleared</span>": 0,
+  "<span class="field">remaining</span>": 0
+}
+</pre>
+
+<h3><span class="step-num">4</span> Verify Empty List</h3>
+<pre>
+curl http://localhost:3001/api/correlations
+<span class="comment"># → { "correlations": [], "count": 0 }</span>
+</pre>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Test Scenario F: Duplicate Pause (409)</h2>
+<p>Verify that pausing the same correlation ID twice is rejected.</p>
+
+<pre>
+<span class="comment"># First pause — succeeds (201)</span>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">dup-test-001</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-dup-001</span>",
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+
+<span class="comment"># Second pause with same correlationId — rejected (409)</span>
+curl -X POST http://localhost:3001/api/correlations/pause \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">correlationId</span>": "<span class="string">dup-test-001</span>",
+    "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>",
+    "<span class="field">executionId</span>": "<span class="string">exec-dup-002</span>",
+    "<span class="field">correlationSource</span>": "<span class="string">body</span>",
+    "<span class="field">correlationJsonPath</span>": "<span class="string">$.paymentId</span>"
+  }'
+</pre>
+
+<h4><span class="response-label res-404">409</span> Expected Response</h4>
+<pre>
+{
+  "<span class="field">error</span>": "<span class="string">Correlation ID \"dup-test-001\" is already paused</span>"
+}
+</pre>
+
+<!-- ════════════════════════════════ -->
+<h2>Quick Reference: Response Codes</h2>
+
+<table>
+  <tr><th>Code</th><th>Meaning</th><th>When It Happens</th></tr>
+  <tr><td><span class="response-label res-201">201</span></td><td>Correlation paused</td><td><code>POST /pause</code> success</td></tr>
+  <tr><td><span class="response-label res-200">200</span></td><td>Resumed / Listed / Cleaned</td><td>Most GET and POST operations</td></tr>
+  <tr><td><span class="response-label res-200">200</span></td><td>Idempotent duplicate</td><td>Same <code>x-idempotency-key</code> sent again</td></tr>
+  <tr><td><span class="response-label res-401">401</span></td><td>Bad HMAC signature</td><td>Security enabled, wrong signature</td></tr>
+  <tr><td><span class="response-label res-401">403</span></td><td>IP blocked</td><td>Security enabled, IP not whitelisted</td></tr>
+  <tr><td><span class="response-label res-404">404</span></td><td>No match</td><td>Webhook didn't match any paused entry</td></tr>
+  <tr><td><span class="response-label res-404">409</span></td><td>Already paused</td><td>Duplicate <code>correlationId</code> in pause</td></tr>
+  <tr><td><span class="response-label res-422">422</span></td><td>Filter rejected</td><td>Webhook filter expression returned false</td></tr>
+</table>
+
+<!-- ════════════════════════════════ -->
+<h2>Using "Try" in the API Catalog</h2>
+
+<ol>
+  <li>Open the <strong>API Catalog</strong> tab</li>
+  <li>Select <strong>"Correlation Wait API"</strong> from the catalog list</li>
+  <li>Click any endpoint to expand its detail panel</li>
+  <li>Click the <strong>"Try"</strong> button</li>
+  <li>The request body is pre-filled from the YAML spec examples</li>
+  <li>Click <strong>"Send"</strong> to execute against <code>localhost:3001</code></li>
+  <li>The response panel shows the status code, headers, and body</li>
+</ol>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Order Matters for Webhook Tests</strong>
+  Always call <strong>POST /pause</strong> first to register a correlation,
+  then call <strong>POST /webhooks/callback/{path}</strong> to match it.
+  Without a paused correlation, the webhook endpoint returns 404.
+</div>
+
+<div class="callout callout-tip">
+  <strong>💡 Quick Full-Cycle Test (4 Clicks)</strong>
+  <ol style="margin: 4px 0 0;">
+    <li>Try <code>POST /pause</code> → verify 201</li>
+    <li>Try <code>GET /correlations</code> → verify count: 1</li>
+    <li>Try <code>POST /webhooks/callback/payment</code> → verify resumed: true</li>
+    <li>Try <code>GET /correlations</code> → verify count: 0</li>
+  </ol>
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>YAML Spec Reference</h2>
+<p>File: <code>docs/api-catalog/correlation-wait-api.yaml</code></p>
+<p>Embedded in: <code>src/data/sampleCatalogSpecs.ts</code></p>
+
+<footer>
+  RedfireForge &mdash; Correlation Wait API Testing Guide &mdash; April 2026
+</footer>
+
+</body>
+</html>

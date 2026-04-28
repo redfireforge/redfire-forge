@@ -3,12 +3,13 @@ import type { SwitchNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type SwitchWorkflowNode = Node<SwitchNodeData, 'switch'>;
 type Props = NodeProps<SwitchWorkflowNode>;
 
 export default function SwitchNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
 
   const expr = data.expression || 'Configure expression…';
   const caseCount = data.cases?.length ?? 0;
@@ -69,6 +70,8 @@ export default function SwitchNode({ id, data, selected }: Props) {
       >
         Default
       </span>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
     </div>

@@ -91,11 +91,12 @@ test.describe('Template Gallery Modal', () => {
 
     const cards = page.locator('.tg-card');
     const count = await cards.count();
-    expect(count).toBe(2); // Switch + Loop/Aggregate
+    expect(count).toBe(3); // Switch + Loop/Aggregate + Script: Cross-API Validator
 
     // Verify we see the new node templates
     await expect(page.locator('.tg-card-name', { hasText: 'Switch' })).toBeVisible();
     await expect(page.locator('.tg-card-name', { hasText: 'Paginated' })).toBeVisible();
+    await expect(page.locator('.tg-card-name', { hasText: 'Script' })).toBeVisible();
   });
 
   test('clicking a template card loads it as preview', async ({ page }) => {

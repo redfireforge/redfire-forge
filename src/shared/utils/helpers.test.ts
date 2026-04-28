@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -255,5 +255,46 @@ describe('humanizeError', () => {
   it('humanizes HTTP 0 with CORS', () => {
     const result = humanizeError('CORS error: Access-Control-Allow-Origin missing');
     expect(result).toContain('Cross-origin');
+  });
+});
+
+describe('prettyJson', () => {
+  it('pretty-prints valid JSON string', () => {
+    const input = '{"name":"test","age":30}';
+    const expected = '{\n  "name": "test",\n  "age": 30\n}';
+    expect(prettyJson(input)).toBe(expected);
+  });
+
+  it('handles already pretty JSON', () => {
+    const input = '{\n  "name": "test"\n}';
+    expect(prettyJson(input)).toBe(input);
+  });
+
+  it('returns original string if not valid JSON', () => {
+    const input = 'not valid json';
+    expect(prettyJson(input)).toBe(input);
+  });
+
+  it('handles JSON arrays', () => {
+    const input = '[1,2,3]';
+    const expected = '[\n  1,\n  2,\n  3\n]';
+    expect(prettyJson(input)).toBe(expected);
+  });
+
+  it('handles nested objects', () => {
+    const input = '{"user":{"name":"Alice","profile":{"age":25}}}';
+    const result = prettyJson(input);
+    expect(result).toContain('"user"');
+    expect(result).toContain('"profile"');
+    expect(result).toContain('25');
+  });
+
+  it('returns empty string unchanged', () => {
+    expect(prettyJson('')).toBe('');
+  });
+
+  it('returns partial JSON unchanged', () => {
+    const input = '{"incomplete":';
+    expect(prettyJson(input)).toBe(input);
   });
 });
