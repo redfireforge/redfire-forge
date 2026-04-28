@@ -30,6 +30,14 @@ export interface ResumeResult {
 
 // ── Interface ────────────────────────────────────────
 
+/** Tells the store how to extract the correlation ID from an incoming webhook. */
+export interface CorrelationWaitConfig {
+  correlationSource?: 'body' | 'header' | 'query';
+  correlationJsonPath?: string;
+  correlationHeader?: string;
+  correlationQueryParam?: string;
+}
+
 export interface ICorrelationStore {
   /**
    * Pause a workflow execution, waiting for a webhook callback.
@@ -42,6 +50,7 @@ export interface ICorrelationStore {
     state: WorkflowPausedState,
     timeoutMs: number,
     webhookFilter?: string,
+    config?: CorrelationWaitConfig,
   ): Promise<Record<string, unknown>>;
 
   /**
@@ -99,6 +108,7 @@ export class InMemoryCorrelationStore implements ICorrelationStore {
     state: WorkflowPausedState,
     timeoutMs: number,
     webhookFilter?: string,
+    _config?: CorrelationWaitConfig,
   ): Promise<Record<string, unknown>> {
     // Reject if already paused with same correlationId
     if (this.entries.has(correlationId)) {

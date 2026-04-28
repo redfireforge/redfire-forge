@@ -10,7 +10,6 @@ import {
   ReactFlowProvider,
   ConnectionMode,
   MarkerType,
-  type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -19,8 +18,6 @@ import type { CatalogEntry } from '../catalog/types/catalog';
 import type {
   WorkflowNode,
   HttpNodeData,
-  StartNodeData,
-  ScheduleTriggerNodeData,
   SubWorkflowNodeData,
   WorkflowHostProfile,
   WorkflowAuthProfile,
@@ -33,8 +30,6 @@ import {
 } from './utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl, resolveServiceAuth } from './utils/workflowHostResolve';
 import type { WorkflowHook } from './hooks/useWorkflows';
-import { fetchScenarioSample } from './engine/fetchScenarioSample';
-import { cloneWorkflowNodeDataForStorage } from './utils/workflowNodeMerge';
 import { getAutoLayoutNodes } from './utils/workflowAutoLayout';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './components/panels/WorkflowNodeRunContext';
 import { useResizablePanels } from '../../shared/hooks/useResizablePanels';
@@ -48,6 +43,8 @@ import { useWorkflowDetailModal } from './hooks/useWorkflowDetailModal';
 import { useWorkflowNodeActions } from './hooks/useWorkflowNodeActions';
 import { useWorkflowEdgeOps } from './hooks/useWorkflowEdgeOps';
 import { useWorkflowCanvasSync, useWorkflowVariableHints } from './hooks/useWorkflowCanvasSync';
+import { useWorkflowPersistence } from './hooks/useWorkflowPersistence';
+import { useWorkflowExtractionSample } from './hooks/useWorkflowExtractionSample';
 
 import WorkflowToolbar from './components/canvas/WorkflowToolbar';
 import WorkflowPalette from './components/canvas/WorkflowPalette';
@@ -64,7 +61,6 @@ import WorkflowServicesPanelInline from './components/panels/WorkflowServicesPan
 import WorkflowDebugBar from './components/WorkflowDebugBar';
 import WorkflowConsolePanel from './components/panels/WorkflowConsolePanel';
 import WorkflowBreadcrumb from './components/WorkflowBreadcrumb';
-import { loadConsoleRunBehavior, loadConsoleOpen, saveConsoleOpen, type ConsoleRunBehavior } from './utils/workflowSessionStorage';
 import WorkflowCanvasControls from './components/canvas/WorkflowCanvasControls';
 import WorkflowShortcutsOverlay from './components/canvas/WorkflowShortcutsOverlay';
 import WorkflowCommandPalette from './components/canvas/WorkflowCommandPalette';
@@ -114,18 +110,8 @@ export default function WorkflowDesignerWrapper(props: Props) {
 }
 
 function WorkflowDesignerInner({
-  collections,
-  catalogEntries,
-  wfHook,
-  environments,
-  microservices,
-  globalAuthProfiles,
-  selectedEnvId,
-  onEnvSelect,
-  resolvedBaseUrl,
-  previewWorkflow,
-  onClearPreview,
-  onUseAsTemplate,
+  collections, catalogEntries, wfHook, environments, microservices, globalAuthProfiles,
+  selectedEnvId, onEnvSelect, resolvedBaseUrl, previewWorkflow, onClearPreview, onUseAsTemplate,
 }: Props) {
   const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
   const selected = previewWorkflow ?? selectedWorkflow;
@@ -181,9 +167,10 @@ function WorkflowDesignerInner({
   const workflowVariablesRef = useRef(workflowVariables);
   workflowVariablesRef.current = workflowVariables;
   const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
-  const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
+  // Shared Y-cursor: useWorkflowNodeActions (add) and useWorkflowPersistence (paste) advance the same counter.
+  const nextNodeY = useRef(100);
 
   // ── Phase 6: Toast, Undo/Redo, Copy/Paste, Command Palette, Shortcuts ──
   const toast = useToast();
@@ -202,114 +189,26 @@ function WorkflowDesignerInner({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo object identity changes every render; only clear on workflow switch
   useEffect(() => { undoRedo.clear(); }, [selected?.id]);
 
-  // Stable refs so the keyboard-shortcut handler can call these
-  // without depending on them (they are declared later in the file).
+  // Stable refs so keyboard-shortcut handler can call these (declared later in file).
   const handleQuickTestRef = useRef<() => void>(() => {});
   const handleDebugQuickTestRef = useRef<() => void>(() => {});
 
-  const clipboard = useNodeClipboard({
-    getNodes: () => nodesRef.current,
-    selectedNodeId,
-    toast,
+  const clipboard = useNodeClipboard({ getNodes: () => nodesRef.current, selectedNodeId, toast });
+
+  const {
+    serializeNodes, serializeEdges, persistWorkflow, insertNodeAndPersist,
+    saveAcknowledged,
+    handleCopyNode, handlePasteNode, handleDuplicateNode,
+    handleUndoAction, handleRedoAction,
+    handleSave, handleUpdateWorkflowVariables,
+  } = useWorkflowPersistence({
+    selected, previewWorkflow, nodes, edges,
+    workflowVariables, workflowHostProfiles, workflowAuthProfiles,
+    workflowServices, workflowErrorConfig,
+    nodeInitialVarsRef, nodesRef, selectedNodeId,
+    nextNodeY, setNodes, setWorkflowVariables, workflowVariablesRef,
+    update, clipboard, undoRedo, toast,
   });
-
-  /** Serialize React Flow nodes to workflow storage format. */
-  const serializeNodes = useCallback((rfNodes: WorkflowRFNode[]): WorkflowNode[] =>
-    rfNodes.map(n => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: cloneWorkflowNodeDataForStorage(
-        isHttpWorkflowNode(n)
-          ? { ...n.data, initialVariables: nodeInitialVarsRef.current[n.id] ?? n.data.initialVariables }
-          : n.data,
-      ),
-    })), []);
-
-  /** Serialize React Flow edges to workflow storage format. */
-  const serializeEdges = useCallback((rfEdges: WorkflowRFEdge[]) =>
-    rfEdges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle ?? undefined,
-      label: typeof e.label === 'string' ? e.label : undefined,
-    })), []);
-
-  /** Persist the current canvas to the workflow store. */
-  const persistWorkflow = useCallback((overrides?: { services?: WorkflowService[]; rfNodes?: WorkflowRFNode[]; variables?: Record<string, string>; errorConfig?: WorkflowErrorConfig }) => {
-    if (!selected) return;
-    const wfNodes = serializeNodes(overrides?.rfNodes ?? nodes);
-    const wfEdges = serializeEdges(edges);
-    update(selected.id, {
-      nodes: wfNodes,
-      edges: wfEdges,
-      variables: overrides?.variables ?? workflowVariables,
-      hostProfiles: workflowHostProfiles,
-      authProfiles: workflowAuthProfiles,
-      services: overrides?.services ?? workflowServices,
-      errorConfig: overrides?.errorConfig !== undefined ? overrides.errorConfig : workflowErrorConfig,
-      schemaVersion: 3,
-    });
-    setSaveAcknowledged(true);
-
-    // Register workflow with server so webhooks can trigger it
-    const hasWebhookTrigger = wfNodes.some(n => n.type === 'webhook');
-    if (hasWebhookTrigger) {
-      const wf = { id: selected.id, name: selected.name, nodes: wfNodes, edges: wfEdges, variables: overrides?.variables ?? workflowVariables };
-      fetch(`/api/workflows/${selected.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(wf),
-      }).catch(() => { /* server may not be running */ });
-    }
-  }, [selected, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles, workflowServices, workflowErrorConfig, update, serializeNodes, serializeEdges]);
-
-  /** Insert a new node and persist. Shared by paste, duplicate, and drop. */
-  const insertNodeAndPersist = useCallback((newNode: WorkflowRFNode, snapshotLabel: string) => {
-    if (!selected) return;
-    undoRedo.takeSnapshot(snapshotLabel);
-    setNodes((nds) => {
-      const updated = [...nds, newNode];
-      const wfNodes = serializeNodes(updated);
-      const wfEdges = serializeEdges(edges);
-      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
-      return updated;
-    });
-  }, [selected, edges, setNodes, serializeNodes, serializeEdges, update, undoRedo]);
-
-  const handleCopyNode = useCallback((nodeId?: string) => {
-    clipboard.copyNode(nodeId);
-  }, [clipboard]);
-
-  const handlePasteNode = useCallback(() => {
-    if (!selected) return;
-    const y = nextNodeY.current;
-    nextNodeY.current += 120;
-    const newNode = clipboard.buildPasteNode({ x: 340, y });
-    if (!newNode) return;
-    insertNodeAndPersist(newNode as WorkflowRFNode, 'Paste node');
-    toast.show('info', 'Node pasted', `"${(newNode.data as { label?: string }).label}"`);
-  }, [selected, clipboard, insertNodeAndPersist, toast]);
-
-  const handleDuplicateNode = useCallback((nodeId?: string) => {
-    if (!selected) return;
-    const newNode = clipboard.buildDuplicateNode(nodeId);
-    if (!newNode) return;
-    const srcNode = nodesRef.current.find((n) => n.id === (nodeId ?? selectedNodeId));
-    insertNodeAndPersist(newNode as WorkflowRFNode, 'Duplicate node');
-    toast.show('info', 'Node duplicated', `"${(srcNode?.data as { label?: string })?.label}" → "${(newNode.data as { label?: string }).label}"`);
-  }, [selected, selectedNodeId, clipboard, insertNodeAndPersist, toast]);
-
-  const handleUndoAction = useCallback(() => {
-    const label = undoRedo.undo();
-    if (label) toast.show('info', `Undo: ${label}`);
-  }, [undoRedo, toast]);
-
-  const handleRedoAction = useCallback(() => {
-    const label = undoRedo.redo();
-    if (label) toast.show('info', `Redo: ${label}`);
-  }, [undoRedo, toast]);
 
   // Keyboard shortcuts (extracted hook)
   useWorkflowKeyboardShortcuts({
@@ -323,7 +222,6 @@ function WorkflowDesignerInner({
 
   // ── Node actions (extracted hook) ── MUST BE BEFORE useWorkflowCanvasSync because it provides nextNodeY
   const {
-    nextNodeY,
     addNodeToCanvas, handleAddNode,
     handleAddFromRequest, handleAddFromCatalog,
     handleUpdateNode, handleDeleteNode,
@@ -335,6 +233,7 @@ function WorkflowDesignerInner({
     nodeInitialVarsRef, nodesRef, edgesRef,
     serializeNodes, serializeEdges, update, persistWorkflow,
     undoRedo, workflows, create, toast,
+    nextNodeY,
   });
 
   // ── Resolver callbacks for execution ──
@@ -429,60 +328,12 @@ function WorkflowDesignerInner({
     return resolvedBaseUrl;
   }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
 
-  useEffect(() => {
-    setExtractionSampleJson('');
-    setExtractionFetchError(null);
-  }, [selected?.id, selectedNodeId]);
-
-  const handleExtractionFetchSample = useCallback(async () => {
-    if (!selectedNode || !isHttpWorkflowNode(selectedNode)) {
-      setExtractionFetchError('Select an HTTP step and open Pick path from the Extract tab.');
-      return;
-    }
-    const scenario = selectedNode.data.scenario;
-    setExtractionFetching(true);
-    setExtractionFetchError(null);
-    try {
-      const httpData = selectedNode.data;
-      const fetchBase = resolveHttpNodeBaseUrl(httpData, microservices, workflowHostProfiles, workflowServices, selectedEnvId) ?? resolvedBaseUrl;
-
-      // Gather inputVariables from entry-point nodes (Start, Webhook, Schedule)
-      // so design-time Fetch uses the same seed variables as a real Quick Test run.
-      const entryVars: Record<string, string> = {};
-      for (const n of nodes) {
-        if (n.type === 'start') {
-          const d = n.data as StartNodeData;
-          if (d.inputVariables) Object.assign(entryVars, d.inputVariables);
-        } else if (n.type === 'schedule') {
-          const d = n.data as ScheduleTriggerNodeData;
-          if (d.inputVariables) Object.assign(entryVars, d.inputVariables);
-        }
-      }
-
-      const mergedVars = { ...entryVars, ...workflowVariables, ...(nodeInitialVarsRef.current[selectedNode.id] ?? httpData.initialVariables ?? {}) };
-      const result = await fetchScenarioSample(
-        scenario,
-        mergedVars,
-        fetchBase,
-        {
-          fetchHostEnabled: !!scenario.fetchHostEnabled,
-          fetchHostOverride: scenario.fetchHostOverride ?? '',
-        },
-      );
-      if (result.ok) {
-        setExtractionSampleJson(result.body);
-      } else {
-        setExtractionFetchError(result.error);
-        // Still load the response body (if any) so the user can inspect it
-        if (result.body) {
-          try { setExtractionSampleJson(JSON.stringify(JSON.parse(result.body), null, 2)); }
-          catch { setExtractionSampleJson(result.body); }
-        }
-      }
-    } finally {
-      setExtractionFetching(false);
-    }
-  }, [selectedNode, workflowVariables, nodes, microservices, resolvedBaseUrl, selectedEnvId, workflowHostProfiles, workflowServices]);
+  const { handleExtractionFetchSample } = useWorkflowExtractionSample({
+    selectedNode, selectedId: selected?.id, selectedNodeId,
+    nodes, workflowVariables, runVariableSnapshot, nodeInitialVarsRef,
+    microservices, workflowHostProfiles, workflowServices, selectedEnvId, resolvedBaseUrl,
+    setExtractionSampleJson, setExtractionFetching, setExtractionFetchError,
+  });
 
   // ── Navigation (extracted hook) ──
   const { navStack, setNavStack, navigateToWorkflow, handleBreadcrumbNavigate } = useWorkflowNavigation({
@@ -500,9 +351,7 @@ function WorkflowDesignerInner({
     onClearPreview();
     setNavStack([]);
     select(id);
-  }, [select, onClearPreview, setNavStack]);
-
-  const inspectActions = useMemo(
+  }, [select, onClearPreview, setNavStack]);  const inspectActions = useMemo(
     () => ({
       openStepDetail,
       openVariableDetail,
@@ -519,18 +368,6 @@ function WorkflowDesignerInner({
     }),
     [openStepDetail, openVariableDetail, openNodeConfig, navigateToWorkflow, workflows],
   );
-
-  const handleSave = useCallback(() => {
-    if (previewWorkflow) return;
-    persistWorkflow();
-    toast.show('success', 'Workflow saved', `${nodes.length} nodes · ${edges.length} connections`);
-  }, [persistWorkflow, previewWorkflow, toast, nodes.length, edges.length]);
-
-  useEffect(() => {
-    if (!saveAcknowledged) return;
-    const t = window.setTimeout(() => setSaveAcknowledged(false), 2200);
-    return () => window.clearTimeout(t);
-  }, [saveAcknowledged]);
 
   // ── Edge operations (extracted hook) ──
   const { onConnect, onReconnect } = useWorkflowEdgeOps({
@@ -568,12 +405,6 @@ function WorkflowDesignerInner({
       nodeId: node.id,
     });
   }, []);
-
-  const handleUpdateWorkflowVariables = useCallback((vars: Record<string, string>) => {
-    workflowVariablesRef.current = vars;
-    setWorkflowVariables(vars);
-    persistWorkflow({ variables: vars });
-  }, [persistWorkflow]);
 
   const latestStepSummaries = useMemo(() => {
     const latest = runHistory[0];

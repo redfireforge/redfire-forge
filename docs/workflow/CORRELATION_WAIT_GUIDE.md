@@ -207,6 +207,9 @@ Start → Fork → [CorrelationWait A | CorrelationWait B] → Join → Process 
 
 See: [hard-parallel-payment-workflow.yaml](../../examples/hard-parallel-payment-workflow.yaml)
 
+> **⚠ Avoid correlation-id collisions in parallel branches.**
+> If both branches POST to gateways that may return the *same* numeric id (e.g. test sandboxes echoing `101`), insert a `setVariable` step on each branch to **prefix** the extracted id (e.g. `cardPaymentId = card-{{cardPaymentId}}`, `loyaltyPaymentId = loyalty-{{loyaltyPaymentId}}`). The server keys paused entries by `correlationId` only — two simultaneous waiters with the same key cannot coexist.
+
 ---
 
 ## Troubleshooting

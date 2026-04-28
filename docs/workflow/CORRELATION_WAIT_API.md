@@ -72,6 +72,40 @@ Register a workflow as paused, waiting for a webhook callback.
 
 ---
 
+### Long-Poll for Resume (Browser Bridge)
+
+```
+GET /api/correlations/:correlationId/wait?timeoutMs=30000
+```
+
+Long-poll endpoint used by the browser-side `RemoteCorrelationStore` to wait until a paused correlation is resumed by an inbound webhook. The connection parks server-side until either:
+1. A matching webhook arrives (or `/resume` is called) — returns the resume payload immediately.
+2. The `timeoutMs` window elapses — returns `{ "timedOut": true }`.
+
+**Query Parameters:**
+- `timeoutMs` (optional, default `30000`) — clamped to `[1000, 120000]`.
+
+**Response (200) — resumed:**
+```json
+{
+  "resumed": true,
+  "correlationId": "pay_123",
+  "executionId": "exec-abc",
+  "workflowId": "wf-1",
+  "webhookData": { "status": "approved" },
+  "ts": 1745800000000
+}
+```
+
+**Response (200) — timeout:**
+```json
+{ "timedOut": true, "correlationId": "pay_123" }
+```
+
+> **Note:** Resumes that arrive while no waiter is connected are queued briefly and delivered to the next `/wait` call for the same correlation ID. This prevents lost wakeups when a webhook beats the pause registration.
+
+---
+
 ### Resume a Paused Correlation (Direct)
 
 ```

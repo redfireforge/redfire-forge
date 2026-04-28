@@ -16,6 +16,7 @@ import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
 import { runGraph, type GraphRunCallbacks, type SubWorkflowRunSummary } from '../engine/graphRunner';
 import { DebugController } from '../engine/debugController';
+import { RemoteCorrelationStore } from '../engine/remoteCorrelationStore';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
@@ -97,11 +98,19 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
 
   const runProgress = useMemo<RunProgress | null>(() => {
     if (lastRunStatus === 'idle') return null;
-    const statuses = Object.values(nodeStatuses);
-    const httpStatuses = statuses.filter(s => s.statusCode != null || s.state === 'pass' || s.state === 'fail' || s.state === 'running' || s.state === 'skipped');
-    const totalNodes = nodes.filter(n => n.type === 'http').length;
-    const completed = httpStatuses.filter(s => s.state === 'pass' || s.state === 'fail' || s.state === 'skipped').length;
-    const failed = httpStatuses.filter(s => s.state === 'fail').length;
+    // Count progress over executable steps (exclude pure structural/trigger nodes
+    // like start/webhook/schedule/end, which never produce a runnable status).
+    const NON_EXECUTABLE = new Set(['start', 'webhook', 'schedule', 'end']);
+    const executableNodes = nodes.filter(n => !NON_EXECUTABLE.has(n.type ?? ''));
+    const totalNodes = executableNodes.length;
+    let completed = 0;
+    let failed = 0;
+    for (const n of executableNodes) {
+      const s = nodeStatuses[n.id];
+      if (!s) continue;
+      if (s.state === 'pass' || s.state === 'fail' || s.state === 'skipped') completed++;
+      if (s.state === 'fail') failed++;
+    }
     const elapsed = lastRunStatus === 'running' ? runElapsed : (lastRunTime ?? 0);
     return { completed, total: totalNodes, failed, elapsedMs: elapsed, lastRunStatus };
   }, [nodeStatuses, nodes, lastRunStatus, lastRunTime, runElapsed]);
@@ -264,6 +273,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         }
         return undefined;
       },
+      new RemoteCorrelationStore(),
     ).catch(() => {
       setIsRunning(false);
       if (debugController) {
