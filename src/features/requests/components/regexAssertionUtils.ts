@@ -1,6 +1,6 @@
 /* ── Pattern Library ────────────────────────────────── */
 
-interface PatternEntry {
+export interface PatternEntry {
   name: string;
   pattern: string;
   description: string;

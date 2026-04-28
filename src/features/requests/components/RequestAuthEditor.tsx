@@ -100,7 +100,7 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
       {auth.type === 'inherit' && collection.auth && collection.auth.type !== 'none' && (
         <div className="req-auth-inherit-info">
           Inheriting <strong>{collection.auth.globalProfileId
-            ? globalAuthProfiles.find(p => p.id === collection.auth.globalProfileId)?.name ?? collection.auth.type
+            ? globalAuthProfiles.find(p => p.id === collection.auth!.globalProfileId)?.name ?? collection.auth.type
             : collection.auth.type}</strong> auth from collection "{collection.name}"
         </div>
       )}

@@ -1,7 +1,7 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ScriptNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
-export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations';
+export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
 
 /** Source metadata: which node (or workflow-level) produced this variable. */
 export interface WorkflowVariableHintSource {

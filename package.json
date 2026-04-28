@@ -1,7 +1,7 @@
 {
   "name": "performance-test",
   "private": true,
-  "version": "0.5.4-beta.2",
+  "version": "0.5.5-beta.2",
   "type": "module",
   "bin": {
     "redfireforge": "dist-cli/redfireforge.mjs"

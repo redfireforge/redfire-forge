@@ -34,7 +34,7 @@ export interface WebhookDelivery {
   error?: string;
 }
 
-export type LogLinePrefix = '' | '*' | '>' | '<' | '#' | '!';
+export type LogLinePrefix = string;
 
 export interface LogLine {
   prefix: LogLinePrefix;

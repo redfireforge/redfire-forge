@@ -137,7 +137,7 @@ describe('graphRunner - Additional Coverage', () => {
 
       expect(states['h1']?.state).toBe('fail');
       expect(states['end']?.state).toBe('fail');
-      expect(states['end']?.error).toContain('One or more steps failed');
+      expect(states['end']?.error).toContain('Network error');
       expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number));
     });
 

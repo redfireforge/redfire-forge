@@ -158,7 +158,7 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
     const t = debouncedSearch.trim();
     if (!t) return 0;
     if (jTree) {
-      const results: ReturnType<typeof collectMatchNodes> extends void ? never : unknown[] = [];
+      const results: unknown[] = [];
       collectMatchNodes(jTree, t, results as never[]);
       return results.length;
     }
@@ -213,10 +213,6 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
   }, []);
 
   const allPaths = useMemo(() => (jTree ? collectAllPaths(jTree, '') : []), [jTree]);
-  const _isAllCollapsed = useMemo(
-    () => allPaths.length > 0 && allPaths.every(p => collapsedSet.has(p)),
-    [allPaths, collapsedSet],
-  );
   const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allPaths)), [allPaths]);
   const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
 

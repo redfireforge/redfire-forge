@@ -57,7 +57,7 @@ interface Props {
   svcId?: string;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
-  envFallbackAuth?: import('../types').AuthConfig;
+  envFallbackAuth?: import('../../shared/types').AuthConfig;
 }
 
 function replaceHost(testUrl: string, baseUrl: string): string {

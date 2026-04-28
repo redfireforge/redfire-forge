@@ -258,7 +258,7 @@ function SampleCard({ entry, role, onSelect }: SampleCardProps) {
 }
 
 /** Modal wrapper — kept for backward compat but Gallery tab uses TemplateGalleryContent directly. */
-export default function TemplateGalleryModal({ open, onClose, onSelect }: Props) {
+export default function TemplateGalleryModal({ open, onClose: _onClose, onSelect }: Props) {
   if (!open) return null;
   return (
     <TemplateGalleryContent onSelect={onSelect} />

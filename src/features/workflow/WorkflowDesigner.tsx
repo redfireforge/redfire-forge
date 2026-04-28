@@ -259,7 +259,7 @@ function WorkflowDesignerInner({
     isRunning, setIsRunning, isDebugMode, setIsDebugMode,
     debugControllerRef, abortRef,
     runProgress, failedStepLabel,
-    lastQuickTestRequestUrl, setLastQuickTestRequestUrl,
+    lastQuickTestRequestUrl,
     handleQuickTest, handleDebugQuickTest,
     handleDebugStep, handleDebugStop, handleResetRunStatus,
   } = useWorkflowExecution({
@@ -291,7 +291,7 @@ function WorkflowDesignerInner({
   });
 
   // ── Variable hints (extracted hook) ──
-  const { selectedNode, hintNodes, hintEdges, conditionVariableHints, httpVariableHints } = useWorkflowVariableHints({
+  const { selectedNode, conditionVariableHints, httpVariableHints } = useWorkflowVariableHints({
     selectedNodeId, nodes, edges, nodeInitialVars, workflowVariables,
   });
 
