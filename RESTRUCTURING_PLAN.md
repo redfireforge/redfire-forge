@@ -175,7 +175,7 @@ src/
 - [ ] Move expression components → `components/expression/`: ExpressionInput, ExpressionHintDropdown, ExpressionBuilderView, ExpressionTextarea, expressionBuilderState, InsertVarField, SearchableVariableSelect, AvailableVariables
 - [ ] Move remaining workflow components: WorkflowBreadcrumb, WorkflowDebugBar, WorkflowExecSummary, ComposeStrip, etc.
 - [ ] Move workflow hooks: `useWorkflows`, `useNodeClipboard`, `useUndoRedo`, `useVariableInsertModal`, `useExpressionHints`, `useWorkflowRunCache` → `features/workflow/hooks/`
-- [ ] Move workflow utils: `workflowAutoLayout`, `workflowMigrations`, `workflowNodeMerge`, `workflowBundleExport`, `workflowEnvReadiness`, `workflowExtractSubWorkflow`, `workflowHostResolve`, `workflowRequestHost`, `workflowMappingUtils`, `expressionEvaluator`, `expressionFunctions` → `features/workflow/utils/`
+- [x] Move workflow utils: `workflowAutoLayout`, `workflowMigrations`, `workflowNodeMerge`, `workflowBundleExport`, `workflowEnvReadiness`, `workflowExtractSubWorkflow`, `workflowHostResolve`, `workflowRequestHost`, `workflowMappingUtils`, `expressionEvaluator`, `expressionFunctions` → `features/workflow/utils/` _(Note: `expressionFunctions` refactored from single 957-line file into 9-module directory)_
 - [ ] Move `src/engine/workflow/*` → `features/workflow/engine/`
 - [ ] Move `src/types/workflow.ts` → `features/workflow/types/`
 - [ ] Move `src/pages/WorkflowDesigner.tsx` → `features/workflow/`
