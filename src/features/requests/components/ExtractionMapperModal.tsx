@@ -153,7 +153,7 @@ export default function ExtractionMapperModal({
       footerClassName="emm-footer"
       controlsClassName="emm-window-controls"
       closeButtonClassName="emm-win-btn emm-win-close"
-      initialExpanded={true}
+      initialExpanded={false}
       expandMode="fullscreen"
       footer={(
         <>

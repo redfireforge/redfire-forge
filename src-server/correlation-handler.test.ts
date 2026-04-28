@@ -550,4 +550,71 @@ describe('correlation-handler — HTTP routes', () => {
     expect(res.body.count).toBeGreaterThanOrEqual(1);
     expect(res.body.unmatched[0].path).toBe('/webhooks/callback/nowhere');
   });
+
+  // ── Long-poll wait endpoint ──
+  describe('GET /api/correlations/:id/wait', () => {
+    it('returns timedOut=true when no resume occurs within the wait window', async () => {
+      const res = await request.get('/api/correlations/never/wait?timeoutMs=1000');
+      expect(res.status).toBe(200);
+      expect(res.body.resumed).toBe(false);
+      expect(res.body.timedOut).toBe(true);
+      expect(res.body.correlationId).toBe('never');
+    });
+
+    it('returns queued resume data immediately if already resumed', async () => {
+      // Pause + resume directly so the queue holds the data
+      await request.post('/api/correlations/pause').send({
+        correlationId: 'q1',
+        webhookPath: '/wh',
+        executionId: 'e1',
+        workflowId: 'wf-1',
+      });
+      await request.post('/api/correlations/resume').send({
+        correlationId: 'q1',
+        webhookData: { foo: 'bar' },
+      });
+
+      const res = await request.get('/api/correlations/q1/wait?timeoutMs=2000');
+      expect(res.status).toBe(200);
+      expect(res.body.resumed).toBe(true);
+      expect(res.body.webhookData).toEqual({ foo: 'bar' });
+      expect(res.body.executionId).toBe('e1');
+    });
+
+    it('parks the request and resolves when a webhook arrives', async () => {
+      await request.post('/api/correlations/pause').send({
+        correlationId: 'park-1',
+        webhookPath: '/webhooks/callback/payment',
+        executionId: 'e1',
+        workflowId: 'wf-1',
+        correlationSource: 'body',
+        correlationJsonPath: 'correlationId',
+      });
+
+      // Start the wait first
+      const waitPromise = request.get('/api/correlations/park-1/wait?timeoutMs=5000');
+
+      // Fire the webhook a moment later
+      await new Promise(r => setTimeout(r, 50));
+      const cb = await request
+        .post('/webhooks/callback/payment')
+        .send({ correlationId: 'park-1', value: 42 });
+      expect(cb.status).toBe(200);
+      expect(cb.body.resumed).toBe(true);
+
+      const res = await waitPromise;
+      expect(res.status).toBe(200);
+      expect(res.body.resumed).toBe(true);
+      expect(res.body.webhookData).toMatchObject({ correlationId: 'park-1', value: 42 });
+    });
+
+    it('enforces a minimum 1000ms wait when given a tiny positive timeoutMs', async () => {
+      const start = Date.now();
+      const res = await request.get('/api/correlations/clamp/wait?timeoutMs=10');
+      const elapsed = Date.now() - start;
+      expect(res.body.timedOut).toBe(true);
+      // server clamps to 1000ms minimum
+      expect(elapsed).toBeGreaterThanOrEqual(900);
+    }, 5000);
+  });
 });

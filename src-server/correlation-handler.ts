@@ -90,6 +90,42 @@ export function findByCorrelationId(correlationId: string): ServerPausedEntry | 
   return activeStore.find(correlationId);
 }
 
+// ── Resume queue / waiters ───────────────────────────
+// When a webhook matches & resumes a correlation, the data is queued so the
+// originating browser (which long-polls /api/correlations/:id/wait) can
+// retrieve it and resume in-process.
+
+interface QueuedResume {
+  webhookData: Record<string, unknown>;
+  executionId: string;
+  workflowId: string;
+  ts: number;
+}
+const RESUME_QUEUE_TTL_MS = 5 * 60 * 1000;
+const queuedResumes = new Map<string, QueuedResume>();
+const resumeWaiters = new Map<string, Array<(r: QueuedResume) => void>>();
+
+/** Notify waiters or queue resume data for later pickup. */
+export function notifyResume(correlationId: string, data: QueuedResume): void {
+  const waiters = resumeWaiters.get(correlationId);
+  if (waiters && waiters.length > 0) {
+    resumeWaiters.delete(correlationId);
+    for (const w of waiters) w(data);
+    return;
+  }
+  queuedResumes.set(correlationId, data);
+}
+
+/** Cleanup expired queued resumes (called periodically). */
+function cleanupResumeQueue(): void {
+  const now = Date.now();
+  for (const [id, data] of queuedResumes.entries()) {
+    if (now - data.ts > RESUME_QUEUE_TTL_MS) queuedResumes.delete(id);
+  }
+}
+setInterval(cleanupResumeQueue, 60_000).unref?.();
+
+
 /**
  * Extract correlation ID from an incoming webhook request
  * based on the paused entry's configuration.
@@ -239,6 +275,12 @@ export function createCorrelationRouter(): Router {
     }
 
     console.log(`[Correlation] Resumed: ${correlationId} (execution=${entry.executionId})`);
+    notifyResume(correlationId, {
+      webhookData: (webhookData ?? {}) as Record<string, unknown>,
+      executionId: entry.executionId,
+      workflowId: entry.workflowId,
+      ts: Date.now(),
+    });
     res.json({
       resumed: true,
       correlationId,
@@ -246,6 +288,58 @@ export function createCorrelationRouter(): Router {
       workflowId: entry.workflowId,
       webhookData: webhookData ?? {},
     } satisfies ResumeResult);
+  });
+
+  // Long-poll endpoint — browser runner waits here until a webhook resumes its correlation
+  router.get('/api/correlations/:correlationId/wait', (req: Request, res: Response) => {
+    const { correlationId } = req.params;
+    const timeoutMs = Math.min(
+      Math.max(parseInt((req.query.timeoutMs as string) || '30000', 10) || 30000, 1000),
+      120000,
+    );
+
+    // Already queued?
+    const queued = queuedResumes.get(correlationId);
+    if (queued) {
+      queuedResumes.delete(correlationId);
+      return res.json({ resumed: true, correlationId, ...queued });
+    }
+
+    // Park the request
+    let settled = false;
+    const arr = resumeWaiters.get(correlationId) ?? [];
+    const resolver = (data: QueuedResume) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      res.json({ resumed: true, correlationId, ...data });
+    };
+    arr.push(resolver);
+    resumeWaiters.set(correlationId, arr);
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      const list = resumeWaiters.get(correlationId);
+      if (list) {
+        const idx = list.indexOf(resolver);
+        if (idx >= 0) list.splice(idx, 1);
+        if (list.length === 0) resumeWaiters.delete(correlationId);
+      }
+      res.json({ resumed: false, correlationId, timedOut: true });
+    }, timeoutMs);
+
+    req.on('close', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const list = resumeWaiters.get(correlationId);
+      if (list) {
+        const idx = list.indexOf(resolver);
+        if (idx >= 0) list.splice(idx, 1);
+        if (list.length === 0) resumeWaiters.delete(correlationId);
+      }
+    });
   });
 
   // List all paused correlations
@@ -349,13 +443,16 @@ export function createCorrelationRouter(): Router {
     }
 
     // ── 7D.2: Idempotency check ──
+    // Only honor the cached reply if the matched correlation is no longer paused —
+    // otherwise this is a re-run of the workflow with the same idempotency key
+    // and we must process it normally so the new pause gets resumed.
     const idempotencyKey = extractIdempotencyKey(
       match.correlationId,
       webhookPath,
       headers as Record<string, string | string[] | undefined>,
     );
     const cached = checkIdempotency(idempotencyKey);
-    if (cached) {
+    if (cached && !activeStore.find(match.correlationId)) {
       console.log(`[Webhook Callback] Idempotent duplicate: ${idempotencyKey}`);
       return res.status(cached.statusCode).json(cached.responseBody);
     }
@@ -381,6 +478,14 @@ export function createCorrelationRouter(): Router {
       workflowId: match.entry.workflowId,
       webhookData: body ?? {},
     } satisfies ResumeResult;
+
+    // Notify any in-process browser runner that's waiting on this correlation
+    notifyResume(match.correlationId, {
+      webhookData: (body ?? {}) as Record<string, unknown>,
+      executionId: match.entry.executionId,
+      workflowId: match.entry.workflowId,
+      ts: Date.now(),
+    });
 
     // ── 7D.2: Record for idempotency ──
     recordProcessed(idempotencyKey, 200, responseBody);

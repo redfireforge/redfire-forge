@@ -1404,6 +1404,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 
 /* ═══ Extraction Mapper Modal ═══ */
+/* Rendered inline within wf-config-modal-overlay's stacking context.
+   z-index is relative to siblings inside that context. */
 .emm-overlay {
   z-index: 1200;
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

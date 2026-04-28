@@ -57,14 +57,14 @@ describe('ExtractionMapperModal', () => {
       expect(screen.getByText('Extraction Mapper')).toBeTruthy();
     });
 
-    it('renders in fullscreen by default', () => {
+    it('renders in normal (non-fullscreen) mode by default', () => {
       const { container } = renderModal();
-      expect(container.querySelector('.modal-fullscreen')).toBeTruthy();
+      expect(container.querySelector('.modal-fullscreen')).toBeNull();
     });
 
     it('renders window control buttons', () => {
       renderModal();
-      expect(screen.getAllByLabelText('Shrink modal').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByLabelText('Expand modal').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByLabelText('Close')).toBeTruthy();
     });
 
@@ -307,30 +307,30 @@ describe('ExtractionMapperModal', () => {
   });
 
   describe('window controls', () => {
-    it('toggles fullscreen on shrink click', () => {
+    it('toggles to fullscreen on expand click', () => {
       const { container } = renderModal();
-      expect(container.querySelector('.modal-fullscreen')).toBeTruthy();
-      fireEvent.click(screen.getAllByLabelText('Shrink modal')[0]);
-      expect(container.querySelector('.modal-fullscreen')).toBeNull();
-    });
-
-    it('toggles back to fullscreen on expand click', () => {
-      const { container } = renderModal();
-      fireEvent.click(screen.getAllByLabelText('Shrink modal')[0]);
       expect(container.querySelector('.modal-fullscreen')).toBeNull();
       fireEvent.click(screen.getAllByLabelText('Expand modal')[0]);
       expect(container.querySelector('.modal-fullscreen')).toBeTruthy();
     });
 
-    it('shows ⊖ icon when fullscreen', () => {
-      renderModal();
-      expect(screen.getAllByLabelText('Shrink modal')[0].textContent).toBe('⊖');
+    it('toggles back from fullscreen on shrink click', () => {
+      const { container } = renderModal();
+      fireEvent.click(screen.getAllByLabelText('Expand modal')[0]);
+      expect(container.querySelector('.modal-fullscreen')).toBeTruthy();
+      fireEvent.click(screen.getAllByLabelText('Shrink modal')[0]);
+      expect(container.querySelector('.modal-fullscreen')).toBeNull();
     });
 
-    it('shows ⊕ icon when shrunk', () => {
+    it('shows ⊕ icon when not fullscreen', () => {
       renderModal();
-      fireEvent.click(screen.getAllByLabelText('Shrink modal')[0]);
       expect(screen.getAllByLabelText('Expand modal')[0].textContent).toBe('⊕');
+    });
+
+    it('shows ⊖ icon when fullscreen', () => {
+      renderModal();
+      fireEvent.click(screen.getAllByLabelText('Expand modal')[0]);
+      expect(screen.getAllByLabelText('Shrink modal')[0].textContent).toBe('⊖');
     });
   });
 

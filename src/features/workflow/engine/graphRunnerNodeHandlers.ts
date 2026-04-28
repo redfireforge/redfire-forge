@@ -788,6 +788,12 @@ export async function handleCorrelationWaitNode(
       pausedState,
       data.timeoutMs,
       data.webhookFilter,
+      {
+        correlationSource: data.correlationSource,
+        correlationJsonPath: data.correlationJsonPath,
+        correlationHeader: data.correlationHeader,
+        correlationQueryParam: data.correlationQueryParam,
+      },
     );
 
     // Inject webhook payload variables into context
