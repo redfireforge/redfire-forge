@@ -3,10 +3,10 @@
 :root {
   --bg: #0f172a;
   --surface: #1e293b;
-  --surface-hover: #334155;
-  --border: #334155;
-  --text: #e2e8f0;
-  --text-muted: #94a3b8;
+  --surface-hover: #2d3a4d;
+  --border: #3b4a60;
+  --text: #f1f5f9;
+  --text-muted: #a8b8cc;
   --primary: #3b82f6;
   --primary-hover: #2563eb;
   --danger: #ef4444;
@@ -19,30 +19,30 @@
 
   /* Node category tints */
   --cat-trigger: #22c55e;
-  --cat-trigger-bg: rgba(34, 197, 94, 0.08);
-  --cat-trigger-badge: rgba(34, 197, 94, 0.15);
-  --cat-action: #6366f1;
-  --cat-action-bg: rgba(99, 102, 241, 0.08);
-  --cat-action-badge: rgba(99, 102, 241, 0.15);
-  --cat-logic: #f59e0b;
-  --cat-logic-bg: rgba(245, 158, 11, 0.08);
-  --cat-logic-badge: rgba(245, 158, 11, 0.15);
-  --cat-data: #ec4899;
-  --cat-data-bg: rgba(236, 72, 153, 0.08);
-  --cat-data-badge: rgba(236, 72, 153, 0.15);
-  --cat-flow: #a855f7;
-  --cat-flow-bg: rgba(168, 85, 247, 0.08);
-  --cat-flow-badge: rgba(168, 85, 247, 0.15);
-  --cat-terminal: #ef4444;
-  --cat-terminal-bg: rgba(239, 68, 68, 0.08);
-  --cat-terminal-badge: rgba(239, 68, 68, 0.15);
+  --cat-trigger-bg: rgba(34, 197, 94, 0.10);
+  --cat-trigger-badge: rgba(34, 197, 94, 0.18);
+  --cat-action: #818cf8;
+  --cat-action-bg: rgba(99, 102, 241, 0.10);
+  --cat-action-badge: rgba(99, 102, 241, 0.18);
+  --cat-logic: #fbbf24;
+  --cat-logic-bg: rgba(245, 158, 11, 0.10);
+  --cat-logic-badge: rgba(245, 158, 11, 0.18);
+  --cat-data: #f472b6;
+  --cat-data-bg: rgba(236, 72, 153, 0.10);
+  --cat-data-badge: rgba(236, 72, 153, 0.18);
+  --cat-flow: #c084fc;
+  --cat-flow-bg: rgba(168, 85, 247, 0.10);
+  --cat-flow-badge: rgba(168, 85, 247, 0.18);
+  --cat-terminal: #f87171;
+  --cat-terminal-bg: rgba(239, 68, 68, 0.10);
+  --cat-terminal-badge: rgba(239, 68, 68, 0.18);
   --shadow-subtle: rgba(255, 255, 255, 0.05);
   --shadow-soft: rgba(255, 255, 255, 0.08);
   --confirm-bg: #1e293b;
   --confirm-shadow: rgba(0, 0, 0, 0.5);
   --cancel-hover-bg: #334155;
-  --cancel-hover-text: #e2e8f0;
-  --cancel-text: #94a3b8;
+  --cancel-hover-text: #f1f5f9;
+  --cancel-text: #a8b8cc;
   --card-shadow: none;
 }
 
@@ -50,9 +50,9 @@
   --bg: #eef2f7;
   --surface: #ffffff;
   --surface-hover: #f1f5f9;
-  --border: #cbd5e1;
-  --text: #1e293b;
-  --text-muted: #475569;
+  --border: #bcc8d8;
+  --text: #111827;
+  --text-muted: #3f4f63;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --danger: #dc2626;
@@ -62,32 +62,312 @@
   --overlay-bg: rgba(0, 0, 0, 0.3);
 
   /* Node category tints (light) */
-  --cat-trigger: #16a34a;
-  --cat-trigger-bg: rgba(34, 197, 94, 0.06);
-  --cat-trigger-badge: rgba(34, 197, 94, 0.12);
-  --cat-action: #4f46e5;
-  --cat-action-bg: rgba(99, 102, 241, 0.06);
-  --cat-action-badge: rgba(99, 102, 241, 0.12);
-  --cat-logic: #d97706;
-  --cat-logic-bg: rgba(245, 158, 11, 0.06);
-  --cat-logic-badge: rgba(245, 158, 11, 0.12);
-  --cat-data: #db2777;
-  --cat-data-bg: rgba(236, 72, 153, 0.06);
-  --cat-data-badge: rgba(236, 72, 153, 0.12);
-  --cat-flow: #7c3aed;
-  --cat-flow-bg: rgba(168, 85, 247, 0.06);
-  --cat-flow-badge: rgba(168, 85, 247, 0.12);
-  --cat-terminal: #dc2626;
-  --cat-terminal-bg: rgba(239, 68, 68, 0.06);
-  --cat-terminal-badge: rgba(239, 68, 68, 0.12);
-  --shadow-subtle: rgba(0, 0, 0, 0.04);
-  --shadow-soft: rgba(0, 0, 0, 0.06);
+  --cat-trigger: #15803d;
+  --cat-trigger-bg: rgba(34, 197, 94, 0.08);
+  --cat-trigger-badge: rgba(34, 197, 94, 0.15);
+  --cat-action: #4338ca;
+  --cat-action-bg: rgba(99, 102, 241, 0.08);
+  --cat-action-badge: rgba(99, 102, 241, 0.15);
+  --cat-logic: #b45309;
+  --cat-logic-bg: rgba(245, 158, 11, 0.08);
+  --cat-logic-badge: rgba(245, 158, 11, 0.15);
+  --cat-data: #be185d;
+  --cat-data-bg: rgba(236, 72, 153, 0.08);
+  --cat-data-badge: rgba(236, 72, 153, 0.15);
+  --cat-flow: #6d28d9;
+  --cat-flow-bg: rgba(168, 85, 247, 0.08);
+  --cat-flow-badge: rgba(168, 85, 247, 0.15);
+  --cat-terminal: #b91c1c;
+  --cat-terminal-bg: rgba(239, 68, 68, 0.08);
+  --cat-terminal-badge: rgba(239, 68, 68, 0.15);
+  --shadow-subtle: rgba(0, 0, 0, 0.06);
+  --shadow-soft: rgba(0, 0, 0, 0.10);
   --confirm-bg: #ffffff;
-  --confirm-shadow: rgba(0, 0, 0, 0.15);
+  --confirm-shadow: rgba(0, 0, 0, 0.18);
   --cancel-hover-bg: #f1f5f9;
-  --cancel-hover-text: #334155;
-  --cancel-text: #64748b;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --cancel-hover-text: #111827;
+  --cancel-text: #3f4f63;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Dim (GitHub Dimmed) ── */
+[data-theme="dim"] {
+  --bg: #1c2128;
+  --surface: #2d333b;
+  --surface-hover: #373e47;
+  --border: #525a65;
+  --text: #cdd9e5;
+  --text-muted: #8b949e;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #f47067;
+  --success: #3fb950;
+  --warning: #d29922;
+  --accent: #8b5cf6;
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --cat-trigger: #3fb950; --cat-trigger-bg: rgba(63,185,80,0.10); --cat-trigger-badge: rgba(63,185,80,0.18);
+  --cat-action: #818cf8; --cat-action-bg: rgba(99,102,241,0.10); --cat-action-badge: rgba(99,102,241,0.18);
+  --cat-logic: #e3a832; --cat-logic-bg: rgba(210,153,34,0.10); --cat-logic-badge: rgba(210,153,34,0.18);
+  --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
+  --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
+  --cat-terminal: #f47067; --cat-terminal-bg: rgba(244,112,103,0.10); --cat-terminal-badge: rgba(244,112,103,0.18);
+  --shadow-subtle: rgba(255,255,255,0.04);
+  --shadow-soft: rgba(255,255,255,0.06);
+  --confirm-bg: #2d333b; --confirm-shadow: rgba(0,0,0,0.4);
+  --cancel-hover-bg: #373e47; --cancel-hover-text: #cdd9e5; --cancel-text: #8b949e;
+  --card-shadow: none;
+}
+
+/* ── Steel (VS Code neutral) ── */
+[data-theme="steel"] {
+  --bg: #1e1e1e;
+  --surface: #272727;
+  --surface-hover: #303030;
+  --border: #484848;
+  --text: #e0e0e0;
+  --text-muted: #a0a0a0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #f14c4c;
+  --success: #4ec963;
+  --warning: #cca700;
+  --accent: #8b5cf6;
+  --overlay-bg: rgba(0,0,0,0.5);
+  --cat-trigger: #4ec963; --cat-trigger-bg: rgba(78,201,99,0.10); --cat-trigger-badge: rgba(78,201,99,0.18);
+  --cat-action: #818cf8; --cat-action-bg: rgba(99,102,241,0.10); --cat-action-badge: rgba(99,102,241,0.18);
+  --cat-logic: #e0b800; --cat-logic-bg: rgba(204,167,0,0.10); --cat-logic-badge: rgba(204,167,0,0.18);
+  --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
+  --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
+  --cat-terminal: #f14c4c; --cat-terminal-bg: rgba(241,76,76,0.10); --cat-terminal-badge: rgba(241,76,76,0.18);
+  --shadow-subtle: rgba(255,255,255,0.04);
+  --shadow-soft: rgba(255,255,255,0.06);
+  --confirm-bg: #272727; --confirm-shadow: rgba(0,0,0,0.5);
+  --cancel-hover-bg: #303030; --cancel-hover-text: #e0e0e0; --cancel-text: #a0a0a0;
+  --card-shadow: none;
+}
+
+/* ── Sapphire (deep teal-blue) ── */
+[data-theme="sapphire"] {
+  --bg: #0f1923;
+  --surface: #182636;
+  --surface-hover: #1f3045;
+  --border: #345272;
+  --text: #e2ecf4;
+  --text-muted: #8eacc8;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --accent: #8b5cf6;
+  --overlay-bg: rgba(0,0,0,0.6);
+  --cat-trigger: #22c55e; --cat-trigger-bg: rgba(34,197,94,0.10); --cat-trigger-badge: rgba(34,197,94,0.18);
+  --cat-action: #818cf8; --cat-action-bg: rgba(99,102,241,0.10); --cat-action-badge: rgba(99,102,241,0.18);
+  --cat-logic: #fbbf24; --cat-logic-bg: rgba(245,158,11,0.10); --cat-logic-badge: rgba(245,158,11,0.18);
+  --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
+  --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
+  --cat-terminal: #f87171; --cat-terminal-bg: rgba(239,68,68,0.10); --cat-terminal-badge: rgba(239,68,68,0.18);
+  --shadow-subtle: rgba(255,255,255,0.05);
+  --shadow-soft: rgba(255,255,255,0.08);
+  --confirm-bg: #182636; --confirm-shadow: rgba(0,0,0,0.5);
+  --cancel-hover-bg: #1f3045; --cancel-hover-text: #e2ecf4; --cancel-text: #8eacc8;
+  --card-shadow: none;
+}
+
+/* ── Dusk (Atom One Dark) ── */
+[data-theme="dusk"] {
+  --bg: #282c34;
+  --surface: #333842;
+  --surface-hover: #3e4451;
+  --border: #58607a;
+  --text: #c8ceda;
+  --text-muted: #8891a5;
+  --primary: #528bff;
+  --primary-hover: #3a6be0;
+  --danger: #e06c75;
+  --success: #98c379;
+  --warning: #e5c07b;
+  --accent: #c678dd;
+  --overlay-bg: rgba(0,0,0,0.5);
+  --cat-trigger: #98c379; --cat-trigger-bg: rgba(152,195,121,0.10); --cat-trigger-badge: rgba(152,195,121,0.18);
+  --cat-action: #61afef; --cat-action-bg: rgba(97,175,239,0.10); --cat-action-badge: rgba(97,175,239,0.18);
+  --cat-logic: #e5c07b; --cat-logic-bg: rgba(229,192,123,0.10); --cat-logic-badge: rgba(229,192,123,0.18);
+  --cat-data: #c678dd; --cat-data-bg: rgba(198,120,221,0.10); --cat-data-badge: rgba(198,120,221,0.18);
+  --cat-flow: #c678dd; --cat-flow-bg: rgba(198,120,221,0.10); --cat-flow-badge: rgba(198,120,221,0.18);
+  --cat-terminal: #e06c75; --cat-terminal-bg: rgba(224,108,117,0.10); --cat-terminal-badge: rgba(224,108,117,0.18);
+  --shadow-subtle: rgba(255,255,255,0.04);
+  --shadow-soft: rgba(255,255,255,0.06);
+  --confirm-bg: #333842; --confirm-shadow: rgba(0,0,0,0.4);
+  --cancel-hover-bg: #3e4451; --cancel-hover-text: #c8ceda; --cancel-text: #8891a5;
+  --card-shadow: none;
+}
+
+/* ── Linear (purple-tinted minimal) ── */
+[data-theme="linear"] {
+  --bg: #19181c;
+  --surface: #27262b;
+  --surface-hover: #323137;
+  --border: #4a4950;
+  --text: #e4e4e8;
+  --text-muted: #9898a2;
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --danger: #f47067;
+  --success: #3fb950;
+  --warning: #d29922;
+  --accent: #8b5cf6;
+  --overlay-bg: rgba(0,0,0,0.55);
+  --cat-trigger: #3fb950; --cat-trigger-bg: rgba(63,185,80,0.10); --cat-trigger-badge: rgba(63,185,80,0.18);
+  --cat-action: #a78bfa; --cat-action-bg: rgba(139,92,246,0.10); --cat-action-badge: rgba(139,92,246,0.18);
+  --cat-logic: #e3a832; --cat-logic-bg: rgba(210,153,34,0.10); --cat-logic-badge: rgba(210,153,34,0.18);
+  --cat-data: #f472b6; --cat-data-bg: rgba(236,72,153,0.10); --cat-data-badge: rgba(236,72,153,0.18);
+  --cat-flow: #c084fc; --cat-flow-bg: rgba(167,139,250,0.10); --cat-flow-badge: rgba(167,139,250,0.18);
+  --cat-terminal: #f47067; --cat-terminal-bg: rgba(244,112,103,0.10); --cat-terminal-badge: rgba(244,112,103,0.18);
+  --shadow-subtle: rgba(255,255,255,0.04);
+  --shadow-soft: rgba(255,255,255,0.06);
+  --confirm-bg: #27262b; --confirm-shadow: rgba(0,0,0,0.5);
+  --cancel-hover-bg: #323137; --cancel-hover-text: #e4e4e8; --cancel-text: #9898a2;
+  --card-shadow: none;
+}
+
+/* ── Slack (warm neutral dark, cyan accent) ── */
+[data-theme="slack"] {
+  --bg: #1a1d21;
+  --surface: #27292d;
+  --surface-hover: #33363b;
+  --border: #4e5155;
+  --text: #e8e8e9;
+  --text-muted: #abacae;
+  --primary: #36c5f0;
+  --primary-hover: #1ea7d0;
+  --danger: #e01e5a;
+  --success: #2eb67d;
+  --warning: #ecb22e;
+  --accent: #36c5f0;
+  --overlay-bg: rgba(0,0,0,0.5);
+  --cat-trigger: #2eb67d; --cat-trigger-bg: rgba(46,182,125,0.10); --cat-trigger-badge: rgba(46,182,125,0.18);
+  --cat-action: #36c5f0; --cat-action-bg: rgba(54,197,240,0.10); --cat-action-badge: rgba(54,197,240,0.18);
+  --cat-logic: #ecb22e; --cat-logic-bg: rgba(236,178,46,0.10); --cat-logic-badge: rgba(236,178,46,0.18);
+  --cat-data: #e01e5a; --cat-data-bg: rgba(224,30,90,0.10); --cat-data-badge: rgba(224,30,90,0.18);
+  --cat-flow: #c084fc; --cat-flow-bg: rgba(168,85,247,0.10); --cat-flow-badge: rgba(168,85,247,0.18);
+  --cat-terminal: #e01e5a; --cat-terminal-bg: rgba(224,30,90,0.10); --cat-terminal-badge: rgba(224,30,90,0.18);
+  --shadow-subtle: rgba(255,255,255,0.04);
+  --shadow-soft: rgba(255,255,255,0.06);
+  --confirm-bg: #27292d; --confirm-shadow: rgba(0,0,0,0.4);
+  --cancel-hover-bg: #33363b; --cancel-hover-text: #e8e8e9; --cancel-text: #abacae;
+  --card-shadow: none;
+}
+
+/* ── Mist (soft gray-blue light) ── */
+[data-theme="mist"] {
+  --bg: #e8ecf1;
+  --surface: #ffffff;
+  --surface-hover: #f0f3f7;
+  --border: #b8c4d4;
+  --text: #111827;
+  --text-muted: #3f5068;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --accent: #7c3aed;
+  --overlay-bg: rgba(0,0,0,0.3);
+  --cat-trigger: #15803d; --cat-trigger-bg: rgba(34,197,94,0.08); --cat-trigger-badge: rgba(34,197,94,0.15);
+  --cat-action: #4338ca; --cat-action-bg: rgba(99,102,241,0.08); --cat-action-badge: rgba(99,102,241,0.15);
+  --cat-logic: #b45309; --cat-logic-bg: rgba(245,158,11,0.08); --cat-logic-badge: rgba(245,158,11,0.15);
+  --cat-data: #be185d; --cat-data-bg: rgba(236,72,153,0.08); --cat-data-badge: rgba(236,72,153,0.15);
+  --cat-flow: #6d28d9; --cat-flow-bg: rgba(168,85,247,0.08); --cat-flow-badge: rgba(168,85,247,0.15);
+  --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(239,68,68,0.08); --cat-terminal-badge: rgba(239,68,68,0.15);
+  --shadow-subtle: rgba(0,0,0,0.06);
+  --shadow-soft: rgba(0,0,0,0.10);
+  --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.18);
+  --cancel-hover-bg: #f0f3f7; --cancel-hover-text: #111827; --cancel-text: #3f5068;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* ── Frost (cool near-white) ── */
+[data-theme="frost"] {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --surface-hover: #e8edf3;
+  --border: #b0bfd0;
+  --text: #0f1a28;
+  --text-muted: #3d5168;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --accent: #7c3aed;
+  --overlay-bg: rgba(0,0,0,0.25);
+  --cat-trigger: #15803d; --cat-trigger-bg: rgba(34,197,94,0.08); --cat-trigger-badge: rgba(34,197,94,0.15);
+  --cat-action: #4338ca; --cat-action-bg: rgba(99,102,241,0.08); --cat-action-badge: rgba(99,102,241,0.15);
+  --cat-logic: #b45309; --cat-logic-bg: rgba(245,158,11,0.08); --cat-logic-badge: rgba(245,158,11,0.15);
+  --cat-data: #be185d; --cat-data-bg: rgba(236,72,153,0.08); --cat-data-badge: rgba(236,72,153,0.15);
+  --cat-flow: #6d28d9; --cat-flow-bg: rgba(168,85,247,0.08); --cat-flow-badge: rgba(168,85,247,0.15);
+  --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(239,68,68,0.08); --cat-terminal-badge: rgba(239,68,68,0.15);
+  --shadow-subtle: rgba(0,0,0,0.06);
+  --shadow-soft: rgba(0,0,0,0.10);
+  --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);
+  --cancel-hover-bg: #e8edf3; --cancel-hover-text: #0f1a28; --cancel-text: #3d5168;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* ── Sage (warm olive-green, FeedBacker-inspired) ── */
+[data-theme="sage"] {
+  --bg: #e8ebe4;
+  --surface: #f5f5f0;
+  --surface-hover: #edeee8;
+  --border: #b2b8a8;
+  --text: #1e2318;
+  --text-muted: #4d5544;
+  --primary: #4a7a4e;
+  --primary-hover: #3a6a3e;
+  --danger: #b91c1c;
+  --success: #15803d;
+  --warning: #a16207;
+  --accent: #4a7a4e;
+  --overlay-bg: rgba(0,0,0,0.25);
+  --cat-trigger: #15803d; --cat-trigger-bg: rgba(39,174,96,0.08); --cat-trigger-badge: rgba(39,174,96,0.15);
+  --cat-action: #3a6a3e; --cat-action-bg: rgba(74,122,78,0.08); --cat-action-badge: rgba(74,122,78,0.15);
+  --cat-logic: #a16207; --cat-logic-bg: rgba(200,137,11,0.08); --cat-logic-badge: rgba(200,137,11,0.15);
+  --cat-data: #9d174d; --cat-data-bg: rgba(181,80,138,0.08); --cat-data-badge: rgba(181,80,138,0.15);
+  --cat-flow: #5b21b6; --cat-flow-bg: rgba(124,109,174,0.08); --cat-flow-badge: rgba(124,109,174,0.15);
+  --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(192,57,43,0.08); --cat-terminal-badge: rgba(192,57,43,0.15);
+  --shadow-subtle: rgba(0,0,0,0.06);
+  --shadow-soft: rgba(0,0,0,0.10);
+  --confirm-bg: #f5f5f0; --confirm-shadow: rgba(0,0,0,0.15);
+  --cancel-hover-bg: #edeee8; --cancel-hover-text: #1e2318; --cancel-text: #4d5544;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* ── Sand (warm cream, Notion-inspired) ── */
+[data-theme="sand"] {
+  --bg: #f4f0e8;
+  --surface: #ffffff;
+  --surface-hover: #f0ece4;
+  --border: #c4bba8;
+  --text: #1c1b17;
+  --text-muted: #5a5750;
+  --primary: #b45309;
+  --primary-hover: #92400e;
+  --danger: #b91c1c;
+  --success: #15803d;
+  --warning: #b45309;
+  --accent: #b45309;
+  --overlay-bg: rgba(0,0,0,0.25);
+  --cat-trigger: #15803d; --cat-trigger-bg: rgba(39,174,96,0.08); --cat-trigger-badge: rgba(39,174,96,0.15);
+  --cat-action: #1d4ed8; --cat-action-bg: rgba(37,99,235,0.08); --cat-action-badge: rgba(37,99,235,0.15);
+  --cat-logic: #92400e; --cat-logic-bg: rgba(217,119,6,0.08); --cat-logic-badge: rgba(217,119,6,0.15);
+  --cat-data: #be185d; --cat-data-bg: rgba(219,39,119,0.08); --cat-data-badge: rgba(219,39,119,0.15);
+  --cat-flow: #6d28d9; --cat-flow-bg: rgba(124,58,237,0.08); --cat-flow-badge: rgba(124,58,237,0.15);
+  --cat-terminal: #b91c1c; --cat-terminal-bg: rgba(192,57,43,0.08); --cat-terminal-badge: rgba(192,57,43,0.15);
+  --shadow-subtle: rgba(0,0,0,0.06);
+  --shadow-soft: rgba(0,0,0,0.10);
+  --confirm-bg: #ffffff; --confirm-shadow: rgba(0,0,0,0.15);
+  --cancel-hover-bg: #f0ece4; --cancel-hover-text: #1c1b17; --cancel-text: #5a5750;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
 }
 
 body {
@@ -96,6 +376,9 @@ body {
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root { min-height: 100vh; }

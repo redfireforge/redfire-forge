@@ -1,4 +1,5 @@
 import type { AuthConfig, Scenario } from '../engine/index';
+import type { RequestResult } from '../../../shared/types';
 
 export interface WorkflowHostProfile {
   id: string;
@@ -357,9 +358,36 @@ export interface ScriptNodeData {
   libraryIds?: string[];
 }
 
-export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script';
+// ── Correlation Wait node ────────────────────────────
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData | ScriptNodeData;
+export interface CorrelationWaitNodeData {
+  [key: string]: unknown;
+  label: string;
+  /** Expression resolving to correlation ID (e.g. "{{paymentId}}"). */
+  correlationIdExpression: string;
+  /** Webhook path pattern to match (e.g. "/webhooks/payment-callback"). */
+  webhookPath: string;
+  /** How to extract correlationId from webhook payload. */
+  correlationSource: 'body' | 'header' | 'query';
+  /** JSONPath to extract correlation ID from webhook body (e.g. "$.paymentId"). */
+  correlationJsonPath?: string;
+  /** Header name if correlationSource is 'header'. */
+  correlationHeader?: string;
+  /** Query param name if correlationSource is 'query'. */
+  correlationQueryParam?: string;
+  /** Variables to extract from webhook payload into workflow context. */
+  extractVariables?: Array<{ name: string; jsonPath: string }>;
+  /** Timeout in ms (workflow fails if no callback received). 0 = unlimited. */
+  timeoutMs: number;
+  /** Optional webhook validation expression (e.g. "{{webhook.type}} == payment"). */
+  webhookFilter?: string;
+  /** Optional notes. */
+  notes?: string;
+}
+
+export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script' | 'correlationWait';
+
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData | ScriptNodeData | CorrelationWaitNodeData;
 
 // ── Workflow graph ───────────────────────────────────
 
@@ -399,6 +427,33 @@ export interface Workflow {
   errorConfig?: WorkflowErrorConfig;
   createdAt: number;
   updatedAt: number;
+}
+
+// ── Paused workflow state (correlation wait) ─────────
+
+export interface WorkflowPausedState {
+  /** Unique execution ID. */
+  executionId: string;
+  /** Workflow definition ID. */
+  workflowId: string;
+  /** Variable context snapshot (all layers merged). */
+  variables: Record<string, string>;
+  /** Set of visited node IDs. */
+  visitedNodes: string[];
+  /** ID of the node where execution paused. */
+  pausedNodeId: string;
+  /** Thread ID for parallel execution tracking. */
+  threadId: string;
+  /** Join barrier arrival counts. */
+  joinArrived: Record<string, number>;
+  /** Results collected so far. */
+  results: RequestResult[];
+  /** Execution start timestamp (ms). */
+  startTime: number;
+  /** Initial variables (from workflow definition). */
+  initialVariables: Record<string, string>;
+  /** Environment layer snapshot. */
+  environmentLayer?: Record<string, string>;
 }
 
 // ── Workflow-level error handling ────────────────────

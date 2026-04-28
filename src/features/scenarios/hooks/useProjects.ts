@@ -12,6 +12,7 @@ import {
   loadTestRuns,
   loadTheme,
 } from '../../../shared/utils/storage';
+import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/ThemeCustomizer';
 
 export interface UseProjectsReturn {
   loading: boolean;
@@ -86,7 +87,13 @@ export function useProjects(): UseProjectsReturn {
       setInitialStorageUsage(usage);
       setInitialTheme(savedTheme);
       setInitialTestRuns(runs);
-      document.documentElement.setAttribute('data-theme', savedTheme);
+      if (isCustomThemeId(savedTheme)) {
+        const data = findSavedTheme(savedTheme);
+        if (data) applyCustomTheme(data);
+        else document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
       setLoading(false);
     })();
   }, []);

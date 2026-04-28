@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Node Reference Guide</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    .node-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6; max-width: 960px;
+    margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    text-align: center; padding: 60px 20px 40px;
+    border-bottom: 3px solid #e63946; margin-bottom: 32px;
+  }
+  .cover h1 { font-size: 34px; color: #e63946; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .cover .subtitle { font-size: 16px; color: #457b9d; margin-bottom: 20px; }
+  .cover .node-count {
+    display: inline-block; background: #1d3557; color: #fff; padding: 6px 18px;
+    border-radius: 20px; font-size: 13px; font-weight: 600;
+  }
+
+  h2 {
+    font-size: 20px; color: #1d3557; margin: 36px 0 14px;
+    border-bottom: 2px solid #e63946; padding-bottom: 6px;
+  }
+  h3 { font-size: 16px; color: #457b9d; margin: 20px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ── Node Card Grid ── */
+  .node-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px; margin: 16px 0 24px;
+  }
+  @media (max-width: 700px) { .node-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .node-card {
+    border: 1px solid #dee2e6; border-radius: 10px; padding: 16px;
+    transition: all 0.15s; cursor: default; position: relative; overflow: hidden;
+  }
+  .node-card:hover { border-color: #457b9d; box-shadow: 0 2px 12px rgba(29,53,87,0.08); }
+  .node-card-icon {
+    font-size: 22px; margin-bottom: 8px; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; background: #f8f9fa;
+  }
+  .node-card-name { font-size: 14px; font-weight: 700; color: #1d3557; margin-bottom: 4px; }
+  .node-card-desc { font-size: 11.5px; color: #6c757d; line-height: 1.45; margin-bottom: 10px; min-height: 32px; }
+  .node-card-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .node-card-tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .tag-action { background: #d4edda; color: #155724; }
+  .tag-flow { background: #e0d4f5; color: #5b21b6; }
+  .tag-trigger { background: #fff3cd; color: #856404; }
+  .tag-data { background: #d1ecf1; color: #0c5460; }
+  .tag-async { background: #fde8e8; color: #8b0000; }
+  .tag-debug { background: #f1f3f5; color: #495057; }
+  .node-card-status {
+    position: absolute; top: 8px; right: 10px; font-size: 10px; font-weight: 600;
+    padding: 1px 7px; border-radius: 8px;
+  }
+  .status-ready { background: #d4edda; color: #155724; }
+  .status-planned { background: #f1f3f5; color: #6c757d; }
+
+  /* ── Learning Paths ── */
+  .path-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 14px; margin: 16px 0 24px;
+  }
+  @media (max-width: 700px) { .path-grid { grid-template-columns: 1fr; } }
+
+  .path-card {
+    border: 1px solid #dee2e6; border-radius: 10px; padding: 16px 18px;
+    background: #f8f9fa;
+  }
+  .path-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .path-card-num {
+    display: inline-block; width: 26px; height: 26px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 26px; font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .path-card-title { font-size: 14px; font-weight: 700; color: #1d3557; }
+  .path-card-desc { font-size: 12px; color: #6c757d; margin-bottom: 8px; }
+  .path-card-nodes {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .path-node {
+    background: #1d3557; color: #fff; padding: 2px 8px; border-radius: 4px;
+    font-size: 10.5px; white-space: nowrap;
+  }
+  .path-arrow { color: #adb5bd; font-size: 11px; }
+  .path-card-target { font-size: 11px; color: #457b9d; font-style: italic; margin-top: 6px; }
+
+  /* ── Cross-Reference Matrix ── */
+  .matrix-table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 11.5px; }
+  .matrix-table th {
+    background: #1d3557; color: #fff; text-align: center; padding: 6px 5px;
+    font-weight: 600; font-size: 10.5px;
+  }
+  .matrix-table th:first-child { text-align: left; padding-left: 10px; min-width: 180px; }
+  .matrix-table td { padding: 5px; text-align: center; border-bottom: 1px solid #dee2e6; }
+  .matrix-table td:first-child { text-align: left; padding-left: 10px; font-weight: 500; font-size: 12px; }
+  .matrix-table tr:nth-child(even) td { background: #f8f9fa; }
+  .matrix-check { color: #2e7d32; font-weight: 700; font-size: 13px; }
+  .matrix-primary { color: #e63946; font-weight: 700; font-size: 13px; }
+  .matrix-diff {
+    display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
+    border-radius: 8px; text-transform: uppercase; letter-spacing: 0.3px;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .matrix-diff-easy { background: #d4edda; color: #155724; }
+  .matrix-diff-medium { background: #fff3cd; color: #856404; }
+  .matrix-diff-advanced { background: #f8d7da; color: #721c24; }
+
+  /* ── Callout ── */
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  /* ── Existing Manuals ── */
+  .manual-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 14px; margin: 16px 0 24px;
+  }
+  .manual-card {
+    border: 2px solid #e63946; border-radius: 10px; padding: 16px 18px;
+    background: linear-gradient(135deg, #fff 0%, #fef2f2 100%);
+  }
+  .manual-card-icon { font-size: 20px; margin-bottom: 6px; }
+  .manual-card-title { font-size: 14px; font-weight: 700; color: #e63946; margin-bottom: 4px; }
+  .manual-card-desc { font-size: 12px; color: #6c757d; margin-bottom: 8px; }
+  .manual-card-link {
+    font-size: 12px; color: #457b9d; text-decoration: none; font-weight: 600;
+  }
+  .manual-card-link:hover { text-decoration: underline; }
+  .manual-card-samples { font-size: 11px; color: #6c757d; margin-top: 4px; }
+
+  footer {
+    margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6;
+    font-size: 11px; color: #6c757d; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER                                       -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Node Reference Guide</h1>
+  <p class="subtitle">Learn every workflow node — what it does, how to configure it, and where to see it in action.</p>
+  <span class="node-count">17 Node Types · 7 Learning Paths · 10+ Sample Workflows</span>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- EXISTING DEEP-DIVE MANUALS                  -->
+<!-- ════════════════════════════════════════════ -->
+<h2>Deep-Dive Manuals</h2>
+<p>These nodes have full feature manuals with samples at multiple difficulty levels:</p>
+
+<div class="manual-grid">
+  <div class="manual-card">
+    <div class="manual-card-icon">⏳</div>
+    <div class="manual-card-title">Async Correlation Wait</div>
+    <div class="manual-card-desc">Pause workflows for external callbacks. Body, header, and query correlation. Webhook filters, idempotency, HMAC security.</div>
+    <a class="manual-card-link" href="../async-correlation/async-correlation.html">Open Manual →</a>
+    <div class="manual-card-samples">3 samples (Easy · Medium · Advanced) + API Testing Guide</div>
+  </div>
+  <div class="manual-card">
+    <div class="manual-card-icon">📜</div>
+    <div class="manual-card-title">Script Node</div>
+    <div class="manual-card-desc">Custom JavaScript in workflows. Transform, validate, and generate modes. Monaco editor, template gallery, script libraries.</div>
+    <a class="manual-card-link" href="../script-node/script-node.html">Open Manual →</a>
+    <div class="manual-card-samples">3 samples (Easy · Medium · Advanced)</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- ALL NODES — CARD GRID                       -->
+<!-- ════════════════════════════════════════════ -->
+<h2>All Node Types</h2>
+
+<h3>Action Nodes</h3>
+<p>Nodes that <em>do something</em> — make HTTP calls, run scripts, set variables.</p>
+
+<div class="node-grid">
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🌐</div>
+    <div class="node-card-name">HTTP</div>
+    <div class="node-card-desc">Make REST API calls. Configure URL, method, headers, body, auth, and extract variables from responses.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-action">Action</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-ready">Manual</span>
+    <div class="node-card-icon">📜</div>
+    <div class="node-card-name">Script</div>
+    <div class="node-card-desc">Run custom JavaScript. Three modes: transform, validate, generate. Monaco editor with autocomplete.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-action">Action</span>
+      <span class="node-card-tag tag-data">Data</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">📝</div>
+    <div class="node-card-name">Set Variable</div>
+    <div class="node-card-desc">Assign static values or expressions to workflow variables. Useful for initialization and intermediate calculations.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-data">Data</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🔍</div>
+    <div class="node-card-name">Log / Debug</div>
+    <div class="node-card-desc">Print variable values to the workflow console. Inspect data at any point in the flow without side effects.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-debug">Debug</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Flow Control ── -->
+<h3>Flow Control Nodes</h3>
+<p>Nodes that control <em>which path</em> execution takes — branching, looping, routing.</p>
+
+<div class="node-grid">
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">◆</div>
+    <div class="node-card-name">Condition</div>
+    <div class="node-card-desc">If/Else branching. Evaluate an expression and route to the true or false path.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🔀</div>
+    <div class="node-card-name">Switch</div>
+    <div class="node-card-desc">Multi-way routing. Match a value against multiple cases with a default fallback. Like a switch/case statement.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🔄</div>
+    <div class="node-card-name">Loop</div>
+    <div class="node-card-desc">Iterate over items (forEach) or repeat N times (counter). Supports break conditions and iteration variables.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+      <span class="node-card-tag tag-data">Data</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">⑃</div>
+    <div class="node-card-name">Fork</div>
+    <div class="node-card-desc">Split execution into parallel branches. Each branch runs independently and concurrently.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">⊕</div>
+    <div class="node-card-name">Join</div>
+    <div class="node-card-desc">Wait for all parallel branches to complete. Merges results before continuing to the next node.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">⏱️</div>
+    <div class="node-card-name">Delay</div>
+    <div class="node-card-desc">Pause execution for a fixed duration or until a condition is met. Supports ms, seconds, and expression-based delays.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">⏸️</div>
+    <div class="node-card-name">Wait for Condition</div>
+    <div class="node-card-desc">Poll until an expression evaluates to true, with configurable interval and max attempts.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🛡️</div>
+    <div class="node-card-name">Error Handler</div>
+    <div class="node-card-desc">Catch errors from child nodes. Configure retry count, fallback paths, and timeout behavior.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Data ── -->
+<h3>Data Nodes</h3>
+<p>Nodes that <em>collect and combine</em> data from multiple sources or iterations.</p>
+
+<div class="node-grid">
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">Σ</div>
+    <div class="node-card-name">Aggregate</div>
+    <div class="node-card-desc">Accumulate results across loop iterations or parallel branches. Supports concat, sum, count, and custom expressions.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-data">Data</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">📦</div>
+    <div class="node-card-name">Sub-Workflow</div>
+    <div class="node-card-desc">Call another workflow as a reusable unit. Map input/output variables. Error propagation and timeout controls.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-data">Data</span>
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Triggers ── -->
+<h3>Trigger &amp; Async Nodes</h3>
+<p>Nodes that <em>start</em> workflows or <em>wait</em> for external events.</p>
+
+<div class="node-grid">
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">▶️</div>
+    <div class="node-card-name">Start</div>
+    <div class="node-card-desc">Entry point for every workflow. Define initial variables and their default values.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-trigger">Trigger</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🪝</div>
+    <div class="node-card-name">Webhook Trigger</div>
+    <div class="node-card-desc">Start a workflow when an HTTP webhook is received. Extract data from body, headers, and query params.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-trigger">Trigger</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🕐</div>
+    <div class="node-card-name">Schedule Trigger</div>
+    <div class="node-card-desc">Start a workflow on a cron schedule. Injects time variables (date, hour, dayOfWeek, etc.).</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-trigger">Trigger</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-ready">Manual</span>
+    <div class="node-card-icon">⏳</div>
+    <div class="node-card-name">Correlation Wait</div>
+    <div class="node-card-desc">Pause and wait for an external webhook callback. Match by body JSONPath, header, or query param.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-async">Async</span>
+      <span class="node-card-tag tag-trigger">Trigger</span>
+    </div>
+  </div>
+
+  <div class="node-card">
+    <span class="node-card-status status-planned">Planned</span>
+    <div class="node-card-icon">🏁</div>
+    <div class="node-card-name">End</div>
+    <div class="node-card-desc">Terminal node. Marks workflow completion. Optional final status and output variable summary.</div>
+    <div class="node-card-meta">
+      <span class="node-card-tag tag-flow">Flow</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- LEARNING PATHS                              -->
+<!-- ════════════════════════════════════════════ -->
+<h2>Learning Paths</h2>
+<p>Guided routes through the nodes — start from Path 1 and work your way up.</p>
+
+<div class="path-grid">
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">1</span>
+      <span class="path-card-title">Linear Flow</span>
+    </div>
+    <div class="path-card-desc">Your first workflow — sequential API calls with variable chaining.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Start</span><span class="path-arrow">→</span>
+      <span class="path-node">HTTP</span><span class="path-arrow">→</span>
+      <span class="path-node">Delay</span><span class="path-arrow">→</span>
+      <span class="path-node">HTTP</span><span class="path-arrow">→</span>
+      <span class="path-node">End</span>
+    </div>
+    <div class="path-card-target">For: First-time users</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">2</span>
+      <span class="path-card-title">Branching &amp; Routing</span>
+    </div>
+    <div class="path-card-desc">Decision logic — route execution based on API responses or variable values.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Condition</span><span class="path-arrow">→</span>
+      <span class="path-node">Switch</span><span class="path-arrow">→</span>
+      <span class="path-node">SetVariable</span>
+    </div>
+    <div class="path-card-target">For: Building conditional logic</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">3</span>
+      <span class="path-card-title">Loops &amp; Aggregation</span>
+    </div>
+    <div class="path-card-desc">Process lists of items and accumulate results across iterations.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Loop</span><span class="path-arrow">→</span>
+      <span class="path-node">HTTP</span><span class="path-arrow">→</span>
+      <span class="path-node">Aggregate</span><span class="path-arrow">→</span>
+      <span class="path-node">SetVariable</span>
+    </div>
+    <div class="path-card-target">For: Batch processing &amp; data collection</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">4</span>
+      <span class="path-card-title">Parallel Processing</span>
+    </div>
+    <div class="path-card-desc">Run multiple branches concurrently and merge results.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Fork</span><span class="path-arrow">→</span>
+      <span class="path-node">HTTP ×N</span><span class="path-arrow">→</span>
+      <span class="path-node">Join</span><span class="path-arrow">→</span>
+      <span class="path-node">Aggregate</span>
+    </div>
+    <div class="path-card-target">For: Performance &amp; concurrent APIs</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">5</span>
+      <span class="path-card-title">External Triggers</span>
+    </div>
+    <div class="path-card-desc">Start workflows from webhooks, schedules, or wait for external callbacks.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Webhook</span><span class="path-arrow"> · </span>
+      <span class="path-node">Schedule</span><span class="path-arrow"> · </span>
+      <span class="path-node">CorrelationWait</span>
+    </div>
+    <div class="path-card-target">For: Event-driven &amp; async patterns</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">6</span>
+      <span class="path-card-title">Code &amp; Transform</span>
+    </div>
+    <div class="path-card-desc">Custom JavaScript for data transformation, validation, and generation.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">Script</span><span class="path-arrow">→</span>
+      <span class="path-node">LogDebug</span>
+    </div>
+    <div class="path-card-target">For: Custom logic &amp; data shaping</div>
+  </div>
+
+  <div class="path-card">
+    <div class="path-card-header">
+      <span class="path-card-num">7</span>
+      <span class="path-card-title">Error Handling &amp; Composition</span>
+    </div>
+    <div class="path-card-desc">Build resilient workflows with retry, fallback, and reusable sub-workflows.</div>
+    <div class="path-card-nodes">
+      <span class="path-node">ErrorHandler</span><span class="path-arrow">→</span>
+      <span class="path-node">SubWorkflow</span><span class="path-arrow">→</span>
+      <span class="path-node">WaitForCondition</span>
+    </div>
+    <div class="path-card-target">For: Production-grade resilience</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- CROSS-REFERENCE MATRIX                      -->
+<!-- ════════════════════════════════════════════ -->
+<h2>Sample Workflow × Node Matrix</h2>
+<p>Find which sample workflows use which nodes. <span class="matrix-primary">●</span> = primary focus, <span class="matrix-check">✓</span> = also used.</p>
+
+<table class="matrix-table">
+  <tr>
+    <th>Sample Workflow</th>
+    <th>HTTP</th>
+    <th>Cond</th>
+    <th>Switch</th>
+    <th>Loop</th>
+    <th>Fork/<br>Join</th>
+    <th>Aggr</th>
+    <th>Delay</th>
+    <th>Script</th>
+    <th>Corr<br>Wait</th>
+    <th>Error<br>Hndl</th>
+  </tr>
+  <tr>
+    <td>Create → Extract → Verify<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-primary">●</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Parallel API Calls<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Conditional Branching<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Webhook Trigger<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Schedule Trigger<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Switch Order Router<span class="matrix-diff matrix-diff-medium">Medium</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Paginated API Fetcher<span class="matrix-diff matrix-diff-medium">Medium</span></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Batch User Provisioning<span class="matrix-diff matrix-diff-advanced">Advanced</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Payment Callback<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Manager Approval<span class="matrix-diff matrix-diff-medium">Medium</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Parallel Payment<span class="matrix-diff matrix-diff-advanced">Advanced</span></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td class="matrix-check">✓</td>
+  </tr>
+  <tr>
+    <td>JSON Formatter (Script)<span class="matrix-diff matrix-diff-easy">Easy</span></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Cross-API Validator (Script)<span class="matrix-diff matrix-diff-medium">Medium</span></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>Data Pipeline (Script)<span class="matrix-diff matrix-diff-advanced">Advanced</span></td>
+    <td class="matrix-check">✓</td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+    <td></td>
+    <td class="matrix-primary">●</td>
+    <td></td>
+    <td class="matrix-check">✓</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 How to Use This Matrix</strong>
+  Want to learn <strong>Loop + Aggregate</strong>? Look for rows with <span class="matrix-primary">●</span> in both columns
+  → "Paginated API Fetcher" and "Batch User Provisioning" are your best starting points.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- WHAT'S NEXT                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2>What's Coming</h2>
+<p>Per-node reference cards are being added. Each card will include:</p>
+<ul>
+  <li><strong>Config fields</strong> — every setting explained with examples</li>
+  <li><strong>Minimal example</strong> — 2–3 nodes, focused on one concept</li>
+  <li><strong>"See it in action"</strong> — links to full sample workflows</li>
+  <li><strong>Common mistakes</strong> — pitfalls and how to avoid them</li>
+</ul>
+
+<table>
+  <tr><th>Priority</th><th>Node Card</th><th>Status</th></tr>
+  <tr><td>1</td><td>HTTP Node</td><td>Planned</td></tr>
+  <tr><td>2</td><td>Condition &amp; Switch</td><td>Planned</td></tr>
+  <tr><td>3</td><td>Loop &amp; Aggregate</td><td>Planned</td></tr>
+  <tr><td>4</td><td>Fork / Join</td><td>Planned</td></tr>
+  <tr><td>5</td><td>Delay &amp; WaitForCondition</td><td>Planned</td></tr>
+  <tr><td>6</td><td>ErrorHandler</td><td>Planned</td></tr>
+  <tr><td>7</td><td>SetVariable &amp; LogDebug</td><td>Planned</td></tr>
+  <tr><td>8</td><td>Trigger Nodes (Start, Webhook, Schedule)</td><td>Planned</td></tr>
+  <tr><td>9</td><td>Sub-Workflow</td><td>Planned</td></tr>
+</table>
+
+<footer>
+  RedfireForge &mdash; Node Reference Guide &mdash; April 2026
+</footer>
+
+</body>
+</html>

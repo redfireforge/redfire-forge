@@ -2,6 +2,8 @@
  * Utility functions for Script node — auto-detection and analysis.
  */
 
+import { formatBytes } from '../../../shared/utils/helpers';
+
 /**
  * Auto-detect output variable names from script code by scanning
  * for `output.xxx = ...` assignment patterns.
@@ -88,12 +90,6 @@ export function validateOutputSize(outputs: Record<string, string>): { valid: bo
     };
   }
   return { valid: true, totalBytes };
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**

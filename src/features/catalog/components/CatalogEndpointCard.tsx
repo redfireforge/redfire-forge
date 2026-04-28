@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, type MouseEvent, type ReactNo
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import { generateStubJson } from '../utils/schemaStubGenerator';
+import { prettyJson } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
@@ -476,9 +477,7 @@ function buildModel(s: NonNullable<CatalogResponse['schema']>, d: number): strin
   return `${s.type ?? 'any'}${s.format ? `(${s.format})` : ''}`;
 }
 
-function fmtBody(b: string): string {
-  try { return JSON.stringify(JSON.parse(b), null, 2); } catch { return b; }
-}
+const fmtBody = prettyJson;
 
 /* ── cURL syntax highlighting ────────────────────── */
 

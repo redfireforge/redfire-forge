@@ -4,28 +4,20 @@ import {
   MiniMap,
   Background,
   BackgroundVariant,
-  addEdge,
-  reconnectEdge,
   useNodesState,
   useEdgesState,
   useReactFlow,
   ReactFlowProvider,
   ConnectionMode,
   MarkerType,
-  type OnConnect,
   type Edge,
-  type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { v4 as uuidv4 } from 'uuid';
 
-import type { RequestCollection, Scenario, Environment, Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '../../shared/types';
 import type { CatalogEntry } from '../catalog/types/catalog';
 import type {
-  WorkflowEdge,
   WorkflowNode,
-  WorkflowNodeType,
-  WorkflowNodeData,
   HttpNodeData,
   StartNodeData,
   ScheduleTriggerNodeData,
@@ -37,25 +29,25 @@ import type {
   Workflow,
 } from './types/workflow';
 import {
-  collectConditionVariableHints,
-  collectWaitForConditionVariableHints,
   isHttpWorkflowNode,
-  mergeHttpVariableHintsWithStepInitialVars,
 } from './utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl, resolveServiceAuth } from './utils/workflowHostResolve';
-import { resolveQuickTestHostForRequest } from './utils/workflowRequestHost';
 import type { WorkflowHook } from './hooks/useWorkflows';
 import { fetchScenarioSample } from './engine/fetchScenarioSample';
-import { mergeWorkflowNodeData, cloneWorkflowNodeDataForStorage } from './utils/workflowNodeMerge';
+import { cloneWorkflowNodeDataForStorage } from './utils/workflowNodeMerge';
 import { getAutoLayoutNodes } from './utils/workflowAutoLayout';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './components/panels/WorkflowNodeRunContext';
 import { useResizablePanels } from '../../shared/hooks/useResizablePanels';
-import { nodeTypes, defaultNodeData, enrichNodeData, type WorkflowRFNode, type WorkflowRFEdge } from './utils/workflowNodeFactory';
+import { nodeTypes, enrichNodeData, type WorkflowRFNode, type WorkflowRFEdge } from './utils/workflowNodeFactory';
 import { useWorkflowConsole } from './hooks/useWorkflowConsole';
 import { useWorkflowExecution } from './hooks/useWorkflowExecution';
 import { useWorkflowDragDrop } from './hooks/useWorkflowDragDrop';
 import { useWorkflowKeyboardShortcuts } from './hooks/useWorkflowKeyboardShortcuts';
 import { useWorkflowNavigation } from './hooks/useWorkflowNavigation';
+import { useWorkflowDetailModal } from './hooks/useWorkflowDetailModal';
+import { useWorkflowNodeActions } from './hooks/useWorkflowNodeActions';
+import { useWorkflowEdgeOps } from './hooks/useWorkflowEdgeOps';
+import { useWorkflowCanvasSync, useWorkflowVariableHints } from './hooks/useWorkflowCanvasSync';
 
 import WorkflowToolbar from './components/canvas/WorkflowToolbar';
 import WorkflowPalette from './components/canvas/WorkflowPalette';
@@ -81,7 +73,6 @@ import { useToast } from '../../shared/hooks/useToast';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useNodeClipboard } from './hooks/useNodeClipboard';
 import { useWorkflowRunCache } from './hooks/useWorkflowRunCache';
-import { extractToSubWorkflow } from './utils/workflowExtractSubWorkflow';
 import { sampleWorkflowCatalog } from '../../data/sampleWorkflows';
 
 interface Props {
@@ -149,7 +140,6 @@ function WorkflowDesignerInner({
   nodesRef.current = nodes;
   edgesRef.current = edges;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [configModalNodeId, setConfigModalNodeId] = useState<string | null>(null);
   const [showDefaultsModal, setShowDefaultsModal] = useState(false);
   const {
     nodeStatuses, setNodeStatuses,
@@ -191,15 +181,7 @@ function WorkflowDesignerInner({
   const workflowVariablesRef = useRef(workflowVariables);
   workflowVariablesRef.current = workflowVariables;
   const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
-  const [extractionSampleJson, setExtractionSampleJson] = useState('');
-  const [extractionFetching, setExtractionFetching] = useState(false);
-  const [extractionFetchError, setExtractionFetchError] = useState<string | null>(null);
-  const [detailModal, setDetailModal] = useState<
-    null | { type: 'step'; nodeId: string } | { type: 'variable'; key: string } | { type: 'runError' }
-  >(null);
-  const [variableDetailDraft, setVariableDetailDraft] = useState('');
   const [saveAcknowledged, setSaveAcknowledged] = useState(false);
-  const nextNodeY = useRef(100);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
 
@@ -339,133 +321,23 @@ function WorkflowDesignerInner({
     setShowShortcuts, setShowCommandPalette, setShowMinimap, toast,
   });
 
-  // Sync canvas whenever the selected workflow changes (from sidebar or internal)
-  const prevSelectedId = useRef<string | null>(null);
-  useEffect(() => {
-    if (selected && selected.id !== prevSelectedId.current) {
-      prevSelectedId.current = selected.id;
-      const rfNodes: WorkflowRFNode[] = selected.nodes.map(n => ({
-        id: n.id,
-        type: n.type,
-        position: n.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
-          ? n.position
-          : { x: 0, y: 0 },
-        data: cloneWorkflowNodeDataForStorage({ ...n.data }),
-        selected: false,
-      }));
-      const rfEdges: WorkflowRFEdge[] = selected.edges.map(e => ({
-        id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, label: e.label, animated: false,
-      }));
-      setNodes(rfNodes);
-      setEdges(rfEdges);
-      setSelectedNodeId(null);
-      // Abort any in-flight Quick Test and reset running state
-      if (isRunning) {
-        abortRef.current?.abort();
-        setIsRunning(false);
-        setIsDebugMode(false);
-        debugControllerRef.current = null;
-      }
-      setWorkflowVariables(selected.variables ?? {});
-      setWorkflowHostProfiles(selected.hostProfiles ?? []);
-      setWorkflowAuthProfiles(selected.authProfiles ?? []);
-      setWorkflowServices(selected.services ?? []);
-      setWorkflowErrorConfig(selected.errorConfig);
-      // Populate per-node initialVariables from saved workflow data (outside React Flow)
-      const ivMap: Record<string, Record<string, string>> = {};
-      for (const n of selected.nodes) {
-        if (isHttpWorkflowNode(n) && n.data.initialVariables) {
-          ivMap[n.id] = { ...n.data.initialVariables };
-        }
-      }
-      setNodeInitialVars(ivMap);
-      const ys = selected.nodes.map(n => (n.position?.y ?? 0) + 120);
-      nextNodeY.current = ys.length ? Math.max(100, ...ys) : 100;
-      // When loading a sample/preview, remount ReactFlow to trigger fitView
-      if (previewWorkflow) {
-        setLayoutVersion(v => v + 1);
-      }
-    } else if (!selected) {
-      prevSelectedId.current = null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, setNodes, setEdges]);
+  // ── Node actions (extracted hook) ── MUST BE BEFORE useWorkflowCanvasSync because it provides nextNodeY
+  const {
+    nextNodeY,
+    addNodeToCanvas, handleAddNode,
+    handleAddFromRequest, handleAddFromCatalog,
+    handleUpdateNode, handleDeleteNode,
+    handleExtractToSubWorkflow,
+  } = useWorkflowNodeActions({
+    selected, collections, catalogEntries, environments, microservices,
+    selectedEnvId, resolvedBaseUrl, selectedNodeId,
+    setSelectedNodeId, setNodes, setEdges, setNodeInitialVars,
+    nodeInitialVarsRef, nodesRef, edgesRef,
+    serializeNodes, serializeEdges, update, persistWorkflow,
+    undoRedo, workflows, create, toast,
+  });
 
-  // Compute selected node from React Flow nodes for config panel
-  const selectedNode = useMemo(() => {
-    if (!selectedNodeId) return null;
-    const n = nodes.find(n => n.id === selectedNodeId);
-    if (!n) return null;
-    return enrichNodeData(n, nodeInitialVars);
-  }, [selectedNodeId, nodes, nodeInitialVars]);
-
-  /** Node being configured in the config modal (derived from configModalNodeId). */
-  const configModalNode = useMemo(() => {
-    if (!configModalNodeId) return null;
-    const n = nodes.find(n => n.id === configModalNodeId);
-    if (!n) return null;
-    return enrichNodeData(n, nodeInitialVars);
-  }, [configModalNodeId, nodes, nodeInitialVars]);
-
-  const hintNodes = useMemo<WorkflowNode[]>(() => (
-    nodes.map((n) => enrichNodeData(n, nodeInitialVars))
-  ), [nodes, nodeInitialVars]);
-
-  const hintEdges = useMemo<WorkflowEdge[]>(() => (
-    edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle ?? undefined,
-      label: typeof e.label === 'string' ? e.label : undefined,
-    }))
-  ), [edges]);
-
-  const conditionVariableHints = useMemo(() => {
-    if (!selectedNode) return [];
-    if (selectedNode.type === 'waitForCondition') {
-      return collectWaitForConditionVariableHints(
-        hintNodes,
-        hintEdges,
-        selectedNode.id,
-        workflowVariables,
-      );
-    }
-    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate', 'script'].includes(selectedNode.type)) {
-      return collectConditionVariableHints(
-        hintNodes,
-        hintEdges,
-        selectedNode.id,
-        workflowVariables,
-      );
-    }
-    return [];
-  }, [selectedNode, hintNodes, hintEdges, workflowVariables]);
-
-  const httpVariableHints = useMemo(() => {
-    if (!selectedNodeId) return [];
-    const raw = nodes.find((x) => x.id === selectedNodeId);
-    if (!raw || !isHttpWorkflowNode(raw)) return [];
-    // Use state-managed initialVariables so hints stay in sync with the modal
-    const iv = nodeInitialVars[selectedNodeId];
-    const httpData = { ...raw.data, initialVariables: iv ?? {} } as HttpNodeData;
-    const base = collectConditionVariableHints(
-      hintNodes,
-      hintEdges,
-      selectedNodeId,
-      workflowVariables,
-    );
-    return mergeHttpVariableHintsWithStepInitialVars(base, httpData);
-  }, [selectedNodeId, nodes, nodeInitialVars, hintNodes, hintEdges, workflowVariables]);
-
-  const effectiveQuickTestBaseUrl = useMemo(() => {
-    if (selectedNode && isHttpWorkflowNode(selectedNode)) {
-      const custom = resolveHttpNodeBaseUrl(selectedNode.data, microservices, workflowHostProfiles, workflowServices, selectedEnvId);
-      if (custom) return custom;
-    }
-    return resolvedBaseUrl;
-  }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
-
+  // ── Resolver callbacks for execution ──
   const resolveHttpBaseUrlForGraph = useCallback(
     (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, microservices, workflowHostProfiles, workflowServices, selectedEnvId),
     [microservices, workflowHostProfiles, workflowServices, selectedEnvId],
@@ -482,6 +354,80 @@ function WorkflowDesignerInner({
     },
     [workflowAuthProfiles, workflowServices, selectedEnvId, microservices, globalAuthProfiles],
   );
+
+  // ── Execution (Quick Test + Debug) via extracted hook ── MUST BE BEFORE useWorkflowCanvasSync
+  const {
+    isRunning, setIsRunning, isDebugMode, setIsDebugMode,
+    debugControllerRef, abortRef,
+    runProgress, failedStepLabel,
+    lastQuickTestRequestUrl, setLastQuickTestRequestUrl,
+    handleQuickTest, handleDebugQuickTest,
+    handleDebugStep, handleDebugStop, handleResetRunStatus,
+  } = useWorkflowExecution({
+    selected, nodes, nodesRef, edgesRef,
+    workflowVariablesRef, nodeInitialVarsRef,
+    consoleOpenRef, consoleRunBehaviorRef, consoleLinesRef,
+    resolvedBaseUrl, selectedEnvId, environments,
+    workflowServices, workflowErrorConfig,
+    resolveHttpBaseUrlForGraph, resolveHttpAuthForGraph,
+    previewWorkflow, workflows,
+    nodeStatuses, setNodeStatuses,
+    lastRunStatus, setLastRunStatus,
+    lastRunTime, setLastRunTime,
+    lastRunError, setLastRunError,
+    setRunVariableSnapshot,
+    pushRunHistory, clearConsole, pushConsoleLine,
+    sampleWorkflowCatalog,
+  });
+  handleQuickTestRef.current = handleQuickTest;
+  handleDebugQuickTestRef.current = handleDebugQuickTest;
+
+  // ── Canvas sync (extracted hook) ──
+  useWorkflowCanvasSync({
+    selected, previewWorkflow,
+    setNodes, setEdges, setSelectedNodeId, setLayoutVersion,
+    setWorkflowVariables, setWorkflowHostProfiles, setWorkflowAuthProfiles,
+    setWorkflowServices, setWorkflowErrorConfig, setNodeInitialVars,
+    nextNodeY, isRunning, abortRef, setIsRunning, setIsDebugMode, debugControllerRef,
+  });
+
+  // ── Variable hints (extracted hook) ──
+  const { selectedNode, hintNodes, hintEdges, conditionVariableHints, httpVariableHints } = useWorkflowVariableHints({
+    selectedNodeId, nodes, edges, nodeInitialVars, workflowVariables,
+  });
+
+  // ── Detail modal state & callbacks (extracted hook) ──
+  const {
+    detailModal, setDetailModal,
+    variableDetailDraft, setVariableDetailDraft,
+    configModalNodeId, setConfigModalNodeId,
+    extractionSampleJson, setExtractionSampleJson,
+    extractionFetching, setExtractionFetching,
+    extractionFetchError, setExtractionFetchError,
+    openStepDetail, openVariableDetail, openRunErrorDetail, openNodeConfig,
+    handleApplyVariableDetail,
+    stepDetailMeta,
+  } = useWorkflowDetailModal({
+    nodes, nodeStatuses, selectedNode, lastRunError,
+    workflowVariables, nodeInitialVarsRef,
+    setNodeInitialVars, setWorkflowVariables, setSelectedNodeId,
+  });
+
+  /** Node being configured in the config modal (derived from configModalNodeId). */
+  const configModalNode = useMemo(() => {
+    if (!configModalNodeId) return null;
+    const n = nodes.find(n => n.id === configModalNodeId);
+    if (!n) return null;
+    return enrichNodeData(n, nodeInitialVars);
+  }, [configModalNodeId, nodes, nodeInitialVars]);
+
+  const effectiveQuickTestBaseUrl = useMemo(() => {
+    if (selectedNode && isHttpWorkflowNode(selectedNode)) {
+      const custom = resolveHttpNodeBaseUrl(selectedNode.data, microservices, workflowHostProfiles, workflowServices, selectedEnvId);
+      if (custom) return custom;
+    }
+    return resolvedBaseUrl;
+  }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
 
   useEffect(() => {
     setExtractionSampleJson('');
@@ -538,43 +484,6 @@ function WorkflowDesignerInner({
     }
   }, [selectedNode, workflowVariables, nodes, microservices, resolvedBaseUrl, selectedEnvId, workflowHostProfiles, workflowServices]);
 
-  const openStepDetail = useCallback((nodeId: string) => {
-    setDetailModal({ type: 'step', nodeId });
-  }, []);
-
-  const variableDetailApplyRef = useRef<((newValue: string) => void) | null>(null);
-
-  const openVariableDetail = useCallback((key: string, currentValue?: string, onApply?: (newValue: string) => void) => {
-    variableDetailApplyRef.current = onApply ?? null;
-    if (currentValue !== undefined) {
-      setVariableDetailDraft(currentValue);
-    } else if (selectedNode?.type === 'http') {
-      const iv = nodeInitialVarsRef.current[selectedNode.id];
-      setVariableDetailDraft(iv?.[key] ?? '');
-    } else {
-      setVariableDetailDraft(workflowVariables[key] ?? '');
-    }
-    setDetailModal({ type: 'variable', key });
-  }, [workflowVariables, selectedNode]);
-
-  const openRunErrorDetail = useCallback(() => {
-    if (lastRunError?.trim()) setDetailModal({ type: 'runError' });
-  }, [lastRunError]);
-
-  const openNodeConfig = useCallback((nodeId: string) => {
-    setSelectedNodeId(nodeId);
-    setConfigModalNodeId(nodeId);
-  }, []);
-
-  const stepDetailMeta = useMemo(() => {
-    if (detailModal?.type !== 'step') return { title: '', body: '' };
-    const n = nodes.find(x => x.id === detailModal.nodeId);
-    const label = n && isHttpWorkflowNode(n) ? n.data.label : 'HTTP step';
-    const rs = nodeStatuses[detailModal.nodeId];
-    const body = rs?.responseDetail ?? rs?.error ?? 'No details available. Run Quick Test again.';
-    return { title: label, body };
-  }, [detailModal, nodes, nodeStatuses]);
-
   // ── Navigation (extracted hook) ──
   const { navStack, setNavStack, navigateToWorkflow, handleBreadcrumbNavigate } = useWorkflowNavigation({
     selected, workflows, select, persistWorkflow,
@@ -623,71 +532,10 @@ function WorkflowDesignerInner({
     return () => window.clearTimeout(t);
   }, [saveAcknowledged]);
 
-  const onConnect: OnConnect = useCallback((params) => {
-    undoRedo.takeSnapshot('Add connection');
-    const newEdge: Edge = {
-      ...params,
-      id: uuidv4(),
-      animated: false,
-      label: params.sourceHandle === 'true' ? 'Yes' : params.sourceHandle === 'false' ? 'No' : undefined,
-    };
-    setEdges((eds) => {
-      const updated = addEdge(newEdge, eds);
-      // Defer cross-component state update to avoid React warning
-      if (selected) {
-        const wfNodes = serializeNodes(nodes);
-        const wfEdges = updated.map(e => ({
-          id: e.id, source: e.source, target: e.target,
-          sourceHandle: e.sourceHandle ?? undefined,
-          label: typeof e.label === 'string' ? e.label : undefined,
-        }));
-        queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
-      }
-      return updated;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setEdges, selected, nodes, serializeNodes, update]);
-
-  const onReconnect = useCallback(
-    (oldEdge: Edge, newConnection: Connection) => {
-      setEdges((eds) => {
-        const next = reconnectEdge(oldEdge, newConnection, eds);
-        return next.map((e) => {
-          if (e.id !== oldEdge.id) return e;
-          const sh = e.sourceHandle ?? newConnection.sourceHandle;
-          const label = sh === 'true' ? 'Yes' : sh === 'false' ? 'No' : undefined;
-          return { ...e, label };
-        });
-      });
-    },
-     
-    [setEdges],
-  );
-
-  const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
-    if (!selected) return;
-    undoRedo.takeSnapshot('Add node');
-    const y = nextNodeY.current;
-    nextNodeY.current += 120;
-    const newNode: WorkflowRFNode = {
-      id: uuidv4(),
-      type,
-      position: { x: 300, y },
-      data: data ?? defaultNodeData(type),
-    };
-    setNodes((nds) => {
-      const updated = [...nds, newNode];
-      const wfNodes = serializeNodes(updated);
-      const wfEdges = serializeEdges(edges);
-      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
-      return updated;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, edges, update, serializeNodes, serializeEdges]);
-
-  const handleAddNode = useCallback((type: WorkflowNodeType) => {
-    addNodeToCanvas(type);
-  }, [addNodeToCanvas]);
+  // ── Edge operations (extracted hook) ──
+  const { onConnect, onReconnect } = useWorkflowEdgeOps({
+    selected, nodes, setEdges, serializeNodes, update, undoRedo, nodeStatuses,
+  });
 
   // ── Drag-to-place from palette (extracted hook) ──
   const {
@@ -699,141 +547,6 @@ function WorkflowDesignerInner({
     setNodes, setEdges, serializeNodes, serializeEdges,
     update, undoRedo,
   });
-
-  const handleAddFromRequest = useCallback((collectionId: string, requestId: string) => {
-    const col = collections.find(c => c.id === collectionId);
-    if (!col) return;
-
-    let req = col.requests.find(r => r.id === requestId);
-    if (!req) {
-      const searchFolders = (folders?: import('../../shared/types').RequestFolder[]): import('../../shared/types').RequestItem | undefined => {
-        if (!folders) return undefined;
-        for (const f of folders) {
-          const found = f.requests.find(r => r.id === requestId);
-          if (found) return found;
-          const deeper = searchFolders(f.folders);
-          if (deeper) return deeper;
-        }
-        return undefined;
-      };
-      req = searchFolders(col.folders);
-    }
-    if (!req) return;
-
-    const scenario: Scenario = {
-      id: uuidv4(), name: req.name, url: req.url, method: req.method as Scenario['method'],
-      headers: req.headers ?? [], body: req.body ?? '', bodyType: req.bodyType,
-      bodyForm: req.bodyForm, auth: req.auth ?? { type: 'none' }, validation: { mode: 'none' },
-    };
-    const hostPatch = resolveQuickTestHostForRequest(
-      col,
-      req,
-      selectedEnvId,
-      resolvedBaseUrl,
-      microservices,
-      environments,
-    );
-    const data: HttpNodeData = {
-      label: req.name,
-      scenario,
-      sourceType: 'requests',
-      sourceId: req.id,
-      ...hostPatch,
-    };
-    addNodeToCanvas('http', data);
-  }, [collections, addNodeToCanvas, selectedEnvId, resolvedBaseUrl, microservices, environments]);
-
-  const handleAddFromCatalog = useCallback((entryId: string, endpointId: string) => {
-    const entry = catalogEntries.find(e => e.id === entryId);
-    const ep = entry?.endpoints.find(e => e.id === endpointId);
-    if (!ep || !entry) return;
-
-    const baseUrl = entry.servers[0]?.url ?? '';
-    const scenario: Scenario = {
-      id: uuidv4(), name: ep.summary || ep.path, url: `${baseUrl}${ep.path}`,
-      method: ep.method.toUpperCase() as Scenario['method'],
-      headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
-    };
-    const data: HttpNodeData = { label: ep.summary || ep.path, scenario, sourceType: 'catalog', sourceId: ep.id };
-    addNodeToCanvas('http', data);
-  }, [catalogEntries, addNodeToCanvas]);
-
-  /** Shallow-merge into the latest node `data` so concurrent edits (HTTP config vs initial variables) never drop fields. */
-  const handleUpdateNode = useCallback((id: string, patch: Partial<WorkflowNodeData>) => {
-    // Route initialVariables to separate state (outside React Flow)
-    if ('initialVariables' in patch) {
-      const iv = (patch as Partial<HttpNodeData>).initialVariables ?? {};
-      const updated = { ...iv };
-      nodeInitialVarsRef.current = { ...nodeInitialVarsRef.current, [id]: updated };
-      setNodeInitialVars((prev) => ({ ...prev, [id]: updated }));
-      // Don't pass initialVariables into React Flow node data — it drops them
-      const { initialVariables: _iv, ...restPatch } = patch as Partial<HttpNodeData>;
-      if (Object.keys(restPatch).length === 0) {
-        persistWorkflow();
-        return;
-      }
-      patch = restPatch;
-    }
-    setNodes((nds) => {
-      const next = nds.map(n => (n.id === id
-        ? { ...n, data: mergeWorkflowNodeData(n.data, patch) }
-        : n));
-      nodesRef.current = next;
-      // Defer cross-component state update to avoid React warning
-      queueMicrotask(() => persistWorkflow({ rfNodes: next }));
-      return next;
-    });
-  }, [setNodes, persistWorkflow]);
-
-  const handleDeleteNode = useCallback((id: string) => {
-    undoRedo.takeSnapshot('Delete node');
-    setNodes((nds) => nds.filter(n => n.id !== id));
-    setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
-    setNodeInitialVars((prev) => { const next = { ...prev }; delete next[id]; return next; });
-    if (selectedNodeId === id) setSelectedNodeId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo object identity changes every render
-  }, [setNodes, setEdges, selectedNodeId]);
-
-  /** Extract a node into a new sub-workflow. */
-  const handleExtractToSubWorkflow = useCallback((nodeId: string) => {
-    if (!selected) return;
-    const childName = prompt('Sub-workflow name:');
-    if (!childName?.trim()) return;
-
-    const currentNodes = serializeNodes(nodesRef.current);
-    const currentEdges = serializeEdges(edgesRef.current);
-    const result = extractToSubWorkflow([nodeId], currentNodes, currentEdges, childName.trim());
-    if (!result) {
-      toast.show('warning', 'Cannot extract', 'Start and End nodes cannot be extracted.');
-      return;
-    }
-
-    undoRedo.takeSnapshot('Extract to sub-workflow');
-    // Create the child workflow
-    create(result.childWorkflow.name);
-    // Find newly created workflow and update it with the extracted nodes
-    const newWf = workflows.find((w) => w.name === result.childWorkflow.name);
-    if (newWf) {
-      update(newWf.id, {
-        nodes: result.childWorkflow.nodes,
-        edges: result.childWorkflow.edges,
-        variables: result.childWorkflow.variables,
-      });
-      // Update the sub-workflow node to reference the actual created workflow ID
-      (result.subWorkflowNode.data as SubWorkflowNodeData).workflowId = newWf.id;
-      (result.subWorkflowNode.data as SubWorkflowNodeData).workflowName = result.childWorkflow.name;
-    }
-
-    // Replace extracted nodes with sub-workflow node
-    setNodes((nds) => {
-      const filtered = nds.filter((n) => !result.extractedNodeIds.has(n.id));
-      return [...filtered, result.subWorkflowNode as WorkflowRFNode];
-    });
-    setEdges((eds) => eds.filter((e) => !result.extractedEdgeIds.has(e.id)));
-    queueMicrotask(() => persistWorkflow());
-    toast.show('success', 'Extracted', `Created sub-workflow "${childName.trim()}"`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo, create, update object identity
-  }, [selected, serializeNodes, serializeEdges, workflows, create, update, setNodes, setEdges, persistWorkflow, toast]);
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: WorkflowRFNode) => {
     setSelectedNodeId(node.id);
@@ -861,89 +574,6 @@ function WorkflowDesignerInner({
     setWorkflowVariables(vars);
     persistWorkflow({ variables: vars });
   }, [persistWorkflow]);
-
-  const handleApplyVariableDetail = useCallback(() => {
-    if (detailModal?.type !== 'variable') return;
-    const key = detailModal.key;
-    // If a callback was provided by the caller (e.g. config modal draft), use it
-    if (variableDetailApplyRef.current) {
-      variableDetailApplyRef.current(variableDetailDraft);
-    } else if (selectedNode && isHttpWorkflowNode(selectedNode)) {
-      const nodeId = selectedNode.id;
-      setNodeInitialVars((prev) => {
-        const updatedVars = { ...(prev[nodeId] ?? {}), [key]: variableDetailDraft };
-        nodeInitialVarsRef.current[nodeId] = { ...updatedVars };
-        return { ...prev, [nodeId]: updatedVars };
-      });
-    } else {
-      setWorkflowVariables((prev) => ({ ...prev, [key]: variableDetailDraft }));
-    }
-    variableDetailApplyRef.current = null;
-    setDetailModal(null);
-  }, [detailModal, variableDetailDraft, selectedNode]);
-
-  // ── Phase 2: Derive edge execution states from nodeStatuses ──
-
-  useEffect(() => {
-    const statusKeys = Object.keys(nodeStatuses);
-    if (statusKeys.length === 0) {
-      // Reset all edge classes when run state is cleared
-      setEdges(prev => {
-        const needsReset = prev.some(e => e.className);
-        if (!needsReset) return prev;
-        return prev.map(e => e.className ? { ...e, className: undefined } : e);
-      });
-      return;
-    }
-
-    setEdges(prev => prev.map(edge => {
-      const sourceStatus = nodeStatuses[edge.source];
-      const targetStatus = nodeStatuses[edge.target];
-      const sourceState = sourceStatus?.state;
-      const targetState = targetStatus?.state;
-
-      let className: string | undefined;
-      if (targetState === 'running') {
-        className = 'wf-edge-animated';
-      } else if (targetState === 'skipped') {
-        className = 'wf-edge-skipped';
-      } else if (sourceState === 'pass' && (targetState === 'pass' || targetState === 'fail')) {
-        className = targetState === 'pass' ? 'wf-edge-pass' : 'wf-edge-fail';
-      } else if (sourceState === 'fail' && targetState === 'fail') {
-        className = 'wf-edge-fail';
-      }
-
-      if (edge.className === className) return edge;
-      return { ...edge, className };
-    }));
-  }, [nodeStatuses, setEdges]);
-
-  // ── Execution (Quick Test + Debug) via extracted hook ──
-  const {
-    isRunning, setIsRunning, isDebugMode, setIsDebugMode,
-    debugControllerRef, abortRef,
-    runProgress, failedStepLabel,
-    lastQuickTestRequestUrl, setLastQuickTestRequestUrl,
-    handleQuickTest, handleDebugQuickTest,
-    handleDebugStep, handleDebugStop, handleResetRunStatus,
-  } = useWorkflowExecution({
-    selected, nodes, nodesRef, edgesRef,
-    workflowVariablesRef, nodeInitialVarsRef,
-    consoleOpenRef, consoleRunBehaviorRef, consoleLinesRef,
-    resolvedBaseUrl, selectedEnvId, environments,
-    workflowServices, workflowErrorConfig,
-    resolveHttpBaseUrlForGraph, resolveHttpAuthForGraph,
-    previewWorkflow, workflows,
-    nodeStatuses, setNodeStatuses,
-    lastRunStatus, setLastRunStatus,
-    lastRunTime, setLastRunTime,
-    lastRunError, setLastRunError,
-    setRunVariableSnapshot,
-    pushRunHistory, clearConsole, pushConsoleLine,
-    sampleWorkflowCatalog,
-  });
-  handleQuickTestRef.current = handleQuickTest;
-  handleDebugQuickTestRef.current = handleDebugQuickTest;
 
   const latestStepSummaries = useMemo(() => {
     const latest = runHistory[0];

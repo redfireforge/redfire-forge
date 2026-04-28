@@ -10,10 +10,10 @@ describe('TemplateGalleryModal', () => {
     const { container } = render(
       <TemplateGalleryModal open={false} onClose={vi.fn()} onSelect={vi.fn()} />,
     );
-    expect(container.querySelector('.tg-overlay')).toBeNull();
+    expect(container.querySelector('.tg-content')).toBeNull();
   });
 
-  it('renders modal when open is true', () => {
+  it('renders content when open is true', () => {
     render(<TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />);
     expect(screen.getByText('Template Gallery')).toBeTruthy();
   });
@@ -21,8 +21,8 @@ describe('TemplateGalleryModal', () => {
   it('renders category tabs', () => {
     render(<TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />);
     expect(screen.getByText('All Templates')).toBeTruthy();
-    expect(screen.getByText('Basics')).toBeTruthy();
-    expect(screen.getByText('Logic')).toBeTruthy();
+    expect(screen.getByText('API Patterns')).toBeTruthy();
+    expect(screen.getByText('Flow Control')).toBeTruthy();
   });
 
   it('renders template cards', () => {
@@ -38,7 +38,7 @@ describe('TemplateGalleryModal', () => {
       <TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />,
     );
     const allCount = container.querySelectorAll('.tg-card').length;
-    fireEvent.click(screen.getByText('Basics'));
+    fireEvent.click(screen.getByText('API Patterns'));
     const filteredCount = container.querySelectorAll('.tg-card').length;
     expect(filteredCount).toBeLessThanOrEqual(allCount);
   });
@@ -54,27 +54,19 @@ describe('TemplateGalleryModal', () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: expect.any(String) }));
   });
 
-  it('calls onClose when overlay is clicked', () => {
-    const onClose = vi.fn();
+  it('renders node filter dropdown', () => {
+    render(<TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />);
+    expect(screen.getByLabelText('Filter by node type')).toBeTruthy();
+  });
+
+  it('renders cards with data-cat and difficulty dots', () => {
     const { container } = render(
-      <TemplateGalleryModal open={true} onClose={onClose} onSelect={vi.fn()} />,
+      <TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />,
     );
-    const overlay = container.querySelector('.tg-overlay') as HTMLElement;
-    fireEvent.click(overlay);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls onClose when close button is clicked', () => {
-    const onClose = vi.fn();
-    render(<TemplateGalleryModal open={true} onClose={onClose} onSelect={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText('Close'));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls onClose on Escape key', () => {
-    const onClose = vi.fn();
-    render(<TemplateGalleryModal open={true} onClose={onClose} onSelect={vi.fn()} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const firstCard = container.querySelector('.tg-card') as HTMLElement;
+    expect(firstCard.dataset.cat).toBeTruthy();
+    expect(['api', 'flow', 'event', 'orch']).toContain(firstCard.dataset.cat);
+    const dots = firstCard.querySelectorAll('.tg-difficulty-dots .tg-dot');
+    expect(dots.length).toBe(3);
   });
 });

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template Gallery – Redesign Mockup</title>
+<style>
+  :root {
+    --bg: #0f1219;
+    --surface: #1a1f2e;
+    --surface-hover: #222839;
+    --border: #2a3040;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --accent: #818cf8;
+    /* Category accent colors (muted) */
+    --cat-api: #60a5fa;
+    --cat-flow: #a78bfa;
+    --cat-event: #34d399;
+    --cat-orch: #fb923c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* ── Header ── */
+  .gallery-header {
+    margin-bottom: 20px;
+  }
+  .gallery-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .gallery-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .gallery-tab {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .gallery-tab:hover { color: var(--text); }
+  .gallery-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .gallery-tab .count {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+  .gallery-tab.active .count { color: var(--accent); }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .filter-bar label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-right: 8px;
+  }
+  .filter-bar select {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+  }
+
+  /* ── Grid ── */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    align-content: start;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  /* Category accent – subtle left border */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .card[data-cat="api"]::before { background: var(--cat-api); }
+  .card[data-cat="flow"]::before { background: var(--cat-flow); }
+  .card[data-cat="event"]::before { background: var(--cat-event); }
+  .card[data-cat="orch"]::before { background: var(--cat-orch); }
+
+  .card:hover {
+    border-color: rgba(129, 140, 248, 0.3);
+    background: var(--surface-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }
+  .card:hover::before { opacity: 1; }
+
+  /* Icon spotlight */
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .card[data-cat="api"] .card-icon { background: rgba(96, 165, 250, 0.12); }
+  .card[data-cat="flow"] .card-icon { background: rgba(167, 139, 250, 0.12); }
+  .card[data-cat="event"] .card-icon { background: rgba(52, 211, 153, 0.12); }
+  .card[data-cat="orch"] .card-icon { background: rgba(251, 146, 60, 0.12); }
+
+  .card-info { flex: 1; min-width: 0; }
+  .card-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .card-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  /* Node pills */
+  .card-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .pill {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    background: transparent;
+  }
+
+  /* Meta row */
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .meta-nodes {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+  .meta-spacer { flex: 1; }
+
+  /* Difficulty dots */
+  .difficulty-dots {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .difficulty-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .difficulty-dots[data-level="easy"] .dot:nth-child(1) { background: #4ade80; }
+  .difficulty-dots[data-level="medium"] .dot:nth-child(1) { background: #fbbf24; }
+  .difficulty-dots[data-level="medium"] .dot:nth-child(2) { background: #fbbf24; }
+  .difficulty-dots[data-level="advanced"] .dot:nth-child(1) { background: #c084fc; }
+  .difficulty-dots[data-level="advanced"] .dot:nth-child(2) { background: #c084fc; }
+  .difficulty-dots[data-level="advanced"] .dot:nth-child(3) { background: #c084fc; }
+
+  .difficulty-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    margin-top: 32px;
+    padding: 16px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  .legend h4 { font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted); }
+  .legend-row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-muted); }
+  .legend-swatch {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="gallery-header">
+  <div class="gallery-title">Template Gallery</div>
+  <div class="gallery-tabs">
+    <button class="gallery-tab active">All Templates</button>
+    <button class="gallery-tab">API Patterns <span class="count">5</span></button>
+    <button class="gallery-tab">Flow Control <span class="count">7</span></button>
+    <button class="gallery-tab">Event-Driven <span class="count">3</span></button>
+    <button class="gallery-tab">Orchestration <span class="count">4</span></button>
+  </div>
+  <div class="filter-bar">
+    <div></div>
+    <div>
+      <label>Find by Node:</label>
+      <select><option>All Nodes</option></select>
+    </div>
+  </div>
+</div>
+
+<div class="gallery-grid">
+
+  <!-- EASY — API Patterns -->
+  <div class="card" data-cat="api">
+    <div class="card-top">
+      <div class="card-icon">↗</div>
+      <div class="card-info">
+        <div class="card-name">Create → Extract → Verify</div>
+        <div class="card-desc">Sequential HTTP calls with variable chaining, conditions, and delays</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">HTTP</span>
+      <span class="pill">CONDITION</span>
+      <span class="pill">DELAY</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">6 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Easy</span>
+    </div>
+  </div>
+
+  <!-- EASY — API Patterns -->
+  <div class="card" data-cat="api">
+    <div class="card-top">
+      <div class="card-icon">⑃</div>
+      <div class="card-info">
+        <div class="card-name">Parallel API Calls</div>
+        <div class="card-desc">Fork/Join pattern splits execution into concurrent HTTP requests and merges results</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">FORK</span>
+      <span class="pill">JOIN</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">7 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Easy</span>
+    </div>
+  </div>
+
+  <!-- EASY — Flow Control -->
+  <div class="card" data-cat="flow">
+    <div class="card-top">
+      <div class="card-icon">◆</div>
+      <div class="card-info">
+        <div class="card-name">Conditional Branching</div>
+        <div class="card-desc">If/Else paths leading to different API endpoints</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">CONDITION</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">5 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Easy</span>
+    </div>
+  </div>
+
+  <!-- EASY — Event-Driven -->
+  <div class="card" data-cat="event">
+    <div class="card-top">
+      <div class="card-icon">🪝</div>
+      <div class="card-info">
+        <div class="card-name">Webhook Trigger</div>
+        <div class="card-desc">Order processing triggered by incoming HTTP webhooks with payload extraction</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">WEBHOOK</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">6 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Easy</span>
+    </div>
+  </div>
+
+  <!-- EASY — Event-Driven -->
+  <div class="card" data-cat="event">
+    <div class="card-top">
+      <div class="card-icon">⏰</div>
+      <div class="card-info">
+        <div class="card-name">Schedule Trigger</div>
+        <div class="card-desc">Daily report generation with cron-based scheduling and automatic time variables</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">SCHEDULE</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">8 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Easy</span>
+    </div>
+  </div>
+
+  <!-- MEDIUM — Flow Control -->
+  <div class="card" data-cat="flow">
+    <div class="card-top">
+      <div class="card-icon">⇅</div>
+      <div class="card-info">
+        <div class="card-name">Switch Order Router</div>
+        <div class="card-desc">Routes orders through different processing paths using multi-way Switch branching</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">SWITCH</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">8 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="medium"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Medium</span>
+    </div>
+  </div>
+
+  <!-- MEDIUM — Flow Control -->
+  <div class="card" data-cat="flow">
+    <div class="card-top">
+      <div class="card-icon">🔄</div>
+      <div class="card-info">
+        <div class="card-name">Paginated API Fetcher</div>
+        <div class="card-desc">While-loop fetches paginated data, Aggregate accumulates results with concat/sum/count</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">LOOP</span>
+      <span class="pill">AGGREGATE</span>
+      <span class="pill">HTTP</span>
+      <span class="pill">CONDITION</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">9 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="medium"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Medium</span>
+    </div>
+  </div>
+
+  <!-- ADVANCED — Flow Control -->
+  <div class="card" data-cat="flow">
+    <div class="card-top">
+      <div class="card-icon">📝</div>
+      <div class="card-info">
+        <div class="card-name">Batch User Provisioning</div>
+        <div class="card-desc">ForEach loop creates users, Aggregates track success/failure, Switch routes the final report</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">LOOP</span>
+      <span class="pill">HTTP</span>
+      <span class="pill">SWITCH</span>
+      <span class="pill">AGGREGATE</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">12 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Advanced</span>
+    </div>
+  </div>
+
+  <!-- ADVANCED — Flow Control -->
+  <div class="card" data-cat="flow">
+    <div class="card-top">
+      <div class="card-icon">🛡️</div>
+      <div class="card-info">
+        <div class="card-name">Resilient API with Error Handling</div>
+        <div class="card-desc">HTTP call wrapped in Error Handler with retry, Log/Debug captures diagnostics</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">ERROR</span>
+      <span class="pill">HTTP</span>
+      <span class="pill">LOGDEBUG</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">9 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Advanced</span>
+    </div>
+  </div>
+
+  <!-- ADVANCED — API Patterns -->
+  <div class="card" data-cat="api">
+    <div class="card-top">
+      <div class="card-icon">📋</div>
+      <div class="card-info">
+        <div class="card-name">Debug Trace Pipeline</div>
+        <div class="card-desc">Sequential API calls with Log/Debug nodes tracing request/response at each step</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">LOGDEBUG</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">8 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Advanced</span>
+    </div>
+  </div>
+
+  <!-- ADVANCED — Orchestration -->
+  <div class="card" data-cat="orch">
+    <div class="card-top">
+      <div class="card-icon">🔗</div>
+      <div class="card-info">
+        <div class="card-name">Sub-Workflow Orchestrator</div>
+        <div class="card-desc">Parent calls child workflow per user via multi-instance forEach with retry</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">SUBWORKFLOW</span>
+      <span class="pill">LOOP</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">9 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Advanced</span>
+    </div>
+  </div>
+
+  <!-- ADVANCED — Orchestration -->
+  <div class="card" data-cat="orch">
+    <div class="card-top">
+      <div class="card-icon">🚀</div>
+      <div class="card-info">
+        <div class="card-name">Multi-Region Deploy Orchestrator</div>
+        <div class="card-desc">Fork/Join pre-checks, multi-instance parallel deploy via sub-workflow, dynamic rollback</div>
+      </div>
+    </div>
+    <div class="card-pills">
+      <span class="pill">SUBWORKFLOW</span>
+      <span class="pill">FORK</span>
+      <span class="pill">JOIN</span>
+      <span class="pill">HTTP</span>
+    </div>
+    <div class="card-meta">
+      <span class="meta-nodes">12 nodes</span>
+      <span class="meta-spacer"></span>
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="difficulty-label">Advanced</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <h4>Design Changes (for review)</h4>
+  <div class="legend-row">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--cat-api)"></div> API Patterns</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--cat-flow)"></div> Flow Control</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--cat-event)"></div> Event-Driven</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--cat-orch)"></div> Orchestration</div>
+    <div class="legend-item" style="margin-left:24px">
+      <div class="difficulty-dots" data-level="easy"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div> Easy
+    </div>
+    <div class="legend-item">
+      <div class="difficulty-dots" data-level="medium"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div> Medium
+    </div>
+    <div class="legend-item">
+      <div class="difficulty-dots" data-level="advanced"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div> Advanced
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -8,6 +8,8 @@ import {
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
+import { createCorrelationRouter, setCorrelationStore } from './correlation-handler.js';
+import { createCorrelationStore } from './correlation-store-factory.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
@@ -115,6 +117,9 @@ app.get('/api/webhook-deliveries', async (req: Request, res: Response) => {
     });
   }
 });
+
+// Correlation webhook handler routes (must be before /webhooks/:workflowId/:triggerId)
+app.use(createCorrelationRouter());
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {
