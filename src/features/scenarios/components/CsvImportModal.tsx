@@ -126,13 +126,13 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     };
   }, [processFile]);
 
-  const handleDownloadSample = useCallback(() => {
+  const handleDownloadSample = useCallback(async () => {
     const sampleCsv = [
       'name,method,url,body,auth_type,header:Content-Type,param:channel,validate:data.id',
       'Get Items,GET,https://api.example.com/v1/items,,inherit,,,',
       'Create Item,POST,https://api.example.com/v1/items,"{""name"":""test""}",inherit,application/json,,item-123',
     ].join('\n');
-    downloadCsv(sampleCsv, 'redfireforge_csv_template_sample.csv');
+    await downloadCsv(sampleCsv, 'redfireforge_csv_template_sample.csv');
   }, []);
 
   const validTests = parseResult?.rows.filter(r => r.scenario !== null) ?? [];

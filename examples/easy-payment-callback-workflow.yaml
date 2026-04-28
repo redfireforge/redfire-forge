@@ -1,0 +1,228 @@
+# RedfireForge Workflow — Easy: Payment Gateway Callback
+# Submits a payment to a gateway, waits for an asynchronous callback
+# confirming the payment, then confirms the order.
+#
+# Difficulty: ★☆☆ (Easy)
+# Features demonstrated:
+#   • CorrelationWait node — basic async webhook callback pattern
+#   • Body-based correlation source with JSONPath extraction
+#   • Extract variables from webhook payload (paymentStatus, transactionId)
+#   • Linear flow: submit → wait → confirm
+#
+# Flow:
+#   Start (orderId, amount)
+#     → POST /payments/create (submit payment, extract paymentId)
+#       → CorrelationWait (wait for /webhooks/callback/payment, match by paymentId)
+#         → POST /orders/confirm (include paymentStatus + transactionId)
+#           → End
+#
+# How it works:
+#   1. The workflow submits a payment request to the gateway.
+#   2. The gateway returns a paymentId immediately.
+#   3. The workflow pauses (CorrelationWait), waiting for the gateway to
+#      POST back to /webhooks/callback/payment with the matching paymentId.
+#   4. Once the webhook arrives, the workflow resumes with extracted variables.
+#   5. The order is confirmed with the payment details.
+
+name: Payment Gateway Callback
+description: >
+  Submit a payment to an external gateway, wait for the async payment
+  confirmation callback, then confirm the order. Demonstrates basic
+  CorrelationWait usage with body-based correlation.
+
+schemaVersion: 5
+
+variables:
+  apiBase: "https://api.example.com"
+  gatewayBase: "https://payments.example.com"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        orderId: "ORD-2024-5678"
+        amount: "99.99"
+        currency: "USD"
+
+  # ── 1. Submit payment to gateway ──
+  - id: http-create-payment
+    type: http
+    position: { x: 300, y: 140 }
+    data:
+      label: Submit Payment
+      scenario:
+        id: sc-create-payment
+        name: Create Payment
+        url: "{{gatewayBase}}/payments/create"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "amount": {{amount}},
+            "currency": "{{currency}}",
+            "callbackUrl": "http://localhost:3001/webhooks/callback/payment"
+          }
+        bodyForm: []
+        auth:
+          type: bearer
+          token: "{{GATEWAY_API_KEY}}"
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "201"
+            - type: body
+              expression: $.status
+              expected: "pending_callback"
+            - type: body
+              expression: $.paymentId
+              expected: "$exists"
+        extractions:
+          - name: paymentId
+            source: body
+            expression: $.paymentId
+          - name: gatewayRef
+            source: body
+            expression: $.referenceNumber
+          - name: gatewayStatus
+            source: body
+            expression: $.status
+        # Expected gateway response:
+        # {
+        #   "paymentId": "pay_4kF9xR2mNqLp",
+        #   "referenceNumber": "GW-REF-20240115-001",
+        #   "status": "pending_callback",
+        #   "amount": 99.99,
+        #   "currency": "USD",
+        #   "callbackUrl": "http://localhost:3001/webhooks/callback/payment",
+        #   "createdAt": "2024-01-15T10:25:00.000Z",
+        #   "expiresAt": "2024-01-15T10:30:00.000Z",
+        #   "gateway": "stripe",
+        #   "idempotencyKey": "ORD-2024-5678-charge-001"
+        # }
+
+  # ── 2. Wait for payment callback ──
+  - id: cw-payment
+    type: correlationWait
+    position: { x: 300, y: 320 }
+    data:
+      label: Wait for Payment Callback
+      correlationIdExpression: "{{paymentId}}"
+      webhookPath: "/webhooks/callback/payment"
+      correlationSource: body
+      correlationJsonPath: "$.paymentId"
+      extractVariables:
+        - name: paymentStatus
+          jsonPath: "$.status"
+        - name: transactionId
+          jsonPath: "$.transactionId"
+        - name: processedAt
+          jsonPath: "$.processedAt"
+      timeoutMs: 300000   # 5 minutes
+      webhookFilter: ""
+      notes: >
+        Waits for the payment gateway (Stripe, PayPal, Adyen, etc.) to send
+        a POST to /webhooks/callback/payment once the charge is processed.
+
+        Expected webhook payload from gateway:
+        POST /webhooks/callback/payment
+        Content-Type: application/json
+        x-idempotency-key: pay_4kF9xR2mNqLp-result
+
+        {
+          "paymentId": "pay_4kF9xR2mNqLp",
+          "status": "approved",
+          "transactionId": "txn_8mK3vP7wXjRs",
+          "processedAt": "2024-01-15T10:26:14.392Z",
+          "amount": 99.99,
+          "currency": "USD",
+          "cardBrand": "visa",
+          "last4": "4242",
+          "authorizationCode": "AUTH-779231",
+          "riskScore": 12,
+          "receiptUrl": "https://pay.example.com/receipts/txn_8mK3vP7wXjRs"
+        }
+
+        RedfireForge response on match:
+        200 { "resumed": true, "correlationId": "pay_4kF9xR2mNqLp",
+              "executionId": "exec-abc-001", "workflowId": "wf-payment-flow" }
+
+        RedfireForge response on no match:
+        404 { "resumed": false, "error": "No matching paused workflow found",
+              "webhookPath": "/webhooks/callback/payment" }
+
+  # ── 3. Confirm the order ──
+  - id: http-confirm-order
+    type: http
+    position: { x: 300, y: 500 }
+    data:
+      label: Confirm Order
+      scenario:
+        id: sc-confirm
+        name: Confirm Order
+        url: "{{apiBase}}/orders/{{orderId}}/confirm"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+          - key: X-Idempotency-Key
+            value: "{{orderId}}-confirm-{{transactionId}}"
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "paymentId": "{{paymentId}}",
+            "paymentStatus": "{{paymentStatus}}",
+            "transactionId": "{{transactionId}}",
+            "gatewayRef": "{{gatewayRef}}",
+            "processedAt": "{{processedAt}}",
+            "confirmedVia": "async-webhook-callback"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+            - type: body
+              expression: $.confirmed
+              expected: "true"
+        extractions:
+          - name: confirmationNumber
+            source: body
+            expression: $.confirmationNumber
+        # Expected response:
+        # {
+        #   "confirmed": true,
+        #   "confirmationNumber": "CONF-2024-01-15-9927",
+        #   "orderId": "ORD-2024-5678",
+        #   "totalCharged": 99.99,
+        #   "receiptSentTo": "customer@example.com",
+        #   "estimatedDelivery": "2024-01-18T12:00:00Z"
+        # }
+
+  - id: end-1
+    type: end
+    position: { x: 300, y: 660 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-create-payment
+  - id: e2
+    source: http-create-payment
+    target: cw-payment
+  - id: e3
+    source: cw-payment
+    target: http-confirm-order
+  - id: e4
+    source: http-confirm-order
+    target: end-1

@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, KeyValue, ExpectedField, ValidationMode, SelectiveMode } from '../../../shared/types';
+import { saveFile } from '../../../shared/utils/fileSaver';
 import {
   type TemplateMetadata,
   type ExportOptions,
@@ -80,14 +81,9 @@ export function generateCsvTemplate(opts: ExportOptions): string {
   return `${metaLine}\n${csvData}`;
 }
 
-export function downloadCsv(csv: string, filename: string) {
+export async function downloadCsv(csv: string, filename: string) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  await saveFile(blob, { filename, mimeType: 'text/csv', description: 'CSV file' });
 }
 
 export function parseCsvToScenarios(csvText: string): CsvParseResult {

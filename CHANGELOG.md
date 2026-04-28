@@ -9,6 +9,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Async Correlation Wait Node — Phase 7E (Documentation & Examples)**
+  - User Guide: `docs/workflow/CORRELATION_WAIT_GUIDE.md` — full tutorial with configuration, patterns, troubleshooting
+  - API Reference: `docs/workflow/CORRELATION_WAIT_API.md` — all endpoints, request/response examples, security config
+  - Example: `easy-payment-callback-workflow.yaml` — basic payment gateway callback (body correlation)
+  - Example: `medium-approval-workflow.yaml` — manager approval with header correlation, webhook filter, 72h timeout
+  - Example: `medium-cicd-build-callback-workflow.yaml` — CI/CD build trigger with query param correlation
+  - Example: `hard-parallel-payment-workflow.yaml` — parallel payments with Fork/Join and 2 CorrelationWaits
+- **Async Correlation Wait Node — Phase 7D.1–7D.4 (Advanced Features)**
+  - Webhook security: HMAC-SHA256 signed URLs/tokens, token expiration, IP whitelist (CIDR), request signature validation
+  - Idempotency: deduplication via `x-idempotency-key`/`x-request-id`/implicit correlationId, cached response replay, configurable TTL
+  - Webhook filter expressions: `==`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `exists`, `&&`, `||`, nested field paths
+  - Payload structure validation: required fields, type checking
+  - Multi-correlation verified: parallel waits with independent resolution, failure isolation
+  - Security configurable via `WEBHOOK_SECURITY_ENABLED`, `WEBHOOK_HMAC_SECRET`, `WEBHOOK_TOKEN_EXPIRY_MS`
+  - 136 tests passing across security, idempotency, validation, handler, and correlation modules
+- **Async Correlation Wait Node — Phase 7C (Database Persistence)**
+  - `IServerCorrelationStore` interface for pluggable correlation storage
+  - `InMemoryServerStore` — extracted from correlation-handler for clean DI
+  - `SqliteServerStore` — write-through cache with `better-sqlite3`, WAL mode, auto-rehydration on restart
+  - `PostgresServerStore` — event-driven with `pg` Pool, async writes, `DATABASE_URL` config
+  - Shared SQL schema (`correlation-schema.ts`) for both SQLite and PostgreSQL
+  - Store factory (`correlation-store-factory.ts`) with `CORRELATION_STORE_TYPE` env var (memory/sqlite/postgres)
+  - Background cleanup job (60s interval) removes expired correlations
+  - Graceful shutdown closes store connections
+  - Refactored `correlation-handler.ts` to delegate to injectable store
+  - 22 new unit tests (memory store, SQLite persistence/rehydration, factory)
+- **Async Correlation Wait Node — Phase 7B (Execution History Integration)**
+  - Paused node state with amber visual styling (border, dot indicator, pulse animation)
+  - "Paused" filter tab in Execution History panel with live elapsed timer
+  - Paused correlation cards showing correlation ID, webhook path, workflow/execution ID, timeout countdown
+  - "Resume Manually" button to resume paused workflows from execution history
+  - "Test Webhook" section in CorrelationWait config modal with auto-generated payload
+  - 8 execution history unit tests, 4 config test webhook tests, E2E tests for Test Webhook section and paused tab
+- **Async Correlation Wait Node — Phase 7A (In-Memory MVP)**
+  - `CorrelationWait` node type: pause workflow execution and wait for an external webhook callback
+  - Correlation ID expression with variable interpolation for matching incoming webhooks
+  - Configurable correlation source: body (JSONPath), header, or query parameter
+  - Extract variables from webhook payload into workflow context
+  - Timeout support (ms/s/m) with automatic expiration
+  - Optional webhook filter expression
+  - State serialization/deserialization for paused workflow state
+  - In-memory correlation store with `ICorrelationStore` interface
+  - Backend webhook callback handler (`/webhooks/callback/*`, `/api/correlations/*`)
+  - Unmatched webhook logging and cleanup endpoints
+  - Canvas node with correlation ID preview, webhook path, and timeout display
+  - Full config panel with InsertVarField, AvailableVariables, extract variables table
+  - Node palette entry under Actions category
+  - 41 backend integration tests, 15 handler tests, 52 UI component tests, E2E tests
 - **Script Transform Node — Phase D: Code Templates & Script Libraries**
   - Code template gallery with 12 templates across 4 categories (transform, validate, generate, utility)
   - Category filter tabs and search functionality for templates

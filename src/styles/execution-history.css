@@ -199,6 +199,7 @@
 .exh-badge-success { background: rgba(34,197,94,0.18); color: var(--success); }
 .exh-badge-failed  { background: rgba(245,158,11,0.18); color: var(--warning); }
 .exh-badge-error   { background: rgba(239,68,68,0.18); color: var(--danger); }
+.exh-badge-paused  { background: rgba(245,158,11,0.18); color: #f59e0b; }
 
 .exh-card-meta { margin-bottom: 6px; }
 
@@ -387,3 +388,124 @@
   font-family: 'Fira Code', 'Cascadia Code', monospace;
   word-break: break-all;
 }
+
+/* ── Paused Correlations ─────────────────────────────────────────── */
+
+.exh-paused-section { flex: 1; min-height: 0; overflow-y: auto; }
+
+.exh-paused-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exh-paused-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid #f59e0b;
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.exh-paused-card.exh-paused-expired {
+  border-left-color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.exh-paused-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.exh-paused-elapsed {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.exh-paused-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.exh-paused-row {
+  display: contents;
+}
+
+.exh-paused-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.exh-paused-value {
+  font-size: 0.8rem;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.exh-paused-expired-text { color: var(--text-muted); font-style: italic; }
+.exh-paused-warning-text { color: #f59e0b; font-weight: 600; }
+
+.exh-paused-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exh-btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+.exh-paused-result {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.exh-paused-result-ok { color: var(--success); }
+.exh-paused-result-err { color: var(--danger); }
+
+/* ── Test Webhook section (config panel) ── */
+
+.wf-test-webhook-section {
+  margin-top: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.wf-test-webhook-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.wf-test-webhook-payload {
+  width: 100%;
+  min-height: 80px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.78rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.wf-test-webhook-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.wf-test-webhook-result {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.wf-test-webhook-ok { color: var(--success); }
+.wf-test-webhook-err { color: var(--danger); }

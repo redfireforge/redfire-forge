@@ -23,6 +23,7 @@ import type {
   WaitForConditionNodeData,
   SubWorkflowNodeData,
   ScriptNodeData,
+  CorrelationWaitNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -43,6 +44,7 @@ import LogDebugNode from '../components/nodes/LogDebugNode';
 import WaitForConditionNode from '../components/nodes/WaitForConditionNode';
 import SubWorkflowNode from '../components/nodes/SubWorkflowNode';
 import ScriptNode from '../components/nodes/ScriptNode';
+import CorrelationWaitNode from '../components/nodes/CorrelationWaitNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -66,6 +68,7 @@ export const nodeTypes = {
   waitForCondition: WaitForConditionNode,
   subWorkflow: SubWorkflowNode,
   script: ScriptNode,
+  correlationWait: CorrelationWaitNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -168,5 +171,14 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       timeoutMs: 5000,
       captureConsole: true,
     } as ScriptNodeData;
+    case 'correlationWait': return {
+      label: 'Correlation Wait',
+      correlationIdExpression: '',
+      webhookPath: '/webhooks/callback',
+      correlationSource: 'body',
+      correlationJsonPath: '$.correlationId',
+      extractVariables: [],
+      timeoutMs: 60000,
+    } as CorrelationWaitNodeData;
   }
 }

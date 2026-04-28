@@ -4,6 +4,19 @@ import type { ExecutionResult } from '../../shared/types/server-api';
 import { formatTimestamp, getErrorMessage } from '../test-runner/utils/serverFormatters';
 import '../../styles/execution-history.css';
 
+// ── Paused correlation type (from /api/correlations) ──
+
+interface PausedCorrelation {
+  correlationId: string;
+  webhookPath: string;
+  executionId: string;
+  workflowId: string;
+  pausedNodeId: string;
+  pausedAt: number;
+  timeoutAt: number;
+  correlationSource: 'body' | 'header' | 'query';
+}
+
 /* ---------- per-result JSON body with search + expand/collapse ---------- */
 function ExhResultBody({ body }: { body: string }) {
   const [search, setSearch] = useState('');
@@ -77,13 +90,74 @@ export default function WorkflowExecutionHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = useState<ExecutionResult | null>(null);
-  const [filter, setFilter] = useState<'all' | 'webhook' | 'schedule'>('all');
+  const [filter, setFilter] = useState<'all' | 'webhook' | 'schedule' | 'paused'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  // ── Paused correlations ──
+  const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
+  const [pausedLoading, setPausedLoading] = useState(false);
+  const [resumingId, setResumingId] = useState<string | null>(null);
+  const [resumeResult, setResumeResult] = useState<{ id: string; ok: boolean; message: string } | null>(null);
+  // Live timer tick for paused durations
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     loadExecutions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh paused correlations when filter changes to 'paused'
+  useEffect(() => {
+    if (filter === 'paused') loadPausedCorrelations();
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live timer for paused durations (update every second when viewing paused tab)
+  useEffect(() => {
+    if (filter !== 'paused' || pausedCorrelations.length === 0) return;
+    const iv = window.setInterval(() => setTick(t => t + 1), 1000);
+    return () => window.clearInterval(iv);
+  }, [filter, pausedCorrelations.length]);
+
+  const loadPausedCorrelations = async () => {
+    try {
+      setPausedLoading(true);
+      const response = await fetch('/api/correlations');
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await response.json();
+      setPausedCorrelations(data.correlations || []);
+    } catch (err) {
+      console.error('Failed to load paused correlations:', err);
+    } finally {
+      setPausedLoading(false);
+    }
+  };
+
+  const handleManualResume = async (correlationId: string) => {
+    setResumingId(correlationId);
+    setResumeResult(null);
+    try {
+      const response = await fetch('/api/correlations/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          correlationId,
+          webhookData: { _manualResume: true, resumedAt: new Date().toISOString() },
+        }),
+      });
+      const data = await response.json();
+      if (data.resumed) {
+        setResumeResult({ id: correlationId, ok: true, message: 'Workflow resumed successfully' });
+        // Refresh paused list
+        await loadPausedCorrelations();
+      } else {
+        setResumeResult({ id: correlationId, ok: false, message: 'No matching paused workflow found' });
+      }
+    } catch (err) {
+      setResumeResult({ id: correlationId, ok: false, message: getErrorMessage(err) });
+    } finally {
+      setResumingId(null);
+    }
+  };
 
   const loadExecutions = async () => {
     try {
@@ -104,7 +178,7 @@ export default function WorkflowExecutionHistory() {
   };
 
   const filteredExecutions = executions
-    .filter(exec => filter === 'all' || exec.triggerType === filter)
+    .filter(exec => filter === 'all' || filter === 'paused' || exec.triggerType === filter)
     .sort((a, b) => {
       const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       return sortOrder === 'desc' ? diff : -diff;
@@ -154,18 +228,104 @@ export default function WorkflowExecutionHistory() {
           <select
             className="exh-select"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as 'all' | 'webhook' | 'schedule')}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'webhook' | 'schedule' | 'paused')}
           >
             <option value="all">All Types</option>
             <option value="webhook">Webhooks</option>
             <option value="schedule">Schedules</option>
+            <option value="paused">⏸ Paused ({pausedCorrelations.length})</option>
           </select>
           <button className="exh-btn exh-btn-primary" onClick={loadExecutions}>Refresh</button>
         </div>
       </div>
 
-      {/* Empty state */}
-      {filteredExecutions.length === 0 ? (
+      {/* Paused correlations view */}
+      {filter === 'paused' ? (
+        <div className="exh-paused-section" data-testid="exh-paused-section">
+          {pausedLoading ? (
+            <div className="exh-loading">Loading paused workflows...</div>
+          ) : pausedCorrelations.length === 0 ? (
+            <div className="exh-empty">
+              <div className="exh-empty-icon">⏸</div>
+              <div className="exh-empty-title">No paused workflows</div>
+              <div className="exh-empty-hint">Workflows paused by Correlation Wait nodes will appear here</div>
+            </div>
+          ) : (
+            <div className="exh-paused-list">
+              {pausedCorrelations.map((pc) => {
+                const elapsed = Date.now() - pc.pausedAt;
+                const elapsedStr = elapsed < 60000
+                  ? `${Math.floor(elapsed / 1000)}s ago`
+                  : elapsed < 3600000
+                    ? `${Math.floor(elapsed / 60000)}m ago`
+                    : `${Math.floor(elapsed / 3600000)}h ago`;
+                const remaining = pc.timeoutAt > 0
+                  ? Math.max(0, pc.timeoutAt - Date.now())
+                  : -1;
+                const remainingStr = remaining < 0
+                  ? 'No timeout'
+                  : remaining === 0
+                    ? 'Expired'
+                    : remaining < 60000
+                      ? `${Math.ceil(remaining / 1000)}s`
+                      : `${Math.ceil(remaining / 60000)}m`;
+
+                return (
+                  <div
+                    key={pc.correlationId}
+                    className={`exh-paused-card ${remaining === 0 ? 'exh-paused-expired' : ''}`}
+                    data-testid="exh-paused-card"
+                  >
+                    <div className="exh-paused-header">
+                      <span className="exh-badge exh-badge-paused">⏸ PAUSED</span>
+                      <span className="exh-paused-elapsed">{elapsedStr}</span>
+                    </div>
+                    <div className="exh-paused-details">
+                      <div className="exh-paused-row">
+                        <span className="exh-paused-label">Correlation ID</span>
+                        <span className="exh-paused-value exh-mono">{pc.correlationId}</span>
+                      </div>
+                      <div className="exh-paused-row">
+                        <span className="exh-paused-label">Webhook Path</span>
+                        <span className="exh-paused-value exh-mono">{pc.webhookPath}</span>
+                      </div>
+                      <div className="exh-paused-row">
+                        <span className="exh-paused-label">Workflow</span>
+                        <span className="exh-paused-value exh-mono">{pc.workflowId}</span>
+                      </div>
+                      <div className="exh-paused-row">
+                        <span className="exh-paused-label">Execution</span>
+                        <span className="exh-paused-value exh-mono">{pc.executionId}</span>
+                      </div>
+                      <div className="exh-paused-row">
+                        <span className="exh-paused-label">Time Until Timeout</span>
+                        <span className={`exh-paused-value ${remaining === 0 ? 'exh-paused-expired-text' : remaining > 0 && remaining < 30000 ? 'exh-paused-warning-text' : ''}`}>
+                          {remainingStr}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="exh-paused-actions">
+                      <button
+                        className="exh-btn exh-btn-primary exh-btn-sm"
+                        disabled={resumingId === pc.correlationId}
+                        onClick={() => handleManualResume(pc.correlationId)}
+                        data-testid="exh-resume-btn"
+                      >
+                        {resumingId === pc.correlationId ? 'Resuming...' : '▶ Resume Manually'}
+                      </button>
+                      {resumeResult?.id === pc.correlationId && (
+                        <span className={`exh-paused-result ${resumeResult.ok ? 'exh-paused-result-ok' : 'exh-paused-result-err'}`}>
+                          {resumeResult.message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : /* Normal execution history */ filteredExecutions.length === 0 ? (
         <div className="exh-empty">
           <div className="exh-empty-icon">📊</div>
           <div className="exh-empty-title">No executions found</div>

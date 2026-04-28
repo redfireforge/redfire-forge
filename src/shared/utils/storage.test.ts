@@ -20,6 +20,57 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
+// Mock IndexedDB module with an in-memory store for tests
+const { idbStore } = vi.hoisted(() => {
+  const store: Record<string, unknown> = {};
+  return { idbStore: store };
+});
+
+let _idbInsertOrder = 0;
+
+vi.mock('./idbTestRuns', () => {
+  type TR = { id: string; timestamp?: number; _insertOrder?: number; [k: string]: unknown };
+  const getRuns = (): TR[] => {
+    const all = Object.values(idbStore) as TR[];
+    all.sort((a, b) => {
+      const td = (b.timestamp ?? 0) - (a.timestamp ?? 0);
+      if (td !== 0) return td;
+      return (b._insertOrder ?? 0) - (a._insertOrder ?? 0);
+    });
+    return all;
+  };
+  return {
+    idbLoadTestRuns: vi.fn(async () => getRuns()),
+    idbSaveTestRun: vi.fn(async (run: TR) => { idbStore[run.id] = { ...run, _insertOrder: ++_idbInsertOrder }; }),
+    idbDeleteTestRun: vi.fn(async (id: string) => { delete idbStore[id]; }),
+    idbSaveTestRunsBulk: vi.fn(async (runs: TR[]) => {
+      for (const k of Object.keys(idbStore)) delete idbStore[k];
+      for (const r of runs) idbStore[r.id] = { ...r, _insertOrder: ++_idbInsertOrder };
+    }),
+    idbPruneToMax: vi.fn(async (max: number) => {
+      const all = getRuns();
+      if (all.length <= max) return 0;
+      const toDelete = all.slice(max);
+      for (const r of toDelete) delete idbStore[r.id];
+      return toDelete.length;
+    }),
+    idbMigrateFromLocalStorage: vi.fn(async () => false),
+    idbGetRunsInfo: vi.fn(async () => {
+      const all = getRuns();
+      return { count: all.length, approxBytes: JSON.stringify(all).length * 2 };
+    }),
+    idbDeleteRunsOlderThan: vi.fn(async (cutoff: number) => {
+      const all = getRuns();
+      const toDelete = all.filter(r => (r.timestamp ?? 0) < cutoff);
+      for (const r of toDelete) delete idbStore[r.id];
+      return toDelete.length;
+    }),
+    idbClearAllRuns: vi.fn(async () => {
+      for (const k of Object.keys(idbStore)) delete idbStore[k];
+    }),
+  };
+});
+
 import {
   saveTestRun,
   forceSaveTestRun,
@@ -103,6 +154,9 @@ function makeRun(id: string, results: number = 1): TestRun {
 
 beforeEach(() => {
   localStorage.clear();
+  // Clear IDB mock store
+  for (const k of Object.keys(idbStore)) delete idbStore[k];
+  _idbInsertOrder = 0;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
   tauriGetItem.mockResolvedValue(null);
@@ -540,6 +594,15 @@ describe('storage — cap and truncate results', () => {
 
 describe('storage — save errors & force save', () => {
   const nativeSetItem = Storage.prototype.setItem;
+
+  // These tests simulate localStorage QuotaExceeded errors.
+  // Since the browser path now uses IndexedDB, we test via the Tauri path
+  // which still uses localStorage (via mocked tauriStore → localStorage).
+  beforeEach(() => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockImplementation(async (key: string) => localStorage.getItem(key));
+    tauriSetItem.mockImplementation(async (key: string, value: string) => { localStorage.setItem(key, value); });
+  });
 
   afterEach(() => {
     vi.restoreAllMocks();

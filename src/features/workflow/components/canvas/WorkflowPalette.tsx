@@ -36,6 +36,7 @@ const ALL_BLOCKS: BlockDef[] = [
   { type: 'logDebug', title: 'Log/Debug', desc: 'Log messages and variable snapshots', category: 'data' },
   { type: 'script', title: 'Script', desc: 'Custom JavaScript data transformation', category: 'data' },
   { type: 'waitForCondition', title: 'Wait for Condition', desc: 'Poll until condition met', category: 'logic' },
+  { type: 'correlationWait', title: 'Correlation Wait', desc: 'Pause and wait for webhook callback', category: 'actions' },
   { type: 'fork', title: 'Parallel Fork', desc: 'Concurrent branches', category: 'flow' },
   { type: 'join', title: 'Join', desc: 'Wait for all branches', category: 'flow' },
   { type: 'end', title: 'End', desc: 'Workflow termination', category: 'flow' },
