@@ -1,5 +1,9 @@
 # Source Code Restructuring Plan
 
+> **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to 893 lines via 6 extracted hooks. The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
+>
+> _Last updated: 2026-04-28_
+
 ## Goal
 Reorganize the codebase from flat dumping-ground directories into **functional domain modules** with co-located tests, following professional project structure conventions.
 
@@ -20,7 +24,9 @@ Reorganize the codebase from flat dumping-ground directories into **functional d
 | Inconsistent test co-location | Some tests beside source, some not |
 | No feature boundaries | Can't tell which files belong to which feature |
 | `src/components/workflow/` bloat | 62 production files flat — configs, nodes, panels, modals all mixed |
-| Monolithic pages | WorkflowDesigner (2059 LOC), ScenarioBuilder (1045), App (846) |
+| Monolithic pages | ~~WorkflowDesigner (2059 LOC)~~, ScenarioBuilder (1045), App (~~846~~ 858) |
+
+> **Note**: WorkflowDesigner.tsx already refactored to 893 LOC (Phase 10 completed ahead of schedule). App.tsx now at 858 LOC with useTheme extracted.
 
 ---
 
@@ -205,19 +211,22 @@ src/
 
 ---
 
-## Phase 10: WorkflowDesigner.tsx Refactoring (SEPARATE — after restructure)
+## Phase 10: WorkflowDesigner.tsx Refactoring ✅ COMPLETE (done ahead of schedule)
 
-Break the 2059-line god component into custom hooks:
+Break the ~~2059~~-line god component into custom hooks:
 
-- [ ] Extract `useWorkflowExecution` — executeWorkflowRun, handleQuickTest, debug handlers, run progress, step summaries
-- [ ] Extract `useWorkflowConsole` — console state, toggle/close, SSE subscription
-- [ ] Extract `useWorkflowCanvas` — drag/drop handlers, node click, context menu, pane click
-- [ ] Extract `useWorkflowPersistence` — serializeNodes/Edges, persistWorkflow, handleSave
-- [ ] Extract `useWorkflowNodeOps` — insert, copy, paste, duplicate, update, delete, extract-to-sub
-- [ ] Extract `useWorkflowNavigation` — navStack, handleNew, handleSelect, breadcrumb navigate
-- [ ] Extract `useWorkflowKeyboardShortcuts` — keyboard event handler
-- [ ] Write/update tests for each extracted hook
-- [ ] `npx tsc --noEmit` ✓
+- [x] Extract `useWorkflowExecution` — executeWorkflowRun, handleQuickTest, debug handlers, run progress, step summaries
+- [x] Extract `useWorkflowConsole` — console state, toggle/close, SSE subscription
+- [x] Extract `useWorkflowCanvas` — drag/drop handlers, node click, context menu, pane click
+- [x] Extract `useWorkflowPersistence` — serializeNodes/Edges, persistWorkflow, handleSave, clipboard, undo/redo, handleUpdateWorkflowVariables
+- [x] Extract `useWorkflowNodeOps` — insert, copy, paste, duplicate, update, delete, extract-to-sub
+- [x] Extract `useWorkflowNavigation` — navStack, handleNew, handleSelect, breadcrumb navigate
+- [x] Extract `useWorkflowKeyboardShortcuts` — keyboard event handler
+- [x] Extract `useWorkflowExtractionSample` — design-time fetch sample flow for Extract tab
+- [x] Write/update tests for each extracted hook — 53 new hook tests
+- [x] `npx tsc --noEmit` ✓
+
+**Result**: WorkflowDesigner.tsx reduced from 1432 to **893 lines** (6 hooks extracted). Tests: 4613 passing, 0 tsc errors.
 
 ---
 
