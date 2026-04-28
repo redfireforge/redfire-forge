@@ -7,9 +7,11 @@ import type {
   DelayNodeData, StartNodeData, WebhookTriggerNodeData,
   ScheduleTriggerNodeData, SwitchNodeData, LoopNodeData,
   SetVariableNodeData, AggregateNodeData, LogDebugNodeData,
-  WaitForConditionNodeData, ScriptNodeData, NodeRunStatus,
-  Workflow,
+  WaitForConditionNodeData, ScriptNodeData, CorrelationWaitNodeData,
+  NodeRunStatus, Workflow,
 } from '../types/workflow';
+import type { ICorrelationStore } from './correlationStore';
+import { serializeWorkflowState } from './workflowStateSerializer';
 import type { RequestResult, Scenario } from '../../../shared/types';
 import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
@@ -76,6 +78,14 @@ export interface NodeHandlerContext {
   visitOutgoing: (nodeId: string, threadId: string) => Promise<void>;
   /** Current thread ID */
   threadId: string;
+  /** Correlation store for pause/resume (optional — only needed for correlationWait nodes). */
+  correlationStore?: ICorrelationStore;
+  /** Execution ID for current workflow run. */
+  executionId?: string;
+  /** Workflow ID. */
+  workflowId?: string;
+  /** Workflow start time (ms since epoch). */
+  startTime?: number;
 }
 
 /** Mutable flag container so handlers can set allPassed = false */
@@ -720,6 +730,99 @@ export async function handleWaitForConditionNode(
 
   for (const e of doneEdges) {
     await hCtx.visit(e.target, hCtx.threadId);
+  }
+}
+
+// ────────────────────────────────────────────────────────
+// Handler: CorrelationWait node
+// ────────────────────────────────────────────────────────
+
+export async function handleCorrelationWaitNode(
+  nodeId: string,
+  node: WorkflowNode,
+  hCtx: NodeHandlerContext,
+  passed: PassedFlag,
+): Promise<void> {
+  const data = node.data as CorrelationWaitNodeData;
+  const label = hCtx.nodeLabel(nodeId);
+
+  // Resolve correlation ID from expression (e.g. "{{paymentId}}" → "pay_123")
+  const correlationId = hCtx.ctx.resolve(data.correlationIdExpression);
+  if (!correlationId) {
+    passed.value = false;
+    hCtx.log({ prefix: '!', text: `[${label}] Correlation ID expression resolved to empty string` });
+    hCtx.callbacks.onNodeStateChange(nodeId, {
+      state: 'fail',
+      error: 'Correlation ID expression resolved to empty string',
+    });
+    return;
+  }
+
+  if (!hCtx.correlationStore) {
+    passed.value = false;
+    hCtx.log({ prefix: '!', text: `[${label}] No correlation store available` });
+    hCtx.callbacks.onNodeStateChange(nodeId, {
+      state: 'fail',
+      error: 'No correlation store configured',
+    });
+    return;
+  }
+
+  hCtx.log({ prefix: '*', text: `[${label}] Pausing — waiting for webhook at ${data.webhookPath} (correlationId=${correlationId})` });
+  hCtx.callbacks.onNodeStateChange(nodeId, { state: 'paused', responseDetail: `Waiting for ${correlationId}` });
+
+  // Serialize current workflow state
+  const pausedState = serializeWorkflowState(
+    hCtx,
+    nodeId,
+    hCtx.executionId ?? `exec-${Date.now()}`,
+    hCtx.workflowId ?? 'unknown',
+    hCtx.startTime ?? Date.now(),
+  );
+
+  try {
+    // Pause and wait for webhook callback
+    const webhookData = await hCtx.correlationStore.pause(
+      correlationId,
+      data.webhookPath,
+      pausedState,
+      data.timeoutMs,
+      data.webhookFilter,
+    );
+
+    // Inject webhook payload variables into context
+    hCtx.ctx.set('webhook.body', JSON.stringify(webhookData));
+    hCtx.ctx.set('webhook.correlationId', correlationId);
+
+    // Extract variables from webhook payload
+    if (data.extractVariables && data.extractVariables.length > 0) {
+      for (const { name, jsonPath } of data.extractVariables) {
+        const keys = jsonPath.replace(/^\$\./, '').split('.');
+        let value: unknown = webhookData;
+        for (const key of keys) {
+          value = (value as Record<string, unknown>)?.[key];
+          if (value === undefined) break;
+        }
+        if (value !== undefined) {
+          const strVal = typeof value === 'string' ? value : JSON.stringify(value);
+          hCtx.ctx.set(name, strVal);
+          hCtx.log({ prefix: '#', text: `[${label}] ${name} = ${strVal.length > 80 ? strVal.slice(0, 80) + '…' : strVal}` });
+        }
+      }
+    }
+
+    hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
+
+    const timeStr = data.timeoutMs > 0 ? ` (within ${data.timeoutMs}ms timeout)` : '';
+    hCtx.log({ prefix: '*', text: `[${label}] Resumed — webhook received${timeStr}` });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+
+    await hCtx.visitOutgoing(nodeId, hCtx.threadId);
+  } catch (err) {
+    passed.value = false;
+    const msg = err instanceof Error ? err.message : String(err);
+    hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });
+    hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
   }
 }
 

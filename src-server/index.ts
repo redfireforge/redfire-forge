@@ -14,11 +14,14 @@
 import { app } from './webhook-server.js';
 import { getAppDataPath } from './file-storage.js';
 import { initScheduler, stopScheduler } from './cron-scheduler.js';
+import { createCorrelationStore } from './correlation-store-factory.js';
+import { setCorrelationStore } from './correlation-handler.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
 
 let server: ReturnType<typeof app.listen> | null = null;
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
 async function startServer() {
   try {
@@ -35,6 +38,18 @@ async function startServer() {
       console.log(`  Webhook format: http://${HOST}:${PORT}/webhooks/:workflowId/:triggerId`);
       console.log('───────────────────────────────────────────────────────────');
       
+      // Initialize correlation store
+      const store = await createCorrelationStore();
+      setCorrelationStore(store);
+
+      // Start cleanup job (every 60s)
+      cleanupInterval = setInterval(() => {
+        const cleaned = store.cleanupExpired();
+        if (cleaned > 0) {
+          console.log(`[Cleanup] Removed ${cleaned} expired correlation(s)`);
+        }
+      }, 60_000);
+
       // Initialize cron scheduler after server starts
       await initScheduler();
       
@@ -66,6 +81,16 @@ async function stopServer() {
     
     // Stop scheduler first
     stopScheduler();
+
+    // Stop cleanup interval
+    if (cleanupInterval) {
+      clearInterval(cleanupInterval);
+      cleanupInterval = null;
+    }
+
+    // Close correlation store
+    const { getCorrelationStore } = await import('./correlation-handler.js');
+    await getCorrelationStore().close();
     
     await new Promise<void>((resolve) => {
       server!.close(() => {

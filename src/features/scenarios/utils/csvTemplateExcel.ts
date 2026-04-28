@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx-js-style';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, BodyType, KeyValue, ExpectedField, ValidationMode, SelectiveMode, AuthConfig } from '../../../shared/types';
+import { saveFile } from '../../../shared/utils/fileSaver';
 import {
   type ColumnDef,
   type CsvParseResult,
@@ -328,15 +329,10 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
   return wb;
 }
 
-export function downloadExcel(wb: XLSX.WorkBook, filename: string) {
+export async function downloadExcel(wb: XLSX.WorkBook, filename: string) {
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  await saveFile(blob, { filename, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', description: 'Excel file' });
 }
 
 function parseMetadataSheet(sheet: XLSX.WorkSheet): ExcelMeta | null {

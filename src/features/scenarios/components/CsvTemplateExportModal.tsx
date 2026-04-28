@@ -103,10 +103,10 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
     }
   }, [test.url]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const wb = generateExcelTemplate({ test, pathVariables: pathVars, columnDefs });
     const safeName = test.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || 'template';
-    downloadExcel(wb, `${safeName}_template.xlsx`);
+    await downloadExcel(wb, `${safeName}_template.xlsx`);
     onClose();
   };
 

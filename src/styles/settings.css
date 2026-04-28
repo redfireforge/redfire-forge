@@ -365,5 +365,58 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* Run count */
+.storage-run-count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+/* Cleanup section */
+.storage-cleanup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+.storage-cleanup-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.storage-cleanup-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Confirm row */
+.storage-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.storage-confirm-text {
+  font-size: 0.8rem;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* Action feedback */
+.storage-action-msg {
+  font-size: 0.8rem;
+  color: var(--success);
+  font-weight: 500;
+  padding: 6px 10px;
+  background: rgba(34, 197, 94, 0.08);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
 .settings-env-row:not(.deployed) { opacity: 0.5; }
 

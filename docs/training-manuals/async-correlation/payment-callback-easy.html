@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Sample: Payment Gateway Callback (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6; max-width: 900px;
+    margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .back-link { font-size: 13px; margin-bottom: 16px; }
+  .back-link a { color: #457b9d; text-decoration: none; }
+  .back-link a:hover { text-decoration: underline; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="back-link">← <a href="async-correlation.html">Back to Async Correlation Manual</a></div>
+
+<h1>Payment Gateway Callback <span class="badge badge-easy">Easy</span></h1>
+<p style="color: #457b9d; font-size: 15px; margin-bottom: 24px;">
+  Submit a payment, wait for the gateway callback, then process the result.
+</p>
+
+<!-- ════════════════════════════════ -->
+<h2>Workflow Diagram</h2>
+
+<div class="flow-diagram">
+  ┌─────────┐     ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────────┐     ┌─────┐
+  │  Start  │────▶│ HTTP: Initiate   │────▶│  CorrelationWait    │────▶│ HTTP: Lookup     │────▶│ End │
+  │         │     │ Payment          │     │  "Wait for Payment" │     │ Payment Status   │     │     │
+  └─────────┘     └──────────────────┘     └─────────────────────┘     └──────────────────┘     └─────┘
+                         │                          ▲
+                         │ extracts:                │ webhook callback:
+                         │ {{paymentId}}            │ POST /webhooks/callback/payment
+                         │                          │ { paymentId, status, transactionId }
+                         ▼                          │
+                  Payment Gateway ──────────────────┘
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>What You'll Learn</h2>
+<ul>
+  <li>How to configure a CorrelationWait node with <strong>body-based correlation</strong></li>
+  <li>How to extract variables from the webhook payload</li>
+  <li>How to chain the extracted data into the next HTTP node</li>
+  <li>How to test the flow using the Test Webhook feature</li>
+</ul>
+
+<!-- ════════════════════════════════ -->
+<h2>Step-by-Step Setup</h2>
+
+<h3><span class="step-num">1</span> Create the Workflow</h3>
+<p>Open the Workflow Designer and create a new workflow. You can also import the
+YAML file <code>examples/easy-payment-callback-workflow.yaml</code> from the Template Gallery.</p>
+
+<h3><span class="step-num">2</span> Add the Start Node</h3>
+<p>Configure input variables:</p>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>orderId</code></td><td><code>ORD-2024-0042</code></td></tr>
+  <tr><td><code>amount</code></td><td><code>99.99</code></td></tr>
+  <tr><td><code>currency</code></td><td><code>USD</code></td></tr>
+</table>
+
+<h3><span class="step-num">3</span> Add HTTP Node: Initiate Payment</h3>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>URL</td><td><code>https://payments.example.com/charges</code></td></tr>
+  <tr><td>Method</td><td><code>POST</code></td></tr>
+  <tr><td>Body</td><td>
+<pre style="margin:0">{
+  "orderId": "{{orderId}}",
+  "amount": {{amount}},
+  "currency": "{{currency}}",
+  "callbackUrl": "http://localhost:3001/webhooks/callback/payment"
+}</pre>
+  </td></tr>
+  <tr><td>Extract</td><td><code>paymentId</code> from <code>$.paymentId</code></td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Key Detail</strong>
+  The <code>callbackUrl</code> in the body tells the payment gateway where to send the result.
+  The CorrelationWait node listens on this same path.
+</div>
+
+<h3><span class="step-num">4</span> Add CorrelationWait Node</h3>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>Label</td><td><code>Wait for Payment Callback</code></td></tr>
+  <tr><td>Correlation ID Expression</td><td><code>{{paymentId}}</code></td></tr>
+  <tr><td>Webhook Path</td><td><code>/webhooks/callback/payment</code></td></tr>
+  <tr><td>Correlation Source</td><td><code>body</code></td></tr>
+  <tr><td>Correlation JSONPath</td><td><code>$.paymentId</code></td></tr>
+  <tr><td>Timeout</td><td><code>300000</code> (5 minutes)</td></tr>
+</table>
+
+<h4>Extract Variables</h4>
+<table>
+  <tr><th>Variable Name</th><th>JSONPath</th></tr>
+  <tr><td><code>paymentStatus</code></td><td><code>$.status</code></td></tr>
+  <tr><td><code>transactionId</code></td><td><code>$.transactionId</code></td></tr>
+  <tr><td><code>processedAt</code></td><td><code>$.processedAt</code></td></tr>
+</table>
+
+<h3><span class="step-num">5</span> Add HTTP Node: Lookup Payment Status</h3>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>URL</td><td><code>https://api.example.com/orders/{{orderId}}/payment-status</code></td></tr>
+  <tr><td>Method</td><td><code>GET</code></td></tr>
+</table>
+<p>This node runs <em>after</em> the webhook resumes the workflow, so <code>{{paymentStatus}}</code>
+and <code>{{transactionId}}</code> are available.</p>
+
+<h3><span class="step-num">6</span> Connect and Run</h3>
+<p>Connect: <code>Start → HTTP (initiate) → CorrelationWait → HTTP (lookup) → End</code></p>
+
+<!-- ════════════════════════════════ -->
+<h2>Testing the Flow</h2>
+
+<h3>Option A: Test Webhook (Built-in)</h3>
+<ol>
+  <li>Run the workflow — it pauses at the CorrelationWait node</li>
+  <li>Click the CorrelationWait node → open config modal</li>
+  <li>Scroll to "Test Webhook" section</li>
+  <li>Edit the auto-generated payload if needed</li>
+  <li>Click "Send Test Webhook"</li>
+  <li>The workflow resumes and completes</li>
+</ol>
+
+<h3>Option B: cURL</h3>
+<pre>
+curl -X POST http://localhost:3001/webhooks/callback/payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">pay_4kF9xR2mNqLp-result</span>" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>",
+    "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:26:14.392Z</span>",
+    "<span class="field">amount</span>": 99.99,
+    "<span class="field">currency</span>": "<span class="string">USD</span>",
+    "<span class="field">cardBrand</span>": "<span class="string">visa</span>",
+    "<span class="field">last4</span>": "<span class="string">4242</span>",
+    "<span class="field">authorizationCode</span>": "<span class="string">AUTH-779231</span>",
+    "<span class="field">riskScore</span>": 12,
+    "<span class="field">receiptUrl</span>": "<span class="string">https://pay.example.com/receipts/txn_8mK3vP7wXjRs</span>"
+  }'
+</pre>
+
+<h3>Option C: Manual Resume</h3>
+<ol>
+  <li>Open <strong>Execution History</strong> panel</li>
+  <li>Click the <strong>"Paused"</strong> tab</li>
+  <li>Find the paused workflow card</li>
+  <li>Click <strong>"Resume Manually"</strong></li>
+</ol>
+
+<!-- ════════════════════════════════ -->
+<h2>Expected Webhook Payload</h2>
+<p>This is what a real payment gateway (Stripe, PayPal, Adyen, etc.) sends back when the charge is processed:</p>
+<pre>
+POST /webhooks/callback/payment
+Content-Type: application/json
+x-idempotency-key: pay_4kF9xR2mNqLp-result
+
+{
+  "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">status</span>": "<span class="string">approved</span>",
+  "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>",
+  "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:26:14.392Z</span>",
+  "<span class="field">amount</span>": 99.99,
+  "<span class="field">currency</span>": "<span class="string">USD</span>",
+  "<span class="field">cardBrand</span>": "<span class="string">visa</span>",
+  "<span class="field">last4</span>": "<span class="string">4242</span>",
+  "<span class="field">authorizationCode</span>": "<span class="string">AUTH-779231</span>",
+  "<span class="field">riskScore</span>": 12,
+  "<span class="field">receiptUrl</span>": "<span class="string">https://pay.example.com/receipts/txn_8mK3vP7wXjRs</span>"
+}
+</pre>
+
+<!-- ════════════════════════════════ -->
+<h2>RedfireForge Server Responses</h2>
+<p>What RedfireForge returns to the calling system when a webhook is received:</p>
+
+<h4>✅ Matched — Workflow Resumed (200)</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-abc-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-payment-flow</span>",
+  "<span class="field">webhookData</span>": {
+    "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>",
+    <span class="comment">... full webhook body echoed back ...</span>
+  }
+}
+</pre>
+
+<h4>❌ No Match Found (404)</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">false</span>,
+  "<span class="field">error</span>": "<span class="string">No matching paused workflow found</span>",
+  "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>"
+}
+</pre>
+
+<h4>🔁 Duplicate — Idempotent (200, cached)</h4>
+<pre>
+<span class="comment">// Second call with same x-idempotency-key returns cached response:</span>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-abc-001</span>",
+  <span class="comment">... same response as first call (no duplicate execution) ...</span>
+}
+</pre>
+
+<div class="callout callout-tip">
+  <strong>💡 Idempotency</strong>
+  Always send an <code>x-idempotency-key</code> header. If your gateway retries the callback,
+  RedfireForge returns the cached response without resuming the workflow twice.
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>YAML Reference</h2>
+<p>File: <code>examples/easy-payment-callback-workflow.yaml</code></p>
+
+<div class="callout">
+  <strong>📋 Import from Template Gallery</strong>
+  Open Workflow Designer → click "Template Gallery" → search "Payment Callback" → Import
+</div>
+
+<footer>
+  RedfireForge &mdash; Payment Callback Sample &mdash; April 2026
+</footer>
+
+</body>
+</html>

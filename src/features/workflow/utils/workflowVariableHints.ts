@@ -28,6 +28,7 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   errorHandler:      { icon: '⚠',  category: 'Logic' },
   logDebug:          { icon: '📝', category: 'Logic' },
   script:            { icon: '⟨/⟩', category: 'Data' },
+  correlationWait:   { icon: '🔗', category: 'Integrations' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
