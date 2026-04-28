@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import { addEdge, reconnectEdge, type OnConnect, type Edge, type Connection } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
-import type { WorkflowNode, WorkflowService, WorkflowErrorConfig } from '../types/workflow';
+import type { WorkflowNode } from '../types/workflow';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type { Workflow } from '../types/workflow';
-import type { NodeRunStatus } from './useWorkflowRunCache';
+import type { NodeRunStatus } from '../types/workflow';
 
 interface UseWorkflowEdgeOpsOpts {
   selected: Workflow | null;

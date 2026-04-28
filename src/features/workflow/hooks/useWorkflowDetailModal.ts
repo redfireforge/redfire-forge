@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
-import type { NodeRunStatus } from './useWorkflowRunCache';
+import type { NodeRunStatus } from '../types/workflow';
 
 type DetailModal =
   | null

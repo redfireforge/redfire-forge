@@ -137,6 +137,7 @@ describe('handleCorrelationWaitNode', () => {
       expect.any(Object),
       5000,
       undefined,
+      expect.any(Object),
     );
     expect(states['cw1']?.state).toBe('pass');
     expect(passed.value).toBe(true);
@@ -258,6 +259,7 @@ describe('handleCorrelationWaitNode', () => {
       expect.any(Object),
       5000,
       '{{webhook.type}} == payment',
+      expect.any(Object),
     );
   });
 

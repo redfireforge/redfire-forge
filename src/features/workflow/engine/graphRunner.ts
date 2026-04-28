@@ -59,7 +59,7 @@ export interface GraphRunCallbacks {
   onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
   onVariablesChange: (variables: Record<string, string>) => void;
   onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => void;
-  onLog?: (line: { prefix: '' | '*' | '>' | '<' | '#' | '!'; text: string; ts?: number }) => void;
+  onLog?: (line: { prefix: string; text: string; ts?: number }) => void;
   /** Fired when a sub-workflow node completes (after retries). */
   onSubWorkflowComplete?: (summary: SubWorkflowRunSummary) => void;
 }
@@ -96,7 +96,7 @@ export async function runGraph(
   const tokenManager = new TokenManager();
   const results: RequestResult[] = [];
 
-  const log = (line: { prefix: '' | '*' | '>' | '<' | '#' | '!'; text: string }) => {
+  const log = (line: { prefix: string; text: string }) => {
     callbacks.onLog?.({ ...line, ts: Date.now() });
   };
   const nodeLabel = (id: string) => {
@@ -290,7 +290,7 @@ export async function runGraph(
         // Collect error messages from failed nodes
         const failedErrors: string[] = [];
         for (const [_nid, result] of results.entries()) {
-          if (result.error) failedErrors.push(result.error);
+          if (result.errorMessage) failedErrors.push(result.errorMessage);
         }
         const errorSummary = failedErrors.length > 0
           ? failedErrors.join('; ')

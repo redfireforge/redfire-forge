@@ -177,7 +177,7 @@ export default function ThemeCustomizer({ currentTheme, onClose, onApply }: Prop
   const [overrides, setOverrides] = useState<CustomThemeOverrides>(() => activeSaved?.overrides ?? {});
   const [contrast, setContrast] = useState(() => activeSaved?.contrast ?? 0);
   const [baseTheme, setBaseTheme] = useState(initBase);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Saved themes library
   const [savedThemes, setSavedThemes] = useState<SavedCustomTheme[]>(() => loadSavedThemes());

@@ -6,7 +6,7 @@ import ScriptCodeEditor from './ScriptCodeEditor';
 import ScriptTestResult from './ScriptTestResult';
 import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
 import WorkflowEditorModalFrame from '../modals/WorkflowEditorModalFrame';
-import JsonPreview, { buildJTree, collectMatchNodes } from '../../../requests/components/JsonTreePreview';
+import JsonPreview, { buildJTree } from '../../../requests/components/JsonTreePreview';
 import type { JNode } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
@@ -194,7 +194,7 @@ export default function ScriptCodeModal({ data: initialData, onSave, onClose, on
   const {
     testResult, mockInputs, setMockInputs,
     inferredDefaults, complexityWarnings,
-    handleTestScript, handleAutoDetect, handleMockInputChange,
+    handleTestScript, handleAutoDetect,
   } = useScriptTest(data, workflowVariables);
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [valuePanelWidth, setValuePanelWidth] = useState(400);

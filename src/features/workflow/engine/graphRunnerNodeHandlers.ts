@@ -69,7 +69,7 @@ export interface NodeHandlerContext {
   /** Sub-workflow resolver */
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined;
   /** Log helper */
-  log: (line: { prefix: '' | '*' | '>' | '<' | '#' | '!'; text: string }) => void;
+  log: (line: { prefix: string; text: string }) => void;
   /** Node label resolver */
   nodeLabel: (id: string) => string;
   /** Visit a node (recursive call back into visit) */

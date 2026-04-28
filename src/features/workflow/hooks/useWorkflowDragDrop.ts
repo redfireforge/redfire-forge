@@ -146,7 +146,7 @@ export function useWorkflowDragDrop({
       setNodes((nds) => [...nds, newNode]);
       setEdges((eds) => {
         const updated = eds.filter(e2 => e2.id !== closestEdge.id).concat(newEdge1, newEdge2);
-        const wfNodes = serializeNodes([...rfInstance.getNodes(), newNode]);
+        const wfNodes = serializeNodes([...rfInstance.getNodes() as WorkflowRFNode[], newNode]);
         const wfEdges = serializeEdges(updated);
         queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
         return updated;

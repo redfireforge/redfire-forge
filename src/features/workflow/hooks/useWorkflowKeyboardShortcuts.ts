@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type { Workflow } from '../types/workflow';
+import type { ToastApi } from '../components/WorkflowToastProvider';
 import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
 
 interface UseWorkflowKeyboardShortcutsOptions {
@@ -23,7 +24,7 @@ interface UseWorkflowKeyboardShortcutsOptions {
   setShowShortcuts: React.Dispatch<React.SetStateAction<boolean>>;
   setShowCommandPalette: React.Dispatch<React.SetStateAction<boolean>>;
   setShowMinimap: React.Dispatch<React.SetStateAction<boolean>>;
-  toast: { show: (type: string, message: string, detail?: string) => void };
+  toast: ToastApi;
 }
 
 export function useWorkflowKeyboardShortcuts({
