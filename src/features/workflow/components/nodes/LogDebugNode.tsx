@@ -3,6 +3,7 @@ import type { LogDebugNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
+import { NodePausedOverlay } from './NodePausedOverlay';
 
 type LogDebugWorkflowNode = Node<LogDebugNodeData, 'logDebug'>;
 type Props = NodeProps<LogDebugWorkflowNode>;
@@ -15,7 +16,7 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 export default function LogDebugNode({ id, data, selected }: Props) {
-  const { stateClass, handleConfigure } = useNodeBase(id);
+  const { rs, stateClass, debugStep, handleConfigure } = useNodeBase(id);
 
   const msgPreview = data.message
     ? data.message.length > 40 ? data.message.slice(0, 37) + '…' : data.message
@@ -38,6 +39,8 @@ export default function LogDebugNode({ id, data, selected }: Props) {
       <div className="wf-node-footer">
         <NodeConfigureButton title="Configure log" onClick={handleConfigure} />
       </div>
+
+      <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} className="wf-handle" />

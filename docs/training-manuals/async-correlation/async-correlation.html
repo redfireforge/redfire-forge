@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Async Correlation Wait Feature Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-hard { background: #f8d7da; color: #721c24; }
+  .badge-feature { background: #cce5ff; color: #004085; }
+  .badge-security { background: #e2e3e5; color: #383d41; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout-danger {
+    background: #fce4ec; border-left-color: #c62828;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Async Correlation Wait</h1>
+  <div class="subtitle">Feature Manual &amp; Reference Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    A comprehensive guide to the Correlation Wait node in RedfireForge. Learn how to
+    pause workflows for external webhook callbacks, match correlations by body/header/query,
+    extract variables, filter webhooks, and build production-grade async integrations.
+  </p>
+  <div class="meta">
+    RedfireForge Workflow Engine<br>
+    Last Updated: April 2026
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">Overview &amp; Concepts</a></li>
+  <li><a href="#how-it-works">How It Works</a></li>
+  <li><a href="#config">Configuration Fields</a></li>
+  <li><a href="#correlation-sources">Correlation Sources</a></li>
+  <li><a href="#extract-variables">Extract Variables</a></li>
+  <li><a href="#webhook-filters">Webhook Filter Expressions</a></li>
+  <li><a href="#timeout">Timeout &amp; Error Handling</a></li>
+  <li><a href="#security">Security (Production)</a></li>
+  <li><a href="#idempotency">Idempotency &amp; Deduplication</a></li>
+  <li><a href="#test-webhook">Test Webhook &amp; Manual Resume</a></li>
+  <li><a href="#patterns">Common Patterns</a></li>
+  <li><a href="#api-reference">API Endpoint Reference</a></li>
+  <li><a href="#responses">Server Response Reference</a></li>
+  <li><a href="#storage">Storage Configuration</a></li>
+  <li><a href="#troubleshooting">Troubleshooting &amp; FAQ</a></li>
+  <li><a href="#samples">Sample Workflows</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="overview">1. Overview &amp; Concepts</h2>
+
+<p>
+  The <strong>Correlation Wait</strong> node pauses a workflow execution and waits for an
+  external system to send a webhook callback before resuming. This is the fundamental building
+  block for asynchronous, event-driven workflows.
+</p>
+
+<h3>When to Use</h3>
+<ul>
+  <li><strong>Payment gateways</strong> — Wait for a charge confirmation callback</li>
+  <li><strong>Manager approvals</strong> — Wait for an approve/reject decision</li>
+  <li><strong>CI/CD builds</strong> — Wait for a build-complete notification</li>
+  <li><strong>Async APIs</strong> — Any process that calls back when done</li>
+</ul>
+
+<h3>Key Capabilities</h3>
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔗 Correlation Matching</strong>
+    <p>Match webhooks by body JSONPath, HTTP header, or query parameter</p>
+  </div>
+  <div class="feature-card">
+    <strong>📦 Variable Extraction</strong>
+    <p>Pull fields from webhook payload into workflow context</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔒 HMAC Security</strong>
+    <p>Signed URLs, request signatures, IP whitelist</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔄 Idempotency</strong>
+    <p>Automatic deduplication of repeated webhook deliveries</p>
+  </div>
+  <div class="feature-card">
+    <strong>🎯 Webhook Filters</strong>
+    <p>Accept only webhooks matching expressions (==, contains, exists, &&, ||)</p>
+  </div>
+  <div class="feature-card">
+    <strong>⏱ Configurable Timeout</strong>
+    <p>5 minutes to 72 hours. 0 = wait forever</p>
+  </div>
+</div>
+
+<h3>Industry Precedent</h3>
+<table>
+  <tr><th>Platform</th><th>Equivalent Concept</th></tr>
+  <tr><td>Temporal</td><td>Signals</td></tr>
+  <tr><td>Camunda</td><td>Message Correlation</td></tr>
+  <tr><td>AWS Step Functions</td><td>Task Tokens</td></tr>
+  <tr><td>n8n</td><td>Webhook Wait Nodes</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. HOW IT WORKS                             -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="how-it-works">2. How It Works</h2>
+
+<div class="flow-diagram">
+  ┌───────────────────────────────────────────────────────────────────┐
+  │ <strong>Workflow Execution</strong>                                            │
+  │                                                                   │
+  │  Start → HTTP (submit) → <span style="color:#e63946; font-weight:700;">CorrelationWait</span> → HTTP (process) → End  │
+  │                              │     ▲                              │
+  │                              │     │                              │
+  │                    ┌─────────▼─────┴──────────┐                   │
+  │                    │  <strong>Server</strong>                    │                   │
+  │                    │                          │                   │
+  │                    │  1. Register correlation  │                   │
+  │                    │  2. Wait for webhook      │                   │
+  │                    │  3. Match &amp; resume        │                   │
+  │                    └──────────▲────────────────┘                   │
+  │                               │                                   │
+  │                    ┌──────────┴────────────┐                      │
+  │                    │  <strong>External System</strong>       │                      │
+  │                    │  POST /webhooks/       │                      │
+  │                    │  callback/payment      │                      │
+  │                    │  { paymentId: "abc" }  │                      │
+  │                    └───────────────────────┘                      │
+  └───────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>Step-by-Step Flow</h3>
+<ol>
+  <li><span class="step-num">1</span> Workflow reaches the CorrelationWait node</li>
+  <li><span class="step-num">2</span> Node evaluates the Correlation ID Expression (e.g., <code>{{paymentId}}</code>)</li>
+  <li><span class="step-num">3</span> Workflow <strong>PAUSES</strong> — node shows amber "⏸ PAUSED" indicator on the canvas</li>
+  <li><span class="step-num">4</span> External system sends <code>POST</code> to <code>/webhooks/callback/&lt;path&gt;</code></li>
+  <li><span class="step-num">5</span> Server matches incoming webhook to paused workflow by correlation ID</li>
+  <li><span class="step-num">6</span> Extracted variables are injected into workflow context</li>
+  <li><span class="step-num">7</span> Workflow <strong>RESUMES</strong> — execution continues to the next node</li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. CONFIGURATION                            -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="config">3. Configuration Fields</h2>
+
+<table>
+  <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+  <tr><td><strong>Label</strong></td><td>Yes</td><td>Display name for the node</td></tr>
+  <tr><td><strong>Correlation ID Expression</strong></td><td>Yes</td><td>Expression resolving to a unique ID (e.g., <code>{{paymentId}}</code>)</td></tr>
+  <tr><td><strong>Webhook Path</strong></td><td>Yes</td><td>The path external systems POST to (e.g., <code>/webhooks/callback/payment</code>)</td></tr>
+  <tr><td><strong>Correlation Source</strong></td><td>Yes</td><td><code>body</code>, <code>header</code>, or <code>query</code></td></tr>
+  <tr><td><strong>Correlation JSONPath</strong></td><td>If body</td><td>JSONPath in webhook body (e.g., <code>$.paymentId</code>)</td></tr>
+  <tr><td><strong>Header Name</strong></td><td>If header</td><td>HTTP header name (e.g., <code>X-Correlation-ID</code>)</td></tr>
+  <tr><td><strong>Query Parameter</strong></td><td>If query</td><td>Query param name (e.g., <code>buildId</code>)</td></tr>
+  <tr><td><strong>Extract Variables</strong></td><td>No</td><td>Variables to extract from webhook payload</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>Yes</td><td>How long to wait. 0 = unlimited</td></tr>
+  <tr><td><strong>Webhook Filter</strong></td><td>No</td><td>Expression to filter incoming webhooks</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. CORRELATION SOURCES                      -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="correlation-sources">4. Correlation Sources</h2>
+
+<h3>Body (JSONPath) — Most Common</h3>
+<p>The correlation ID is inside the JSON body. Use a JSONPath expression to extract it.</p>
+<pre>
+<span class="comment">// Config:</span>
+Correlation Source: <span class="string">body</span>
+Correlation JSONPath: <span class="string">$.paymentId</span>
+
+<span class="comment">// Incoming webhook:</span>
+POST /webhooks/callback/payment
+{
+  "<span class="field">paymentId</span>": "pay_123",
+  "status": "approved",
+  "transactionId": "txn_456"
+}
+</pre>
+
+<h3>Header</h3>
+<p>Useful for systems that use standard correlation headers (GitHub, Stripe, etc.).</p>
+<pre>
+<span class="comment">// Config:</span>
+Correlation Source: <span class="string">header</span>
+Header Name: <span class="string">X-Correlation-ID</span>
+
+<span class="comment">// Incoming webhook:</span>
+POST /webhooks/callback/approval
+<span class="field">X-Correlation-ID</span>: REQ-2024-0042
+
+{ "decision": "approved", "comment": "Looks good" }
+</pre>
+
+<h3>Query Parameter</h3>
+<p>The correlation ID is in the URL query string. Useful for simple callback URLs.</p>
+<pre>
+<span class="comment">// Config:</span>
+Correlation Source: <span class="string">query</span>
+Query Parameter: <span class="string">buildId</span>
+
+<span class="comment">// Incoming webhook:</span>
+POST /webhooks/callback/build-complete<span class="field">?buildId=build_789</span>
+
+{ "status": "success", "artifactUrl": "https://..." }
+</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. EXTRACT VARIABLES                        -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="extract-variables">5. Extract Variables</h2>
+
+<p>
+  Pull fields from the webhook payload into workflow variables for use in subsequent nodes.
+</p>
+
+<table>
+  <tr><th>Variable Name</th><th>JSONPath</th><th>Example Value</th></tr>
+  <tr><td><code>paymentStatus</code></td><td><code>$.status</code></td><td><code>"approved"</code></td></tr>
+  <tr><td><code>transactionId</code></td><td><code>$.transactionId</code></td><td><code>"txn_456"</code></td></tr>
+  <tr><td><code>processedAt</code></td><td><code>$.processedAt</code></td><td><code>"2024-01-15T10:30:00Z"</code></td></tr>
+</table>
+
+<p>Extracted variables are available as <code>{{paymentStatus}}</code>, <code>{{transactionId}}</code>, etc. in all subsequent nodes.</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Tip: Nested Paths</strong>
+  Use dot notation in JSONPath for nested objects: <code>$.data.payment.status</code>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. WEBHOOK FILTERS                          -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="webhook-filters">6. Webhook Filter Expressions</h2>
+
+<p>
+  Only accept webhooks that match your filter expression. The filter is evaluated
+  <em>before</em> the workflow resumes.
+</p>
+
+<table>
+  <tr><th>Operator</th><th>Example</th><th>Description</th></tr>
+  <tr><td><code>==</code></td><td><code>{{webhook.type}} == payment</code></td><td>Equality</td></tr>
+  <tr><td><code>!=</code></td><td><code>{{webhook.status}} != pending</code></td><td>Inequality</td></tr>
+  <tr><td><code>contains</code></td><td><code>{{webhook.message}} contains success</code></td><td>Substring match</td></tr>
+  <tr><td><code>exists</code></td><td><code>{{webhook.paymentId}} exists</code></td><td>Field existence</td></tr>
+  <tr><td><code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code></td><td><code>{{webhook.amount}} &gt; 100</code></td><td>Numeric comparison</td></tr>
+  <tr><td><code>&amp;&amp;</code></td><td><code>{{type}} == payment &amp;&amp; {{status}} == success</code></td><td>Logical AND</td></tr>
+  <tr><td><code>||</code></td><td><code>{{type}} == payment || {{type}} == refund</code></td><td>Logical OR</td></tr>
+</table>
+
+<h4>Filter Examples</h4>
+<pre>
+<span class="comment"># Only accept "payment" type webhooks</span>
+{{webhook.type}} == payment
+
+<span class="comment"># Accept approved payments over $100</span>
+{{webhook.status}} == approved &amp;&amp; {{webhook.amount}} &gt; 100
+
+<span class="comment"># Accept either payment or refund events</span>
+{{webhook.type}} == payment || {{webhook.type}} == refund
+
+<span class="comment"># Only accept when transaction ID exists</span>
+{{webhook.transactionId}} exists
+</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. TIMEOUT                                  -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="timeout">7. Timeout &amp; Error Handling</h2>
+
+<table>
+  <tr><th>Scenario</th><th>Recommended Timeout</th><th>Value (ms)</th></tr>
+  <tr><td>Payment callback</td><td>5 minutes</td><td><code>300000</code></td></tr>
+  <tr><td>CI/CD build</td><td>30 minutes</td><td><code>1800000</code></td></tr>
+  <tr><td>Human approval</td><td>72 hours</td><td><code>259200000</code></td></tr>
+  <tr><td>No timeout (wait forever)</td><td>—</td><td><code>0</code></td></tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠ Timeout Behavior</strong>
+  When timeout is reached, the node <strong>fails</strong> and the workflow reports an error.
+  Wrap the CorrelationWait in an <code>ErrorHandler</code> node to catch and handle timeouts gracefully.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. SECURITY                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="security">8. Security (Production)</h2>
+
+<p>Enable webhook security by setting environment variables:</p>
+
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>WEBHOOK_SECURITY_ENABLED</code></td><td><code>false</code></td><td>Enable HMAC + IP security</td></tr>
+  <tr><td><code>WEBHOOK_HMAC_SECRET</code></td><td>(random)</td><td>HMAC-SHA256 secret key</td></tr>
+  <tr><td><code>WEBHOOK_TOKEN_EXPIRY_MS</code></td><td><code>86400000</code> (24h)</td><td>Token expiration</td></tr>
+</table>
+
+<h3>Request Signature Validation</h3>
+<p>When security is enabled, incoming webhooks are validated against these headers (priority order):</p>
+<ol>
+  <li><code>x-webhook-signature</code> — raw HMAC-SHA256 hex digest</li>
+  <li><code>x-hub-signature-256</code> — GitHub-style <code>sha256=&lt;hex&gt;</code></li>
+  <li><code>x-signature</code> — generic signature header</li>
+</ol>
+
+<h4>Signing Example</h4>
+<pre>
+<span class="keyword">const</span> crypto = require(<span class="string">'crypto'</span>);
+<span class="keyword">const</span> body = JSON.stringify(payload);
+<span class="keyword">const</span> signature = crypto
+  .createHmac(<span class="string">'sha256'</span>, WEBHOOK_HMAC_SECRET)
+  .update(body)
+  .digest(<span class="string">'hex'</span>);
+
+<span class="comment">// Send as header:</span>
+headers[<span class="string">'x-webhook-signature'</span>] = signature;
+</pre>
+
+<h3>IP Whitelist</h3>
+<p>
+  Restrict webhook origins using CIDR notation. Requests from non-whitelisted IPs
+  receive a <code>403</code> response.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 9. IDEMPOTENCY                              -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="idempotency">9. Idempotency &amp; Deduplication</h2>
+
+<p>Duplicate webhooks are automatically handled. The first webhook resumes the workflow;
+subsequent duplicates return the cached response.</p>
+
+<h4>Idempotency Key Priority</h4>
+<ol>
+  <li><code>x-idempotency-key</code> header (explicit)</li>
+  <li><code>x-request-id</code> header (fallback)</li>
+  <li><code>correlationId + webhookPath</code> (implicit)</li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>💡 Tip</strong>
+  Always include an <code>x-idempotency-key</code> header from your external system
+  to guarantee exactly-once processing.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 10. TEST WEBHOOK                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="test-webhook">10. Test Webhook &amp; Manual Resume</h2>
+
+<h3>Test Webhook (Config Modal)</h3>
+<p>
+  The CorrelationWait config modal includes a <strong>"Test Webhook"</strong> section:
+</p>
+<ol>
+  <li>See a pre-generated sample webhook payload based on your configuration</li>
+  <li>Edit the payload as needed</li>
+  <li>Click "Send Test Webhook" to simulate the callback</li>
+</ol>
+
+<h3>Manual Resume (Execution History)</h3>
+<p>
+  The <strong>Execution History</strong> panel has a "Paused" filter tab showing all
+  currently paused workflows with:
+</p>
+<ul>
+  <li>Correlation ID and webhook path</li>
+  <li>Elapsed time since pause</li>
+  <li>Timeout countdown</li>
+  <li><strong>"Resume Manually"</strong> button — click to resume with test data</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 11. COMMON PATTERNS                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="patterns">11. Common Patterns</h2>
+
+<h3>Pattern 1: Submit → Wait → Process <span class="badge badge-easy">Easy</span></h3>
+<div class="flow-diagram">Start → HTTP (submit) → CorrelationWait → HTTP (process result) → End</div>
+<p>The simplest pattern. Submit a request, wait for callback, process the result.</p>
+<p>📄 See: <a href="payment-callback-easy.html">Payment Callback Sample</a></p>
+
+<h3>Pattern 2: Submit → Wait → Branch <span class="badge badge-medium">Medium</span></h3>
+<div class="flow-diagram">Start → HTTP (submit) → CorrelationWait → Switch/Condition → [Branch A | Branch B] → End</div>
+<p>Wait for callback, then route based on the result (approved vs rejected).</p>
+<p>📄 See: <a href="approval-workflow-medium.html">Approval Workflow Sample</a></p>
+
+<h3>Pattern 3: Parallel Waits (Fork/Join) <span class="badge badge-hard">Hard</span></h3>
+<div class="flow-diagram">Start → Fork → [CorrelationWait A | CorrelationWait B] → Join → Process → End</div>
+<p>Wait for multiple async callbacks in parallel, then aggregate results.</p>
+<p>📄 See: <a href="parallel-payment-advanced.html">Parallel Payment Sample</a></p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 12. API REFERENCE                           -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="api-reference">12. API Endpoint Reference</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-feature">POST</span></td><td><code>/api/correlations/pause</code></td><td>Register a paused correlation</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations/:id/wait</code></td><td>Long-poll until paused entry is resumed (browser bridge)</td></tr>
+  <tr><td><span class="badge badge-feature">POST</span></td><td><code>/api/correlations/resume</code></td><td>Resume directly (manual/test)</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations</code></td><td>List all paused correlations</td></tr>
+  <tr><td><span class="badge badge-hard">DELETE</span></td><td><code>/api/correlations/:id</code></td><td>Cancel a paused correlation</td></tr>
+  <tr><td><span class="badge badge-feature">POST</span></td><td><code>/api/correlations/cleanup</code></td><td>Cleanup expired entries</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations/unmatched</code></td><td>Unmatched webhook log</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/api/correlations/idempotency</code></td><td>Idempotency cache stats</td></tr>
+  <tr><td><span class="badge badge-feature">POST</span></td><td><code>/webhooks/callback/:path</code></td><td>Webhook callback (primary)</td></tr>
+  <tr><td><span class="badge badge-easy">GET</span></td><td><code>/webhooks/callback/:path</code></td><td>Webhook callback (query-based)</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📋 Full API Spec</strong>
+  Import the OpenAPI spec from the <strong>API Catalog → Import Spec → Sample Gallery →
+  "Correlation Wait API"</strong> to browse all endpoints interactively.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 12b. RESPONSE REFERENCE                    -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2 id="responses">12b. Server Response Reference</h2>
+
+<p>Every webhook callback to <code>/webhooks/callback/*</code> returns one of these responses.
+  External systems should handle each case appropriately.</p>
+
+<h3>✅ 200 — Workflow Resumed</h3>
+<p>Webhook matched a paused correlation. Workflow resumes immediately.</p>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-abc-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-payment-flow</span>",
+  "<span class="field">webhookData</span>": {
+    "<span class="field">paymentId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_8mK3vP7wXjRs</span>"
+  }
+}
+</pre>
+
+<h3>🔁 200 — Idempotent Duplicate (Cached)</h3>
+<p>Same webhook already processed (matched by <code>x-idempotency-key</code> or <code>x-request-id</code>). Returns the original cached response. No duplicate workflow execution.</p>
+<pre>
+<span class="comment">// Identical to the original 200 response — cached</span>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">pay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-abc-001</span>",
+  <span class="comment">... same as first call ...</span>
+}
+</pre>
+
+<h3>🔐 401 — Signature Invalid</h3>
+<p>When <code>WEBHOOK_SECURITY_ENABLED=true</code>, the request signature failed validation.</p>
+<pre>
+{ "<span class="field">error</span>": "<span class="string">Invalid HMAC signature</span>" }
+</pre>
+
+<h3>🚫 403 — IP Not Allowed</h3>
+<p>Request came from an IP not in the whitelist.</p>
+<pre>
+{ "<span class="field">error</span>": "<span class="string">IP not allowed</span>", "<span class="field">ip</span>": "<span class="string">203.0.113.42</span>" }
+</pre>
+
+<h3>❌ 404 — No Matching Paused Workflow</h3>
+<p>No paused workflow has a correlation matching this webhook.</p>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">false</span>,
+  "<span class="field">error</span>": "<span class="string">No matching paused workflow found</span>",
+  "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/payment</span>"
+}
+</pre>
+
+<h3>🎯 422 — Webhook Filter Rejected</h3>
+<p>Correlation matched but the webhook filter expression evaluated to false.</p>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">false</span>,
+  "<span class="field">error</span>": "<span class="string">Webhook filter rejected: {{webhook.type}} == approval evaluated to false</span>",
+  "<span class="field">correlationId</span>": "<span class="string">REQ-2024-0042</span>"
+}
+</pre>
+
+<div class="callout">
+  <strong>📋 Response Code Quick Reference</strong>
+  <table style="margin:8px 0 0; font-size:12px;">
+    <tr><th>Code</th><th>Meaning</th><th>Action</th></tr>
+    <tr><td>200</td><td>Resumed (or idempotent duplicate)</td><td>Success — no retry needed</td></tr>
+    <tr><td>401</td><td>Bad signature</td><td>Fix HMAC signing</td></tr>
+    <tr><td>403</td><td>IP blocked</td><td>Add IP to whitelist</td></tr>
+    <tr><td>404</td><td>No match</td><td>Check correlation ID / path / timeout</td></tr>
+    <tr><td>422</td><td>Filter rejected</td><td>Check filter expression & payload</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 13. STORAGE                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="storage">13. Storage Configuration</h2>
+
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>CORRELATION_STORE_TYPE</code></td><td><code>memory</code></td><td><code>memory</code>, <code>sqlite</code>, or <code>postgres</code></td></tr>
+  <tr><td><code>DATABASE_URL</code></td><td>—</td><td>PostgreSQL connection string</td></tr>
+</table>
+
+<table>
+  <tr><th>Store</th><th>Persistence</th><th>Best For</th></tr>
+  <tr><td><strong>memory</strong></td><td>Lost on restart</td><td>Development</td></tr>
+  <tr><td><strong>sqlite</strong></td><td>File-based, survives restart</td><td>Local dev / testing</td></tr>
+  <tr><td><strong>postgres</strong></td><td>Production-grade</td><td>Production deployment</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 14. TROUBLESHOOTING                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h2 id="troubleshooting">14. Troubleshooting &amp; FAQ</h2>
+
+<h3>Webhook not matching (404)</h3>
+<div class="callout callout-warn">
+  <strong>Symptoms:</strong> Webhook returns "No matching paused workflow found"
+</div>
+<ol>
+  <li>Verify the webhook path is exactly right (e.g., <code>/webhooks/callback/payment</code>)</li>
+  <li>Check the correlation ID in the webhook body/header/query matches what the workflow sent</li>
+  <li>Check the "Paused" tab in Execution History — has the workflow timed out?</li>
+  <li>Check the unmatched log: <code>GET /api/correlations/unmatched</code></li>
+</ol>
+
+<h3>Workflow stuck in PAUSED state</h3>
+<div class="callout callout-warn">
+  <strong>Symptoms:</strong> Node shows amber "⏸ PAUSED" but never resumes
+</div>
+<ol>
+  <li>Has the external system actually sent the callback?</li>
+  <li>Is the webhook filter rejecting the incoming payload? (check 422 responses)</li>
+  <li>Use the "Resume Manually" button in Execution History to test</li>
+</ol>
+
+<h3>Duplicate webhook handling</h3>
+<p><strong>Q:</strong> What happens if the external system sends the same webhook twice?</p>
+<p><strong>A:</strong> The first webhook resumes the workflow. The second returns the cached response
+(idempotency). No duplicate execution occurs.</p>
+
+<h3>Extract variables empty</h3>
+<ol>
+  <li>Verify the JSONPath matches the actual webhook payload structure</li>
+  <li>Use the Test Webhook feature to inspect the payload</li>
+  <li>Check for nested paths (e.g., <code>$.data.status</code> not <code>$.status</code>)</li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 15. SAMPLES                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="samples">15. Sample Workflows</h2>
+
+<table>
+  <tr><th>Difficulty</th><th>Sample</th><th>Description</th><th>File</th></tr>
+  <tr>
+    <td><span class="badge badge-easy">Easy</span></td>
+    <td><a href="payment-callback-easy.html">Payment Callback</a></td>
+    <td>Basic payment gateway callback with body correlation</td>
+    <td><code>easy-payment-callback-workflow.yaml</code></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-medium">Medium</span></td>
+    <td><a href="approval-workflow-medium.html">Manager Approval</a></td>
+    <td>Header correlation, webhook filter, Switch, 72h timeout</td>
+    <td><code>medium-approval-workflow.yaml</code></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-hard">Hard</span></td>
+    <td><a href="parallel-payment-advanced.html">Parallel Payment</a></td>
+    <td>Fork/Join, 2 CorrelationWaits, Aggregate, ErrorHandler</td>
+    <td><code>hard-parallel-payment-workflow.yaml</code></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-medium">API</span></td>
+    <td><a href="correlation-wait-api-yaml-test.html">API Testing Guide</a></td>
+    <td>Test every endpoint in the Correlation Wait API YAML spec via "Try" or cURL</td>
+    <td><code>correlation-wait-api.yaml</code></td>
+  </tr>
+</table>
+
+<h3>Counterpart Simulators (Demo)</h3>
+<p>
+  The three samples above pause on a <code>CorrelationWait</code> node and require an external HTTP POST to resume.
+  To demonstrate the full round-trip without a real gateway, the Template Gallery also ships matching
+  <strong>simulator</strong> workflows. Each simulator waits 3&nbsp;seconds, then POSTs a fake webhook callback to
+  <code>http://localhost:3001/webhooks/...</code>, resuming the paused main workflow.
+</p>
+<table>
+  <tr><th>Main Sample</th><th>Simulator (run in second tab)</th><th>What it sends</th></tr>
+  <tr>
+    <td>Payment Callback</td>
+    <td><code>Sample: Payment Callback (Simulator)</code></td>
+    <td>POST <code>/webhooks/callback/payment</code> with <code>paymentId=101</code> (body correlation)</td>
+  </tr>
+  <tr>
+    <td>Manager Approval</td>
+    <td><code>Sample: Manager Approval (Simulator)</code></td>
+    <td>POST <code>/webhooks/callback/approval</code> with header <code>X-Correlation-ID: REQ-2024-0042</code></td>
+  </tr>
+  <tr>
+    <td>Parallel Payment</td>
+    <td><code>Sample: Parallel Payment (Simulator)</code></td>
+    <td>Fork/Join — POSTs <code>/webhooks/callback/card-payment</code> and <code>/webhooks/callback/loyalty-payment</code> in parallel</td>
+  </tr>
+</table>
+<div class="callout callout-tip">
+  <strong>💡 How to demo</strong>
+  (1) Open the main sample from the Gallery and click <em>Quick Test</em> — it pauses on the
+  CorrelationWait node. (2) Open the matching <em>Simulator</em> sample in another tab and click <em>Quick Test</em>.
+  After ~3&nbsp;seconds it posts the callback and the paused main workflow resumes.
+</div>
+
+<footer>
+  RedfireForge &mdash; Async Correlation Wait Feature Manual &mdash; April 2026
+</footer>
+
+</body>
+</html>

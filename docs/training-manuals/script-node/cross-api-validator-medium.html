@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Script: Cross-API Validator (Medium Sample)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-danger { background: #fce4ec; border-left-color: #c62828; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+  <h1>Script: Cross-API Validator</h1>
+  <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Fetch a user and their posts in parallel using Fork/Join, use a Script node in
+    Validate mode to cross-check data consistency, with ErrorHandler catching any
+    failures and LogDebug tracing the results.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 10 &nbsp;|&nbsp; Category: Logic<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#script-deep-dive">Script Code Deep Dive</a></li>
+  <li><a href="#error-handler">ErrorHandler Deep Dive</a></li>
+  <li><a href="#variables">Variable Flow</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates a realistic <strong>data consistency validation</strong> pattern:
+  fetch related data from two different API endpoints in parallel, then use a Script node
+  to cross-check that the data is consistent.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> An API testing pipeline that verifies referential
+  integrity — e.g., every order has a valid customer, every post belongs to the correct
+  user, or every payment references an existing invoice.
+</p>
+<p><strong>Key patterns demonstrated:</strong></p>
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔀 Fork/Join</strong>
+    <p>Parallel HTTP fetches — get user and posts simultaneously for faster execution.</p>
+  </div>
+  <div class="feature-card">
+    <strong>✅ Validate Mode</strong>
+    <p>Script sets <code>output.result</code> to pass/fail the node based on data checks.</p>
+  </div>
+  <div class="feature-card">
+    <strong>🛡️ ErrorHandler</strong>
+    <p>Wraps the validation in a try/catch pattern with body, catch, and done branches.</p>
+  </div>
+  <div class="feature-card">
+    <strong>📋 Console Diagnostics</strong>
+    <p>Uses <code>console.log</code> and <code>console.warn</code> for detailed tracing.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>How to use <strong>Fork/Join</strong> for parallel API fetches</li>
+  <li>Writing a Script node in <strong>Validate mode</strong> with <code>output.result</code></li>
+  <li>Using <code>console.warn()</code> for diagnostic logging alongside <code>console.log()</code></li>
+  <li>Wrapping Script validation in an <strong>ErrorHandler</strong> node</li>
+  <li>How ErrorHandler <strong>body</strong>, <strong>catch</strong>, and <strong>done</strong> branches work</li>
+  <li>Using <strong>LogDebug</strong> nodes for tracing outcomes</li>
+  <li>Passing <strong>Start input variables</strong> to downstream HTTP URLs</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌──────────────────┐
+  │      Start       │  inputVariables: { userId: "1" }
+  └────────┬─────────┘
+           ▼
+  ┌──────────────────┐
+  │ 1. Parallel Fetch│
+  │     (Fork)       │
+  └───┬──────────┬───┘
+      │          │
+      ▼          ▼
+  ┌─────────┐  ┌──────────────┐
+  │2a. Get  │  │ 2b. Get User │
+  │  User   │  │    Posts      │
+  │ (HTTP)  │  │   (HTTP)     │
+  │         │  │              │
+  │→userJson│  │→ postsJson   │
+  │→userName│  │              │
+  └────┬────┘  └──────┬───────┘
+       │              │
+       ▼              ▼
+  ┌──────────────────┐
+  │ 3. Merge Results │
+  │     (Join)       │
+  └────────┬─────────┘
+           ▼
+  ┌────────────────────────────────────────────────────────────┐
+  │ 4. Validation Guard (ErrorHandler)                        │
+  │                                                            │
+  │  ┌─── body ───┐    ┌─── catch ──┐    ┌──── done ─────┐   │
+  │  │            │    │            │    │               │   │
+  │  │ 4a. Script │    │ 4b. Log   │    │ 5. Log Result │   │
+  │  │ (validate) │    │  Failure  │    │   (LogDebug)  │   │
+  │  │            │    │ (LogDebug)│    │               │   │
+  │  └────────────┘    └───────────┘    └───────┬───────┘   │
+  │                                             │           │
+  └─────────────────────────────────────────────┼───────────┘
+                                                ▼
+                                        ┌──────────┐
+                                        │   Done   │
+                                        │  (End)   │
+                                        └──────────┘
+</div>
+
+<p>
+  <strong>10 nodes, 10 edges</strong> — the workflow fetches two related datasets in parallel,
+  merges them, validates consistency with a Script, and logs the outcome.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h4><span class="step-num">S</span> Start Node</h4>
+<table>
+  <tr><td><strong>Input Variables</strong></td><td><code>userId</code> = <code>"1"</code></td></tr>
+</table>
+<p>
+  Defines the user ID to validate. Change this value to test with different users (1–10 are
+  available on JSONPlaceholder).
+</p>
+
+<h4><span class="step-num">1</span> Parallel Fetch (Fork Node)</h4>
+<p>
+  Splits the execution into two parallel branches. Both downstream HTTP nodes execute
+  simultaneously, which is faster than sequential fetching.
+</p>
+
+<h4><span class="step-num">2a</span> Get User (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/{{userId}}</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td>
+    <code>userJson</code> ← body <code>$</code> (full response)<br>
+    <code>userName</code> ← body <code>$.name</code>
+  </td></tr>
+</table>
+<p>Fetches the user profile. Extracts both the full JSON (for the script) and the user's name (for LogDebug messages).</p>
+
+<h4><span class="step-num">2b</span> Get User Posts (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/{{userId}}/posts</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>postsJson</code> ← body <code>$</code></td></tr>
+</table>
+<p>Fetches all posts for the specified user. The API returns an array of post objects.</p>
+
+<h4><span class="step-num">3</span> Merge Results (Join Node)</h4>
+<p>
+  Waits for both parallel branches to complete before proceeding. After the Join, both
+  <code>userJson</code>/<code>userName</code> and <code>postsJson</code> are available in
+  the workflow context.
+</p>
+
+<h4><span class="step-num">4</span> Validation Guard (ErrorHandler Node)</h4>
+<table>
+  <tr><td><strong>Retry Count</strong></td><td>0 (no retries)</td></tr>
+  <tr><td><strong>Error Filter</strong></td><td>all</td></tr>
+  <tr><td><strong>Continue on Error</strong></td><td>false</td></tr>
+</table>
+<p>
+  Wraps the validation script. Has three outgoing branches: <strong>body</strong> (the Script node),
+  <strong>catch</strong> (error logging), and <strong>done</strong> (success logging).
+  See the <a href="#error-handler">ErrorHandler Deep Dive</a> for details.
+</p>
+
+<h4><span class="step-num">4a</span> Validate Data (Script Node) — <em>Key Node</em></h4>
+<table>
+  <tr><td><strong>Mode</strong></td><td>Validate</td></tr>
+  <tr><td><strong>Input Variables</strong></td><td><code>userJson</code>, <code>postsJson</code></td></tr>
+  <tr><td><strong>Output Variables</strong></td><td><code>postCount</code>, <code>mismatchCount</code>, <code>result</code></td></tr>
+  <tr><td><strong>Timeout</strong></td><td>5,000 ms</td></tr>
+  <tr><td><strong>Console Capture</strong></td><td>Enabled</td></tr>
+</table>
+<p>
+  This is connected to the ErrorHandler's <strong>body</strong> branch. The script cross-checks
+  that every post's <code>userId</code> matches the user's <code>id</code>. See the
+  <a href="#script-deep-dive">Script Code Deep Dive</a> for line-by-line explanation.
+</p>
+
+<h4><span class="step-num">4b</span> Log Failure (LogDebug Node)</h4>
+<table>
+  <tr><td><strong>Message</strong></td><td><code>Validation failed: {{mismatchCount}} mismatches in {{postCount}} posts for user {{userName}}</code></td></tr>
+  <tr><td><strong>Log Level</strong></td><td>error</td></tr>
+  <tr><td><strong>Snapshot Variables</strong></td><td>true</td></tr>
+</table>
+<p>
+  Connected to the ErrorHandler's <strong>catch</strong> branch. Only executes if the Script
+  node fails (validation returns false or throws an error). Captures a full variable snapshot
+  for debugging.
+</p>
+
+<h4><span class="step-num">5</span> Log Result (LogDebug Node)</h4>
+<table>
+  <tr><td><strong>Message</strong></td><td><code>User {{userName}}: {{postCount}} posts validated, {{mismatchCount}} mismatches</code></td></tr>
+  <tr><td><strong>Log Level</strong></td><td>info</td></tr>
+</table>
+<p>
+  Connected to the ErrorHandler's <strong>done</strong> branch. Always executes after the
+  ErrorHandler completes (whether body succeeded or catch handled the error). Provides a
+  summary log entry.
+</p>
+
+<h4><span class="step-num">E</span> Done (End Node)</h4>
+<p>Marks the workflow as complete.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. SCRIPT DEEP DIVE                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="script-deep-dive">5. Script Code Deep Dive</h2>
+
+<pre>
+<span class="comment">// Validate that all posts belong to the correct user</span>
+<span class="keyword">const</span> user = JSON.parse(input.userJson);
+<span class="keyword">const</span> posts = JSON.parse(input.postsJson);
+
+console.log(<span class="string">"Checking "</span> + posts.length + <span class="string">" posts for user: "</span> + user.name);
+
+<span class="keyword">let</span> mismatchCount = 0;
+<span class="keyword">for</span> (<span class="keyword">const</span> post <span class="keyword">of</span> posts) {
+  <span class="keyword">if</span> (post.userId !== user.id) {
+    console.warn(<span class="string">"Post "</span> + post.id + <span class="string">" userId mismatch: "</span>
+      + post.userId + <span class="string">" != "</span> + user.id);
+    mismatchCount++;
+  }
+}
+
+output.postCount = String(posts.length);
+output.mismatchCount = String(mismatchCount);
+output.result = mismatchCount === 0;
+
+console.log(<span class="string">"Validation "</span>
+  + (mismatchCount === 0 ? <span class="string">"PASSED"</span> : <span class="string">"FAILED"</span>)
+  + <span class="string">" — "</span> + mismatchCount + <span class="string">" mismatches"</span>);</pre>
+
+<h3>Line-by-Line Explanation</h3>
+<table>
+  <tr><th>Lines</th><th>What It Does</th></tr>
+  <tr>
+    <td><code>JSON.parse(input.userJson)</code></td>
+    <td>Deserializes the user object. Contains <code>id</code>, <code>name</code>, <code>email</code>, etc.</td>
+  </tr>
+  <tr>
+    <td><code>JSON.parse(input.postsJson)</code></td>
+    <td>Deserializes the posts array. Each post has <code>userId</code>, <code>id</code>, <code>title</code>, <code>body</code>.</td>
+  </tr>
+  <tr>
+    <td><code>console.log("Checking...")</code></td>
+    <td>Logs the validation scope — how many posts will be checked and for which user.</td>
+  </tr>
+  <tr>
+    <td><code>for...of + if (post.userId !== user.id)</code></td>
+    <td>Iterates every post and checks if its <code>userId</code> matches the user's <code>id</code>. Uses strict equality (<code>!==</code>) — both values are numbers from the JSON.</td>
+  </tr>
+  <tr>
+    <td><code>console.warn("Post...")</code></td>
+    <td>Logs a warning for each mismatched post. Shows in the console as <code>[warn] Post 42 userId mismatch: 5 != 1</code>.</td>
+  </tr>
+  <tr>
+    <td><code>output.postCount = String(...)</code></td>
+    <td>Exports the total post count as a string (workflow variables are always strings).</td>
+  </tr>
+  <tr>
+    <td><code>output.result = mismatchCount === 0</code></td>
+    <td><strong>The key line for Validate mode.</strong> Sets <code>output.result</code> to <code>true</code> if no mismatches, <code>false</code> otherwise. This determines whether the node passes or fails.</td>
+  </tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠ Validate Mode: output.result Is Required</strong>
+  In Validate mode, the engine checks <code>output.result</code> after the script executes.
+  If it's truthy → node passes. If falsy → node fails with error
+  <code>"Validation failed: output.result = false"</code>. Other outputs
+  (<code>postCount</code>, <code>mismatchCount</code>) are still set into context regardless.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. ERRORHANDLER DEEP DIVE                   -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="error-handler">6. ErrorHandler Deep Dive</h2>
+<p>
+  The ErrorHandler node in this sample wraps the Script validation to provide
+  resilient error handling. It has three outgoing branches:
+</p>
+
+<table>
+  <tr><th>Branch</th><th>Connected To</th><th>When It Executes</th></tr>
+  <tr>
+    <td><strong>body</strong></td>
+    <td>4a. Validate Data (Script)</td>
+    <td>Always — the "main" code to execute. This is the Script node in validate mode.</td>
+  </tr>
+  <tr>
+    <td><strong>catch</strong></td>
+    <td>4b. Log Failure (LogDebug)</td>
+    <td>Only when the body node fails — i.e., when validation returns <code>output.result = false</code> or the script throws an error.</td>
+  </tr>
+  <tr>
+    <td><strong>done</strong></td>
+    <td>5. Log Result (LogDebug)</td>
+    <td>Always after the ErrorHandler completes, whether body succeeded or catch handled the error.</td>
+  </tr>
+</table>
+
+<h3>Execution Flow Scenarios</h3>
+
+<h4>Scenario A: All Posts Match (Validation Passes)</h4>
+<div class="flow-diagram">
+ErrorHandler
+  ├─ body → Script (result=true) ✅ PASS
+  ├─ catch → (skipped — no error)
+  └─ done → LogDebug: "User Leanne Graham: 10 posts validated, 0 mismatches"
+</div>
+
+<h4>Scenario B: Mismatches Found (Validation Fails)</h4>
+<div class="flow-diagram">
+ErrorHandler
+  ├─ body → Script (result=false) ❌ FAIL
+  ├─ catch → LogDebug: "Validation failed: 3 mismatches in 10 posts" [error]
+  └─ done → LogDebug: "User Leanne Graham: 10 posts validated, 3 mismatches"
+</div>
+
+<h4>Scenario C: Script Throws Error</h4>
+<div class="flow-diagram">
+ErrorHandler
+  ├─ body → Script → throws "Cannot read property 'userId' of null" ❌ ERROR
+  ├─ catch → LogDebug logs the error
+  └─ done → LogDebug with available variables
+</div>
+
+<div class="callout callout-tip">
+  <strong>💡 Why Use ErrorHandler Here?</strong>
+  Without ErrorHandler, a failed Script node would stop the entire workflow. With
+  ErrorHandler, the catch branch handles the failure gracefully, and the done branch
+  always executes — giving you logging and cleanup regardless of outcome. This is
+  essential for production workflows where you want observability even on failure.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. VARIABLES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="variables">7. Variable Flow</h2>
+
+<table>
+  <tr><th>Variable</th><th>Set By</th><th>Value (Example)</th><th>Used By</th></tr>
+  <tr>
+    <td><code>userId</code></td>
+    <td>Start (input)</td>
+    <td><code>1</code></td>
+    <td>HTTP URLs (both branches)</td>
+  </tr>
+  <tr>
+    <td><code>userJson</code></td>
+    <td>HTTP 2a (extraction)</td>
+    <td><code>{"id":1,"name":"Leanne Graham",...}</code></td>
+    <td>Script Node (input)</td>
+  </tr>
+  <tr>
+    <td><code>userName</code></td>
+    <td>HTTP 2a (extraction)</td>
+    <td><code>Leanne Graham</code></td>
+    <td>LogDebug messages</td>
+  </tr>
+  <tr>
+    <td><code>postsJson</code></td>
+    <td>HTTP 2b (extraction)</td>
+    <td><code>[{"userId":1,"id":1,"title":"..."},...]</code></td>
+    <td>Script Node (input)</td>
+  </tr>
+  <tr>
+    <td><code>postCount</code></td>
+    <td>Script Node (output)</td>
+    <td><code>10</code></td>
+    <td>LogDebug messages</td>
+  </tr>
+  <tr>
+    <td><code>mismatchCount</code></td>
+    <td>Script Node (output)</td>
+    <td><code>0</code></td>
+    <td>LogDebug messages</td>
+  </tr>
+  <tr>
+    <td><code>result</code></td>
+    <td>Script Node (output)</td>
+    <td><code>true</code></td>
+    <td>Engine (validate mode pass/fail)</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="dev-guide">8. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"✅ Script: Cross-API Validator"</strong>
+    in the <em>Logic</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Name it "Cross-API Validator". Set Start input: <code>userId = 1</code>.
+  </li>
+  <li>
+    <strong>Add Fork and two HTTP nodes.</strong><br>
+    Add a Fork node. From the Fork, add two HTTP nodes:
+    <ul>
+      <li>Branch 1: GET <code>.../users/{{userId}}</code> → extract <code>userJson</code> + <code>userName</code></li>
+      <li>Branch 2: GET <code>.../users/{{userId}}/posts</code> → extract <code>postsJson</code></li>
+    </ul>
+    Connect both HTTP nodes to a Join node.
+  </li>
+  <li>
+    <strong>Add the ErrorHandler.</strong><br>
+    Place an ErrorHandler node after the Join. Set retry count to 0 and error filter to "all".
+  </li>
+  <li>
+    <strong>Add the Script node to the body branch.</strong><br>
+    Connect the ErrorHandler's <strong>body</strong> handle to a Script node:
+    <ul>
+      <li><em>Mode</em>: Validate</li>
+      <li><em>Input Variables</em>: <code>userJson</code>, <code>postsJson</code></li>
+      <li><em>Output Variables</em>: <code>postCount</code>, <code>mismatchCount</code>, <code>result</code></li>
+      <li><em>Code</em>: Copy from the <a href="#script-deep-dive">Script Code Deep Dive</a></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add LogDebug to the catch branch.</strong><br>
+    Connect the ErrorHandler's <strong>catch</strong> handle to a LogDebug node with level <code>error</code>
+    and message referencing <code>{{mismatchCount}}</code> and <code>{{postCount}}</code>.
+  </li>
+  <li>
+    <strong>Add LogDebug to the done branch.</strong><br>
+    Connect the ErrorHandler's <strong>done</strong> handle to a LogDebug node with level <code>info</code>.
+    Connect this to the End node.
+  </li>
+  <li>
+    <strong>Test.</strong><br>
+    Click Quick Test. With <code>userId=1</code>, all 10 posts should match (0 mismatches).
+    The validation should pass and only the done LogDebug should execute.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 9. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="expected-results">9. Expected Execution Results</h2>
+
+<h3>Console Output (userId=1, all posts match)</h3>
+<pre>
+# [1. Parallel Fetch] Forking 2 branches
+# [2a. Get User] HTTP GET 200 — 1 extraction(s)
+# [2b. Get User Posts] HTTP GET 200 — 1 extraction(s)
+# [3. Merge Results] Joined 2 branches
+# [4a. Validate Data] Executing script (validate)...
+# [4a. Validate Data] console: Checking 10 posts for user: Leanne Graham
+# [4a. Validate Data] console: Validation PASSED — 0 mismatches
+# [5. Log Result] User Leanne Graham: 10 posts validated, 0 mismatches</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>userId=1</td></tr>
+  <tr><td>1. Parallel Fetch</td><td>✅ Pass</td><td>2 branches forked</td></tr>
+  <tr><td>2a. Get User</td><td>✅ Pass</td><td>HTTP 200</td></tr>
+  <tr><td>2b. Get User Posts</td><td>✅ Pass</td><td>HTTP 200</td></tr>
+  <tr><td>3. Merge Results</td><td>✅ Pass</td><td>2 branches joined</td></tr>
+  <tr><td>4. Validation Guard</td><td>✅ Pass</td><td>ErrorHandler completed</td></tr>
+  <tr><td>4a. Validate Data</td><td>✅ Pass</td><td>output.result = true</td></tr>
+  <tr><td>4b. Log Failure</td><td>⏭ Skipped</td><td>(catch not triggered)</td></tr>
+  <tr><td>5. Log Result</td><td>✅ Pass</td><td>Info logged</td></tr>
+  <tr><td>Done</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 10. EXERCISES                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="exercises">10. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Force a Validation Failure</h3>
+<p>
+  Modify the script to intentionally fail: change the comparison to
+  <code>post.userId !== user.id + 1</code>. Run the workflow and observe the catch
+  branch executing with the error log.
+</p>
+
+<h3>Exercise 2: Add Post Title Validation</h3>
+<p>
+  Extend the script to also check that every post has a non-empty <code>title</code>.
+  Count empty titles as a separate <code>emptyTitleCount</code> output variable and
+  include it in the pass/fail logic.
+</p>
+
+<h3>Exercise 3: Add Retry</h3>
+<p>
+  Set the ErrorHandler's retry count to 2 with a 1-second delay. Modify the script
+  to use <code>Math.random() < 0.5</code> to randomly fail. Run multiple times and
+  observe retries in the console.
+</p>
+
+<h3>Exercise 4: Compare Multiple Users</h3>
+<p>
+  Wrap this entire workflow in a Loop (count=3) and change <code>userId</code> each
+  iteration. Use an Aggregate node to collect validation results across all users.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with Validate mode and ErrorHandler, move on to the
+  <a href="data-pipeline-report-advanced.html">Data Pipeline &amp; Report</a> (Advanced) to learn
+  Loop + Aggregate + multi-script pipelines.
+</div>
+
+<footer>
+  RedfireForge v0.5.4 — Script: Cross-API Validator Training Guide — April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>

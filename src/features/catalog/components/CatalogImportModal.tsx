@@ -3,6 +3,7 @@ import type { ParsedSpec, CatalogEntry } from '../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../utils/openApiParser';
 import { isTauri } from '../../../shared/utils/platform';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
+import { sampleCatalogSpecs, SAMPLE_CATALOG_CATEGORIES, type SampleCatalogCategory } from '../../../data/sampleCatalogSpecs';
 
 interface Props {
   existingEntries: CatalogEntry[];
@@ -13,7 +14,7 @@ interface Props {
 }
 
 type Step = 'pick' | 'preview' | 'error';
-type InputMode = 'file' | 'paste';
+type InputMode = 'file' | 'paste' | 'gallery';
 
 export default function CatalogImportModal({ existingEntries, onImport, onReimport, onClose, reimportEntryId }: Props) {
   const [step, setStep] = useState<Step>('pick');
@@ -23,6 +24,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const [pasteText, setPasteText] = useState('');
   const [error, setError] = useState('');
   const [tauriDragHover, setTauriDragHover] = useState(false);
+  const [gallerySearch, setGallerySearch] = useState('');
+  const [galleryCategory, setGalleryCategory] = useState<SampleCatalogCategory | 'all'>('all');
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
@@ -165,6 +168,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                   onClick={() => setInputMode('file')}>Upload File</button>
                 <button className={`cat-import-tab ${inputMode === 'paste' ? 'active' : ''}`}
                   onClick={() => setInputMode('paste')}>Paste YAML / JSON</button>
+                <button className={`cat-import-tab ${inputMode === 'gallery' ? 'active' : ''}`}
+                  onClick={() => setInputMode('gallery')}>Sample Gallery</button>
               </div>
 
               {inputMode === 'file' ? (
@@ -201,7 +206,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                     Supported: OpenAPI 3.0, 3.1, Swagger 2.0
                   </div>
                 </div>
-              ) : (
+              ) : inputMode === 'paste' ? (
                 <div className="cat-import-paste">
                   <textarea
                     className="cat-paste-textarea"
@@ -221,7 +226,58 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                     </span>
                   </div>
                 </div>
-              )}
+              ) : inputMode === 'gallery' ? (
+                <div className="cat-gallery">
+                  <div className="cat-gallery-controls">
+                    <input
+                      className="cat-gallery-search"
+                      type="text"
+                      placeholder="Search sample APIs..."
+                      value={gallerySearch}
+                      onChange={e => setGallerySearch(e.target.value)}
+                    />
+                    <div className="cat-gallery-pills">
+                      {SAMPLE_CATALOG_CATEGORIES.map(cat => (
+                        <button
+                          key={cat.key}
+                          className={`cat-gallery-pill ${galleryCategory === cat.key ? 'active' : ''}`}
+                          onClick={() => setGalleryCategory(cat.key)}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="cat-gallery-grid">
+                    {sampleCatalogSpecs
+                      .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
+                      .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
+                      .map(sample => (
+                        <button
+                          key={sample.id}
+                          className="cat-gallery-card"
+                          onClick={() => handleFile(sample.specYaml, `${sample.name}.yaml`)}
+                        >
+                          <div className="cat-gallery-card-header">
+                            <div className="cat-gallery-card-icon">{sample.icon}</div>
+                            <div className="cat-gallery-card-name">{sample.name}</div>
+                          </div>
+                          <div className="cat-gallery-card-desc">{sample.description}</div>
+                          <div className="cat-gallery-card-meta">
+                            <span className={`cat-gallery-badge cat-gallery-badge-${sample.category}`}>{sample.category}</span>
+                            <span className="cat-gallery-card-endpoints">{sample.endpointCount} endpoints</span>
+                          </div>
+                        </button>
+                      ))}
+                    {sampleCatalogSpecs
+                      .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
+                      .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
+                      .length === 0 && (
+                      <div className="cat-gallery-empty">No samples match your search.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </>
           )}
 

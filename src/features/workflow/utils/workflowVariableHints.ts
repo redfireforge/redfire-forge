@@ -1,7 +1,7 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
-export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations';
+export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
 
 /** Source metadata: which node (or workflow-level) produced this variable. */
 export interface WorkflowVariableHintSource {
@@ -27,6 +27,8 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   delay:             { icon: '⏸',  category: 'Logic' },
   errorHandler:      { icon: '⚠',  category: 'Logic' },
   logDebug:          { icon: '📝', category: 'Logic' },
+  script:            { icon: '⟨/⟩', category: 'Data' },
+  correlationWait:   { icon: '🔗', category: 'Integrations' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
@@ -263,6 +265,14 @@ export function collectConditionVariableHints(
       for (const a of data.assignments ?? []) {
         const nm = a.name?.trim();
         if (nm) push(nm, `${nm} ← "${label}"`, `Set by "${label}" node. Expression: ${a.expression || '(empty)'}`, 'string', svSource);
+      }
+    } else if (n.type === 'script') {
+      const data = n.data as ScriptNodeData;
+      const label = data.label?.trim() || 'Script';
+      const scriptSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'script', category: 'Data' };
+      for (const ov of data.outputVariables ?? []) {
+        const nm = ov?.trim();
+        if (nm) push(nm, `${nm} ← "${label}"`, `Output variable from script "${label}"`, 'string', scriptSource);
       }
     } else if (n.type === 'aggregate') {
       const data = n.data as AggregateNodeData;

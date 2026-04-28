@@ -22,6 +22,8 @@ import type {
   LogDebugNodeData,
   WaitForConditionNodeData,
   SubWorkflowNodeData,
+  ScriptNodeData,
+  CorrelationWaitNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -41,6 +43,8 @@ import ErrorHandlerNode from '../components/nodes/ErrorHandlerNode';
 import LogDebugNode from '../components/nodes/LogDebugNode';
 import WaitForConditionNode from '../components/nodes/WaitForConditionNode';
 import SubWorkflowNode from '../components/nodes/SubWorkflowNode';
+import ScriptNode from '../components/nodes/ScriptNode';
+import CorrelationWaitNode from '../components/nodes/CorrelationWaitNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -63,6 +67,8 @@ export const nodeTypes = {
   logDebug: LogDebugNode,
   waitForCondition: WaitForConditionNode,
   subWorkflow: SubWorkflowNode,
+  script: ScriptNode,
+  correlationWait: CorrelationWaitNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -156,5 +162,23 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       inputMappings: [],
       outputMappings: [],
     } as SubWorkflowNodeData;
+    case 'script': return {
+      label: 'Script',
+      code: '// Access input variables via input.varName\n// Set output variables via output.varName\n\noutput.result = input.value;\n',
+      mode: 'transform',
+      inputVariables: [],
+      outputVariables: [],
+      timeoutMs: 5000,
+      captureConsole: true,
+    } as ScriptNodeData;
+    case 'correlationWait': return {
+      label: 'Correlation Wait',
+      correlationIdExpression: '',
+      webhookPath: '/webhooks/callback',
+      correlationSource: 'body',
+      correlationJsonPath: '$.correlationId',
+      extractVariables: [],
+      timeoutMs: 60000,
+    } as CorrelationWaitNodeData;
   }
 }

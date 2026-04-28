@@ -1,13 +1,7 @@
 import type { RequestResult } from '../../../shared/types';
-import { humanizeError } from '../../../shared/utils/helpers';
+import { humanizeError, prettyJson } from '../../../shared/utils/helpers';
 
-function tryPrettyResponseBody(s: string): string {
-  try {
-    return JSON.stringify(JSON.parse(s), null, 2);
-  } catch {
-    return s;
-  }
-}
+const tryPrettyResponseBody = prettyJson;
 
 /**
  * Full detail text for the workflow HTTP step modal (request line, status, errors, validation rows, body).

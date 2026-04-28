@@ -1,0 +1,206 @@
+# RedfireForge Workflow — Medium: Script Cross-API Validator
+# Fetches a user and their posts in parallel, uses a Script node in
+# "validate" mode to cross-check data consistency, wrapped in an
+# ErrorHandler for resilient execution.
+#
+# Difficulty: ★★☆ (Medium)
+# Features demonstrated:
+#   • Fork/Join for parallel HTTP fetches
+#   • Script node in "validate" mode (output.result = boolean)
+#   • console.log + console.warn for diagnostics
+#   • ErrorHandler wrapping the validation script
+#   • LogDebug for tracing outcomes
+#
+# Flow:
+#   Start (userId=1)
+#     → Fork → [GET /users/:id, GET /users/:id/posts] → Join
+#       → ErrorHandler
+#         ├─ Body: Script (validate posts belong to user)
+#         ├─ Catch: LogDebug (log failure)
+#         └─ Done: LogDebug (log result) → End
+
+name: "Script: Cross-API Validator"
+description: >
+  Fetch user and their posts in parallel, validate data consistency
+  with a Script node in validate mode, ErrorHandler catches failures.
+
+schemaVersion: 5
+
+nodes:
+  - id: sm-start
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        userId: "1"
+
+  - id: sm-fork
+    type: fork
+    position: { x: 300, y: 120 }
+    data:
+      label: 1. Parallel Fetch
+
+  - id: sm-get-user
+    type: http
+    position: { x: 100, y: 250 }
+    data:
+      label: 2a. Get User
+      scenario:
+        id: sm-s1
+        name: Get User
+        url: "https://jsonplaceholder.typicode.com/users/{{userId}}"
+        method: GET
+        headers:
+          - key: Accept
+            value: application/json
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: userJson
+            source: body
+            expression: "$"
+          - name: userName
+            source: body
+            expression: "$.name"
+
+  - id: sm-get-posts
+    type: http
+    position: { x: 500, y: 250 }
+    data:
+      label: 2b. Get User Posts
+      scenario:
+        id: sm-s2
+        name: Get Posts
+        url: "https://jsonplaceholder.typicode.com/users/{{userId}}/posts"
+        method: GET
+        headers:
+          - key: Accept
+            value: application/json
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: postsJson
+            source: body
+            expression: "$"
+
+  - id: sm-join
+    type: join
+    position: { x: 300, y: 390 }
+    data:
+      label: 3. Merge Results
+
+  - id: sm-error-handler
+    type: errorHandler
+    position: { x: 300, y: 500 }
+    data:
+      label: 4. Validation Guard
+      retryCount: 0
+      errorFilter: all
+      retryDelayMs: 0
+      retryBackoff: fixed
+      retryTimeoutMs: 0
+      continueOnError: false
+
+  - id: sm-script-validate
+    type: script
+    position: { x: 200, y: 620 }
+    data:
+      label: 4a. Validate Data
+      mode: validate
+      inputVariables: [userJson, postsJson]
+      outputVariables: [postCount, mismatchCount, result]
+      timeoutMs: 5000
+      captureConsole: true
+      code: |
+        // Validate that all posts belong to the correct user
+        const user = JSON.parse(input.userJson);
+        const posts = JSON.parse(input.postsJson);
+
+        console.log("Checking " + posts.length + " posts for user: " + user.name);
+
+        let mismatchCount = 0;
+        for (const post of posts) {
+          if (post.userId !== user.id) {
+            console.warn("Post " + post.id + " userId mismatch: " + post.userId + " != " + user.id);
+            mismatchCount++;
+          }
+        }
+
+        output.postCount = String(posts.length);
+        output.mismatchCount = String(mismatchCount);
+        output.result = mismatchCount === 0;
+
+        console.log("Validation " + (mismatchCount === 0 ? "PASSED" : "FAILED") + " — " + mismatchCount + " mismatches");
+
+  - id: sm-catch
+    type: logDebug
+    position: { x: 450, y: 620 }
+    data:
+      label: 4b. Log Failure
+      message: "Validation failed: {{mismatchCount}} mismatches in {{postCount}} posts for user {{userName}}"
+      logLevel: error
+      snapshotVariables: true
+
+  - id: sm-log-success
+    type: logDebug
+    position: { x: 300, y: 770 }
+    data:
+      label: 5. Log Result
+      message: "User {{userName}}: {{postCount}} posts validated, {{mismatchCount}} mismatches"
+      logLevel: info
+      snapshotVariables: false
+
+  - id: sm-end
+    type: end
+    position: { x: 300, y: 900 }
+    data:
+      label: Done
+
+edges:
+  - id: sm-e1
+    source: sm-start
+    target: sm-fork
+
+  - id: sm-e2
+    source: sm-fork
+    target: sm-get-user
+
+  - id: sm-e3
+    source: sm-fork
+    target: sm-get-posts
+
+  - id: sm-e4
+    source: sm-get-user
+    target: sm-join
+
+  - id: sm-e5
+    source: sm-get-posts
+    target: sm-join
+
+  - id: sm-e6
+    source: sm-join
+    target: sm-error-handler
+
+  - id: sm-e7
+    source: sm-error-handler
+    target: sm-script-validate
+    sourceHandle: body
+
+  - id: sm-e8
+    source: sm-error-handler
+    target: sm-catch
+    sourceHandle: catch
+
+  - id: sm-e9
+    source: sm-error-handler
+    target: sm-log-success
+    sourceHandle: done
+
+  - id: sm-e10
+    source: sm-log-success
+    target: sm-end
