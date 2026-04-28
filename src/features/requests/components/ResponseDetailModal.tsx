@@ -20,9 +20,8 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       dialogClassName="response-detail-modal"
       headerClassName="modal-header"
       bodyClassName="response-detail-body"
-      footerClassName="response-detail-footer"
-      closeButtonKind="none"
-      footer={<button className="btn btn-primary" onClick={onClose}>Close</button>}
+      initialExpanded={false}
+      expandMode="fullscreen"
     >
           <div className="response-detail-meta">
             <div className="response-meta-row">
