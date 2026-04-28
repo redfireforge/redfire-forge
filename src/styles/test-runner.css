@@ -721,35 +721,36 @@ tr:hover td { background: var(--surface-hover); }
 .response-detail-body::-webkit-scrollbar-track { background: transparent; }
 .response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* Response header badges */
-.response-header-badges {
+.response-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.response-meta-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: nowrap;
-  white-space: nowrap;
-  max-width: 600px;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
-.response-header-badges .response-meta-name {
+.response-meta-row::-webkit-scrollbar { height: 4px; }
+.response-meta-row::-webkit-scrollbar-track { background: transparent; }
+.response-meta-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.response-meta-name {
   font-weight: 600;
-  font-size: 0.85rem;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.9rem;
   white-space: nowrap;
-  flex-shrink: 1;
 }
 .response-meta-url {
   font-size: 0.8rem;
   color: var(--text-muted);
   word-break: break-all;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
 }
 .tag-danger {
   background: rgba(239, 68, 68, 0.15) !important;
