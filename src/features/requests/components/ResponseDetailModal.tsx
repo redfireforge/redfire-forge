@@ -1,7 +1,8 @@
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { prettyJson } from '../../../shared/utils/helpers';
+import { useModalExpand } from '../../../shared/hooks/useModalExpand';
+import ModalExpandButton from '../../../shared/components/ModalExpandButton';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -10,19 +11,23 @@ type ResponseDetailModalProps = {
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
   const formatResponseBody = prettyJson;
+  const { expanded, toggleExpand, expandClass } = useModalExpand(false, 'fullscreen');
 
   if (!result) return null;
 
   return (
-    <AppModalFrame
-      title="Response Detail"
-      onClose={onClose}
-      dialogClassName="response-detail-modal"
-      headerClassName="response-detail-header"
-      bodyClassName="response-detail-body"
-      initialExpanded={false}
-      expandMode="fullscreen"
-    >
+    <div className={`modal-overlay ${expandClass}`} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`modal response-detail-modal ${expandClass}`}>
+        <div className="response-detail-header">
+          <h3>Response Detail</h3>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
+            <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">
+              &times;
+            </button>
+          </div>
+        </div>
+        <div className="response-detail-body">
           <div className="response-detail-meta">
             <div className="response-meta-row">
               <span className={`method-badge method-${result.method.toLowerCase()}`}>{result.method}</span>
@@ -78,6 +83,8 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
               <pre className="response-body-pre">{formatResponseBody(result.responseBody)}</pre>
             </div>
           )}
-    </AppModalFrame>
+        </div>
+      </div>
+    </div>
   );
 }

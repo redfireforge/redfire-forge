@@ -703,8 +703,6 @@ tr:hover td { background: var(--surface-hover); }
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
 }
 .response-detail-header {
   display: flex;
@@ -725,43 +723,11 @@ tr:hover td { background: var(--surface-hover); }
   display: flex;
   flex-direction: column;
   gap: 16px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-  flex: 1;
-  min-height: 0;
 }
-.response-detail-body::-webkit-scrollbar { width: 5px; }
-.response-detail-body::-webkit-scrollbar-track { background: transparent; }
-.response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.response-detail-body::-webkit-scrollbar { width: 8px; }
+.response-detail-body::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+.response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-/* Show visible scrollbar when modal is expanded/fullscreen */
-.modal-fullscreen .response-detail-body,
-.modal-expanded .response-detail-body {
-  -ms-overflow-style: auto;
-  scrollbar-width: auto;
-  scrollbar-color: var(--border) transparent;
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar,
-.modal-expanded .response-detail-body::-webkit-scrollbar {
-  width: 10px;
-  display: block;
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-track,
-.modal-expanded .response-detail-body::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb,
-.modal-expanded .response-detail-body::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 5px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb:hover,
-.modal-expanded .response-detail-body::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-  background-clip: padding-box;
-}
 .response-detail-meta {
   display: flex;
   flex-direction: column;
