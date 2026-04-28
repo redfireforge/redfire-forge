@@ -13,6 +13,20 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
 
   if (!result) return null;
 
+  const headerActions = (
+    <div className="response-header-badges">
+      <span className={`method-badge method-${result.method.toLowerCase()}`}>{result.method}</span>
+      <span className="response-meta-name">{result.scenarioName}</span>
+      <span className={`tag ${result.httpStatus >= 400 ? 'tag-danger' : result.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>
+        {result.httpStatus || 'ERR'}
+      </span>
+      <span className="tag">{result.responseTimeMs} ms</span>
+      <span className={`tag ${result.passed ? 'tag-success' : 'tag-danger'}`}>
+        {result.passed ? 'Passed' : 'Failed'}
+      </span>
+    </div>
+  );
+
   return (
     <AppModalFrame
       title="Response Detail"
@@ -22,21 +36,9 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       bodyClassName="response-detail-body"
       initialExpanded={false}
       expandMode="fullscreen"
+      headerActions={headerActions}
     >
-          <div className="response-detail-meta">
-            <div className="response-meta-row">
-              <span className={`method-badge method-${result.method.toLowerCase()}`}>{result.method}</span>
-              <span className="response-meta-name">{result.scenarioName}</span>
-              <span className={`tag ${result.httpStatus >= 400 ? 'tag-danger' : result.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>
-                {result.httpStatus || 'ERR'}
-              </span>
-              <span className="tag">{result.responseTimeMs} ms</span>
-              <span className={`tag ${result.passed ? 'tag-success' : 'tag-danger'}`}>
-                {result.passed ? 'Passed' : 'Failed'}
-              </span>
-            </div>
-            <div className="response-meta-url">{result.url}</div>
-          </div>
+          <div className="response-meta-url">{result.url}</div>
 
           {result.timing && (
             <div className="response-detail-section">
