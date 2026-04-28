@@ -729,14 +729,17 @@ tr:hover td { background: var(--surface-hover); }
   gap: 6px;
   flex-wrap: nowrap;
   white-space: nowrap;
+  max-width: 600px;
+  overflow: hidden;
 }
 .response-header-badges .response-meta-name {
   font-weight: 600;
   font-size: 0.85rem;
-  max-width: 200px;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
 }
 .response-meta-url {
   font-size: 0.8rem;
