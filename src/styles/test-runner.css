@@ -733,7 +733,8 @@ tr:hover td { background: var(--surface-hover); }
 }
 /* Thin scrollbar by default */
 .response-detail-body::-webkit-scrollbar { 
-  width: 5px; 
+  width: 5px;
+  display: block !important; /* Force scrollbar to always show */
 }
 .response-detail-body::-webkit-scrollbar-track { 
   background: transparent; 
@@ -753,8 +754,8 @@ tr:hover td { background: var(--surface-hover); }
 }
 .modal-fullscreen .response-detail-body::-webkit-scrollbar,
 .modal-expanded .response-detail-body::-webkit-scrollbar {
-  width: 10px;
-  display: block;
+  width: 10px !important;
+  display: block !important; /* Force scrollbar visibility */
 }
 .modal-fullscreen .response-detail-body::-webkit-scrollbar-track,
 .modal-expanded .response-detail-body::-webkit-scrollbar-track {
