@@ -9,6 +9,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
+  - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
+  - Server: new `GET /api/correlations/:id/wait` long-poll endpoint (1–120s clamp) with parked-waiter pattern + queued-resume reconciliation for race conditions where a webhook arrives before the pause is registered.
+  - Server: idempotency cache no longer short-circuits replay when an active waiter exists — duplicate-key webhooks now correctly notify the waiting workflow.
+  - Client: 409 (stale-pause) auto-recovery — if a paused entry already exists from an abandoned run, `RemoteCorrelationStore` deletes and retries once.
+  - Pause registration now propagates full `CorrelationWaitConfig` (source/jsonPath/header/queryParam) to the server.
+  - Sample `Parallel Payment Processing` (16 nodes): added per-branch `Tag Card Payment ID` / `Tag Loyalty Payment ID` setVariable nodes that prefix the gateway-returned id with `card-` / `loyalty-` so two parallel CorrelationWaits never collide on identical sandbox ids (e.g. jsonplaceholder echoing `101`).
+  - Sample `Async Approval Workflow`: switch case ids changed from `case-approved`/`case-rejected` to `approved`/`rejected` (handler builds the `case-` prefix automatically; previous double-prefix made the routed branch never match).
+  - Sample simulator HTTP requests now append `-{{$timestamp}}` to `x-idempotency-key` headers so replays across runs are not deduplicated.
+  - Tests: 10 new `RemoteCorrelationStore` unit tests, 4 new wait-endpoint server tests, total 45/45 correlation-handler tests passing.
+
+### Changed
+- **WorkflowToolbar** hides the environment selector when previewing a sample workflow (previously showed an irrelevant `t01`/`prod`/`stage` dropdown that did nothing in preview mode).
+
+### Tests
+- New hook unit tests: `useWorkflowNavigation` (7), `useWorkflowConsole` (7), `useWorkflowEdgeOps` (8), `useWorkflowRunCache` (13), `useWorkflowPersistence` (13), `useWorkflowExtractionSample` (5) — **53 new tests** for hooks extracted from `WorkflowDesigner.tsx`.
+
+### Refactored
+- **WorkflowDesigner.tsx monolith reduction**: 1062 → 893 lines (−169 lines, −16%). Now under the 900-line monolith threshold.
+  - Extracted `useWorkflowPersistence` hook: owns `serializeRFNodes`/`serializeRFEdges` (pure helpers), `persistWorkflow` (incl. webhook PUT registration), `insertNodeAndPersist`, paste/duplicate/copy/undo/redo handlers, `handleSave` + `saveAcknowledged` lifecycle, and `handleUpdateWorkflowVariables`.
+  - Extracted `useWorkflowExtractionSample` hook: encapsulates the design-time "Fetch sample response" flow used by the Extract tab — host/auth resolution, entry-point variable seeding (start/schedule), JSON pretty-print of error bodies, and reset-on-selection-change.
+  - `useWorkflowNodeActions` now receives `nextNodeY` from parent so paste (in persistence hook) and add (in node-actions hook) advance the same Y-cursor.
+  - Removed dead imports (`Edge`, `StartNodeData`, `ScheduleTriggerNodeData`, `cloneWorkflowNodeDataForStorage`, `fetchScenarioSample`, `isHttpWorkflowNode` in node-actions, broken `UseToastReturn` type alias).
+
+### Added (prior)
 - **Async Correlation Wait Node — Phase 7E (Documentation & Examples)**
   - User Guide: `docs/workflow/CORRELATION_WAIT_GUIDE.md` — full tutorial with configuration, patterns, troubleshooting
   - API Reference: `docs/workflow/CORRELATION_WAIT_API.md` — all endpoints, request/response examples, security config

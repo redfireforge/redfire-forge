@@ -464,6 +464,87 @@
   font-size: 0.65rem;
   color: var(--text-muted);
 }
+
+/* Companion / simulator pairing wrapper */
+.tg-pair {
+  grid-column: span 2;
+  background: rgba(124, 58, 237, 0.06);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tg-pair-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: #c4b5fd;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tg-pair-icon { font-size: 0.95rem; }
+.tg-pair-title { color: #c4b5fd; }
+.tg-pair-hint {
+  margin-left: auto;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-style: italic;
+}
+.tg-pair-body {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+.tg-pair-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: #86efac;
+  font-weight: 700;
+}
+.tg-pair .tg-card { margin: 0; }
+
+/* Role tag (top-right corner of paired cards) */
+.tg-card { position: relative; }
+.tg-card-role-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 1;
+}
+.tg-card-role-tag[data-role="main"] {
+  background: rgba(124, 58, 237, 0.25);
+  color: #c4b5fd;
+}
+.tg-card-role-tag[data-role="simulator"] {
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+}
+.tg-card-sim {
+  border-style: dashed !important;
+}
+
+@media (max-width: 900px) {
+  .tg-pair { grid-column: span 1; }
+  .tg-pair-body {
+    grid-template-columns: 1fr;
+  }
+  .tg-pair-arrow { transform: rotate(90deg); }
+}
 .tg-meta-spacer { flex: 1; }
 /* Difficulty dots */
 .tg-difficulty-dots {
@@ -5478,7 +5559,9 @@
 }
 .wf-script-modal.wf-config-modal .wf-config-modal-body {
   flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   padding: 0;
 }
@@ -5495,6 +5578,8 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
+  height: 100%;
+  align-items: stretch;
   overflow: hidden;
 }
 /* Left: Code editor pane */
@@ -5710,7 +5795,13 @@
   min-width: 280px;
   max-width: 50%;
   flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   border-left: 1px solid var(--border, #2d2d3d);
+  border-right: 2px solid var(--primary, #6366f1);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06);
   background: var(--surface, #1e1e2e);
   overflow: hidden;
 }
@@ -5745,15 +5836,67 @@
   flex-shrink: 0;
   margin-left: auto;
 }
+/* Establishes containing block; scroll layer is position:absolute inset 0 so height is never “lost” to nested flex */
 .wf-script-value-panel-body {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
   background: var(--bg, #161625);
-  padding: 8px 0;
+  padding: 0;
   font-size: 0.78rem;
+}
+/* Fills body rect — avoids flex grandchildren collapsing scroll height */
+.wf-script-value-panel-json-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: scroll;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Override base.css `* { scrollbar-width: thin; ... }` so webkit pseudo-element rules below take effect */
+  scrollbar-width: auto;
+  scrollbar-color: #888 #222;
+}
+.wf-script-value-panel-json-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  -webkit-appearance: none;
+}
+.wf-script-value-panel-json-scroll::-webkit-scrollbar-track {
+  background: #222;
+}
+.wf-script-value-panel-json-scroll::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 6px;
+  border: 2px solid #222;
+}
+.wf-script-value-panel-json-scroll::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+.wf-script-value-panel-json-scroll::-webkit-scrollbar-corner {
+  background: #222;
+}
+/* Let JsonPreview size to content; outer json-scroll scrolls (beats requests.css flex:1 on wrapper) */
+.wf-script-value-panel-json-scroll .req-json-preview-wrapper {
+  flex: none !important;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible !important;
+}
+.wf-script-value-panel-json-scroll .jt-tree {
+  flex: none !important;
+  min-height: 0;
+  max-height: none !important;
+  overflow: visible !important;
 }
 .wf-script-value-panel-editor {
   flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 120px);
   padding: 12px 14px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.78rem;
@@ -5762,8 +5905,24 @@
   background: var(--bg, #161625);
   border: none;
   resize: none;
-  overflow-y: auto;
+  overflow: auto;
   tab-size: 2;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, #2d2d3d) transparent;
+}
+.wf-script-value-panel-editor::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.wf-script-value-panel-editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wf-script-value-panel-editor::-webkit-scrollbar-thumb {
+  background: var(--border, #2d2d3d);
+  border-radius: 4px;
+}
+.wf-script-value-panel-editor::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted, #666);
 }
 .wf-script-value-panel-editor:focus {
   outline: none;

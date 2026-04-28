@@ -96,12 +96,18 @@
                                               ┌─────▼─────┐ ┌───▼─────────┐
                                               │ HTTP:      │ │ HTTP:       │
                                               │ Card       │ │ Loyalty     │
-                                              │ Payment    │ │ Payment     │
+                                              │ Charge     │ │ Deduct      │
+                                              │ → $.id     │ │ → $.id      │
+                                              └─────┬─────┘ └───┬─────────┘
+                                              ┌─────▼─────┐ ┌───▼─────────┐
+                                              │ SetVar:   │ │ SetVar:     │
+                                              │ Tag Card  │ │ Tag Loyalty │
+                                              │ card-{id} │ │ loyalty-{id}│
                                               └─────┬─────┘ └───┬─────────┘
                                               ┌─────▼─────┐ ┌───▼─────────┐
                                               │ CorrWait  │ │ CorrWait    │
                                               │ Card CB   │ │ Loyalty CB  │
-                                              │ (5 min)   │ │ (5 min)     │
+                                              │ (2 min)   │ │ (2 min)     │
                                               └─────┬─────┘ └───┬─────────┘
                                                     └─────┬─────┘
                                                     ┌─────▼─────┐
@@ -165,9 +171,14 @@
   <tr><th>Variable</th><th>Expression</th></tr>
   <tr><td><code>loyaltyAmount</code></td><td><code>50.00</code> (from points)</td></tr>
   <tr><td><code>cardAmount</code></td><td><code>100.00</code> (remainder)</td></tr>
-  <tr><td><code>cardPaymentId</code></td><td><code>{{orderId}}-card</code></td></tr>
-  <tr><td><code>loyaltyPaymentId</code></td><td><code>{{orderId}}-loyalty</code></td></tr>
 </table>
+<div class="callout callout-info">
+  <strong>📝 Why no <code>cardPaymentId</code> / <code>loyaltyPaymentId</code> here?</strong>
+  Each branch's HTTP response returns its own gateway id (extracted as <code>$.id</code>),
+  then a per-branch SetVariable step prefixes it with <code>card-</code> or <code>loyalty-</code>
+  to guarantee the two parallel CorrelationWaits get distinct keys — even when the
+  upstream gateway echoes the same numeric id (e.g. test sandboxes returning <code>101</code>).
+</div>
 
 <h3><span class="step-num">3</span> ErrorHandler Node</h3>
 <p>Wrap the Fork → Join section to catch timeouts and payment failures:</p>
@@ -197,14 +208,23 @@
 
 <h4>HTTP Node: Charge Card</h4>
 <pre>
-POST https://payments.example.com/cards/charge
+POST {{paymentBase}}/posts
 {
-  "<span class="field">paymentId</span>": "<span class="string">{{cardPaymentId}}</span>",
+  "<span class="field">orderId</span>": "<span class="string">{{orderId}}</span>",
   "<span class="field">amount</span>": {{cardAmount}},
   "<span class="field">currency</span>": "<span class="string">USD</span>",
+  "<span class="field">cardToken</span>": "<span class="string">{{cardToken}}</span>",
   "<span class="field">callbackUrl</span>": "<span class="string">http://localhost:3001/webhooks/callback/card-payment</span>"
 }
 </pre>
+<p><strong>Extract:</strong> <code>cardPaymentId = $.id</code> from the response body.</p>
+
+<h4>SetVariable Node: Tag Card Payment ID</h4>
+<table>
+  <tr><th>Variable</th><th>Expression</th></tr>
+  <tr><td><code>cardPaymentId</code></td><td><code>card-{{cardPaymentId}}</code></td></tr>
+</table>
+<p>Prefixes the gateway id so the card branch's correlation key cannot collide with the loyalty branch.</p>
 
 <h4>CorrelationWait: Card Callback</h4>
 <table>
@@ -214,7 +234,7 @@ POST https://payments.example.com/cards/charge
   <tr><td>Webhook Path</td><td><code>/webhooks/callback/card-payment</code></td></tr>
   <tr><td>Correlation Source</td><td><code>body</code></td></tr>
   <tr><td>Correlation JSONPath</td><td><code>$.paymentId</code></td></tr>
-  <tr><td>Timeout</td><td><code>300000</code> (5 minutes)</td></tr>
+  <tr><td>Timeout</td><td><code>120000</code> (2 minutes)</td></tr>
 </table>
 
 <h4>Extract Variables (Card)</h4>
@@ -222,6 +242,7 @@ POST https://payments.example.com/cards/charge
   <tr><th>Variable Name</th><th>JSONPath</th></tr>
   <tr><td><code>cardStatus</code></td><td><code>$.status</code></td></tr>
   <tr><td><code>cardTransactionId</code></td><td><code>$.transactionId</code></td></tr>
+  <tr><td><code>cardAuthCode</code></td><td><code>$.authorizationCode</code></td></tr>
 </table>
 
 <!-- ════════════════════════════════ -->
@@ -230,24 +251,31 @@ POST https://payments.example.com/cards/charge
 
 <h4>HTTP Node: Redeem Loyalty Points</h4>
 <pre>
-POST https://loyalty.example.com/redeem
+POST {{paymentBase}}/posts
 {
-  "<span class="field">paymentId</span>": "<span class="string">{{loyaltyPaymentId}}</span>",
-  "<span class="field">points</span>": {{loyaltyPoints}},
-  "<span class="field">amount</span>": {{loyaltyAmount}},
+  "<span class="field">orderId</span>": "<span class="string">{{orderId}}</span>",
+  "<span class="field">points</span>": {{loyaltyPointsToUse}},
+  "<span class="field">monetaryValue</span>": {{loyaltyAmount}},
   "<span class="field">callbackUrl</span>": "<span class="string">http://localhost:3001/webhooks/callback/loyalty-payment</span>"
 }
 </pre>
+<p><strong>Extract:</strong> <code>loyaltyPaymentId = $.id</code> from the response body.</p>
+
+<h4>SetVariable Node: Tag Loyalty Payment ID</h4>
+<table>
+  <tr><th>Variable</th><th>Expression</th></tr>
+  <tr><td><code>loyaltyPaymentId</code></td><td><code>loyalty-{{loyaltyPaymentId}}</code></td></tr>
+</table>
 
 <h4>CorrelationWait: Loyalty Callback</h4>
 <table>
   <tr><th>Field</th><th>Value</th></tr>
-  <tr><td>Label</td><td><code>Wait for Loyalty Payment</code></td></tr>
+  <tr><td>Label</td><td><code>Wait for Loyalty Deduction</code></td></tr>
   <tr><td>Correlation ID Expression</td><td><code>{{loyaltyPaymentId}}</code></td></tr>
   <tr><td>Webhook Path</td><td><code>/webhooks/callback/loyalty-payment</code></td></tr>
   <tr><td>Correlation Source</td><td><code>body</code></td></tr>
   <tr><td>Correlation JSONPath</td><td><code>$.paymentId</code></td></tr>
-  <tr><td>Timeout</td><td><code>300000</code> (5 minutes)</td></tr>
+  <tr><td>Timeout</td><td><code>120000</code> (2 minutes)</td></tr>
 </table>
 
 <h4>Extract Variables (Loyalty)</h4>
@@ -301,6 +329,19 @@ POST https://api.example.com/orders/{{orderId}}/cancel
 
 <!-- ════════════════════════════════ -->
 <h2>Testing the Flow</h2>
+
+<h3>Counterpart Simulator (recommended demo)</h3>
+<ol>
+  <li>Open <strong>Template Gallery</strong> &rarr; Event-Driven tab in a second tab</li>
+  <li>Pick <code>Sample: Parallel Payment (Simulator)</code> &rarr; Use Template</li>
+  <li>Run the main parallel payment workflow first &mdash; it pauses on <em>both</em> CorrelationWait nodes</li>
+  <li>Run the simulator workflow &mdash; its Fork/Join POSTs both <code>/webhooks/callback/card-payment</code> and <code>/webhooks/callback/loyalty-payment</code> in parallel</li>
+  <li>The main workflow resumes both branches; the Join node waits for both, then the Condition routes to confirm or refund</li>
+</ol>
+<div class="callout callout-tip">
+  <strong>💡 Test the failure path</strong>
+  Edit the simulator's <code>cardStatus</code> input variable to <code>declined</code> (or anything other than <code>approved</code>) to send the main workflow down the cancel/refund branch.
+</div>
 
 <p>Run the workflow — it pauses at <strong>both</strong> CorrelationWait nodes simultaneously.
 Send two separate webhooks to resume both branches:</p>

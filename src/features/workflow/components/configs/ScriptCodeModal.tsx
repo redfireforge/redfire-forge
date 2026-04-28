@@ -154,15 +154,18 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
       {/* Body */}
       {viewMode === 'tree' && jTree ? (
         <div className="wf-script-value-panel-body">
-          <JsonPreview
-            body={draft}
-            search={debouncedSearch}
-            currentMatchIdx={searchMatchIdx}
-            onMatchCountChange={handleTreeMatchCountChange}
-            collapsedSet={collapsedSet}
-            onToggle={handleToggle}
-            prebuiltTree={jTree}
-          />
+          {/* Isolated scroll container — nested flex + req-json-preview-wrapper rules otherwise prevent vertical scroll */}
+          <div className="wf-script-value-panel-json-scroll">
+            <JsonPreview
+              body={draft}
+              search={debouncedSearch}
+              currentMatchIdx={searchMatchIdx}
+              onMatchCountChange={handleTreeMatchCountChange}
+              collapsedSet={collapsedSet}
+              onToggle={handleToggle}
+              prebuiltTree={jTree}
+            />
+          </div>
         </div>
       ) : (
         <textarea

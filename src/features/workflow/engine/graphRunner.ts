@@ -6,6 +6,7 @@ import { VariableContext } from './variableContext';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { humanizeError, toErrorMessage } from '../../../shared/utils/helpers';
 import type { DebugController } from './debugController';
+import type { ICorrelationStore } from './correlationStore';
 import { findStartNodes } from './graphRunnerHelpers';
 import {
   handleHttpNode,
@@ -86,6 +87,8 @@ export async function runGraph(
   errorConfig?: WorkflowErrorConfig,
   /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
+  /** Optional correlation store for `CorrelationWait` nodes. When omitted, those nodes will fail. */
+  correlationStore?: ICorrelationStore,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -185,6 +188,10 @@ export async function runGraph(
       resolveHttpBaseUrl, resolveHttpAuth, debugController,
       resolveSubWorkflow, log, nodeLabel,
       visit, visitOutgoing, threadId,
+      correlationStore,
+      executionId: `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`,
+      workflowId: 'unknown',
+      startTime: Date.now(),
     };
 
     try {

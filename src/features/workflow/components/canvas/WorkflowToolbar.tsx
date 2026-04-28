@@ -106,28 +106,30 @@ export default function WorkflowToolbar({
               {variableCount > 0 && <span className="wf-toolbar-services-badge">{variableCount}</span>}
             </button>
 
-            <span className="wf-toolbar-env-wrap">
-              <select
-                className="wf-toolbar-env-select"
-                value={selectedEnvId}
-                onChange={(e) => onEnvSelect?.(e.target.value)}
-                disabled={isRunning}
-                title="Select target environment for Quick Test"
-              >
-                <option value="">Env…</option>
-                {environments.map((e) => {
-                  const r = envReadinessMap.get(e.id);
-                  const warn = r && !r.ready ? ` ⚠ ${r.issues.length} missing` : '';
-                  return <option key={e.id} value={e.id}>{e.name}{warn}</option>;
-                })}
-              </select>
-              {currentReadiness && !currentReadiness.ready && (
-                <span
-                  className="wf-toolbar-env-warn"
-                  title={`Missing config: ${currentReadiness.issues.map((i: { serviceName: string }) => i.serviceName).join(', ')}`}
-                >⚠</span>
-              )}
-            </span>
+            {!isPreview && (
+              <span className="wf-toolbar-env-wrap">
+                <select
+                  className="wf-toolbar-env-select"
+                  value={selectedEnvId}
+                  onChange={(e) => onEnvSelect?.(e.target.value)}
+                  disabled={isRunning}
+                  title="Select target environment for Quick Test"
+                >
+                  <option value="">Env…</option>
+                  {environments.map((e) => {
+                    const r = envReadinessMap.get(e.id);
+                    const warn = r && !r.ready ? ` ⚠ ${r.issues.length} missing` : '';
+                    return <option key={e.id} value={e.id}>{e.name}{warn}</option>;
+                  })}
+                </select>
+                {currentReadiness && !currentReadiness.ready && (
+                  <span
+                    className="wf-toolbar-env-warn"
+                    title={`Missing config: ${currentReadiness.issues.map((i: { serviceName: string }) => i.serviceName).join(', ')}`}
+                  >⚠</span>
+                )}
+              </span>
+            )}
 
             <span className="wf-toolbar-divider" />
 

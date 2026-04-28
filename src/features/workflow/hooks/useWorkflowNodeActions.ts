@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestCollection, Environment, Microservice } from '../../../shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
@@ -13,11 +13,10 @@ import type {
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { defaultNodeData } from '../utils/workflowNodeFactory';
 import { mergeWorkflowNodeData } from '../utils/workflowNodeMerge';
-import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveQuickTestHostForRequest } from '../utils/workflowRequestHost';
 import { extractToSubWorkflow } from '../utils/workflowExtractSubWorkflow';
 import type { Workflow } from '../types/workflow';
-import type { UseToastReturn } from '../../../shared/hooks/useToast';
+import type { ToastApi } from '../components/WorkflowToastProvider';
 
 interface UseWorkflowNodeActionsOpts {
   selected: Workflow | null;
@@ -42,7 +41,9 @@ interface UseWorkflowNodeActionsOpts {
   undoRedo: { takeSnapshot: (label: string) => void };
   workflows: Workflow[];
   create: (name: string) => void;
-  toast: UseToastReturn;
+  toast: ToastApi;
+  /** Shared Y-cursor ref for placing newly-added nodes; provided by parent so other hooks can read/advance it. */
+  nextNodeY: React.MutableRefObject<number>;
 }
 
 export function useWorkflowNodeActions({
@@ -69,8 +70,8 @@ export function useWorkflowNodeActions({
   workflows,
   create,
   toast,
+  nextNodeY,
 }: UseWorkflowNodeActionsOpts) {
-  const nextNodeY = useRef(100);
 
   const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
     if (!selected) return;
