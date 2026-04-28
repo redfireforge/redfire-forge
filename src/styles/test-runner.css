@@ -706,6 +706,19 @@ tr:hover td { background: var(--surface-hover); }
   height: 100%;
   overflow: hidden;
 }
+.response-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.response-detail-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
 .response-detail-body {
   overflow-y: auto;
   padding: 16px 20px;
@@ -721,13 +734,41 @@ tr:hover td { background: var(--surface-hover); }
 .response-detail-body::-webkit-scrollbar-track { background: transparent; }
 .response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* Show visible scrollbar when modal is expanded/fullscreen */
+.modal-fullscreen .response-detail-body,
+.modal-expanded .response-detail-body {
+  -ms-overflow-style: auto;
+  scrollbar-width: auto;
+  scrollbar-color: var(--border) transparent;
+}
+.modal-fullscreen .response-detail-body::-webkit-scrollbar,
+.modal-expanded .response-detail-body::-webkit-scrollbar {
+  width: 10px;
+  display: block;
+}
+.modal-fullscreen .response-detail-body::-webkit-scrollbar-track,
+.modal-expanded .response-detail-body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb,
+.modal-expanded .response-detail-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb:hover,
+.modal-expanded .response-detail-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: padding-box;
+}
 .response-detail-meta {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
 }
 .response-meta-row {

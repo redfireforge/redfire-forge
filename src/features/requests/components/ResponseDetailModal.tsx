@@ -18,6 +18,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
       title="Response Detail"
       onClose={onClose}
       dialogClassName="response-detail-modal"
+      headerClassName="response-detail-header"
       bodyClassName="response-detail-body"
       initialExpanded={false}
       expandMode="fullscreen"
