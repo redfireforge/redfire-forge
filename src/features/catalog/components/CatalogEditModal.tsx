@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CatalogEntry } from '../types/catalog';
 import type { Environment, Microservice } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 
 interface Props {
   entry: CatalogEntry;
@@ -54,15 +54,9 @@ export default function CatalogEditModal({ entry, microservices, environments, o
   }, [selectedSvcId, entry, microservices, onSave, onClose]);
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title={`Edit — ${entry.name}`}
       onClose={onClose}
-      overlayClassName="cat-modal-overlay"
-      dialogClassName="cat-modal cat-modal-wide"
-      headerClassName="cat-modal-header"
-      bodyClassName="cat-modal-body"
-      footerClassName="cat-modal-footer"
-      closeButtonClassName="cat-modal-close"
       footer={(
         <>
           <button className="cat-btn" onClick={onClose}>Cancel</button>
@@ -122,6 +116,6 @@ export default function CatalogEditModal({ entry, microservices, environments, o
               </div>
             )}
           </div>
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }

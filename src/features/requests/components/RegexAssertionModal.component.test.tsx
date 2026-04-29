@@ -33,11 +33,12 @@ describe('RegexAssertionModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onClose when clicking overlay background', () => {
+  it('does not close when clicking overlay background (FullPanelModal)', () => {
     const { onClose, container } = renderModal();
     const overlay = container.querySelector('.modal-overlay')!;
     fireEvent.click(overlay);
-    expect(onClose).toHaveBeenCalled();
+    // FullPanelModal overlay does not close on click
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('does not close when clicking modal body', () => {
@@ -235,9 +236,9 @@ describe('RegexAssertionModal', () => {
     expect(screen.getByText(/Paste a sample JSON/)).toBeTruthy();
   });
 
-  it('Cancel button calls onClose', () => {
+  it('Close button calls onClose', () => {
     const { onClose } = renderModal();
-    fireEvent.click(screen.getByText('Cancel'));
+    fireEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalled();
   });
 });
