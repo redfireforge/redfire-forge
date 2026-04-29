@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
 import type { JsonNode } from '../utils/jsonPathTreeUtils';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
@@ -187,17 +187,12 @@ export default function RegexAssertionModal({
     : PATTERN_LIBRARY;
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title="Regex Assertion Builder"
       onClose={onClose}
-      dialogClassName="ram-modal"
-      headerClassName="ram-header"
-      bodyClassName="ram-body"
-      footerClassName="ram-footer"
-      closeButtonClassName="ram-modal-close"
       footer={(
         <>
-          <button className="btn btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn btn-cancel" onClick={onClose}>Close</button>
           <button className="btn btn-accent" onClick={handleApply} disabled={!jsonPath || !pattern}>
             Apply Assertion
           </button>
@@ -382,6 +377,6 @@ export default function RegexAssertionModal({
             )}
           </div>
 
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }

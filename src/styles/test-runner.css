@@ -697,26 +697,24 @@ tr:hover td { background: var(--surface-hover); }
    Response Detail Modal
    --------------------------------------------------------------------------- */
 
-.response-detail-modal {
-  max-width: 720px;
-  width: 90vw;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.response-detail-header {
+/* Centered overlay for Response Detail modal — uses WorkflowEditorModalFrame */
+.response-detail-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10080;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
 }
-.response-detail-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+.response-detail-modal.wf-config-modal.modal.ram-modal {
+  max-width: 720px;
+}
+/* Hide redundant expand buttons and close button */
+.response-detail-modal .modal-expand-btn,
+.response-detail-modal .ram-modal-close {
+  display: none;
 }
 .response-detail-body {
   overflow-y: auto;
@@ -724,51 +722,24 @@ tr:hover td { background: var(--surface-hover); }
   display: flex;
   flex-direction: column;
   gap: 16px;
-  flex: 1;
-  min-height: 0;
-  /* Thin scrollbar in normal mode */
-  -ms-overflow-style: -ms-autohiding-scrollbar;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
-/* Thin scrollbar by default */
-.response-detail-body::-webkit-scrollbar { 
-  width: 5px;
-  display: block !important; /* Force scrollbar to always show */
+.response-detail-body::-webkit-scrollbar { width: 5px; }
+.response-detail-body::-webkit-scrollbar-track { background: transparent; }
+.response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* In fullscreen mode, let the body fill available space and scroll */
+.modal-fullscreen.response-detail-modal {
+  max-width: 100%;
+  max-height: 100%;
 }
-.response-detail-body::-webkit-scrollbar-track { 
-  background: transparent; 
+.modal-fullscreen .response-detail-body {
+  flex: 1;
+  min-height: 0;
 }
-.response-detail-body::-webkit-scrollbar-thumb { 
-  background: var(--border); 
-  border-radius: 3px; 
-}
-.response-detail-body::-webkit-scrollbar-thumb:hover { 
-  background: var(--text-muted); 
-}
-/* Wider, more visible scrollbar when modal is expanded/fullscreen */
-.modal-fullscreen .response-detail-body,
-.modal-expanded .response-detail-body {
-  scrollbar-width: auto;
-  scrollbar-color: var(--border) rgba(0, 0, 0, 0.1);
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar,
-.modal-expanded .response-detail-body::-webkit-scrollbar {
-  width: 10px !important;
-  display: block !important; /* Force scrollbar visibility */
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-track,
-.modal-expanded .response-detail-body::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb,
-.modal-expanded .response-detail-body::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-.modal-fullscreen .response-detail-body::-webkit-scrollbar-thumb:hover,
-.modal-expanded .response-detail-body::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+.modal-fullscreen .response-body-pre {
+  max-height: none;
 }
 .response-detail-meta {
   display: flex;

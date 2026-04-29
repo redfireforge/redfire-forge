@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { TestRun, RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
+import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { findFolderDeep } from '../features/requests/utils/requestTree';
 import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomizer';
-import { loadTestRuns, loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
+import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
 import { saveFile } from '../shared/utils/fileSaver';
+import { mergeById } from '../shared/utils/helpers';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
@@ -23,8 +24,7 @@ import CatalogVersionHistory from '../features/catalog/components/CatalogVersion
 import CatalogEditModal from '../features/catalog/components/CatalogEditModal';
 import CatalogSendToRequestsModal from '../features/catalog/components/CatalogSendToRequestsModal';
 import type { SendToRequestsPayload } from '../features/catalog/components/CatalogSendToRequestsModal';
-import ExportCenter from '../shared/components/ExportCenter';
-import ImportCenter from '../shared/components/ImportCenter';
+
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsModal from '../features/settings/SettingsModal';
@@ -123,9 +123,7 @@ export default function App() {
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const [showSettings, setShowSettings] = useState(false);
-  const [showExportCenter, setShowExportCenter] = useState(false);
-  const [showImportCenter, setShowImportCenter] = useState(false);
-  const [testRunsCache, setTestRunsCache] = useState<TestRun[]>([]);
+
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
   const [editingWbCollection, setEditingWbCollection] = useState<RequestCollection | null>(null);
@@ -169,7 +167,6 @@ export default function App() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
       setTheme(initialTheme);
        
-      setTestRunsCache(initialTestRuns);
     }
   }, [loading, initialTheme, initialTestRuns]);
 
@@ -305,27 +302,17 @@ export default function App() {
     globalAuthProfiles?: GlobalAuthProfile[];
   }) => {
     if (data.environments?.length) {
-      setEnvironments((prev) => {
-        const ids = new Set(prev.map(e => e.id));
-        return [...prev, ...data.environments!.filter(e => !ids.has(e.id))];
-      });
+      setEnvironments((prev) => mergeById(prev, data.environments!));
     }
     if (data.microservices?.length) {
-      setMicroservices((prev) => {
-        const ids = new Set(prev.map(s => s.id));
-        return [...prev, ...data.microservices!.filter(s => !ids.has(s.id))];
-      });
+      setMicroservices((prev) => mergeById(prev, data.microservices!));
     }
     if (data.featureGroups?.length) {
       setFeatureGroups((prev) => [...prev, ...data.featureGroups!]);
     }
     if (data.globalAuthProfiles?.length) {
-      setAppGlobalAuthProfiles((prev) => {
-        const ids = new Set(prev.map(a => a.id));
-        return [...prev, ...data.globalAuthProfiles!.filter(a => !ids.has(a.id))];
-      });
+      setAppGlobalAuthProfiles((prev) => mergeById(prev, data.globalAuthProfiles!));
     }
-    setShowImportCenter(false);
     setActiveTab('environments');
   }, [setEnvironments, setMicroservices, setFeatureGroups, setAppGlobalAuthProfiles]);
 
@@ -445,7 +432,7 @@ export default function App() {
       </nav>
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && !showSettings && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -543,20 +530,21 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && !showSettings && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || showSettings ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || showSettings ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
 
         <main className="app-main">
           {/* ── Contextual sub-nav ── */}
+          {!showCatalogImport && (
           <div className="sub-nav">
             {domainOf(activeTab) === 'api' && (
               <div className="sub-nav-tabs">
@@ -588,6 +576,7 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
           <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner
@@ -726,41 +715,59 @@ export default function App() {
               onClose={() => setSendToReqEntry(undefined)}
             />
           )}
+
+          {showCatalogImport && (
+            <CatalogImportModal
+              existingEntries={catalog.entries}
+              reimportEntryId={catalogReimportId}
+              onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
+              onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
+              onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); }}
+            />
+          )}
+
+          {catalogVersionHistoryId && (() => {
+            const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
+            if (!vhEntry) return null;
+            return (
+              <CatalogVersionHistory
+                entry={vhEntry}
+                onClose={() => setCatalogVersionHistoryId(undefined)}
+                onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
+                onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
+                loadRawSpec={catalog.loadRawSpec}
+              />
+            );
+          })()}
+
+          {catalogEditId && (() => {
+            const editEntry = catalog.entries.find(e => e.id === catalogEditId);
+            if (!editEntry) return null;
+            return (
+              <CatalogEditModal
+                entry={editEntry}
+                microservices={microservices}
+                environments={environments}
+                onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
+                onClose={() => setCatalogEditId(undefined)}
+              />
+            );
+          })()}
+
+          {showSettings && (
+            <SettingsModal
+              appGlobalAuthProfiles={appGlobalAuthProfiles}
+              setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+              environments={environments}
+              microservices={microservices}
+              featureGroups={featureGroups}
+              onClose={() => setShowSettings(false)}
+              onImport={handleImportData}
+              confirm={confirm}
+            />
+          )}
         </main>
       </div>
-
-      {showSettings && (
-        <SettingsModal
-          appGlobalAuthProfiles={appGlobalAuthProfiles}
-          setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-          onClose={() => setShowSettings(false)}
-          onOpenExport={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowExportCenter(true); }}
-          onOpenImport={async () => { setTestRunsCache(await loadTestRuns()); setShowSettings(false); setShowImportCenter(true); }}
-          confirm={confirm}
-        />
-      )}
-
-      {showExportCenter && (
-        <ExportCenter
-          environments={environments}
-          microservices={microservices}
-          featureGroups={featureGroups}
-          appGlobalAuthProfiles={appGlobalAuthProfiles}
-          testRuns={testRunsCache}
-          onClose={() => { setShowExportCenter(false); setShowSettings(true); }}
-        />
-      )}
-
-      {showImportCenter && (
-        <ImportCenter
-          environments={environments}
-          microservices={microservices}
-          featureGroups={featureGroups}
-          appGlobalAuthProfiles={appGlobalAuthProfiles}
-          onImport={handleImportData}
-          onClose={() => { setShowImportCenter(false); setShowSettings(true); }}
-        />
-      )}
 
       {showWbCollectionModal && (
         <RequestCollectionModal
@@ -787,44 +794,6 @@ export default function App() {
           onClose={() => setEditingSubCol(null)}
         />
       )}
-
-      {showCatalogImport && (
-        <CatalogImportModal
-          existingEntries={catalog.entries}
-          reimportEntryId={catalogReimportId}
-          onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
-          onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
-          onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); }}
-        />
-      )}
-
-      {catalogVersionHistoryId && (() => {
-        const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
-        if (!vhEntry) return null;
-        return (
-          <CatalogVersionHistory
-            entry={vhEntry}
-            onClose={() => setCatalogVersionHistoryId(undefined)}
-            onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
-            onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
-            loadRawSpec={catalog.loadRawSpec}
-          />
-        );
-      })()}
-
-      {catalogEditId && (() => {
-        const editEntry = catalog.entries.find(e => e.id === catalogEditId);
-        if (!editEntry) return null;
-        return (
-          <CatalogEditModal
-            entry={editEntry}
-            microservices={microservices}
-            environments={environments}
-            onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
-            onClose={() => setCatalogEditId(undefined)}
-          />
-        );
-      })()}
 
       {confirmAction && (
         <div className="confirm-overlay">

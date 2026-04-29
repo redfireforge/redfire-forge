@@ -2632,7 +2632,7 @@
 
 /* Full-screen dim layer; must sit above .wf-config-modal-overlay (10080) so it's not hidden behind it. */
 .wf-detail-modal-overlay.modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;

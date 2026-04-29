@@ -7,7 +7,7 @@ import {
   downloadExcel,
 } from '../utils/csvTemplate';
 import type { ExportOptions, ColumnDef } from '../utils/csvTemplate';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 
 interface Props {
   test: Scenario;
@@ -118,7 +118,7 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
   ];
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title={(
         <div>
           <h3>Export Excel Template</h3>
@@ -129,11 +129,6 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
         </div>
       )}
       onClose={onClose}
-      dialogClassName="csv-export-modal"
-      headerClassName="csv-export-header"
-      footerClassName="excel-export-footer"
-      closeButtonKind="text"
-      closeButtonText="Cancel"
       footer={(
         <>
           {step !== 'variables' && (
@@ -142,6 +137,7 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
             </button>
           )}
           <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose}>Cancel</button>
           {step === 'variables' && (
             <button className="btn btn-primary" onClick={enterStep2}>
               Next: Column Names
@@ -394,6 +390,6 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
           )}
         </div>
 
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }
