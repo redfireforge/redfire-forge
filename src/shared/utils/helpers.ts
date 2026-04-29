@@ -134,3 +134,9 @@ export function humanizeError(technical: string): string {
 export function snapshot<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
+
+/** Merge `incoming` items into `existing`, skipping items whose `id` already exists. */
+export function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
+  const ids = new Set(existing.map(x => x.id));
+  return [...existing, ...incoming.filter(x => !ids.has(x.id))];
+}

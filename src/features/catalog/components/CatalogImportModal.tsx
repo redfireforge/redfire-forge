@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedSpec, CatalogEntry } from '../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../utils/openApiParser';
 import { isTauri } from '../../../shared/utils/platform';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { sampleCatalogSpecs, SAMPLE_CATALOG_CATEGORIES, type SampleCatalogCategory } from '../../../data/sampleCatalogSpecs';
 
 interface Props {
@@ -136,22 +136,17 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
     : false;
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title={reimportEntryId ? 'Re-import / Update Specification' : 'Import OpenAPI Specification'}
       onClose={onClose}
-      overlayClassName="cat-modal-overlay"
       dialogClassName="cat-modal"
-      headerClassName="cat-modal-header"
-      bodyClassName="cat-modal-body"
-      footerClassName="cat-modal-footer"
-      closeButtonClassName="cat-modal-close"
       footer={(
         <>
           <button
             className="cat-btn"
             onClick={step === 'error' || step === 'preview' ? () => { setStep('pick'); setParsed(null); setError(''); } : onClose}
           >
-            {step === 'pick' ? 'Cancel' : 'Back'}
+            {step === 'pick' ? 'Close' : 'Back'}
           </button>
           {step === 'preview' && (
             <button className="cat-btn cat-btn-primary" onClick={handleImport}>
@@ -380,6 +375,6 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
               <div className="cat-error-hint">Please fix the specification and try again.</div>
             </div>
           )}
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../../../shared/types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import type { CsvParseResult } from '../utils/csvTemplate';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import PopupModal from '../../../shared/components/PopupModal';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -158,16 +158,14 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     && ((createNewScenario || createNewFg) ? newScenarioName.trim() : selectedScenarioId);
 
   return (
-    <AppModalFrame
+    <PopupModal
       title="Import Tests from CSV / Excel"
       onClose={onClose}
       dialogClassName="csv-import-modal"
-      headerClassName="modal-header"
-      bodyClassName="csv-import-body"
       footerClassName="csv-import-footer"
-      closeButtonClassName="modal-close-btn"
       footer={(
         <>
+          <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleImport} disabled={!canImport}>
             Import {validTests.length} Test{validTests.length !== 1 ? 's' : ''}
@@ -414,6 +412,6 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
               </div>
             </div>
           )}
-    </AppModalFrame>
+    </PopupModal>
   );
 }

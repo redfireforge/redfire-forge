@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Scenario, FeatureGroup } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import PopupModal from '../../../shared/components/PopupModal';
 
 interface Props {
   test: Scenario;
@@ -16,22 +16,20 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
   const [targetScenario, setTargetScenario] = useState(sourceScenarioId);
 
   return (
-    <AppModalFrame
+    <PopupModal
       title="Copy Test To..."
       onClose={onClose}
-      dialogClassName="copy-modal"
-      closeButtonKind="none"
-      footerClassName="copy-modal-actions"
       footer={(
         <>
+          <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={() => onConfirm(targetFeature, targetScenario)} disabled={!targetScenario}>Copy Here</button>
         </>
       )}
     >
-        <p className="copy-test-name">Copying: <strong>{test.name}</strong></p>
+        <p className="popup-modal-banner">Copying: <strong>{test.name}</strong></p>
 
-        <div className="form-row">
+        <div className="popup-modal-field">
           <label>Feature Group</label>
           <select value={targetFeature} onChange={(e) => {
             setTargetFeature(e.target.value);
@@ -44,7 +42,7 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
           </select>
         </div>
 
-        <div className="form-row">
+        <div className="popup-modal-field">
           <label>Scenario</label>
           <select value={targetScenario} onChange={(e) => setTargetScenario(e.target.value)}>
             {featureGroups.find((f) => f.id === targetFeature)?.scenarios.map((sc) => (
@@ -56,6 +54,6 @@ export default function CopyTestModal({ test, sourceFeatureId, sourceScenarioId,
           </select>
         </div>
 
-    </AppModalFrame>
+    </PopupModal>
   );
 }

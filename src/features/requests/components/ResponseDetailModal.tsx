@@ -1,6 +1,6 @@
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import { prettyJson } from '../../../shared/utils/helpers';
 
 type ResponseDetailModalProps = {
@@ -14,14 +14,14 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
   if (!result) return null;
 
   return (
-    <AppModalFrame
+    <WorkflowEditorModalFrame
       title="Response Detail"
       onClose={onClose}
+      overlayClassName="response-detail-overlay"
       dialogClassName="response-detail-modal"
-      headerClassName="modal-header"
       bodyClassName="response-detail-body"
       footerClassName="response-detail-footer"
-      closeButtonKind="none"
+      expandMode="fullscreen"
       footer={<button className="btn btn-primary" onClick={onClose}>Close</button>}
     >
           <div className="response-detail-meta">
@@ -79,6 +79,6 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
               <pre className="response-body-pre">{formatResponseBody(result.responseBody)}</pre>
             </div>
           )}
-    </AppModalFrame>
+    </WorkflowEditorModalFrame>
   );
 }

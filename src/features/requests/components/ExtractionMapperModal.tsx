@@ -4,7 +4,7 @@ import { buildTree, suggestedVariableNameFromJsonPath } from '../utils/jsonPathT
 import { PickerNode } from './RegexAssertionModal';
 import type { ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 
 interface Props {
   /** Current extractions (shown as pre-selected in right panel). */
@@ -143,18 +143,9 @@ export default function ExtractionMapperModal({
   // selectedPath for tree highlighting — show all mapped paths
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title="Extraction Mapper"
-      titleClassName="emm-title"
       onClose={onClose}
-      overlayClassName="emm-overlay"
-      dialogClassName="emm-modal"
-      headerClassName="emm-header"
-      footerClassName="emm-footer"
-      controlsClassName="emm-window-controls"
-      closeButtonClassName="emm-win-btn emm-win-close"
-      initialExpanded={false}
-      expandMode="fullscreen"
       footer={(
         <>
           <div className="emm-footer-hint">
@@ -341,6 +332,6 @@ export default function ExtractionMapperModal({
           </div>
         </div>
 
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }
