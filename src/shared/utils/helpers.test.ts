@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -296,5 +296,45 @@ describe('prettyJson', () => {
   it('returns partial JSON unchanged', () => {
     const input = '{"incomplete":';
     expect(prettyJson(input)).toBe(input);
+  });
+});
+
+describe('mergeById', () => {
+  it('appends items with new ids', () => {
+    const existing = [{ id: '1', name: 'A' }];
+    const incoming = [{ id: '2', name: 'B' }];
+    expect(mergeById(existing, incoming)).toEqual([
+      { id: '1', name: 'A' },
+      { id: '2', name: 'B' },
+    ]);
+  });
+
+  it('skips items whose id already exists', () => {
+    const existing = [{ id: '1', name: 'A' }];
+    const incoming = [{ id: '1', name: 'A-updated' }, { id: '2', name: 'B' }];
+    expect(mergeById(existing, incoming)).toEqual([
+      { id: '1', name: 'A' },
+      { id: '2', name: 'B' },
+    ]);
+  });
+
+  it('returns existing array unchanged when incoming is empty', () => {
+    const existing = [{ id: '1', name: 'A' }];
+    expect(mergeById(existing, [])).toEqual([{ id: '1', name: 'A' }]);
+  });
+
+  it('returns incoming items when existing is empty', () => {
+    const incoming = [{ id: '1', name: 'A' }];
+    expect(mergeById([], incoming)).toEqual([{ id: '1', name: 'A' }]);
+  });
+
+  it('handles both empty', () => {
+    expect(mergeById([], [])).toEqual([]);
+  });
+
+  it('preserves order: existing first, then new incoming', () => {
+    const existing = [{ id: '3' }, { id: '1' }];
+    const incoming = [{ id: '2' }, { id: '1' }, { id: '4' }];
+    expect(mergeById(existing, incoming).map(x => x.id)).toEqual(['3', '1', '2', '4']);
   });
 });

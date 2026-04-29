@@ -1,26 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { GlobalAuthProfile, AuthType } from '../../shared/types';
+import type { GlobalAuthProfile, AuthType, Environment, Microservice, FeatureGroup } from '../../shared/types';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { getStorageUsage, getMaxRuns } from '../../shared/utils/storage';
 import SettingsStorageTab from './SettingsStorageTab';
-import AppModalFrame from '../../shared/components/AppModalFrame';
+import SettingsExportImportTab from './SettingsExportImportTab';
+import WorkflowEditorModalFrame from '../workflow/components/modals/WorkflowEditorModalFrame';
 
 export interface SettingsModalProps {
   appGlobalAuthProfiles: GlobalAuthProfile[];
   setAppGlobalAuthProfiles: React.Dispatch<React.SetStateAction<GlobalAuthProfile[]>>;
+  environments: Environment[];
+  microservices: Microservice[];
+  featureGroups: FeatureGroup[];
   onClose: () => void;
-  onOpenExport: () => void;
-  onOpenImport: () => void;
+  onImport: (data: {
+    environments?: Environment[];
+    microservices?: Microservice[];
+    featureGroups?: FeatureGroup[];
+    globalAuthProfiles?: GlobalAuthProfile[];
+  }) => void;
   confirm: (message: string, onConfirm: () => void) => void;
 }
 
 export default function SettingsModal({
   appGlobalAuthProfiles,
   setAppGlobalAuthProfiles,
+  environments,
+  microservices,
+  featureGroups,
   onClose,
-  onOpenExport,
-  onOpenImport,
+  onImport,
   confirm,
 }: SettingsModalProps) {
   const [settingsTab, setSettingsTab] = useState<'globalAuth' | 'exportImport' | 'storage'>('globalAuth');
@@ -41,14 +51,14 @@ export default function SettingsModal({
   }, []);
 
   return (
-    <AppModalFrame
+    <WorkflowEditorModalFrame
       title="Settings"
       onClose={onClose}
       overlayClassName="settings-overlay"
-      dialogClassName="settings-modal settings-modal-split"
-      headerClassName="settings-header"
+      dialogClassName="settings-modal settings-modal-split modal-no-chrome"
       bodyClassName="settings-split"
-      closeButtonKind="text"
+      bodyScrollable={false}
+      footer={<button className="btn btn-primary" onClick={onClose}>Close</button>}
     >
       <nav className="settings-nav">
         <button type="button" className={`settings-nav-item ${settingsTab === 'globalAuth' ? 'active' : ''}`} onClick={() => setSettingsTab('globalAuth')}>Global Auth Profiles</button>
@@ -273,16 +283,15 @@ export default function SettingsModal({
         )}
 
         {settingsTab === 'exportImport' && (
-          <div className="settings-section">
-            <h4>Export & Import</h4>
-            <p className="settings-section-desc">Export your environments, microservices, auth profiles, and feature groups, or import from a JSON file.</p>
-            <div className="settings-export-import-row">
-              <button type="button" className="btn btn-primary btn-sm" onClick={onOpenExport}>Export Data</button>
-              <button type="button" className="btn btn-sm" onClick={onOpenImport}>Import Data</button>
-            </div>
-          </div>
+          <SettingsExportImportTab
+            environments={environments}
+            microservices={microservices}
+            featureGroups={featureGroups}
+            appGlobalAuthProfiles={appGlobalAuthProfiles}
+            onImport={onImport}
+          />
         )}
       </div>
-    </AppModalFrame>
+    </WorkflowEditorModalFrame>
   );
 }

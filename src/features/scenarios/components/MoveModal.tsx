@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { FeatureGroup } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import PopupModal from '../../../shared/components/PopupModal';
 
 export type MoveType = 'scenario' | 'test';
 
@@ -19,7 +19,7 @@ interface Props {
   onClose: () => void;
 }
 
-export default function MoveDialog({
+export default function MoveModal({
   type, itemName, featureGroups, currentFgId, currentScenarioId,
   onMove, onClose,
 }: Props) {
@@ -59,30 +59,25 @@ export default function MoveDialog({
   const typeLabel = type === 'scenario' ? 'Scenario' : 'Test';
 
   return (
-    <AppModalFrame
+    <PopupModal
       title={`Move ${typeLabel}`}
       onClose={onClose}
-      dialogClassName="move-dialog"
-      headerClassName="move-dialog-header"
-      bodyClassName="move-dialog-body"
-      footerClassName="move-dialog-footer"
-      closeButtonKind="text"
-      closeButtonText="Cancel"
       footer={(
         <>
-          <button className="btn btn-sm" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={handleMove} disabled={!canMove}>Move</button>
+          <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleMove} disabled={!canMove}>Move</button>
         </>
       )}
     >
-          <div className="move-dialog-item">
+          <div className="popup-modal-banner">
             Moving: <strong>{itemName}</strong>
           </div>
 
-          <div className="move-dialog-step">
+          <div className="popup-modal-field">
             <label>Target Feature Group</label>
             {featureGroups.length === 0 ? (
-              <div className="move-dialog-empty">No feature groups available</div>
+              <div className="popup-modal-empty">No feature groups available</div>
             ) : (
               <select
                 value={targetFgId}
@@ -105,10 +100,10 @@ export default function MoveDialog({
           </div>
 
           {type === 'test' && targetFgId && (
-            <div className="move-dialog-step">
+            <div className="popup-modal-field">
               <label>Target Scenario</label>
               {availableScenarios.length === 0 ? (
-                <div className="move-dialog-empty">No scenarios in this feature group</div>
+                <div className="popup-modal-empty">No scenarios in this feature group</div>
               ) : (
                 <select
                   value={targetScenarioId}
@@ -129,10 +124,10 @@ export default function MoveDialog({
           )}
 
           {isSameLocation && targetFgId && (
-            <div className="move-dialog-warning">
+            <div className="popup-modal-warning">
               This is the current location. Select a different destination.
             </div>
           )}
-    </AppModalFrame>
+    </PopupModal>
   );
 }

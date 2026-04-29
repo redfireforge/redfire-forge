@@ -4,7 +4,7 @@ import { parseOpenApiSpec } from '../utils/openApiParser';
 import { formatBytes } from '../../../shared/utils/helpers';
 import { diffCatalogEntries } from '../utils/catalogSpecDiff';
 import CatalogVersionDiff from './CatalogVersionDiff';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import FullPanelModal from '../../../shared/components/FullPanelModal';
 
 interface Props {
   entry: CatalogEntry;
@@ -66,16 +66,9 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
   }, [onSwitchVersion, onClose]);
 
   return (
-    <AppModalFrame
+    <FullPanelModal
       title={`Version History — ${entry.name}`}
       onClose={onClose}
-      overlayClassName="cat-modal-overlay"
-      dialogClassName="cat-modal cat-modal-lg"
-      headerClassName="cat-modal-header"
-      bodyClassName="cat-modal-body cat-vh-body"
-      footerClassName="cat-modal-footer"
-      closeButtonClassName="cat-modal-close"
-      footer={<button className="cat-btn" onClick={onClose}>Close</button>}
     >
           <div className="cat-vh-list">
             <div className="cat-vh-list-header">
@@ -127,6 +120,6 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
               </div>
             )}
           </div>
-    </AppModalFrame>
+    </FullPanelModal>
   );
 }
