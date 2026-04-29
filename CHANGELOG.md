@@ -27,6 +27,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - New hook unit tests: `useWorkflowNavigation` (7), `useWorkflowConsole` (7), `useWorkflowEdgeOps` (8), `useWorkflowRunCache` (13), `useWorkflowPersistence` (13), `useWorkflowExtractionSample` (5) — **53 new tests** for hooks extracted from `WorkflowDesigner.tsx`.
 
 ### Refactored
+- **Modal standardization**: Migrated all modals to use `FullPanelModal` or `PopupModal` template components.
+  - Created `PopupModal` — centered popup with transparent overlay, no resize/drag/expand.
+  - Created `FullPanelModal` — full-panel modal with opaque background, no chrome.
+  - Consolidated "hide modal chrome" CSS into reusable `.modal-no-chrome` utility class (was duplicated 3×).
+  - Renamed `MoveDialog` → `MoveModal` for consistent `*Modal` naming.
+  - Replaced feature-specific CSS classes (`copy-test-name`, `move-dialog-step`, etc.) with generic `popup-modal-*` classes.
+  - Extracted `mergeById()` utility from `App.tsx` to `helpers.ts` (was duplicated 3× in import handler).
+- **Dead code removal**:
+  - Deleted `ImportCenter.tsx`, `ExportCenter.tsx` (never imported).
+  - Deleted `VariablePanel.tsx`, `WorkflowHarnessContextBar.tsx` (never imported).
+  - Deleted `workflowBundleExport.ts`, `workflowSubWorkflowValidation.ts` and their tests (orphan modules).
+  - Deleted `import-export.css` (~70 unused classes for deleted components), `move-dialog.css` (empty).
+  - Deleted `MoveDialog.tsx` (duplicate left from rename).
+  - Removed debug artifacts: `crash-analysis.md`, `debug-modal.js`, `verify-scrollbar.js`, `scrollbar-diag.spec.ts`, `scrollbar-verify.spec.ts`.
+  - Removed unused imports: `TestRun`, `loadTestRuns` from App.tsx, `useCallback` from TestEditorValidationTab.tsx.
+
+### Tests
+- New unit tests: `PopupModal` (6), `FullPanelModal` (8), `CopyTestModal` (8), `MoveModal` (15), `mergeById` (6) — **43 new tests**.
+- New E2E test: `popup-modals.spec.ts` — CopyTestModal and MoveModal open/close/overlay behavior.
+- Fixed `ExtractionMapperModal` and `RegexAssertionModal` tests to match FullPanelModal migration (overlay click, expand controls, button text).
+
 - **WorkflowDesigner.tsx monolith reduction**: 1062 → 893 lines (−169 lines, −16%). Now under the 900-line monolith threshold.
   - Extracted `useWorkflowPersistence` hook: owns `serializeRFNodes`/`serializeRFEdges` (pure helpers), `persistWorkflow` (incl. webhook PUT registration), `insertNodeAndPersist`, paste/duplicate/copy/undo/redo handlers, `handleSave` + `saveAcknowledged` lifecycle, and `handleUpdateWorkflowVariables`.
   - Extracted `useWorkflowExtractionSample` hook: encapsulates the design-time "Fetch sample response" flow used by the Extract tab — host/auth resolution, entry-point variable seeding (start/schedule), JSON pretty-print of error bodies, and reset-on-selection-change.

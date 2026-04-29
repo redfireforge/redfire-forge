@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile } from '../../shared/types';
-import MoveDialog, { type MoveType, type MoveTarget } from './components/MoveDialog';
+import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
 import CsvImportModal from './components/CsvImportModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { buildSearchText, evaluateQuery, parseSearchQuery } from './utils/scenarioSearch';
@@ -832,7 +832,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
       )}
 
       {moveDialog && (
-        <MoveDialog
+        <MoveModal
           type={moveDialog.type}
           itemName={moveDialog.itemName}
           featureGroups={featureGroups}

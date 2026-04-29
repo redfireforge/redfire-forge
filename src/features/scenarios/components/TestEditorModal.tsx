@@ -22,7 +22,7 @@ import CsvTemplateExportModal from './CsvTemplateExportModal';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import ExtractionEditor from '../../requests/components/ExtractionEditor';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
@@ -432,57 +432,49 @@ export default function TestEditorModal({
 
   return (
     <>
-      <AppModalFrame
-        title=""
+      <WorkflowEditorModalFrame
+        title={isNew ? 'New Test' : 'Edit Test'}
         onClose={onCancel}
+        overlayClassName="insomnia-modal-overlay"
         dialogClassName="insomnia-modal"
-        closeButtonKind="none"
-        headerContent={({ headerDragStyle, onHeaderMouseDown, headerExpandButton }) => (
-          <div className="insomnia-top-bar" style={headerDragStyle} onMouseDown={onHeaderMouseDown}>
-            <h3>{isNew ? 'New Test' : 'Edit Test'}</h3>
+        expandMode="fullscreen"
+        headerActions={
+          <>
             <div className="mode-toggle">
-            <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>
-            <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
-            <button
-              type="button"
-              className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
-              onClick={() => {
-                onInputModeChange('curlExport');
-                void triggerCurlGeneration();
-              }}
-            >
-              cURL Export
-            </button>
-            <button
-              type="button"
-              className="mode-btn"
-              onClick={() => pickJsonFile((raw) => {
-                const data = unwrapImport(raw);
-                const t = data as Scenario;
-                if (!t.name || !t.url || !t.method) { alert('Invalid file: expected a test with name, url, and method.'); return; }
-                const cur = draftRef.current;
-                onDraftChange({ ...t, id: cur.id });
-                syncParamsFromUrl(t.url || '');
-                onInputModeChange('builder');
-              })}
-            >
-              Import
-            </button>
-            <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
-            <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
+              <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>
+              <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
+              <button
+                type="button"
+                className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
+                onClick={() => {
+                  onInputModeChange('curlExport');
+                  void triggerCurlGeneration();
+                }}
+              >
+                cURL Export
+              </button>
+              <button
+                type="button"
+                className="mode-btn"
+                onClick={() => pickJsonFile((raw) => {
+                  const data = unwrapImport(raw);
+                  const t = data as Scenario;
+                  if (!t.name || !t.url || !t.method) { alert('Invalid file: expected a test with name, url, and method.'); return; }
+                  const cur = draftRef.current;
+                  onDraftChange({ ...t, id: cur.id });
+                  syncParamsFromUrl(t.url || '');
+                  onInputModeChange('builder');
+                })}
+              >
+                Import
+              </button>
+              <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
+              <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
             </div>
-            <div className="insomnia-top-actions">
-              {headerExpandButton}
-              <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={onSave} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
-            </div>
-          </div>
-        )}
-        footerContent={({ footerExpandButton }) => (
-          <div className="insomnia-footer" style={{ display: 'flex', padding: '8px 16px', borderTop: '1px solid var(--border)', justifyContent: 'flex-end' }}>
-            {footerExpandButton}
-          </div>
-        )}
+            <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
+          </>
+        }
       >
 
         {inputMode === 'curlImport' && (
@@ -691,7 +683,7 @@ export default function TestEditorModal({
             </div>
           </div>
         )}
-      </AppModalFrame>
+      </WorkflowEditorModalFrame>
 
       {csvExportOpen && (
         <CsvTemplateExportModal

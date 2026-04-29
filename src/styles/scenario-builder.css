@@ -1,39 +1,22 @@
-/* Copy destination picker */
-.copy-modal {
-  max-width: 480px;
-  margin: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  padding: 24px 32px;
-}
-.copy-test-name {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--bg);
-  border-radius: var(--radius);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.copy-test-name strong { color: var(--text); }
-.copy-modal select {
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-size: 0.85rem;
-}
-.copy-modal-actions {
+/* Insomnia-style modal overlay */
+.insomnia-modal-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10080;
   display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 20px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
 }
-
+.insomnia-modal.wf-config-modal.modal.ram-modal {
+  max-width: 900px;
+}
+/* Hide redundant expand and close buttons — Cancel/Save already exist */
+.insomnia-modal .modal-expand-btn,
+.insomnia-modal .ram-modal-close {
+  display: none;
+}
 /* Insomnia-style modal */
 .insomnia-modal { padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .insomnia-modal h3 { margin: 0; font-size: 1.1rem; }

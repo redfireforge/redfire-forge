@@ -2,10 +2,11 @@
 
 ## Current Status
 - Overall Coverage: 91.47% lines | 90.23% stmts | 87.31% funcs | 85.14% branch ✅ (>90% target met)
-- Tests: 193 test files, 4546 tests passing ✅
-- E2E Tests: 14 new tests passing (app-features.spec.ts) ✅
-- Branch: `develop` (merged from `feature/async-correlation-phase-7a`)
-- Last updated: 2026-04-27
+- Tests: 200 test files, 4613 tests passing ✅
+- E2E Tests: 14 new tests passing (async-correlation, correlation-handler) ✅
+- Branch: `develop` (merged from `feature/review` via `release/0.5.5`)
+- Version: 0.5.5-beta.2
+- Last updated: 2026-04-28
 
 ## Completed ✅
 
@@ -13,7 +14,7 @@
 All coverage targets met after adding 192 new unit tests across 7 files.
 
 ### 2. Monolithic Components Refactored ✅
-- **WorkflowDesigner.tsx**: 1432 → 1061 lines (4 hooks extracted)
+- **WorkflowDesigner.tsx**: 1432 → 893 lines (6 hooks extracted)
 - **App.tsx**: 910 → 858 lines (useTheme hook extracted)
 - **expressionFunctions.ts**: 957 → 9 modules
 
@@ -33,12 +34,18 @@ Extracted: Edge connection/deletion operations, edge validation logic
 #### 1.4 `useWorkflowDetailModal.ts` ✅
 Extracted: Step detail modal, variable detail modal, run error detail modal, meta computation
 
+#### 1.5 `useWorkflowPersistence.ts` ✅
+Extracted: serializeRFNodes/serializeRFEdges (pure), persistWorkflow (webhook PUT), insertNodeAndPersist, clipboard (paste/duplicate/copy), undo/redo handlers, handleSave + saveAcknowledged lifecycle, handleUpdateWorkflowVariables
+
+#### 1.6 `useWorkflowExtractionSample.ts` ✅
+Extracted: Design-time "Fetch sample response" flow for Extract tab; host/auth resolution, entry-point variable seeding (start/schedule), JSON pretty-print of error bodies, reset-on-selection-change
+
 #### Also extracted from App.tsx:
 
-#### 1.5 `useTheme.ts` ✅
+#### 1.7 `useTheme.ts` ✅
 Extracted: Theme management, theme picker state, DOM updates, persistence
 
-#### 1.6 `useSidebarResize.ts` ✅ (previously extracted)
+#### 1.8 `useSidebarResize.ts` ✅ (previously extracted)
 Extracted: Sidebar width management, resize interactions, collapse/expand
 
 ### Phase 2: Extract Utility Modules

@@ -697,12 +697,24 @@ tr:hover td { background: var(--surface-hover); }
    Response Detail Modal
    --------------------------------------------------------------------------- */
 
-.response-detail-modal {
-  max-width: 720px;
-  width: 90vw;
-  max-height: 85vh;
+/* Centered overlay for Response Detail modal — uses WorkflowEditorModalFrame */
+.response-detail-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10080;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
+}
+.response-detail-modal.wf-config-modal.modal.ram-modal {
+  max-width: 720px;
+}
+/* Hide redundant expand buttons and close button */
+.response-detail-modal .modal-expand-btn,
+.response-detail-modal .ram-modal-close {
+  display: none;
 }
 .response-detail-body {
   overflow-y: auto;
@@ -717,24 +729,43 @@ tr:hover td { background: var(--surface-hover); }
 .response-detail-body::-webkit-scrollbar-track { background: transparent; }
 .response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* In fullscreen mode, let the body fill available space and scroll */
+.modal-fullscreen.response-detail-modal {
+  max-width: 100%;
+  max-height: 100%;
+}
+.modal-fullscreen .response-detail-body {
+  flex: 1;
+  min-height: 0;
+}
+.modal-fullscreen .response-body-pre {
+  max-height: none;
+}
 .response-detail-meta {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
 }
 .response-meta-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.response-meta-row::-webkit-scrollbar { height: 4px; }
+.response-meta-row::-webkit-scrollbar-track { background: transparent; }
+.response-meta-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .response-meta-name {
   font-weight: 600;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 .response-meta-url {
   font-size: 0.8rem;
