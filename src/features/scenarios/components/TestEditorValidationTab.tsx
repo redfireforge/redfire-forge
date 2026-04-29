@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Assertion, AssertionOperator, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../../../shared/types';
@@ -43,7 +43,19 @@ export default function TestEditorValidationTab({
   onValidateResponse,
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!showAddMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showAddMenu]);
   const assertions = draft.validation.assertions ?? [];
 
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
@@ -71,15 +83,36 @@ export default function TestEditorValidationTab({
         <div className="assertions-header">
           <span className="assertions-title">Assertions</span>
           <span className="assertions-hint">Run on every request regardless of validation mode</span>
-          <div className="assertions-add-wrap">
+          <div className="assertions-add-wrap" ref={addMenuRef}>
             <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
             {showAddMenu && (
               <div className="assertions-add-menu">
-                <button type="button" onClick={() => addAssertion({ type: 'status', expected: '200' })}>Status Code</button>
-                <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>Response Time SLA</button>
-                <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>Response Header</button>
-                <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>Regex Match</button>
-                <button type="button" onClick={() => { addAssertion({ type: 'regex', jsonPath: '', pattern: '' }); setRegexModalIdx((draft.validation.assertions ?? []).length); }}>Regex Builder...</button>
+                <button type="button" onClick={() => addAssertion({ type: 'status', expected: '200' })}>
+                  <span className="aam-icon">🔢</span>
+                  <span className="aam-label">Status Code</span>
+                  <span className="aam-desc">Assert HTTP status (200, 404…)</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>
+                  <span className="aam-icon">⏱</span>
+                  <span className="aam-label">Response Time SLA</span>
+                  <span className="aam-desc">Set max response time threshold</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>
+                  <span className="aam-icon">📋</span>
+                  <span className="aam-label">Response Header</span>
+                  <span className="aam-desc">Check header name &amp; value</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>
+                  <span className="aam-icon">🔤</span>
+                  <span className="aam-label">Regex Match</span>
+                  <span className="aam-desc">Quick regex on a JSON path</span>
+                </button>
+                <div className="aam-divider" />
+                <button type="button" onClick={() => { addAssertion({ type: 'regex', jsonPath: '', pattern: '' }); setRegexModalIdx((draft.validation.assertions ?? []).length); }}>
+                  <span className="aam-icon">🛠</span>
+                  <span className="aam-label">Regex Builder…</span>
+                  <span className="aam-desc">Visual builder with pattern library</span>
+                </button>
               </div>
             )}
           </div>

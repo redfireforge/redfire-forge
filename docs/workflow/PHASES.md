@@ -219,6 +219,33 @@ Added WORKFLOW as a 4th top-level section with a visual canvas for designing wor
 
 ---
 
+## Phase 7A — Async Correlation & Runtime Bridge (COMPLETE)
+
+**Status**: Complete
+
+### Goals
+Enable workflows to pause and wait for external webhook callbacks (payment gateways, approval systems, CI/CD pipelines), then resume with injected data.
+
+### Deliverables ✅
+- **Correlation Wait Node** — Pause workflow execution, wait for external webhook callback matching correlation ID; extract variables from webhook payload; configurable timeout with failure path
+- **RemoteCorrelationStore (browser)** — `ICorrelationStore` implementation that registers paused waits with webhook server and long-polls `GET /api/correlations/:id/wait` until resumed
+- **Server: `/api/correlations/:id/wait`** — Long-poll endpoint (1–120s clamp) with parked-waiter pattern + queued-resume reconciliation for race conditions
+- **Server: Idempotency fix** — Cache no longer short-circuits replay when active waiter exists; duplicate-key webhooks now correctly notify waiting workflows
+- **409 Auto-recovery** — If paused entry already exists from abandoned run, `RemoteCorrelationStore` deletes and retries once
+- **Full Config Propagation** — `CorrelationWaitConfig` (source/jsonPath/header/queryParam) propagated to server during pause registration
+- **Sample Fixes** — Parallel Payment: added per-branch ID prefixing to avoid collisions; Async Approval: fixed switch case IDs (removed double-prefix); simulators now append `-{{$timestamp}}` to idempotency keys
+- **Monolith Refactor** — WorkflowDesigner.tsx: 1062 → 893 lines (extracted `useWorkflowPersistence`, `useWorkflowExtractionSample`); cleaned up duplicate `useEffect` blocks and dead imports
+- **Tests** — 53 new hook tests (`useWorkflowPersistence` 13, `useWorkflowExtractionSample` 5, `useWorkflowNavigation` 7, `useWorkflowConsole` 7, `useWorkflowEdgeOps` 8, `useWorkflowRunCache` 13); 14 new correlation/wait tests; 4613 total tests passing
+- **Documentation** — Updated `CORRELATION_WAIT_API.md` (new /wait section), `CORRELATION_WAIT_GUIDE.md` (parallel-branch warning), training manuals updated
+- **Bug Fixes** — `runProgress` badge: now counts executable nodes consistently (was "11/2 passed"); env selector hidden in preview mode
+
+### Technical Notes
+- Async bridge wires runtime workflows (not just tests) to receive callbacks — closes the execution loop for real-world async patterns
+- RemoteCorrelationStore uses EventSource-based long-polling fallback if WebSocket upgrade fails
+- Server uses parked-waiter queue to handle race where webhook arrives before pause registration completes
+
+---
+
 ## Backlog — Structured JSON assertions (cross-cutting)
 
 > Tracked in **ROADMAP.md → Phase 0.10.0** (“Structured JSON body assertions”). Not workflow-only: same validation engine as Harness.
@@ -238,8 +265,9 @@ Added WORKFLOW as a 4th top-level section with a visual canvas for designing wor
 | **2** — Advanced Control Flow | 7 | 7 | Complete |
 | **3** — Webhook & Schedule Triggers | 14 | 14 | Complete |
 | **4** — Switch, Loop, SetVariable & Aggregate | 33 | 32 | Complete (E2E pending) |
-| **Total** | **87** | **86** | **99%** |
+| **7A** — Async Correlation & Runtime Bridge | 18 | 18 | Complete |
+| **Total** | **105** | **103** | **98%** |
 
 ---
 
-_Last updated: 2026-04-24_
+_Last updated: 2026-04-28_
