@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Response Headers in Results** — Response Detail Modal now shows response headers in a table; captured from both harness and workflow executors
+- **Request Log** — Response Detail Modal shows the resolved request headers and body as sent; Authorization header values are masked (`••••••••`) for security
 - **Structured JSON Body Assertions**
   - Three new assertion types: **arrayLength** (assert array length at JSONPath, e.g. `$.items` length ≥ 4), **numeric** (compare numeric values, e.g. `$.price > 0`), **date** (compare dates vs `today` or fixed ISO date)
   - Six comparison operators (`=`, `!=`, `>`, `>=`, `<`, `<=`) shared across all three types
