@@ -9,6 +9,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Structured JSON Body Assertions**
+  - Three new assertion types: **arrayLength** (assert array length at JSONPath, e.g. `$.items` length ≥ 4), **numeric** (compare numeric values, e.g. `$.price > 0`), **date** (compare dates vs `today` or fixed ISO date)
+  - Six comparison operators (`=`, `!=`, `>`, `>=`, `<`, `<=`) shared across all three types
+  - Date comparison supports `today` (UTC or local timezone) and fixed ISO date references
+  - Implemented in `evaluateAssertions()` in `validator.ts` using existing `getByPath()`
+  - Validation tab UI with path picker, operator dropdown, and plain-language controls
+  - Assertion gallery: 5 sample assertion presets in unified gallery system
+  - Applies to both Harness tests and workflow HTTP steps (same `Scenario.validation`)
+  - 57 new unit tests in `validator.test.ts` (169 total); 7 new E2E tests in `structured-assertions.spec.ts`
+
+### Changed
+- **Gallery Redesign** — Replaced Template Gallery modal (`.tg-modal`) with unified Gallery page
+  - Domain filter buttons (All/Requests/API Catalog/Tests/Workflows/Assertions) replace category tabs
+  - Cards show name, description, difficulty dots, domain icon
+  - Detail panel with action buttons (Load Workflow, Send Request, etc.)
+  - "From Template" button now navigates to Gallery page instead of opening a modal
+  - Gallery import creates a preview; user clicks "Use as Template" to save to sidebar
+  - Pagination with configurable page size (12 per page)
+
+### Refactored
+- **Code Consolidation (Round 2 continued)**
+  - `WorkflowDesigner.tsx` reduced from 1061 → 893 lines (−168 lines) — extracted `useWorkflowPersistence` and `useWorkflowExtractionSample` hooks
+  - Shim removal: deleted 3 re-export shim files for `sampleWorkflows`, migrated 2 legacy YAML specs into `galleries/catalog-specs`
+  - Import unification: all 6 `acquireOAuth2Token` consumers now import from canonical `tokenManager.ts`
+  - Auth header deduplication: created shared `resolveAuthHeaders()` utility, refactored 6 files
+  - Corrected 3 inaccurate `endpointCount` values in catalog specs
+
+### Tests
+- **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
+- **264 E2E tests passing** (2 skipped), **4900 unit tests passing** (215 files)
+
 - **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
   - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
   - Server: new `GET /api/correlations/:id/wait` long-poll endpoint (1–120s clamp) with parked-waiter pattern + queued-resume reconciliation for race conditions where a webhook arrives before the pause is registered.
