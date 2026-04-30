@@ -135,6 +135,10 @@ export function GalleryGrid<T = unknown>({
           />
           <span className="gallery-result-count">
             {filtered.length} {filtered.length === 1 ? 'sample' : 'samples'}
+            {sampleStatus && (() => {
+              const loadedCount = filtered.filter(e => sampleStatus[e.id]).length;
+              return loadedCount > 0 ? ` · ${loadedCount} loaded` : '';
+            })()}
           </span>
         </div>
 

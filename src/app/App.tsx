@@ -198,6 +198,20 @@ export default function App() {
 
   // ---- Theme ----
 
+  // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
+  const galleryFixApplied = useRef(false);
+  useEffect(() => {
+    if (loading || galleryFixApplied.current) return;
+    galleryFixApplied.current = true;
+    const galEnv = environments.find(e => e.name === 'Gallery Samples');
+    const galSvc = microservices.find(s => s.name === 'Gallery Samples');
+    if (galEnv && galSvc && !(galEnv.id in galSvc.baseUrls)) {
+      setMicroservices(prev => prev.map(s =>
+        s.id === galSvc.id ? { ...s, baseUrls: { ...s.baseUrls, [galEnv.id]: '' } } : s
+      ));
+    }
+  }, [loading, environments, microservices, setMicroservices]);
+
   // ---- Derived view state ----
   const selectedEnv = environments.find((e) => e.id === selectedEnvId);
   const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
@@ -431,10 +445,10 @@ export default function App() {
         <button
           className={`ab-btn ${domainOf(activeTab) === 'testing' ? 'active' : ''}`}
           onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}
-          title="Testing"
+          title="Harness"
         >
           <span className="ab-icon">🏋</span>
-          <span className="ab-label">Testing</span>
+          <span className="ab-label">Harness</span>
         </button>
         <button
           className={`ab-btn ${domainOf(activeTab) === 'gallery' ? 'active' : ''}`}

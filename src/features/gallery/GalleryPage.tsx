@@ -67,9 +67,13 @@ export function GalleryPage({
     const result: Record<string, GallerySampleStatus> = {};
     for (const entry of ALL_ENTRIES) {
       const importedHash = importedSamples[entry.id];
-      if (importedHash == null) continue;
-      const currentHash = gallerySampleHash(entry.factory());
-      result[entry.id] = currentHash === importedHash ? 'imported' : 'updated';
+      if (importedHash != null) {
+        const currentHash = gallerySampleHash(entry.factory());
+        result[entry.id] = currentHash === importedHash ? 'imported' : 'updated';
+      } else if (importedSamples[`__name:${entry.name}`] != null) {
+        // Fallback: matched by name (older imports without gallerySampleId)
+        result[entry.id] = 'imported';
+      }
     }
     return result;
   }, [importedSamples]);

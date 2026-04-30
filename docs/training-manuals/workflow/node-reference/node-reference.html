@@ -208,7 +208,7 @@
     <span class="node-card-status status-planned">Planned</span>
     <div class="node-card-icon">🌐</div>
     <div class="node-card-name">HTTP</div>
-    <div class="node-card-desc">Make REST API calls. Configure URL, method, headers, body, auth, and extract variables from responses.</div>
+    <div class="node-card-desc">Make REST API calls. Configure URL, method, headers, body, auth, extract variables, and validate responses with structured assertions.</div>
     <div class="node-card-meta">
       <span class="node-card-tag tag-action">Action</span>
     </div>
@@ -742,6 +742,76 @@
 <!-- ════════════════════════════════════════════ -->
 <!-- WHAT'S NEXT                                 -->
 <!-- ════════════════════════════════════════════ -->
+<h2>HTTP Node — Structured Assertions</h2>
+<p>Every HTTP node in a workflow carries a full <code>Scenario</code> definition, which includes <code>validation.assertions[]</code>. Assertions run automatically on every request, regardless of the JSON validation mode (none / full / selective). Configure them in the <strong>Validation tab</strong> of any HTTP node's config panel.</p>
+
+<h3>Available Assertion Types</h3>
+<table>
+  <tr><th>Type</th><th>Badge</th><th>What It Checks</th><th>Example</th></tr>
+  <tr>
+    <td><strong>Status Code</strong></td><td><code>STATUS</code></td>
+    <td>HTTP response status. Supports exact codes, ranges, and class patterns.</td>
+    <td><code>200</code>, <code>2xx</code>, <code>200-299</code>, <code>200,201,204</code></td>
+  </tr>
+  <tr>
+    <td><strong>Response Time SLA</strong></td><td><code>TIME</code></td>
+    <td>Response time must be ≤ the configured threshold (ms).</td>
+    <td><code>maxMs: 500</code> — fail if response takes &gt; 500ms</td>
+  </tr>
+  <tr>
+    <td><strong>Response Header</strong></td><td><code>HEADER</code></td>
+    <td>Check a response header's value. Operators: <em>equals</em>, <em>contains</em>, <em>regex</em>, <em>exists</em>.</td>
+    <td><code>content-type</code> <em>contains</em> <code>json</code></td>
+  </tr>
+  <tr>
+    <td><strong>Regex Match</strong></td><td><code>REGEX</code></td>
+    <td>Apply a regex pattern to a value at a JSON path in the response body.</td>
+    <td><code>$.name</code> matches <code>/^[A-Z].*/</code></td>
+  </tr>
+  <tr>
+    <td><strong>Array Length</strong></td><td><code>ARRAY</code></td>
+    <td>Assert the length of an array at a JSON path using comparison operators.</td>
+    <td><code>$.items</code> length <code>≥ 1</code></td>
+  </tr>
+  <tr>
+    <td><strong>Numeric Compare</strong></td><td><code>NUMBER</code></td>
+    <td>Compare a numeric value at a JSON path.</td>
+    <td><code>$.price</code> <code>&gt; 0</code></td>
+  </tr>
+  <tr>
+    <td><strong>Date Compare</strong></td><td><code>DATE</code></td>
+    <td>Compare a date at a JSON path against <em>today</em> (UTC/local) or a fixed date.</td>
+    <td><code>$.expiresAt</code> <code>&gt;</code> <em>today (UTC)</em></td>
+  </tr>
+</table>
+
+<h3>Comparison Operators (Array Length, Numeric, Date)</h3>
+<table>
+  <tr><th>Symbol</th><th>Label</th><th>Date Label</th></tr>
+  <tr><td><code>=</code></td><td>equals</td><td>equals</td></tr>
+  <tr><td><code>!=</code></td><td>not equals</td><td>not equals</td></tr>
+  <tr><td><code>&gt;</code></td><td>greater than</td><td>after</td></tr>
+  <tr><td><code>&gt;=</code></td><td>at least</td><td>on or after</td></tr>
+  <tr><td><code>&lt;</code></td><td>less than</td><td>before</td></tr>
+  <tr><td><code>&lt;=</code></td><td>at most</td><td>on or before</td></tr>
+</table>
+
+<h3>JSON Path Picker</h3>
+<p>For assertions that target a JSON path (<code>REGEX</code>, <code>ARRAY</code>, <code>NUMBER</code>, <code>DATE</code>), click the <strong>tree icon</strong> next to the path input to open the <strong>JSON Path Picker</strong>. It parses the sample response JSON and displays a navigable tree — click any node to insert its path.</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Tip: Regex Builder</strong>
+  The Regex assertion type includes a visual <strong>Regex Builder</strong> button that opens a full-panel modal with a pattern library, live preview, and the same JSON tree picker. Use it when crafting complex patterns.
+</div>
+
+<div class="callout">
+  <strong>📘 Assertions vs. JSON Validation</strong>
+  Assertions and JSON validation (Full Match / Selective Fields) are independent. Assertions always run — even with validation mode set to "None". Use assertions for cross-cutting checks (status, timing, headers) and JSON validation for response body structure.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+
 <h2>What's Coming</h2>
 <p>Per-node reference cards are being added. Each card will include:</p>
 <ul>
