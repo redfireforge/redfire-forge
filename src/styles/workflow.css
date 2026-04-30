@@ -2389,6 +2389,7 @@
 .wf-status-run-running { color: #3b82f6; }
 .wf-status-run-pass { color: #22c55e; }
 .wf-status-run-fail { color: #ef4444; }
+.wf-status-run-stopped { color: #f59e0b; }
 .wf-status-error-inline {
   color: #f87171; font-weight: 500; max-width: min(520px, 45vw);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help;
@@ -4977,6 +4978,7 @@
 }
 .wf-run-progress-pass { background: rgba(34,197,94,0.15); color: #4ade80; }
 .wf-run-progress-fail { background: rgba(239,68,68,0.15); color: #f87171; }
+.wf-run-progress-stopped { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .wf-toolbar-reset-btn {
   font-size: 12px; padding: 3px 8px; border-radius: 6px;
   color: var(--text-muted); background: transparent; border: 1px solid var(--border);
@@ -5003,6 +5005,7 @@
 .wf-status-bar-border-running { border-top: 2px solid #3b82f6; }
 .wf-status-bar-border-pass { border-top: 2px solid #22c55e; }
 .wf-status-bar-border-fail { border-top: 2px solid #ef4444; }
+.wf-status-bar-border-stopped { border-top: 2px solid #f59e0b; }
 
 /* ── Execution Summary Strip ── */
 .wf-exec-strip {

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import WorkflowEditorModalFrame from '../../features/workflow/components/modals/WorkflowEditorModalFrame';
 
 interface Props {
   title: ReactNode;
@@ -18,16 +17,6 @@ interface Props {
  * A full-panel modal that fills the entire content area (right of sidebar).
  * No resize handles, no drag, no expand/close buttons.
  * Rounded corners, opaque background.
- *
- * Usage:
- *   <FullPanelModal title="Import Spec" onClose={onClose}>
- *     {content}
- *   </FullPanelModal>
- *
- *   // With custom footer:
- *   <FullPanelModal title="Edit" onClose={onClose} footer={<><button onClick={onClose}>Close</button><button onClick={onSave}>Save</button></>}>
- *     {content}
- *   </FullPanelModal>
  */
 export default function FullPanelModal({
   title,
@@ -42,16 +31,30 @@ export default function FullPanelModal({
     ? <button className="cat-btn" onClick={onClose}>Close</button>
     : footer;
 
+  const overlayClasses = ['modal-overlay full-panel-overlay', overlayClassName].filter(Boolean).join(' ');
+  const dialogClasses = ['modal ram-modal wf-config-modal full-panel-modal', dialogClassName].filter(Boolean).join(' ');
+
   return (
-    <WorkflowEditorModalFrame
-      title={title}
-      onClose={onClose}
-      overlayClassName={['full-panel-overlay', overlayClassName].filter(Boolean).join(' ')}
-      dialogClassName={['wf-config-modal full-panel-modal modal-no-chrome', dialogClassName].filter(Boolean).join(' ')}
-      footer={resolvedFooter}
-      bodyScrollable={bodyScrollable}
-    >
-      {children}
-    </WorkflowEditorModalFrame>
+    <div className={overlayClasses} role="presentation">
+      <div className={dialogClasses} role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+        <div className="ram-header" style={{ cursor: 'default' }}>
+          <h3>{title}</h3>
+        </div>
+
+        {bodyScrollable ? (
+          <div className="wf-modal-scroll-shell wf-config-modal-body">
+            <div className="wf-modal-scroll-viewport wf-config-modal-scroll">
+              {children}
+            </div>
+          </div>
+        ) : (
+          <div className="wf-config-modal-body">{children}</div>
+        )}
+
+        {resolvedFooter !== null && (
+          <div className="wf-config-modal-footer">{resolvedFooter}</div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -361,7 +361,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             </div>
             <div className={`metric-card ${summary.errorRate > 0 ? 'error' : 'success'}`}>
               <div className="metric-value">{summary.errorRate}%</div>
-              <div className="metric-label">Error Rate</div>
+              <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>
             </div>
             <div className="metric-card">
               <div className="metric-value">{(summary.totalDurationMs / 1000).toFixed(2)}s</div>
@@ -373,7 +373,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             </div>
             <div className="metric-card">
               <div className="metric-value">{summary.failedValidations}</div>
-              <div className="metric-label">Validation Failures</div>
+              <div className="metric-label">Validation Failures <span className="metric-info" data-tooltip="Requests whose actual response did not match expected assertions. 0 means every test got the response it expected — even negative tests that assert error codes.">ⓘ</span></div>
             </div>
           </div>
         </>

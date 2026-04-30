@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Event-Driven: Webhook Trigger (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">⚡</div>
+  <h1>Webhook Trigger</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Listen for an incoming HTTP request on a webhook endpoint, log the
+    payload, process the data, and return an HTTP response. The foundational
+    pattern for all event-driven integrations.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 4 &nbsp;|&nbsp; Category: Event-Driven<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates the <strong>webhook trigger</strong> pattern — the most
+  common event-driven entry point. An external system sends an HTTP request to your
+  workflow's registered endpoint, triggering automatic execution without manual
+  intervention.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A payment provider (Stripe, PayPal) sends a
+  webhook notification when a customer completes a purchase. Your workflow receives
+  the event, logs it, processes the order, and responds with an acknowledgment.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Receiving GitHub webhook events (push, PR, issue) to trigger CI/CD pipelines</li>
+  <li>Processing Slack slash commands via incoming HTTP POST requests</li>
+  <li>Handling IoT device event notifications from an MQTT-to-HTTP bridge</li>
+  <li>Receiving form submissions from a frontend application</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Configuring a <strong>WebhookTrigger</strong> node to listen on a specific endpoint path</li>
+  <li>Extracting fields from the <strong>incoming HTTP payload</strong> (headers, body, query params)</li>
+  <li>Using a <strong>Log</strong> node to record the received event for debugging</li>
+  <li>Returning an <strong>HTTP response</strong> to the caller with a status code and body</li>
+  <li>Understanding <strong>synchronous webhook handling</strong> — process and respond in one flow</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌──────────────────────────────┐
+  │  WebhookTrigger              │  Listens on: /webhook
+  │  (WebhookTrigger)            │  Method: POST
+  │                              │
+  │  Extracts: eventType         │  ← body $.eventType
+  │            payload           │  ← body $.data
+  └──────────┬───────────────────┘
+             ▼
+  ┌──────────────────────────────┐
+  │  1. Log Payload              │  Log
+  │     (Log)                    │
+  │                              │  "Received {{eventType}}:
+  │                              │   {{payload}}"
+  └──────────┬───────────────────┘
+             ▼
+  ┌──────────────────────────────┐
+  │  2. Process Event            │  Log
+  │     (Log)                    │
+  │                              │  "Processing event
+  │                              │   {{eventType}}..."
+  └──────────┬───────────────────┘
+             ▼
+  ┌──────────────────────────────┐
+  │  3. HTTP Response            │  HTTPResponse
+  │     (HTTPResponse)           │
+  │                              │  Status: 200
+  │                              │  Body: {"status":"received",
+  │                              │         "event":"{{eventType}}"}
+  └──────────────────────────────┘
+</div>
+
+<p>
+  <strong>4 nodes, 3 edges</strong> — a linear pipeline triggered by an incoming HTTP
+  request. The WebhookTrigger replaces the Start node as the entry point.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">T</span> WebhookTrigger</td>
+    <td>WebhookTrigger</td>
+    <td>Listens on <code>/webhook</code> for incoming POST requests. Extracts <code>eventType</code> and <code>payload</code> from the request body.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Log Payload</td>
+    <td>Log</td>
+    <td>Logs the received event: <code>"Received {{eventType}}: {{payload}}"</code>. Useful for debugging and audit trails.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Process Event</td>
+    <td>Log</td>
+    <td>Simulates event processing. In a real workflow, this would be an HTTP call, database write, or business logic node.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> HTTP Response</td>
+    <td>HTTPResponse</td>
+    <td>Returns HTTP 200 with a JSON body <code>{"status":"received","event":"{{eventType}}"}</code> to acknowledge the webhook.</td>
+  </tr>
+</table>
+
+<h3>WebhookTrigger Configuration</h3>
+<table>
+  <tr><td><strong>Endpoint Path</strong></td><td><code>/webhook</code></td></tr>
+  <tr><td><strong>HTTP Method</strong></td><td>POST</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>eventType</code> ← body <code>$.eventType</code><br><code>payload</code> ← body <code>$.data</code></td></tr>
+</table>
+
+<h3>HTTP Response Configuration</h3>
+<table>
+  <tr><td><strong>Status Code</strong></td><td><code>200</code></td></tr>
+  <tr><td><strong>Content-Type</strong></td><td><code>application/json</code></td></tr>
+  <tr><td><strong>Body</strong></td><td><code>{"status":"received","event":"{{eventType}}"}</code></td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 WebhookTrigger vs. Start Node</strong>
+  A <code>WebhookTrigger</code> replaces the standard Start node. It automatically
+  registers an HTTP endpoint and begins the workflow when a matching request arrives.
+  The trigger node extracts data from the request, making it available to downstream
+  nodes via variables.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"⚡ Webhook Trigger"</strong>
+    in the <em>Event-Driven</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Webhook Trigger".
+  </li>
+  <li>
+    <strong>Add the WebhookTrigger node.</strong><br>
+    Drag a WebhookTrigger node onto the canvas. Configure:
+    <ul>
+      <li><em>Endpoint Path</em>: <code>/webhook</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Extractions</em>: Add <code>eventType</code> ← body <code>$.eventType</code> and <code>payload</code> ← body <code>$.data</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add the Log Payload node.</strong><br>
+    Drag a Log node. Set message to <code>"Received {{eventType}}: {{payload}}"</code>.
+    Connect WebhookTrigger → Log Payload.
+  </li>
+  <li>
+    <strong>Add the Process Event node.</strong><br>
+    Drag another Log node. Set message to <code>"Processing event {{eventType}}..."</code>.
+    Connect Log Payload → Process Event.
+  </li>
+  <li>
+    <strong>Add the HTTP Response node.</strong><br>
+    Drag an HTTPResponse node. Configure:
+    <ul>
+      <li><em>Status</em>: <code>200</code></li>
+      <li><em>Body</em>: <code>{"status":"received","event":"{{eventType}}"}</code></li>
+    </ul>
+    Connect Process Event → HTTP Response.
+  </li>
+  <li>
+    <strong>Test the webhook.</strong><br>
+    Click <em>Quick Test</em>. RedfireForge will simulate an incoming POST request.
+    Alternatively, use <code>curl</code>:
+    <pre>curl -X POST http://localhost:3000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"order.created","data":{"orderId":"ORD-123"}}'</pre>
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>WebhookTrigger</td><td>✅ Pass</td><td>Received POST /webhook, extracted eventType = "order.created"</td></tr>
+  <tr><td>1. Log Payload</td><td>✅ Pass</td><td>"Received order.created: {"orderId":"ORD-123"}"</td></tr>
+  <tr><td>2. Process Event</td><td>✅ Pass</td><td>"Processing event order.created..."</td></tr>
+  <tr><td>3. HTTP Response</td><td>✅ Pass</td><td>Returned HTTP 200 with JSON acknowledgment</td></tr>
+</table>
+
+<h3>Incoming Request (Simulated)</h3>
+<pre>
+POST /webhook HTTP/1.1
+Content-Type: application/json
+
+{
+  "eventType": "order.created",
+  "data": {
+    "orderId": "ORD-123",
+    "amount": 49.99,
+    "currency": "USD"
+  }
+}</pre>
+
+<h3>HTTP Response (Node 3)</h3>
+<pre>
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "status": "received",
+  "event": "order.created"
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Webhook Security</strong>
+  In production, always validate incoming webhooks using a shared secret or signature
+  header (e.g., <code>X-Webhook-Signature</code>). This sample omits signature
+  verification for simplicity.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add Payload Validation</h3>
+<p>
+  Insert a Condition node after the Log Payload step. Check if <code>{{eventType}}</code>
+  is not empty. If empty, return HTTP 400 with <code>{"error":"Missing eventType"}</code>.
+  If valid, continue with processing.
+</p>
+
+<h3>Exercise 2: Route by Event Type</h3>
+<p>
+  Replace the Process Event log with a Switch node that routes based on
+  <code>{{eventType}}</code>. Add cases for <code>order.created</code>,
+  <code>order.cancelled</code>, and a default. Each case should log a different message.
+</p>
+
+<h3>Exercise 3: Forward to an External API</h3>
+<p>
+  Instead of logging, add an HTTP POST node that forwards the received payload to
+  a downstream service (e.g., <code>https://httpbin.org/post</code>). Extract and log
+  the downstream response before returning the acknowledgment.
+</p>
+
+<h3>Exercise 4: Add Idempotency</h3>
+<p>
+  Extract a unique <code>eventId</code> from the payload. Use a Condition node to check
+  if this event was already processed (simulated via a variable). Skip processing for
+  duplicate events.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with webhook triggers, try the
+  <a href="schedule-trigger-easy.html">Schedule Trigger</a> sample to learn
+  cron-based workflow execution.
+</div>
+
+<footer>RedfireForge Training Manual — Webhook Trigger · April 2026</footer>
+
+</body>
+</html>

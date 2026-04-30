@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DummyJSON Products — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🛒</div>
+    <h1>DummyJSON Products</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> &nbsp; <code>rest-api</code> &nbsp; 15 endpoints &nbsp; dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>DummyJSON is a rich e-commerce REST API providing realistic product, cart, and user data with built-in authentication, search, and pagination. It offers a more complex testing surface than basic placeholder APIs, making it ideal for practicing real-world API patterns.</p>
+  <p>This catalog spec introduces intermediate concepts: token-based authentication, query-based search, pagination with <code>limit</code>/<code>skip</code> parameters, and full CRUD operations across multiple related resources.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    DummyJSON supports real authentication — you can log in with test credentials to receive a JWT token, then use it to access protected endpoints like <code>/auth/me</code>. This makes it great for practicing authenticated API workflows.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Token-Based Authentication</strong> — Login with credentials, receive a JWT, and use it in subsequent requests</li>
+    <li><strong>Search &amp; Filtering</strong> — Query products by keyword using <code>/products/search?q=phone</code></li>
+    <li><strong>Pagination</strong> — Control result sets with <code>limit</code> and <code>skip</code> query parameters</li>
+    <li><strong>CRUD Operations</strong> — Create, read, update, and delete products and carts</li>
+    <li><strong>Resource Relationships</strong> — Carts reference products; users own carts</li>
+    <li><strong>Category Filtering</strong> — Enumerate and filter by product categories</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://dummyjson.com</code></td></tr>
+    <tr><td>Authentication</td><td>JWT token via <code>/auth/login</code> (optional for read endpoints)</td></tr>
+    <tr><td>Rate Limits</td><td>No enforced limits (fair use)</td></tr>
+    <tr><td>Response Format</td><td>JSON</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Data Model</h3>
+  <p>DummyJSON provides interconnected e-commerce resources:</p>
+  <ul>
+    <li><strong>Products</strong> — 100 products with title, price, rating, category, images, stock</li>
+    <li><strong>Categories</strong> — Product categories for filtering and browsing</li>
+    <li><strong>Carts</strong> — Shopping carts containing product references with quantities</li>
+    <li><strong>Users</strong> — User accounts with profile data, used for auth and cart ownership</li>
+    <li><strong>Auth</strong> — Login endpoint returning JWT tokens for authenticated access</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products</code></td>
+        <td>List all products (paginated)</td>
+        <td>Product list with <code>total</code>, <code>skip</code>, <code>limit</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/{id}</code></td>
+        <td>Get a single product by ID</td>
+        <td>Product object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/search</code></td>
+        <td>Search products by keyword (<code>?q=</code>)</td>
+        <td>Filtered product list</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/categories</code></td>
+        <td>List all product categories</td>
+        <td>Array of category strings</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/category/{name}</code></td>
+        <td>Get products by category</td>
+        <td>Filtered product list</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/products/add</code></td>
+        <td>Add a new product</td>
+        <td>Created Product with <code>id</code></td>
+      </tr>
+      <tr>
+        <td><code>PUT</code></td>
+        <td><code>/products/{id}</code></td>
+        <td>Update a product</td>
+        <td>Updated Product object</td>
+      </tr>
+      <tr>
+        <td><code>DELETE</code></td>
+        <td><code>/products/{id}</code></td>
+        <td>Delete a product</td>
+        <td>Deleted Product with <code>isDeleted</code> flag</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/carts</code></td>
+        <td>List all carts</td>
+        <td>Cart list with totals</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/carts/{id}</code></td>
+        <td>Get a single cart by ID</td>
+        <td>Cart object with products</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/carts/user/{userId}</code></td>
+        <td>Get carts belonging to a user</td>
+        <td>User's cart list</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/users</code></td>
+        <td>List all users</td>
+        <td>User list (paginated)</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/users/{id}</code></td>
+        <td>Get a single user by ID</td>
+        <td>User object</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/auth/login</code></td>
+        <td>Authenticate and receive JWT token</td>
+        <td>User object with <code>token</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/auth/me</code></td>
+        <td>Get current authenticated user</td>
+        <td>User object (requires Bearer token)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>DummyJSON Products</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The OpenAPI spec loads into your workspace. You'll see it listed in your catalog panel.</li>
+  </ol>
+
+  <h3>Step 2 — Browse &amp; Search Products</h3>
+  <ol>
+    <li>Select the <code>GET /products</code> endpoint and send a request to see the full product list.</li>
+    <li>Notice the paginated response with <code>total</code>, <code>skip</code>, and <code>limit</code> fields.</li>
+    <li>Try <code>GET /products?limit=5&amp;skip=10</code> to paginate through results.</li>
+    <li>Use <code>GET /products/search?q=phone</code> to search by keyword.</li>
+  </ol>
+
+  <h3>Step 3 — Authenticate</h3>
+  <ol>
+    <li>Send a <code>POST /auth/login</code> request with body: <code>{"username": "emilys", "password": "emilyspass"}</code></li>
+    <li>Copy the <code>token</code> from the response.</li>
+    <li>Use the token as a <code>Bearer</code> header to access <code>GET /auth/me</code>.</li>
+  </ol>
+
+  <h3>Step 4 — CRUD on Products</h3>
+  <ol>
+    <li>Create a product with <code>POST /products/add</code> using a JSON body: <code>{"title": "Test Product", "price": 29.99}</code></li>
+    <li>Update it with <code>PUT /products/{id}</code> — change the price.</li>
+    <li>Delete it with <code>DELETE /products/{id}</code> and note the <code>isDeleted</code> flag in the response.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Like most mock APIs, write operations are simulated — the server returns realistic responses but data is not persisted between requests.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Pagination Walkthrough</h3>
+  <p>Page through the entire product catalog:</p>
+  <ol>
+    <li>Send <code>GET /products?limit=10&amp;skip=0</code> to get the first 10 products.</li>
+    <li>Increment <code>skip</code> by 10 each time to walk through all pages.</li>
+    <li>Compare the <code>total</code> field to verify you've covered all products.</li>
+  </ol>
+
+  <h3>Exercise 2 — Category Browsing</h3>
+  <p>Explore the category system:</p>
+  <ol>
+    <li>Fetch all categories with <code>GET /products/categories</code>.</li>
+    <li>Pick a category and fetch its products with <code>GET /products/category/{name}</code>.</li>
+    <li>Compare the filtered count against the total product count.</li>
+  </ol>
+
+  <h3>Exercise 3 — Authenticated Workflow</h3>
+  <p>Build a complete auth-protected workflow:</p>
+  <ol>
+    <li>Log in with <code>POST /auth/login</code> to get a token.</li>
+    <li>Use the token to fetch your profile with <code>GET /auth/me</code>.</li>
+    <li>Fetch your carts with <code>GET /carts/user/{userId}</code> using your user ID from the profile.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Try chaining these requests into a workflow: login → get profile → get user's carts → inspect cart products. This simulates a real e-commerce session.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — DummyJSON Products · April 2026
+  </footer>
+
+</body>
+</html>

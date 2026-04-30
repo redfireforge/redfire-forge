@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sampleWorkflowCatalog, type SampleCategory } from './sampleWorkflows';
+import { sampleWorkflowCatalog, type SampleCategory } from './galleries/workflows';
 
 describe('sampleWorkflowCatalog', () => {
   it('is a non-empty array', () => {
@@ -38,8 +38,7 @@ describe('sampleWorkflowCatalog', () => {
       expect(Array.isArray(wf.nodes)).toBe(true);
       expect(wf.nodes.length).toBeGreaterThan(0);
       expect(Array.isArray(wf.edges)).toBe(true);
-      expect(typeof wf.createdAt).toBe('number');
-      expect(typeof wf.updatedAt).toBe('number');
+      // createdAt/updatedAt are set at runtime, not by factory
     }
   });
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { sampleWorkflowCatalog, type SampleWorkflowEntry, type SampleCategory } from '../../../../data/sampleWorkflows';
+import { sampleWorkflowCatalog, type SampleWorkflowEntry, type SampleCategory } from '../../../../data/galleries/workflows';
 
 const CATEGORIES: { key: SampleCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'All Templates' },

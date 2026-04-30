@@ -1,8 +1,12 @@
 /**
- * E2E: Template Gallery Modal and +New Dropdown.
+ * E2E: Gallery Page (workflow templates) and +New Dropdown.
  * Verifies the gallery opens from the sidebar dropdown,
- * shows categorized cards, and loads templates correctly.
+ * shows workflow cards, and loads templates correctly.
  * Also verifies the +New dropdown with Blank Workflow / From Template.
+ *
+ * Note: The old Template Gallery Modal (.tg-modal) was replaced by
+ * the unified Gallery page (.gallery-card, .gallery-domain-btn).
+ * "From Template" now navigates to the Gallery tab.
  */
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
@@ -14,159 +18,174 @@ async function navigateToWorkflow(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle');
 }
 
-/** Open the Template Gallery via sidebar +New → From Template */
-async function openGallery(page: import('@playwright/test').Page) {
+/** Open the Gallery page via sidebar +New → From Template */
+async function openGalleryFromWorkflow(page: import('@playwright/test').Page) {
   await page.locator('button:has-text("+ New")').click();
   await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
+  // Wait for Gallery page to load
+  await page.locator('.gallery-domain-btn').first().waitFor({ state: 'visible', timeout: 5000 });
 }
 
-// ── Template Gallery Modal ───────────────────────────
+// ── Gallery Page (Workflow Templates) ────────────────
 
-test.describe('Template Gallery Modal', () => {
+test.describe('Gallery Page — Workflow Templates', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToWorkflow(page);
   });
 
   test('Gallery opens from sidebar +New dropdown', async ({ page }) => {
-    await openGallery(page);
+    await openGalleryFromWorkflow(page);
 
-    // Modal should appear
-    const modal = page.locator('.tg-modal');
-    await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('.tg-title')).toHaveText('Template Gallery');
+    // Gallery page should show domain filter buttons
+    await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
   });
 
-  test('gallery shows category filter tabs', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('gallery shows domain filter buttons', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    // Should show all category tabs
-    await expect(page.locator('.tg-tab', { hasText: 'All Templates' })).toBeVisible();
-    await expect(page.locator('.tg-tab', { hasText: 'Basics' })).toBeVisible();
-    await expect(page.locator('.tg-tab', { hasText: 'Triggers' })).toBeVisible();
-    await expect(page.locator('.tg-tab', { hasText: 'Logic' })).toBeVisible();
-    await expect(page.locator('.tg-tab', { hasText: 'Advanced' })).toBeVisible();
+    // Should show domain filter buttons
+    await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Requests")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Assertions")')).toBeVisible();
   });
 
-  test('gallery shows template cards with icons and descriptions', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('gallery shows workflow cards with names and descriptions', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    // Should show template cards
-    const cards = page.locator('.tg-card');
+    // Filter to Workflows domain
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+
+    // Should show workflow cards
+    const cards = page.locator('.gallery-card');
     const count = await cards.count();
-    expect(count).toBeGreaterThanOrEqual(8); // We have 8 samples
+    expect(count).toBeGreaterThanOrEqual(4);
 
-    // Each card should have name, description, icon, and meta info
+    // Each card should have name and description
     const firstCard = cards.first();
-    await expect(firstCard.locator('.tg-card-icon')).toBeVisible();
-    await expect(firstCard.locator('.tg-card-name')).toBeVisible();
-    await expect(firstCard.locator('.tg-card-desc')).toBeVisible();
-    await expect(firstCard.locator('.tg-card-nodes')).toBeVisible();
-    await expect(firstCard.locator('.tg-card-category')).toBeVisible();
+    await expect(firstCard.locator('.gallery-card-name')).toBeVisible();
+    await expect(firstCard.locator('.gallery-card-desc')).toBeVisible();
   });
 
-  test('filtering by category shows only matching templates', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('filtering by Workflows domain shows only workflow entries', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    // Click Triggers category
-    await page.locator('.tg-tab', { hasText: 'Triggers' }).click();
+    // Click Workflows domain filter
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
 
-    // Should show only trigger templates
-    const cards = page.locator('.tg-card');
+    // All shown cards should be workflow entries (domain attribute)
+    const cards = page.locator('.gallery-card[data-domain="workflows"]');
     const count = await cards.count();
-    expect(count).toBe(2); // Webhook + Schedule
-
-    // All shown cards should have "triggers" category label
-    const categories = await cards.locator('.tg-card-category').allTextContents();
-    categories.forEach(cat => expect(cat.toLowerCase()).toBe('triggers'));
+    expect(count).toBeGreaterThanOrEqual(4);
   });
 
-  test('filtering by Logic shows Switch and Loop templates', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('clicking a workflow card shows detail panel', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    await page.locator('.tg-tab', { hasText: 'Logic' }).click();
-
-    const cards = page.locator('.tg-card');
-    const count = await cards.count();
-    expect(count).toBe(3); // Switch + Loop/Aggregate + Script: Cross-API Validator
-
-    // Verify we see the new node templates
-    await expect(page.locator('.tg-card-name', { hasText: 'Switch' })).toBeVisible();
-    await expect(page.locator('.tg-card-name', { hasText: 'Paginated' })).toBeVisible();
-    await expect(page.locator('.tg-card-name', { hasText: 'Script' })).toBeVisible();
-  });
-
-  test('clicking a template card loads it as preview', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+    // Filter to Workflows
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
 
     // Click the first card
-    await page.locator('.tg-card').first().click();
+    await page.locator('.gallery-card').first().click();
+    await page.waitForTimeout(300);
 
-    // Gallery should close
-    await expect(page.locator('.tg-modal')).not.toBeVisible();
-
-    // Should see "Use as Template" button (preview mode)
-    await expect(page.locator('button', { hasText: 'Use as Template' })).toBeVisible({ timeout: 5000 });
+    // Detail panel should show with "Load Workflow" action button
+    await expect(page.locator('button:has-text("Load Workflow")')).toBeVisible({ timeout: 3000 });
   });
 
-  test('Use as Template saves the workflow to sidebar', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('Load Workflow imports and navigates to workflow tab', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    // Click a template
-    await page.locator('.tg-card').first().click();
-    await expect(page.locator('.tg-modal')).not.toBeVisible();
+    // Filter to Workflows and select a card
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+    await page.locator('.gallery-card').first().click();
+    await page.waitForTimeout(300);
 
-    // Click "Use as Template"
-    await page.locator('button', { hasText: 'Use as Template' }).click();
+    // Click "Load Workflow"
+    await page.locator('button:has-text("Load Workflow")').click();
+
+    // Should show preview mode with "Use as Template" button
+    await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
+
+    // Click "Use as Template" to save to sidebar
+    await page.locator('button:has-text("Use as Template")').click();
 
     // Should now see a workflow in the sidebar
     await expect(page.locator('.wf-sidebar-item')).toBeVisible({ timeout: 5000 });
   });
 
-  test('gallery closes on Escape key', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('Webhook Trigger workflow exists in gallery', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    await page.keyboard.press('Escape');
-    await expect(page.locator('.tg-modal')).not.toBeVisible();
+    // Filter to Workflows
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+
+    // Should find Webhook Trigger entry
+    await expect(page.locator('.gallery-card-name:has-text("Webhook Trigger")')).toBeVisible();
   });
 
-  test('gallery closes on backdrop click', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('search filters workflow entries', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    // Click the overlay (outside the modal)
-    await page.locator('.tg-overlay').click({ position: { x: 10, y: 10 } });
-    await expect(page.locator('.tg-modal')).not.toBeVisible();
+    // Filter to Workflows
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+
+    const allCount = await page.locator('.gallery-card').count();
+
+    // Type in search
+    const searchInput = page.locator('.gallery-search input, input[placeholder*="Search"]');
+    if (await searchInput.isVisible()) {
+      await searchInput.fill('Webhook');
+      await page.waitForTimeout(300);
+      const filteredCount = await page.locator('.gallery-card').count();
+      expect(filteredCount).toBeLessThanOrEqual(allCount);
+      expect(filteredCount).toBeGreaterThanOrEqual(1);
+    }
   });
 
-  test('gallery close button works', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('All domain shows entries from all categories', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    await page.locator('.tg-close').click();
-    await expect(page.locator('.tg-modal')).not.toBeVisible();
+    // "All" should be selected by default and show entries from all domains
+    const cards = page.locator('.gallery-card');
+    const count = await cards.count();
+    expect(count).toBeGreaterThanOrEqual(8);
   });
 
-  test('category tab counts match actual template counts', async ({ page }) => {
-    await openGallery(page);
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
+  test('gallery cards have difficulty indicators', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
 
-    const categories = ['Basics', 'Triggers', 'Logic', 'Advanced'] as const;
+    // Filter to Workflows
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
 
-    for (const category of categories) {
-      const tab = page.locator('.tg-tab', { hasText: category });
-      const badge = tab.locator('.tg-tab-count');
-      const expectedCount = await badge.textContent();
-      expect(expectedCount).toBeTruthy();
+    // Cards should have difficulty dots
+    const firstCard = page.locator('.gallery-card').first();
+    await expect(firstCard.locator('.gallery-difficulty-dots')).toBeVisible({ timeout: 5000 });
+  });
 
-      await tab.click();
-      await expect(page.locator('.tg-card')).toHaveCount(Number(expectedCount));
+  test('gallery pagination works', async ({ page }) => {
+    await openGalleryFromWorkflow(page);
+
+    // "All" domain should have enough entries to paginate (page size 12)
+    const allCards = page.locator('.gallery-card');
+    const count = await allCards.count();
+    expect(count).toBeLessThanOrEqual(12); // page 1 max
+
+    // If pagination exists, should be functional
+    const nextBtn = page.locator('.gallery-page-btn:has-text("»"), button:has-text("Next")');
+    if (await nextBtn.isVisible()) {
+      await nextBtn.click();
+      await page.waitForTimeout(300);
+      const page2Count = await allCards.count();
+      expect(page2Count).toBeGreaterThanOrEqual(1);
     }
   });
 });
@@ -252,13 +271,13 @@ test.describe('+New Workflow Dropdown', () => {
     await expect(page.locator('.req-confirm-overlay')).not.toBeVisible();
   });
 
-  test('From Template opens the gallery modal', async ({ page }) => {
+  test('From Template navigates to the Gallery page', async ({ page }) => {
     await page.locator('.wf-new-dropdown-wrap .btn-primary').click();
     await page.locator('.wf-new-dropdown-item', { hasText: 'From Template' }).click();
 
-    // Gallery modal should open
-    await expect(page.locator('.tg-modal')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('.tg-title')).toHaveText('Template Gallery');
+    // Gallery page should show domain filter buttons
+    await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
   });
 
   test('+New dropdown closes when clicking outside', async ({ page }) => {

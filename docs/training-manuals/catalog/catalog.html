@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Catalog Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📚</div>
+    <h1>API Catalog Gallery</h1>
+    <div class="subtitle">Overview — Training Manual</div>
+    <p>The API Catalog Gallery provides 6 complete OpenAPI specifications for public APIs, ready to import, browse, and generate requests from within RedfireForge.</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What is the API Catalog?</h2>
+  <p>The API Catalog is a curated collection of OpenAPI 3.0 specifications built into RedfireForge. Each specification describes a real, publicly available API — including its endpoints, request/response schemas, authentication requirements, and data models.</p>
+  <p>Unlike individual request samples, catalog specs give you the <strong>complete picture</strong> of an API. You can browse all available endpoints, understand the data model, and generate ready-to-run requests directly from the spec — no manual configuration needed.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The API Catalog is the fastest way to explore and test an entire API surface. Import a spec, browse its endpoints, and start sending requests in seconds.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. How to Use API Catalog Specs</h2>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel from the RedfireForge sidebar.</li>
+    <li>Navigate to the <strong>Catalog</strong> tab.</li>
+    <li>Browse the list and click on any spec to expand its details.</li>
+    <li>Choose an action:
+      <ul>
+        <li><strong>Import Spec</strong> — loads the full OpenAPI specification into your workspace for browsing and exploration.</li>
+        <li><strong>Browse Endpoints</strong> — opens an interactive endpoint explorer showing all available routes, methods, and schemas.</li>
+        <li><strong>Generate Requests</strong> — creates ready-to-run request samples from any endpoint in the spec.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Imported specs persist in your workspace. You can generate multiple requests from the same spec and organize them into test suites.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Catalog Overview</h2>
+  <p>The table below lists all 6 API catalog specifications available in the gallery.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Icon</th>
+        <th>Name</th>
+        <th>Difficulty</th>
+        <th>Category</th>
+        <th>Endpoints</th>
+        <th>API</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>📋</td>
+        <td>JSONPlaceholder API</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>rest-api</code></td>
+        <td>12</td>
+        <td>jsonplaceholder.typicode.com</td>
+      </tr>
+      <tr>
+        <td>🛍️</td>
+        <td>FakeStore API</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>rest-api</code></td>
+        <td>7</td>
+        <td>fakestoreapi.com</td>
+      </tr>
+      <tr>
+        <td>⚡</td>
+        <td>PokéAPI</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>public-api</code></td>
+        <td>10</td>
+        <td>pokeapi.co</td>
+      </tr>
+      <tr>
+        <td>🛒</td>
+        <td>DummyJSON Products</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>rest-api</code></td>
+        <td>15</td>
+        <td>dummyjson.com</td>
+      </tr>
+      <tr>
+        <td>🌍</td>
+        <td>REST Countries</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>public-api</code></td>
+        <td>8</td>
+        <td>restcountries.com</td>
+      </tr>
+      <tr>
+        <td>🔧</td>
+        <td>HTTPBin Toolkit</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>microservices</code></td>
+        <td>21</td>
+        <td>httpbin.org</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Categories</h2>
+  <p>Each catalog spec belongs to a category that describes the type of API it represents:</p>
+
+  <h4>rest-api</h4>
+  <p>Classic REST APIs with full CRUD support — resources are organized around nouns (<code>/users</code>, <code>/products</code>) and support standard HTTP methods (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>). These are ideal for learning RESTful conventions and resource-oriented design. Examples: JSONPlaceholder API, FakeStore API, DummyJSON Products.</p>
+
+  <h4>public-api</h4>
+  <p>Read-heavy public APIs that expose large datasets with linked resources, pagination, and complex response structures. These APIs typically require no authentication and are great for practicing data traversal and nested object handling. Examples: PokéAPI, REST Countries.</p>
+
+  <h4>microservices</h4>
+  <p>Utility and diagnostic APIs designed for testing HTTP behaviors — headers, status codes, redirects, cookies, and request inspection. These are invaluable for debugging and understanding the HTTP protocol at a deeper level. Example: HTTPBin Toolkit.</p>
+
+  <!-- Section 5 -->
+  <h2>5. Learning Path</h2>
+  <p>Follow this suggested progression to build your API catalog skills incrementally:</p>
+
+  <h3>Step 1 — Simple REST APIs</h3>
+  <p>Start with the <span class="badge badge-easy">Easy</span> specs: <strong>JSONPlaceholder API</strong> and <strong>FakeStore API</strong>. These have straightforward CRUD endpoints, no authentication, and clean JSON responses. Focus on importing the spec, browsing endpoints, and generating your first requests.</p>
+
+  <h3>Step 2 — Complex Data Models</h3>
+  <p>Move on to <span class="badge badge-medium">Medium</span> specs: <strong>PokéAPI</strong> and <strong>REST Countries</strong>. These introduce deeply nested responses, linked resources, and pagination. Practice navigating large response payloads and following resource links.</p>
+
+  <h3>Step 3 — Full-Featured APIs</h3>
+  <p>Try <strong>DummyJSON Products</strong> for a complete e-commerce API with search, filtering, pagination, and authentication. This combines all the patterns from previous steps into a single, realistic API surface.</p>
+
+  <h3>Step 4 — HTTP Diagnostics</h3>
+  <p>Finish with the <span class="badge badge-advanced">Advanced</span> <strong>HTTPBin Toolkit</strong>. Use it to inspect request headers, test status codes, experiment with redirects, and understand HTTP mechanics at the protocol level.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    After importing a catalog spec, try generating requests for multiple endpoints and organizing them into a test workflow to simulate real-world API usage patterns.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — API Catalog Gallery Overview · April 2026
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — API Patterns: Debug Trace Pipeline (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Debug Trace Pipeline</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Build a comprehensive debug tracing pipeline that logs every stage of an API
+    request lifecycle — from outbound request through transformation to final
+    result evaluation. Master the art of workflow observability.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 8 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates how to build a <strong>debug tracing pipeline</strong> —
+  a workflow pattern that adds comprehensive logging at every stage of API request
+  processing. When workflows fail in production, good tracing is the difference between
+  a 5-minute fix and a 5-hour investigation.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> Production API workflows fail silently — you get
+  an unexpected result but don't know <em>where</em> in the pipeline things went wrong.
+  Was the API response malformed? Did the transformation produce incorrect data? Did the
+  condition evaluate incorrectly? Debug tracing answers all of these questions by logging
+  the state at every checkpoint.
+</p>
+<p><strong>When to use debug tracing:</strong></p>
+<ul>
+  <li>Troubleshooting intermittent failures in production workflows</li>
+  <li>Validating data transformations produce expected results</li>
+  <li>Auditing API request/response pairs for compliance</li>
+  <li>Onboarding new team members by making workflow behavior transparent</li>
+  <li>Debugging complex condition expressions that produce unexpected outcomes</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Using <strong>Script nodes with <code>console.log()</code></strong> for structured debug output</li>
+  <li>Logging <strong>request details</strong> (URL, method, headers) before execution</li>
+  <li>Logging <strong>response details</strong> (status, body, timing) after execution</li>
+  <li>Adding <strong>trace points</strong> between transformation stages</li>
+  <li>Using <strong>Condition nodes</strong> with logged evaluation context</li>
+  <li>Building a <strong>reusable debug pattern</strong> that can be added to any workflow</li>
+  <li>Reading the <strong>workflow console</strong> to trace execution history</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Log Request             │  Script: console.log(url,
+  │     (Script)                │   method, timestamp)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. HTTP GET                │  GET /users/1
+  │     (HTTP)                  │  → responseBody, statusCode
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Log Response            │  Script: console.log(status,
+  │     (Script)                │   bodyLength, timing)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  4. Transform               │  Script: extract &amp; reshape
+  │     (Script)                │   → userName, userEmail
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  5. Log Transform           │  Script: console.log(
+  │     (Script)                │   transformed values)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  6. Validate                │  {{userName}} != ""
+  │     (Condition)             │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  7. Log Result              │  Script: console.log(
+  │     (Script)                │   pass/fail, summary)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │     End     │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>8 nodes, 7 edges</strong> — a linear pipeline with debug logging interleaved
+  at every critical stage. The four Script "Log" nodes produce a comprehensive trace in
+  the workflow console, making every step observable.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables — uses a hardcoded API endpoint for demonstration.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Log Request</td>
+    <td>Script</td>
+    <td>Logs the outbound request details: URL, method, and timestamp. Writes <code>requestUrl</code> and <code>requestTimestamp</code> variables.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> HTTP GET</td>
+    <td>HTTP</td>
+    <td>Executes GET <code>jsonplaceholder.typicode.com/users/1</code>. Extracts <code>responseBody</code> and <code>statusCode</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Log Response</td>
+    <td>Script</td>
+    <td>Logs the response: status code, body length, and elapsed time since the request was sent.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Transform</td>
+    <td>Script</td>
+    <td>Parses <code>responseBody</code> and extracts <code>userName</code> and <code>userEmail</code> into output variables.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> Log Transform</td>
+    <td>Script</td>
+    <td>Logs the transformed values: what was extracted, data types, and any computed fields.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">6</span> Validate</td>
+    <td>Condition</td>
+    <td>Checks <code>{{userName}} != ""</code>. Routes true → Log Result, false → (would connect to error handling).</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">7</span> Log Result</td>
+    <td>Script</td>
+    <td>Logs the final pipeline result: pass/fail, summary of extracted data, total pipeline duration.</td>
+  </tr>
+</table>
+
+<h3>Key Script: Log Request (Node 1)</h3>
+<pre>
+<span class="comment">// Log outbound request details</span>
+<span class="keyword">const</span> url = <span class="string">"https://jsonplaceholder.typicode.com/users/1"</span>;
+<span class="keyword">const</span> method = <span class="string">"GET"</span>;
+<span class="keyword">const</span> timestamp = <span class="keyword">new</span> Date().toISOString();
+
+console.log(<span class="string">"═══ DEBUG TRACE ═══"</span>);
+console.log(<span class="string">"[REQUEST] "</span> + method + <span class="string">" "</span> + url);
+console.log(<span class="string">"[REQUEST] Timestamp: "</span> + timestamp);
+
+output.requestUrl = url;
+output.requestTimestamp = timestamp;</pre>
+
+<h3>Key Script: Log Response (Node 3)</h3>
+<pre>
+<span class="comment">// Log response details and timing</span>
+<span class="keyword">const</span> elapsed = Date.now() - <span class="keyword">new</span> Date(input.requestTimestamp).getTime();
+
+console.log(<span class="string">"[RESPONSE] Status: "</span> + input.statusCode);
+console.log(<span class="string">"[RESPONSE] Body length: "</span> + input.responseBody.length + <span class="string">" chars"</span>);
+console.log(<span class="string">"[RESPONSE] Elapsed: "</span> + elapsed + <span class="string">"ms"</span>);
+
+output.elapsed = String(elapsed);</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Production Consideration</strong>
+  Debug trace nodes add overhead. In production, consider using a
+  <code>debugMode</code> input variable and wrapping log nodes in Condition branches
+  so they only execute when debugging is enabled.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Debug Trace Pipeline"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Debug Trace Pipeline".
+  </li>
+  <li>
+    <strong>Add the Log Request Script node.</strong><br>
+    Drag a Script node. Set mode to Transform. Add output variables <code>requestUrl</code>,
+    <code>requestTimestamp</code>. Paste the Log Request script. Enable console capture.
+    Connect Start → Log Request.
+  </li>
+  <li>
+    <strong>Add the HTTP GET node.</strong><br>
+    Drag an HTTP node. URL: <code>https://jsonplaceholder.typicode.com/users/1</code>.
+    Method: GET. Extractions: <code>responseBody</code> ← body <code>$</code>,
+    <code>statusCode</code> ← status code. Connect Log Request → HTTP GET.
+  </li>
+  <li>
+    <strong>Add the Log Response Script node.</strong><br>
+    Drag a Script node. Input: <code>requestTimestamp</code>, <code>statusCode</code>,
+    <code>responseBody</code>. Output: <code>elapsed</code>. Paste the Log Response script.
+    Connect HTTP GET → Log Response.
+  </li>
+  <li>
+    <strong>Add the Transform Script node.</strong><br>
+    Drag a Script node. Input: <code>responseBody</code>. Output: <code>userName</code>,
+    <code>userEmail</code>. Parse JSON and extract fields. Connect Log Response → Transform.
+  </li>
+  <li>
+    <strong>Add the Log Transform, Condition, Log Result, and End nodes.</strong><br>
+    Continue the chain: Transform → Log Transform → Validate → Log Result → End.
+    The Condition checks <code>{{userName}} != ""</code>.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Open the <em>Workflow Console</em> to see the complete
+    debug trace output from all four logging nodes.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Console Output (Complete Trace)</h3>
+<pre>
+═══ DEBUG TRACE ═══
+[REQUEST] GET https://jsonplaceholder.typicode.com/users/1
+[REQUEST] Timestamp: 2026-04-29T10:30:00.000Z
+[RESPONSE] Status: 200
+[RESPONSE] Body length: 509 chars
+[RESPONSE] Elapsed: 187ms
+[TRANSFORM] userName = "Leanne Graham"
+[TRANSFORM] userEmail = "Sincere@april.biz"
+[TRANSFORM] Fields extracted: 2
+[RESULT] ✅ Pipeline PASSED
+[RESULT] User: Leanne Graham (Sincere@april.biz)
+[RESULT] Total pipeline time: 210ms</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Log Request</td><td>✅ Pass</td><td>Request metadata logged</td></tr>
+  <tr><td>2. HTTP GET</td><td>✅ Pass</td><td>HTTP 200, body extracted</td></tr>
+  <tr><td>3. Log Response</td><td>✅ Pass</td><td>Response metadata logged</td></tr>
+  <tr><td>4. Transform</td><td>✅ Pass</td><td>userName, userEmail extracted</td></tr>
+  <tr><td>5. Log Transform</td><td>✅ Pass</td><td>Transformed values logged</td></tr>
+  <tr><td>6. Validate</td><td>✅ Pass (true)</td><td>"Leanne Graham" != ""</td></tr>
+  <tr><td>7. Log Result</td><td>✅ Pass</td><td>Final summary logged</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add a Debug Mode Toggle</h3>
+<p>
+  Add a <code>debugMode</code> input variable (default: <code>true</code>). Wrap each
+  Log Script node in a Condition that checks <code>{{debugMode}} == "true"</code>.
+  When debug mode is off, the logging nodes are skipped entirely.
+</p>
+
+<h3>Exercise 2: Log Request Headers</h3>
+<p>
+  Enhance the Log Request node to also output the request headers being sent.
+  Add <code>Accept: application/json</code> and <code>X-Trace-Id: {{traceId}}</code>
+  headers to the HTTP node, where <code>traceId</code> is generated in the Log Request
+  script using <code>Math.random().toString(36).substring(7)</code>.
+</p>
+
+<h3>Exercise 3: Add Error Path Tracing</h3>
+<p>
+  Add a false branch from the Validate Condition to a "Log Failure" Script node
+  that logs detailed error information: what condition failed, what the actual value
+  was, and suggested remediation. Connect it to a separate "Error End" node.
+</p>
+
+<h3>Exercise 4: Build a Trace Aggregator</h3>
+<p>
+  Instead of separate log nodes, use a single <code>traceLog</code> variable that each
+  Script node appends to. At the end, the Log Result node outputs the complete
+  aggregated trace as a single formatted string. Hint: use
+  <code>output.traceLog = input.traceLog + "\n" + newEntry</code>.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Now that you understand debug tracing, try the
+  <a href="expression-functions-advanced.html">Expression Functions Showcase</a>
+  to learn powerful data transformation techniques without writing full scripts.
+</div>
+
+<footer>RedfireForge Training Manual — Debug Trace Pipeline · April 2026</footer>
+
+</body>
+</html>

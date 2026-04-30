@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Flow Control: Category Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔀</div>
+  <h1>Flow Control</h1>
+  <div class="subtitle">Workflow Category</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Overview — Training Manual
+  </p>
+  <p style="max-width: 540px; color: #495057; font-size: 13px; margin-top: 12px;">
+    Flow Control workflows demonstrate how to direct execution through different
+    paths using conditions, switches, loops, and error-handling strategies. Master
+    these patterns to build robust, production-grade API automation.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    5 Samples &nbsp;|&nbsp; Easy → Advanced<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#what-is">What is Flow Control?</a></li>
+  <li><a href="#catalog">Sample Catalog</a></li>
+  <li><a href="#concepts">Key Concepts</a></li>
+  <li><a href="#learning-path">Learning Path</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. WHAT IS FLOW CONTROL                     -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="what-is">1. What is Flow Control?</h2>
+<p>
+  Flow Control is the ability to guide a workflow's execution path based on data,
+  conditions, and runtime state. Instead of a simple linear pipeline, flow-control
+  workflows can <strong>branch</strong>, <strong>switch</strong> between multiple
+  routes, <strong>loop</strong> over paginated data, and <strong>recover</strong>
+  from errors gracefully.
+</p>
+<p>
+  These patterns are essential for real-world API automation where responses vary,
+  data sets span multiple pages, and failures must be handled without crashing the
+  entire workflow.
+</p>
+<p><strong>When do you need flow control?</strong></p>
+<ul>
+  <li>An API response determines the next action (e.g., active vs. inactive user)</li>
+  <li>A field value maps to one of several processing paths (e.g., order status routing)</li>
+  <li>Data must be fetched across multiple pages until all records are collected</li>
+  <li>Transient failures require retries or fallback logic</li>
+  <li>Errors in one branch should not stop the entire workflow</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CATALOG                                  -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="catalog">2. Sample Catalog</h2>
+
+<table>
+  <tr>
+    <th>Sample</th>
+    <th>Difficulty</th>
+    <th>Nodes</th>
+    <th>Key Concepts</th>
+    <th>Manual</th>
+  </tr>
+  <tr>
+    <td>Conditional Branching</td>
+    <td><span class="badge badge-easy">Easy ★☆☆</span></td>
+    <td>4</td>
+    <td>Condition node, boolean branching, true/false paths</td>
+    <td><a href="conditional-branching-easy.html">Open</a></td>
+  </tr>
+  <tr>
+    <td>Switch Order Router</td>
+    <td><span class="badge badge-medium">Medium ★★☆</span></td>
+    <td>6</td>
+    <td>Switch node, multi-path routing, default case</td>
+    <td><a href="switch-order-router-medium.html">Open</a></td>
+  </tr>
+  <tr>
+    <td>Paginated API Fetcher</td>
+    <td><span class="badge badge-medium">Medium ★★☆</span></td>
+    <td>5</td>
+    <td>Loop node, pagination, aggregation, hasMore check</td>
+    <td><a href="paginated-fetcher-medium.html">Open</a></td>
+  </tr>
+  <tr>
+    <td>Resilient API with Error Handling</td>
+    <td><span class="badge badge-advanced">Advanced ★★★</span></td>
+    <td>—</td>
+    <td>Try/catch, retry logic, fallback paths</td>
+    <td><em>Coming soon</em></td>
+  </tr>
+  <tr>
+    <td>Workflow Error Handler</td>
+    <td><span class="badge badge-advanced">Advanced ★★★</span></td>
+    <td>—</td>
+    <td>Global error handler, error context, recovery</td>
+    <td><em>Coming soon</em></td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. KEY CONCEPTS                             -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="concepts">3. Key Concepts</h2>
+
+<h3>Branching (Condition Node)</h3>
+<p>
+  A <strong>Condition</strong> node evaluates a boolean expression and routes execution
+  down one of two paths: <code>true</code> or <code>false</code>. Use it when a single
+  yes/no decision determines the next action.
+</p>
+<ul>
+  <li>Expression examples: <code>{{status}} == 200</code>, <code>{{user.active}} == true</code></li>
+  <li>Each branch can lead to different processing nodes or directly to End</li>
+  <li>Branches can rejoin later by connecting both paths to the same downstream node</li>
+</ul>
+
+<h3>Switch (Multi-Path Routing)</h3>
+<p>
+  A <strong>Switch</strong> node evaluates a variable against multiple cases and routes
+  execution to the matching path. It's the multi-way equivalent of a Condition node.
+</p>
+<ul>
+  <li>Define named cases with exact match values (e.g., <code>"pending"</code>, <code>"shipped"</code>)</li>
+  <li>A <strong>default</strong> case catches any value not matched by explicit cases</li>
+  <li>Each case connects to a separate downstream node or processing chain</li>
+</ul>
+
+<h3>Loops (Iteration &amp; Pagination)</h3>
+<p>
+  A <strong>Loop</strong> node repeats a sequence of nodes until a termination condition
+  is met. This is essential for paginated APIs where data spans multiple pages.
+</p>
+<ul>
+  <li>Initialize a counter or page variable before the loop</li>
+  <li>Each iteration fetches a page, aggregates data, and increments the counter</li>
+  <li>The loop exits when a <code>hasMore</code> condition evaluates to <code>false</code></li>
+  <li>Loop guards prevent infinite loops (max iterations, timeout)</li>
+</ul>
+
+<h3>Error Handling</h3>
+<p>
+  <strong>Error handling</strong> nodes catch failures (HTTP errors, timeouts,
+  malformed responses) and route execution to recovery or logging paths instead of
+  crashing the workflow.
+</p>
+<ul>
+  <li><strong>Try/Catch</strong>: Wrap risky nodes; on failure, execute the catch branch</li>
+  <li><strong>Retry</strong>: Re-execute a failed node up to N times with backoff</li>
+  <li><strong>Fallback</strong>: Provide a default value or alternative API when the primary fails</li>
+  <li><strong>Global Error Handler</strong>: Catch any unhandled error in the entire workflow</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. LEARNING PATH                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="learning-path">4. Learning Path</h2>
+
+<p>Follow this recommended order to build your flow-control skills progressively:</p>
+
+<table>
+  <tr><th>Step</th><th>Sample</th><th>What You'll Learn</th></tr>
+  <tr>
+    <td><span class="step-num">1</span></td>
+    <td><a href="conditional-branching-easy.html">Conditional Branching</a></td>
+    <td>Basic true/false branching based on an API response field</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span></td>
+    <td><a href="switch-order-router-medium.html">Switch Order Router</a></td>
+    <td>Multi-path routing with named cases and a default fallback</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span></td>
+    <td><a href="paginated-fetcher-medium.html">Paginated API Fetcher</a></td>
+    <td>Looping, pagination, aggregation, and loop exit conditions</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span></td>
+    <td>Resilient API with Error Handling</td>
+    <td>Try/catch, retry policies, and fallback strategies</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span></td>
+    <td>Workflow Error Handler</td>
+    <td>Global error handling and centralized recovery logic</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Tip</strong>
+  Start with Conditional Branching to learn the core branching mechanic, then progress
+  to Switch for multi-path routing. Once comfortable with decision nodes, tackle the
+  Paginated Fetcher to learn loops. Error handling builds on all previous concepts.
+</div>
+
+<footer>RedfireForge Training Manual — Flow Control Overview · April 2026</footer>
+
+</body>
+</html>

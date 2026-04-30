@@ -1,6 +1,7 @@
-import { acquireOAuth2Token } from '../../engine/executor';
+import { acquireOAuth2Token } from '../../engine/tokenManager';
 import type { AuthConfig, Scenario } from '../types';
 import { getEffectiveBodyType, serializeWithContentType } from './bodySerializer';
+import { resolveAuthHeaders } from './authHeaders';
 
 export async function buildCurlCommand(scenario: Scenario, effectiveAuth: AuthConfig): Promise<string> {
   const parts: string[] = ['curl'];
@@ -19,12 +20,12 @@ export async function buildCurlCommand(scenario: Scenario, effectiveAuth: AuthCo
     headerEntries.push({ key: h.key.trim(), value: h.value });
   }
 
-  if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
-    const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-    headerEntries.push({ key: 'Authorization', value: `Basic ${encoded}` });
-  } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
-    const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
-    headerEntries.push({ key: 'Authorization', value: `${prefix} ${effectiveAuth.token}` });
+  if (effectiveAuth.type === 'basic' || effectiveAuth.type === 'bearer' ||
+      (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyIn !== 'query')) {
+    const authHdrs = resolveAuthHeaders(effectiveAuth);
+    for (const [k, v] of Object.entries(authHdrs)) {
+      headerEntries.push({ key: k, value: v });
+    }
   } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
     if (effectiveAuth.apiKeyIn === 'query') {
       try {
@@ -32,8 +33,6 @@ export async function buildCurlCommand(scenario: Scenario, effectiveAuth: AuthCo
         url.searchParams.set(effectiveAuth.apiKeyName, effectiveAuth.apiKeyValue);
         parts[parts.indexOf(`'${scenario.url}'`)] = `'${url.toString()}'`;
       } catch { /* keep original URL */ }
-    } else {
-      headerEntries.push({ key: effectiveAuth.apiKeyName, value: effectiveAuth.apiKeyValue });
     }
   } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
     parts.push('--digest');

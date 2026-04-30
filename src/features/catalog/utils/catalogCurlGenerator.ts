@@ -2,6 +2,7 @@ import type { CatalogEndpoint, HostConfig, CatalogServer, CatalogEnvironment } f
 import type { AuthConfig, Microservice, Environment } from '../../../shared/types';
 import { generateStubJson } from './schemaStubGenerator';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
+import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
 
 interface CurlParams {
   endpoint: CatalogEndpoint;
@@ -38,26 +39,21 @@ export async function buildCatalogCurlCommand(params: CurlParams): Promise<strin
     } catch {
       headers.push({ key: 'Authorization', value: 'Bearer <TOKEN_ERROR: check OAuth2 config>' });
     }
-  } else if (auth.type === 'basic' && auth.username) {
-    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
-    headers.push({ key: 'Authorization', value: `Basic ${encoded}` });
-  } else if (auth.type === 'bearer' && auth.token) {
-    const prefix = auth.prefix?.trim() || 'Bearer';
-    headers.push({ key: 'Authorization', value: `${prefix} ${auth.token}` });
-  } else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue) {
-    if (auth.apiKeyIn === 'query') {
-      try {
-        const url = new URL(fullUrl);
-        url.searchParams.set(auth.apiKeyName, auth.apiKeyValue);
-        const idx = parts.findIndex(p => p.startsWith("'"));
-        if (idx >= 0) parts[idx] = `'${url.toString()}'`;
-      } catch { /* keep original */ }
-    } else {
-      let val = auth.apiKeyValue;
-      if (auth.apiKeyName.toLowerCase() === 'authorization' && !val.match(/^(Bearer|Basic|Token)\s/i)) {
-        val = `Bearer ${val}`;
-      }
-      headers.push({ key: auth.apiKeyName, value: val });
+  } else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn === 'query') {
+    try {
+      const url = new URL(fullUrl);
+      url.searchParams.set(auth.apiKeyName, auth.apiKeyValue);
+      const idx = parts.findIndex(p => p.startsWith("'"));
+      if (idx >= 0) parts[idx] = `'${url.toString()}'`;
+    } catch { /* keep original */ }
+  } else if (auth.type !== 'none') {
+    const authHdrs = resolveAuthHeaders(auth);
+    // Auto-prefix Bearer for apikey named "Authorization" without a scheme
+    if (auth.type === 'apikey' && auth.apiKeyName?.toLowerCase() === 'authorization' && authHdrs['Authorization'] && !authHdrs['Authorization'].match(/^(Bearer|Basic|Token)\s/i)) {
+      authHdrs['Authorization'] = `Bearer ${authHdrs['Authorization']}`;
+    }
+    for (const [k, v] of Object.entries(authHdrs)) {
+      headers.push({ key: k, value: v });
     }
   }
 

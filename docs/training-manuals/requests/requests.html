@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Requests Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📡</div>
+    <h1>Requests Gallery</h1>
+    <div class="subtitle">Overview — Training Manual</div>
+    <p>The Requests Gallery provides 12 ready-to-run API request samples covering common HTTP methods, authentication, pagination, and more.</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What is the Requests Gallery?</h2>
+  <p>The Requests Gallery is a curated collection of API request samples built into RedfireForge. Each sample targets a real, publicly available API and is designed to demonstrate a specific HTTP concept — from simple <code>GET</code> calls to authenticated <code>POST</code> requests with token handling.</p>
+  <p>Samples are organized by difficulty (<span class="badge badge-easy">Easy</span>, <span class="badge badge-medium">Medium</span>, <span class="badge badge-advanced">Advanced</span>) so you can progress at your own pace. Every sample is fully configured and can be executed immediately — no setup required.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The Requests Gallery is the fastest way to explore RedfireForge's capabilities without needing to configure endpoints, headers, or payloads from scratch.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. How to Use Request Samples</h2>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel from the RedfireForge sidebar.</li>
+    <li>Navigate to the <strong>Requests</strong> tab.</li>
+    <li>Browse the list and click on any sample to expand its details.</li>
+    <li>Choose an action:
+      <ul>
+        <li><strong>Send Request</strong> — imports the sample into your workspace and executes it immediately.</li>
+        <li><strong>Try It</strong> — opens an interactive preview where you can inspect and modify the request before sending.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Imported samples appear in your request history, so you can re-run or modify them later.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Sample Catalog</h2>
+  <p>The table below lists all 12 request samples available in the gallery.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Icon</th>
+        <th>Name</th>
+        <th>Difficulty</th>
+        <th>API</th>
+        <th>Method</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>👥</td>
+        <td>Get All Users</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>jsonplaceholder.typicode.com</td>
+        <td><code>GET</code></td>
+        <td>Fetch a list of all users from a mock REST API.</td>
+      </tr>
+      <tr>
+        <td>⚡</td>
+        <td>Get Pokémon Details</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>pokeapi.co</td>
+        <td><code>GET</code></td>
+        <td>Retrieve details for a specific Pokémon by name or ID.</td>
+      </tr>
+      <tr>
+        <td>🐕</td>
+        <td>Random Dog Image</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>dog.ceo</td>
+        <td><code>GET</code></td>
+        <td>Fetch a random dog image URL from the Dog CEO API.</td>
+      </tr>
+      <tr>
+        <td>🌍</td>
+        <td>Search Countries by Name</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>restcountries.com</td>
+        <td><code>GET</code></td>
+        <td>Search for countries by name and retrieve their details.</td>
+      </tr>
+      <tr>
+        <td>✏️</td>
+        <td>Create a New Post</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>jsonplaceholder.typicode.com</td>
+        <td><code>POST</code></td>
+        <td>Create a new post resource using a JSON body.</td>
+      </tr>
+      <tr>
+        <td>📚</td>
+        <td>Search Books</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>openlibrary.org</td>
+        <td><code>GET</code></td>
+        <td>Search the Open Library catalog by title or author.</td>
+      </tr>
+      <tr>
+        <td>📄</td>
+        <td>Paginated User List</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>dummyjson.com</td>
+        <td><code>GET</code></td>
+        <td>Fetch users with limit and skip pagination parameters.</td>
+      </tr>
+      <tr>
+        <td>🔍</td>
+        <td>Product Search with Query</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>dummyjson.com</td>
+        <td><code>GET</code></td>
+        <td>Search products using query string parameters.</td>
+      </tr>
+      <tr>
+        <td>🔄</td>
+        <td>Update a Resource (PUT)</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>jsonplaceholder.typicode.com</td>
+        <td><code>PUT</code></td>
+        <td>Replace an existing resource with updated data.</td>
+      </tr>
+      <tr>
+        <td>🗑️</td>
+        <td>Delete a Resource</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>jsonplaceholder.typicode.com</td>
+        <td><code>DELETE</code></td>
+        <td>Delete an existing resource by ID.</td>
+      </tr>
+      <tr>
+        <td>🔐</td>
+        <td>Auth Login (Token)</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>dummyjson.com</td>
+        <td><code>POST</code></td>
+        <td>Authenticate with credentials and receive a bearer token.</td>
+      </tr>
+      <tr>
+        <td>📡</td>
+        <td>Echo Headers &amp; Body</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td>httpbin.org</td>
+        <td><code>POST</code></td>
+        <td>Send custom headers and a JSON body; inspect the echoed response.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Learning Path</h2>
+  <p>Follow this suggested progression to build your API testing skills incrementally:</p>
+
+  <h3>Step 1 — Simple GET Requests</h3>
+  <p>Start with the <span class="badge badge-easy">Easy</span> GET samples: <strong>Get All Users</strong>, <strong>Get Pokémon Details</strong>, <strong>Random Dog Image</strong>, and <strong>Search Countries by Name</strong>. These require no request body and return straightforward JSON responses. Focus on reading the response structure and status codes.</p>
+
+  <h3>Step 2 — POST and PUT Requests</h3>
+  <p>Move on to <strong>Create a New Post</strong> and <strong>Update a Resource (PUT)</strong> to learn how to send JSON request bodies. Observe how <code>POST</code> creates new resources while <code>PUT</code> replaces existing ones.</p>
+
+  <h3>Step 3 — Pagination and Search</h3>
+  <p>Try the <span class="badge badge-medium">Medium</span> samples: <strong>Search Books</strong>, <strong>Paginated User List</strong>, and <strong>Product Search with Query</strong>. These introduce query parameters, pagination controls (<code>limit</code>, <code>skip</code>), and filtered result sets.</p>
+
+  <h3>Step 4 — Authentication and Advanced</h3>
+  <p>Finish with <strong>Auth Login (Token)</strong> to understand token-based authentication, and <strong>Echo Headers &amp; Body</strong> to inspect exactly what the server receives — useful for debugging custom headers and payloads.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    After completing a sample, try modifying parameters or the request body in "Try It" mode to see how the API response changes.
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Categories</h2>
+  <p>Each request sample belongs to one or more categories that describe the API pattern it demonstrates:</p>
+
+  <h4>CRUD</h4>
+  <p>Samples that demonstrate <strong>Create, Read, Update, Delete</strong> operations — the four fundamental actions for managing resources via REST APIs. Examples: Get All Users (Read), Create a New Post (Create), Update a Resource (Update), Delete a Resource (Delete).</p>
+
+  <h4>Search</h4>
+  <p>Samples that use query parameters to filter or search through collections. These demonstrate how to pass search terms, filter criteria, and retrieve matching subsets. Examples: Search Books, Product Search with Query, Search Countries by Name.</p>
+
+  <h4>Pagination</h4>
+  <p>Samples that retrieve data in pages using <code>limit</code>, <code>skip</code>, or <code>page</code> parameters. Pagination is essential for working with large datasets efficiently. Example: Paginated User List.</p>
+
+  <h4>Auth</h4>
+  <p>Samples that involve authentication — sending credentials and receiving tokens for subsequent authorized requests. Understanding auth flows is critical for testing secured APIs. Example: Auth Login (Token).</p>
+
+  <footer>
+    RedfireForge Training Manual — Requests Gallery Overview · April 2026
+  </footer>
+
+</body>
+</html>

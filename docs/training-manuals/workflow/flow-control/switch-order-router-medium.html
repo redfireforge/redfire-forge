@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Flow Control: Switch Order Router (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔀</div>
+  <h1>Switch Order Router</h1>
+  <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Fetch an order from an API and route it to different processing paths based
+    on its status: pending, shipped, delivered, or an unknown default. The
+    essential multi-path routing pattern.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Flow Control<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates <strong>multi-path routing with a Switch node</strong>.
+  Instead of a simple true/false branch, the Switch node evaluates a variable against
+  multiple named cases and routes execution to the matching path.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> An order management system fetches an order
+  and routes it to different processing pipelines based on its status — pending orders
+  go to the warehouse queue, shipped orders trigger tracking notifications, and delivered
+  orders update the customer's order history.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Routing customer support tickets by severity level (low/medium/high/critical)</li>
+  <li>Processing payments by method (credit card/PayPal/wire transfer/crypto)</li>
+  <li>Handling webhook events by type (created/updated/deleted)</li>
+  <li>Dispatching notifications by channel (email/SMS/push/Slack)</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Using a <strong>Switch</strong> node for multi-path routing</li>
+  <li>Defining <strong>named cases</strong> with exact-match values</li>
+  <li>Implementing a <strong>default case</strong> for unrecognized values</li>
+  <li>Extracting a routing field from an API response</li>
+  <li>Using <strong>Log</strong> nodes to trace which path was taken</li>
+  <li>The <strong>fan-out / fan-in</strong> pattern where multiple branches converge</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Get Order               │  GET https://fakestoreapi
+  │     (HTTP)                  │      .com/products/1
+  │                             │
+  │  Extracts: orderStatus      │  → orderStatus (string)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────────────────────────────┐
+  │  2. Route by Status (Switch)                        │
+  │                                                     │
+  │  Variable: {{orderStatus}}                          │
+  │                                                     │
+  │  ┌──────────┬───────────┬────────────┬───────────┐  │
+  │  │ pending  │ shipped   │ delivered  │ default   │  │
+  │  └────┬─────┴─────┬─────┴──────┬─────┴─────┬─────┘  │
+  └───────┘           │            │            │        │
+       │              │            │            │
+       ▼              ▼            ▼            ▼
+  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  │ 3a. Log  │  │ 3b. Log  │  │ 3c. Log  │  │ 3d. Log  │
+  │ Pending  │  │ Shipped  │  │ Delivered│  │ Unknown  │
+  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+       │              │            │              │
+       └──────────┬───┴────────┬───┘              │
+                  └────────────┴──────────────────┘
+                               ▼
+                        ┌─────────────┐
+                        │    End      │
+                        └─────────────┘
+</div>
+
+<p>
+  <strong>6 nodes, 8 edges</strong> — a fan-out/fan-in pipeline. The Switch node splits
+  execution into four possible paths, all of which converge at the End node.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables — the order ID is hardcoded for this sample.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Get Order</td>
+    <td>HTTP</td>
+    <td>Sends a GET request to fetch an order. Extracts the <code>status</code> field into <code>orderStatus</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Route by Status</td>
+    <td>Switch</td>
+    <td>Evaluates <code>{{orderStatus}}</code> against four cases: <code>pending</code>, <code>shipped</code>, <code>delivered</code>, and <code>default</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3a</span> Log Pending</td>
+    <td>Log</td>
+    <td>Logs <code>"Order is pending — adding to warehouse queue"</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3b</span> Log Shipped</td>
+    <td>Log</td>
+    <td>Logs <code>"Order shipped — sending tracking notification"</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3c</span> Log Delivered</td>
+    <td>Log</td>
+    <td>Logs <code>"Order delivered — updating order history"</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3d</span> Log Unknown</td>
+    <td>Log</td>
+    <td>Logs <code>"Unknown status: {{orderStatus}} — flagging for review"</code>. Default catch-all.</td>
+  </tr>
+</table>
+
+<h3>HTTP GET Configuration</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://fakestoreapi.com/products/1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>orderStatus</code> ← body <code>$.status</code></td></tr>
+</table>
+
+<h3>Switch Configuration</h3>
+<table>
+  <tr><th>Case</th><th>Match Value</th><th>Target Node</th></tr>
+  <tr><td>pending</td><td><code>"pending"</code></td><td>Log Pending</td></tr>
+  <tr><td>shipped</td><td><code>"shipped"</code></td><td>Log Shipped</td></tr>
+  <tr><td>delivered</td><td><code>"delivered"</code></td><td>Log Delivered</td></tr>
+  <tr><td>default</td><td><em>(any other value)</em></td><td>Log Unknown</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Switch vs. Chained Conditions</strong>
+  You could achieve the same routing with three nested Condition nodes, but a Switch node
+  is cleaner and easier to maintain. Use Switch when routing on a single variable with
+  three or more possible values.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔀 Switch Order Router"</strong>
+    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Switch Order Router".
+  </li>
+  <li>
+    <strong>Add the HTTP GET node.</strong><br>
+    Drag an HTTP node onto the canvas. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://fakestoreapi.com/products/1</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: Add <code>orderStatus</code> ← body <code>$.status</code></li>
+    </ul>
+    Connect Start → Get Order.
+  </li>
+  <li>
+    <strong>Add the Switch node.</strong><br>
+    Drag a Switch node. Configure:
+    <ul>
+      <li><em>Variable</em>: <code>{{orderStatus}}</code></li>
+      <li><em>Cases</em>: Add <code>pending</code>, <code>shipped</code>, <code>delivered</code></li>
+      <li><em>Default</em>: Enable the default output</li>
+    </ul>
+    Connect Get Order → Route by Status.
+  </li>
+  <li>
+    <strong>Add four Log nodes.</strong><br>
+    Drag four Log nodes onto the canvas. Configure each with the appropriate message.
+    Connect each Switch output to its corresponding Log node.
+  </li>
+  <li>
+    <strong>Connect all Log nodes to End.</strong><br>
+    Draw edges from all four Log nodes to the End node, creating the fan-in pattern.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. The API will return a status value, and the Switch
+    will route to the matching Log node. Check the execution trace to confirm
+    the correct branch was taken.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States (when status = "pending")</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Get Order</td><td>✅ Pass</td><td>HTTP 200 OK, orderStatus = "pending"</td></tr>
+  <tr><td>2. Route by Status</td><td>✅ Pass</td><td>Matched case: "pending"</td></tr>
+  <tr><td>3a. Log Pending</td><td>✅ Pass</td><td>"Order is pending — adding to warehouse queue"</td></tr>
+  <tr><td>3b. Log Shipped</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
+  <tr><td>3c. Log Delivered</td><td>⏭️ Skipped</td><td>Case not matched</td></tr>
+  <tr><td>3d. Log Unknown</td><td>⏭️ Skipped</td><td>Default not triggered</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Sample API Response (Node 1)</h3>
+<pre>
+{
+  "id": 1,
+  "title": "Wireless Headphones",
+  "price": 49.99,
+  "status": "pending",
+  ...
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Simulated Status Field</strong>
+  The FakeStoreAPI does not include a <code>status</code> field. In this sample, the
+  status is simulated for training purposes. When building with a real order API, map
+  the Switch variable to the actual status field in the response.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add Processing Logic</h3>
+<p>
+  Replace the Log nodes with real processing: on "pending", POST to a warehouse API;
+  on "shipped", POST a tracking notification; on "delivered", PATCH the order to
+  mark it complete.
+</p>
+
+<h3>Exercise 2: Add a Fifth Case</h3>
+<p>
+  Add a <code>"cancelled"</code> case to the Switch node. Route it to a Log node
+  that records <code>"Order cancelled — initiating refund"</code>. This demonstrates
+  how easy it is to extend a Switch-based routing workflow.
+</p>
+
+<h3>Exercise 3: Parameterize the Order ID</h3>
+<p>
+  Add an <code>orderId</code> input variable to the Start node. Update the HTTP URL
+  to include <code>{{orderId}}</code>. Run the workflow multiple times with different
+  order IDs to trigger different Switch cases.
+</p>
+
+<h3>Exercise 4: Combine with Condition</h3>
+<p>
+  On the "pending" branch, add a Condition node that checks if the order total
+  exceeds $100. If yes, route to a "priority processing" Log; if no, route to
+  "standard processing". This combines Switch and Condition patterns.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with multi-path routing, try the
+  <a href="paginated-fetcher-medium.html">Paginated API Fetcher</a> sample to learn
+  how to loop over paginated data.
+</div>
+
+<footer>RedfireForge Training Manual — Switch Order Router · April 2026</footer>
+
+</body>
+</html>

@@ -781,8 +781,18 @@ export async function handleCorrelationWaitNode(
   );
 
   try {
-    // Pause and wait for webhook callback
-    const webhookData = await hCtx.correlationStore.pause(
+    // Pause and wait for webhook callback, but race against abort signal
+    const abortPromise = hCtx.abortSignal
+      ? new Promise<never>((_, reject) => {
+          if (hCtx.abortSignal!.aborted) {
+            reject(new Error('Workflow run aborted'));
+            return;
+          }
+          hCtx.abortSignal!.addEventListener('abort', () => reject(new Error('Workflow run aborted')), { once: true });
+        })
+      : null;
+
+    const waitPromise = hCtx.correlationStore.pause(
       correlationId,
       data.webhookPath,
       pausedState,
@@ -795,6 +805,10 @@ export async function handleCorrelationWaitNode(
         correlationQueryParam: data.correlationQueryParam,
       },
     );
+
+    const webhookData = abortPromise
+      ? await Promise.race([waitPromise, abortPromise])
+      : await waitPromise;
 
     // Inject webhook payload variables into context
     hCtx.ctx.set('webhook.body', JSON.stringify(webhookData));
@@ -825,6 +839,16 @@ export async function handleCorrelationWaitNode(
 
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
   } catch (err) {
+    // Cancel the inflight correlation wait so the long-poll stops
+    hCtx.correlationStore?.cancel(correlationId);
+
+    const isAbort = hCtx.abortSignal?.aborted || hCtx.debugController?.isStopped;
+    if (isAbort) {
+      hCtx.log({ prefix: '!', text: `[${label}] Correlation wait aborted` });
+      hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted' });
+      return;
+    }
+
     passed.value = false;
     const msg = err instanceof Error ? err.message : String(err);
     hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });

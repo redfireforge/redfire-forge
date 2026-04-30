@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — API Patterns: Create → Extract → Verify (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Create → Extract → Verify</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Create a resource via POST, extract the generated ID from the response,
+    then verify the resource exists with a GET request. The fundamental
+    request-chaining pattern for API automation.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates the <strong>Create → Extract → Verify</strong> pattern — the most
+  fundamental API chaining technique. You'll POST data to create a resource, extract the
+  newly generated ID from the response, and then GET the resource to confirm it was created
+  successfully.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> You submit an order to an e-commerce API, receive
+  an order ID in the response, then immediately query the order status endpoint to
+  confirm the order was accepted and is being processed.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Creating a user account and verifying the profile exists</li>
+  <li>Submitting a support ticket and confirming the ticket number</li>
+  <li>Uploading a file and verifying the file metadata is accessible</li>
+  <li>Creating a database record and reading it back for validation</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Sending <strong>HTTP POST</strong> requests with a JSON body</li>
+  <li>Extracting values from API responses using <strong>JSONPath</strong></li>
+  <li>Using <strong>SetVariable</strong> to store extracted data for downstream nodes</li>
+  <li>Building dynamic URLs with <strong>variable interpolation</strong> (<code>{{variable}}</code>)</li>
+  <li>The <strong>create-then-verify</strong> pattern for data integrity checks</li>
+  <li>Chaining HTTP requests where output of one becomes input of the next</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Create Post             │  POST https://jsonplaceholder
+  │     (HTTP)                  │       .typicode.com/posts
+  │                             │
+  │  Body: { title, body,       │  → responseBody (full body $)
+  │          userId }           │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Extract ID              │  SetVariable
+  │     (SetVariable)           │
+  │                             │  postId ← $.id from
+  │  Extracts the generated     │     responseBody
+  │  post ID from response      │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Verify Post             │  GET https://jsonplaceholder
+  │     (HTTP)                  │      .typicode.com/posts/{{postId}}
+  │                             │
+  │  Uses postId in URL         │  → verifyStatus (status code)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │    End      │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The POST creates the resource,
+  SetVariable captures the ID, and the GET verifies the resource exists at the
+  expected endpoint.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables needed — the POST body is hardcoded for this sample.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Create Post</td>
+    <td>HTTP</td>
+    <td>Sends a POST request to <code>jsonplaceholder.typicode.com/posts</code> with a JSON body containing <code>title</code>, <code>body</code>, and <code>userId</code>. Extracts the full response body into <code>responseBody</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Extract ID</td>
+    <td>SetVariable</td>
+    <td>Parses <code>responseBody</code> and extracts <code>$.id</code> into the <code>postId</code> variable. This is the server-generated ID for the newly created post.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Verify Post</td>
+    <td>HTTP</td>
+    <td>Sends a GET request to <code>/posts/{{postId}}</code> using the extracted ID. Confirms the post exists by checking the response status code.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Marks workflow completion. Both <code>postId</code> and <code>verifyStatus</code> are available in the workflow context.</td>
+  </tr>
+</table>
+
+<h3>HTTP POST Configuration</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>POST</td></tr>
+  <tr><td><strong>Headers</strong></td><td><code>Content-Type: application/json</code></td></tr>
+  <tr><td><strong>Body</strong></td><td><pre>{
+  "title": "RedfireForge Test Post",
+  "body": "Created by Create-Extract-Verify workflow",
+  "userId": 1
+}</pre></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>responseBody</code> ← body <code>$</code></td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Why Use SetVariable Instead of Direct Extraction?</strong>
+  While the HTTP node can extract <code>$.id</code> directly, using a SetVariable node
+  makes the extraction step explicit and visible in the flow diagram. This improves
+  readability and makes debugging easier — you can inspect the intermediate value
+  at the SetVariable node.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Create → Extract → Verify"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Create-Extract-Verify".
+  </li>
+  <li>
+    <strong>Add the POST HTTP node.</strong><br>
+    Drag an HTTP node onto the canvas. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Headers</em>: Add <code>Content-Type: application/json</code></li>
+      <li><em>Body</em>: Paste the JSON body above</li>
+      <li><em>Extractions</em>: Add <code>responseBody</code> ← body <code>$</code></li>
+    </ul>
+    Connect Start → Create Post.
+  </li>
+  <li>
+    <strong>Add the SetVariable node.</strong><br>
+    Drag a SetVariable node. Configure:
+    <ul>
+      <li><em>Variable Name</em>: <code>postId</code></li>
+      <li><em>Value</em>: <code>{{responseBody.id}}</code></li>
+    </ul>
+    Connect Create Post → Extract ID.
+  </li>
+  <li>
+    <strong>Add the GET HTTP node.</strong><br>
+    Drag another HTTP node. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts/{{postId}}</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: Add <code>verifyStatus</code> ← status code</li>
+    </ul>
+    Connect Extract ID → Verify Post → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Verify the POST returns a 201, the ID is extracted,
+    and the GET returns a 200 confirming the resource exists.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Create Post</td><td>✅ Pass</td><td>HTTP 201 Created, body extracted</td></tr>
+  <tr><td>2. Extract ID</td><td>✅ Pass</td><td>postId = 101</td></tr>
+  <tr><td>3. Verify Post</td><td>✅ Pass</td><td>HTTP 200 OK</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>POST Response (Node 1)</h3>
+<pre>
+{
+  "title": "RedfireForge Test Post",
+  "body": "Created by Create-Extract-Verify workflow",
+  "userId": 1,
+  "id": 101
+}</pre>
+
+<h3>GET Response (Node 3)</h3>
+<pre>
+{
+  "title": "RedfireForge Test Post",
+  "body": "Created by Create-Extract-Verify workflow",
+  "userId": 1,
+  "id": 101
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ JSONPlaceholder Note</strong>
+  JSONPlaceholder is a fake API — the POST doesn't actually persist data on the server.
+  The created post always receives <code>id: 101</code>. In a real API, the ID would be
+  dynamically generated and the GET would return the actual persisted data.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add Input Variables</h3>
+<p>
+  Modify the Start node to accept <code>postTitle</code> and <code>postBody</code> as
+  input variables. Update the POST body to use <code>{{postTitle}}</code> and
+  <code>{{postBody}}</code> instead of hardcoded values.
+</p>
+
+<h3>Exercise 2: Add a Condition Node</h3>
+<p>
+  Add a Condition node after the Verify Post step that checks whether the
+  <code>verifyStatus</code> equals <code>200</code>. Route the <code>true</code> path
+  to End, and the <code>false</code> path to a new End node labeled "Verification Failed".
+</p>
+
+<h3>Exercise 3: Extract Multiple Fields</h3>
+<p>
+  Instead of extracting just the ID, also extract <code>title</code> from the POST
+  response and verify it matches the original title in the GET response. Add a Condition
+  node to compare the values.
+</p>
+
+<h3>Exercise 4: Chain a DELETE Request</h3>
+<p>
+  Extend the workflow with a fourth HTTP node that sends a DELETE request to
+  <code>/posts/{{postId}}</code>. This creates a full CRUD lifecycle:
+  Create → Verify → Delete. Check the DELETE response status is 200.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with this pattern, try the
+  <a href="parallel-api-calls-easy.html">Parallel API Calls</a> sample to learn
+  how to execute multiple requests concurrently.
+</div>
+
+<footer>RedfireForge Training Manual — Create → Extract → Verify · April 2026</footer>
+
+</body>
+</html>
