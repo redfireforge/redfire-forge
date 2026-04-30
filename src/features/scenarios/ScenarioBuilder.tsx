@@ -13,6 +13,9 @@ import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
+import ExportOptionsPopover from './components/ExportOptionsPopover';
+import ImportVersionModal from './components/ImportVersionModal';
+import type { VersionExportOptions } from './utils/scenarioImportExport';
 
 const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },
@@ -116,6 +119,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   // CSV Import modal state
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
+  // Export popover state: tracks which item's export popover is open
+  const [exportPopover, setExportPopover] = useState<{ id: string; data: unknown; exportFn: (opts: VersionExportOptions) => void } | null>(null);
+
   // ── Export / Import (extracted hook) ──
   const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmDialog({ title, message, onConfirm: () => { onConfirm(); setConfirmDialog(null); } });
@@ -124,6 +130,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     exportAll, importAll, handleCsvImport,
     exportFeatureGroup, importScenariosInto,
     exportScenario, importTestsInto, exportTest,
+    pendingImport, cancelPendingImport,
   } = useScenarioExportImport({
     featureGroups, setFeatureGroups,
     selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName,
@@ -427,8 +434,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn" onClick={importAll} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
-          <button className="btn" onClick={exportAll} disabled={featureGroups.length === 0}>Export</button>
+          <button className="btn" onClick={() => importAll()} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
+          <span className="export-opts-anchor">
+            <button className="btn" onClick={() => setExportPopover({ id: '__all__', data: featureGroups, exportFn: (o) => { exportAll(o); setExportPopover(null); } })} disabled={featureGroups.length === 0}>Export</button>
+            {exportPopover?.id === '__all__' && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
+          </span>
           <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
           <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
@@ -520,7 +530,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                 <button className="btn btn-sm" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
 
                 <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
-                <button className="btn btn-sm" onClick={() => exportFeatureGroup(fg)} title="Export this feature group">Export</button>
+                <span className="export-opts-anchor">
+                  <button className="btn btn-sm" onClick={() => setExportPopover({ id: fg.id, data: fg, exportFn: (o) => { exportFeatureGroup(fg, o); setExportPopover(null); } })} title="Export this feature group">Export</button>
+                  {exportPopover?.id === fg.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
+                </span>
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
               </div>
             </div>
@@ -618,7 +631,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                         <button className="btn btn-sm" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
                         <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'scenario', itemName: sc.name, fgId: fg.id, scenarioId: sc.id })} title="Move to another feature group">Move</button>
                         <button className="btn btn-sm" onClick={() => importTestsInto(fg.id, sc.id)} title="Import tests into this scenario">Import</button>
-                        <button className="btn btn-sm" onClick={() => exportScenario(sc)} title="Export this scenario">Export</button>
+                        <span className="export-opts-anchor">
+                          <button className="btn btn-sm" onClick={() => setExportPopover({ id: sc.id, data: sc, exportFn: (o) => { exportScenario(sc, o); setExportPopover(null); } })} title="Export this scenario">Export</button>
+                          {exportPopover?.id === sc.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
+                        </span>
                         <button className="btn btn-sm btn-danger" onClick={() => removeScenario(fg.id, sc.id)}>Delete</button>
                       </div>
                     </div>
@@ -713,7 +729,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
                               <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
                               <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'test', itemName: t.name || t.url, fgId: fg.id, scenarioId: sc.id, testId: t.id })} title="Move to another scenario">Move</button>
-                              <button className="btn btn-sm" onClick={() => exportTest(t)} title="Export this test">Export</button>
+                              <span className="export-opts-anchor">
+                                <button className="btn btn-sm" onClick={() => setExportPopover({ id: t.id, data: t, exportFn: (o) => { exportTest(t, o); setExportPopover(null); } })} title="Export this test">Export</button>
+                                {exportPopover?.id === t.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
+                              </span>
                               <button className="btn btn-sm btn-danger" onClick={() => removeTest(fg.id, sc.id, t.id)}>Delete</button>
                             </div>
                           </div>
@@ -788,7 +807,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                       const svcEl = document.getElementById(`svc-${fg.id}`) as HTMLSelectElement;
                       const envEl = document.getElementById(`env-${fg.id}`) as HTMLSelectElement;
                       if (svcEl?.value && envEl?.value) assignFeatureGroup(fg.id, svcEl.value, envEl.value);
-                      else alert('Select both a microservice and an environment.');
+                      else showConfirm('Assign Error', 'Select both a microservice and an environment.', () => {});
                     }}>Assign</button>
                   </>
                 )}
@@ -827,7 +846,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           allAuthProfiles={allAuthProfiles}
           featureGroups={featureGroups}
           editingTest={{ fgId: editingTest.featureId, scenarioId: editingTest.scenarioId, testId: editingTest.testId }}
-          onExportTest={exportTest}
+          onExportTest={(t, opts) => exportTest(t, opts)}
         />
       )}
 
@@ -858,6 +877,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           confirmLabel="Delete"
           onConfirm={confirmDialog.onConfirm}
           onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+      {pendingImport && (
+        <ImportVersionModal
+          data={pendingImport.data}
+          onConfirm={pendingImport.finalize}
+          onCancel={cancelPendingImport}
         />
       )}
     </div>

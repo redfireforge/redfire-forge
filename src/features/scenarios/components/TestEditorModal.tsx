@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthConfig, KeyValue, GlobalAuthProfile, FailureDetail, ResponseVersion } from '../../../shared/types';
+import type { Scenario, FeatureGroup, AuthConfig, KeyValue, GlobalAuthProfile, FailureDetail, ResponseVersion, RulesVersion } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import {
@@ -13,6 +13,8 @@ import {
 } from '../utils/testEditorUtils';
 import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
 import { toErrorMessage } from '../../../shared/utils/helpers';
+import ExportOptionsPopover from './ExportOptionsPopover';
+import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
 import { proxyFetch } from '../../../engine/executor';
@@ -48,7 +50,7 @@ export interface TestEditorModalProps {
   featureGroups: FeatureGroup[];
   /** Parent feature group id, scenario id, and test id for auth inheritance resolution */
   editingTest: TestEditingContext;
-  onExportTest: (scenario: Scenario) => void;
+  onExportTest: (scenario: Scenario, versionOpts?: VersionExportOptions) => void;
 }
 
 export default function TestEditorModal({
@@ -82,6 +84,9 @@ export default function TestEditorModal({
 
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null>(null);
+
+  /** Holds fetched response JSON when existing rules exist; user must choose keep/replace/cancel */
+  const [pendingFetchResponse, setPendingFetchResponse] = useState<string | null>(null);
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
@@ -248,27 +253,35 @@ export default function TestEditorModal({
           pretty = result.body;
         }
         const v = latest.validation;
-        const prevVersions = v.responseVersions || [];
-        const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-        const isDuplicate = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
-        const updatedVersions = isDuplicate
-          ? prevVersions
-          : [...prevVersions, {
-              id: uuidv4(), timestamp: Date.now(), json: pretty,
-              validationMode: v.mode, selectiveMode: v.selectiveMode,
-              expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-              excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-              unorderedArrays: v.unorderedArrays,
-            } as ResponseVersion];
-        onDraftChange({
-          ...latest,
-          validation: {
-            ...latest.validation,
-            sampleJson: pretty,
-            expectedFields: [],
-            responseVersions: updatedVersions,
-          },
-        });
+        const hasExistingRules = (v.expectedFields || []).length > 0;
+
+        if (hasExistingRules) {
+          // Don't auto-clear rules — ask user what to do
+          setPendingFetchResponse(pretty);
+        } else {
+          // No rules to lose — apply directly and auto-version
+          const prevVersions = v.responseVersions || [];
+          const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
+          const isDup = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
+          const updatedVersions = isDup
+            ? prevVersions
+            : [...prevVersions, {
+                id: uuidv4(), timestamp: Date.now(), json: pretty,
+                validationMode: v.mode, selectiveMode: v.selectiveMode,
+                expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+                excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+                unorderedArrays: v.unorderedArrays,
+              } as ResponseVersion];
+          onDraftChange({
+            ...latest,
+            validation: {
+              ...latest.validation,
+              sampleJson: pretty,
+              expectedFields: [],
+              responseVersions: updatedVersions,
+            },
+          });
+        }
         setFetchError(null);
       }
     } catch (err) {
@@ -277,6 +290,79 @@ export default function TestEditorModal({
       setFetchingResponse(false);
     }
   }, [applyFetchUrlOverrides, onDraftChange, resolveEffectiveAuth]);
+
+  /** Apply pending fetch response: keep existing rules but update response JSON */
+  const handleFetchKeepRules = useCallback(() => {
+    if (!pendingFetchResponse) return;
+    const latest = draftRef.current;
+    const v = latest.validation;
+    const prevVersions = v.responseVersions || [];
+    // Auto-save current state as a version before replacing
+    const autoSaveVersion: ResponseVersion = {
+      id: uuidv4(), timestamp: Date.now(), json: v.sampleJson || '',
+      validationMode: v.mode, selectiveMode: v.selectiveMode,
+      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+      unorderedArrays: v.unorderedArrays,
+    };
+    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
+    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVersion] : prevVersions;
+    onDraftChange({
+      ...latest,
+      validation: {
+        ...latest.validation,
+        sampleJson: pendingFetchResponse,
+        responseVersions: updatedVersions,
+      },
+    });
+    setPendingFetchResponse(null);
+  }, [pendingFetchResponse, onDraftChange]);
+
+  /** Apply pending fetch response: replace response AND clear rules */
+  const handleFetchReplaceAll = useCallback(() => {
+    if (!pendingFetchResponse) return;
+    const latest = draftRef.current;
+    const v = latest.validation;
+    const prevVersions = v.responseVersions || [];
+    // Auto-save current state as a response version before replacing
+    const autoSaveVersion: ResponseVersion = {
+      id: uuidv4(), timestamp: Date.now(), json: v.sampleJson || '',
+      validationMode: v.mode, selectiveMode: v.selectiveMode,
+      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+      unorderedArrays: v.unorderedArrays,
+    };
+    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
+    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVersion] : prevVersions;
+    // Auto-save current rules as a rules version before clearing
+    const prevRulesVersions = v.rulesVersions || [];
+    const hasRules = (v.expectedFields || []).length > 0;
+    const autoRulesVersion: RulesVersion = {
+      id: uuidv4(), timestamp: Date.now(),
+      validationMode: v.mode,
+      selectiveMode: v.selectiveMode,
+      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+      unorderedArrays: v.unorderedArrays,
+    };
+    const updatedRulesVersions = hasRules ? [...prevRulesVersions, autoRulesVersion] : prevRulesVersions;
+    onDraftChange({
+      ...latest,
+      validation: {
+        ...latest.validation,
+        sampleJson: pendingFetchResponse,
+        expectedFields: [],
+        responseVersions: updatedVersions,
+        rulesVersions: updatedRulesVersions,
+      },
+    });
+    setPendingFetchResponse(null);
+  }, [pendingFetchResponse, onDraftChange]);
+
+  /** Cancel pending fetch — discard the new response */
+  const handleFetchCancel = useCallback(() => {
+    setPendingFetchResponse(null);
+  }, []);
 
   const handleValidateResponse = useCallback(async () => {
     const cur = draftRef.current;
@@ -410,6 +496,7 @@ export default function TestEditorModal({
   }, [generateCurl]);
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
+  const [showExportPopover, setShowExportPopover] = useState(false);
 
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim() && p.enabled).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
@@ -453,7 +540,10 @@ export default function TestEditorModal({
               >
                 Import
               </button>
-              <button type="button" className="mode-btn" onClick={() => onExportTest(draft)}>Export</button>
+              <span className="export-opts-anchor">
+                <button type="button" className="mode-btn" onClick={() => setShowExportPopover(true)}>Export</button>
+                {showExportPopover && <ExportOptionsPopover data={draft} onExport={(o) => { onExportTest(draft, o); setShowExportPopover(false); }} onClose={() => setShowExportPopover(false)} />}
+              </span>
               <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
             </div>
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
@@ -639,6 +729,10 @@ export default function TestEditorModal({
                   validationResult={validationResult}
                   setValidationResult={setValidationResult}
                   onValidateResponse={handleValidateResponse}
+                  pendingFetchResponse={pendingFetchResponse}
+                  onFetchKeepRules={handleFetchKeepRules}
+                  onFetchReplaceAll={handleFetchReplaceAll}
+                  onFetchCancel={handleFetchCancel}
                 />
               )}
 

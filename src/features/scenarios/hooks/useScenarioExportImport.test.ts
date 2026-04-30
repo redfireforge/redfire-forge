@@ -19,6 +19,7 @@ vi.mock('../utils/scenarioImportExport', () => ({
   reIdScenarios: vi.fn((scenarios: TestScenario[]) => scenarios.map((sc) => ({ ...sc, id: `new-${sc.id}` }))),
   unwrapImport: vi.fn((raw: unknown) => raw),
   wrapExport: vi.fn((data: unknown, level: string) => ({ _exportMeta: { level, exportedAt: 'now' }, data })),
+  hasVersionData: vi.fn(() => false),
 }));
 
 import { saveJsonFile } from '../../../shared/utils/fileSaver';

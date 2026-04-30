@@ -298,9 +298,9 @@ describe('pickJsonFile', () => {
     expect(onLoad).not.toHaveBeenCalled();
   });
 
-  it('alerts when the file is not valid JSON', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('calls onError when the file is not valid JSON', async () => {
     const onLoad = vi.fn();
+    const onError = vi.fn();
     const origCreate = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       const el = origCreate(tag) as HTMLInputElement;
@@ -316,9 +316,9 @@ describe('pickJsonFile', () => {
       return el;
     });
 
-    pickJsonFile(onLoad);
+    pickJsonFile(onLoad, onError);
     await vi.waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Failed to parse JSON file.');
+      expect(onError).toHaveBeenCalledWith('Failed to parse JSON file.');
     });
     expect(onLoad).not.toHaveBeenCalled();
   });

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
 import { saveJsonFile, buildExportFilename, openJsonFile } from '../../shared/utils/fileSaver';
 import { isTauri } from '../../shared/utils/platform';
+import { countVersions, hasVersionData, stripVersions } from '../scenarios/utils/scenarioImportExport';
 
 interface ParsedImport {
   environments: Environment[];
@@ -33,6 +34,8 @@ export default function SettingsExportImportTab({ environments, microservices, f
   const [exportEnvs, setExportEnvs] = useState<Set<string>>(() => new Set(environments.map(e => e.id)));
   const [exportAuth, setExportAuth] = useState<Set<string>>(() => new Set(appGlobalAuthProfiles.map(a => a.id)));
   const [maskSecrets, setMaskSecrets] = useState(false);
+  const [includeResponseVersions, setIncludeResponseVersions] = useState(true);
+  const [includeRulesVersions, setIncludeRulesVersions] = useState(true);
 
   // ── Import state ──
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
@@ -40,9 +43,12 @@ export default function SettingsExportImportTab({ environments, microservices, f
   const [fileName, setFileName] = useState('');
   const [dragging, setDragging] = useState(false);
   const [importAuth, setImportAuth] = useState(true);
+  const [importResponseVersions, setImportResponseVersions] = useState(true);
+  const [importRulesVersions, setImportRulesVersions] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const totalSelected = exportEnvs.size + exportAuth.size;
+  const exportVersionCounts = useMemo(() => countVersions(featureGroups), [featureGroups]);
 
   const toggleAll = (ids: string[], set: Set<string>, setter: (s: Set<string>) => void) => {
     if (ids.every(id => set.has(id))) setter(new Set());
@@ -63,10 +69,15 @@ export default function SettingsExportImportTab({ environments, microservices, f
       return envIds.some(eid => exportEnvs.has(eid));
     });
 
+    let exportFgs = featureGroups;
+    if (!includeResponseVersions || !includeRulesVersions) {
+      exportFgs = stripVersions(featureGroups, { includeResponseVersions, includeRulesVersions }) as FeatureGroup[];
+    }
+
     const data: Record<string, unknown> = {
       environments: selectedEnvs,
       microservices: selectedSvcs,
-      featureGroups,
+      featureGroups: exportFgs,
       exportedAt: new Date().toISOString(),
       version: '3.0',
     };
@@ -148,10 +159,14 @@ export default function SettingsExportImportTab({ environments, microservices, f
     const existingEnvIds = new Set(environments.map(e => e.id));
     const existingSvcIds = new Set(microservices.map(s => s.id));
     const existingAuthIds = new Set(appGlobalAuthProfiles.map(a => a.id));
+    let fgs = parsed.featureGroups;
+    if (!importResponseVersions || !importRulesVersions) {
+      fgs = stripVersions(fgs, { includeResponseVersions: importResponseVersions, includeRulesVersions: importRulesVersions }) as FeatureGroup[];
+    }
     onImport({
       environments: parsed.environments.filter(e => !existingEnvIds.has(e.id)),
       microservices: parsed.microservices.filter(s => !existingSvcIds.has(s.id)),
-      featureGroups: parsed.featureGroups,
+      featureGroups: fgs,
       globalAuthProfiles: importAuth ? parsed.globalAuthProfiles.filter(a => !existingAuthIds.has(a.id)) : undefined,
     });
     setParsed(null);
@@ -169,6 +184,7 @@ export default function SettingsExportImportTab({ environments, microservices, f
       totalSvcs: parsed.microservices.length,
       fgs: parsed.featureGroups.length,
       auth: parsed.globalAuthProfiles.length,
+      ...countVersions(parsed.featureGroups),
     };
   }, [parsed, environments, microservices]);
 
@@ -249,6 +265,22 @@ export default function SettingsExportImportTab({ environments, microservices, f
                 <input type="checkbox" checked={maskSecrets} onChange={(e) => setMaskSecrets(e.target.checked)} />
                 Mask secrets on export
               </label>
+              {hasVersionData(featureGroups) && (
+                <div className="exi-version-opts">
+                  {exportVersionCounts.responseVersionCount > 0 && (
+                    <label className="exi-item">
+                      <input type="checkbox" checked={includeResponseVersions} onChange={(e) => setIncludeResponseVersions(e.target.checked)} />
+                      Include response versions ({exportVersionCounts.responseVersionCount})
+                    </label>
+                  )}
+                  {exportVersionCounts.rulesVersionCount > 0 && (
+                    <label className="exi-item">
+                      <input type="checkbox" checked={includeRulesVersions} onChange={(e) => setIncludeRulesVersions(e.target.checked)} />
+                      Include rules versions ({exportVersionCounts.rulesVersionCount})
+                    </label>
+                  )}
+                </div>
+              )}
               <button className="btn btn-primary exi-action-btn" onClick={handleExport} disabled={totalSelected === 0}>
                 ↓ Export ({totalSelected} selected)
               </button>
@@ -316,6 +348,23 @@ export default function SettingsExportImportTab({ environments, microservices, f
                     <input type="checkbox" checked={importAuth} onChange={(e) => setImportAuth(e.target.checked)} />
                     Include {parsed.globalAuthProfiles.length} auth profile{parsed.globalAuthProfiles.length !== 1 ? 's' : ''}
                   </label>
+                )}
+
+                {importSummary && hasVersionData(parsed?.featureGroups) && (
+                  <div className="exi-version-opts">
+                    {importSummary.responseVersionCount > 0 && (
+                      <label className="exi-item">
+                        <input type="checkbox" checked={importResponseVersions} onChange={(e) => setImportResponseVersions(e.target.checked)} />
+                        Include response versions ({importSummary.responseVersionCount})
+                      </label>
+                    )}
+                    {importSummary.rulesVersionCount > 0 && (
+                      <label className="exi-item">
+                        <input type="checkbox" checked={importRulesVersions} onChange={(e) => setImportRulesVersions(e.target.checked)} />
+                        Include rules versions ({importSummary.rulesVersionCount})
+                      </label>
+                    )}
+                  </div>
                 )}
 
                 <button className="btn btn-primary exi-action-btn" onClick={handleImport}>
