@@ -267,7 +267,7 @@ examples/
 - [x] `examples/assertion-api-contract.yaml`
 
 **Remaining:**
-- [ ] `examples/README.md` — add Assertion Examples section
+- [x] `examples/README.md` — add Assertion Examples section
 
 **Validation:** `npx redfireforge run examples/assertion-api-healthcheck.yaml` (if CLI supports assertion types)
 
