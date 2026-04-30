@@ -140,7 +140,7 @@
     {
       "name": "Product 6 — verify category",
       "path:productId": "6",
-      "validate:$.category": "furniture"
+      "validate:$.category": "fragrances"
     }
   ]
 }</pre>
@@ -326,7 +326,7 @@
   },
   "data": [
     { "name": "Product 1", "path:productId": "1", "validate:$.category": "beauty" },
-    { "name": "Product 6", "path:productId": "6", "validate:$.category": "furniture" },
+    { "name": "Product 6", "path:productId": "6", "validate:$.category": "fragrances" },
     { "name": "Product 10", "path:productId": "10", "validate:$.category": "fragrances" }
   ]
 }</pre>
@@ -458,9 +458,9 @@
       "validate:$.category": "beauty"
     },
     {
-      "name": "Laptop — verify brand",
+      "name": "Calvin Klein CK One — verify category",
       "path:productId": "6",
-      "validate:$.category": "furniture"
+      "validate:$.category": "fragrances"
     },
     {
       "name": "Product 10 — basic check",
@@ -494,7 +494,7 @@
     <li>You should see a table with <strong>5 rows</strong>:
       <ul>
         <li><strong>iPhone — verify title and price</strong> — <code>GET https://dummyjson.com/products/1</code></li>
-        <li><strong>Laptop — verify brand</strong> — <code>GET https://dummyjson.com/products/6</code></li>
+        <li><strong>Calvin Klein CK One — verify category</strong> — <code>GET https://dummyjson.com/products/6</code></li>
         <li><strong>Product 10 — basic check</strong> — <code>GET https://dummyjson.com/products/10</code></li>
         <li><strong>Product 15 — exists</strong> — <code>GET https://dummyjson.com/products/15</code></li>
         <li><strong>Product 20 — exists</strong> — <code>GET https://dummyjson.com/products/20</code></li>
@@ -526,7 +526,7 @@
         <li><strong>Validation:</strong> Selective mode with assertions <code>$.title = "Essence Mascara Lash Princess"</code> and <code>$.category = "beauty"</code></li>
       </ul>
     </li>
-    <li>Click on <strong>Laptop — verify brand</strong> — same structure but URL ends in <code>/6</code> and expected category is <code>"furniture"</code>.</li>
+    <li>Click on <strong>Calvin Klein CK One — verify category</strong> — same structure but URL ends in <code>/6</code> and expected category is <code>"fragrances"</code>.</li>
   </ol>
 
   <h4>Step 8 — Run and Verify Assertions</h4>
@@ -536,7 +536,7 @@
     <li>Expected results:
       <ul>
         <li><strong>iPhone — verify title and price</strong> → 200 OK, <code>$.category</code> = <code>"beauty"</code> ✅</li>
-        <li><strong>Laptop — verify brand</strong> → 200 OK, <code>$.category</code> = <code>"furniture"</code> ✅</li>
+        <li><strong>Calvin Klein CK One — verify category</strong> → 200 OK, <code>$.category</code> = <code>"fragrances"</code> ✅</li>
         <li><strong>Product 10 — basic check</strong> → 200 OK, <code>$.category</code> = <code>"fragrances"</code> ✅</li>
         <li><strong>Product 15 — exists</strong> → 200 OK (no validation, just connectivity) ✅</li>
         <li><strong>Product 20 — exists</strong> → 200 OK (no validation, just connectivity) ✅</li>
