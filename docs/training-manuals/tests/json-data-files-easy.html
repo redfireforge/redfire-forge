@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON Data Files — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>JSON Data Files</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p>Parameterize your API tests with JSON data files — import test data as simple arrays or structured templates with metadata, path variables, query parameters, and validation rules.</p>
+    <div class="meta">RedfireForge v0.5.5</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Are JSON Data Files?</h2>
+  <p>JSON Data Files let you run the same API test with <strong>many different inputs</strong> — different IDs, query parameters, request bodies, and expected values — without manually creating each test case. Each object in the JSON file becomes a separate test scenario when imported.</p>
+  <p>This is the same <strong>data-driven testing</strong> concept as CSV/Excel templates, but using JSON format — ideal when:</p>
+  <ul>
+    <li>Your test data already exists as JSON (API responses, seed scripts, CI fixtures).</li>
+    <li>Values contain nested objects or arrays that CSV can't represent cleanly.</li>
+    <li>You prefer JSON over spreadsheets for managing test parameters.</li>
+    <li>You want to version-control test data alongside code in git.</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 CSV vs JSON — When to Use Which</strong>
+    Use <strong>CSV/Excel</strong> when your QA team works in spreadsheets, or when you need the 3-step export wizard with styled headers and column customization.
+    Use <strong>JSON</strong> when your data is already in JSON format, when values contain nested structures, or when you want simple copy-paste-edit workflows.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Two Supported Formats</h2>
+  <p>RedfireForge accepts two JSON formats. Both produce the same result — each object becomes one test scenario.</p>
+
+  <h3>Format A — Simple Array</h3>
+  <p>A plain JSON array of objects. Each object must have <code>name</code> and <code>url</code>. Optional: <code>method</code> (defaults to GET), <code>body</code>.</p>
+  <pre>[
+  {
+    "name": "Get all users",
+    "url": "https://jsonplaceholder.typicode.com/users",
+    "method": "GET"
+  },
+  {
+    "name": "Create a post",
+    "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "POST",
+    "body": "{\"title\": \"Hello\", \"userId\": 1}"
+  }
+]</pre>
+  <p><strong>Best for:</strong> Quick imports from existing JSON data. No metadata needed — each test is self-contained.</p>
+
+  <h3>Format B — Structured with Metadata</h3>
+  <p>An object with <code>meta</code> (test template settings) and <code>data</code> (array of rows). Rows use prefixed keys: <code>path:</code>, <code>param:</code>, <code>validate:</code>.</p>
+  <pre>{
+  "meta": {
+    "version": 1,
+    "method": "GET",
+    "urlPattern": "https://dummyjson.com/products/{{productId}}",
+    "headers": [{ "key": "Accept", "value": "application/json" }],
+    "body": "",
+    "auth": { "type": "none" },
+    "validationMode": "selective",
+    "selectiveMode": "include",
+    "pathVariables": ["productId"]
+  },
+  "data": [
+    {
+      "name": "Product 1 — verify category",
+      "path:productId": "1",
+      "validate:$.category": "beauty"
+    },
+    {
+      "name": "Product 6 — verify category",
+      "path:productId": "6",
+      "validate:$.category": "furniture"
+    }
+  ]
+}</pre>
+  <p><strong>Best for:</strong> Export → edit → reimport workflows. Metadata carries the method, URL pattern, headers, auth, and validation settings shared across all rows.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Prefixes (Structured Format)</h2>
+  <p>In the structured format, data row keys use prefixes to tell RedfireForge what each value represents:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Prefix</th>
+        <th>Purpose</th>
+        <th>Example Key</th>
+        <th>Example Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>path:</code></td>
+        <td>Path variable — substituted into <code>{{placeholders}}</code> in the URL pattern</td>
+        <td><code>path:vin</code></td>
+        <td><code>LRBAZN111R1079862</code></td>
+      </tr>
+      <tr>
+        <td><code>param:</code></td>
+        <td>Query parameter — appended as <code>?key=value</code></td>
+        <td><code>param:channel</code></td>
+        <td><code>MC_WEBRNW</code></td>
+      </tr>
+      <tr>
+        <td><code>validate:</code></td>
+        <td>Expected field — JSONPath and expected value for selective validation</td>
+        <td><code>validate:$.data.status</code></td>
+        <td><code>active</code></td>
+      </tr>
+      <tr>
+        <td><code>name</code></td>
+        <td>Test name (required, no prefix)</td>
+        <td><code>name</code></td>
+        <td><code>US VIN lookup</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These are the same prefixes used by CSV templates. If you're familiar with CSV data files, structured JSON works identically — just in JSON syntax.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Metadata Fields Reference</h2>
+  <p>The <code>meta</code> object in the structured format contains these fields:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>version</code></td><td>number</td><td>Schema version (always <code>1</code>)</td></tr>
+      <tr><td><code>method</code></td><td>string</td><td>HTTP method: GET, POST, PUT, DELETE, PATCH</td></tr>
+      <tr><td><code>urlPattern</code></td><td>string</td><td>URL with <code>{{placeholders}}</code> for path variables</td></tr>
+      <tr><td><code>headers</code></td><td>array</td><td>Request headers as <code>[{ "key": "...", "value": "..." }]</code></td></tr>
+      <tr><td><code>body</code></td><td>string</td><td>Request body (shared across all rows)</td></tr>
+      <tr><td><code>auth</code></td><td>object</td><td>Auth config: <code>{ "type": "none" }</code>, <code>"basic"</code>, <code>"bearer"</code>, <code>"oauth2"</code>, etc.</td></tr>
+      <tr><td><code>validationMode</code></td><td>string</td><td><code>"none"</code>, <code>"full"</code>, or <code>"selective"</code></td></tr>
+      <tr><td><code>selectiveMode</code></td><td>string</td><td><code>"include"</code> or <code>"exclude"</code> (for selective validation)</td></tr>
+      <tr><td><code>pathVariables</code></td><td>array</td><td>List of variable names used in <code>urlPattern</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. How to Import JSON Data Files</h2>
+
+  <h3>Step 1 — Open the Import Modal</h3>
+  <ol>
+    <li>Navigate to the <strong>Harness</strong> section in the left sidebar.</li>
+    <li>Click the <strong>Import Template</strong> button in the toolbar.</li>
+  </ol>
+
+  <h3>Step 2 — Upload Your JSON File</h3>
+  <ol>
+    <li>Drag and drop a <code>.json</code> file onto the drop zone, or click to browse.</li>
+    <li>The modal will parse the file and show a preview: total rows, valid rows, error rows.</li>
+  </ol>
+
+  <h3>Step 3 — Choose Destination</h3>
+  <ol>
+    <li>Select an existing <strong>Feature Group</strong> and <strong>Scenario</strong> to import into, or create new ones.</li>
+    <li>Click <strong>Import N Tests</strong> to create one test scenario per JSON row.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The import preview shows row-level validation errors. Rows with missing <code>name</code> or <code>url</code> (for simple arrays) or missing path variables (for structured format) are flagged in red — fix them in your JSON file and re-upload.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. How to Export a JSON Template</h2>
+  <p>You can generate a structured JSON template from any existing test:</p>
+  <ol>
+    <li>Open the <strong>Test Editor</strong> for any test scenario.</li>
+    <li>Click <strong>Export Template</strong>.</li>
+    <li>Select path variables (URL segments that change per row).</li>
+    <li>The exported JSON file contains one sample row pre-filled with the test's current values, plus metadata for method, headers, auth, and validation rules.</li>
+    <li>Open the downloaded <code>.json</code> file, duplicate the sample row, and fill in your test data.</li>
+    <li>Re-import the file to create all test cases at once.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Error Handling</h2>
+  <p>The parser validates each row and reports errors in the import preview:</p>
+
+  <table>
+    <thead>
+      <tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Invalid JSON</code></td>
+        <td>File is not valid JSON</td>
+        <td>Check syntax — use a JSON validator</td>
+      </tr>
+      <tr>
+        <td><code>Missing name</code></td>
+        <td>Row object has no <code>name</code> field or it's empty</td>
+        <td>Add a <code>"name"</code> field to every row</td>
+      </tr>
+      <tr>
+        <td><code>Missing url</code></td>
+        <td>Simple array row has no <code>url</code> field (and no metadata)</td>
+        <td>Add <code>"url"</code> to the row, or use structured format with <code>meta.urlPattern</code></td>
+      </tr>
+      <tr>
+        <td><code>Missing path variable: X</code></td>
+        <td>Structured format: row is missing a required <code>path:X</code> value</td>
+        <td>Add the <code>"path:X"</code> field with a non-empty value</td>
+      </tr>
+      <tr>
+        <td><code>Row is not an object</code></td>
+        <td>Simple array contains a non-object element (string, number)</td>
+        <td>Ensure every array element is a <code>{ ... }</code> object</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 8 -->
+  <h2>8. Examples</h2>
+
+  <h3>Example 1 — Quick Smoke Tests (Simple Array)</h3>
+  <p>File: <code>examples/json-data-simple.json</code></p>
+  <pre>[
+  { "name": "Get all users", "url": "https://jsonplaceholder.typicode.com/users" },
+  { "name": "Get user by ID", "url": "https://jsonplaceholder.typicode.com/users/1" },
+  { "name": "Create post", "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "POST", "body": "{\"title\": \"Hello\", \"userId\": 1}" },
+  { "name": "Get posts for user 2", "url": "https://jsonplaceholder.typicode.com/posts?userId=2" }
+]</pre>
+  <p>Each object imports as a standalone test. No shared settings — each row defines its own URL and method.</p>
+
+  <h3>Example 2 — Product Lookup with Validation (Structured)</h3>
+  <p>File: <code>examples/json-data-structured.json</code></p>
+  <pre>{
+  "meta": {
+    "version": 1,
+    "method": "GET",
+    "urlPattern": "https://dummyjson.com/products/{{productId}}",
+    "headers": [{ "key": "Accept", "value": "application/json" }],
+    "auth": { "type": "none" },
+    "validationMode": "selective",
+    "pathVariables": ["productId"]
+  },
+  "data": [
+    { "name": "Product 1", "path:productId": "1", "validate:$.category": "beauty" },
+    { "name": "Product 6", "path:productId": "6", "validate:$.category": "furniture" },
+    { "name": "Product 10", "path:productId": "10", "validate:$.category": "fragrances" }
+  ]
+}</pre>
+  <p>All rows share the same method, URL pattern, headers, and auth. Each row provides a different <code>productId</code> and expected <code>category</code> value.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Step-by-Step Walkthrough</h2>
+  <p>Follow these two end-to-end walkthroughs using the sample files included with RedfireForge.</p>
+
+  <!-- Walkthrough A -->
+  <h3>Walkthrough A — Simple Array (<code>examples/json-data-simple.json</code>)</h3>
+  <p>This sample contains 4 JSONPlaceholder API tests as a flat array — no metadata, no shared settings.</p>
+
+  <h4>Step 1 — Prepare the Sample File</h4>
+  <p>Copy the JSON below and save it as <code>json-data-simple.json</code> on your computer:</p>
+  <pre>[
+  {
+    "name": "Get all users",
+    "url": "https://jsonplaceholder.typicode.com/users",
+    "method": "GET"
+  },
+  {
+    "name": "Get user by ID",
+    "url": "https://jsonplaceholder.typicode.com/users/1",
+    "method": "GET"
+  },
+  {
+    "name": "Create new post",
+    "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "POST",
+    "body": "{\"title\": \"Hello World\", \"body\": \"This is a test post\", \"userId\": 1}"
+  },
+  {
+    "name": "Get posts for user 2",
+    "url": "https://jsonplaceholder.typicode.com/posts?userId=2",
+    "method": "GET"
+  }
+]</pre>
+
+  <h4>Step 2 — Open the Import Modal</h4>
+  <ol>
+    <li>In the left sidebar, click <strong>Harness</strong> to open the Test Harness view.</li>
+    <li>Click the <strong>Import Template</strong> button in the toolbar (or use the <kbd>⌘</kbd>+<kbd>I</kbd> shortcut).</li>
+    <li>The import modal opens showing <em>Step 1 — Choose a file</em>.</li>
+  </ol>
+
+  <h4>Step 3 — Upload the File</h4>
+  <ol>
+    <li>Click <strong>Browse Files</strong> (or drag the file into the drop zone).</li>
+    <li>Select the <code>json-data-simple.json</code> file you saved in Step 1.</li>
+    <li>The modal advances to <em>Step 2 — Preview</em>.</li>
+  </ol>
+
+  <h4>Step 4 — Review the Preview</h4>
+  <ol>
+    <li>You should see a table with <strong>4 rows</strong>:
+      <ul>
+        <li><strong>Get all users</strong> — <code>GET https://jsonplaceholder.typicode.com/users</code></li>
+        <li><strong>Get user by ID</strong> — <code>GET https://jsonplaceholder.typicode.com/users/1</code></li>
+        <li><strong>Create post</strong> — <code>POST https://jsonplaceholder.typicode.com/posts</code></li>
+        <li><strong>Get posts for user 2</strong> — <code>GET https://jsonplaceholder.typicode.com/posts?userId=2</code></li>
+      </ul>
+    </li>
+    <li>The <strong>Valid</strong> column shows ✅ for all 4 rows (each has a <code>name</code> and <code>url</code>).</li>
+    <li>Notice row 3 ("Create post") has <code>method: POST</code> and a JSON body — these were parsed from the file.</li>
+  </ol>
+
+  <h4>Step 5 — Choose a Destination</h4>
+  <ol>
+    <li>Under <strong>Target Feature Group</strong>, select <em>Create New</em>.</li>
+    <li>Enter the name: <code>JSON Import — Simple</code>.</li>
+  </ol>
+
+  <h4>Step 6 — Import</h4>
+  <ol>
+    <li>Click the <strong>Import</strong> button.</li>
+    <li>The modal closes and the sidebar now shows the new feature group <strong>JSON Import — Simple</strong> with 4 test scenarios inside.</li>
+  </ol>
+
+  <h4>Step 7 — Run and Verify</h4>
+  <ol>
+    <li>Click the <strong>Run All</strong> button on the feature group.</li>
+    <li>All 4 tests execute against the live JSONPlaceholder API.</li>
+    <li>Expected results:
+      <ul>
+        <li>"Get all users" → <strong>200 OK</strong>, response is an array of 10 user objects.</li>
+        <li>"Get user by ID" → <strong>200 OK</strong>, response contains <code>"id": 1</code>.</li>
+        <li>"Create post" → <strong>201 Created</strong>, response contains <code>"id": 101</code>.</li>
+        <li>"Get posts for user 2" → <strong>200 OK</strong>, response is an array of posts.</li>
+      </ul>
+    </li>
+    <li>All tests should show a green ✅ pass status.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Click any test row to expand the response detail panel and inspect the full JSON response body, headers, and timing.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Walkthrough B -->
+  <h3>Walkthrough B — Structured Format (<code>examples/json-data-structured.json</code>)</h3>
+  <p>This sample uses the structured format with metadata, path variables, and selective validation — 5 DummyJSON product lookups.</p>
+
+  <h4>Step 1 — Prepare the Sample File</h4>
+  <p>Copy the JSON below and save it as <code>json-data-structured.json</code> on your computer:</p>
+  <pre>{
+  "meta": {
+    "version": 1,
+    "method": "GET",
+    "urlPattern": "https://dummyjson.com/products/{{productId}}",
+    "headers": [
+      { "key": "Accept", "value": "application/json" }
+    ],
+    "body": "",
+    "auth": { "type": "none" },
+    "validationMode": "selective",
+    "selectiveMode": "include",
+    "pathVariables": ["productId"]
+  },
+  "data": [
+    {
+      "name": "iPhone — verify title and price",
+      "path:productId": "1",
+      "validate:$.title": "Essence Mascara Lash Princess",
+      "validate:$.category": "beauty"
+    },
+    {
+      "name": "Laptop — verify brand",
+      "path:productId": "6",
+      "validate:$.category": "furniture"
+    },
+    {
+      "name": "Product 10 — basic check",
+      "path:productId": "10",
+      "validate:$.category": "fragrances"
+    },
+    {
+      "name": "Product 15 — exists",
+      "path:productId": "15"
+    },
+    {
+      "name": "Product 20 — exists",
+      "path:productId": "20"
+    }
+  ]
+}</pre>
+
+  <h4>Step 2 — Open the Import Modal</h4>
+  <ol>
+    <li>Click <strong>Import Template</strong> in the Harness toolbar again.</li>
+  </ol>
+
+  <h4>Step 3 — Upload the File</h4>
+  <ol>
+    <li>Click <strong>Browse Files</strong> and select the <code>json-data-structured.json</code> file you saved in Step 1.</li>
+    <li>The modal advances to the preview step.</li>
+  </ol>
+
+  <h4>Step 4 — Review the Preview</h4>
+  <ol>
+    <li>You should see a table with <strong>5 rows</strong>:
+      <ul>
+        <li><strong>iPhone — verify title and price</strong> — <code>GET https://dummyjson.com/products/1</code></li>
+        <li><strong>Laptop — verify brand</strong> — <code>GET https://dummyjson.com/products/6</code></li>
+        <li><strong>Product 10 — basic check</strong> — <code>GET https://dummyjson.com/products/10</code></li>
+        <li><strong>Product 15 — exists</strong> — <code>GET https://dummyjson.com/products/15</code></li>
+        <li><strong>Product 20 — exists</strong> — <code>GET https://dummyjson.com/products/20</code></li>
+      </ul>
+    </li>
+    <li>Notice how the URL pattern <code>https://dummyjson.com/products/{{productId}}</code> from <code>meta.urlPattern</code> was resolved — each row's <code>path:productId</code> value replaced the <code>{{productId}}</code> placeholder.</li>
+    <li>The <strong>Validation</strong> column shows that the first 3 rows have selective assertions (e.g., <code>$.category = "beauty"</code>), while rows 4–5 have no validation (just checking the endpoint responds).</li>
+  </ol>
+
+  <h4>Step 5 — Choose a Destination</h4>
+  <ol>
+    <li>Select <em>Create New</em> and name it: <code>JSON Import — Products</code>.</li>
+  </ol>
+
+  <h4>Step 6 — Import</h4>
+  <ol>
+    <li>Click <strong>Import</strong>.</li>
+    <li>The feature group <strong>JSON Import — Products</strong> appears with 5 test scenarios.</li>
+  </ol>
+
+  <h4>Step 7 — Inspect the Imported Tests</h4>
+  <ol>
+    <li>Click on <strong>iPhone — verify title and price</strong> to open it in the Test Editor.</li>
+    <li>Verify the following were applied from metadata:
+      <ul>
+        <li><strong>Method:</strong> GET</li>
+        <li><strong>URL:</strong> <code>https://dummyjson.com/products/1</code> (path variable resolved)</li>
+        <li><strong>Headers:</strong> <code>Accept: application/json</code> (from <code>meta.headers</code>)</li>
+        <li><strong>Validation:</strong> Selective mode with assertions <code>$.title = "Essence Mascara Lash Princess"</code> and <code>$.category = "beauty"</code></li>
+      </ul>
+    </li>
+    <li>Click on <strong>Laptop — verify brand</strong> — same structure but URL ends in <code>/6</code> and expected category is <code>"furniture"</code>.</li>
+  </ol>
+
+  <h4>Step 8 — Run and Verify Assertions</h4>
+  <ol>
+    <li>Click <strong>Run All</strong> on the feature group.</li>
+    <li>All 5 tests execute against the live DummyJSON API.</li>
+    <li>Expected results:
+      <ul>
+        <li><strong>iPhone — verify title and price</strong> → 200 OK, <code>$.category</code> = <code>"beauty"</code> ✅</li>
+        <li><strong>Laptop — verify brand</strong> → 200 OK, <code>$.category</code> = <code>"furniture"</code> ✅</li>
+        <li><strong>Product 10 — basic check</strong> → 200 OK, <code>$.category</code> = <code>"fragrances"</code> ✅</li>
+        <li><strong>Product 15 — exists</strong> → 200 OK (no validation, just connectivity) ✅</li>
+        <li><strong>Product 20 — exists</strong> → 200 OK (no validation, just connectivity) ✅</li>
+      </ul>
+    </li>
+    <li>If any assertion fails, click the test to see the <strong>Assertion Details</strong> panel showing expected vs actual values.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key Takeaway</strong>
+    The structured format is powerful for parameterized testing — you define shared settings once in <code>meta</code>, then each <code>data</code> row only needs its unique values. This keeps your test data DRY and easy to maintain.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Additional Exercises</h2>
+
+  <h4>Exercise 1 — Create Your Own Simple JSON</h4>
+  <ol>
+    <li>Pick any public API you've used (e.g., PokéAPI, REST Countries).</li>
+    <li>Create a new <code>.json</code> file with 3–5 test cases as a simple array.</li>
+    <li>Import it into RedfireForge and run all tests.</li>
+  </ol>
+
+  <h4>Exercise 2 — Convert Simple to Structured</h4>
+  <ol>
+    <li>Take your simple JSON from Exercise 1.</li>
+    <li>Refactor it into the structured format: extract shared URL pattern, method, and headers into <code>meta</code>.</li>
+    <li>Add <code>validate:</code> fields to check at least one response value per row.</li>
+    <li>Import and compare — the tests should behave identically but with validation.</li>
+  </ol>
+
+  <h4>Exercise 3 — Export and Round-Trip</h4>
+  <ol>
+    <li>Open any existing test in the Test Editor.</li>
+    <li>Click <strong>Export Template</strong> → choose JSON format.</li>
+    <li>Open the exported file in a text editor, add 2 more rows with different parameters.</li>
+    <li>Re-import the modified file — verify the new rows appear as additional tests.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    JSON data files are fully compatible with the existing CSV/Excel import — you can mix formats within the same project. Use whichever format is most convenient for each data source.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — JSON Data Files · April 2026
+  </footer>
+
+</body>
+</html>

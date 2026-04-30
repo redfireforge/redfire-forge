@@ -4,11 +4,13 @@
 
 Redesign the `WorkflowVariableInsertModal` from a simple two-column ref-based picker into a full-featured **three-column, source-aware, composable** variable insertion system with expression builder support.
 
-**Mockup**: `docs/mockup-option-c-plus.html` (interactive, 4 views, draggable vertical bar)
+**Mockup**: `docs/mockup-option-c-plus.html` (deleted — implementation complete)
+
+> **Status:** Phases 1–3 complete ✅; Phase 4 deferred (future extensibility)
 
 ---
 
-## Phase 1 — Source-Aware Grouping (Foundation)
+## Phase 1 — Source-Aware Grouping (Foundation) ✅ Complete
 
 **Goal**: Replace ref-format-based grouping (`parseScopedRef`) with actual source node metadata. Add the three-column layout with category toolbar, node-type icons, and detail pane.
 
@@ -70,20 +72,20 @@ export interface WorkflowVariableHint {
 
 ### Acceptance Criteria
 
-- [ ] All `WorkflowVariableHint` objects have `source` populated
-- [ ] Modal groups by `source.nodeLabel` instead of ref format
-- [ ] Left column shows sources grouped by category with icons
-- [ ] Right detail pane shows ref, type, description, default value, source path
-- [ ] Same-name disambiguation warnings when multiple sources have same variable name
-- [ ] Category toolbar filters sources (All / Triggers / HTTP / Logic / Integrations)
-- [ ] Backward compatible — existing consumers work without `source`
-- [ ] All tests pass, coverage ≥ 90%
+- [x] All `WorkflowVariableHint` objects have `source` populated
+- [x] Modal groups by `source.nodeLabel` instead of ref format
+- [x] Left column shows sources grouped by category with icons
+- [x] Right detail pane shows ref, type, description, default value, source path
+- [x] Same-name disambiguation warnings when multiple sources have same variable name
+- [x] Category toolbar filters sources (All / Triggers / HTTP / Logic / Integrations)
+- [x] Backward compatible — existing consumers work without `source`
+- [x] All tests pass, coverage ≥ 90%
 
 ### Estimated Effort: **Medium** (2–3 files changed, ~200 lines net)
 
 ---
 
-## Phase 2 — Compose Mode (Multi-Variable Insert)
+## Phase 2 — Compose Mode (Multi-Variable Insert) ✅ Complete
 
 **Goal**: Add a toggle between Quick Insert (single-click → immediate insert) and Compose mode (checkbox selection → accumulate in compose strip → Insert All).
 
@@ -122,21 +124,21 @@ interface ComposeToken {
 
 ### Acceptance Criteria
 
-- [ ] Compose toggle switches between Quick Insert and Compose mode
-- [ ] Checking a variable adds it to the compose strip
-- [ ] Literal text can be inserted between variables
-- [ ] Tokens can be reordered by drag
-- [ ] Preview shows resolved template
-- [ ] "Insert All" calls `onPick()` with the full composed template
-- [ ] Quick Insert mode behavior unchanged from current
-- [ ] Tests cover compose mode: add, remove, reorder, literal, insert all
-- [ ] Coverage ≥ 90%
+- [x] Compose toggle switches between Quick Insert and Compose mode
+- [x] Checking a variable adds it to the compose strip
+- [x] Literal text can be inserted between variables
+- [x] Tokens can be reordered by drag
+- [x] Preview shows resolved template
+- [x] "Insert All" calls `onPick()` with the full composed template
+- [x] Quick Insert mode behavior unchanged from current
+- [x] Tests cover compose mode: add, remove, reorder, literal, insert all
+- [x] Coverage ≥ 90%
 
 ### Estimated Effort: **Medium** (~1 new component, ~150 lines net)
 
 ---
 
-## Phase 3 — Expression Builder Tab
+## Phase 3 — Expression Builder Tab ✅ Complete
 
 **Goal**: Add an "Expression" tab alongside Browse/Search. Users can compose enriched expressions using built-in functions (`$upper`, `$jsonpath`, `$default`, etc.) combined with variables.
 
@@ -185,23 +187,24 @@ export interface ExpressionFunction {
 
 ### Acceptance Criteria
 
-- [ ] Expression tab shows function catalog with 25+ functions across 6 categories
-- [ ] Clicking a function inserts template at cursor
-- [ ] Variable chips below composer allow click-to-insert
-- [ ] Live preview evaluates expression with sample values
-- [ ] Function detail pane shows signature, args table, examples
-- [ ] Engine resolves `$fn()` calls at runtime
-- [ ] Expressions can be used in Compose mode tokens
-- [ ] All functions have unit tests
-- [ ] Coverage ≥ 90%
+- [x] Expression tab shows function catalog with 25+ functions across 6 categories
+- [x] Clicking a function inserts template at cursor
+- [x] Variable chips below composer allow click-to-insert
+- [x] Live preview evaluates expression with sample values
+- [x] Function detail pane shows signature, args table, examples
+- [x] Engine resolves `$fn()` calls at runtime
+- [x] Expressions can be used in Compose mode tokens
+- [x] All functions have unit tests
+- [x] Coverage ≥ 90%
 
 ### Estimated Effort: **Large** (3–4 new files, engine changes, ~500+ lines net)
 
 ---
 
-## Phase 4 — Integration Node Extensibility
+## Phase 4 — Integration Node Extensibility — Deferred
 
-**Goal**: Make the modal automatically support new node types (Slack, Email, Google Sheets, Excel, Outlook, etc.) via a plugin-style provider registry.
+> Deferred: No integration nodes (Slack, Email, etc.) exist yet. The provider
+> pattern will be implemented when the first integration node is added.
 
 ### New Files
 
@@ -253,7 +256,7 @@ registerNodeVariableProvider({
 });
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Deferred
 
 - [ ] All existing node types use the provider pattern
 - [ ] Adding a new node type requires only a `registerNodeVariableProvider()` call
@@ -270,10 +273,10 @@ registerNodeVariableProvider({
 
 | Phase | Scope | Dependencies | Key Deliverable |
 |-------|-------|-------------|----------------|
-| **1** | Source-aware grouping | None | Three-column modal with proper source attribution |
-| **2** | Compose mode | Phase 1 | Multi-variable selection + compose strip |
-| **3** | Expression builder | Phase 1 | Function catalog + expression composer + live preview |
-| **4** | Node extensibility | Phase 1 | Plugin-style provider registry for new node types |
+| **1** | Source-aware grouping | None | Three-column modal with proper source attribution | ✅ |
+| **2** | Compose mode | Phase 1 | Multi-variable selection + compose strip | ✅ |
+| **3** | Expression builder | Phase 1 | Function catalog + expression composer + live preview | ✅ |
+| **4** | Node extensibility | Phase 1 | Plugin-style provider registry for new node types | Deferred |
 
 **Recommended order**: Phase 1 → 2 → 3 → 4 (each builds on previous)
 

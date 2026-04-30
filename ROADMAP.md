@@ -44,7 +44,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 4900 unit/integration tests (Vitest) + 264 E2E tests (Playwright) = 5164 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 4966 unit/integration tests (Vitest) + 270+ E2E tests (Playwright) = 5236+ total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -173,7 +173,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (4900 tests, <25s) + Playwright E2E (264 tests)
+- [x] **`npm test` Script** — Vitest (4914 tests, <25s) + Playwright E2E (270+ tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
@@ -290,8 +290,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **SVG Configure Icon** — Replaced tiny Unicode ⚙ with a 14×14px SVG pencil/edit icon; hover tooltip preserved
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
-- [x] **E2E Test Selectors Updated** — All 264 E2E tests updated for new nav structure
-- [x] **4900 Unit Tests, 264 E2E Tests** — comprehensive coverage across all features
+- [x] **E2E Test Selectors Updated** — All 270+ E2E tests updated for new nav structure
+- [x] **4914 Unit Tests, 270+ E2E Tests** — comprehensive coverage across all features
 
 ### Phase 0.5.4a — Gallery Redesign & Training Manuals ✅
 
@@ -313,8 +313,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 4900 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 264 tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 4914 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 270+ tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
@@ -345,7 +345,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Script Transform Node** — Custom JavaScript data transformation node with Monaco editor, 3 modes (transform/validate/generate), sandboxed execution with timeout protection, complexity analysis warnings, code template gallery (12 templates across 4 categories), reusable script libraries with localStorage persistence
 - [x] **Correlation Wait Node (Phase 7A)** — Async correlation node: pause workflow execution and wait for external webhook callback; correlation ID expression with variable interpolation; configurable source (body JSONPath, header, query); extract variables from webhook payload; timeout support; **RemoteCorrelationStore** (browser↔server bridge) registers paused waits with webhook server and long-polls `GET /api/correlations/:id/wait` endpoint (1–120s clamp, parked-waiter queue); 409 stale-pause auto-recovery; idempotency cache no longer short-circuits active waiters; backend webhook callback handler with unmatched webhook logging
 - [x] **Phase 7A Refactoring & Runtime Bridge** — Refactored expressionFunctions.ts (957→9 modules), App.tsx (910→858 lines, useTheme extracted), WorkflowDesigner.tsx (1432→893 lines, 6 hooks extracted: useWorkflowPersistence, useWorkflowExtractionSample); consolidated 7 duplicate prettyJson implementations; 53 new hook tests + 14 correlation/wait tests; 4613 tests passing; env selector hidden in preview; runProgress badge fixed; docs synced (CORRELATION_WAIT_API.md, training manuals)
-- [ ] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
+- [x] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
+- [x] **CSV/JSON Import Modal Redesign** — Scrollable modal body via `bodyClassName` prop chain (PopupModal → AppModalFrame); stepped UI with uppercase labels and section dividers; single-row destination layout (label + dropdown + checkbox inline); gallery import sync with name-based fallback for older imports; loaded badge count in Gallery grid
 
 ---
 
@@ -371,8 +372,9 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Response Header Assertions** — Validate any response header with `equals`, `contains`, `regex`, or `exists` operators; case-insensitive header name lookup
 - [x] **Regex Assertions** — Match JSONPath-extracted values against regular expressions (`$.name matches /^[A-Z].*/`)
 - [x] **Structured JSON body assertions** — User-friendly rules on response JSON (beyond regex): **array length** at a JSONPath (e.g. `$.offers` length ≥ 4), **numeric compare** at a path (`>`, `≥`, `=`, `<`), **date compare** at a path vs **`today`** (define local vs UTC) or a fixed ISO date. Extend `Assertion` in `src/types/index.ts`, implement in `evaluateAssertions()` (`validator.ts`) using existing `getByPath()`; add Validation tab UI with path picker + plain-language operators. Applies to Harness tests and workflow HTTP steps (same `Scenario.validation`).
-- [ ] **Response Headers in Results** — Capture and display response headers (currently only body)
-- [ ] **Request Log** — Show the exact request sent including resolved auth headers
+- [x] **Assertion Presets** — 5 importable assertion presets (API Health Check, Paginated List, Token Expiry, Price Guard, API Contract) via gallery system with popover menu; training manuals (6 HTML files) and CLI examples (5 YAML files)
+- [x] **Response Headers in Results** — Capture and display response headers in Response Detail Modal table; captured from both harness and workflow executors
+- [x] **Request Log** — Show the exact resolved request headers and body in Response Detail Modal; Authorization header values masked for security
 - [x] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
 
 ---
@@ -455,11 +457,12 @@ Post-launch features driven by community feedback. Completing the engine items b
 | **0.5.4** | **UI/UX Visual Foundation** | **—** | **9** | **9** |
 | 0.9.0 | Variables & Chaining | → Good | 16 | 15 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
-| 0.10.0 | Assertions & Observability | → Good | 7 | 5 |
+| **0.5.4a** | **Gallery Redesign & Training Manuals** | **—** | **9** | **9** |
+| 0.10.0 | Assertions & Observability | → Good | 9 | 9 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **167** | **123** |
+| **Total** | | | **178** | **136** |
 
 ### Load Testing Level Milestones
 
@@ -470,7 +473,7 @@ CURRENT: Good (~500-2,000 RPS)
   ├── Phase 0.6.5 ✅  Excel templates, live charts
   ├── Phase 0.9.0 ✅  Variables, chaining, workflow mode
   ├── Phase 0.9.1 ✅  Worker threads, connection pooling, think time
-  └── Phase 0.10.0 ✅ Rich assertions, timing breakdown
+  └── Phase 0.10.0 ✅ Rich assertions, assertion presets, response headers, request log, timing breakdown
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
@@ -491,7 +494,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 4900 unit/integration + 264 E2E = 5164 tests
+Phase 0.8.0 (Tests) ✅ DONE — 4914 unit/integration + 270+ E2E = 5184+ tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
@@ -507,4 +510,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-04-25 (v0.5.4-beta.2 — UI/UX Visual Foundation, inline expression autocomplete, searchable variable select; load testing at Good; 123/167 items done)_
+_Last updated: 2026-04-29 (v0.5.5 — Response Headers & Request Log in Results, Assertion Presets, Gallery Redesign complete, 73 training manuals; load testing at Good; 136/178 items done)_

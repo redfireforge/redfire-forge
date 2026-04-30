@@ -1,5 +1,9 @@
 # UI/UX Improvement Plan
 
+> **Status:** Active backlog — some items implemented, remainder planned for future polish phases.
+>
+> _Last updated: 2026-04-29_
+
 ## Commercial Products Researched
 
 | Product | Layout Model | Theme | Node Design | Key UX Strength |
@@ -173,16 +177,16 @@
 - [ ] Show item/request count badge after execution
 - [ ] Add colored border pulse animation during execution
 - [ ] Show response time on HTTP nodes after execution
-- [ ] Add edge labels for condition branches ("Yes"/"No")
+- [x] Add edge labels for condition branches ("Yes"/"No")
 
 **Impact**: HIGH — Key differentiator for a testing tool
 
 ### Phase 3: Canvas & Controls
-- [ ] Add dot-grid pattern to canvas background (both themes)
+- [x] Add dot-grid pattern to canvas background (both themes)
 - [ ] Move zoom/fit controls to floating pill on canvas corner
 - [ ] Add arrow markers on connection edges
 - [ ] Add animated dash effect on edges during execution
-- [ ] Add minimap toggle
+- [x] Add minimap toggle
 - [ ] Different line styles for conditional branches
 
 **Impact**: MEDIUM — Polish & usability
@@ -200,7 +204,7 @@
 - [ ] Illustrated empty state with "Drop your first node here"
 - [ ] Template workflow suggestions on empty canvas
 - [ ] Contextual hints/tooltips on first use
-- [ ] Breadcrumb showing current workflow name/path
+- [x] Breadcrumb showing current workflow name/path
 
 **Impact**: LOW-MEDIUM — First impression
 
