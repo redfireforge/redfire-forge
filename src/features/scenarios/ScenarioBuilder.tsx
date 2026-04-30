@@ -11,6 +11,8 @@ import AuthConfigPanel from '../requests/components/AuthConfigPanel';
 import CopyTestModal from './components/CopyTestModal';
 import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
+import ConfirmModal from '../../shared/components/ConfirmModal';
+import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
 
 const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },
@@ -21,42 +23,6 @@ const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'digest', label: 'Digest Auth' },
   { value: 'oauth2', label: 'OAuth2 Client Credentials' },
 ];
-
-function buildScenarioInheritHint(fg: FeatureGroup, allAuthProfiles: GlobalAuthProfile[]): string {
-  const fgAuth = fg.auth;
-  const authLabel: Record<string, string> = {
-    basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',
-    digest: 'Digest Auth', oauth2: 'OAuth2 Client Credentials',
-  };
-  if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
-    return `Will use feature-level ${authLabel[fgAuth.type] ?? fgAuth.type}`;
-  }
-  if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
-    const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-    return profile
-      ? `Will use global profile "${profile.name}" (${authLabel[profile.auth.type] ?? profile.auth.type})`
-      : 'Feature references a missing global profile.';
-  }
-  return 'No auth configured at feature level. Configure it via the "Auth" button on the feature group.';
-}
-
-function resolveScenarioInheritedAuth(
-  fg: FeatureGroup,
-  allAuthProfiles: GlobalAuthProfile[],
-): { auth: AuthConfig; label: string } | null {
-  const fgAuth = fg.auth;
-  if (!fgAuth || fgAuth.type === 'none') return null;
-  let resolvedAuth: AuthConfig = fgAuth;
-  let resolvedLabel = 'feature';
-  if (fgAuth.type === 'inherit' && fg.globalAuthProfileId) {
-    const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-    if (!profile) return null;
-    resolvedAuth = profile.auth;
-    resolvedLabel = profile.name;
-  }
-  if (resolvedAuth.type === 'none' || resolvedAuth.type === 'inherit') return null;
-  return { auth: resolvedAuth, label: resolvedLabel };
-}
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -151,6 +117,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // ── Export / Import (extracted hook) ──
+  const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({ title, message, onConfirm: () => { onConfirm(); setConfirmDialog(null); } });
+  }, []);
   const {
     exportAll, importAll, handleCsvImport,
     exportFeatureGroup, importScenariosInto,
@@ -159,6 +128,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     featureGroups, setFeatureGroups,
     selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName,
     setCsvImportOpen,
+    confirm: showConfirm,
   });
 
   // Search state
@@ -173,6 +143,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     handleDragEnd,
   } = useScenarioDragDrop({ setFeatureGroups });
   const dragHandleActive = useRef(false);
+
+  // Confirm modal state
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   // load/save is handled by App.tsx to avoid overwriting unfiltered groups
 
@@ -196,8 +169,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === id);
     const testCount = fg ? fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) : 0;
     const detail = testCount > 0 ? ` It contains ${fg!.scenarios.length} scenario(s) and ${testCount} test(s).` : '';
-    if (!window.confirm(`Delete feature group "${fg?.name}"?${detail} This cannot be undone.`)) return;
-    setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
+    setConfirmDialog({
+      title: 'Delete Feature Group',
+      message: `Delete feature group "${fg?.name}"?${detail} This cannot be undone.`,
+      onConfirm: () => {
+        setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
+        setConfirmDialog(null);
+      },
+    });
   };
 
   const renameFeatureGroup = (id: string) => {
@@ -219,9 +198,20 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   const removeScenario = (featureId: string, scenarioId: string) => {
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId ? { ...fg, scenarios: fg.scenarios.filter((sc) => sc.id !== scenarioId) } : fg
-    ));
+    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === featureId);
+    const sc = fg?.scenarios.find((s) => s.id === scenarioId);
+    const testCount = sc ? sc.tests.length : 0;
+    const detail = testCount > 0 ? ` It contains ${testCount} test(s).` : '';
+    setConfirmDialog({
+      title: 'Delete Scenario',
+      message: `Delete scenario "${sc?.name}"?${detail} This cannot be undone.`,
+      onConfirm: () => {
+        setFeatureGroups((prev) => prev.map((f) =>
+          f.id === featureId ? { ...f, scenarios: f.scenarios.filter((s) => s.id !== scenarioId) } : f
+        ));
+        setConfirmDialog(null);
+      },
+    });
   };
 
   const renameScenario = (featureId: string, scenarioId: string) => {
@@ -318,16 +308,26 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   };
 
   const removeTest = (featureId: string, scenarioId: string, testId: string) => {
-    setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== featureId) return fg;
-      return {
-        ...fg,
-        scenarios: fg.scenarios.map((sc) => {
-          if (sc.id !== scenarioId) return sc;
-          return { ...sc, tests: sc.tests.filter((t) => t.id !== testId) };
-        }),
-      };
-    }));
+    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === featureId);
+    const sc = fg?.scenarios.find((s) => s.id === scenarioId);
+    const t = sc?.tests.find((test) => test.id === testId);
+    setConfirmDialog({
+      title: 'Delete Test',
+      message: `Delete test "${t?.name}"? This cannot be undone.`,
+      onConfirm: () => {
+        setFeatureGroups((prev) => prev.map((f) => {
+          if (f.id !== featureId) return f;
+          return {
+            ...f,
+            scenarios: f.scenarios.map((s) => {
+              if (s.id !== scenarioId) return s;
+              return { ...s, tests: s.tests.filter((test) => test.id !== testId) };
+            }),
+          };
+        }));
+        setConfirmDialog(null);
+      },
+    });
   };
 
   const [copyingTest, setCopyingTest] = useState<{ test: Scenario; sourceFeatureId: string; sourceScenarioId: string } | null>(null);
@@ -848,6 +848,16 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           featureGroups={featureGroups}
           onImport={handleCsvImport}
           onClose={() => setCsvImportOpen(false)}
+        />
+      )}
+      {confirmDialog && (
+        <ConfirmModal
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant="danger"
+          confirmLabel="Delete"
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
         />
       )}
     </div>

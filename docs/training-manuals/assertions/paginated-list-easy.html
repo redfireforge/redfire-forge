@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paginated List Validation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📄</div>
+    <h1>Paginated List Validation</h1>
+    <div class="subtitle">Assertion Preset — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> &nbsp; <code>api-validation</code> &nbsp; 3 assertions &nbsp; dummyjson.com</p>
+    <div class="meta">RedfireForge · April 2026</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Paginated List Validation preset verifies that a paginated API endpoint returns data correctly. It checks three essential properties of any paginated response: the items array is not empty, the total count is reported, and the number of items returned doesn't exceed the requested limit.</p>
+  <p>Use this preset whenever you're testing APIs that return paginated lists — product catalogs, search results, user listings, or any endpoint with <code>limit</code> and <code>skip</code> parameters. These are among the most common API patterns and are easy to get wrong.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Pagination bugs are a frequent source of production issues. Off-by-one errors, missing totals, and over-fetching are all caught by this preset.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Array Length Assertions</strong> — Validating that arrays contain the expected number of elements</li>
+    <li><strong>Numeric Assertions</strong> — Comparing numeric response values against expected thresholds</li>
+    <li><strong>Pagination Patterns</strong> — Understanding <code>limit</code>, <code>skip</code>, <code>total</code> in paginated APIs</li>
+    <li><strong>Data Consistency</strong> — Ensuring returned item counts are consistent with reported totals</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. Assertion Rules</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Field / Path</th>
+        <th>Operator</th>
+        <th>Expected Value</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>response.body.products</td>
+        <td><code>&gt;</code></td>
+        <td><code>0</code></td>
+        <td>Products array contains at least one item</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.total</td>
+        <td><code>&gt;</code></td>
+        <td><code>0</code></td>
+        <td>Total count is a positive number</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.products.length</td>
+        <td><code>&lt;=</code></td>
+        <td><code>limit</code></td>
+        <td>Returned items do not exceed the requested limit</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. How It Works</h2>
+
+  <h3>Assertion 1 — Array Items Exist</h3>
+  <p>The first assertion checks that the <code>products</code> array in the response body has a length greater than 0. This ensures the API actually returned data and didn't silently return an empty list. A common bug in pagination implementations is returning <code>200 OK</code> with <code>{"products": [], "total": 100}</code> — technically valid HTTP but clearly wrong.</p>
+
+  <h3>Assertion 2 — Total Count &gt; 0</h3>
+  <p>The <code>numeric</code> assertion reads the <code>total</code> field from the response body and verifies it's greater than zero. This field tells the client how many total items exist across all pages. If the total is 0 or missing, the pagination metadata is broken even if items were returned in the current page.</p>
+
+  <h3>Assertion 3 — Items Count ≤ Limit</h3>
+  <p>The final assertion verifies that the number of items in the <code>products</code> array does not exceed the <code>limit</code> query parameter. If you request <code>?limit=10</code> and receive 15 items, the API's pagination logic is broken. This catches over-fetching bugs that can cause performance issues and UI rendering problems.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The DummyJSON API uses <code>products</code> as the items key and <code>total</code> for the count. Other APIs may use <code>items</code>, <code>data</code>, <code>results</code>, or <code>count</code>. Adjust the field paths when adapting this preset to other endpoints.
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Preset</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Assertions</strong> tab in RedfireForge.</li>
+    <li>Find <strong>📄 Paginated List Validation</strong> and click <strong>Import Preset</strong>.</li>
+    <li>The preset is added to your workspace's assertion library.</li>
+  </ol>
+
+  <h3>Step 2 — Attach to a Request</h3>
+  <ol>
+    <li>Create a request node: <code>GET https://dummyjson.com/products?limit=10&amp;skip=0</code>.</li>
+    <li>In the request's <strong>Assertions</strong> panel, click <strong>Add Preset</strong>.</li>
+    <li>Select <strong>Paginated List Validation</strong> — all 3 assertions appear.</li>
+  </ol>
+
+  <h3>Step 3 — Run and Review</h3>
+  <ol>
+    <li>Click <strong>Run</strong> to execute the request.</li>
+    <li>Verify all 3 assertions pass: items exist, total &gt; 0, and item count ≤ 10.</li>
+    <li>Inspect the response body to confirm the pagination metadata looks correct.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Page Through Results</h3>
+  <p>Test multiple pages to verify pagination consistency:</p>
+  <ol>
+    <li>Send <code>GET https://dummyjson.com/products?limit=10&amp;skip=0</code> — page 1.</li>
+    <li>Send <code>GET https://dummyjson.com/products?limit=10&amp;skip=10</code> — page 2.</li>
+    <li>Verify both pass all assertions and the <code>total</code> is the same across pages.</li>
+  </ol>
+
+  <h3>Exercise 2 — Edge Cases</h3>
+  <p>Test boundary conditions:</p>
+  <ol>
+    <li>Set <code>limit=0</code> — what happens to the assertions?</li>
+    <li>Set <code>skip=99999</code> — a skip beyond total items. Does the array come back empty?</li>
+    <li>Omit both parameters entirely — does the API use sensible defaults?</li>
+  </ol>
+
+  <h3>Exercise 3 — Adapt to Another API</h3>
+  <p>Clone the preset and modify the field paths to work with a different paginated API. Try <code>GET https://dummyjson.com/users?limit=5</code> — you'll need to change <code>products</code> to <code>users</code> in the assertion paths.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Next, try the <strong>🔐 Token Expiry Guard</strong> preset to learn regex and date assertions.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Paginated List Validation · April 2026
+  </footer>
+
+</body>
+</html>

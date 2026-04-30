@@ -3,6 +3,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
+import { useGalleryImport } from './hooks/useGalleryImport';
 import { findFolderDeep } from '../features/requests/utils/requestTree';
 import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomizer';
 import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
@@ -17,6 +18,7 @@ import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
+import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
 import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
 import CatalogImportModal from '../features/catalog/components/CatalogImportModal';
@@ -35,9 +37,10 @@ import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
 import { TemplateGalleryContent } from '../features/workflow/components/modals/TemplateGalleryModal';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
+import { GalleryPage } from '../features/gallery/GalleryPage';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
-import { sampleWorkflowCatalog, type SampleWorkflowEntry } from '../data/sampleWorkflows';
+import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayout';
 import type { Workflow } from '../features/workflow/types/workflow';
 import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
@@ -46,12 +49,14 @@ import '../styles/index.css';
 
 type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
 
-type Domain = 'api' | 'workflow' | 'testing' | 'settings';
+type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries', 'gallery']);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
 const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
+const GALLERY_TABS = new Set<Tab>(['gallery']);
+const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
 const API_TABS = new Set<Tab>(['requests', 'catalog']);
 const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments']);
@@ -61,6 +66,7 @@ const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 function domainOf(tab: Tab): Domain {
   if (isApiTab(tab)) return 'api';
   if (isWorkflowTab(tab)) return 'workflow';
+  if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';
   return 'settings'; // environments
 }
@@ -130,6 +136,7 @@ export default function App() {
   const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
+  const [catalogInitialSpec, setCatalogInitialSpec] = useState<{ yaml: string; name: string } | undefined>();
   const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
   const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(() => {
     const savedId = loadPreviewSampleId();
@@ -140,6 +147,7 @@ export default function App() {
     const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
     return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
   });
+  const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   // Gallery is now a proper tab — no separate modal state needed.
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
@@ -222,6 +230,14 @@ export default function App() {
     ...fullyUnassociated,
     ...orphanedFGs.filter((fg) => !seenIds.has(fg.id)),
   ];
+
+  const gallery = useGalleryImport({
+    wb, featureGroups, environments, microservices,
+    setActiveTab, setPreviewRequest, setPreviewWorkflow,
+    setCatalogInitialSpec, setShowCatalogImport,
+    setFeatureGroups, setEnvironments, setMicroservices,
+    setSelectedEnvId, setSelectedSvcId,
+  });
 
   // ---- Helpers ----
   const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
@@ -420,6 +436,14 @@ export default function App() {
           <span className="ab-icon">🏋</span>
           <span className="ab-label">Testing</span>
         </button>
+        <button
+          className={`ab-btn ${domainOf(activeTab) === 'gallery' ? 'active' : ''}`}
+          onClick={() => { if (!isGalleryTab(activeTab)) setActiveTab('gallery'); }}
+          title="Gallery"
+        >
+          <span className="ab-icon">🏪</span>
+          <span className="ab-label">Gallery</span>
+        </button>
         <div className="ab-spacer" />
         <button
           className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
@@ -432,7 +456,7 @@ export default function App() {
       </nav>
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && !showSettings && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && !showSettings && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -530,14 +554,14 @@ export default function App() {
         <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && !showSettings && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && !showSettings && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || showSettings ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || showSettings ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || showSettings ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || showSettings ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
@@ -557,7 +581,6 @@ export default function App() {
                 <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
                 <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
                 <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
-                <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Gallery</button>
                 <div className="sub-nav-spacer" />
                 <ServerStatusIndicator />
               </div>
@@ -612,15 +635,14 @@ export default function App() {
             />
           </div>
           {activeTab === 'gallery' && (
-            <div className="app-tab-pane tg-pane">
-              <TemplateGalleryContent
-                onSelect={(entry: SampleWorkflowEntry) => {
-                  const sample = entry.factory();
-                  const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
-                  setPreviewWorkflow({ ...sample, nodes: laidOut as unknown as typeof sample.nodes });
-                  savePreviewSampleId(entry.id);
-                  setActiveTab('workflow');
-                }}
+            <div className="app-tab-pane gallery-pane">
+              <GalleryPage
+                importedSamples={gallery.importedSamples}
+                onImportRequest={gallery.onImportRequest}
+                onTryItRequest={gallery.onTryItRequest}
+                onImportCatalog={gallery.onImportCatalog}
+                onImportTest={gallery.onImportTest}
+                onImportWorkflow={gallery.onImportWorkflow}
               />
             </div>
           )}
@@ -702,6 +724,31 @@ export default function App() {
               appGlobalAuthProfiles={appGlobalAuthProfiles}
               appMicroservices={microservices}
               appEnvironments={environments}
+              previewRequest={previewRequest}
+              onClearPreview={() => { setPreviewRequest(null); setActiveTab('gallery'); }}
+              onImportPreview={() => {
+                if (!previewRequest) return;
+                const req = previewRequest.request;
+                const GALLERY_COL_NAME = 'Gallery Samples';
+                let col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+                let colId: string;
+                if (col) {
+                  colId = col.id;
+                } else {
+                  colId = wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
+                }
+                const reqId = wb.addRequest(colId);
+                wb.updateRequest(colId, reqId, {
+                  name: req.name,
+                  method: req.method,
+                  url: req.url,
+                  headers: req.headers,
+                  body: req.body,
+                  bodyType: req.bodyType,
+                  auth: req.auth,
+                });
+                setPreviewRequest(null);
+              }}
             />
           </div>
           {sendToReqEntry && (
@@ -720,9 +767,10 @@ export default function App() {
             <CatalogImportModal
               existingEntries={catalog.entries}
               reimportEntryId={catalogReimportId}
+              initialSpec={catalogInitialSpec}
               onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
               onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
-              onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); }}
+              onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); setCatalogInitialSpec(undefined); }}
             />
           )}
 

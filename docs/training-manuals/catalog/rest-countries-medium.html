@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>REST Countries — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🌍</div>
+    <h1>REST Countries</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> &nbsp; <code>public-api</code> &nbsp; 8 endpoints &nbsp; restcountries.com</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>REST Countries is a public API providing detailed information about the world's countries — including names, currencies, languages, flags, population, area, and geographic regions. No authentication is required, making it an accessible yet data-rich API for intermediate learners.</p>
+  <p>This catalog spec demonstrates multiple filtering strategies on a single resource type. Instead of CRUD operations, the focus is on querying the same dataset through different lenses: by name, country code, currency, language, capital, region, and subregion.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    REST Countries returns deeply nested JSON objects. Each country includes arrays of currencies, languages, and translations — excellent practice for navigating complex response schemas.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Multi-Criteria Filtering</strong> — Query the same resource set through different filter endpoints</li>
+    <li><strong>Path-Based Filtering</strong> — Use path parameters like <code>/name/{name}</code> instead of query strings</li>
+    <li><strong>Complex Response Schemas</strong> — Navigate nested objects with currencies, languages, and translations</li>
+    <li><strong>Field Selection</strong> — Use <code>?fields=name,capital,flags</code> to reduce response size</li>
+    <li><strong>No-Auth Public APIs</strong> — Working with open APIs that have no authentication layer</li>
+    <li><strong>Geographic Data Structures</strong> — Understanding region/subregion hierarchies and country metadata</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://restcountries.com/v3.1</code></td></tr>
+    <tr><td>Authentication</td><td>None required</td></tr>
+    <tr><td>Rate Limits</td><td>No enforced limits (fair use)</td></tr>
+    <tr><td>Response Format</td><td>JSON</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Data Model</h3>
+  <p>Every endpoint returns Country objects with rich metadata:</p>
+  <ul>
+    <li><strong>Name</strong> — Common name, official name, and native names in multiple languages</li>
+    <li><strong>Codes</strong> — ISO 3166-1 alpha-2 (<code>US</code>), alpha-3 (<code>USA</code>), and numeric codes</li>
+    <li><strong>Currencies</strong> — Map of currency codes to names and symbols (e.g., <code>{"USD": {"name": "United States dollar", "symbol": "$"}}</code>)</li>
+    <li><strong>Languages</strong> — Map of language codes to names (e.g., <code>{"eng": "English"}</code>)</li>
+    <li><strong>Geography</strong> — Region, subregion, capital, latlng, area, borders, timezones</li>
+    <li><strong>Flags</strong> — SVG and PNG flag URLs plus emoji representation</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/all</code></td>
+        <td>Get all countries</td>
+        <td>Array of all Country objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/name/{name}</code></td>
+        <td>Search countries by name</td>
+        <td>Array of matching Country objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/alpha/{code}</code></td>
+        <td>Get country by ISO code (alpha-2 or alpha-3)</td>
+        <td>Array with single Country object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/currency/{currency}</code></td>
+        <td>Get countries by currency code</td>
+        <td>Array of Country objects using that currency</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/lang/{language}</code></td>
+        <td>Get countries by language</td>
+        <td>Array of Country objects speaking that language</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/capital/{capital}</code></td>
+        <td>Search countries by capital city</td>
+        <td>Array of matching Country objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/region/{region}</code></td>
+        <td>Get countries by region (e.g., Europe, Asia)</td>
+        <td>Array of Country objects in that region</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/subregion/{subregion}</code></td>
+        <td>Get countries by subregion (e.g., Northern Europe)</td>
+        <td>Array of Country objects in that subregion</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>REST Countries</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The OpenAPI spec loads into your workspace. You'll see it listed in your catalog panel.</li>
+  </ol>
+
+  <h3>Step 2 — Explore All Countries</h3>
+  <ol>
+    <li>Select the <code>GET /all</code> endpoint and send a request.</li>
+    <li>Notice the large response — 250+ countries with deeply nested data.</li>
+    <li>Try adding <code>?fields=name,capital,flags</code> to reduce the response to just those fields.</li>
+  </ol>
+
+  <h3>Step 3 — Filter by Name &amp; Code</h3>
+  <ol>
+    <li>Use <code>GET /name/germany</code> to search by country name (partial match supported).</li>
+    <li>Use <code>GET /alpha/DE</code> to look up by exact ISO alpha-2 code.</li>
+    <li>Compare the two responses — name search may return multiple results; alpha code returns exactly one.</li>
+  </ol>
+
+  <h3>Step 4 — Explore Geographic Filters</h3>
+  <ol>
+    <li>Fetch all European countries with <code>GET /region/europe</code>.</li>
+    <li>Narrow down with <code>GET /subregion/Northern Europe</code>.</li>
+    <li>Find countries using the Euro: <code>GET /currency/eur</code>.</li>
+    <li>Find Spanish-speaking countries: <code>GET /lang/spanish</code>.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    All filter endpoints support the <code>?fields=</code> query parameter. Use it to select only the fields you need, which reduces response size and makes results easier to read.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Cross-Reference Filters</h3>
+  <p>Combine multiple queries to answer geographic questions:</p>
+  <ol>
+    <li>Get all countries in Asia: <code>GET /region/asia</code>.</li>
+    <li>Get all countries that speak Arabic: <code>GET /lang/arabic</code>.</li>
+    <li>Manually compare the results — which Asian countries speak Arabic?</li>
+  </ol>
+
+  <h3>Exercise 2 — Field Selection</h3>
+  <p>Practice reducing response payloads:</p>
+  <ol>
+    <li>Fetch <code>GET /all</code> and note the response size.</li>
+    <li>Fetch <code>GET /all?fields=name,capital,population,region</code> and compare.</li>
+    <li>Build a minimal request that returns only country names and flag emojis.</li>
+  </ol>
+
+  <h3>Exercise 3 — Schema Deep Dive</h3>
+  <p>Explore the nested data structures:</p>
+  <ol>
+    <li>Fetch a single country with <code>GET /alpha/JP</code> (Japan).</li>
+    <li>Inspect the <code>currencies</code> object — note how it's keyed by currency code.</li>
+    <li>Inspect <code>languages</code>, <code>translations</code>, and <code>demonyms</code> for nested structure patterns.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Try building a workflow that looks up a country by name, extracts its currency code, then finds all other countries using the same currency. This simulates a real data-chaining scenario.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — REST Countries · April 2026
+  </footer>
+
+</body>
+</html>

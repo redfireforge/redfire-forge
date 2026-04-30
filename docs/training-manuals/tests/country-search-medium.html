@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Country Search Suite — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🌍</div>
+    <h1>Country Search Suite</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Regression · 4 Scenarios · restcountries.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Country Search Suite</strong> is a regression test that validates multiple search and lookup endpoints on the REST Countries API. It goes beyond simple smoke testing by verifying different query strategies and edge-case handling.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Validating that search-by-name, search-by-code, and search-by-region all return correct data shapes.</li>
+    <li>Confirming the API gracefully handles invalid input with appropriate error codes.</li>
+    <li>Practising array-length assertions on variable-size result sets.</li>
+    <li>Learning how to structure a regression suite with multiple related scenarios.</li>
+  </ul>
+  <p>All four scenarios target the REST Countries API (<code>restcountries.com</code>), a free, publicly available API that returns country data in JSON format.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Regression testing</strong> — running a suite of checks after every change to ensure existing functionality still works.</li>
+    <li><strong>Status code assertions</strong> — confirming both success (<code>200</code>) and error (<code>404</code>) responses.</li>
+    <li><strong>Array length assertions</strong> — verifying that search results contain the expected number of items or are non-empty.</li>
+    <li><strong>Negative testing</strong> — intentionally sending invalid input to verify the API returns the correct error status.</li>
+    <li><strong>Query parameter variations</strong> — testing the same API with different search strategies (name, code, region).</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 4 scenarios covering search by name, alpha code, region, and a 404 edge case:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Search by Name</td>
+        <td><code>GET</code></td>
+        <td><code>/v3.1/name/germany</code></td>
+        <td>Status = 200, Response is array</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Search by Code</td>
+        <td><code>GET</code></td>
+        <td><code>/v3.1/alpha/DE</code></td>
+        <td>Status = 200</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Search by Region</td>
+        <td><code>GET</code></td>
+        <td><code>/v3.1/region/europe</code></td>
+        <td>Status = 200, Array length &gt; 0</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>404 Edge Case</td>
+        <td><code>GET</code></td>
+        <td><code>/v3.1/name/zzzzz</code></td>
+        <td>Status = 404</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — Search by Name</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The name search endpoint responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>Response body (root)</td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>Searching "germany" returns at least one matching country.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Search by Code</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The alpha code <code>DE</code> resolves to a valid country.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — Search by Region</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The region search endpoint responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>Response body (root)</td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The "europe" region contains at least one country.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 4 — 404 Edge Case</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>404</code></td>
+        <td>Searching a nonsensical name returns a proper 404 Not Found response.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>🌍 Country Search Suite</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 4 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its method, URL, and assertions.</li>
+    <li>Note the different search strategies: name, alpha code, and region.</li>
+    <li>Pay attention to Scenario 4 — it intentionally expects a <code>404</code> response.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 4 scenarios sequentially.</li>
+    <li>Watch the progress indicator as each scenario completes.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>Click on any scenario to expand its assertion results.</li>
+    <li>Green checkmarks (✅) indicate passed assertions; red crosses (❌) indicate failures.</li>
+    <li>Verify that Scenario 4 correctly shows <code>404</code> as a passing assertion — not a failure.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Scenario 4 demonstrates negative testing — asserting that an error response is correct. This is just as important as verifying success responses in regression suites.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the country search suite, try these exercises to deepen your understanding:</p>
+
+  <h4>Exercise 1 — Add a Currency Search</h4>
+  <p>Add a scenario that fetches <code>GET /v3.1/currency/eur</code> and asserts that the response status is <code>200</code> and the array contains multiple countries.</p>
+
+  <h4>Exercise 2 — Validate Response Fields</h4>
+  <p>In Scenario 2 (Search by Code), add a <code>regex</code> assertion on <code>$.name.common</code> to verify it matches <code>Germany</code>.</p>
+
+  <h4>Exercise 3 — Test Another Region</h4>
+  <p>Duplicate Scenario 3 and change the region to <code>asia</code>. Compare the array lengths between the two regions.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported test — you can modify it freely without affecting the original gallery sample.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Country Search Suite · April 2026
+  </footer>
+
+</body>
+</html>

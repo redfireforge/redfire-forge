@@ -1031,6 +1031,11 @@
   color: var(--text);
   white-space: nowrap;
 }
+.runner-host-gallery-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
 .runner-host-selector .radio-label {
   font-size: 0.82rem;
   display: inline-flex;

@@ -1380,3 +1380,58 @@
 .req-docs-status.warn { color: #f59e0b; }
 .req-docs-status.error { color: #ef4444; }
 
+/* ── Gallery Preview Banner ──────────────────────── */
+.req-preview-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05));
+  border-bottom: 1px solid rgba(99,102,241,0.3);
+  font-size: 0.82rem;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.req-preview-banner-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.req-preview-banner-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.req-preview-banner-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.req-preview-btn {
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+.req-preview-btn-import {
+  background: var(--primary, #818cf8);
+  color: #fff;
+  border-color: var(--primary, #818cf8);
+}
+.req-preview-btn-import:hover {
+  background: var(--primary-hover, #6366f1);
+}
+.req-preview-btn-back {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.req-preview-btn-back:hover {
+  background: rgba(255,255,255,0.05);
+}
+

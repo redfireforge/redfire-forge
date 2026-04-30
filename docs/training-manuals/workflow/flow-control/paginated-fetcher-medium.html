@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Flow Control: Paginated API Fetcher (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔀</div>
+  <h1>Paginated API Fetcher</h1>
+  <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Loop through a paginated API, collecting all results across multiple pages.
+    Initialize a page counter, fetch each page, aggregate the data, and exit
+    when there are no more pages. The essential pagination pattern.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Flow Control<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates <strong>loop-based pagination</strong> — fetching data across
+  multiple API pages until all records have been collected. Most real-world APIs limit
+  response sizes and require clients to iterate through pages.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A data sync job needs to export all users from a
+  SaaS platform. The API returns 20 users per page. The workflow loops, requesting
+  page 1, page 2, page 3, etc., aggregating all users into a single collection until
+  the API signals there are no more pages.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Exporting all records from a CRM (Salesforce, HubSpot) for reporting</li>
+  <li>Syncing product catalogs between e-commerce platforms</li>
+  <li>Collecting all log entries from a monitoring API within a time range</li>
+  <li>Migrating data between systems where the source API is paginated</li>
+  <li>Building search indexes by crawling all pages of an API</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Using <strong>SetVariable</strong> to initialize a page counter before a loop</li>
+  <li>Using a <strong>Loop</strong> node to repeat a sequence of nodes</li>
+  <li>Building dynamic URLs with <strong>page parameters</strong> (<code>?page={{page}}</code>)</li>
+  <li><strong>Aggregating</strong> data across multiple loop iterations</li>
+  <li><strong>Incrementing</strong> a counter variable inside the loop body</li>
+  <li>Using a <strong>hasMore</strong> condition to exit the loop</li>
+  <li>Preventing <strong>infinite loops</strong> with max-iteration guards</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Init Page               │  SetVariable
+  │     (SetVariable)           │
+  │                             │  page = 1
+  │  Initialize page counter    │  allUsers = []
+  └──────┬──────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────┐
+  │  2. Fetch Loop (Loop)                            │
+  │  ┌────────────────────────────────────────────┐  │
+  │  │                                            │  │
+  │  │  2a. Fetch Page ──→ 2b. Aggregate ──→ 2c. │  │
+  │  │      (HTTP)            (SetVar)       Incr │  │
+  │  │                                       page │  │
+  │  │  GET /users?page=     allUsers +=     page │  │
+  │  │    {{page}}           pageData         + 1 │  │
+  │  │                                            │  │
+  │  └────────────────────────────────────────────┘  │
+  │                                                  │
+  │  Exit when: {{hasMore}} == false                 │
+  │  Max iterations: 10                              │
+  └──────┬───────────────────────────────────────────┘
+         ▼
+  ┌─────────────┐
+  │    End      │  allUsers contains all
+  └─────────────┘  collected records
+</div>
+
+<p>
+  <strong>5 nodes, 6 edges</strong> — a loop-based pipeline. The SetVariable initializes
+  the counter, the Loop node iterates through pages, and the workflow exits when
+  <code>hasMore</code> is false or the max iteration limit is reached.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables — page counter is initialized internally.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Init Page</td>
+    <td>SetVariable</td>
+    <td>Sets <code>page = 1</code> and <code>allUsers = []</code> before entering the loop.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Fetch Loop</td>
+    <td>Loop</td>
+    <td>Repeats the inner nodes until <code>{{hasMore}} == false</code> or max 10 iterations.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2a</span> Fetch Page</td>
+    <td>HTTP</td>
+    <td>GET <code>https://reqres.in/api/users?page={{page}}</code>. Extracts <code>pageData</code> (user array) and <code>totalPages</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2b</span> Aggregate</td>
+    <td>SetVariable</td>
+    <td>Appends <code>pageData</code> to <code>allUsers</code>. Sets <code>hasMore = (page &lt; totalPages)</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2c</span> Increment</td>
+    <td>SetVariable</td>
+    <td>Sets <code>page = {{page}} + 1</code> to advance to the next page.</td>
+  </tr>
+</table>
+
+<h3>HTTP GET Configuration (Fetch Page)</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://reqres.in/api/users?page={{page}}</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td>
+    <code>pageData</code> ← body <code>$.data</code><br>
+    <code>totalPages</code> ← body <code>$.total_pages</code>
+  </td></tr>
+</table>
+
+<h3>Loop Configuration</h3>
+<table>
+  <tr><td><strong>Exit condition</strong></td><td><code>{{hasMore}} == false</code></td></tr>
+  <tr><td><strong>Max iterations</strong></td><td>10</td></tr>
+  <tr><td><strong>Inner nodes</strong></td><td>Fetch Page → Aggregate → Increment</td></tr>
+</table>
+
+<h3>Variables at Each Stage</h3>
+<table class="var-table">
+  <tr><th>Variable</th><th>After Init</th><th>After Iter 1</th><th>After Iter 2</th></tr>
+  <tr><td>page</td><td>1</td><td>2</td><td>3</td></tr>
+  <tr><td>allUsers</td><td>[]</td><td>[6 users]</td><td>[12 users]</td></tr>
+  <tr><td>hasMore</td><td>—</td><td>true</td><td>false</td></tr>
+  <tr><td>totalPages</td><td>—</td><td>2</td><td>2</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Why Set a Max Iteration Guard?</strong>
+  Without a max-iteration limit, a bug in the <code>hasMore</code> logic could cause
+  an infinite loop. Always set a reasonable upper bound. If the guard triggers, review
+  the exit condition — it likely means the API has more pages than expected.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔀 Paginated API Fetcher"</strong>
+    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Paginated API Fetcher".
+  </li>
+  <li>
+    <strong>Add the Init SetVariable node.</strong><br>
+    Drag a SetVariable node. Configure:
+    <ul>
+      <li><em>Variable</em>: <code>page</code> = <code>1</code></li>
+      <li><em>Variable</em>: <code>allUsers</code> = <code>[]</code></li>
+    </ul>
+    Connect Start → Init Page.
+  </li>
+  <li>
+    <strong>Add the Loop node.</strong><br>
+    Drag a Loop node. Configure:
+    <ul>
+      <li><em>Exit condition</em>: <code>{{hasMore}} == false</code></li>
+      <li><em>Max iterations</em>: <code>10</code></li>
+    </ul>
+    Connect Init Page → Fetch Loop.
+  </li>
+  <li>
+    <strong>Add the HTTP node inside the loop.</strong><br>
+    Inside the Loop body, drag an HTTP node. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://reqres.in/api/users?page={{page}}</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: <code>pageData</code> ← body <code>$.data</code>, <code>totalPages</code> ← body <code>$.total_pages</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add the Aggregate SetVariable node.</strong><br>
+    Inside the Loop body, after the HTTP node, add a SetVariable:
+    <ul>
+      <li><code>allUsers</code> = append <code>{{pageData}}</code></li>
+      <li><code>hasMore</code> = <code>{{page}} &lt; {{totalPages}}</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Add the Increment SetVariable node.</strong><br>
+    Inside the Loop body, after Aggregate, add another SetVariable:
+    <ul>
+      <li><code>page</code> = <code>{{page}} + 1</code></li>
+    </ul>
+    Connect Fetch Page → Aggregate → Increment.
+  </li>
+  <li>
+    <strong>Connect the Loop to End.</strong><br>
+    Connect the Loop's exit output → End. The <code>allUsers</code> variable will
+    contain all collected records.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. The reqres.in API has 2 pages of users (6 per page).
+    The loop should iterate twice, collecting 12 users total.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Init Page</td><td>✅ Pass</td><td>page = 1, allUsers = []</td></tr>
+  <tr><td>2. Fetch Loop (iter 1)</td><td>✅ Pass</td><td>Fetched page 1, 6 users</td></tr>
+  <tr><td>2. Fetch Loop (iter 2)</td><td>✅ Pass</td><td>Fetched page 2, 6 users</td></tr>
+  <tr><td>2. Fetch Loop (exit)</td><td>✅ Pass</td><td>hasMore = false, exiting loop</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>allUsers = 12 users total</td></tr>
+</table>
+
+<h3>Page 1 Response</h3>
+<pre>
+{
+  "page": 1,
+  "per_page": 6,
+  "total": 12,
+  "total_pages": 2,
+  "data": [
+    { "id": 1, "email": "george.bluth@reqres.in", "first_name": "George", ... },
+    { "id": 2, "email": "janet.weaver@reqres.in", "first_name": "Janet", ... },
+    ...
+  ]
+}</pre>
+
+<h3>Page 2 Response</h3>
+<pre>
+{
+  "page": 2,
+  "per_page": 6,
+  "total": 12,
+  "total_pages": 2,
+  "data": [
+    { "id": 7, "email": "michael.lawson@reqres.in", "first_name": "Michael", ... },
+    ...
+  ]
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Rate Limiting</strong>
+  When paginating through real APIs, be mindful of rate limits. Consider adding a
+  delay between iterations or using the API's recommended pagination strategy
+  (cursor-based vs. offset-based).
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add a Record Counter</h3>
+<p>
+  Add a <code>totalFetched</code> variable that tracks how many records have been
+  collected. After the loop, log the total count:
+  <code>"Fetched {{totalFetched}} users across {{page - 1}} pages"</code>.
+</p>
+
+<h3>Exercise 2: Filter During Aggregation</h3>
+<p>
+  Instead of aggregating all users, only collect users whose <code>first_name</code>
+  starts with a specific letter. Add a Condition node inside the loop body between
+  Fetch Page and Aggregate.
+</p>
+
+<h3>Exercise 3: Cursor-Based Pagination</h3>
+<p>
+  Modify the workflow to use cursor-based pagination instead of page numbers. Extract
+  a <code>nextCursor</code> from each response and use it in the next request's URL:
+  <code>/users?cursor={{nextCursor}}</code>. Exit when <code>nextCursor</code> is null.
+</p>
+
+<h3>Exercise 4: Add Error Recovery</h3>
+<p>
+  Wrap the HTTP node in a try/catch. If a page fetch fails (e.g., HTTP 500), retry
+  the same page up to 3 times before giving up. Log which pages succeeded and which
+  failed.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you've mastered pagination loops, return to the
+  <a href="flow-control.html">Flow Control Overview</a> to explore error handling
+  patterns in the advanced samples.
+</div>
+
+<footer>RedfireForge Training Manual — Paginated API Fetcher · April 2026</footer>
+
+</body>
+</html>

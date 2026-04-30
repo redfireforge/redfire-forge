@@ -1,6 +1,7 @@
 import type { TestConfig, Scenario, RequestResult } from '../shared/types';
 import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
 import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
+import { resolveAuthHeaders } from '../shared/utils/authHeaders';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
@@ -36,27 +37,7 @@ export function buildHeaders(scenario: Scenario, token?: string, contentType?: s
       headers[h.key.trim()] = h.value;
     }
   }
-  const auth = scenario.auth;
-  if (auth.type === 'basic' && auth.username) {
-    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
-    headers['Authorization'] = `Basic ${encoded}`;
-  }
-  if (auth.type === 'bearer' && auth.token) {
-    const prefix = auth.prefix?.trim() || 'Bearer';
-    headers['Authorization'] = `${prefix} ${auth.token}`;
-  }
-  if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue) {
-    if (auth.apiKeyIn === 'header') {
-      headers[auth.apiKeyName] = auth.apiKeyValue;
-    }
-  }
-  if (auth.type === 'digest' && auth.username) {
-    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
-    headers['Authorization'] = `Basic ${encoded}`;
-  }
-  if (auth.type === 'oauth2' && token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  Object.assign(headers, resolveAuthHeaders(scenario.auth, token));
   const bt = getEffectiveBodyType(scenario);
   if (contentType) {
     if (bt === 'form-data') {
@@ -77,7 +58,6 @@ export function buildUrl(scenario: Scenario): string {
   }
   return scenario.url;
 }
-export { TokenManager, acquireOAuth2Token } from './tokenManager';
 export { CircuitBreaker } from './circuitBreaker';
 export { getTargetConcurrency } from './loadProfileRunner';
 

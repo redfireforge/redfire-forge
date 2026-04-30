@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery Detail Panel — Tabbed Preview Mockup</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-card: #1e293b;
+    --bg-code: #0b1120;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --primary: #818cf8;
+    --primary-dim: rgba(129,140,248,0.12);
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --danger: #f87171;
+    --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+
+  h2 { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px; }
+
+  /* ─── Detail Panel Shell ─── */
+  .detail-panel {
+    width: 320px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 720px;
+  }
+
+  /* Header */
+  .detail-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px 18px 14px;
+  }
+  .detail-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .detail-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
+  .detail-close {
+    margin-left: auto; cursor: pointer; color: var(--text-muted);
+    font-size: 18px; background: none; border: none; padding: 2px 6px;
+  }
+  .detail-close:hover { color: var(--text); }
+
+  /* Meta */
+  .detail-body {
+    padding: 0 18px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .detail-desc {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .meta-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 70px;
+  }
+  .difficulty-dots { display: flex; gap: 3px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .dot.empty { background: var(--border); }
+  .diff-label { font-size: 11px; font-weight: 600; margin-left: 4px; }
+
+  .live-api-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 12px; padding: 2px 10px; font-size: 11px; color: var(--green);
+  }
+  .live-api-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: rgba(129,140,248,0.1); border: 1px solid rgba(129,140,248,0.2);
+    color: var(--primary);
+  }
+
+  /* ─── Tabbed Preview ─── */
+  .preview-tabs {
+    margin-top: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: rgba(0,0,0,0.1);
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 8px 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s, background 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .tab-btn.active {
+    color: var(--primary);
+    background: rgba(129,140,248,0.06);
+  }
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 20%; right: 20%;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 1px;
+  }
+
+  .tab-panel {
+    position: relative;
+    min-height: 140px;
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+
+  /* Expand button in tab panel top-right */
+  .tab-expand-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.4);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    z-index: 2;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+  }
+  .tab-expand-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--primary-dim);
+  }
+
+  .code-block {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.5;
+    padding: 12px 14px;
+    padding-right: 40px; /* room for expand btn */
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  /* Syntax colors */
+  .ck { color: #6b7280; font-style: italic; }   /* comment */
+  .cs { color: #a78bfa; }                         /* string */
+  .cn { color: #f59e0b; }                         /* number */
+  .cp { color: #818cf8; }                         /* property/key */
+
+  /* Response empty state */
+  .response-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+    gap: 12px;
+    text-align: center;
+  }
+  .response-empty-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .fetch-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--primary);
+    background: var(--primary-dim);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .fetch-btn:hover { background: rgba(129,140,248,0.22); }
+  .fetch-btn svg { width: 14px; height: 14px; }
+
+  /* Fetching state */
+  .response-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 16px;
+    gap: 10px;
+  }
+  .spinner {
+    width: 22px; height: 22px; border: 2.5px solid var(--border);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 12px; color: var(--text-muted); }
+
+  /* ─── Actions ─── */
+  .detail-actions {
+    padding: 16px 18px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .btn-primary {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-secondary {
+    flex: 0 0 auto;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ─── Scene labels ─── */
+  .scene-label {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SCENE 1: Before Fetch (Request tab active)          -->
+<!-- ════════════════════════════════════════════════════ -->
+<div>
+  <h2>① Request tab (before fetch)</h2>
+  <div class="detail-panel">
+    <div class="detail-header">
+      <div class="detail-icon">👥</div>
+      <div>
+        <div class="detail-title">Get All Users</div>
+      </div>
+      <button class="detail-close">✕</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-desc">Fetch all 10 users from JSONPlaceholder — the simplest GET request</div>
+      <div class="detail-meta">
+        <div class="meta-row">
+          <span class="meta-label">Difficulty</span>
+          <span class="difficulty-dots"><span class="dot"></span><span class="dot empty"></span><span class="dot empty"></span></span>
+          <span class="diff-label">EASY</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Live API</span>
+          <span class="live-api-badge"><span class="live-api-dot"></span>jsonplaceholder.typicode.com</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Tags</span>
+          <div class="tag-list">
+            <span class="tag">#get</span>
+            <span class="tag">#users</span>
+            <span class="tag">#rest</span>
+            <span class="tag">#json</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabbed Preview -->
+      <div class="preview-tabs">
+        <div class="tab-bar">
+          <button class="tab-btn active">Request</button>
+          <button class="tab-btn">Response</button>
+        </div>
+        <div class="tab-panel">
+          <!-- Request tab (active) -->
+          <div class="tab-content active">
+            <button class="tab-expand-btn" title="Open in full modal">↗</button>
+            <pre class="code-block"><span class="ck">// Scenario that will be imported</span>
+{
+  <span class="cp">"method"</span>: <span class="cs">"GET"</span>,
+  <span class="cp">"url"</span>: <span class="cs">"https://jsonplaceholder.typicode.com/users"</span>,
+  <span class="cp">"headers"</span>: {
+    <span class="cp">"Accept"</span>: <span class="cs">"application/json"</span>
+  },
+  <span class="cp">"validation"</span>: {
+    <span class="cp">"assertions"</span>: [
+      { <span class="cp">"type"</span>: <span class="cs">"status"</span>, <span class="cp">"expected"</span>: <span class="cs">"200"</span> },
+      { <span class="cp">"type"</span>: <span class="cs">"arrayLength"</span>, <span class="cp">"jsonPath"</span>: <span class="cs">"$"</span>, <span class="cp">"op"</span>: <span class="cs">"="</span>, <span class="cp">"value"</span>: <span class="cn">10</span> }
+    ]
+  }
+}</pre>
+          </div>
+          <!-- Response tab (hidden, empty state) -->
+          <div class="tab-content">
+            <div class="response-empty">
+              <div class="response-empty-text">Fetch a sample response from the live API to preview what this request returns</div>
+              <button class="fetch-btn">
+                <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Fetch Sample
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn-primary">Send Request</button>
+      <button class="btn-secondary">Try It</button>
+    </div>
+  </div>
+  <div class="scene-label">Clean, spacious — only one code block at a time</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SCENE 2: Response tab — empty state                 -->
+<!-- ════════════════════════════════════════════════════ -->
+<div>
+  <h2>② Response tab (before fetch)</h2>
+  <div class="detail-panel">
+    <div class="detail-header">
+      <div class="detail-icon">👥</div>
+      <div>
+        <div class="detail-title">Get All Users</div>
+      </div>
+      <button class="detail-close">✕</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-desc">Fetch all 10 users from JSONPlaceholder — the simplest GET request</div>
+      <div class="detail-meta">
+        <div class="meta-row">
+          <span class="meta-label">Difficulty</span>
+          <span class="difficulty-dots"><span class="dot"></span><span class="dot empty"></span><span class="dot empty"></span></span>
+          <span class="diff-label">EASY</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Live API</span>
+          <span class="live-api-badge"><span class="live-api-dot"></span>jsonplaceholder.typicode.com</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Tags</span>
+          <div class="tag-list">
+            <span class="tag">#get</span>
+            <span class="tag">#users</span>
+            <span class="tag">#rest</span>
+            <span class="tag">#json</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabbed Preview -->
+      <div class="preview-tabs">
+        <div class="tab-bar">
+          <button class="tab-btn">Request</button>
+          <button class="tab-btn active">Response</button>
+        </div>
+        <div class="tab-panel">
+          <!-- Request tab (hidden) -->
+          <div class="tab-content">
+            <button class="tab-expand-btn" title="Open in full modal">↗</button>
+            <pre class="code-block">...</pre>
+          </div>
+          <!-- Response tab (active, empty) -->
+          <div class="tab-content active">
+            <div class="response-empty">
+              <div class="response-empty-text">Fetch a sample response from the live API to preview what this request returns</div>
+              <button class="fetch-btn">
+                <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Fetch Sample
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn-primary">Send Request</button>
+      <button class="btn-secondary">Try It</button>
+    </div>
+  </div>
+  <div class="scene-label">Centered CTA — clear what to do next</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SCENE 3: Response tab — fetching                    -->
+<!-- ════════════════════════════════════════════════════ -->
+<div>
+  <h2>③ Response tab (fetching…)</h2>
+  <div class="detail-panel">
+    <div class="detail-header">
+      <div class="detail-icon">👥</div>
+      <div>
+        <div class="detail-title">Get All Users</div>
+      </div>
+      <button class="detail-close">✕</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-desc">Fetch all 10 users from JSONPlaceholder — the simplest GET request</div>
+      <div class="detail-meta">
+        <div class="meta-row">
+          <span class="meta-label">Difficulty</span>
+          <span class="difficulty-dots"><span class="dot"></span><span class="dot empty"></span><span class="dot empty"></span></span>
+          <span class="diff-label">EASY</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Live API</span>
+          <span class="live-api-badge"><span class="live-api-dot"></span>jsonplaceholder.typicode.com</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Tags</span>
+          <div class="tag-list">
+            <span class="tag">#get</span>
+            <span class="tag">#users</span>
+            <span class="tag">#rest</span>
+            <span class="tag">#json</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-tabs">
+        <div class="tab-bar">
+          <button class="tab-btn">Request</button>
+          <button class="tab-btn active">Response</button>
+        </div>
+        <div class="tab-panel">
+          <div class="tab-content"></div>
+          <div class="tab-content active">
+            <div class="response-loading">
+              <div class="spinner"></div>
+              <div class="loading-text">Fetching from jsonplaceholder.typicode.com…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn-primary">Send Request</button>
+      <button class="btn-secondary">Try It</button>
+    </div>
+  </div>
+  <div class="scene-label">Spinner with API hostname</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SCENE 4: Response tab — fetched                     -->
+<!-- ════════════════════════════════════════════════════ -->
+<div>
+  <h2>④ Response tab (fetched)</h2>
+  <div class="detail-panel">
+    <div class="detail-header">
+      <div class="detail-icon">👥</div>
+      <div>
+        <div class="detail-title">Get All Users</div>
+      </div>
+      <button class="detail-close">✕</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-desc">Fetch all 10 users from JSONPlaceholder — the simplest GET request</div>
+      <div class="detail-meta">
+        <div class="meta-row">
+          <span class="meta-label">Difficulty</span>
+          <span class="difficulty-dots"><span class="dot"></span><span class="dot empty"></span><span class="dot empty"></span></span>
+          <span class="diff-label">EASY</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Live API</span>
+          <span class="live-api-badge"><span class="live-api-dot"></span>jsonplaceholder.typicode.com</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Tags</span>
+          <div class="tag-list">
+            <span class="tag">#get</span>
+            <span class="tag">#users</span>
+            <span class="tag">#rest</span>
+            <span class="tag">#json</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-tabs">
+        <div class="tab-bar">
+          <button class="tab-btn">Request</button>
+          <button class="tab-btn active">Response</button>
+        </div>
+        <div class="tab-panel">
+          <div class="tab-content"></div>
+          <div class="tab-content active">
+            <button class="tab-expand-btn" title="Open in full modal">↗</button>
+            <pre class="code-block"><span class="ck">// GET https://jsonplaceholder.typicode.com/users</span>
+<span class="ck">// Status: 200  ·  Content-Type: application/json</span>
+[
+  {
+    <span class="cp">"id"</span>: <span class="cn">1</span>,
+    <span class="cp">"name"</span>: <span class="cs">"Leanne Graham"</span>,
+    <span class="cp">"username"</span>: <span class="cs">"Bret"</span>,
+    <span class="cp">"email"</span>: <span class="cs">"Sincere@april.biz"</span>,
+    <span class="cp">"address"</span>: {
+      <span class="cp">"city"</span>: <span class="cs">"Gwenborough"</span>,
+      <span class="cp">"zipcode"</span>: <span class="cs">"92998-3874"</span>
+    },
+    <span class="cp">"phone"</span>: <span class="cs">"1-770-736-8031 x56442"</span>,
+    <span class="cp">"company"</span>: {
+      <span class="cp">"name"</span>: <span class="cs">"Romaguera-Crona"</span>
+    }
+  },
+  <span class="ck">// … 9 more users</span>
+]</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn-primary">Send Request</button>
+      <button class="btn-secondary">Try It</button>
+    </div>
+  </div>
+  <div class="scene-label">↗ expands THIS response in a modal</div>
+</div>
+
+</body>
+</html>

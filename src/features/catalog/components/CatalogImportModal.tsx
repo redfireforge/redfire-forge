@@ -3,7 +3,7 @@ import type { ParsedSpec, CatalogEntry } from '../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../utils/openApiParser';
 import { isTauri } from '../../../shared/utils/platform';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
-import { sampleCatalogSpecs, SAMPLE_CATALOG_CATEGORIES, type SampleCatalogCategory } from '../../../data/sampleCatalogSpecs';
+import { catalogSpecCatalog, CATALOG_SPEC_CATEGORIES, type CatalogSpecCategory } from '../../../data/galleries/catalog-specs';
 
 interface Props {
   existingEntries: CatalogEntry[];
@@ -11,12 +11,14 @@ interface Props {
   onReimport?: (entryId: string, parsed: ParsedSpec) => void;
   onClose: () => void;
   reimportEntryId?: string;
+  /** Pre-fill the import modal with a spec (e.g. from gallery). Auto-parses and goes to preview. */
+  initialSpec?: { yaml: string; name: string };
 }
 
 type Step = 'pick' | 'preview' | 'error';
 type InputMode = 'file' | 'paste' | 'gallery';
 
-export default function CatalogImportModal({ existingEntries, onImport, onReimport, onClose, reimportEntryId }: Props) {
+export default function CatalogImportModal({ existingEntries, onImport, onReimport, onClose, reimportEntryId, initialSpec }: Props) {
   const [step, setStep] = useState<Step>('pick');
   const [inputMode, setInputMode] = useState<InputMode>('file');
   const [parsed, setParsed] = useState<ParsedSpec | null>(null);
@@ -25,7 +27,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const [error, setError] = useState('');
   const [tauriDragHover, setTauriDragHover] = useState(false);
   const [gallerySearch, setGallerySearch] = useState('');
-  const [galleryCategory, setGalleryCategory] = useState<SampleCatalogCategory | 'all'>('all');
+  const [galleryCategory, setGalleryCategory] = useState<CatalogSpecCategory | 'all'>('all');
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
@@ -42,6 +44,14 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   }, []);
 
   handleFileRef.current = handleFile;
+
+  // Auto-parse initial spec (e.g. from gallery "Import Spec" click)
+  useEffect(() => {
+    if (initialSpec) {
+      handleFile(initialSpec.yaml, initialSpec.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -232,7 +242,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                       onChange={e => setGallerySearch(e.target.value)}
                     />
                     <div className="cat-gallery-pills">
-                      {SAMPLE_CATALOG_CATEGORIES.map(cat => (
+                      {CATALOG_SPEC_CATEGORIES.map(cat => (
                         <button
                           key={cat.key}
                           className={`cat-gallery-pill ${galleryCategory === cat.key ? 'active' : ''}`}
@@ -244,7 +254,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                     </div>
                   </div>
                   <div className="cat-gallery-grid">
-                    {sampleCatalogSpecs
+                    {catalogSpecCatalog
                       .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
                       .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
                       .map(sample => (
@@ -264,7 +274,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                           </div>
                         </button>
                       ))}
-                    {sampleCatalogSpecs
+                    {catalogSpecCatalog
                       .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
                       .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
                       .length === 0 && (

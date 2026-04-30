@@ -16,7 +16,8 @@ describe('setHttpTransport', () => {
     vi.clearAllMocks();
     setHttpTransport(null);
     globalThis.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ status: 200, statusText: 'OK', headers: {}, body: 'proxy' }),
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ status: 200, statusText: 'OK', headers: {}, body: 'proxy' })),
     });
   });
 

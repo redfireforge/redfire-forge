@@ -49,8 +49,8 @@ test.describe('Response Detail Modal', () => {
             responseBody: longResponseBody, timestamp: Date.now(), passed: true,
             validationMode: 'none', failureDetails: [],
             timing: {
-              dnsLookupMs: 2, tcpConnectionMs: 3, tlsHandshakeMs: 4,
-              ttfbMs: 5, contentDownloadMs: 6,
+              dnsLookup: 2, tcpConnect: 3, tlsHandshake: 4,
+              ttfb: 5, download: 6, total: 20,
             },
           },
         ],
@@ -63,7 +63,7 @@ test.describe('Response Detail Modal', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('modal opens with expand/close buttons', async ({ page }) => {
+  test('modal opens with title and footer close button', async ({ page }) => {
     // Wait for results table to be visible
     await expect(page.locator('.metric-label:has-text("Total Requests")')).toBeVisible({ timeout: 5000 });
     
@@ -77,13 +77,10 @@ test.describe('Response Detail Modal', () => {
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
     // Check header has title
-    await expect(page.locator('.response-detail-header h3')).toHaveText('Response Detail');
+    await expect(page.locator('.response-detail-modal .ram-header h3')).toHaveText('Response Detail');
     
-    // Check expand button exists
-    await expect(page.locator('.modal-expand-btn')).toBeVisible();
-    
-    // Check close button exists
-    await expect(page.locator('.ram-modal-close')).toBeVisible();
+    // Check footer close button exists (header expand/close are hidden via CSS)
+    await expect(page.locator('.response-detail-modal button:has-text("Close")')).toBeVisible();
   });
 
   test('scrollbar is thin (5px) in normal mode', async ({ page }) => {
@@ -109,7 +106,7 @@ test.describe('Response Detail Modal', () => {
     expect(scrollbarWidth).toBe('5px');
   });
 
-  test('scrollbar is wider (10px) in expanded mode', async ({ page }) => {
+  test('scrollbar style is consistent in response body', async ({ page }) => {
     // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
     
@@ -118,12 +115,6 @@ test.describe('Response Detail Modal', () => {
     
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
-    
-    // Click expand button
-    await page.locator('.modal-expand-btn').click();
-    
-    // Wait for expanded class to be applied
-    await expect(page.locator('.modal-fullscreen')).toBeVisible({ timeout: 1000 });
     
     // Get the body element
     const body = page.locator('.response-detail-body');
@@ -134,8 +125,8 @@ test.describe('Response Detail Modal', () => {
       return computedStyle.width;
     });
     
-    // In expanded mode, scrollbar should be 10px
-    expect(scrollbarWidth).toBe('10px');
+    // Scrollbar should be 5px (expand/close buttons are hidden in this modal)
+    expect(scrollbarWidth).toBe('5px');
   });
 
   test('modal has correct flex layout for scrolling', async ({ page }) => {
@@ -160,7 +151,7 @@ test.describe('Response Detail Modal', () => {
     expect(bodyMinHeight).toBe('0px');
   });
 
-  test('expandClass is applied to both overlay and dialog', async ({ page }) => {
+  test('modal overlay and dialog have correct classes', async ({ page }) => {
     // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
     
@@ -170,14 +161,11 @@ test.describe('Response Detail Modal', () => {
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
-    // Click expand button
-    await page.locator('.modal-expand-btn').click();
+    // Check overlay has response-detail-overlay class
+    await expect(page.locator('.modal-overlay.response-detail-overlay')).toBeVisible({ timeout: 1000 });
     
-    // Check overlay has modal-fullscreen class
-    await expect(page.locator('.modal-overlay.modal-fullscreen')).toBeVisible({ timeout: 1000 });
-    
-    // Check dialog has modal-fullscreen class
-    await expect(page.locator('.modal.modal-fullscreen')).toBeVisible();
+    // Check dialog has response-detail-modal class
+    await expect(page.locator('.modal.ram-modal.response-detail-modal')).toBeVisible();
   });
 
   test('badges stay in body in gray box (not in header)', async ({ page }) => {
@@ -203,8 +191,8 @@ test.describe('Response Detail Modal', () => {
     // Check method badge exists in body
     await expect(page.locator('.response-detail-body .method-badge')).toBeVisible();
     
-    // Check status tag exists in body
-    await expect(page.locator('.response-detail-body .tag')).toBeVisible();
+    // Check status tag exists in body (use first() since there are multiple tags)
+    await expect(page.locator('.response-detail-body .tag').first()).toBeVisible();
   });
 
   test('close button closes the modal', async ({ page }) => {
@@ -217,14 +205,14 @@ test.describe('Response Detail Modal', () => {
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
-    // Click close button
-    await page.locator('.ram-modal-close').click();
+    // Click footer close button (header close button is hidden via CSS)
+    await page.locator('.response-detail-modal button:has-text("Close")').click();
     
     // Modal should disappear
     await expect(page.locator('.response-detail-modal')).not.toBeVisible({ timeout: 1000 });
   });
 
-  test('clicking overlay closes the modal', async ({ page }) => {
+  test('modal can be reopened after closing', async ({ page }) => {
     // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
     
@@ -234,10 +222,16 @@ test.describe('Response Detail Modal', () => {
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
-    // Click on overlay (not the modal itself)
-    await page.locator('.modal-overlay').click({ position: { x: 10, y: 10 } });
+    // Close via footer button
+    await page.locator('.response-detail-modal button:has-text("Close")').click();
     
     // Modal should disappear
     await expect(page.locator('.response-detail-modal')).not.toBeVisible({ timeout: 1000 });
+    
+    // Click row again to reopen
+    await page.locator('tr.clickable-row').first().click();
+    
+    // Modal should reappear
+    await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
   });
 });

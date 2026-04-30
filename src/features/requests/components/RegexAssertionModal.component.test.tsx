@@ -24,12 +24,12 @@ describe('RegexAssertionModal', () => {
   it('renders header and close button', () => {
     renderModal();
     expect(screen.getByText('Regex Assertion Builder')).toBeTruthy();
-    expect(screen.getByText('×')).toBeTruthy();
+    expect(screen.getByText('Close')).toBeTruthy();
   });
 
   it('calls onClose when close button clicked', () => {
     const { onClose } = renderModal();
-    fireEvent.click(screen.getByText('×'));
+    fireEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -326,44 +326,5 @@ describe('PickerNode', () => {
     );
     const row = container.querySelector('.ram-tree-row') as HTMLElement;
     expect(row.style.paddingLeft).toBe('62px'); // 3 * 18 + 8
-  });
-});
-
-describe('RegexAssertionModal expand/shrink', () => {
-  it('renders expand button in header and footer', () => {
-    const { container } = renderModal();
-    const btns = container.querySelectorAll('.modal-expand-btn');
-    expect(btns.length).toBe(2);
-    expect(btns[0].textContent).toBe('⊕');
-    expect(btns[1].textContent).toBe('⊕');
-    expect(btns[1].classList.contains('modal-expand-btn-bottom')).toBe(true);
-  });
-
-  it('toggles modal-expanded class when expand clicked', () => {
-    const { container } = renderModal();
-    const modal = container.querySelector('.ram-modal')!;
-    expect(modal.classList.contains('modal-expanded')).toBe(false);
-    fireEvent.click(container.querySelector('.modal-expand-btn')!);
-    expect(modal.classList.contains('modal-expanded')).toBe(true);
-    fireEvent.click(container.querySelector('.modal-expand-btn')!);
-    expect(modal.classList.contains('modal-expanded')).toBe(false);
-  });
-
-  it('shows shrink icon when expanded', () => {
-    const { container } = renderModal();
-    fireEvent.click(container.querySelector('.modal-expand-btn')!);
-    const btns = container.querySelectorAll('.modal-expand-btn');
-    expect(btns[0].textContent).toBe('⊖');
-    expect(btns[1].textContent).toBe('⊖');
-  });
-
-  it('footer expand button also toggles expansion', () => {
-    const { container } = renderModal();
-    const footer = container.querySelector('.modal-expand-btn-bottom')!;
-    const modal = container.querySelector('.ram-modal')!;
-    fireEvent.click(footer);
-    expect(modal.classList.contains('modal-expanded')).toBe(true);
-    fireEvent.click(footer);
-    expect(modal.classList.contains('modal-expanded')).toBe(false);
   });
 });

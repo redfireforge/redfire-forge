@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Health Check — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">💚</div>
+    <h1>API Health Check</h1>
+    <div class="subtitle">Assertion Preset — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> &nbsp; <code>api-validation</code> &nbsp; 2 assertions &nbsp; jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge · April 2026</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The API Health Check preset provides a quick smoke test for any API endpoint that returns a list of resources. It validates two fundamental properties: the HTTP status code indicates success, and the response body contains at least one item.</p>
+  <p>Use this preset as the first line of defense in any test workflow. If the health check fails, there's no point running more detailed assertions — the API is either down or returning unexpected data.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Attach this preset to the first request in your workflow as a gate check. If it fails, the workflow can stop early and save time.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Status Code Assertions</strong> — How to validate that the HTTP response code falls within the 2xx success range</li>
+    <li><strong>Array Length Assertions</strong> — How to check that a response body (parsed as a JSON array) contains a minimum number of elements</li>
+    <li><strong>Smoke Testing</strong> — The practice of running lightweight checks to verify basic API availability</li>
+    <li><strong>Gate Checks</strong> — Using pass/fail assertions to control workflow execution flow</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. Assertion Rules</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Field / Path</th>
+        <th>Operator</th>
+        <th>Expected Value</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>response.status</td>
+        <td><code>matches</code></td>
+        <td><code>2xx</code></td>
+        <td>HTTP status code is in the 200–299 success range</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>response.body</td>
+        <td><code>&gt;=</code></td>
+        <td><code>1</code></td>
+        <td>Response body is an array with at least 1 element</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. How It Works</h2>
+
+  <h3>Assertion 1 — Status is 2xx</h3>
+  <p>After the request completes, RedfireForge reads the HTTP status code from the response. The <code>status</code> assertion type uses a pattern match against the <code>2xx</code> range, meaning any status from 200 to 299 passes. This covers <code>200 OK</code>, <code>201 Created</code>, <code>204 No Content</code>, and all other success codes.</p>
+  <p>If the server returns a 4xx or 5xx error, this assertion immediately fails and flags the response as unhealthy.</p>
+
+  <h3>Assertion 2 — Array Has Items</h3>
+  <p>The <code>arrayLength</code> assertion parses the response body as a JSON array and checks its length. The <code>&gt;=&nbsp;1</code> condition ensures the API returned at least one item. This catches edge cases like an API that returns <code>200 OK</code> but with an empty array <code>[]</code> — technically a success response, but functionally useless for testing.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    If the response body is not a valid JSON array, the arrayLength assertion will fail with a parse error. This is intentional — a health check endpoint should return predictable data.
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Preset</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Assertions</strong> tab in RedfireForge.</li>
+    <li>Find <strong>💚 API Health Check</strong> and click <strong>Import Preset</strong>.</li>
+    <li>The preset is added to your workspace's assertion library.</li>
+  </ol>
+
+  <h3>Step 2 — Attach to a Request</h3>
+  <ol>
+    <li>Open or create a request node in your workflow (e.g., <code>GET https://jsonplaceholder.typicode.com/users</code>).</li>
+    <li>In the request's <strong>Assertions</strong> panel, click <strong>Add Preset</strong>.</li>
+    <li>Select <strong>API Health Check</strong> from the list. Both assertions appear in the panel.</li>
+  </ol>
+
+  <h3>Step 3 — Run and Review</h3>
+  <ol>
+    <li>Click <strong>Run</strong> to execute the request.</li>
+    <li>Check the assertion results: each rule shows ✅ (pass) or ❌ (fail).</li>
+    <li>For a healthy API, both assertions should pass — status 200 and an array with 10 users.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Test Different Endpoints</h3>
+  <p>Apply the API Health Check preset to multiple endpoints and verify all pass:</p>
+  <ol>
+    <li><code>GET https://jsonplaceholder.typicode.com/posts</code> — should return 100 posts</li>
+    <li><code>GET https://jsonplaceholder.typicode.com/comments</code> — should return 500 comments</li>
+    <li><code>GET https://jsonplaceholder.typicode.com/todos</code> — should return 200 todos</li>
+  </ol>
+
+  <h3>Exercise 2 — Trigger a Failure</h3>
+  <p>Intentionally cause the assertions to fail to understand the error output:</p>
+  <ol>
+    <li>Send a request to a non-existent endpoint like <code>GET https://jsonplaceholder.typicode.com/invalid</code>.</li>
+    <li>Observe which assertion fails and what error message is displayed.</li>
+    <li>Try an endpoint that returns a single object instead of an array (e.g., <code>GET /users/1</code>) and see how the arrayLength assertion responds.</li>
+  </ol>
+
+  <h3>Exercise 3 — Build a Health Dashboard</h3>
+  <p>Create a workflow with 4 request nodes, each targeting a different resource endpoint. Attach the API Health Check preset to every node. Run the full workflow and verify all 8 assertions pass (2 per request × 4 requests).</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Once you're comfortable with the health check, try the <strong>📄 Paginated List Validation</strong> preset to learn more assertion types.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — API Health Check · April 2026
+  </footer>
+
+</body>
+</html>

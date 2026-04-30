@@ -6,6 +6,7 @@ import { prettyJson } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
+import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
 import { highlightJson } from '../../../shared/utils/jsonHighlighter';
 
 interface Props {
@@ -100,23 +101,20 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
     if (auth.type === 'oauth2' && auth.tokenUrl) {
       try {
         const token = await acquireOAuth2Token(auth);
-        hdrs['Authorization'] = `Bearer ${token}`;
+        Object.assign(hdrs, resolveAuthHeaders(auth, token));
       } catch (err) {
         setLiveResponse({ status: 0, statusText: '', headers: {}, body: '', timeMs: 0,
           error: `OAuth2 token acquisition failed: ${err instanceof Error ? err.message : String(err)}` });
         setLoading(false);
         return;
       }
-    } else if (auth.type === 'basic' && auth.username) {
-      hdrs['Authorization'] = `Basic ${btoa(`${auth.username}:${auth.password ?? ''}`)}`;
-    } else if (auth.type === 'bearer' && auth.token) {
-      hdrs['Authorization'] = `${auth.prefix?.trim() || 'Bearer'} ${auth.token}`;
-    } else if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue && auth.apiKeyIn !== 'query') {
-      let val = auth.apiKeyValue;
-      if (auth.apiKeyName.toLowerCase() === 'authorization' && !val.match(/^(Bearer|Basic|Token)\s/i)) {
-        val = `Bearer ${val}`;
+    } else if (auth.type !== 'none') {
+      const authHdrs = resolveAuthHeaders(auth);
+      // Auto-prefix Bearer for apikey named "Authorization" without a scheme
+      if (auth.type === 'apikey' && auth.apiKeyName?.toLowerCase() === 'authorization' && authHdrs['Authorization'] && !authHdrs['Authorization'].match(/^(Bearer|Basic|Token)\s/i)) {
+        authHdrs['Authorization'] = `Bearer ${authHdrs['Authorization']}`;
       }
-      hdrs[auth.apiKeyName] = val;
+      Object.assign(hdrs, authHdrs);
     }
     if (bodyText.trim() && endpoint.method !== 'GET')
       hdrs['Content-Type'] = hdrs['Content-Type'] || 'application/json';

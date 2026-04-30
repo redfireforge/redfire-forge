@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User API Smoke Test — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">💨</div>
+    <h1>User API Smoke Test</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Smoke · 3 Scenarios · jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>User API Smoke Test</strong> is a quick sanity check for the JSONPlaceholder Users API. Smoke tests answer a simple question: <em>"Is the API up and returning expected data?"</em></p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Verifying API availability after deployments or infrastructure changes.</li>
+    <li>Running as a first check before deeper regression or contract testing.</li>
+    <li>Learning how RedfireForge scenarios and assertions work with minimal complexity.</li>
+  </ul>
+  <p>All three scenarios target the JSONPlaceholder API (<code>jsonplaceholder.typicode.com</code>), a free mock REST API that returns predictable, stable data — making it perfect for learning.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Smoke testing</strong> — the lightest form of testing that verifies basic API health.</li>
+    <li><strong>Status code assertions</strong> — confirming the API returns <code>200 OK</code>.</li>
+    <li><strong>Array length assertions</strong> — verifying a collection contains the expected number of items.</li>
+    <li><strong>Field existence checks</strong> — ensuring required fields like <code>name</code> are present in the response.</li>
+    <li><strong>Multi-scenario test design</strong> — structuring related checks as separate scenarios within one test.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 3 scenarios, each targeting a different endpoint on the Users API:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>List All Users</td>
+        <td><code>GET</code></td>
+        <td><code>/users</code></td>
+        <td>Status = 200, Array length = 10</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Get Single User</td>
+        <td><code>GET</code></td>
+        <td><code>/users/1</code></td>
+        <td>Status = 200, Field <code>name</code> exists</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Fetch User Posts</td>
+        <td><code>GET</code></td>
+        <td><code>/users/1/posts</code></td>
+        <td>Status = 200, Response is array</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — List All Users</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>Response body (root)</td>
+        <td>equals</td>
+        <td><code>10</code></td>
+        <td>JSONPlaceholder always returns exactly 10 users.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Get Single User</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>User with ID 1 exists and is returned.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.name</code></td>
+        <td>matches</td>
+        <td><code>.+</code></td>
+        <td>The <code>name</code> field exists and is non-empty.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — Fetch User Posts</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The posts endpoint is reachable.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>Array length of body</td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>User 1 has at least one post.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>💨 User API Smoke Test</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 3 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its method, URL, and assertions.</li>
+    <li>Note that no request body or headers are needed — these are simple <code>GET</code> requests.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 3 scenarios sequentially.</li>
+    <li>Watch the progress indicator as each scenario completes.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>Click on any scenario to expand its assertion results.</li>
+    <li>Green checkmarks (✅) indicate passed assertions; red crosses (❌) indicate failures.</li>
+    <li>For each assertion, you can see the expected value, actual value, and comparison operator.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    All 3 scenarios should pass with green checkmarks. If any fail, check your network connection — the JSONPlaceholder API is free and requires no authentication.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the smoke test, try these exercises to deepen your understanding:</p>
+
+  <h4>Exercise 1 — Add a Fourth Scenario</h4>
+  <p>Add a scenario that fetches <code>GET /users/1/todos</code> and asserts that the response status is <code>200</code> and the array contains items.</p>
+
+  <h4>Exercise 2 — Test an Invalid User</h4>
+  <p>Create a scenario for <code>GET /users/999</code>. What status code does the API return? Add an assertion for it.</p>
+
+  <h4>Exercise 3 — Tighten the Assertions</h4>
+  <p>In Scenario 2 (Get Single User), add assertions to verify that the <code>email</code> field matches an email pattern using a <code>regex</code> assertion with the pattern <code>^[\w.]+@[\w.]+\.\w+$</code>.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported test — you can modify it freely without affecting the original gallery sample.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — User API Smoke Test · April 2026
+  </footer>
+
+</body>
+</html>

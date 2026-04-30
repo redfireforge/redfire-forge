@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — API Patterns: Category Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>API Patterns</h1>
+  <div class="subtitle">Workflow Category — Overview Training Manual</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Master common API interaction patterns: chaining requests, parallel execution,
+    debug tracing, and expression-driven transformations. These workflows teach
+    production-ready techniques for building reliable API pipelines.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Workflows: 4 &nbsp;|&nbsp; Difficulty Range: Easy → Advanced<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">Category Overview</a></li>
+  <li><a href="#workflows">Workflows in This Category</a></li>
+  <li><a href="#skills-map">Skills &amp; Concepts Map</a></li>
+  <li><a href="#related">Related Workflows in Other Categories</a></li>
+  <li><a href="#learning-path">Recommended Learning Path</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="overview">1. Category Overview</h2>
+<p>
+  The <strong>API Patterns</strong> category contains workflow samples that demonstrate
+  common patterns for interacting with HTTP APIs. These patterns form the building blocks
+  of real-world API automation — from simple request chaining to advanced debugging
+  and expression-driven data processing.
+</p>
+<p>
+  Each workflow in this category focuses on a specific pattern that you'll encounter
+  repeatedly when building production workflows. Master these patterns and you'll be
+  able to compose them into complex, reliable API pipelines.
+</p>
+
+<div class="callout">
+  <strong>📘 What Makes a Good API Pattern?</strong>
+  A well-designed API pattern is <em>composable</em> (can be combined with others),
+  <em>observable</em> (provides clear logging and tracing), and <em>resilient</em>
+  (handles errors gracefully). The workflows in this category demonstrate all three
+  qualities.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. WORKFLOWS                                -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="workflows">2. Workflows in This Category</h2>
+
+<table>
+  <tr><th>Workflow</th><th>Difficulty</th><th>Nodes</th><th>Key Pattern</th></tr>
+  <tr>
+    <td><a href="create-extract-verify-easy.html">Create → Extract → Verify</a></td>
+    <td><span class="badge badge-easy">★☆☆ Easy</span></td>
+    <td>5</td>
+    <td>Request chaining, variable extraction, verification</td>
+  </tr>
+  <tr>
+    <td><a href="parallel-api-calls-easy.html">Parallel API Calls</a></td>
+    <td><span class="badge badge-easy">★☆☆ Easy</span></td>
+    <td>7</td>
+    <td>Fan-out/fan-in, parallel execution, result aggregation</td>
+  </tr>
+  <tr>
+    <td><a href="debug-trace-advanced.html">Debug Trace Pipeline</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>8</td>
+    <td>Debug logging, console output, request/response tracing</td>
+  </tr>
+  <tr>
+    <td><a href="expression-functions-advanced.html">Expression Functions Showcase</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>5</td>
+    <td>Expression syntax, built-in functions, template literals</td>
+  </tr>
+</table>
+
+<h3>Difficulty Breakdown</h3>
+<ul>
+  <li><strong>Easy (★☆☆):</strong> 2 workflows — Suitable for beginners. Linear flows, basic HTTP operations, straightforward variable passing.</li>
+  <li><strong>Advanced (★★★):</strong> 2 workflows — For experienced users. Complex data flows, conditional logic, expression engine mastery, debugging techniques.</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. SKILLS MAP                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="skills-map">3. Skills &amp; Concepts Map</h2>
+
+<table>
+  <tr><th>Concept</th><th>Covered In</th></tr>
+  <tr>
+    <td>HTTP POST requests</td>
+    <td>Create → Extract → Verify</td>
+  </tr>
+  <tr>
+    <td>HTTP GET requests</td>
+    <td>Create → Extract → Verify, Parallel API Calls, Debug Trace Pipeline</td>
+  </tr>
+  <tr>
+    <td>Variable extraction from responses</td>
+    <td>Create → Extract → Verify</td>
+  </tr>
+  <tr>
+    <td>SetVariable node</td>
+    <td>Create → Extract → Verify, Expression Functions Showcase</td>
+  </tr>
+  <tr>
+    <td>Parallel execution (fork/join)</td>
+    <td>Parallel API Calls</td>
+  </tr>
+  <tr>
+    <td>Console logging &amp; debug output</td>
+    <td>Debug Trace Pipeline</td>
+  </tr>
+  <tr>
+    <td>Condition nodes</td>
+    <td>Debug Trace Pipeline, Expression Functions Showcase</td>
+  </tr>
+  <tr>
+    <td>Expression functions (string, math, date)</td>
+    <td>Expression Functions Showcase</td>
+  </tr>
+  <tr>
+    <td>Template literals in variables</td>
+    <td>Expression Functions Showcase</td>
+  </tr>
+  <tr>
+    <td>Script node (Transform mode)</td>
+    <td>Expression Functions Showcase</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. RELATED                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="related">4. Related Workflows in Other Categories</h2>
+
+<p>
+  Several workflows in other categories also demonstrate API-related patterns.
+  If you're looking to deepen your API skills, explore these as well:
+</p>
+
+<h3>Script Node Category</h3>
+<table>
+  <tr><th>Workflow</th><th>Relevance</th></tr>
+  <tr>
+    <td>JSON Formatter (Easy)</td>
+    <td>Uses Script node to parse and reshape API response data</td>
+  </tr>
+  <tr>
+    <td>Cross-API Validator (Medium)</td>
+    <td>Validates data across multiple API endpoints using Script + Fork/Join</td>
+  </tr>
+</table>
+
+<h3>Diverse APIs Category</h3>
+<table>
+  <tr><th>Workflow</th><th>Relevance</th></tr>
+  <tr>
+    <td>Multi-API Dashboard</td>
+    <td>Aggregates data from multiple distinct APIs into a unified view</td>
+  </tr>
+  <tr>
+    <td>API Health Monitor</td>
+    <td>Periodic health checking of multiple API endpoints</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Cross-Category Learning</strong>
+  API patterns don't exist in isolation. The best workflows combine API patterns
+  with script transformations, conditional routing, and error handling. Once you've
+  completed this category, explore the Script Node and Diverse APIs categories to
+  see how patterns compose together.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. LEARNING PATH                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="learning-path">5. Recommended Learning Path</h2>
+
+<ol>
+  <li>
+    <strong><span class="step-num">1</span> Create → Extract → Verify</strong> <span class="badge badge-easy">Easy</span><br>
+    Start here. Learn the fundamental pattern of chaining HTTP requests and extracting
+    data between them. This is the most common pattern in API automation.
+  </li>
+  <li>
+    <strong><span class="step-num">2</span> Parallel API Calls</strong> <span class="badge badge-easy">Easy</span><br>
+    Learn how to execute multiple API calls concurrently and aggregate the results.
+    Essential for performance-sensitive workflows.
+  </li>
+  <li>
+    <strong><span class="step-num">3</span> Debug Trace Pipeline</strong> <span class="badge badge-advanced">Advanced</span><br>
+    Master debugging techniques. Learn how to add comprehensive logging to trace
+    request/response lifecycle — critical for troubleshooting production workflows.
+  </li>
+  <li>
+    <strong><span class="step-num">4</span> Expression Functions Showcase</strong> <span class="badge badge-advanced">Advanced</span><br>
+    Explore the expression engine. Learn built-in functions for string manipulation,
+    math operations, and date formatting without writing full scripts.
+  </li>
+</ol>
+
+<div class="callout">
+  <strong>📘 After Completing This Category</strong>
+  You'll have a solid foundation in API interaction patterns. Next, explore the
+  <strong>Script Node</strong> category for advanced data transformation, or the
+  <strong>Diverse APIs</strong> category for real-world multi-API integration scenarios.
+</div>
+
+<footer>RedfireForge Training Manual — API Patterns Category Overview · April 2026</footer>
+
+</body>
+</html>

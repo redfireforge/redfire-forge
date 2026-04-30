@@ -38,7 +38,8 @@ describe('httpFetch', () => {
   describe('browser proxy mode', () => {
     it('sends request through proxy', async () => {
       vi.mocked(globalThis.fetch).mockResolvedValueOnce({
-        json: () => Promise.resolve({ status: 200, statusText: 'OK', headers: {}, body: 'ok' }),
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ status: 200, statusText: 'OK', headers: {}, body: 'ok' })),
       } as unknown as Response);
 
       const result = await httpFetch('http://example.com', 'GET', {});
@@ -48,7 +49,8 @@ describe('httpFetch', () => {
 
     it('includes body in proxy payload', async () => {
       vi.mocked(globalThis.fetch).mockResolvedValueOnce({
-        json: () => Promise.resolve({ status: 201, statusText: 'Created', headers: {}, body: '{}' }),
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ status: 201, statusText: 'Created', headers: {}, body: '{}' })),
       } as unknown as Response);
 
       await httpFetch('http://example.com/api', 'POST', { 'Content-Type': 'application/json' }, '{"a":1}');
@@ -57,6 +59,25 @@ describe('httpFetch', () => {
       expect(parsed.url).toBe('http://example.com/api');
       expect(parsed.method).toBe('POST');
       expect(parsed.body).toBe('{"a":1}');
+    });
+
+    it('returns structured error when browser fetch to /__proxy fails', async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      const result = await httpFetch('https://idp.example/oauth/token', 'POST', {}, 'x=1');
+      expect(result.status).toBe(0);
+      expect(result.error).toMatch(/POST \/__proxy/);
+    });
+
+    it('returns structured error when proxy responds with non-JSON', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('<!doctype html>'),
+      } as unknown as Response);
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toMatch(/non-JSON/);
     });
   });
 

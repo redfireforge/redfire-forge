@@ -259,7 +259,7 @@ test.describe('Workflow Webhook Trigger', () => {
 
   test('can drag webhook node from palette', async ({ page }) => {
     // Should see webhook trigger in palette
-    const paletteBlock = page.locator('.wf-palette-block').filter({ hasText: 'Webhook' });
+    const paletteBlock = page.locator('.wf-palette-block').filter({ hasText: 'Webhook Trigger' });
     await expect(paletteBlock).toBeVisible({ timeout: 5_000 });
 
     // Should show webhook icon badge and description

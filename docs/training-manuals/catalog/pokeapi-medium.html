@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PokéAPI — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚡</div>
+    <h1>PokéAPI</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> &nbsp; <code>public-api</code> &nbsp; 10 endpoints &nbsp; pokeapi.co</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>PokéAPI is a comprehensive, free RESTful API that serves detailed data from the Pokémon video game franchise. It exposes over 1,000 Pokémon with their types, abilities, moves, species data, evolution chains, and much more — all interconnected through linked resource URLs.</p>
+  <p>This catalog spec is designed for intermediate users who want to practice working with deeply nested responses, linked resources, and paginated collections. Unlike simple CRUD APIs, PokéAPI's data model is a rich graph of interconnected entities that requires you to follow links across multiple requests.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    PokéAPI is read-only — all endpoints use <code>GET</code>. The challenge comes from navigating the complex, deeply nested data structure, not from write operations.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Linked Resources</strong> — Following URL references to related objects (HATEOAS pattern)</li>
+    <li><strong>Deeply Nested JSON</strong> — Parsing multi-level response objects with arrays of objects</li>
+    <li><strong>Pagination</strong> — Using <code>limit</code> and <code>offset</code> to page through large collections</li>
+    <li><strong>Large Response Payloads</strong> — Handling responses with 50+ fields and nested arrays</li>
+    <li><strong>Resource Graphs</strong> — Understanding how Pokémon → Types → Abilities → Moves interconnect</li>
+    <li><strong>Path Parameters</strong> — Lookup by ID or name (<code>/pokemon/pikachu</code> or <code>/pokemon/25</code>)</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://pokeapi.co/api/v2</code></td></tr>
+    <tr><td>Authentication</td><td>None required</td></tr>
+    <tr><td>Rate Limits</td><td>100 requests/IP/minute (cached via CloudFlare)</td></tr>
+    <tr><td>Response Format</td><td>JSON</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Data Model</h3>
+  <p>PokéAPI organizes Pokémon data across interconnected resource types:</p>
+  <ul>
+    <li><strong>Pokémon</strong> — 1,300+ entries with stats, types, abilities, moves, sprites</li>
+    <li><strong>Types</strong> — 20 types (fire, water, grass…) with damage relations</li>
+    <li><strong>Abilities</strong> — 350+ abilities with effect descriptions and Pokémon that have them</li>
+    <li><strong>Moves</strong> — 900+ moves with power, accuracy, type, and effect</li>
+    <li><strong>Species</strong> — Species data including evolution chain, habitat, flavor text</li>
+    <li><strong>Evolution Chains</strong> — Linked evolution progressions (e.g., Charmander → Charmeleon → Charizard)</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Resources reference each other via full URLs. For example, a Pokémon's <code>types</code> field contains URLs like <code>https://pokeapi.co/api/v2/type/10</code> that you follow to get type details.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/pokemon</code></td>
+        <td>List Pokémon (paginated)</td>
+        <td>Paginated list with <code>next</code>/<code>previous</code> URLs</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/pokemon/{idOrName}</code></td>
+        <td>Get Pokémon by ID or name</td>
+        <td>Full Pokémon object (large payload)</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/type</code></td>
+        <td>List all types</td>
+        <td>Paginated list of types</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/type/{idOrName}</code></td>
+        <td>Get type details and damage relations</td>
+        <td>Type object with Pokémon list</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/ability/{idOrName}</code></td>
+        <td>Get ability details</td>
+        <td>Ability object with effect and Pokémon</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/move/{idOrName}</code></td>
+        <td>Get move details</td>
+        <td>Move object with power, accuracy, type</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/pokemon-species/{idOrName}</code></td>
+        <td>Get species data</td>
+        <td>Species with evolution chain URL</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/evolution-chain/{id}</code></td>
+        <td>Get evolution chain</td>
+        <td>Nested chain object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/generation/{idOrName}</code></td>
+        <td>Get game generation details</td>
+        <td>Generation with Pokémon and moves</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/nature/{idOrName}</code></td>
+        <td>Get nature and stat modifiers</td>
+        <td>Nature object with stat changes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>PokéAPI</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The spec loads with 10 endpoints organized by resource type.</li>
+  </ol>
+
+  <h3>Step 2 — Explore a Pokémon</h3>
+  <ol>
+    <li>Generate a request for <code>GET /pokemon/pikachu</code>.</li>
+    <li>Send it and examine the response — note the <code>types</code>, <code>abilities</code>, <code>moves</code>, and <code>stats</code> arrays.</li>
+    <li>Observe that each type and ability contains a <code>url</code> field linking to its full resource.</li>
+  </ol>
+
+  <h3>Step 3 — Follow Linked Resources</h3>
+  <ol>
+    <li>From Pikachu's response, find the <code>types[0].type.url</code> — it points to <code>/type/electric</code>.</li>
+    <li>Generate a request for <code>GET /type/electric</code>.</li>
+    <li>Inspect the type's <code>damage_relations</code> — which types is electric strong/weak against?</li>
+  </ol>
+
+  <h3>Step 4 — Paginate Through Collections</h3>
+  <ol>
+    <li>Generate a request for <code>GET /pokemon?limit=5&amp;offset=0</code>.</li>
+    <li>Note the <code>next</code> URL in the response — it gives you the next page.</li>
+    <li>Change <code>offset</code> to <code>5</code> and send again to see the next 5 Pokémon.</li>
+  </ol>
+
+  <h3>Step 5 — Trace an Evolution Chain</h3>
+  <ol>
+    <li>Get species data: <code>GET /pokemon-species/charmander</code>.</li>
+    <li>Find the <code>evolution_chain.url</code> in the response.</li>
+    <li>Follow that URL to see the full chain: Charmander → Charmeleon → Charizard.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    PokéAPI responses can be very large (the <code>/pokemon/{id}</code> endpoint returns 10–20 KB per Pokémon). Use this to practice inspecting and filtering large JSON payloads.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Type Matchup Analysis</h3>
+  <p>Build a type matchup report:</p>
+  <ol>
+    <li>Get <code>GET /type/fire</code> and inspect its <code>damage_relations</code>.</li>
+    <li>List the types that fire is super effective against (<code>double_damage_to</code>).</li>
+    <li>List the types that resist fire (<code>half_damage_to</code>).</li>
+    <li>Repeat for <code>water</code> and compare the two types.</li>
+  </ol>
+
+  <h3>Exercise 2 — Evolution Chain Traversal</h3>
+  <p>Map a full evolution chain:</p>
+  <ol>
+    <li>Start with <code>GET /pokemon-species/eevee</code>.</li>
+    <li>Follow the evolution chain URL.</li>
+    <li>The chain has multiple branches (Eevee evolves into 8+ forms) — identify all of them from the nested <code>evolves_to</code> arrays.</li>
+  </ol>
+
+  <h3>Exercise 3 — Pagination Workflow</h3>
+  <p>Create a multi-step workflow that pages through the first 20 Pokémon:</p>
+  <ol>
+    <li>Request <code>GET /pokemon?limit=5&amp;offset=0</code>.</li>
+    <li>Use the <code>next</code> URL from each response to get the next page.</li>
+    <li>Repeat 4 times to collect all 20 entries.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    PokéAPI is an excellent API for practicing resource graph traversal. Try building a workflow that starts from a single Pokémon and fans out to collect its types, abilities, moves, and evolution chain — all by following linked URLs.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — PokéAPI · April 2026
+  </footer>
+
+</body>
+</html>
