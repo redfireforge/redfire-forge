@@ -225,12 +225,17 @@ export interface RequestResult {
   httpStatus: number;
   responseTimeMs: number;
   responseBody: string;
+  responseHeaders?: Record<string, string>;
   timestamp: number;
   passed: boolean;
   validationMode: ValidationMode;
   failureDetails: FailureDetail[];
   errorMessage?: string;
   timing?: TimingBreakdown;
+  requestLog?: {
+    headers: Record<string, string>;
+    body?: string;
+  };
 }
 
 export interface TestSummary {

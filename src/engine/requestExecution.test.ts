@@ -100,6 +100,40 @@ describe('executeWithRetry', () => {
     expect(mockedFetch).toHaveBeenCalledTimes(3);
   });
 
+  it('captures response headers in result', async () => {
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK',
+      headers: { 'content-type': 'application/json', 'x-request-id': 'abc-123', 'cache-control': 'no-cache' },
+      body: '{"ok":true}',
+    });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    expect(result.responseHeaders).toEqual({
+      'content-type': 'application/json',
+      'x-request-id': 'abc-123',
+      'cache-control': 'no-cache',
+    });
+  });
+
+  it('captures request log with headers and body', async () => {
+    mockedFetch.mockResolvedValueOnce(successResponse());
+    const reqHeaders = { 'Content-Type': 'application/json', 'Authorization': 'Bearer tok' };
+    const reqBody = '{"name":"test"}';
+    const result = await executeWithRetry(makeScenario({ method: 'POST' }), reqHeaders, reqBody);
+    expect(result.requestLog).toEqual({ headers: reqHeaders, body: reqBody });
+  });
+
+  it('captures request log with undefined body for GET', async () => {
+    mockedFetch.mockResolvedValueOnce(successResponse());
+    const result = await executeWithRetry(makeScenario(), { 'Accept': 'application/json' }, undefined);
+    expect(result.requestLog).toEqual({ headers: { 'Accept': 'application/json' }, body: undefined });
+  });
+
+  it('captures empty response headers when none returned', async () => {
+    mockedFetch.mockResolvedValueOnce({ status: 200, statusText: 'OK', headers: {}, body: '{}' });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    expect(result.responseHeaders).toEqual({});
+  });
+
   it('runs validation when enabled and request succeeds', async () => {
     mockedFetch.mockResolvedValueOnce(successResponse('{"status":"active"}'));
     const s = makeScenario({
