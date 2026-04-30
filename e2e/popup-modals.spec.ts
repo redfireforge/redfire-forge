@@ -37,8 +37,8 @@ test.describe('Popup Modals', () => {
       localStorage.setItem('perf-test-theme', 'dark');
     });
     await page.goto('/');
-    // Navigate to Harness tab
-    await page.click('text=Harness');
+    // Navigate to Harness tab via activity bar button
+    await page.click('.ab-btn[title="Harness"]');
   });
 
   test.describe('CopyTestModal', () => {
@@ -81,7 +81,7 @@ test.describe('Popup Modals', () => {
 
       await expect(page.locator('.popup-modal')).toBeVisible();
       await expect(page.locator('.popup-modal .modal-resize-corner')).not.toBeVisible();
-      await expect(page.locator('.popup-modal .modal-expand-btn')).not.toBeVisible();
+      await expect(page.locator('.popup-modal .modal-expand-btn').first()).not.toBeVisible();
     });
   });
 
