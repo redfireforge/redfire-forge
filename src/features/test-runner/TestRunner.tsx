@@ -85,6 +85,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const configContextKey = [envId, svcId].filter(Boolean).join(':') || undefined;
   const progressKey = configContextKey || '_default';
 
+  const isGalleryEnv = svcName === 'Gallery Samples';
+
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
   const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
@@ -215,7 +217,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       for (const sc of fg.scenarios) {
         if (selectedScenarios.has(sc.id)) {
           for (const test of sc.tests) {
-            const effectiveBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '';
+            // Skip base URL replacement for gallery-imported tests — they use absolute URLs.
+            const isGallery = fg.source === 'gallery';
+            const effectiveBaseUrl = isGallery
+              ? ''
+              : (hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '');
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
             let validation = skipValidation ? { mode: 'none' as const } : test.validation;
             if (forceUnordered && !skipValidation && validation.mode === 'selective') {
@@ -248,21 +254,51 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     });
   };
 
+  // Helpers for mutual exclusion between gallery and user tests
+  const userGroups = featureGroups.filter(fg => fg.source !== 'gallery');
+  const galleryGroups = featureGroups.filter(fg => fg.source === 'gallery');
+
+  const scenarioSourceOf = (scenarioId: string): 'gallery' | 'user' => {
+    for (const fg of galleryGroups) {
+      if (fg.scenarios.some(sc => sc.id === scenarioId)) return 'gallery';
+    }
+    return 'user';
+  };
+
+  const idsForSource = (source: 'gallery' | 'user') => {
+    const groups = source === 'gallery' ? galleryGroups : userGroups;
+    return new Set(groups.flatMap(fg => fg.scenarios.map(sc => sc.id)));
+  };
+
+  /** Remove all scenarios from the opposite source when adding from one source. */
+  const withExclusion = (next: Set<string>, addingSource: 'gallery' | 'user') => {
+    const oppositeIds = idsForSource(addingSource === 'gallery' ? 'user' : 'gallery');
+    oppositeIds.forEach(id => next.delete(id));
+    return next;
+  };
+
   const toggleScenario = (scenarioId: string) => {
     setSelectedScenarios((prev) => {
       const next = new Set(prev);
-      if (next.has(scenarioId)) next.delete(scenarioId); else next.add(scenarioId);
+      if (next.has(scenarioId)) {
+        next.delete(scenarioId);
+      } else {
+        next.add(scenarioId);
+        withExclusion(next, scenarioSourceOf(scenarioId));
+      }
       return next;
     });
   };
 
   const toggleAllInFeature = (fg: FeatureGroup) => {
     const allSelected = fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
+    const source = fg.source === 'gallery' ? 'gallery' as const : 'user' as const;
     setSelectedScenarios((prev) => {
       const next = new Set(prev);
       fg.scenarios.forEach((sc) => {
         if (allSelected) next.delete(sc.id); else next.add(sc.id);
       });
+      if (!allSelected) withExclusion(next, source);
       return next;
     });
   };
@@ -272,12 +308,66 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     setSelectedScenarios(new Set(allIds));
   };
 
+  const selectAllUser = () => {
+    setSelectedScenarios(new Set(userGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
+  };
+
+  const selectAllGallery = () => {
+    setSelectedScenarios(new Set(galleryGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
+  };
+
   const deselectAll = () => {
     setSelectedScenarios(new Set());
   };
 
   const activeTestCount = selectedTests.filter((t) => (weights[t.id] ?? 1) > 0).length;
   const isLoadProfile = executionMode === 'load-profile';
+
+  const renderFeatureGroup = (fg: FeatureGroup) => {
+    if (fg.scenarios.length === 0) return null;
+    const allSelected = fg.scenarios.length > 0 && fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
+    const someSelected = fg.scenarios.some((sc) => selectedScenarios.has(sc.id));
+    return (
+      <div key={fg.id} className="selection-feature">
+        <div className="selection-feature-header">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+              onChange={() => toggleAllInFeature(fg)}
+              disabled={isRunning}
+            />
+            <strong>{fg.name}</strong>
+          </label>
+          <span className="expand-toggle" onClick={() => toggleFeature(fg.id)}>
+            {expandedFeatures.has(fg.id) ? '−' : '+'}
+          </span>
+        </div>
+        {expandedFeatures.has(fg.id) && (
+          <div className="selection-scenarios">
+            {fg.scenarios.map((sc) => {
+              if (sc.tests.length === 0) return null;
+              return (
+                <div key={sc.id} className="selection-scenario">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={selectedScenarios.has(sc.id)}
+                      onChange={() => toggleScenario(sc.id)}
+                      disabled={isRunning}
+                    />
+                    <span>{sc.name}</span>
+                    <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleRun = () => {
     const scenarioWeights: ScenarioWeight[] = selectedTests.map((t) => ({
@@ -342,6 +432,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       </div>
       <div className="runner-host-selector">
         <span className="runner-host-label">Host:</span>
+        {isGalleryEnv ? (
+          <span className="runner-host-gallery-hint">🏪 Gallery samples use their own hardcoded URLs — no host override needed</span>
+        ) : (
+        <>
         <label className="radio-label">
           <input type="radio" name="hostMode" checked={hostMode === 'hardcoded'} onChange={() => setHostMode('hardcoded')} disabled={isRunning} />
           Original
@@ -367,6 +461,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             placeholder="https://my-host.example.com:8080"
             disabled={isRunning || hostMode !== 'custom'}
           />
+        )}
+        </>
         )}
       </div>
 
@@ -414,7 +510,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             <div className="selection-header">
               <h3>Select Scenarios to Test</h3>
               <div className="selection-actions">
-                <button className="btn btn-sm" onClick={selectAll} disabled={isRunning}>Select All</button>
                 <button className="btn btn-sm" onClick={deselectAll} disabled={isRunning}>Deselect All</button>
                 <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }}>
                   <input
@@ -441,53 +536,32 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               </div>
             </div>
 
-            <div className="selection-tree">
-              {featureGroups.map((fg) => {
-                if (fg.scenarios.length === 0) return null;
-                const allSelected = fg.scenarios.length > 0 && fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
-                const someSelected = fg.scenarios.some((sc) => selectedScenarios.has(sc.id));
-                return (
-                  <div key={fg.id} className="selection-feature">
-                    <div className="selection-feature-header">
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                          onChange={() => toggleAllInFeature(fg)}
-                          disabled={isRunning}
-                        />
-                        <strong>{fg.name}</strong>
-                      </label>
-                      <span className="expand-toggle" onClick={() => toggleFeature(fg.id)}>
-                        {expandedFeatures.has(fg.id) ? '−' : '+'}
-                      </span>
-                    </div>
-                    {expandedFeatures.has(fg.id) && (
-                      <div className="selection-scenarios">
-                        {fg.scenarios.map((sc) => {
-                          if (sc.tests.length === 0) return null;
-                          return (
-                            <div key={sc.id} className="selection-scenario">
-                              <label className="checkbox-label">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedScenarios.has(sc.id)}
-                                  onChange={() => toggleScenario(sc.id)}
-                                  disabled={isRunning}
-                                />
-                                <span>{sc.name}</span>
-                                <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
-                              </label>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            {userGroups.length > 0 && (
+              <>
+                <div className="selection-section-header">
+                  <span className="selection-section-label">Your Tests</span>
+                  <button className="btn btn-sm" onClick={selectAllUser} disabled={isRunning}>Select All</button>
+                </div>
+                <div className="selection-tree">
+                  {userGroups.map((fg) => renderFeatureGroup(fg))}
+                </div>
+              </>
+            )}
+
+            {galleryGroups.length > 0 && (
+              <>
+                <div className="selection-section-header selection-section-gallery">
+                  <span className="selection-section-label">🏪 Gallery Samples</span>
+                  <button className="btn btn-sm" onClick={selectAllGallery} disabled={isRunning}>Select All</button>
+                  {userGroups.length > 0 && (
+                    <span className="selection-section-hint">Selecting gallery tests will deselect your tests and vice versa</span>
+                  )}
+                </div>
+                <div className="selection-tree">
+                  {galleryGroups.map((fg) => renderFeatureGroup(fg))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Config */}
@@ -604,11 +678,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   </div>
                   <div className="metric-card">
                     <div className="metric-value">{displaySummary.errorRate}%</div>
-                    <div className="metric-label">Error Rate</div>
+                    <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>
                   </div>
                   <div className="metric-card">
                     <div className="metric-value">{displaySummary.failedValidations}</div>
-                    <div className="metric-label">Validation Failures</div>
+                    <div className="metric-label">Validation Failures <span className="metric-info" data-tooltip="Requests whose actual response did not match expected assertions. 0 means every test got the response it expected — even negative tests that assert error codes.">ⓘ</span></div>
                   </div>
                   {displayIsTimeBased && displayProfileMeta && (
                     <div className="metric-card">

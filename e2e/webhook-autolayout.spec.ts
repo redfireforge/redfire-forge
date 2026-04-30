@@ -26,12 +26,15 @@ test.describe('Webhook Sample Auto-Layout', () => {
     
     console.log('✓ Gallery opened');
     
-    // Wait for gallery modal and select webhook sample
-    const webhookSample = page.locator('.tg-card', { 
-      hasText: 'Webhook Trigger' 
-    });
-    await webhookSample.waitFor({ state: 'visible', timeout: 5000 });
-    await webhookSample.click();
+    // Gallery page shows — filter to Workflows domain and select webhook sample
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+    const webhookCard = page.locator('.gallery-card', { hasText: 'Webhook Trigger' });
+    await webhookCard.waitFor({ state: 'visible', timeout: 5000 });
+    await webhookCard.click();
+    await page.waitForTimeout(300);
+    // Click "Load Workflow" action button in detail panel
+    await page.locator('button:has-text("Load Workflow")').click();
     await page.waitForTimeout(1000);
     
     console.log('✓ Webhook sample selected');

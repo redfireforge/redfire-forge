@@ -15,7 +15,7 @@ type ProgressCallback = (
  * Run a test inside a Web Worker. Has the same signature as `runTest`
  * so it can be used as a drop-in replacement.
  *
- * - Browser mode: the worker uses fetch(/__proxy) directly.
+ * - Browser mode: the worker uses httpFetchViaViteProxy (POST /__proxy) like the main thread.
  * - Tauri mode:  HTTP requests are proxied through the main thread
  *   via postMessage so the Tauri HTTP plugin (main-thread only) is used.
  */

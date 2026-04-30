@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tests Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🧪</div>
+    <h1>Tests Gallery</h1>
+    <div class="subtitle">Overview — Training Manual</div>
+    <p>The Tests Gallery provides 8 ready-to-run test samples covering smoke tests, regression suites, contract validation, security checks, and load profiles — each with multiple scenarios and built-in assertions.</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What are Test Samples?</h2>
+  <p>Test samples are pre-built multi-scenario test suites available in the RedfireForge Tests Gallery. Unlike individual request samples, each test contains <strong>multiple scenarios</strong> that run sequentially against one or more APIs. Every scenario includes built-in <strong>assertions</strong> that automatically validate the response — checking status codes, response body structure, data types, array lengths, and more.</p>
+  <p>Test samples are organized by difficulty (<span class="badge badge-easy">Easy</span>, <span class="badge badge-medium">Medium</span>, <span class="badge badge-advanced">Advanced</span>) and by category (smoke, regression, contract, security, load) so you can focus on the testing discipline most relevant to your needs.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Test samples are the best way to learn how RedfireForge's assertion engine works. Import a sample, run it, and inspect the pass/fail results to understand each assertion type.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. How to Use Test Samples</h2>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel from the RedfireForge sidebar.</li>
+    <li>Navigate to the <strong>Tests</strong> tab.</li>
+    <li>Browse the list and click on any test to expand its details, including the scenario list and assertion summary.</li>
+    <li>Choose an action:
+      <ul>
+        <li><strong>Import Test</strong> — adds the test and all its scenarios to your workspace.</li>
+        <li><strong>Run Test</strong> — imports and immediately executes all scenarios, displaying pass/fail results.</li>
+      </ul>
+    </li>
+    <li>After execution, review the <strong>Results Panel</strong> to see which scenarios passed, which failed, and the details of each assertion.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Imported tests are fully editable — you can add, remove, or modify scenarios and assertions to match your own testing needs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Sample Catalog</h2>
+  <p>The table below lists all 8 test samples available in the gallery.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Icon</th>
+        <th>Name</th>
+        <th>Difficulty</th>
+        <th>Category</th>
+        <th>Scenarios</th>
+        <th>APIs</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>💨</td>
+        <td>User API Smoke Test</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>Smoke</td>
+        <td>3</td>
+        <td>jsonplaceholder</td>
+      </tr>
+      <tr>
+        <td>🛒</td>
+        <td>Product Listing Check</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td>Smoke</td>
+        <td>2</td>
+        <td>dummyjson</td>
+      </tr>
+      <tr>
+        <td>📄</td>
+        <td>Paginated API Regression</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>Regression</td>
+        <td>4</td>
+        <td>dummyjson</td>
+      </tr>
+      <tr>
+        <td>📋</td>
+        <td>Pokémon Data Contract</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>Contract</td>
+        <td>3</td>
+        <td>pokeapi</td>
+      </tr>
+      <tr>
+        <td>🌍</td>
+        <td>Country Search Suite</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>Regression</td>
+        <td>4</td>
+        <td>restcountries</td>
+      </tr>
+      <tr>
+        <td>🔐</td>
+        <td>Auth Flow Validation</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>Security</td>
+        <td>3</td>
+        <td>dummyjson</td>
+      </tr>
+      <tr>
+        <td>🏪</td>
+        <td>E-Commerce Full Suite</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td>Regression</td>
+        <td>6</td>
+        <td>dummyjson</td>
+      </tr>
+      <tr>
+        <td>⚡</td>
+        <td>Multi-API Load Profile</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td>Load</td>
+        <td>5</td>
+        <td>5 APIs</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Test Categories</h2>
+  <p>Each test sample belongs to a category that describes the testing discipline it demonstrates:</p>
+
+  <h4>Smoke</h4>
+  <p>Quick, lightweight tests that verify an API is up and responding correctly. Smoke tests check basic connectivity, expected status codes, and minimal response structure. They are the first line of defense and should pass before any deeper testing begins. Examples: User API Smoke Test, Product Listing Check.</p>
+
+  <h4>Regression</h4>
+  <p>Comprehensive tests that verify existing functionality has not broken after changes. Regression suites cover multiple endpoints, edge cases, and data consistency checks. They are typically run after deployments or code changes. Examples: Paginated API Regression, Country Search Suite, E-Commerce Full Suite.</p>
+
+  <h4>Contract</h4>
+  <p>Tests that validate the API response conforms to an expected <strong>schema or contract</strong> — verifying that required fields exist, data types are correct, and the structure matches documentation. Contract tests catch breaking API changes early. Example: Pokémon Data Contract.</p>
+
+  <h4>Security</h4>
+  <p>Tests that verify authentication flows, authorization boundaries, and error handling for unauthorized access. Security tests ensure that protected endpoints reject invalid credentials and return appropriate error responses. Example: Auth Flow Validation.</p>
+
+  <h4>Load</h4>
+  <p>Tests that simulate concurrent requests across multiple endpoints to evaluate performance under load. Load profiles help identify bottlenecks, timeout thresholds, and degradation patterns. Example: Multi-API Load Profile.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Learning Path</h2>
+  <p>Follow this suggested progression to build your API testing skills incrementally:</p>
+
+  <h3>Step 1 — Smoke Tests</h3>
+  <p>Start with the <span class="badge badge-easy">Easy</span> smoke tests: <strong>User API Smoke Test</strong> and <strong>Product Listing Check</strong>. These have simple assertions (status code, array presence) and help you understand how scenarios and assertions work in RedfireForge.</p>
+
+  <h3>Step 2 — Regression &amp; Contract</h3>
+  <p>Move on to the <span class="badge badge-medium">Medium</span> tests: <strong>Paginated API Regression</strong>, <strong>Pokémon Data Contract</strong>, and <strong>Country Search Suite</strong>. These introduce more assertion types (numeric comparisons, regex matching, array length validation) and test edge cases like out-of-range pagination and 404 handling.</p>
+
+  <h3>Step 3 — Security &amp; Authentication</h3>
+  <p>Try <strong>Auth Flow Validation</strong> to understand how to test login flows, token validation, and unauthorized access scenarios.</p>
+
+  <h3>Step 4 — Advanced Suites &amp; Load</h3>
+  <p>Finish with the <span class="badge badge-advanced">Advanced</span> tests: <strong>E-Commerce Full Suite</strong> (a comprehensive multi-endpoint regression) and <strong>Multi-API Load Profile</strong> (concurrent requests across 5 APIs). These demonstrate how to build production-grade test suites.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    After running a test sample, try adding your own scenarios or modifying assertions to deepen your understanding of RedfireForge's testing capabilities.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Tests Gallery Overview · April 2026
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete a Resource — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🗑️</div>
+    <h1>Delete a Resource</h1>
+    <div class="subtitle">Medium Sample — Training Guide</div>
+    <p>Remove a resource from a REST API using the HTTP DELETE method. This sample demonstrates the simplest destructive operation — no request body needed, just a URL pointing to the resource you want to remove.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★★☆<br />
+      <code>DELETE</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request deletes post ID 1 from the JSONPlaceholder API. The DELETE method tells the server to remove the specified resource. Unlike GET, PUT, or POST, DELETE typically requires no request body — the URL itself identifies what to delete.</p>
+  <p><strong>Real-world analogy:</strong> Imagine clicking the "Delete" button on an email in your inbox. You don't need to provide the email's content again — you just point to it and say "remove this." That's exactly what a DELETE request does.</p>
+  <p>This sample teaches you:</p>
+  <ul>
+    <li>How DELETE requests work — the URL identifies the resource to remove.</li>
+    <li>Why no request body is needed for most DELETE operations.</li>
+    <li>What the server returns after a successful deletion.</li>
+    <li>That DELETE, like PUT, is an idempotent operation — deleting the same resource twice has the same effect as deleting it once.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>HTTP DELETE method</strong> — the standard method for removing a resource from the server.</li>
+    <li><strong>Resource removal</strong> — how APIs handle deletion and what they return in response.</li>
+    <li><strong>No request body</strong> — DELETE requests typically don't include a body; the URL is sufficient.</li>
+    <li><strong>Idempotent operations</strong> — DELETE is idempotent: deleting an already-deleted resource should not cause an error (though behavior varies by API).</li>
+    <li><strong>HTTP status code 200</strong> — confirms the deletion was successful. Some APIs return <code>204 No Content</code> instead.</li>
+    <li><strong>Empty response body</strong> — many APIs return an empty object <code>{}</code> or no body at all after deletion.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>DELETE</code></td></tr>
+    <tr><td>URL</td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td></tr>
+    <tr><td>Headers</td><td>None required</td></tr>
+    <tr><td>Body</td><td>None (DELETE requests typically have no body)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    JSONPlaceholder simulates the deletion — it accepts the request and responds as if the resource was removed, but it doesn't actually delete anything. The same resource will still be available on the next request.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
+  </table>
+
+  <p>The server returns an empty object, confirming the resource was deleted:</p>
+
+<pre>{}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Different APIs handle DELETE responses differently. Some return <code>200 OK</code> with the deleted object, some return <code>204 No Content</code> with no body, and some return <code>200 OK</code> with an empty object like this one. Always check the API documentation.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Delete a Resource</strong> (marked with 🗑️) or use the search bar. It's tagged as <span class="badge badge-medium">Medium</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Review the Request</h3>
+  <p>Notice that there is no request body panel — DELETE requests don't need one. The URL <code>/posts/1</code> already identifies the resource to remove.</p>
+
+  <h3>Step 5 — Run the Request</h3>
+  <p>Click <strong>Send</strong> to execute the DELETE request. The response will appear in the response panel below.</p>
+
+  <h3>Step 6 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code> — the deletion was successful.</li>
+    <li><strong>Body</strong>: An empty object <code>{}</code> — the resource has been removed.</li>
+    <li><strong>Time</strong>: The response time in milliseconds.</li>
+  </ul>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Verify the Resource Exists First</h3>
+  <p>Before deleting, fetch the resource with a GET request to see what you're about to remove:</p>
+  <pre>GET https://jsonplaceholder.typicode.com/posts/1</pre>
+  <p>Then run the DELETE, and try the GET again. In a real API, the second GET would return <code>404 Not Found</code>.</p>
+
+  <h3>Exercise 2 — Delete a Different Resource</h3>
+  <p>Change the URL to delete a different post:</p>
+  <pre>DELETE https://jsonplaceholder.typicode.com/posts/5</pre>
+  <p>Does the response look the same? Try deleting a post that doesn't exist (e.g., <code>/posts/999</code>).</p>
+
+  <h3>Exercise 3 — Compare Response Codes</h3>
+  <p>Some APIs return <code>204 No Content</code> instead of <code>200 OK</code> for successful deletes. Try this endpoint and compare:</p>
+  <pre>DELETE https://jsonplaceholder.typicode.com/comments/1</pre>
+  <p>Is the status code the same? Is there a response body?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In production APIs, DELETE is a destructive operation — always confirm you're targeting the right resource before sending! Many teams add confirmation dialogs or soft-delete mechanisms to prevent accidental data loss.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Delete a Resource · April 2026
+  </footer>
+
+</body>
+</html>

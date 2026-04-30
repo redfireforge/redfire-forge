@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full API Contract — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📝</div>
+    <h1>Full API Contract</h1>
+    <div class="subtitle">Assertion Preset — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> &nbsp; <code>api-validation</code> &nbsp; 5 assertions &nbsp; jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge · April 2026</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Full API Contract preset provides comprehensive contract testing for a single API resource. It validates five properties of the response: the exact status code, the resource ID, the title format, the body content length, and the user association. Together, these assertions ensure the API returns exactly the expected response shape and values.</p>
+  <p>Use this preset when you need to guarantee that an API hasn't changed its contract — the exact fields, types, and value constraints it returns. Contract tests are essential for detecting breaking changes introduced by API updates, backend refactors, or deployment issues.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Contract testing is stricter than smoke testing. While a health check just verifies "the API is up," a contract test verifies "the API returns exactly what we expect." Use contract tests for critical endpoints where any deviation could break downstream consumers.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Exact Status Code Matching</strong> — Asserting a specific status (200) rather than a range (2xx)</li>
+    <li><strong>Numeric Range Assertions</strong> — Validating IDs and values fall within expected bounds</li>
+    <li><strong>Regex Pattern Matching</strong> — Using regular expressions to validate string format and content</li>
+    <li><strong>String Length Checks</strong> — Ensuring text fields contain meaningful content</li>
+    <li><strong>Contract Testing</strong> — The practice of validating exact API response shapes to catch breaking changes</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. Assertion Rules</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Field / Path</th>
+        <th>Operator</th>
+        <th>Expected Value</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>response.status</td>
+        <td><code>==</code></td>
+        <td><code>200</code></td>
+        <td>HTTP status code is exactly 200 OK</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.id</td>
+        <td><code>&gt;</code></td>
+        <td><code>0</code></td>
+        <td>Resource ID is a positive integer</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td>response.body.title</td>
+        <td><code>matches</code></td>
+        <td><code>^.+$</code></td>
+        <td>Title is a non-empty string (at least one character)</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.body.length</td>
+        <td><code>&gt;</code></td>
+        <td><code>10</code></td>
+        <td>Body content is longer than 10 characters</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.userId</td>
+        <td><code>between</code></td>
+        <td><code>1–10</code></td>
+        <td>UserId is within the valid range (1 to 10)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. How It Works</h2>
+
+  <h3>Assertion 1 — Status Exactly 200</h3>
+  <p>Unlike the health check preset which accepts any 2xx status, this contract test requires exactly <code>200 OK</code>. A <code>201 Created</code> or <code>204 No Content</code> would fail — because for a GET request on an existing resource, the only correct status is 200. This strictness is intentional: contract tests catch subtle behavioral changes that looser checks would miss.</p>
+
+  <h3>Assertion 2 — ID Is Numeric &gt; 0</h3>
+  <p>The <code>numeric</code> assertion verifies that the <code>id</code> field is a positive integer. This catches several contract violations: IDs returned as strings instead of numbers, IDs that are 0 or negative (invalid in most systems), and responses where the <code>id</code> field is missing entirely.</p>
+
+  <h3>Assertion 3 — Title Matches Non-Empty Pattern</h3>
+  <p>The <code>regex</code> assertion with pattern <code>^.+$</code> validates that the <code>title</code> field is a non-empty string containing at least one character. While simple, this catches a common API bug: returning empty strings <code>""</code> or null values for required text fields. The regex approach is extensible — you could tighten the pattern to require specific formats.</p>
+
+  <h3>Assertion 4 — Body Length &gt; 10</h3>
+  <p>The <code>numeric</code> assertion on <code>body.length</code> checks that the post's body text is longer than 10 characters. This ensures the content field contains meaningful text rather than a placeholder like "..." or "TBD". A body with fewer than 10 characters is almost certainly incomplete or corrupted data.</p>
+
+  <h3>Assertion 5 — UserId in Range 1–10</h3>
+  <p>The final assertion validates that <code>userId</code> falls within the known valid range of 1 to 10 (JSONPlaceholder has exactly 10 users). This is a referential integrity check — it ensures the post references a valid user. A <code>userId</code> of 0, 11, or null would indicate a data relationship problem.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Contract tests are most valuable in CI/CD pipelines. Run them automatically on every deployment to catch breaking API changes before they reach production.
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Preset</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Assertions</strong> tab in RedfireForge.</li>
+    <li>Find <strong>📝 Full API Contract</strong> and click <strong>Import Preset</strong>.</li>
+    <li>The preset is added to your workspace's assertion library.</li>
+  </ol>
+
+  <h3>Step 2 — Attach to a Post Request</h3>
+  <ol>
+    <li>Create a request node: <code>GET https://jsonplaceholder.typicode.com/posts/1</code>.</li>
+    <li>In the request's <strong>Assertions</strong> panel, click <strong>Add Preset</strong>.</li>
+    <li>Select <strong>Full API Contract</strong> — all 5 assertions appear.</li>
+  </ol>
+
+  <h3>Step 3 — Run and Review</h3>
+  <ol>
+    <li>Click <strong>Run</strong> to execute the request.</li>
+    <li>Verify all 5 assertions pass: status 200, id &gt; 0, title non-empty, body &gt; 10 chars, userId 1–10.</li>
+    <li>Inspect each assertion result to understand what was checked and what value was evaluated.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Full Coverage Test</h3>
+  <p>Apply the contract test across multiple resources:</p>
+  <ol>
+    <li>Test posts 1, 50, and 100: <code>GET /posts/1</code>, <code>/posts/50</code>, <code>/posts/100</code>.</li>
+    <li>Verify all 5 assertions pass for each post (15 assertions total).</li>
+    <li>Check if the userId distribution is reasonable across the dataset.</li>
+  </ol>
+
+  <h3>Exercise 2 — Break the Contract</h3>
+  <p>Test what happens when assertions fail:</p>
+  <ol>
+    <li>Request a non-existent post: <code>GET /posts/999</code> — observe which assertions fail.</li>
+    <li>Tighten the regex pattern to require a specific word — watch it fail on posts without that word.</li>
+    <li>Change the userId range to <code>1–5</code> — find posts assigned to users 6–10 that now fail.</li>
+  </ol>
+
+  <h3>Exercise 3 — Build Your Own Contract</h3>
+  <p>Create a custom contract test for the <code>/users/{id}</code> endpoint:</p>
+  <ol>
+    <li>Clone this preset and modify the assertions for user fields.</li>
+    <li>Add assertions for: <code>name</code> (non-empty), <code>email</code> (regex for email format), <code>id</code> (1–10).</li>
+    <li>Consider what other fields (<code>phone</code>, <code>website</code>, <code>company.name</code>) should be validated.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    You've completed all 5 assertion presets! Review the <strong>✅ Overview</strong> manual to see how they fit together, then start building your own custom presets for your APIs.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Full API Contract · April 2026
+  </footer>
+
+</body>
+</html>

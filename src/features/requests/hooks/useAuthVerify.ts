@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { AuthConfig } from '../../../shared/types';
-import { acquireOAuth2Token } from '../../../engine/executor';
+import { acquireOAuth2Token } from '../../../engine/tokenManager';
 
 export interface AuthVerifyResult {
   ok: boolean;

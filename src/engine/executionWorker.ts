@@ -1,6 +1,6 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import type { HttpResponse } from '../shared/utils/httpClient';
-import { setHttpTransport } from '../shared/utils/httpClient';
+import { httpFetchViaViteProxy, setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
 
 interface WorkerContext {
@@ -22,14 +22,7 @@ function postMsg(msg: WorkerToMainMessage): void {
 }
 
 function setupBrowserTransport(): void {
-  setHttpTransport(async (url, method, headers, body) => {
-    const resp = await fetch('/__proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, method, headers, body }),
-    });
-    return resp.json();
-  });
+  setHttpTransport(httpFetchViaViteProxy);
 }
 
 function setupTauriTransport(): void {

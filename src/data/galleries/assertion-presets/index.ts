@@ -1,0 +1,97 @@
+export type { AssertionPresetCategory, AssertionPresetEntry } from './types';
+export {
+  createApiHealthCheckAssertions,
+  createPaginatedListAssertions,
+  createTokenExpiryAssertions,
+  createPriceGuardAssertions,
+  createApiContractAssertions,
+} from './presets';
+
+import type { AssertionPresetEntry } from './types';
+import {
+  createApiHealthCheckAssertions,
+  createPaginatedListAssertions,
+  createTokenExpiryAssertions,
+  createPriceGuardAssertions,
+  createApiContractAssertions,
+} from './presets';
+
+export const ASSERTION_PRESET_CATEGORIES: { key: AssertionPresetEntry['category'] | 'all'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'api-validation', label: 'API Validation' },
+  { key: 'data-quality', label: 'Data Quality' },
+  { key: 'security', label: 'Security' },
+];
+
+export const assertionPresetCatalog: AssertionPresetEntry[] = [
+  {
+    id: 'preset-api-healthcheck',
+    domain: 'assertions',
+    name: 'API Health Check',
+    description: 'Verify a health endpoint returns 2xx and lists at least one service',
+    icon: '💚',
+    category: 'api-validation',
+    difficulty: 'easy',
+    tags: ['health', 'status', 'array'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    assertionCount: 2,
+    assertionTypes: ['status', 'arrayLength'],
+    factory: createApiHealthCheckAssertions,
+  },
+  {
+    id: 'preset-paginated-list',
+    domain: 'assertions',
+    name: 'Paginated List Validation',
+    description: 'Validate a paginated API returns items on the first page with a valid total',
+    icon: '📄',
+    category: 'api-validation',
+    difficulty: 'easy',
+    tags: ['pagination', 'list', 'array', 'numeric'],
+    liveApis: ['dummyjson.com'],
+    assertionCount: 3,
+    assertionTypes: ['arrayLength', 'numeric'],
+    factory: createPaginatedListAssertions,
+  },
+  {
+    id: 'preset-token-expiry',
+    domain: 'assertions',
+    name: 'Token Expiry Guard',
+    description: 'Verify an auth token has valid JWT format and hasn\'t expired',
+    icon: '🔐',
+    category: 'security',
+    difficulty: 'medium',
+    tags: ['auth', 'jwt', 'token', 'expiry', 'date'],
+    liveApis: ['httpbin.org'],
+    assertionCount: 3,
+    assertionTypes: ['regex', 'date', 'numeric'],
+    factory: createTokenExpiryAssertions,
+  },
+  {
+    id: 'preset-price-guard',
+    domain: 'assertions',
+    name: 'E-commerce Price Guard',
+    description: 'Validate product prices are within a reasonable range with at least one variant',
+    icon: '💰',
+    category: 'data-quality',
+    difficulty: 'medium',
+    tags: ['price', 'product', 'ecommerce', 'range'],
+    liveApis: ['fakestoreapi.com'],
+    assertionCount: 3,
+    assertionTypes: ['numeric', 'arrayLength'],
+    factory: createPriceGuardAssertions,
+  },
+  {
+    id: 'preset-api-contract',
+    domain: 'assertions',
+    name: 'Full API Contract',
+    description: 'Complete contract validation — exact values, ranges, and format checks',
+    icon: '📝',
+    category: 'api-validation',
+    difficulty: 'advanced',
+    tags: ['contract', 'full', 'status', 'range', 'regex'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    assertionCount: 5,
+    assertionTypes: ['status', 'numeric', 'regex'],
+    factory: createApiContractAssertions,
+  },
+];

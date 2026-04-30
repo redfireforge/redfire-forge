@@ -6,7 +6,7 @@ interface Props {
   nodeCount: number;
   edgeCount: number;
   variableCount: number;
-  lastRunStatus?: 'idle' | 'running' | 'pass' | 'fail';
+  lastRunStatus?: 'idle' | 'running' | 'pass' | 'fail' | 'stopped';
   lastRunTime?: number;
   /** First failed step summary — open full text in a modal instead of cramming the status bar. */
   lastRunError?: string | null;
@@ -43,7 +43,8 @@ export default function WorkflowStatusBar({
   const borderClass =
     lastRunStatus === 'running' ? 'wf-status-bar-border-running' :
     lastRunStatus === 'pass' ? 'wf-status-bar-border-pass' :
-    lastRunStatus === 'fail' ? 'wf-status-bar-border-fail' : '';
+    lastRunStatus === 'fail' ? 'wf-status-bar-border-fail' :
+    lastRunStatus === 'stopped' ? 'wf-status-bar-border-stopped' : '';
 
   return (
     <div className={`wf-status-bar ${borderClass}`}>
@@ -71,6 +72,11 @@ export default function WorkflowStatusBar({
           )}
           {runProgress.elapsedMs ? <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{(runProgress.elapsedMs / 1000).toFixed(1)}s</span> : null}
         </>
+      ) : lastRunStatus === 'stopped' && runProgress ? (
+        <span className="wf-status-run wf-status-run-stopped">
+          ⏹ Stopped by user · {runProgress.completed}/{runProgress.total} completed
+          {runProgress.elapsedMs ? <><span className="wf-status-sep">·</span>{(runProgress.elapsedMs / 1000).toFixed(1)}s</> : null}
+        </span>
       ) : (
         <>
           {lastRunStatus && lastRunStatus !== 'idle' && (
@@ -78,6 +84,7 @@ export default function WorkflowStatusBar({
               <span className={`wf-status-run wf-status-run-${lastRunStatus}`}>
                 {lastRunStatus === 'running' ? 'Running…' :
                   lastRunStatus === 'pass' ? `PASS${lastRunTime ? ` (${(lastRunTime / 1000).toFixed(1)}s)` : ''}` :
+                  lastRunStatus === 'stopped' ? `STOPPED${lastRunTime ? ` (${(lastRunTime / 1000).toFixed(1)}s)` : ''}` :
                   `FAIL${lastRunTime ? ` (${(lastRunTime / 1000).toFixed(1)}s)` : ''}`}
               </span>
             </>
