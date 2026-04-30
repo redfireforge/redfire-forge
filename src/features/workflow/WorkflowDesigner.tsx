@@ -69,7 +69,7 @@ import { useToast } from '../../shared/hooks/useToast';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useNodeClipboard } from './hooks/useNodeClipboard';
 import { useWorkflowRunCache } from './hooks/useWorkflowRunCache';
-import { sampleWorkflowCatalog } from '../../data/sampleWorkflows';
+import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 
 interface Props {
   collections: RequestCollection[];

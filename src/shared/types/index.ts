@@ -66,11 +66,20 @@ export interface ResponseVersion {
 
 export type AssertionOperator = 'equals' | 'contains' | 'regex' | 'exists';
 
+export type ComparisonOperator = '=' | '!=' | '>' | '>=' | '<' | '<=';
+
+export type DateReference =
+  | { kind: 'today'; timezone: 'utc' | 'local' }
+  | { kind: 'fixed'; iso: string };
+
 export type Assertion =
   | { type: 'status'; expected: string }
   | { type: 'responseTime'; maxMs: number }
   | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
-  | { type: 'regex'; jsonPath: string; pattern: string };
+  | { type: 'regex'; jsonPath: string; pattern: string }
+  | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference };
 
 export interface ValidationConfig {
   mode: ValidationMode;
@@ -134,6 +143,12 @@ export interface FeatureGroup {
   auth?: AuthConfig;
   globalAuthProfileId?: string;
   scenarios: TestScenario[];
+  /** Origin of this feature group. Gallery-imported groups use absolute URLs and skip host replacement. */
+  source?: 'user' | 'gallery';
+  /** The gallery catalog entry ID this was imported from (e.g. 'test-user-api-smoke'). */
+  gallerySampleId?: string;
+  /** Hash of the gallery sample content at time of import — used to detect if the sample has been updated. */
+  gallerySampleHash?: string;
 }
 
 export interface ScenarioWeight {

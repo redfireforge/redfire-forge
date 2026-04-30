@@ -1,0 +1,42 @@
+# RedfireForge CLI — Paginated List Assertions (Easy)
+# Preset: Paginated List Validation
+# Validates that a paginated API returns items on the first page with a valid total.
+#
+# Run: npx redfireforge run examples/assertion-paginated-list.yaml --base-url https://dummyjson.com
+
+name: Paginated List Validation
+baseUrl: https://dummyjson.com
+
+defaults:
+  headers:
+    Accept: application/json
+  timeout: 10
+
+config:
+  concurrency: 1
+  transactions: 3
+
+tests:
+  - name: First Page Has Items
+    url: /users?limit=6&skip=0
+    method: GET
+    validation:
+      mode: none
+      assertions:
+        # Assert the users array has at least 1 item
+        - type: arrayLength
+          jsonPath: "$.users"
+          operator: ">="
+          value: 1
+
+        # Assert skip is 0 (first page)
+        - type: numeric
+          jsonPath: "$.skip"
+          operator: "="
+          value: 0
+
+        # Assert the total count is greater than 0
+        - type: numeric
+          jsonPath: "$.total"
+          operator: ">"
+          value: 0

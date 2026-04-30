@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Book Search &amp; Enrichment (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📚</div>
+  <h1>Book Search &amp; Enrichment</h1>
+  <div class="subtitle">Medium Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Search the Open Library API for a book, then fetch detailed work information from
+    a different endpoint. Learn the search + linked-data enrichment pattern where
+    search results provide keys to richer detail endpoints.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: <span class="badge badge-medium">★★☆ Medium</span> &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#variables">Variable Flow</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates <strong>search + linked-data enrichment</strong> — a pattern
+  where you first search for a resource, then use a key from the search result to fetch
+  richer details from a <em>different</em> API endpoint.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A search engine returns titles and snippets, but
+  clicking a result takes you to the full page. Similarly, many APIs provide a lightweight
+  search endpoint and a separate detail endpoint. You chain them: search first to find the
+  ID/key, then fetch the full record.
+</p>
+<p><strong>Examples:</strong></p>
+<ul>
+  <li>Searching for a customer by name, then fetching their full profile by ID</li>
+  <li>Querying a knowledge base, then retrieving the full article content</li>
+  <li>Looking up a stock ticker, then fetching detailed financials</li>
+  <li>Searching for a GitHub repo, then fetching its latest release details</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Using a <strong>search endpoint</strong> to find a resource key/ID</li>
+  <li>Constructing a <strong>detail URL</strong> from the search result</li>
+  <li>Working with <strong>different response shapes</strong> from different endpoints</li>
+  <li>Handling <strong>optional/nullable fields</strong> in API responses</li>
+  <li>Using <code>{{variable}}</code> to build dynamic URLs from extracted keys</li>
+  <li>The <strong>search → enrich</strong> pattern for data pipelines</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Search Books            │  GET https://openlibrary.org
+  │     (HTTP)                  │      /search.json
+  │                             │      ?q=lord+of+the+rings
+  │                             │      &limit=1
+  │  Extractions:               │
+  │    → workKey                │  ($.docs[0].key)
+  │    → bookTitle              │  ($.docs[0].title)
+  │    → authorName             │  ($.docs[0].author_name[0])
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Get Work Details        │  GET https://openlibrary.org
+  │     (HTTP)                  │      {{workKey}}.json
+  │                             │
+  │  Extractions:               │
+  │    → subjects               │  ($.subjects[0])
+  │    → description            │  ($.description.value
+  │                             │   OR $.description)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Author Found?           │  {{authorName}} != ""
+  │     (Condition)             │
+  └──────┬──────────────────────┘
+         │ Yes (true)
+         ▼
+  ┌─────────────┐
+  │    Done     │
+  │    (End)    │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The search returns a work key
+  (<code>/works/OL27448W</code>), which is used to construct the detail URL.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h4><span class="step-num">S</span> Start Node</h4>
+<table>
+  <tr><td><strong>Input Variables</strong></td><td>(none — search query is hardcoded)</td></tr>
+</table>
+<p>
+  This sample searches for "Lord of the Rings". In a real workflow, you'd add a
+  <code>searchQuery</code> input variable.
+</p>
+
+<h4><span class="step-num">1</span> Search Books (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://openlibrary.org/search.json?q=lord+of+the+rings&amp;limit=1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Headers</strong></td><td><code>Accept: application/json</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td>
+    <code>workKey</code> ← <code>$.docs[0].key</code><br>
+    <code>bookTitle</code> ← <code>$.docs[0].title</code><br>
+    <code>authorName</code> ← <code>$.docs[0].author_name[0]</code>
+  </td></tr>
+</table>
+<p>
+  Searches Open Library and extracts the work key, title, and author from the first
+  result. The <code>limit=1</code> parameter ensures we get only one result. The
+  <code>key</code> field (e.g., <code>/works/OL27448W</code>) is a path that can be
+  appended to the base URL to get full details.
+</p>
+
+<div class="callout">
+  <strong>📘 What's a "Work Key"?</strong>
+  Open Library uses "work keys" like <code>/works/OL27448W</code> as identifiers.
+  These are not numeric IDs — they're URL paths. This is common in library and
+  academic APIs where resources have structured identifiers.
+</div>
+
+<h4><span class="step-num">2</span> Get Work Details (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://openlibrary.org{{workKey}}.json</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td>
+    <code>subjects</code> ← <code>$.subjects[0]</code><br>
+    <code>description</code> ← <code>$.description</code> (may be string or object)
+  </td></tr>
+</table>
+<p>
+  Fetches the full work record. The detail endpoint provides subjects, description,
+  links, and other metadata not available in search results. Note that
+  <code>description</code> can be either a plain string or an object with a
+  <code>value</code> field — this is a common API inconsistency you need to handle.
+</p>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Inconsistent Response Shapes</strong>
+  Open Library's <code>description</code> field can be a string (<code>"A great book..."</code>)
+  or an object (<code>{"type":"/type/text","value":"A great book..."}</code>). In a production
+  workflow, you'd use a Script node to normalize this. For this training, we extract
+  <code>$.description</code> as-is.
+</div>
+
+<h4><span class="step-num">3</span> Author Found? (Condition Node)</h4>
+<table>
+  <tr><td><strong>Left</strong></td><td><code>{{authorName}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>!=</code> (not equal)</td></tr>
+  <tr><td><strong>Right</strong></td><td><code></code> (empty string)</td></tr>
+</table>
+<p>
+  Verifies an author was found. Some works may not have author data. The
+  <code>true</code> branch connects to Done.
+</p>
+
+<h4><span class="step-num">E</span> Done (End Node)</h4>
+<p>Marks the workflow as complete with all book metadata variables available.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. VARIABLES                                -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="variables">5. Variable Flow</h2>
+<p>This table shows how variables flow through the workflow at each stage:</p>
+
+<table class="var-table">
+  <tr><th>Variable</th><th>Set By</th><th>Value (Example)</th><th>Used By</th></tr>
+  <tr>
+    <td><code>workKey</code></td>
+    <td>HTTP Node 1 (extraction)</td>
+    <td><code>/works/OL27448W</code></td>
+    <td>HTTP Node 2 (URL)</td>
+  </tr>
+  <tr>
+    <td><code>bookTitle</code></td>
+    <td>HTTP Node 1 (extraction)</td>
+    <td><code>The Lord of the Rings</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>authorName</code></td>
+    <td>HTTP Node 1 (extraction)</td>
+    <td><code>J.R.R. Tolkien</code></td>
+    <td>Condition Node</td>
+  </tr>
+  <tr>
+    <td><code>subjects</code></td>
+    <td>HTTP Node 2 (extraction)</td>
+    <td><code>Accessible book</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>description</code></td>
+    <td>HTTP Node 2 (extraction)</td>
+    <td><code>Three Rings for the Elven-kings under the sky...</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">6. Step-by-Step Development Guide</h2>
+<p>Follow these steps to build this workflow from scratch:</p>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"📚 Book Search &amp; Enrichment"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Book Search &amp; Enrichment".
+  </li>
+  <li>
+    <strong>Add HTTP node 1 (Search Books).</strong><br>
+    Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://openlibrary.org/search.json?q=lord+of+the+rings&amp;limit=1</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>:
+        <code>workKey</code> ← <code>$.docs[0].key</code>,
+        <code>bookTitle</code> ← <code>$.docs[0].title</code>,
+        <code>authorName</code> ← <code>$.docs[0].author_name[0]</code>
+      </li>
+    </ul>
+    Connect Start → HTTP 1.
+  </li>
+  <li>
+    <strong>Add HTTP node 2 (Get Work Details).</strong><br>
+    Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://openlibrary.org{{workKey}}.json</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>:
+        <code>subjects</code> ← <code>$.subjects[0]</code>,
+        <code>description</code> ← <code>$.description</code>
+      </li>
+    </ul>
+    Connect HTTP 1 → HTTP 2.
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Configure <code>{{authorName}} != ""</code>.
+    Connect HTTP 2 → Condition → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Verify the book title is "The Lord of the Rings" and
+    the author is "J.R.R. Tolkien".
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">7. Expected Execution Results</h2>
+
+<h3>Console Output</h3>
+<pre>
+# [1. Search Books] HTTP 200 — workKey="/works/OL27448W", title="The Lord of the Rings"
+# [2. Get Work Details] HTTP 200 — subjects + description extracted
+# [3. Author Found?] Condition: "J.R.R. Tolkien" != "" → true</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Search Books</td><td>✅ Pass</td><td>HTTP 200, workKey + title + author extracted</td></tr>
+  <tr><td>2. Get Work Details</td><td>✅ Pass</td><td>HTTP 200, subjects + description extracted</td></tr>
+  <tr><td>3. Author Found?</td><td>✅ Pass (true)</td><td>"J.R.R. Tolkien" != ""</td></tr>
+  <tr><td>Done</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Final Variable State</h3>
+<pre>
+{
+  "workKey": "/works/OL27448W",
+  "bookTitle": "The Lord of the Rings",
+  "authorName": "J.R.R. Tolkien",
+  "subjects": "Accessible book",
+  "description": "Three Rings for the Elven-kings under the sky..."
+}</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">8. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Search for a Different Book</h3>
+<p>
+  Parameterize the search query. Try "dune", "1984", or "pride+and+prejudice".
+  Observe how the work key and metadata change.
+</p>
+
+<h3>Exercise 2: Extract Multiple Subjects</h3>
+<p>
+  The work detail includes a <code>subjects</code> array with many entries. Use a
+  Script node to join the first 5 subjects into a comma-separated string:
+  <code>"Fantasy, Fiction, Adventure, Epic, Quest"</code>.
+</p>
+
+<h3>Exercise 3: Handle the Description Format</h3>
+<p>
+  Add a Script node that normalizes the <code>description</code> field. If it's an
+  object with a <code>value</code> property, extract the value. If it's already a
+  string, use it as-is. Store the result in <code>normalizedDescription</code>.
+</p>
+
+<h3>Exercise 4: Fetch Author Details</h3>
+<p>
+  The search result includes an <code>author_key</code> field (e.g., <code>OL26320A</code>).
+  Add a third HTTP node that fetches <code>https://openlibrary.org/authors/{{authorKey}}.json</code>
+  to get the author's bio, birth date, and photo links.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with search + enrichment, try the
+  <a href="multi-api-dashboard-medium.html">Multi-API Dashboard</a> (Medium) to learn
+  cross-API orchestration with Fork/Join parallel execution.
+</div>
+
+<footer>
+  RedfireForge Training Manual — Book Search &amp; Enrichment · April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>

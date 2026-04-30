@@ -94,6 +94,48 @@
 .metric-value { font-size: 1.5rem; font-weight: 700; }
 .metric-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
+/* Info tooltip on metric labels */
+.metric-info {
+  display: inline-block;
+  cursor: help;
+  position: relative;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  vertical-align: middle;
+  margin-left: 2px;
+  transition: opacity 0.15s;
+}
+.metric-info:hover { opacity: 1; }
+.metric-info::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface, #1e1e2e);
+  color: var(--text, #cdd6f4);
+  border: 1px solid var(--border, #45475a);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.45;
+  white-space: normal;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 100;
+}
+.metric-info:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
 .metrics-row {
   display: flex;
   gap: 12px;
@@ -479,6 +521,33 @@ tr:hover td { background: var(--surface-hover); }
 .selection-actions { display: flex; align-items: center; gap: 8px; line-height: 32px; }
 
 .selection-tree { display: flex; flex-direction: column; gap: 8px; }
+
+.selection-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 6px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.selection-section-header:first-of-type { margin-top: 0; }
+.selection-section-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+.selection-section-gallery .selection-section-label {
+  color: var(--primary, #818cf8);
+}
+.selection-section-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-style: italic;
+  margin-left: auto;
+}
 
 .selection-feature {
   border: 1px solid var(--border);

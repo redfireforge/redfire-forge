@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Orchestration: Multi-Region Deploy Orchestrator (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🎭</div>
+  <h1>Multi-Region Deploy Orchestrator</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Build an artifact, deploy it to three regions in parallel, run health
+    checks against each deployment, and automatically roll back any region
+    that fails verification. The definitive pattern for production-grade
+    multi-region orchestration.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 8 &nbsp;|&nbsp; Category: Orchestration<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates <strong>multi-region parallel deployment</strong> with
+  health verification and automatic rollback. It combines parallel fan-out, health
+  checks, and compensating actions into a single orchestration workflow.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A SaaS platform deploys a new release to US-East,
+  EU-West, and APAC-Southeast simultaneously. After deployment, each region's health
+  endpoint is checked. If any region fails the health check, that region is rolled back
+  to the previous version while successful regions remain on the new version.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Multi-region application deployments (AWS, Azure, GCP)</li>
+  <li>CDN cache invalidation across global edge nodes</li>
+  <li>Database schema migrations across regional replicas</li>
+  <li>Feature flag rollouts with per-region kill switches</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Building and tagging a <strong>deployment artifact</strong> (Docker image, package)</li>
+  <li><strong>Parallel fan-out</strong> — deploying to multiple regions simultaneously</li>
+  <li><strong>Health check verification</strong> — validating each deployment post-deploy</li>
+  <li><strong>Selective rollback</strong> — reverting only failed regions</li>
+  <li><strong>Result aggregation</strong> — merging parallel branch outcomes into a unified report</li>
+  <li>The <strong>canary/rollback</strong> decision pattern for safe deployments</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  Input: version, imageTag
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Build Artifact          │  POST /api/builds
+  │     (HTTP)                  │  { repo, tag, version }
+  │                             │
+  │  Output: artifactUrl        │  → container image URL
+  └──────┬──────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────┐
+  │  2. Parallel Deploy (Fan-Out)                            │
+  │                                                          │
+  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+  │  │ 2a. Deploy   │  │ 2b. Deploy   │  │ 2c. Deploy   │   │
+  │  │    US-East   │  │    EU-West   │  │    APAC-SE   │   │
+  │  │    (HTTP)    │  │    (HTTP)    │  │    (HTTP)    │   │
+  │  │ POST /deploy │  │ POST /deploy │  │ POST /deploy │   │
+  │  └──────────────┘  └──────────────┘  └──────────────┘   │
+  │                                                          │
+  └──────┬───────────────────────────────────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Health Checks           │  GET /health for each
+  │     (Script + HTTP)         │  region endpoint
+  │                             │
+  │  Output: healthResults[]    │  [{ region, status }]
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  4. Rollback on Failure     │  For each failed region:
+  │     (Condition + HTTP)      │  POST /api/rollback
+  │                             │
+  │  If all healthy → skip      │  { region, previousVersion }
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  5. Deployment Report       │  Summary of all regions:
+  │     (Log)                   │  deployed, healthy,
+  │                             │  rolled back
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │    End      │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>8 nodes, 9 edges</strong> — a pipeline with a parallel fan-out for deployment,
+  followed by health verification and conditional rollback.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. Receives <code>version</code> (e.g., "2.4.0") and <code>imageTag</code> (e.g., "app:2.4.0").</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Build Artifact</td>
+    <td>HTTP</td>
+    <td>Triggers a CI build via <code>POST /api/builds</code>. Waits for the build to complete and extracts <code>artifactUrl</code> (the container image registry URL).</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2a</span> Deploy US-East</td>
+    <td>HTTP</td>
+    <td>Parallel branch: <code>POST /api/deploy</code> with <code>{ region: "us-east-1", artifact: "{{artifactUrl}}" }</code>. Extracts <code>deployStatusUS</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2b</span> Deploy EU-West</td>
+    <td>HTTP</td>
+    <td>Parallel branch: <code>POST /api/deploy</code> with <code>{ region: "eu-west-1", artifact: "{{artifactUrl}}" }</code>. Extracts <code>deployStatusEU</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2c</span> Deploy APAC-SE</td>
+    <td>HTTP</td>
+    <td>Parallel branch: <code>POST /api/deploy</code> with <code>{ region: "ap-southeast-1", artifact: "{{artifactUrl}}" }</code>. Extracts <code>deployStatusAPAC</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Health Checks</td>
+    <td>Script + HTTP</td>
+    <td>Calls <code>GET /health</code> on each region's endpoint. Collects results into <code>healthResults[]</code> array with <code>{ region, status, responseTime }</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Rollback on Failure</td>
+    <td>Condition + HTTP</td>
+    <td>Checks <code>healthResults</code> for any failed regions. For each unhealthy region, sends <code>POST /api/rollback</code> with the previous version. Healthy regions are left on the new version.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> Deployment Report</td>
+    <td>Log</td>
+    <td>Logs a summary: regions deployed, health check results, any rollbacks performed, and final deployment state per region.</td>
+  </tr>
+</table>
+
+<h3>Parallel Deploy Configuration</h3>
+<table>
+  <tr><td><strong>Pattern</strong></td><td>Fan-out: 3 parallel branches from Build Artifact</td></tr>
+  <tr><td><strong>Sync Point</strong></td><td>All 3 branches must complete before Health Checks</td></tr>
+  <tr><td><strong>Timeout</strong></td><td>5 minutes per region deployment</td></tr>
+  <tr><td><strong>On Timeout</strong></td><td>Mark region as failed, continue to health checks</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Parallel Fan-Out / Fan-In</strong>
+  The parallel deploy uses a <em>fan-out</em> pattern: one node (Build Artifact) feeds
+  into three parallel branches. After all branches complete, execution <em>fans in</em>
+  to the Health Checks node. RedfireForge waits for all parallel branches to finish
+  (or timeout) before proceeding.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🎭 Multi-Region Deploy Orchestrator"</strong>
+    in the <em>Orchestration</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Multi-Region Deploy Orchestrator".
+  </li>
+  <li>
+    <strong>Add the Build Artifact node.</strong><br>
+    Drag an HTTP node. Configure: <code>POST /api/builds</code> with body
+    <code>{ "repo": "myapp", "tag": "{{imageTag}}", "version": "{{version}}" }</code>.
+    Extract <code>artifactUrl</code>. Connect Start → Build Artifact.
+  </li>
+  <li>
+    <strong>Add three parallel Deploy nodes.</strong><br>
+    From Build Artifact, create three parallel connections to three HTTP nodes:
+    <ul>
+      <li><strong>Deploy US-East</strong>: region = <code>us-east-1</code></li>
+      <li><strong>Deploy EU-West</strong>: region = <code>eu-west-1</code></li>
+      <li><strong>Deploy APAC-SE</strong>: region = <code>ap-southeast-1</code></li>
+    </ul>
+    Each sends <code>POST /api/deploy</code> with the region and artifact URL.
+  </li>
+  <li>
+    <strong>Add the Health Checks node.</strong><br>
+    Connect all three deploy nodes to a single Script node. The script calls
+    <code>GET /health</code> on each region's endpoint and builds the
+    <code>healthResults[]</code> array.
+  </li>
+  <li>
+    <strong>Add the Rollback node.</strong><br>
+    Add a Condition node: if any <code>healthResults[].status == "unhealthy"</code>,
+    loop through failed regions and send <code>POST /api/rollback</code> for each.
+    Connect Health Checks → Rollback on Failure.
+  </li>
+  <li>
+    <strong>Add the Deployment Report node.</strong><br>
+    Add a Log node that outputs the full deployment summary. Connect
+    Rollback on Failure → Deployment Report → End.
+  </li>
+  <li>
+    <strong>Test the workflow.</strong><br>
+    Run with a test version. Verify all three regions deploy in parallel,
+    health checks execute, and rollback triggers correctly for failed regions.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States (2 regions healthy, 1 rolled back)</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>version = "2.4.0", imageTag = "app:2.4.0"</td></tr>
+  <tr><td>1. Build Artifact</td><td>✅ Pass</td><td>HTTP 201 — artifactUrl = "registry.example.com/app:2.4.0"</td></tr>
+  <tr><td>2a. Deploy US-East</td><td>✅ Pass</td><td>HTTP 200 — deployed to us-east-1</td></tr>
+  <tr><td>2b. Deploy EU-West</td><td>✅ Pass</td><td>HTTP 200 — deployed to eu-west-1</td></tr>
+  <tr><td>2c. Deploy APAC-SE</td><td>✅ Pass</td><td>HTTP 200 — deployed to ap-southeast-1</td></tr>
+  <tr><td>3. Health Checks</td><td>⚠️ Partial</td><td>US: healthy, EU: healthy, APAC: unhealthy (timeout)</td></tr>
+  <tr><td>4. Rollback on Failure</td><td>✅ Pass</td><td>Rolled back ap-southeast-1 to version 2.3.9</td></tr>
+  <tr><td>5. Deployment Report</td><td>✅ Pass</td><td>2 regions on v2.4.0, 1 rolled back to v2.3.9</td></tr>
+</table>
+
+<h3>Deployment Report Output (Node 5)</h3>
+<pre>
+{
+  "version": "2.4.0",
+  "regions": [
+    { "region": "us-east-1",       "status": "deployed",    "version": "2.4.0", "healthy": true  },
+    { "region": "eu-west-1",       "status": "deployed",    "version": "2.4.0", "healthy": true  },
+    { "region": "ap-southeast-1",  "status": "rolled-back", "version": "2.3.9", "healthy": true  }
+  ],
+  "summary": "2/3 regions upgraded, 1 rolled back"
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Health Check Timing</strong>
+  Allow sufficient warm-up time between deployment and health checks. New deployments
+  may need 10–30 seconds to initialize. Configure a delay or retry loop in the Health
+  Checks node to avoid false negatives from cold-start latency.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Canary Deployment</h3>
+<p>
+  Instead of deploying to all regions simultaneously, deploy to US-East first as a
+  canary. Run health checks on just that region. If healthy, proceed to deploy EU-West
+  and APAC-SE in parallel. This reduces blast radius.
+</p>
+
+<h3>Exercise 2: Add a Fourth Region</h3>
+<p>
+  Add a "Middle East" region (<code>me-south-1</code>) to the parallel deploy. Update
+  the health checks and rollback logic to handle 4 regions. Verify the fan-out/fan-in
+  pattern scales correctly.
+</p>
+
+<h3>Exercise 3: Slack Notifications</h3>
+<p>
+  After the Deployment Report, add an HTTP POST node that sends the deployment summary
+  to a Slack channel via webhook. Include the version, per-region status, and any
+  rollback details. Color the message green (all healthy) or orange (partial rollback).
+</p>
+
+<h3>Exercise 4: Full Rollback on Majority Failure</h3>
+<p>
+  If more than 50% of regions fail health checks, roll back <em>all</em> regions
+  (including healthy ones) to the previous version. Add a Condition node that counts
+  unhealthy regions and triggers a full rollback when the threshold is exceeded.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  You've completed the orchestration category! For related patterns, explore:
+  <ul style="margin-top: 6px;">
+    <li><a href="../flow-control/conditional-branching-easy.html">Conditional Branching</a> — foundational decision logic</li>
+    <li><a href="batch-provisioning-advanced.html">Batch User Provisioning</a> — loop-based batch processing</li>
+    <li><a href="orchestration.html">Orchestration Overview</a> — return to category index</li>
+  </ul>
+</div>
+
+<footer>RedfireForge Training Manual — Multi-Region Deploy Orchestrator · April 2026</footer>
+
+</body>
+</html>

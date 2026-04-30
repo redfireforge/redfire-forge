@@ -1,0 +1,138 @@
+/**
+ * Tests Gallery — 8 pre-built test scenario samples.
+ */
+
+import type { TestSampleEntry } from './types';
+import {
+  createUserApiSmokeTest,
+  createProductListingTest,
+  createPaginatedRegressionTest,
+  createPokemonContractTest,
+  createCountrySearchTest,
+  createAuthFlowTest,
+  createEcommerceFullSuiteTest,
+  createMultiApiLoadTest,
+} from './presets';
+
+export type { TestSampleEntry } from './types';
+export type { TestCategory } from './types';
+
+export const testSampleCatalog: TestSampleEntry[] = [
+  // ── Easy ──────────────────────────────────────────────
+  {
+    id: 'test-user-api-smoke',
+    domain: 'tests',
+    name: 'User API Smoke Test',
+    description: 'Three quick checks on JSONPlaceholder — list users, get one, fetch posts',
+    icon: '💨',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['smoke', 'users', 'get', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'arrayLength', 'numeric', 'regex'],
+    factory: createUserApiSmokeTest,
+  },
+  {
+    id: 'test-product-listing',
+    domain: 'tests',
+    name: 'Product Listing Check',
+    description: 'Verify DummyJSON returns a valid product list and single product detail',
+    icon: '🛒',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['smoke', 'products', 'get', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 2,
+    assertionTypes: ['status', 'arrayLength', 'numeric'],
+    factory: createProductListingTest,
+  },
+
+  // ── Medium ────────────────────────────────────────────
+  {
+    id: 'test-paginated-regression',
+    domain: 'tests',
+    name: 'Paginated API Regression',
+    description: 'Test pagination edge cases — page 1, page 2, out-of-range, and total consistency',
+    icon: '📄',
+    category: 'regression',
+    difficulty: 'medium',
+    tags: ['pagination', 'regression', 'edge-cases', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 4,
+    assertionTypes: ['status', 'numeric', 'arrayLength'],
+    factory: createPaginatedRegressionTest,
+  },
+  {
+    id: 'test-pokemon-contract',
+    domain: 'tests',
+    name: 'Pokémon Data Contract',
+    description: 'Contract tests for PokéAPI — verify Pikachu shape, type list, and 404 handling',
+    icon: '📋',
+    category: 'contract',
+    difficulty: 'medium',
+    tags: ['contract', 'pokemon', 'shape', 'error-handling'],
+    liveApis: ['pokeapi.co'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'regex', 'numeric', 'arrayLength'],
+    factory: createPokemonContractTest,
+  },
+  {
+    id: 'test-country-search',
+    domain: 'tests',
+    name: 'Country Search Suite',
+    description: 'Search REST Countries by name, code, and region — plus 404 edge case',
+    icon: '🌍',
+    category: 'regression',
+    difficulty: 'medium',
+    tags: ['search', 'regression', 'countries', 'filter'],
+    liveApis: ['restcountries.com'],
+    scenarioCount: 4,
+    assertionTypes: ['status', 'arrayLength'],
+    factory: createCountrySearchTest,
+  },
+  {
+    id: 'test-auth-flow',
+    domain: 'tests',
+    name: 'Auth Flow Validation',
+    description: 'Login success, login failure, and profile fetch via DummyJSON — auth lifecycle coverage',
+    icon: '🔐',
+    category: 'security',
+    difficulty: 'medium',
+    tags: ['auth', 'login', 'profile', 'security', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'regex', 'numeric'],
+    factory: createAuthFlowTest,
+  },
+
+  // ── Advanced ──────────────────────────────────────────
+  {
+    id: 'test-ecommerce-full',
+    domain: 'tests',
+    name: 'E-Commerce Full Suite',
+    description: 'End-to-end DummyJSON coverage — products, search, categories, cart, and users',
+    icon: '🏪',
+    category: 'regression',
+    difficulty: 'advanced',
+    tags: ['ecommerce', 'full-suite', 'crud', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 6,
+    assertionTypes: ['status', 'arrayLength', 'numeric', 'regex'],
+    factory: createEcommerceFullSuiteTest,
+  },
+  {
+    id: 'test-multi-api-load',
+    domain: 'tests',
+    name: 'Multi-API Load Profile',
+    description: 'Response time checks across 5 public APIs — baseline for load testing',
+    icon: '⚡',
+    category: 'load',
+    difficulty: 'advanced',
+    tags: ['load', 'performance', 'multi-api', 'response-time'],
+    liveApis: ['jsonplaceholder.typicode.com', 'fakestoreapi.com', 'dummyjson.com', 'dog.ceo', 'restcountries.com'],
+    scenarioCount: 5,
+    assertionTypes: ['status', 'responseTime'],
+    factory: createMultiApiLoadTest,
+  },
+];

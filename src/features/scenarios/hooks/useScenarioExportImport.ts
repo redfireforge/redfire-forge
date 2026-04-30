@@ -12,6 +12,7 @@ interface UseScenarioExportImportParams {
   selectedEnvId?: string;
   selectedEnvName?: string;
   setCsvImportOpen: (open: boolean) => void;
+  confirm: (title: string, message: string, onConfirm: () => void) => void;
 }
 
 export function useScenarioExportImport({
@@ -22,6 +23,7 @@ export function useScenarioExportImport({
   selectedEnvId,
   selectedEnvName,
   setCsvImportOpen,
+  confirm,
 }: UseScenarioExportImportParams) {
   const exportMeta = { microservice: selectedSvcName || undefined, environment: selectedEnvName || undefined };
 
@@ -47,7 +49,11 @@ export function useScenarioExportImport({
       const conflicts = items.filter((fg) => existingNames.has(fg.name.toLowerCase()) || existingIds.has(fg.id));
       if (conflicts.length > 0) {
         const names = conflicts.map((fg) => `  • "${fg.name}"`).join('\n');
-        if (!window.confirm(`The following feature groups already exist:\n${names}\n\nImport as new copies with fresh IDs?`)) return;
+        confirm('Import Conflicts', `The following feature groups already exist:\n${names}\n\nImport as new copies with fresh IDs?`, () => {
+          const imported = items.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
+          setFeatureGroups((prev) => [...prev, ...imported]);
+        });
+        return;
       }
       const imported = items.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
       setFeatureGroups((prev) => [...prev, ...imported]);
@@ -113,7 +119,13 @@ export function useScenarioExportImport({
       const dupes = items.filter((sc) => existingNames.has(sc.name.toLowerCase()));
       if (dupes.length > 0) {
         const names = dupes.map((sc) => `  • "${sc.name}"`).join('\n');
-        if (!window.confirm(`These scenarios already exist in "${fg.name}":\n${names}\n\nImport as new copies?`)) return;
+        confirm('Import Conflicts', `These scenarios already exist in "${fg.name}":\n${names}\n\nImport as new copies?`, () => {
+          const imported = reIdScenarios(items);
+          setFeatureGroups((prev) => prev.map((f) =>
+            f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
+          ));
+        });
+        return;
       }
     }
     const imported = reIdScenarios(items);
@@ -139,7 +151,16 @@ export function useScenarioExportImport({
       const dupes = items.filter((t) => existingNames.has(t.name.toLowerCase()));
       if (dupes.length > 0) {
         const names = dupes.map((t) => `  • "${t.name}"`).join('\n');
-        if (!window.confirm(`These tests already exist in "${sc.name}":\n${names}\n\nImport as new copies?`)) return;
+        confirm('Import Conflicts', `These tests already exist in "${sc.name}":\n${names}\n\nImport as new copies?`, () => {
+          const imported = items.map((t) => ({ ...t, id: uuidv4() }));
+          setFeatureGroups((prev) => prev.map((f) => {
+            if (f.id !== featureId) return f;
+            return { ...f, scenarios: f.scenarios.map((s) =>
+              s.id === scenarioId ? { ...s, tests: [...s.tests, ...imported] } : s
+            )};
+          }));
+        });
+        return;
       }
     }
     const imported = items.map((t) => ({ ...t, id: uuidv4() }));

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Country Currency Lookup (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🌍</div>
+  <h1>Country Currency Lookup</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Search for a country using the REST Countries API, extract currency and capital
+    information with a SetVariable node, then verify the data exists using a Condition
+    node. Learn the filter + enrich pattern.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: <span class="badge badge-easy">★☆☆ Easy</span> &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#variables">Variable Flow</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This sample demonstrates the <strong>filter + enrich pattern</strong> — fetching data
+  from an API, then using a SetVariable node to extract and reshape specific fields
+  from the response into clean, usable variables.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> You receive a complex API response with dozens of
+  fields, but you only need three or four. Instead of passing the raw response downstream,
+  you use SetVariable to pick out exactly what you need and give each piece a clear name.
+</p>
+<p><strong>Examples:</strong></p>
+<ul>
+  <li>Looking up a customer record and extracting just the email and tier</li>
+  <li>Fetching product data and pulling out the price and availability</li>
+  <li>Querying a configuration API and extracting feature flag values</li>
+  <li>Enriching a partial record with additional fields from a lookup API</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Using <strong>query parameters</strong> in HTTP URLs (<code>?fields=</code>) to request only needed data</li>
+  <li>Using a <strong>SetVariable node</strong> to extract and rename fields from an API response</li>
+  <li>Understanding how <code>JSONPath</code> works with array responses (the API returns an array)</li>
+  <li>Using <code>{{variable}}</code> interpolation in SetVariable expressions</li>
+  <li>Using a <strong>Condition node</strong> to validate extracted data</li>
+  <li>The <strong>filter + enrich</strong> pattern for clean data pipelines</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  countryName = "japan"
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Search Country          │  GET https://restcountries
+  │     (HTTP)                  │      .com/v3.1/name/japan
+  │                             │      ?fields=name,currencies,
+  │                             │       capital,region
+  │  Extractions:               │
+  │    → countryJson ($[0])     │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Extract Currency        │  SetVariable node
+  │     (SetVariable)           │
+  │                             │  capital ← $.capital[0]
+  │                             │  region ← $.region
+  │                             │  currencyCode ← first key
+  │                             │    of $.currencies
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Has Currency?           │  {{currencyCode}} != ""
+  │     (Condition)             │
+  └──────┬──────────────────────┘
+         │ Yes (true)
+         ▼
+  ┌─────────────┐
+  │    Done     │
+  │    (End)    │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The HTTP node fetches filtered
+  country data, the SetVariable node extracts specific fields, and the Condition node
+  verifies a currency was found.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h4><span class="step-num">S</span> Start Node</h4>
+<table>
+  <tr><td><strong>Input Variables</strong></td><td><code>countryName</code> = <code>"japan"</code></td></tr>
+</table>
+<p>
+  The workflow starts with a country name. You can change this to any country
+  (e.g., <code>brazil</code>, <code>germany</code>, <code>australia</code>).
+</p>
+
+<h4><span class="step-num">1</span> Search Country (HTTP Node)</h4>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://restcountries.com/v3.1/name/{{countryName}}?fields=name,currencies,capital,region</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Headers</strong></td><td><code>Accept: application/json</code></td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>countryJson</code> ← <code>$[0]</code> (first result)</td></tr>
+</table>
+<p>
+  Calls the REST Countries API with field filtering. The <code>?fields=</code> parameter
+  tells the API to return only the fields we need, reducing response size. The API
+  returns an array — we extract the first match with <code>$[0]</code>.
+</p>
+
+<div class="callout">
+  <strong>📘 Why Use Field Filtering?</strong>
+  The full country response contains 30+ fields (translations, borders, timezones, etc.).
+  By specifying <code>?fields=name,currencies,capital,region</code>, we get a focused
+  response that's easier to work with and faster to transfer.
+</div>
+
+<h4><span class="step-num">2</span> Extract Currency (SetVariable Node)</h4>
+<table>
+  <tr><td><strong>Variables</strong></td><td>
+    <code>capital</code> ← extracted from <code>countryJson</code> → <code>capital[0]</code><br>
+    <code>region</code> ← extracted from <code>countryJson</code> → <code>region</code><br>
+    <code>currencyCode</code> ← first key of <code>currencies</code> object (e.g., <code>"JPY"</code>)
+  </td></tr>
+</table>
+<p>
+  The SetVariable node picks out individual fields from the country JSON and stores
+  them as named variables. The currency object uses currency codes as keys
+  (e.g., <code>{"JPY": {"name": "Japanese yen", "symbol": "¥"}}</code>), so we extract
+  the first key as the currency code.
+</p>
+
+<h4><span class="step-num">3</span> Has Currency? (Condition Node)</h4>
+<table>
+  <tr><td><strong>Left</strong></td><td><code>{{currencyCode}}</code></td></tr>
+  <tr><td><strong>Operator</strong></td><td><code>!=</code> (not equal)</td></tr>
+  <tr><td><strong>Right</strong></td><td><code></code> (empty string)</td></tr>
+</table>
+<p>
+  Verifies a currency code was extracted. Some territories may not have a currency.
+  The <code>true</code> branch connects to Done.
+</p>
+
+<h4><span class="step-num">E</span> Done (End Node)</h4>
+<p>Marks the workflow as complete. Variables <code>capital</code>, <code>region</code>,
+  <code>currencyCode</code>, and <code>lookupComplete</code> are available.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. VARIABLES                                -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="variables">5. Variable Flow</h2>
+<p>This table shows how variables flow through the workflow at each stage:</p>
+
+<table class="var-table">
+  <tr><th>Variable</th><th>Set By</th><th>Value (Example)</th><th>Used By</th></tr>
+  <tr>
+    <td><code>countryName</code></td>
+    <td>Start Node (input)</td>
+    <td><code>japan</code></td>
+    <td>HTTP Node (URL)</td>
+  </tr>
+  <tr>
+    <td><code>capital</code></td>
+    <td>SetVariable Node</td>
+    <td><code>Tokyo</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>region</code></td>
+    <td>SetVariable Node</td>
+    <td><code>Asia</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+  <tr>
+    <td><code>currencyCode</code></td>
+    <td>SetVariable Node</td>
+    <td><code>JPY</code></td>
+    <td>Condition Node</td>
+  </tr>
+  <tr>
+    <td><code>lookupComplete</code></td>
+    <td>SetVariable Node</td>
+    <td><code>true</code></td>
+    <td>(available for downstream use)</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">6. Step-by-Step Development Guide</h2>
+<p>Follow these steps to build this workflow from scratch:</p>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🌍 Country Currency Lookup"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Country Currency Lookup".
+    Add input variable <code>countryName</code> with default value <code>japan</code>.
+  </li>
+  <li>
+    <strong>Add the HTTP node (Search Country).</strong><br>
+    Drag an HTTP node onto the canvas. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://restcountries.com/v3.1/name/{{countryName}}?fields=name,currencies,capital,region</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: Add <code>countryJson</code> ← <code>$[0]</code></li>
+    </ul>
+    Connect Start → HTTP.
+  </li>
+  <li>
+    <strong>Add the SetVariable node (Extract Currency).</strong><br>
+    Drag a SetVariable node. Configure:
+    <ul>
+      <li><code>capital</code> ← extract from countryJson → <code>capital[0]</code></li>
+      <li><code>region</code> ← extract from countryJson → <code>region</code></li>
+      <li><code>currencyCode</code> ← extract first key of <code>currencies</code> object</li>
+      <li><code>lookupComplete</code> ← <code>true</code></li>
+    </ul>
+    Connect HTTP → SetVariable.
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Drag a Condition node. Configure:
+    <ul>
+      <li><em>Left</em>: <code>{{currencyCode}}</code></li>
+      <li><em>Operator</em>: <code>!=</code></li>
+      <li><em>Right</em>: (leave empty)</li>
+    </ul>
+    Connect SetVariable → Condition. Connect Condition (true) → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Verify the currency code for Japan is <code>JPY</code>
+    and the Condition passes.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">7. Expected Execution Results</h2>
+
+<h3>Console Output</h3>
+<pre>
+# [1. Search Country] HTTP 200 — extracted countryJson
+# [2. Extract Currency] SetVariable — capital="Tokyo", region="Asia", currencyCode="JPY"
+# [3. Has Currency?] Condition: "JPY" != "" → true</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>countryName = "japan"</td></tr>
+  <tr><td>1. Search Country</td><td>✅ Pass</td><td>HTTP 200, countryJson extracted</td></tr>
+  <tr><td>2. Extract Currency</td><td>✅ Pass</td><td>3 variables set</td></tr>
+  <tr><td>3. Has Currency?</td><td>✅ Pass (true)</td><td>"JPY" != ""</td></tr>
+  <tr><td>Done</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Final Variable State</h3>
+<pre>
+{
+  "countryName": "japan",
+  "capital": "Tokyo",
+  "region": "Asia",
+  "currencyCode": "JPY",
+  "lookupComplete": "true"
+}</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 8. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">8. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Try Different Countries</h3>
+<p>
+  Change <code>countryName</code> to <code>brazil</code>, <code>germany</code>, or
+  <code>india</code>. Observe how the currency code changes (BRL, EUR, INR).
+</p>
+
+<h3>Exercise 2: Extract Currency Name and Symbol</h3>
+<p>
+  The currencies object contains not just the code but also <code>name</code> and
+  <code>symbol</code>. Add variables for <code>currencyName</code> (e.g., "Japanese yen")
+  and <code>currencySymbol</code> (e.g., "¥").
+</p>
+
+<h3>Exercise 3: Add Population Data</h3>
+<p>
+  Add <code>population</code> to the <code>?fields=</code> parameter. Extract it as a
+  variable. Add a second Condition node that checks if the population is greater than
+  1,000,000.
+</p>
+
+<h3>Exercise 4: Handle "Country Not Found"</h3>
+<p>
+  Try <code>countryName = "atlantis"</code>. The API returns a 404. Add an error handler
+  or a Condition node that checks the HTTP status code before proceeding to the
+  SetVariable node.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with the filter + enrich pattern, try the
+  <a href="product-cart-medium.html">Product Search &amp; Cart</a> (Medium) to learn
+  multi-step flows with both GET and POST requests.
+</div>
+
+<footer>
+  RedfireForge Training Manual — Country Currency Lookup · April 2026<br>
+  &copy; RedfireForge. Print to PDF: Ctrl/Cmd + P → Destination: Save as PDF.
+</footer>
+
+</body>
+</html>

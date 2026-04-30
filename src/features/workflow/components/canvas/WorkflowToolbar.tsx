@@ -8,7 +8,7 @@ export interface RunProgress {
   total: number;
   failed: number;
   elapsedMs: number;
-  lastRunStatus?: 'idle' | 'running' | 'pass' | 'fail';
+  lastRunStatus?: 'idle' | 'running' | 'pass' | 'fail' | 'stopped';
 }
 
 interface Props {
@@ -194,7 +194,12 @@ export default function WorkflowToolbar({
                 ● {runProgress.completed - runProgress.failed}/{runProgress.total}{runProgress.failed > 0 ? ` · ${runProgress.failed} failed` : ''} · {(runProgress.elapsedMs / 1000).toFixed(1)}s
               </span>
             )}
-            {runProgress && !isRunning && (runProgress.lastRunStatus === 'pass' || runProgress.lastRunStatus === 'fail') && onReset && (
+            {runProgress && runProgress.lastRunStatus === 'stopped' && (
+              <span className="wf-run-progress wf-run-progress-stopped">
+                ⏹ Stopped by user · {runProgress.completed}/{runProgress.total} completed · {(runProgress.elapsedMs / 1000).toFixed(1)}s
+              </span>
+            )}
+            {runProgress && !isRunning && (runProgress.lastRunStatus === 'pass' || runProgress.lastRunStatus === 'fail' || runProgress.lastRunStatus === 'stopped') && onReset && (
               <button
                 className="btn btn-sm btn-ghost wf-toolbar-reset-btn"
                 onClick={onReset}

@@ -44,7 +44,7 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 2991 unit/integration tests (Vitest, 96.69% line coverage, 90.03% branch coverage) + 180 E2E tests (Playwright) = 3171 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 4900 unit/integration tests (Vitest) + 281 E2E tests (Playwright) = 5181 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
@@ -173,7 +173,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (2991 tests, 96.69% line coverage, <7s) + Playwright E2E (180 tests)
+- [x] **`npm test` Script** — Vitest (4900 tests, <25s) + Playwright E2E (281 tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
 
 ---
@@ -290,8 +290,20 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **SVG Configure Icon** — Replaced tiny Unicode ⚙ with a 14×14px SVG pencil/edit icon; hover tooltip preserved
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
-- [x] **E2E Test Selectors Updated** — All 180 E2E tests updated for new nav structure
-- [x] **2991 Unit Tests** — 95.78% statements, 90.03% branches, 95.9% functions, 96.69% lines
+- [x] **E2E Test Selectors Updated** — All 281 E2E tests updated for new nav structure
+- [x] **4900 Unit Tests** — comprehensive coverage across all features
+
+### Phase 0.5.4a — Gallery Redesign & Training Manuals ✅
+
+> Unified gallery system across all 5 domains with type-safe data layer, shared UI components, and comprehensive training manuals.
+
+- [x] **Gallery Type Unification** — `GalleryEntry<T>` base type with domain-specific extensions; 5 domains: requests (12), tests (8), catalog (6), workflows (30), assertions (5); total 65 gallery entries
+- [x] **Request & Test Gallery Data** — 12 request samples + 8 test scenario samples with factory functions, live API endpoints, difficulty levels, and category tags
+- [x] **Catalog Spec Gallery** — 6 OpenAPI 3.0.3 specs for public APIs (JSONPlaceholder, FakeStore, PokéAPI, DummyJSON, REST Countries, HTTPBin)
+- [x] **Workflow Gallery Migration** — 30 workflow samples across 5 categories (api-patterns, flow-control, event-driven, orchestration); includes script nodes, async correlation, and diverse API patterns
+- [x] **Shared Gallery UI** — `GalleryPage` with domain tabs, `GalleryDetailPanel` with import/action buttons, `FullPanelModal` for gallery display
+- [x] **Diverse API Workflow Samples** — 5 new workflow samples using real public APIs: PokéAPI Evolution Chain, Country Currency Lookup, Product Search & Cart, Book Search & Enrichment, Multi-API Dashboard
+- [x] **Training Manuals (73 files)** — Complete training manual coverage across all 5 gallery domains: requests (13), tests (9), catalog (7), assertions (6), workflows (36 across 8 subdirectories); each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
 
 ---
 
@@ -479,7 +491,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 2991 unit/integration + 180 E2E = 3171 tests
+Phase 0.8.0 (Tests) ✅ DONE — 4900 unit/integration + 281 E2E = 5181 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```

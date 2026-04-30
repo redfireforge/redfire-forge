@@ -64,8 +64,7 @@ describe('ExtractionMapperModal', () => {
 
     it('renders window control buttons', () => {
       renderModal();
-      expect(screen.getAllByLabelText('Expand modal').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByLabelText('Close')).toBeTruthy();
+      expect(screen.getByText('Cancel')).toBeTruthy();
     });
 
     it('renders Fetch Response button', () => {
@@ -307,9 +306,9 @@ describe('ExtractionMapperModal', () => {
   });
 
   describe('window controls', () => {
-    it('renders expand button in header', () => {
+    it('renders cancel button in footer', () => {
       renderModal();
-      expect(screen.getAllByLabelText('Expand modal').length).toBeGreaterThan(0);
+      expect(screen.getByText('Cancel')).toBeTruthy();
     });
   });
 
@@ -351,9 +350,9 @@ describe('ExtractionMapperModal', () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    it('calls onClose via window close button', () => {
+    it('calls onClose via Cancel button', () => {
       const { onClose } = renderModal();
-      fireEvent.click(screen.getByLabelText('Close'));
+      fireEvent.click(screen.getByText('Cancel'));
       expect(onClose).toHaveBeenCalled();
     });
 

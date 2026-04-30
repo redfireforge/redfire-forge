@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auth Flow Validation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔐</div>
+    <h1>Auth Flow Validation</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Security · 3 Scenarios · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Auth Flow Validation</strong> test verifies a complete authentication lifecycle: successful login, failed login, and authenticated profile retrieval. Security tests like this are essential for any API that handles user credentials.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Validating that login endpoints correctly issue tokens on valid credentials.</li>
+    <li>Confirming that invalid credentials are rejected with appropriate error codes.</li>
+    <li>Testing Bearer token–based authentication on protected endpoints.</li>
+    <li>Learning how to chain scenarios conceptually — where one scenario's output (a token) feeds into a subsequent request.</li>
+  </ul>
+  <p>All three scenarios target the DummyJSON Auth API (<code>dummyjson.com</code>), which provides a realistic authentication simulation with JWT tokens.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Security testing</strong> — validating that authentication and authorization work correctly.</li>
+    <li><strong>Status code assertions</strong> — confirming both success (<code>200</code>) and error (<code>400</code>/<code>401</code>) responses.</li>
+    <li><strong>Regex assertions</strong> — verifying that a token field exists and matches an expected pattern.</li>
+    <li><strong>Numeric assertions</strong> — checking numeric fields in profile responses.</li>
+    <li><strong>POST requests with JSON body</strong> — sending credentials as structured request payloads.</li>
+    <li><strong>Bearer token authentication</strong> — passing tokens via the <code>Authorization</code> header.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 3 scenarios covering the full auth lifecycle:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Login Success</td>
+        <td><code>POST</code></td>
+        <td><code>/auth/login</code></td>
+        <td>Status = 200, Token exists</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Login Failure</td>
+        <td><code>POST</code></td>
+        <td><code>/auth/login</code></td>
+        <td>Status = 400 or 401</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Profile Fetch</td>
+        <td><code>GET</code></td>
+        <td><code>/auth/me</code></td>
+        <td>Status = 200, Username exists</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — Login Success</h3>
+  <p>Sends valid credentials to the login endpoint and verifies a token is returned.</p>
+  <pre>{
+  "username": "emilys",
+  "password": "emilyspass"
+}</pre>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The login endpoint accepted valid credentials.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.accessToken</code></td>
+        <td>matches</td>
+        <td><code>.+</code></td>
+        <td>The response contains a non-empty access token.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Login Failure</h3>
+  <p>Sends invalid credentials to verify the API rejects them properly.</p>
+  <pre>{
+  "username": "invaliduser",
+  "password": "wrongpassword"
+}</pre>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>in</td>
+        <td><code>[400, 401]</code></td>
+        <td>The API rejects invalid credentials with an appropriate error status.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — Profile Fetch</h3>
+  <p>Fetches the authenticated user's profile using a Bearer token in the <code>Authorization</code> header.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The protected endpoint accepts the Bearer token.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.username</code></td>
+        <td>matches</td>
+        <td><code>.+</code></td>
+        <td>The profile response contains a non-empty username.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.id</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The user ID is a valid positive number.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>🔐 Auth Flow Validation</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 3 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its method, URL, headers, and body.</li>
+    <li>Note how Scenario 1 and 2 use <code>POST</code> with a JSON body, while Scenario 3 uses <code>GET</code> with an <code>Authorization</code> header.</li>
+    <li>Pay attention to Scenario 2 — it intentionally sends bad credentials to test rejection.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 3 scenarios sequentially.</li>
+    <li>Watch the progress indicator as each scenario completes.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>Click on any scenario to expand its assertion results.</li>
+    <li>Green checkmarks (✅) indicate passed assertions; red crosses (❌) indicate failures.</li>
+    <li>Verify that Scenario 2 correctly shows a <code>400</code> or <code>401</code> status as a passing assertion.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In a real workflow, you would use RedfireForge's variable extraction feature to capture the token from Scenario 1 and inject it into Scenario 3's <code>Authorization</code> header automatically.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the auth flow test, try these exercises to deepen your understanding:</p>
+
+  <h4>Exercise 1 — Refresh Token</h4>
+  <p>Add a scenario that calls <code>POST /auth/refresh</code> with the refresh token from the login response. Assert that a new access token is returned.</p>
+
+  <h4>Exercise 2 — Expired Token</h4>
+  <p>Create a scenario that sends an invalid or expired Bearer token to <code>GET /auth/me</code>. What status code does the API return? Add an assertion for it.</p>
+
+  <h4>Exercise 3 — Validate Token Format</h4>
+  <p>In Scenario 1 (Login Success), tighten the regex assertion on <code>$.accessToken</code> to match a JWT pattern: <code>^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$</code>.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported test — you can modify it freely without affecting the original gallery sample.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Auth Flow Validation · April 2026
+  </footer>
+
+</body>
+</html>

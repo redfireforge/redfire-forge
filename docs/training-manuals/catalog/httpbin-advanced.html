@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTTPBin Toolkit — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔧</div>
+    <h1>HTTPBin Toolkit</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> &nbsp; <code>microservices</code> &nbsp; 21 endpoints &nbsp; httpbin.org</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>HTTPBin is a request inspection and testing toolkit. It echoes back everything you send — headers, body, query parameters, auth credentials — making it the ultimate tool for understanding HTTP fundamentals. It also provides utilities for testing delays, redirects, status codes, cookies, and content types.</p>
+  <p>This catalog spec covers advanced HTTP concepts. Unlike typical data APIs, HTTPBin's purpose is to help you understand <em>how</em> HTTP works, not to provide application data. It's invaluable for debugging request construction, testing error handling, and learning authentication schemes.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    HTTPBin is the perfect companion for learning RedfireForge's request builder. Send a request and see <em>exactly</em> what the server received — headers, body encoding, auth headers, and all.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>HTTP Methods</strong> — See how <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>, and <code>PATCH</code> differ in practice</li>
+    <li><strong>Request Echo</strong> — Understand exactly what the server receives from your client</li>
+    <li><strong>Authentication Schemes</strong> — Test Basic Auth and Bearer token authentication</li>
+    <li><strong>Status Code Testing</strong> — Trigger any HTTP status code to test error handling</li>
+    <li><strong>Delays &amp; Timeouts</strong> — Simulate slow responses to test timeout behavior</li>
+    <li><strong>Redirects</strong> — Follow redirect chains and understand redirect mechanics</li>
+    <li><strong>Cookies</strong> — Set, read, and manage cookies across requests</li>
+    <li><strong>Content Negotiation</strong> — Request different response formats (JSON, HTML, XML, images)</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://httpbin.org</code></td></tr>
+    <tr><td>Authentication</td><td>None required (auth endpoints test your credentials)</td></tr>
+    <tr><td>Rate Limits</td><td>No enforced limits (fair use)</td></tr>
+    <tr><td>Response Format</td><td>JSON (default), HTML, XML, images, binary</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Endpoint Categories</h3>
+  <p>HTTPBin endpoints are organized by purpose rather than by data resource:</p>
+  <ul>
+    <li><strong>HTTP Methods</strong> — Echo endpoints for each HTTP verb (<code>/get</code>, <code>/post</code>, <code>/put</code>, <code>/delete</code>, <code>/patch</code>)</li>
+    <li><strong>Auth Testing</strong> — Basic auth and Bearer token validation endpoints</li>
+    <li><strong>Request Inspection</strong> — View your headers, IP, user agent</li>
+    <li><strong>Response Control</strong> — Trigger specific status codes, delays, and redirects</li>
+    <li><strong>Cookies</strong> — Set and read cookies</li>
+    <li><strong>Content Types</strong> — Get responses in different formats (JSON, HTML, XML, images, raw bytes)</li>
+    <li><strong>Catch-All</strong> — <code>/anything</code> accepts any method and echoes everything</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/get</code></td>
+        <td>Echo GET request details</td>
+        <td>Request args, headers, origin, url</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/post</code></td>
+        <td>Echo POST request with body</td>
+        <td>Request data, form, files, json, headers</td>
+      </tr>
+      <tr>
+        <td><code>PUT</code></td>
+        <td><code>/put</code></td>
+        <td>Echo PUT request with body</td>
+        <td>Request data, form, json, headers</td>
+      </tr>
+      <tr>
+        <td><code>DELETE</code></td>
+        <td><code>/delete</code></td>
+        <td>Echo DELETE request details</td>
+        <td>Request args, headers, origin, url</td>
+      </tr>
+      <tr>
+        <td><code>PATCH</code></td>
+        <td><code>/patch</code></td>
+        <td>Echo PATCH request with body</td>
+        <td>Request data, form, json, headers</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/status/{code}</code></td>
+        <td>Return specific HTTP status code</td>
+        <td>Response with requested status</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/delay/{seconds}</code></td>
+        <td>Delay response by N seconds (max 10)</td>
+        <td>Echoed request after delay</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/redirect/{n}</code></td>
+        <td>302 redirect N times then return</td>
+        <td>Redirect chain ending in echo</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/cookies</code></td>
+        <td>Return currently set cookies</td>
+        <td>Object with cookie key-values</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/cookies/set</code></td>
+        <td>Set cookies via query params</td>
+        <td>Redirect to <code>/cookies</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/basic-auth/{user}/{pass}</code></td>
+        <td>Test HTTP Basic Authentication</td>
+        <td><code>200</code> if credentials match, <code>401</code> otherwise</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/bearer</code></td>
+        <td>Test Bearer token authentication</td>
+        <td><code>200</code> with token info, or <code>401</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/headers</code></td>
+        <td>Return request headers</td>
+        <td>Object with all received headers</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/ip</code></td>
+        <td>Return client IP address</td>
+        <td><code>{"origin": "x.x.x.x"}</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/user-agent</code></td>
+        <td>Return client User-Agent string</td>
+        <td><code>{"user-agent": "..."}</code></td>
+      </tr>
+      <tr>
+        <td><code>ANY</code></td>
+        <td><code>/anything</code></td>
+        <td>Echo any request (any method)</td>
+        <td>Full request echo: method, url, args, data, headers</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/image/{format}</code></td>
+        <td>Return image in specified format</td>
+        <td>Image (png, jpeg, svg, webp)</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/html</code></td>
+        <td>Return an HTML page</td>
+        <td>HTML document</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/xml</code></td>
+        <td>Return an XML document</td>
+        <td>XML document</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/json</code></td>
+        <td>Return a JSON document</td>
+        <td>Sample JSON object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/bytes/{n}</code></td>
+        <td>Return N random bytes</td>
+        <td>Binary data</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>HTTPBin Toolkit</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The OpenAPI spec loads into your workspace. You'll see it listed in your catalog panel.</li>
+  </ol>
+
+  <h3>Step 2 — Echo Your First Request</h3>
+  <ol>
+    <li>Select the <code>GET /get</code> endpoint and send a request.</li>
+    <li>Inspect the response — it mirrors back your headers, IP address, and URL.</li>
+    <li>Add query parameters (e.g., <code>/get?foo=bar&amp;count=5</code>) and see them in the <code>args</code> field.</li>
+  </ol>
+
+  <h3>Step 3 — Compare HTTP Methods</h3>
+  <ol>
+    <li>Send the same JSON body to <code>POST /post</code>, <code>PUT /put</code>, and <code>PATCH /patch</code>.</li>
+    <li>Compare the echoed responses — notice how each method handles the body identically.</li>
+    <li>Try <code>DELETE /delete</code> and observe it behaves like <code>GET</code> (no body echo).</li>
+  </ol>
+
+  <h3>Step 4 — Test Authentication</h3>
+  <ol>
+    <li>Send <code>GET /basic-auth/admin/secret</code> without credentials — you'll get a <code>401</code>.</li>
+    <li>Add Basic Auth header with username <code>admin</code> and password <code>secret</code> — now you'll get <code>200</code>.</li>
+    <li>Try <code>GET /bearer</code> with an <code>Authorization: Bearer mytoken123</code> header.</li>
+  </ol>
+
+  <h3>Step 5 — Status Codes &amp; Delays</h3>
+  <ol>
+    <li>Send <code>GET /status/404</code> to trigger a Not Found response.</li>
+    <li>Try <code>GET /status/500</code> for a server error.</li>
+    <li>Send <code>GET /delay/3</code> and observe the 3-second delay before response.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>/delay</code> endpoint caps at 10 seconds. Use it to test your timeout configuration — if your client timeout is set to 2 seconds, a <code>/delay/3</code> request will trigger a timeout error.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Request Anatomy</h3>
+  <p>Use <code>/anything</code> to understand exactly what your client sends:</p>
+  <ol>
+    <li>Send a <code>POST</code> to <code>/anything</code> with a JSON body, custom headers, and query parameters.</li>
+    <li>Inspect the echoed response — identify the <code>method</code>, <code>url</code>, <code>args</code>, <code>data</code>, <code>headers</code>, and <code>json</code> fields.</li>
+    <li>Modify the Content-Type header and resend — observe how <code>data</code> vs <code>json</code> fields change.</li>
+  </ol>
+
+  <h3>Exercise 2 — Error Handling</h3>
+  <p>Test your workflow's error handling with controlled failures:</p>
+  <ol>
+    <li>Build a workflow that calls <code>/status/200</code>, <code>/status/400</code>, <code>/status/401</code>, and <code>/status/500</code>.</li>
+    <li>Add assertions to verify each response's status code.</li>
+    <li>Use <code>/delay/5</code> to test timeout behavior — set your request timeout to 3 seconds and handle the timeout error.</li>
+  </ol>
+
+  <h3>Exercise 3 — Cookie Workflow</h3>
+  <p>Build a multi-step cookie workflow:</p>
+  <ol>
+    <li>Set a cookie with <code>GET /cookies/set?session=abc123&amp;theme=dark</code>.</li>
+    <li>Read cookies back with <code>GET /cookies</code> — verify both cookies are present.</li>
+    <li>Send a request to <code>GET /get</code> and inspect the Cookie header in the echoed response.</li>
+  </ol>
+
+  <h3>Exercise 4 — Redirect Chains</h3>
+  <p>Understand HTTP redirects:</p>
+  <ol>
+    <li>Send <code>GET /redirect/3</code> and observe the chain of 302 redirects.</li>
+    <li>Count the intermediate responses before the final destination.</li>
+    <li>Try <code>GET /redirect/1</code> and compare — fewer hops to the final response.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    HTTPBin is the best API for learning HTTP fundamentals. Combine it with RedfireForge's request inspector to see both what you <em>sent</em> and what the server <em>received</em> — they're not always the same!
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — HTTPBin Toolkit · April 2026
+  </footer>
+
+</body>
+</html>

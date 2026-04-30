@@ -15,7 +15,9 @@ import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
-import { proxyFetch, acquireOAuth2Token } from '../../../engine/executor';
+import { proxyFetch } from '../../../engine/executor';
+import { acquireOAuth2Token } from '../../../engine/tokenManager';
+import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { validate } from '../../../engine/validator';
 import CsvTemplateExportModal from './CsvTemplateExportModal';
@@ -208,20 +210,7 @@ export default function TestEditorModal({
         reqHeaders['Content-Type'] = autoContentType;
       }
 
-      if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
-        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-        reqHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
-        const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
-        reqHeaders['Authorization'] = `${prefix} ${effectiveAuth.token}`;
-      } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        if (effectiveAuth.apiKeyIn === 'header') {
-          reqHeaders[effectiveAuth.apiKeyName] = effectiveAuth.apiKeyValue;
-        }
-      } else if (effectiveAuth.type === 'digest' && effectiveAuth.username) {
-        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-        reqHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (effectiveAuth.type === 'oauth2') {
+      if (effectiveAuth.type === 'oauth2') {
         if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
           const missing = [
             !effectiveAuth.tokenUrl && 'tokenUrl',
@@ -233,7 +222,9 @@ export default function TestEditorModal({
           return;
         }
         const token = await acquireOAuth2Token(effectiveAuth);
-        reqHeaders['Authorization'] = `Bearer ${token}`;
+        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth, token));
+      } else if (effectiveAuth.type !== 'none') {
+        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth));
       }
 
       const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
@@ -317,22 +308,16 @@ export default function TestEditorModal({
         reqHeaders['Content-Type'] = autoContentType;
       }
 
-      if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
-        const encoded = btoa(`${effectiveAuth.username}:${effectiveAuth.password ?? ''}`);
-        reqHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
-        const prefix = effectiveAuth.prefix?.trim() || 'Bearer';
-        reqHeaders['Authorization'] = `${prefix} ${effectiveAuth.token}`;
-      } else if (effectiveAuth.type === 'apikey' && effectiveAuth.apiKeyName && effectiveAuth.apiKeyValue) {
-        if (effectiveAuth.apiKeyIn === 'header') reqHeaders[effectiveAuth.apiKeyName] = effectiveAuth.apiKeyValue;
-      } else if (effectiveAuth.type === 'oauth2') {
+      if (effectiveAuth.type === 'oauth2') {
         if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
           setValidationResult({ passed: false, failures: [{ path: '(auth)', expected: 'OAuth2 credentials', actual: 'missing tokenUrl/clientId/clientSecret' }] });
           setValidating(false);
           return;
         }
         const token = await acquireOAuth2Token(effectiveAuth);
-        reqHeaders['Authorization'] = `Bearer ${token}`;
+        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth, token));
+      } else if (effectiveAuth.type !== 'none') {
+        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth));
       }
 
       const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
