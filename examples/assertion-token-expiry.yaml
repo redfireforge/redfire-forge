@@ -1,0 +1,51 @@
+# RedfireForge CLI — Token Expiry Guard Assertions (Medium)
+# Preset: Token Expiry Guard
+# Verifies an auth token has valid JWT format and hasn't expired.
+#
+# Run: npx redfireforge run examples/assertion-token-expiry.yaml --base-url https://your-auth-api.example.com
+# Note: Replace the base URL with your actual auth API.
+
+name: Token Expiry Guard
+baseUrl: https://httpbin.org
+
+defaults:
+  headers:
+    Accept: application/json
+    Content-Type: application/json
+  timeout: 10
+
+config:
+  concurrency: 1
+  transactions: 3
+
+tests:
+  - name: Token Has Valid Format and Future Expiry
+    url: /post
+    method: POST
+    body: |
+      {
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123",
+        "expiresAt": "2027-12-31T23:59:59Z",
+        "expiresIn": 86400
+      }
+    validation:
+      mode: none
+      assertions:
+        # Assert the token matches JWT format (three base64url segments)
+        - type: regex
+          jsonPath: "$.json.token"
+          pattern: "^[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_]+$"
+
+        # Assert the expiry date is after today (UTC)
+        - type: date
+          jsonPath: "$.json.expiresAt"
+          operator: ">"
+          reference:
+            kind: today
+            timezone: utc
+
+        # Assert expiresIn seconds is positive
+        - type: numeric
+          jsonPath: "$.json.expiresIn"
+          operator: ">"
+          value: 0

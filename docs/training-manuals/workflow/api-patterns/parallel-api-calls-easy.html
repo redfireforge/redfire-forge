@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — API Patterns: Parallel API Calls (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Parallel API Calls</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Execute multiple API calls concurrently using a fan-out/fan-in pattern.
+    Fetch users, posts, and todos simultaneously, then merge the results
+    into a single unified context.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 7 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates the <strong>fan-out/fan-in</strong> pattern — splitting
+  execution into multiple parallel branches and then merging the results. Instead of
+  calling APIs one after another (sequential), you call them all at once (parallel),
+  dramatically reducing total execution time.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A dashboard page needs to display user info,
+  recent orders, and notifications. Rather than loading each section sequentially
+  (3× the wait time), the page fetches all three data sources simultaneously and
+  renders them as each response arrives.
+</p>
+<p><strong>When to use parallel execution:</strong></p>
+<ul>
+  <li>Fetching data from multiple independent API endpoints</li>
+  <li>Running health checks against several services simultaneously</li>
+  <li>Aggregating data from different microservices into a unified view</li>
+  <li>Any scenario where requests don't depend on each other's results</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>How to create <strong>parallel branches</strong> from a single node (fan-out)</li>
+  <li>How the workflow engine <strong>waits for all branches</strong> before continuing (fan-in)</li>
+  <li>Multiple HTTP nodes executing <strong>concurrently</strong></li>
+  <li>Each branch writing to its own <strong>independent variables</strong></li>
+  <li>How parallel execution <strong>reduces total latency</strong></li>
+  <li>Using a <strong>merge point</strong> to synchronize parallel branches</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │
+  └──────┬──────┘
+         │
+    ┌────┼────────────────┐
+    │    │                │
+    ▼    ▼                ▼
+  ┌─────────┐  ┌─────────┐  ┌─────────┐
+  │ 1. GET  │  │ 2. GET  │  │ 3. GET  │
+  │  Users  │  │  Posts  │  │  Todos  │
+  │ (HTTP)  │  │ (HTTP)  │  │ (HTTP)  │
+  └────┬────┘  └────┬────┘  └────┬────┘
+       │            │            │
+       └────────┬───┘────────────┘
+                │
+                ▼
+         ┌─────────────┐
+         │  4. Merge   │  (all variables
+         │  (SetVar)   │   now available)
+         └──────┬──────┘
+                ▼
+         ┌─────────────┐
+         │     End     │
+         └─────────────┘
+</div>
+
+<p>
+  <strong>7 nodes, 6 edges</strong> — a fan-out/fan-in pattern. The Start node connects
+  to three parallel HTTP nodes. Each node fetches data independently. The Merge node
+  waits for all three to complete before the workflow continues to End.
+</p>
+
+<div class="callout">
+  <strong>📘 How Parallel Execution Works</strong>
+  When a node has multiple outgoing edges, the workflow engine starts all target nodes
+  simultaneously. The merge node (any node with multiple incoming edges) waits for
+  <strong>all</strong> incoming branches to complete before executing. This is an
+  implicit fork/join — no special configuration required.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. Fans out to three parallel HTTP nodes.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> GET Users</td>
+    <td>HTTP</td>
+    <td>GET <code>jsonplaceholder.typicode.com/users?_limit=3</code>. Extracts <code>usersData</code> (full body). Fetches the first 3 users.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> GET Posts</td>
+    <td>HTTP</td>
+    <td>GET <code>jsonplaceholder.typicode.com/posts?_limit=3</code>. Extracts <code>postsData</code> (full body). Fetches the first 3 posts.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> GET Todos</td>
+    <td>HTTP</td>
+    <td>GET <code>jsonplaceholder.typicode.com/todos?_limit=3</code>. Extracts <code>todosData</code> (full body). Fetches the first 3 todos.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Merge</td>
+    <td>SetVariable</td>
+    <td>Merge/sync point. Waits for all three branches. Sets <code>totalEndpoints</code> = <code>3</code> to confirm all sources returned.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Workflow complete. Variables <code>usersData</code>, <code>postsData</code>, <code>todosData</code>, and <code>totalEndpoints</code> are all available.</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>💡 Performance Benefit</strong>
+  If each API call takes ~200ms, a sequential workflow would take ~600ms total.
+  With parallel execution, total time is ~200ms (the slowest single call). That's
+  a 3× speedup — and the benefit grows with more parallel branches.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Parallel API Calls"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Parallel API Calls".
+  </li>
+  <li>
+    <strong>Add three HTTP nodes.</strong><br>
+    Drag three HTTP nodes onto the canvas. Configure each:
+    <ul>
+      <li><strong>GET Users</strong>: URL <code>https://jsonplaceholder.typicode.com/users?_limit=3</code>, extraction <code>usersData</code> ← body <code>$</code></li>
+      <li><strong>GET Posts</strong>: URL <code>https://jsonplaceholder.typicode.com/posts?_limit=3</code>, extraction <code>postsData</code> ← body <code>$</code></li>
+      <li><strong>GET Todos</strong>: URL <code>https://jsonplaceholder.typicode.com/todos?_limit=3</code>, extraction <code>todosData</code> ← body <code>$</code></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Connect Start to all three.</strong><br>
+    Draw edges from Start → GET Users, Start → GET Posts, Start → GET Todos.
+    This creates the parallel fan-out.
+  </li>
+  <li>
+    <strong>Add the Merge node.</strong><br>
+    Drag a SetVariable node. Set <code>totalEndpoints</code> = <code>3</code>.
+    Connect all three HTTP nodes → Merge. This creates the fan-in.
+  </li>
+  <li>
+    <strong>Connect Merge → End.</strong><br>
+    Draw the final edge.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Observe that all three HTTP nodes execute simultaneously
+    and the total time is roughly equal to the slowest single call.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. GET Users</td><td>✅ Pass</td><td>HTTP 200, 3 users returned</td></tr>
+  <tr><td>2. GET Posts</td><td>✅ Pass</td><td>HTTP 200, 3 posts returned</td></tr>
+  <tr><td>3. GET Todos</td><td>✅ Pass</td><td>HTTP 200, 3 todos returned</td></tr>
+  <tr><td>4. Merge</td><td>✅ Pass</td><td>totalEndpoints = 3</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Execution Timing (approximate)</h3>
+<pre>
+Sequential (theoretical):  ~600ms  (200ms × 3)
+Parallel   (actual):       ~220ms  (slowest call + overhead)
+Speedup:                   ~2.7×</pre>
+
+<h3>Sample Variable Values</h3>
+<pre>
+usersData:  [{"id":1,"name":"Leanne Graham",...}, {"id":2,...}, {"id":3,...}]
+postsData:  [{"id":1,"title":"sunt aut facere...",...}, {"id":2,...}, {"id":3,...}]
+todosData:  [{"id":1,"title":"delectus aut autem","completed":false}, ...]</pre>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add a Fourth Parallel Branch</h3>
+<p>
+  Add a fourth HTTP node that fetches <code>/comments?_limit=3</code> in parallel
+  with the other three. Update the Merge node to set <code>totalEndpoints</code> = <code>4</code>.
+</p>
+
+<h3>Exercise 2: Add a Summary Script</h3>
+<p>
+  Replace the Merge SetVariable node with a Script node that counts the total items
+  across all three responses (users + posts + todos) and outputs a
+  <code>totalItems</code> variable.
+</p>
+
+<h3>Exercise 3: Add Error Handling</h3>
+<p>
+  What happens if one of the parallel calls fails? Add a Condition node after the
+  Merge that checks whether all three variables are non-empty. Route to different
+  End nodes for "All Succeeded" vs "Partial Failure".
+</p>
+
+<h3>Exercise 4: Parameterize the Limit</h3>
+<p>
+  Add a <code>limit</code> input variable to the Start node. Update all three HTTP URLs
+  to use <code>?_limit={{limit}}</code>. Run with different limits (1, 5, 10) and
+  observe the varying response sizes.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  After mastering parallel execution, try the
+  <a href="debug-trace-advanced.html">Debug Trace Pipeline</a> to learn how to add
+  comprehensive logging and tracing to your workflows.
+</div>
+
+<footer>RedfireForge Training Manual — Parallel API Calls · April 2026</footer>
+
+</body>
+</html>

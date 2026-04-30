@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FakeStore API — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🛍️</div>
+    <h1>FakeStore API</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> &nbsp; <code>rest-api</code> &nbsp; 7 endpoints &nbsp; fakestoreapi.com</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>FakeStore API is a free online e-commerce REST API designed for prototyping and testing. It provides realistic product, cart, and user data that mirrors a real online store — making it perfect for building and testing e-commerce workflows.</p>
+  <p>This catalog spec introduces you to e-commerce API patterns: product catalogs with categories, shopping carts, user management, and simple token-based authentication. It's a step up from generic CRUD APIs because the data model reflects a real business domain.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    FakeStore API is ideal for practicing end-to-end e-commerce testing scenarios: browse products → add to cart → authenticate → checkout.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>E-commerce API Patterns</strong> — Products, categories, carts, and user accounts</li>
+    <li><strong>Simple Authentication</strong> — Login with credentials, receive a JWT token</li>
+    <li><strong>Category Filtering</strong> — Retrieving products by category</li>
+    <li><strong>Cart Management</strong> — Adding/removing items, querying cart contents</li>
+    <li><strong>REST Resource Relationships</strong> — How products, carts, and users relate</li>
+    <li><strong>OpenAPI Schema Definitions</strong> — Product, Cart, and User schemas</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://fakestoreapi.com</code></td></tr>
+    <tr><td>Authentication</td><td>JWT token via <code>POST /auth/login</code></td></tr>
+    <tr><td>Rate Limits</td><td>No enforced limits (fair use)</td></tr>
+    <tr><td>Response Format</td><td>JSON</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Data Model</h3>
+  <p>FakeStore provides 4 core resources:</p>
+  <ul>
+    <li><strong>Products</strong> — 20 products with title, price, description, category, image, and rating</li>
+    <li><strong>Carts</strong> — Shopping carts linked to users, containing product references and quantities</li>
+    <li><strong>Users</strong> — User accounts with name, email, address, and phone</li>
+    <li><strong>Auth</strong> — Authentication endpoint for obtaining JWT tokens</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products</code></td>
+        <td>List all products</td>
+        <td>Array of Product objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/{id}</code></td>
+        <td>Get a single product</td>
+        <td>Product object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/categories</code></td>
+        <td>List all product categories</td>
+        <td>Array of strings</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/products/category/{name}</code></td>
+        <td>Get products by category</td>
+        <td>Array of Product objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/carts</code></td>
+        <td>List all carts</td>
+        <td>Array of Cart objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/users</code></td>
+        <td>List all users</td>
+        <td>Array of User objects</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/auth/login</code></td>
+        <td>Authenticate and get token</td>
+        <td><code>{ "token": "..." }</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>FakeStore API</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The OpenAPI spec loads into your workspace with all 7 endpoints visible.</li>
+  </ol>
+
+  <h3>Step 2 — Browse the Product Catalog</h3>
+  <ol>
+    <li>Open the Endpoint Explorer and navigate to the Products group.</li>
+    <li>Generate a request for <code>GET /products</code> — send it to see all 20 products.</li>
+    <li>Inspect the response schema: <code>id</code>, <code>title</code>, <code>price</code>, <code>category</code>, <code>image</code>, <code>rating</code>.</li>
+  </ol>
+
+  <h3>Step 3 — Filter by Category</h3>
+  <ol>
+    <li>Generate a request for <code>GET /products/categories</code> to see available categories.</li>
+    <li>Pick a category (e.g., <code>electronics</code>) and generate <code>GET /products/category/electronics</code>.</li>
+    <li>Compare the filtered results against the full product list.</li>
+  </ol>
+
+  <h3>Step 4 — Authenticate</h3>
+  <ol>
+    <li>Generate a request for <code>POST /auth/login</code>.</li>
+    <li>Use the body: <code>{"username": "mor_2314", "password": "83r5^_"}</code></li>
+    <li>Send the request and observe the JWT token in the response.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The token returned by FakeStore is a valid JWT but doesn't actually gate any endpoints. It's useful for practicing token-based auth flows.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — E-commerce Flow</h3>
+  <p>Simulate a complete shopping experience:</p>
+  <ol>
+    <li>Browse all products with <code>GET /products</code>.</li>
+    <li>Filter by the <code>jewelery</code> category.</li>
+    <li>Get details for a specific product by ID.</li>
+    <li>Check existing carts with <code>GET /carts</code>.</li>
+  </ol>
+
+  <h3>Exercise 2 — Auth + Protected Flow</h3>
+  <p>Practice the authentication pattern:</p>
+  <ol>
+    <li>List users with <code>GET /users</code> to find valid credentials.</li>
+    <li>Authenticate via <code>POST /auth/login</code>.</li>
+    <li>Add the returned token as a <code>Bearer</code> header to subsequent requests.</li>
+  </ol>
+
+  <h3>Exercise 3 — Schema Comparison</h3>
+  <p>Compare the OpenAPI schema for the Product object against the actual <code>GET /products/1</code> response. Are all documented fields present? Are there any undocumented fields?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Create a test workflow that chains: authenticate → browse products → filter by category → inspect product details. This simulates a real user journey.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — FakeStore API · April 2026
+  </footer>
+
+</body>
+</html>

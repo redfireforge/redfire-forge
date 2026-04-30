@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-API Load Profile — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚡</div>
+    <h1>Multi-API Load Profile</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · Load · 5 Scenarios · Multiple APIs</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Multi-API Load Profile</strong> is a baseline load test that measures response times across five different public APIs. Unlike functional tests that verify data correctness, this test focuses on <em>performance</em> — ensuring each API responds within acceptable time thresholds.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Establishing baseline response-time benchmarks for multiple APIs.</li>
+    <li>Learning how <code>responseTime</code> assertions work to enforce SLA-style constraints.</li>
+    <li>Comparing performance characteristics across different API providers.</li>
+    <li>Detecting performance regressions by running the same profile over time.</li>
+    <li>Understanding how network latency varies between lightweight and data-heavy endpoints.</li>
+  </ul>
+  <p>This test targets five different free public APIs, each with its own performance profile: JSONPlaceholder, FakeStoreAPI, DummyJSON, Dog CEO, and REST Countries.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Load/performance testing</strong> — measuring how fast APIs respond under normal conditions.</li>
+    <li><strong>Response-time assertions</strong> — enforcing maximum acceptable response times (SLA thresholds).</li>
+    <li><strong>Baseline profiling</strong> — establishing "normal" performance metrics to detect future regressions.</li>
+    <li><strong>Status code assertions</strong> — confirming API availability alongside performance checks.</li>
+    <li><strong>Multi-API test design</strong> — structuring a single test that spans multiple independent services.</li>
+    <li><strong>Threshold tuning</strong> — choosing appropriate time limits based on endpoint complexity.</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Important</strong>
+    Response-time thresholds depend on network conditions, geographic location, and API server load. The thresholds in this test are generous baselines for public APIs — tighten them for internal or production APIs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 5 scenarios, each targeting a different public API with its own response-time threshold:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Threshold</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>JSONPlaceholder</td>
+        <td><code>GET</code></td>
+        <td><code>jsonplaceholder.typicode.com/users</code></td>
+        <td>&lt; 500ms</td>
+        <td>Status = 200, Response time</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>FakeStore</td>
+        <td><code>GET</code></td>
+        <td><code>fakestoreapi.com/products</code></td>
+        <td>&lt; 800ms</td>
+        <td>Status = 200, Response time</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>DummyJSON</td>
+        <td><code>GET</code></td>
+        <td><code>dummyjson.com/products</code></td>
+        <td>&lt; 500ms</td>
+        <td>Status = 200, Response time</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Dog CEO</td>
+        <td><code>GET</code></td>
+        <td><code>dog.ceo/api/breeds/image/random</code></td>
+        <td>&lt; 300ms</td>
+        <td>Status = 200, Response time</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>REST Countries</td>
+        <td><code>GET</code></td>
+        <td><code>restcountries.com/v3.1/all</code></td>
+        <td>&lt; 1000ms</td>
+        <td>Status = 200, Response time</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — JSONPlaceholder</h3>
+  <p>A lightweight endpoint returning 10 user records. Expected to be fast.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API is up and responding.</td>
+      </tr>
+      <tr>
+        <td><code>responseTime</code></td>
+        <td>Response time (ms)</td>
+        <td>lessThan</td>
+        <td><code>500</code></td>
+        <td>The response arrives within 500 milliseconds.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — FakeStore</h3>
+  <p>Returns a product catalog with images. Slightly higher threshold due to payload size.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API is up and responding.</td>
+      </tr>
+      <tr>
+        <td><code>responseTime</code></td>
+        <td>Response time (ms)</td>
+        <td>lessThan</td>
+        <td><code>800</code></td>
+        <td>The response arrives within 800 milliseconds.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — DummyJSON</h3>
+  <p>Returns paginated product data. Expected to be fast with CDN caching.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API is up and responding.</td>
+      </tr>
+      <tr>
+        <td><code>responseTime</code></td>
+        <td>Response time (ms)</td>
+        <td>lessThan</td>
+        <td><code>500</code></td>
+        <td>The response arrives within 500 milliseconds.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 4 — Dog CEO</h3>
+  <p>A tiny JSON response with a single image URL. Tightest threshold — this should be very fast.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API is up and responding.</td>
+      </tr>
+      <tr>
+        <td><code>responseTime</code></td>
+        <td>Response time (ms)</td>
+        <td>lessThan</td>
+        <td><code>300</code></td>
+        <td>The response arrives within 300 milliseconds.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h3>Scenario 5 — REST Countries</h3>
+  <p>Returns data for all 250+ countries — the heaviest payload in this profile. Threshold set accordingly.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API is up and responding.</td>
+      </tr>
+      <tr>
+        <td><code>responseTime</code></td>
+        <td>Response time (ms)</td>
+        <td>lessThan</td>
+        <td><code>1000</code></td>
+        <td>The response arrives within 1000 milliseconds despite a large payload.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>⚡ Multi-API Load Profile</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 5 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its URL and response-time threshold.</li>
+    <li>Note how thresholds vary: 300ms for a tiny payload (Dog CEO) vs 1000ms for a heavy one (REST Countries).</li>
+    <li>These thresholds are your <em>baseline</em> — future runs will compare against them.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 5 scenarios sequentially.</li>
+    <li>Watch the actual response times in the progress indicator.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>For each scenario, compare the actual response time against the threshold.</li>
+    <li>Green checkmarks (✅) mean the API responded within the allowed time.</li>
+    <li>Red crosses (❌) indicate the API exceeded the threshold — this could be a network issue or a genuine performance regression.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Run this test multiple times and compare results. Network conditions cause natural variation — if a threshold fails intermittently, consider raising it slightly. Consistent failures indicate a real performance problem.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the load profile, try these exercises to deepen your understanding:</p>
+
+  <h4>Exercise 1 — Tighten a Threshold</h4>
+  <p>Reduce the JSONPlaceholder threshold from <code>500ms</code> to <code>300ms</code>. Does it still pass consistently? Run the test 3 times to check.</p>
+
+  <h4>Exercise 2 — Add a Sixth API</h4>
+  <p>Add a scenario for <code>GET https://api.github.com/users/octocat</code> with a <code>500ms</code> threshold. How does GitHub's API performance compare to the others?</p>
+
+  <h4>Exercise 3 — Heavy Payload Comparison</h4>
+  <p>Duplicate the REST Countries scenario but change the URL to <code>/v3.1/region/europe</code> (fewer countries). Set a tighter threshold and compare response times between the full list and region-filtered results.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported test — you can modify it freely without affecting the original gallery sample.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Multi-API Load Profile · April 2026
+  </footer>
+
+</body>
+</html>

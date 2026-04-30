@@ -5,20 +5,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import FullPanelModal from './FullPanelModal';
 
-vi.mock('../../features/workflow/components/modals/WorkflowEditorModalFrame', () => ({
-  __esModule: true,
-  default: ({ title, onClose, children, footer, overlayClassName, dialogClassName, bodyScrollable }: {
-    title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode;
-    overlayClassName?: string; dialogClassName?: string; bodyScrollable?: boolean;
-  }) => (
-    <div data-testid="wf-modal-frame" data-overlay={overlayClassName} data-dialog={dialogClassName} data-scrollable={String(bodyScrollable)}>
-      <div data-testid="modal-title">{title}</div>
-      <div data-testid="modal-body">{children}</div>
-      {footer && <div data-testid="modal-footer">{footer}</div>}
-    </div>
-  ),
-}));
-
 describe('FullPanelModal', () => {
   const onClose = vi.fn();
 
@@ -30,27 +16,34 @@ describe('FullPanelModal', () => {
         <p>Panel content</p>
       </FullPanelModal>,
     );
-    expect(screen.getByTestId('modal-title').textContent).toContain('Panel Title');
+    expect(screen.getByText('Panel Title')).toBeTruthy();
     screen.getByText('Panel content');
   });
 
-  it('passes full-panel-overlay and full-panel-modal classes', () => {
-    render(<FullPanelModal title="T" onClose={onClose}>C</FullPanelModal>);
-    const frame = screen.getByTestId('wf-modal-frame');
-    expect(frame.dataset.overlay).toContain('full-panel-overlay');
-    expect(frame.dataset.dialog).toContain('full-panel-modal');
-    expect(frame.dataset.dialog).toContain('modal-no-chrome');
+  it('applies full-panel-overlay and full-panel-modal classes', () => {
+    const { container } = render(<FullPanelModal title="T" onClose={onClose}>C</FullPanelModal>);
+    const overlay = container.firstElementChild as HTMLElement;
+    expect(overlay.className).toContain('full-panel-overlay');
+    const dialog = overlay.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.className).toContain('full-panel-modal');
+  });
+
+  it('header is not draggable', () => {
+    const { container } = render(<FullPanelModal title="T" onClose={onClose}>C</FullPanelModal>);
+    const header = container.querySelector('.ram-header') as HTMLElement;
+    expect(header.style.cursor).toBe('default');
   });
 
   it('appends extra overlay and dialog class names', () => {
-    render(
+    const { container } = render(
       <FullPanelModal title="T" onClose={onClose} overlayClassName="extra-o" dialogClassName="extra-d">
         C
       </FullPanelModal>,
     );
-    const frame = screen.getByTestId('wf-modal-frame');
-    expect(frame.dataset.overlay).toContain('extra-o');
-    expect(frame.dataset.dialog).toContain('extra-d');
+    const overlay = container.firstElementChild as HTMLElement;
+    expect(overlay.className).toContain('extra-o');
+    const dialog = overlay.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.className).toContain('extra-d');
   });
 
   it('renders default Close footer when footer prop is omitted', () => {
@@ -72,17 +65,18 @@ describe('FullPanelModal', () => {
   });
 
   it('renders no footer when footer is null', () => {
-    render(<FullPanelModal title="T" onClose={onClose} footer={null}>C</FullPanelModal>);
-    expect(screen.queryByTestId('modal-footer')).toBeNull();
+    const { container } = render(<FullPanelModal title="T" onClose={onClose} footer={null}>C</FullPanelModal>);
+    expect(container.querySelector('.wf-config-modal-footer')).toBeNull();
   });
 
-  it('defaults bodyScrollable to true', () => {
-    render(<FullPanelModal title="T" onClose={onClose}>C</FullPanelModal>);
-    expect(screen.getByTestId('wf-modal-frame').dataset.scrollable).toBe('true');
+  it('uses scrollable body by default', () => {
+    const { container } = render(<FullPanelModal title="T" onClose={onClose}>C</FullPanelModal>);
+    expect(container.querySelector('.wf-modal-scroll-shell')).toBeTruthy();
   });
 
-  it('passes bodyScrollable=false', () => {
-    render(<FullPanelModal title="T" onClose={onClose} bodyScrollable={false}>C</FullPanelModal>);
-    expect(screen.getByTestId('wf-modal-frame').dataset.scrollable).toBe('false');
+  it('uses plain body when bodyScrollable=false', () => {
+    const { container } = render(<FullPanelModal title="T" onClose={onClose} bodyScrollable={false}>C</FullPanelModal>);
+    expect(container.querySelector('.wf-modal-scroll-shell')).toBeNull();
+    expect(container.querySelector('.wf-config-modal-body')).toBeTruthy();
   });
 });

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create a New Post — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✏️</div>
+    <h1>Create a New Post</h1>
+    <div class="subtitle">Easy Sample — Training Guide</div>
+    <p>Send data to a REST API to create a new resource. This sample demonstrates how to make a POST request with a JSON body — the fundamental operation for creating data through APIs.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★☆☆<br />
+      <code>POST</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request creates a new post on the JSONPlaceholder API — a free, publicly available REST API designed for testing and prototyping. While the API simulates the creation (it doesn't actually persist the data), it returns a realistic response including a generated ID.</p>
+  <p><strong>Real-world analogy:</strong> Imagine writing a new blog post and clicking "Publish." Behind the scenes, your browser sends a POST request with the title, content, and author information to the server, which saves it and returns a confirmation with the new post's unique ID.</p>
+  <p>This is an ideal early sample because:</p>
+  <ul>
+    <li>No authentication is required.</li>
+    <li>It introduces the POST method and request bodies.</li>
+    <li>The response clearly shows the created resource with a server-generated ID.</li>
+    <li>The <code>Content-Type</code> header is required, teaching proper request formatting.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>HTTP POST method</strong> — the standard method for creating new resources on a server.</li>
+    <li><strong>JSON request body</strong> — how to send structured data in the body of a request using JSON format.</li>
+    <li><strong>Content-Type header</strong> — telling the server you're sending JSON data via <code>Content-Type: application/json</code>.</li>
+    <li><strong>HTTP status code 201</strong> — the "Created" response indicating a new resource was successfully created.</li>
+    <li><strong>Server-generated fields</strong> — how the server assigns an <code>id</code> to the newly created resource.</li>
+    <li><strong>Request vs. Response comparison</strong> — seeing how the data you send is reflected (and augmented) in what the server returns.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>POST</code></td></tr>
+    <tr><td>URL</td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+    <tr><td>Headers</td><td><code>Content-Type: application/json</code></td></tr>
+    <tr><td>Body</td><td>JSON (see below)</td></tr>
+    <tr><td>Query Parameters</td><td>None</td></tr>
+  </table>
+
+  <h3>Request Body</h3>
+<pre>{
+  "title": "My First Post",
+  "body": "This is the content of my post.",
+  "userId": 1
+}</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>Content-Type: application/json</code> header is essential. Without it, the server may not correctly parse your request body. RedfireForge sets this automatically when you select JSON as the body format.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>201 Created</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
+    <tr><td>Response Size</td><td>~150 bytes</td></tr>
+  </table>
+
+  <p>Sample response:</p>
+
+<pre>{
+  "id": 101,
+  "title": "My First Post",
+  "body": "This is the content of my post.",
+  "userId": 1
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Notice the server returns the same data you sent, plus a new <code>id</code> field (101). In a real API, this ID would be used to retrieve, update, or delete the post later. The ID 101 is always returned because JSONPlaceholder has 100 existing posts.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Create a New Post</strong> (marked with ✏️) or use the search bar. It's tagged as <span class="badge badge-easy">Easy</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Review the Request Body</h3>
+  <p>Before sending, examine the request body in the editor panel. Notice the three fields: <code>title</code>, <code>body</code>, and <code>userId</code>. Also check the Headers tab to confirm <code>Content-Type: application/json</code> is set.</p>
+
+  <h3>Step 5 — Run the Request</h3>
+  <p>Click <strong>Send</strong> to execute. The response will appear in the response panel below.</p>
+
+  <h3>Step 6 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>201 Created</code> — the resource was successfully created.</li>
+    <li><strong>Body</strong>: A JSON object with your data plus the generated <code>id: 101</code>.</li>
+    <li><strong>Headers</strong>: Note the <code>Content-Type: application/json</code> response header.</li>
+    <li><strong>Time</strong>: The response time in milliseconds (typically 200–500ms).</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>201 Created</code> status code is different from the <code>200 OK</code> you see with GET requests. It specifically indicates that a new resource was created on the server.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Change the Post Content</h3>
+  <p>Modify the request body to create a post with your own title and content:</p>
+<pre>{
+  "title": "Learning APIs",
+  "body": "Today I learned how POST requests work!",
+  "userId": 1
+}</pre>
+  <p>Does the response still return <code>id: 101</code>? Why?</p>
+
+  <h3>Exercise 2 — Omit a Field</h3>
+  <p>Try sending the request without the <code>userId</code> field:</p>
+<pre>{
+  "title": "No Author Post",
+  "body": "What happens without a userId?"
+}</pre>
+  <p>Does the request succeed? What does the response look like?</p>
+
+  <h3>Exercise 3 — Verify with GET</h3>
+  <p>After creating a post, try fetching it:</p>
+  <pre>GET https://jsonplaceholder.typicode.com/posts/101</pre>
+  <p>Does the API return your post? (Hint: JSONPlaceholder is a mock API — think about what that means for persistence.)</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Each exercise builds on the previous one. Start with Exercise 1 and work your way through — they help you understand how POST requests behave in different scenarios!
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Create a New Post · April 2026
+  </footer>
+
+</body>
+</html>

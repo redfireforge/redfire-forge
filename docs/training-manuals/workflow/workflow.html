@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflows Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Workflows Gallery</h1>
+    <div class="subtitle">Overview — Training Manual</div>
+    <p>The Workflows Gallery provides 30 ready-to-run workflow samples across 5 categories and 8 subdirectories, covering API orchestration, flow control, event-driven patterns, async correlation, scripting, and more.</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What is the Workflows Gallery?</h2>
+  <p>The Workflows Gallery is a curated collection of 30 workflow samples built into RedfireForge. Each sample demonstrates a real-world automation pattern — from simple sequential API calls to advanced multi-region deployment orchestrations with sub-workflows, async correlation, and error handling.</p>
+  <p>Samples are organized into 5 categories (<strong>API Patterns</strong>, <strong>Flow Control</strong>, <strong>Event-Driven</strong>, <strong>Orchestration</strong>, and cross-cutting themes) spread across 8 subdirectories. Difficulty levels range from <span class="badge badge-easy">Easy</span> through <span class="badge badge-medium">Medium</span> to <span class="badge badge-advanced">Advanced</span>, so you can progress from basic chaining to complex parallel pipelines at your own pace.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Each subdirectory has its own dedicated training manual with detailed walkthroughs. This overview helps you navigate the full collection and choose where to start.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. How to Use Workflow Samples</h2>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel from the RedfireForge sidebar.</li>
+    <li>Navigate to the <strong>Workflows</strong> tab.</li>
+    <li>Browse or filter by category/difficulty, then click a sample to expand its details.</li>
+    <li>Choose an action:
+      <ul>
+        <li><strong>Import</strong> — adds the workflow to your workspace so you can study and customize it.</li>
+        <li><strong>Open in Editor</strong> — launches the workflow in the visual Workflow Editor where you can inspect each node, its configuration, and connections.</li>
+        <li><strong>Run</strong> — executes the workflow immediately and shows results in the console.</li>
+      </ul>
+    </li>
+    <li>Study the node graph: hover over nodes to see their config, trace variable flow between steps, and examine condition expressions.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Samples that require a local server (e.g., async correlation workflows) will indicate <code>localhost:3001</code> in their live API list. Start the RedfireForge server before running those samples.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Category Overview</h2>
+  <p>The 30 workflow samples are organized into 8 subdirectories. Each subdirectory has its own training manual with step-by-step walkthroughs.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Subdirectory</th>
+        <th>Samples</th>
+        <th>Focus Area</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>api-patterns/</code></td>
+        <td>4</td>
+        <td>Sequential &amp; parallel HTTP calls, variable chaining, debug tracing, expression functions</td>
+      </tr>
+      <tr>
+        <td><code>flow-control/</code></td>
+        <td>5</td>
+        <td>Conditional branching, switch routing, loops, pagination, error handling</td>
+      </tr>
+      <tr>
+        <td><code>event-driven/</code></td>
+        <td>3</td>
+        <td>Webhook triggers, schedule triggers, polling with wait-for-condition</td>
+      </tr>
+      <tr>
+        <td><code>orchestration/</code></td>
+        <td>4</td>
+        <td>Sub-workflows, batch provisioning, order pipelines, multi-region deployments</td>
+      </tr>
+      <tr>
+        <td><code>script-node/</code></td>
+        <td>3</td>
+        <td>Script nodes for JSON formatting, cross-API validation, data pipelines &amp; reporting</td>
+      </tr>
+      <tr>
+        <td><code>async-correlation/</code></td>
+        <td>4</td>
+        <td>Correlation wait patterns: payment callbacks, approval workflows, parallel payments (+ simulators)</td>
+      </tr>
+      <tr>
+        <td><code>diverse-apis/</code></td>
+        <td>5</td>
+        <td>Real-world APIs: PokéAPI, REST Countries, DummyJSON, Open Library, multi-API dashboards</td>
+      </tr>
+      <tr>
+        <td><code>node-reference/</code></td>
+        <td>—</td>
+        <td>Reference guide covering every node type available in the workflow editor</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Some workflows span categories. For example, the Script samples also touch <em>api-patterns</em> (JSON Formatter), <em>flow-control</em> (Cross-API Validator), and <em>orchestration</em> (Data Pipeline). The subdirectory reflects the primary teaching focus.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. All 30 Workflows</h2>
+  <p>The master table below lists every workflow sample in the gallery.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Difficulty</th>
+        <th>Subdirectory</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- api-patterns -->
+      <tr>
+        <td>1</td>
+        <td>Create → Extract → Verify</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>api-patterns/</code></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Parallel API Calls</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>api-patterns/</code></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Debug Trace Pipeline</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>api-patterns/</code></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Expression Functions Showcase</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>api-patterns/</code></td>
+      </tr>
+      <!-- flow-control -->
+      <tr>
+        <td>5</td>
+        <td>Conditional Branching</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>flow-control/</code></td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Switch Order Router</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>flow-control/</code></td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Paginated API Fetcher</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>flow-control/</code></td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Resilient API with Error Handling</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>flow-control/</code></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>Workflow Error Handler – Failure Notification</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>flow-control/</code></td>
+      </tr>
+      <!-- event-driven -->
+      <tr>
+        <td>10</td>
+        <td>Webhook Trigger</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>event-driven/</code></td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td>Schedule Trigger</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>event-driven/</code></td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td>Polling with Wait for Condition</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>event-driven/</code></td>
+      </tr>
+      <!-- orchestration -->
+      <tr>
+        <td>13</td>
+        <td>Batch User Provisioning</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>orchestration/</code></td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td>Sub-Workflow Orchestrator</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>orchestration/</code></td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td>Order Pipeline with Sub-Workflow</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>orchestration/</code></td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td>Multi-Region Deploy Orchestrator</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>orchestration/</code></td>
+      </tr>
+      <!-- script-node -->
+      <tr>
+        <td>17</td>
+        <td>Script: JSON Formatter</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>script-node/</code></td>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td>Script: Cross-API Validator</td>
+        <td>flow-control</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>script-node/</code></td>
+      </tr>
+      <tr>
+        <td>19</td>
+        <td>Script: Data Pipeline &amp; Report</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>script-node/</code></td>
+      </tr>
+      <!-- async-correlation -->
+      <tr>
+        <td>20</td>
+        <td>Payment Gateway Callback</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <tr>
+        <td>21</td>
+        <td>Payment Callback (Simulator)</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <tr>
+        <td>22</td>
+        <td>Manager Approval Workflow</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <tr>
+        <td>23</td>
+        <td>Manager Approval (Simulator)</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <tr>
+        <td>24</td>
+        <td>Parallel Payment Processing</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-advanced">Advanced</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <tr>
+        <td>25</td>
+        <td>Parallel Payment (Simulator)</td>
+        <td>event-driven</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>async-correlation/</code></td>
+      </tr>
+      <!-- diverse-apis -->
+      <tr>
+        <td>26</td>
+        <td>Pokémon Evolution Chain</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>diverse-apis/</code></td>
+      </tr>
+      <tr>
+        <td>27</td>
+        <td>Country Currency Lookup</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-easy">Easy</span></td>
+        <td><code>diverse-apis/</code></td>
+      </tr>
+      <tr>
+        <td>28</td>
+        <td>Product Search &amp; Cart</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>diverse-apis/</code></td>
+      </tr>
+      <tr>
+        <td>29</td>
+        <td>Book Search &amp; Enrichment</td>
+        <td>api-patterns</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>diverse-apis/</code></td>
+      </tr>
+      <tr>
+        <td>30</td>
+        <td>Multi-API Dashboard</td>
+        <td>orchestration</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td><code>diverse-apis/</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Learning Path</h2>
+  <p>Follow this suggested progression to build workflow skills from foundational concepts to advanced orchestration.</p>
+
+  <h3>Stage 1 — Foundations</h3>
+  <p>Start with simple sequential and parallel patterns to learn node basics and variable chaining.</p>
+  <ol>
+    <li><strong>Create → Extract → Verify</strong> <span class="badge badge-easy">Easy</span> — sequential HTTP calls, variable extraction</li>
+    <li><strong>Parallel API Calls</strong> <span class="badge badge-easy">Easy</span> — Fork/Join pattern for concurrent requests</li>
+    <li><strong>Conditional Branching</strong> <span class="badge badge-easy">Easy</span> — If/Else routing based on response data</li>
+    <li><strong>Script: JSON Formatter</strong> <span class="badge badge-easy">Easy</span> — your first Script node</li>
+  </ol>
+
+  <h3>Stage 2 — Event Triggers &amp; Real APIs</h3>
+  <p>Learn how workflows start and explore diverse public APIs.</p>
+  <ol>
+    <li><strong>Webhook Trigger</strong> <span class="badge badge-easy">Easy</span> — incoming HTTP webhook</li>
+    <li><strong>Schedule Trigger</strong> <span class="badge badge-easy">Easy</span> — cron-based scheduling</li>
+    <li><strong>Pokémon Evolution Chain</strong> <span class="badge badge-easy">Easy</span> — linked resource traversal</li>
+    <li><strong>Country Currency Lookup</strong> <span class="badge badge-easy">Easy</span> — search &amp; filter patterns</li>
+  </ol>
+
+  <h3>Stage 3 — Intermediate Patterns</h3>
+  <p>Add loops, switches, multi-API composition, and validation.</p>
+  <ol>
+    <li><strong>Switch Order Router</strong> <span class="badge badge-medium">Medium</span> — multi-way branching</li>
+    <li><strong>Paginated API Fetcher</strong> <span class="badge badge-medium">Medium</span> — while-loop with aggregation</li>
+    <li><strong>Product Search &amp; Cart</strong> <span class="badge badge-medium">Medium</span> — e-commerce API composition</li>
+    <li><strong>Script: Cross-API Validator</strong> <span class="badge badge-medium">Medium</span> — script-based data validation</li>
+    <li><strong>Manager Approval Workflow</strong> <span class="badge badge-medium">Medium</span> — async correlation with timeout</li>
+  </ol>
+
+  <h3>Stage 4 — Advanced Orchestration</h3>
+  <p>Master error handling, sub-workflows, and complex async patterns.</p>
+  <ol>
+    <li><strong>Resilient API with Error Handling</strong> <span class="badge badge-advanced">Advanced</span> — retry &amp; error capture</li>
+    <li><strong>Workflow Error Handler</strong> <span class="badge badge-advanced">Advanced</span> — workflow-level failure notification</li>
+    <li><strong>Sub-Workflow Orchestrator</strong> <span class="badge badge-advanced">Advanced</span> — parent/child orchestration</li>
+    <li><strong>Multi-Region Deploy Orchestrator</strong> <span class="badge badge-advanced">Advanced</span> — Fork/Join + sub-workflows + rollback</li>
+    <li><strong>Parallel Payment Processing</strong> <span class="badge badge-advanced">Advanced</span> — dual correlation waits with aggregation</li>
+    <li><strong>Script: Data Pipeline &amp; Report</strong> <span class="badge badge-advanced">Advanced</span> — full ETL pipeline with script nodes</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Don't forget the <strong>Node Reference</strong> guide in <code>node-reference/</code> — it covers every node type (HTTP, Condition, Loop, Fork/Join, Script, CorrelationWait, and more) with configuration details and best practices.
+  </div>
+
+  <footer>RedfireForge Training Manual — Workflows Gallery Overview · April 2026</footer>
+
+</body>
+</html>

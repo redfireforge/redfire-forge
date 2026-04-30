@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assertion Presets Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✅</div>
+    <h1>Assertion Presets Gallery</h1>
+    <div class="subtitle">Overview — Training Manual</div>
+    <p>5 presets · 3 categories · Easy → Advanced</p>
+    <div class="meta">RedfireForge · April 2026</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Are Assertion Presets?</h2>
+  <p>Assertion Presets are reusable collections of validation rules that you can attach to any API request in RedfireForge. Instead of manually configuring assertions for every request, presets let you import a curated set of checks with a single click.</p>
+  <p>Each preset targets a specific testing concern — from basic health checks to full contract validation — and bundles the right assertion types, operators, and expected values together.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Think of assertion presets like test templates. They encode best-practice validation patterns so you can focus on what matters — testing your API — instead of manually wiring up checks.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. How to Use Assertion Presets</h2>
+  <ol>
+    <li>Open the <strong>Gallery → Assertions</strong> tab in RedfireForge.</li>
+    <li>Browse available presets by category or difficulty level.</li>
+    <li>Click <strong>Import Preset</strong> on the preset you want to use.</li>
+    <li>Attach the imported preset to any request node in your workflow.</li>
+    <li>Run the request — RedfireForge evaluates all assertions against the live response.</li>
+    <li>Review results: green ✅ for pass, red ❌ for fail, with details for each rule.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Preset Catalog</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Icon</th>
+        <th>Name</th>
+        <th>Difficulty</th>
+        <th>Category</th>
+        <th>Assertions</th>
+        <th>Types</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>💚</td>
+        <td>API Health Check</td>
+        <td><span class="badge badge-easy">Easy ★☆☆</span></td>
+        <td><code>api-validation</code></td>
+        <td>2</td>
+        <td>status, arrayLength</td>
+      </tr>
+      <tr>
+        <td>📄</td>
+        <td>Paginated List Validation</td>
+        <td><span class="badge badge-easy">Easy ★☆☆</span></td>
+        <td><code>api-validation</code></td>
+        <td>3</td>
+        <td>arrayLength, numeric</td>
+      </tr>
+      <tr>
+        <td>🔐</td>
+        <td>Token Expiry Guard</td>
+        <td><span class="badge badge-medium">Medium ★★☆</span></td>
+        <td><code>security</code></td>
+        <td>3</td>
+        <td>regex, date, numeric</td>
+      </tr>
+      <tr>
+        <td>💰</td>
+        <td>E-commerce Price Guard</td>
+        <td><span class="badge badge-medium">Medium ★★☆</span></td>
+        <td><code>data-quality</code></td>
+        <td>3</td>
+        <td>numeric, arrayLength</td>
+      </tr>
+      <tr>
+        <td>📝</td>
+        <td>Full API Contract</td>
+        <td><span class="badge badge-advanced">Advanced ★★★</span></td>
+        <td><code>api-validation</code></td>
+        <td>5</td>
+        <td>status, numeric, regex</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Categories</h2>
+
+  <h3>api-validation</h3>
+  <p>Presets focused on verifying that an API behaves according to its contract. Checks include status codes, response structure, field presence, and data types. This is the most common category and covers everything from quick smoke tests to full contract validation.</p>
+
+  <h3>data-quality</h3>
+  <p>Presets that validate the integrity and correctness of response data. These go beyond structural checks to ensure values are within expected ranges, prices are positive, counts are accurate, and business rules are enforced.</p>
+
+  <h3>security</h3>
+  <p>Presets that verify security-related response properties. These check token formats, expiry dates, authentication headers, and other security-sensitive fields to ensure your API's auth layer is working correctly.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Learning Path</h2>
+  <p>We recommend working through the presets in order of increasing difficulty:</p>
+
+  <h3>Start Here — Easy</h3>
+  <ol>
+    <li><strong>💚 API Health Check</strong> — Learn the basics: status code checks and array validation. Only 2 assertions to understand.</li>
+    <li><strong>📄 Paginated List Validation</strong> — Build on the basics with numeric comparisons and learn how to validate paginated responses.</li>
+  </ol>
+
+  <h3>Level Up — Medium</h3>
+  <ol>
+    <li><strong>🔐 Token Expiry Guard</strong> — Introduce regex pattern matching and date-based assertions. Learn security-focused testing.</li>
+    <li><strong>💰 E-commerce Price Guard</strong> — Combine numeric range checks with array validation for data quality assurance.</li>
+  </ol>
+
+  <h3>Master — Advanced</h3>
+  <ol>
+    <li><strong>📝 Full API Contract</strong> — Put it all together with 5 assertions covering status, numeric, and regex checks for complete contract validation.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Each preset has its own detailed training manual with assertion rules, step-by-step guides, and exercises. Click on any preset in the gallery to access its manual.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Assertion Presets Gallery Overview · April 2026
+  </footer>
+
+</body>
+</html>

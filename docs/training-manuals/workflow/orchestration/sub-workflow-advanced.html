@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Orchestration: Sub-Workflow Orchestrator (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🎭</div>
+  <h1>Sub-Workflow Orchestrator</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Invoke a reusable validation sub-workflow from a parent orchestrator,
+    pass parameters, and process the returned results. The foundational
+    pattern for composing complex automation from modular components.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Orchestration<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates <strong>sub-workflow invocation</strong> — calling a
+  self-contained, reusable workflow from a parent orchestrator. The parent prepares
+  input parameters, delegates execution to the sub-workflow, and processes the
+  returned result.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A loan application system has a "Credit Check"
+  sub-workflow used by multiple parent workflows (personal loans, mortgages, credit
+  cards). Each parent passes the applicant's data and receives a credit score and
+  approval recommendation.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Reusable validation logic shared across order, payment, and return workflows</li>
+  <li>Centralized notification sub-workflow called by any workflow that needs to send alerts</li>
+  <li>Shared authentication/authorization checks invoked before protected operations</li>
+  <li>Common data transformation pipelines reused across ETL workflows</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Preparing <strong>input parameters</strong> for a sub-workflow call</li>
+  <li>Using a <strong>Call Sub-Workflow</strong> node to invoke a reusable workflow</li>
+  <li><strong>Parameter passing</strong> — mapping parent variables to sub-workflow inputs</li>
+  <li>Extracting <strong>output variables</strong> from the sub-workflow's result</li>
+  <li>The <strong>composition pattern</strong> — building complex logic from tested components</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  Input: orderData
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Prepare Params          │  Extract fields for
+  │     (Script)                │  sub-workflow input
+  │                             │
+  │  Output: validationInput    │  { orderId, amount,
+  │                             │    customerId }
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Call Sub-Workflow        │  Invokes: "Order
+  │     (Sub-Workflow)          │  Validation" workflow
+  │                             │
+  │  Input: validationInput     │  Waits for completion
+  │  Output: validationResult   │  → { isValid, errors }
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Process Result          │  Evaluate sub-workflow
+  │     (Script)                │  output and decide
+  │                             │  next action
+  │  Reads: validationResult    │
+  │  Sets: approvalStatus       │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │    End      │
+  └─────────────┘
+</div>
+
+<h4>Sub-Workflow: "Order Validation" (called by Node 2)</h4>
+<div class="flow-diagram">
+  ┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌─────────┐
+  │  Start   │ ──▶ │ Validate     │ ──▶ │ Check        │ ──▶ │  End    │
+  │          │     │ Fields       │     │ Business     │     │         │
+  │ Input:   │     │ (Script)     │     │ Rules        │     │ Output: │
+  │ order    │     │              │     │ (Condition)  │     │ result  │
+  └──────────┘     └──────────────┘     └──────────────┘     └─────────┘
+</div>
+
+<p>
+  <strong>5 nodes in the parent, 4 nodes in the sub-workflow</strong> — the parent
+  orchestrator delegates validation to a reusable sub-workflow and processes its result.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. Receives <code>orderData</code> — a JSON object with order details.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Prepare Params</td>
+    <td>Script</td>
+    <td>Extracts relevant fields from <code>orderData</code> and builds a <code>validationInput</code> object with <code>{ orderId, amount, customerId }</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Call Sub-Workflow</td>
+    <td>Sub-Workflow</td>
+    <td>Invokes the "Order Validation" sub-workflow with <code>validationInput</code> as input. Waits for completion and extracts <code>validationResult</code> containing <code>{ isValid, errors[] }</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Process Result</td>
+    <td>Script</td>
+    <td>Evaluates <code>validationResult.isValid</code>. Sets <code>approvalStatus</code> to "approved" or "rejected" with reason details.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Workflow completes with <code>approvalStatus</code> available as output.</td>
+  </tr>
+</table>
+
+<h3>Sub-Workflow Configuration (Node 2)</h3>
+<table>
+  <tr><td><strong>Target Workflow</strong></td><td><code>Order Validation</code></td></tr>
+  <tr><td><strong>Input Mapping</strong></td><td><code>order</code> ← <code>{{validationInput}}</code></td></tr>
+  <tr><td><strong>Output Mapping</strong></td><td><code>validationResult</code> ← sub-workflow output <code>result</code></td></tr>
+  <tr><td><strong>Timeout</strong></td><td>30 seconds</td></tr>
+  <tr><td><strong>On Error</strong></td><td>Fail parent workflow</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Variable Scope Isolation</strong>
+  Sub-workflows have their own variable scope. Variables from the parent are <em>not</em>
+  automatically visible inside the sub-workflow. You must explicitly map inputs and
+  outputs through the Call Sub-Workflow node's configuration. This isolation prevents
+  accidental side effects and makes sub-workflows truly reusable.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🎭 Sub-Workflow Orchestrator"</strong>
+    in the <em>Orchestration</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create the sub-workflow first.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Order Validation". Build a simple
+    validation flow: Start → Validate Fields (Script) → Check Business Rules (Condition) → End.
+    Define input variable <code>order</code> and output variable <code>result</code>.
+  </li>
+  <li>
+    <strong>Create the parent workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Sub-Workflow Orchestrator".
+  </li>
+  <li>
+    <strong>Add the Prepare Params node.</strong><br>
+    Drag a Script node. Extract fields from the input:
+    <pre>
+const validationInput = {
+  orderId: variables.orderData.id,
+  amount: variables.orderData.total,
+  customerId: variables.orderData.customerId
+};
+setVariable('validationInput', validationInput);</pre>
+    Connect Start → Prepare Params.
+  </li>
+  <li>
+    <strong>Add the Call Sub-Workflow node.</strong><br>
+    Drag a Sub-Workflow node. Select "Order Validation" as the target.
+    Map <code>validationInput</code> → sub-workflow input <code>order</code>.
+    Map sub-workflow output <code>result</code> → <code>validationResult</code>.
+    Connect Prepare Params → Call Sub-Workflow.
+  </li>
+  <li>
+    <strong>Add the Process Result node.</strong><br>
+    Drag a Script node. Evaluate the sub-workflow's output:
+    <pre>
+const status = variables.validationResult.isValid
+  ? 'approved'
+  : 'rejected: ' + variables.validationResult.errors.join(', ');
+setVariable('approvalStatus', status);</pre>
+    Connect Call Sub-Workflow → Process Result → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Provide sample <code>orderData</code> JSON. Verify the sub-workflow executes,
+    returns a result, and the parent correctly processes it.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States (valid order)</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>orderData received</td></tr>
+  <tr><td>1. Prepare Params</td><td>✅ Pass</td><td>validationInput = { orderId: "ORD-001", amount: 149.99, customerId: "C-42" }</td></tr>
+  <tr><td>2. Call Sub-Workflow</td><td>✅ Pass</td><td>Sub-workflow "Order Validation" completed in 120ms</td></tr>
+  <tr><td>3. Process Result</td><td>✅ Pass</td><td>approvalStatus = "approved"</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Sub-Workflow Output (Node 2)</h3>
+<pre>
+{
+  "isValid": true,
+  "errors": [],
+  "validatedAt": "2026-04-29T10:15:30Z",
+  "rulesChecked": ["required-fields", "amount-range", "customer-exists"]
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Circular References</strong>
+  Never create a sub-workflow that calls itself (directly or indirectly). Circular
+  sub-workflow references cause infinite loops. RedfireForge detects and blocks
+  circular references at design time, but always verify your call chains.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add Error Handling</h3>
+<p>
+  After the Call Sub-Workflow node, add a Condition node that checks
+  <code>{{validationResult.isValid}}</code>. On the false branch, add a Log node
+  that outputs the validation errors before setting the rejection status.
+</p>
+
+<h3>Exercise 2: Multiple Sub-Workflows</h3>
+<p>
+  Add a second sub-workflow call for "Fraud Detection" after validation passes.
+  Chain the two sub-workflow calls: Validate → if valid → Check Fraud → Process Result.
+</p>
+
+<h3>Exercise 3: Sub-Workflow with Timeout</h3>
+<p>
+  Set a 5-second timeout on the Call Sub-Workflow node. Add a slow Script node
+  (with a delay) inside the sub-workflow to simulate a timeout. Handle the timeout
+  error in the parent workflow with a fallback path.
+</p>
+
+<h3>Exercise 4: Dynamic Sub-Workflow Selection</h3>
+<p>
+  Use a Switch node before the Call Sub-Workflow to select different validation
+  sub-workflows based on the order type: "standard" → Standard Validation,
+  "express" → Express Validation, "international" → International Validation.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with sub-workflow invocation, try the
+  <a href="order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a> to see
+  how sub-workflows integrate into a full multi-stage order processing pipeline.
+</div>
+
+<footer>RedfireForge Training Manual — Sub-Workflow Orchestrator · April 2026</footer>
+
+</body>
+</html>

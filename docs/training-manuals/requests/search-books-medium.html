@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search Books — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📚</div>
+    <h1>Search Books</h1>
+    <div class="subtitle">Medium Sample — Training Guide</div>
+    <p>Query a real-world book search API to find titles matching a keyword. This sample demonstrates query parameters, large payloads, and how production APIs return pagination metadata alongside results.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★★☆<br />
+      <code>GET</code> · openlibrary.org
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request searches the Open Library API — a free, open-source catalog of every book ever published, maintained by the Internet Archive. Unlike mock APIs, this returns real data from a live database of millions of books.</p>
+  <p><strong>Real-world analogy:</strong> Imagine typing "javascript" into a library search kiosk and getting back a list of matching books with their titles, authors, and publication years. This API call does exactly that — but across the world's largest open book catalog.</p>
+  <p>This sample steps up from Easy because:</p>
+  <ul>
+    <li>It uses query parameters (<code>q</code> and <code>limit</code>) to control the search.</li>
+    <li>The response is a large, complex JSON object with nested arrays.</li>
+    <li>It includes pagination metadata (<code>numFound</code>, <code>start</code>) typical of real search APIs.</li>
+    <li>Response times and payload sizes vary based on the query, introducing real-world variability.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Query parameters</strong> — how to pass search terms and options via URL parameters like <code>?q=javascript&amp;limit=5</code>.</li>
+    <li><strong>Large payloads</strong> — handling responses that contain many fields and nested data structures.</li>
+    <li><strong>Pagination metadata</strong> — understanding <code>numFound</code> (total results) and <code>start</code> (offset) fields that enable page navigation.</li>
+    <li><strong>Real-world search API</strong> — working with a live API that returns dynamic, non-deterministic results.</li>
+    <li><strong>Array fields</strong> — some fields like <code>author_name</code> are arrays (a book can have multiple authors).</li>
+    <li><strong>Optional fields</strong> — not every book record has every field, teaching you to handle missing data gracefully.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>GET</code></td></tr>
+    <tr><td>URL</td><td><code>https://openlibrary.org/search.json?q=javascript&amp;limit=5</code></td></tr>
+    <tr><td>Headers</td><td>None required</td></tr>
+    <tr><td>Body</td><td>None (GET requests do not have a body)</td></tr>
+    <tr><td>Query Parameters</td><td><code>q=javascript</code>, <code>limit=5</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>q</code> parameter is the search query, and <code>limit</code> restricts the number of results returned. Without <code>limit</code>, the API may return hundreds of results, making the response very large and slow.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+    <tr><td>Response Size</td><td>~5–15 KB (varies by query)</td></tr>
+  </table>
+
+  <p>Sample response (abbreviated — each doc object contains many more fields):</p>
+
+<pre>{
+  "numFound": 1234,
+  "start": 0,
+  "numFoundExact": true,
+  "docs": [
+    {
+      "title": "JavaScript: The Good Parts",
+      "author_name": ["Douglas Crockford"],
+      "first_publish_year": 2008,
+      "isbn": ["9780596517748"],
+      "publisher": ["O'Reilly Media"],
+      "number_of_pages_median": 153,
+      "language": ["eng"],
+      "key": "/works/OL2627128W"
+    },
+    {
+      "title": "Eloquent JavaScript",
+      "author_name": ["Marijn Haverbeke"],
+      "first_publish_year": 2011,
+      "isbn": ["9781593275846"],
+      "publisher": ["No Starch Press"],
+      "number_of_pages_median": 472,
+      "language": ["eng"],
+      "key": "/works/OL15834983W"
+    }
+    // ... 3 more docs follow
+  ]
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The <code>numFound</code> field tells you the total number of matching books across the entire catalog — not just the ones returned in this response. This is critical for building pagination: you know there are 1,234 results total, but you only received 5.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Search Books</strong> (marked with 📚) or use the search bar. It's tagged as <span class="badge badge-medium">Medium</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Run the Request</h3>
+  <p>If you chose "Try It", review the request details in the editor panel. Note the query parameters in the URL. Click <strong>Send</strong> to execute.</p>
+
+  <h3>Step 5 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code> — the search was successful.</li>
+    <li><strong>Body</strong>: A JSON object with <code>numFound</code>, <code>start</code>, and a <code>docs</code> array.</li>
+    <li><strong>Payload size</strong>: Note how much larger this response is compared to simple mock APIs.</li>
+    <li><strong>Time</strong>: Response time may be 500ms–2s since this is a live production API.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Because Open Library is a live API, results may change over time as new books are added to the catalog. The <code>numFound</code> value you see may differ from the example above.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Search for a Different Topic</h3>
+  <p>Change the <code>q</code> parameter to search for a different subject:</p>
+  <pre>GET https://openlibrary.org/search.json?q=python+programming&amp;limit=5</pre>
+  <p>How does <code>numFound</code> compare to the JavaScript search? Try other topics like <code>machine+learning</code> or <code>design+patterns</code>.</p>
+
+  <h3>Exercise 2 — Paginate Through Results</h3>
+  <p>Use the <code>offset</code> parameter to get the next page of results:</p>
+  <pre>GET https://openlibrary.org/search.json?q=javascript&amp;limit=5&amp;offset=5</pre>
+  <p>Are the results different from the first page? What happens if you set <code>offset</code> higher than <code>numFound</code>?</p>
+
+  <h3>Exercise 3 — Increase the Limit</h3>
+  <p>Try requesting more results:</p>
+  <pre>GET https://openlibrary.org/search.json?q=javascript&amp;limit=20</pre>
+  <p>How does the response size and response time change? At what point does the payload become unwieldy?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Working with real APIs teaches you about trade-offs: requesting more data means larger payloads and slower responses. Finding the right <code>limit</code> value is a common real-world optimization challenge.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Search Books · April 2026
+  </footer>
+
+</body>
+</html>

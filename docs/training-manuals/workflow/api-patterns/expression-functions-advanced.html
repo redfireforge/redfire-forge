@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — API Patterns: Expression Functions Showcase (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+  <h1>Expression Functions Showcase</h1>
+  <div class="subtitle">Advanced Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Explore RedfireForge's expression engine: built-in string, math, and date
+    functions, template literals in variables, and expression-driven conditions.
+    Transform data without writing full scripts using powerful inline expressions.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow showcases the <strong>expression engine</strong> — RedfireForge's built-in
+  system for transforming data inline, without writing full Script nodes. Expressions
+  are lightweight, readable, and perfect for simple transformations that don't justify
+  a dedicated script.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> Think of expressions as spreadsheet formulas.
+  Just as you'd write <code>=UPPER(A1)</code> in a cell rather than writing a macro,
+  you can write <code>{{upper(userName)}}</code> in a variable field rather than
+  adding a Script node.
+</p>
+<p><strong>When to use expressions vs. scripts:</strong></p>
+<ul>
+  <li><strong>Expressions:</strong> Simple transformations — string formatting, math, date conversions, comparisons</li>
+  <li><strong>Scripts:</strong> Complex logic — loops, conditional branching within code, multi-step processing, external library calls</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li><strong>Expression syntax:</strong> <code>{{expression}}</code> in variable values and conditions</li>
+  <li><strong>String functions:</strong> <code>upper()</code>, <code>lower()</code>, <code>trim()</code>, <code>substring()</code>, <code>replace()</code>, <code>length()</code></li>
+  <li><strong>Math functions:</strong> <code>round()</code>, <code>ceil()</code>, <code>floor()</code>, <code>abs()</code>, <code>min()</code>, <code>max()</code></li>
+  <li><strong>Date functions:</strong> <code>now()</code>, <code>formatDate()</code>, <code>dateAdd()</code>, <code>dateDiff()</code></li>
+  <li><strong>Template literals:</strong> Embedding expressions inside string values</li>
+  <li>Using expressions in <strong>Condition nodes</strong> for data validation</li>
+  <li>Combining expressions with <strong>Script nodes</strong> for advanced transformations</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Set Raw Data            │  SetVariable
+  │     (SetVariable)           │
+  │                             │  rawName = "  john DOE  "
+  │  Sets up raw test data      │  rawPrice = "49.956"
+  │  for transformation         │  rawDate = "2026-04-29"
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Transform with          │  Script (Transform mode)
+  │     Expressions             │
+  │     (Script)                │  Applies string, math,
+  │                             │  and date functions
+  │  input: rawName, rawPrice,  │  output: cleanName,
+  │         rawDate             │   formattedPrice,
+  │                             │   displayDate, summary
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  3. Validate                │  {{cleanName}} != "" AND
+  │     (Condition)             │  {{formattedPrice}} != ""
+  └──────┬──────────────────────┘
+         │ Yes (true)
+         ▼
+  ┌─────────────┐
+  │     End     │
+  └─────────────┘
+</div>
+
+<p>
+  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The SetVariable node provides
+  raw data, the Script node demonstrates expression-based transformations, and the
+  Condition node validates the results using expression comparisons.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables — raw data is set inline for demonstration.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Set Raw Data</td>
+    <td>SetVariable</td>
+    <td>Initializes three test variables with intentionally messy data: a name with extra whitespace and mixed case, a price with too many decimals, and a date in ISO format.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Transform with Expressions</td>
+    <td>Script</td>
+    <td>Applies expression functions to clean, format, and transform the raw data. Demonstrates string, math, and date operations. Outputs cleaned values and a formatted summary.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Validate</td>
+    <td>Condition</td>
+    <td>Validates that the transformation produced non-empty results for both <code>cleanName</code> and <code>formattedPrice</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">E</span> End</td>
+    <td>End</td>
+    <td>Workflow complete. All transformed variables available in context.</td>
+  </tr>
+</table>
+
+<h3>Expression Functions Reference</h3>
+<p>The Script node in this workflow demonstrates these built-in functions:</p>
+
+<table>
+  <tr><th>Category</th><th>Function</th><th>Example</th><th>Result</th></tr>
+  <tr>
+    <td rowspan="4"><strong>String</strong></td>
+    <td><code>trim()</code></td>
+    <td><code>trim("  john DOE  ")</code></td>
+    <td><code>"john DOE"</code></td>
+  </tr>
+  <tr>
+    <td><code>upper()</code></td>
+    <td><code>upper("john")</code></td>
+    <td><code>"JOHN"</code></td>
+  </tr>
+  <tr>
+    <td><code>lower()</code></td>
+    <td><code>lower("DOE")</code></td>
+    <td><code>"doe"</code></td>
+  </tr>
+  <tr>
+    <td><code>substring()</code></td>
+    <td><code>substring("hello", 0, 3)</code></td>
+    <td><code>"hel"</code></td>
+  </tr>
+  <tr>
+    <td rowspan="3"><strong>Math</strong></td>
+    <td><code>round()</code></td>
+    <td><code>round(49.956, 2)</code></td>
+    <td><code>49.96</code></td>
+  </tr>
+  <tr>
+    <td><code>ceil()</code></td>
+    <td><code>ceil(49.1)</code></td>
+    <td><code>50</code></td>
+  </tr>
+  <tr>
+    <td><code>floor()</code></td>
+    <td><code>floor(49.9)</code></td>
+    <td><code>49</code></td>
+  </tr>
+  <tr>
+    <td rowspan="2"><strong>Date</strong></td>
+    <td><code>formatDate()</code></td>
+    <td><code>formatDate("2026-04-29", "MMM D, YYYY")</code></td>
+    <td><code>"Apr 29, 2026"</code></td>
+  </tr>
+  <tr>
+    <td><code>now()</code></td>
+    <td><code>now()</code></td>
+    <td><code>"2026-04-29T..."</code></td>
+  </tr>
+</table>
+
+<h3>Script Code: Transform with Expressions</h3>
+<pre>
+<span class="comment">// Demonstrate expression functions for data transformation</span>
+<span class="keyword">const</span> name = input.rawName.trim();
+<span class="keyword">const</span> parts = name.split(<span class="string">" "</span>);
+
+<span class="comment">// String functions: proper case (capitalize first letter of each word)</span>
+output.cleanName = parts
+  .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+  .join(<span class="string">" "</span>);
+
+<span class="comment">// Math functions: round price to 2 decimal places</span>
+<span class="keyword">const</span> price = parseFloat(input.rawPrice);
+output.formattedPrice = <span class="string">"$"</span> + price.toFixed(2);
+
+<span class="comment">// Date functions: format ISO date to human-readable</span>
+<span class="keyword">const</span> d = <span class="keyword">new</span> Date(input.rawDate);
+<span class="keyword">const</span> months = [<span class="string">"Jan"</span>,<span class="string">"Feb"</span>,<span class="string">"Mar"</span>,<span class="string">"Apr"</span>,<span class="string">"May"</span>,<span class="string">"Jun"</span>,
+                 <span class="string">"Jul"</span>,<span class="string">"Aug"</span>,<span class="string">"Sep"</span>,<span class="string">"Oct"</span>,<span class="string">"Nov"</span>,<span class="string">"Dec"</span>];
+output.displayDate = months[d.getMonth()] + <span class="string">" "</span>
+  + d.getDate() + <span class="string">", "</span> + d.getFullYear();
+
+<span class="comment">// Template literal: combine all transformed values</span>
+output.summary = output.cleanName + <span class="string">" | "</span>
+  + output.formattedPrice + <span class="string">" | "</span> + output.displayDate;
+
+console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
+
+<div class="callout callout-tip">
+  <strong>💡 Expressions vs. Script</strong>
+  The Script node here uses JavaScript equivalents of expression functions
+  to show how they work under the hood. In practice, you can use expression
+  syntax directly in SetVariable values: <code>{{trim(rawName)}}</code>,
+  <code>{{round(rawPrice, 2)}}</code>, etc. — no Script node needed.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Expression Functions Showcase"</strong>
+    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Expression Functions Showcase".
+  </li>
+  <li>
+    <strong>Add the SetVariable node for raw data.</strong><br>
+    Drag a SetVariable node. Add three variables:
+    <ul>
+      <li><code>rawName</code> = <code>&nbsp;&nbsp;john DOE&nbsp;&nbsp;</code> (with leading/trailing spaces)</li>
+      <li><code>rawPrice</code> = <code>49.956</code></li>
+      <li><code>rawDate</code> = <code>2026-04-29</code></li>
+    </ul>
+    Connect Start → Set Raw Data.
+  </li>
+  <li>
+    <strong>Add the Script node for transformations.</strong><br>
+    Drag a Script node. Set mode to Transform. Configure:
+    <ul>
+      <li><em>Input</em>: <code>rawName</code>, <code>rawPrice</code>, <code>rawDate</code></li>
+      <li><em>Output</em>: <code>cleanName</code>, <code>formattedPrice</code>, <code>displayDate</code>, <code>summary</code></li>
+      <li><em>Code</em>: Paste the script from the walkthrough above</li>
+      <li><em>Console Capture</em>: Enabled</li>
+    </ul>
+    Connect Set Raw Data → Transform.
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Drag a Condition node. Configure:
+    <ul>
+      <li><em>Left</em>: <code>{{cleanName}}</code></li>
+      <li><em>Operator</em>: <code>!=</code></li>
+      <li><em>Right</em>: (empty)</li>
+    </ul>
+    Connect Transform → Validate → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Inspect the Script node's output to see the transformed values.
+    Check the console for the summary log message.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Console Output</h3>
+<pre>
+# [2. Transform with Expressions] Executing script (transform)...
+# [2. Transform with Expressions] console: Transformed: John Doe | $49.96 | Apr 29, 2026</pre>
+
+<h3>Node States</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Set Raw Data</td><td>✅ Pass</td><td>3 variables set</td></tr>
+  <tr><td>2. Transform</td><td>✅ Pass</td><td>4 output variables set</td></tr>
+  <tr><td>3. Validate</td><td>✅ Pass (true)</td><td>"John Doe" != ""</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>Transformed Variable Values</h3>
+<table class="var-table">
+  <tr><th>Variable</th><th>Raw Value</th><th>Transformed Value</th><th>Functions Used</th></tr>
+  <tr>
+    <td><code>cleanName</code></td>
+    <td><code>"  john DOE  "</code></td>
+    <td><code>"John Doe"</code></td>
+    <td>trim, split, capitalize</td>
+  </tr>
+  <tr>
+    <td><code>formattedPrice</code></td>
+    <td><code>"49.956"</code></td>
+    <td><code>"$49.96"</code></td>
+    <td>parseFloat, toFixed (round)</td>
+  </tr>
+  <tr>
+    <td><code>displayDate</code></td>
+    <td><code>"2026-04-29"</code></td>
+    <td><code>"Apr 29, 2026"</code></td>
+    <td>Date parse, formatDate</td>
+  </tr>
+  <tr>
+    <td><code>summary</code></td>
+    <td>—</td>
+    <td><code>"John Doe | $49.96 | Apr 29, 2026"</code></td>
+    <td>Template literal (concat)</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add Phone Number Formatting</h3>
+<p>
+  Add a <code>rawPhone</code> variable set to <code>"1234567890"</code>. In the Script
+  node, format it as <code>"(123) 456-7890"</code> using <code>substring()</code>.
+  Output as <code>formattedPhone</code>.
+</p>
+
+<h3>Exercise 2: Use Expressions in SetVariable</h3>
+<p>
+  Replace the Script node with multiple SetVariable nodes that use inline expressions
+  directly: <code>{{trim(rawName)}}</code>, <code>{{round(rawPrice, 2)}}</code>, etc.
+  Compare this approach with the Script-based approach — which is more readable?
+</p>
+
+<h3>Exercise 3: Add Date Arithmetic</h3>
+<p>
+  Add a <code>dueDate</code> output that is 30 days after <code>rawDate</code>.
+  Use <code>new Date()</code> arithmetic or the <code>dateAdd()</code> expression
+  function to compute the future date and format it.
+</p>
+
+<h3>Exercise 4: Build a Validation Pipeline</h3>
+<p>
+  Add multiple Condition nodes after the Transform that validate each transformed value:
+  <ul>
+    <li><code>cleanName</code> length > 0</li>
+    <li><code>formattedPrice</code> starts with "$"</li>
+    <li><code>displayDate</code> contains "2026"</li>
+  </ul>
+  Chain them with AND logic (sequential conditions) to create a multi-check validation.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  You've completed the API Patterns category! Next, explore the
+  <strong>Script Node</strong> category for deeper JavaScript scripting techniques,
+  or the <strong>Diverse APIs</strong> category for real-world multi-service integrations.
+</div>
+
+<footer>RedfireForge Training Manual — Expression Functions Showcase · April 2026</footer>
+
+</body>
+</html>

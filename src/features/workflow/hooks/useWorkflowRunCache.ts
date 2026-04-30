@@ -30,7 +30,7 @@ export interface WorkflowRunHistoryEntry {
 
 export interface CachedWorkflowRun {
   nodeStatuses: Record<string, NodeRunStatus>;
-  lastRunStatus: 'idle' | 'running' | 'pass' | 'fail';
+  lastRunStatus: 'idle' | 'running' | 'pass' | 'fail' | 'stopped';
   lastRunTime: number | undefined;
   lastRunError: string | null;
   runVariableSnapshot: Record<string, string> | null;
