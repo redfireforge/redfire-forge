@@ -20,9 +20,9 @@
       "validate:$.category": "beauty"
     },
     {
-      "name": "Laptop — verify brand",
+      "name": "Calvin Klein CK One — verify category",
       "path:productId": "6",
-      "validate:$.category": "furniture"
+      "validate:$.category": "fragrances"
     },
     {
       "name": "Product 10 — basic check",
