@@ -44,6 +44,14 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     for (const fg of featureGroups) {
       if (fg.gallerySampleId && fg.gallerySampleHash) {
         map[fg.gallerySampleId] = fg.gallerySampleHash;
+      } else if (fg.source === 'gallery' && fg.name) {
+        // Fallback: match by name for older imports that lack gallerySampleId.
+        // Gallery-imported FGs are named "Gallery: <sample name>".
+        const stripped = fg.name.replace(/^Gallery:\s*/, '');
+        if (stripped) {
+          // Use empty string as hash to indicate presence without version tracking
+          map[`__name:${stripped}`] = '';
+        }
       }
     }
     return map;
@@ -110,8 +118,11 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
 
     let gallerySvc = microservices.find(s => s.name === GALLERY_SVC_NAME);
     if (!gallerySvc) {
-      gallerySvc = { id: crypto.randomUUID(), name: GALLERY_SVC_NAME, baseUrls: {} };
+      gallerySvc = { id: crypto.randomUUID(), name: GALLERY_SVC_NAME, baseUrls: { [galleryEnv.id]: '' } };
       setMicroservices(prev => [...prev, gallerySvc!]);
+    } else if (!(galleryEnv.id in gallerySvc.baseUrls)) {
+      gallerySvc = { ...gallerySvc, baseUrls: { ...gallerySvc.baseUrls, [galleryEnv.id]: '' } };
+      setMicroservices(prev => prev.map(s => s.id === gallerySvc!.id ? gallerySvc! : s));
     }
 
     setFeatureGroups(prev => [...prev, {

@@ -37,8 +37,8 @@ test.describe('Popup Modals', () => {
       localStorage.setItem('perf-test-theme', 'dark');
     });
     await page.goto('/');
-    // Navigate to test harness tab
-    await page.click('text=Test Harness');
+    // Navigate to Harness tab
+    await page.click('text=Harness');
   });
 
   test.describe('CopyTestModal', () => {

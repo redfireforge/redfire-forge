@@ -88,23 +88,21 @@ describe('useScenarioExportImport', () => {
 
   // --- importAll ---
   it('importAll alerts if no service selected', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.fn();
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ selectedSvcId: undefined })
+      defaultParams({ selectedSvcId: undefined, confirm: confirmSpy })
     ));
     act(() => result.current.importAll());
-    expect(alertSpy).toHaveBeenCalledWith('Select a microservice and environment first.');
-    alertSpy.mockRestore();
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Select a microservice and environment first.', expect.any(Function));
   });
 
   it('importAll alerts if no env selected', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.fn();
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ selectedEnvId: undefined })
+      defaultParams({ selectedEnvId: undefined, confirm: confirmSpy })
     ));
     act(() => result.current.importAll());
-    expect(alertSpy).toHaveBeenCalledWith('Select a microservice and environment first.');
-    alertSpy.mockRestore();
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Select a microservice and environment first.', expect.any(Function));
   });
 
   it('importAll imports valid feature groups', () => {
@@ -132,14 +130,13 @@ describe('useScenarioExportImport', () => {
   });
 
   it('importAll alerts on invalid file format', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.fn();
     mockPickJsonFile.mockImplementation((cb) => cb([{ invalid: true }]));
 
-    const { result } = renderHook(() => useScenarioExportImport(defaultParams()));
+    const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
     act(() => result.current.importAll());
 
-    expect(alertSpy).toHaveBeenCalledWith('Invalid file: expected feature group(s).');
-    alertSpy.mockRestore();
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Invalid file: expected feature group(s).', expect.any(Function));
   });
 
   it('importAll prompts on conflicting names and imports when confirmed', () => {
@@ -289,14 +286,13 @@ describe('useScenarioExportImport', () => {
   });
 
   it('importScenariosInto alerts on invalid data', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.fn();
     mockPickJsonFile.mockImplementation((cb) => cb([{ invalid: true }]));
 
-    const { result } = renderHook(() => useScenarioExportImport(defaultParams()));
+    const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
     act(() => result.current.importScenariosInto('fg1'));
 
-    expect(alertSpy).toHaveBeenCalledWith('Invalid file: expected scenario(s) with a name and tests array.');
-    alertSpy.mockRestore();
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Invalid file: expected scenario(s) with a name and tests array.', expect.any(Function));
   });
 
   it('importScenariosInto prompts on duplicate names and imports when confirmed', () => {
@@ -379,14 +375,13 @@ describe('useScenarioExportImport', () => {
   });
 
   it('importTestsInto alerts on invalid data', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = vi.fn();
     mockPickJsonFile.mockImplementation((cb) => cb([{ invalid: true }]));
 
-    const { result } = renderHook(() => useScenarioExportImport(defaultParams()));
+    const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
     act(() => result.current.importTestsInto('fg1', 's1'));
 
-    expect(alertSpy).toHaveBeenCalledWith('Invalid file: expected test(s) with name, url, and method.');
-    alertSpy.mockRestore();
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Invalid file: expected test(s) with name, url, and method.', expect.any(Function));
   });
 
   it('importTestsInto prompts on duplicate test names and imports when confirmed', () => {

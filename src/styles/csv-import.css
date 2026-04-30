@@ -8,6 +8,17 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
+  padding: 0;
+}
+.csv-import-modal .modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.csv-import-modal .modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
 }
 .csv-import-body {
   flex: 1;
@@ -27,25 +38,33 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 14px 20px;
   border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  flex-shrink: 0;
 }
 
 /* Steps */
 .csv-step {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+.csv-step + .csv-step {
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 .csv-step-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--accent, #3498db);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 .csv-step-desc {
   font-size: 0.78rem;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 /* Drop zone */
@@ -53,7 +72,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px 20px;
+  padding: 22px 20px;
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -279,39 +298,62 @@
 .csv-dest-fields {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+.csv-dest-row-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 100px;
+}
+.csv-dest-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
-.csv-dest-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.csv-dest-field label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-}
-.csv-dest-field select,
-.csv-dest-field input[type="text"] {
-  padding: 6px 10px;
+.csv-dest-select {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
   font-size: 0.82rem;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.csv-dest-select:focus {
+  outline: none;
+  border-color: var(--accent, #3498db);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.12);
 }
 .csv-checkbox-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
+  gap: 5px;
+  font-size: 0.75rem;
   font-weight: 400 !important;
   color: var(--text-muted) !important;
   cursor: pointer;
-  margin-top: 2px;
+  user-select: none;
+  white-space: nowrap;
+  margin: 0 !important;
+  flex-shrink: 0;
+  width: 190px;
 }
 .csv-checkbox-label input[type="checkbox"] {
+  width: auto;
   margin: 0;
+  accent-color: var(--accent, #3498db);
+}
+/* placeholder for no checkbox in the auto column */
+.csv-dest-empty-cell {
+  width: 0;
 }
 
 /* ---------------------------------------------------------------------------
