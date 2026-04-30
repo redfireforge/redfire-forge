@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { reIdScenarios, wrapExport, unwrapImport, pickJsonFile } from './scenarioImportExport';
+import { reIdScenarios, wrapExport, unwrapImport, pickJsonFile, stripVersions, countVersions, hasVersionData } from './scenarioImportExport';
 
 vi.mock('uuid', () => ({
   v4: (() => {
@@ -149,17 +149,16 @@ describe('pickJsonFile', () => {
         mockReadAsText(...args);
       };
     });
-    const alertSpy = vi.spyOn(globalThis, 'alert').mockImplementation(() => {});
-
     const onLoad = vi.fn();
-    pickJsonFile(onLoad);
+    const onError = vi.fn();
+    pickJsonFile(onLoad, onError);
 
     const mockFile = new File(['not json'], 'test.json');
     mockInput.onchange({ target: { files: [mockFile] } });
 
     capturedOnload({ target: { result: 'not json' } });
     expect(onLoad).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith('Failed to parse JSON file.');
     vi.unstubAllGlobals();
   });
 
@@ -173,5 +172,154 @@ describe('pickJsonFile', () => {
 
     mockInput.onchange({ target: { files: undefined } });
     expect(onLoad).not.toHaveBeenCalled();
+  });
+});
+
+// ── stripVersions ──
+describe('stripVersions', () => {
+  const makeTest = (rv?: unknown[], ruv?: unknown[]) => ({
+    name: 'T1', url: '/a', method: 'GET',
+    validation: { responseVersions: rv, rulesVersions: ruv, statusCode: 200 },
+  });
+
+  it('strips response versions when includeResponseVersions is false', () => {
+    const t = makeTest([{ id: '1' }], [{ id: '2' }]);
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: true }) as typeof t;
+    expect(result.validation.responseVersions).toBeUndefined();
+    expect(result.validation.rulesVersions).toEqual([{ id: '2' }]);
+  });
+
+  it('strips rules versions when includeRulesVersions is false', () => {
+    const t = makeTest([{ id: '1' }], [{ id: '2' }]);
+    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: false }) as typeof t;
+    expect(result.validation.responseVersions).toEqual([{ id: '1' }]);
+    expect(result.validation.rulesVersions).toBeUndefined();
+  });
+
+  it('strips both when both are false', () => {
+    const t = makeTest([{ id: '1' }], [{ id: '2' }]);
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false }) as typeof t;
+    expect(result.validation.responseVersions).toBeUndefined();
+    expect(result.validation.rulesVersions).toBeUndefined();
+  });
+
+  it('keeps both when both are true', () => {
+    const t = makeTest([{ id: '1' }], [{ id: '2' }]);
+    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: true }) as typeof t;
+    expect(result.validation.responseVersions).toEqual([{ id: '1' }]);
+    expect(result.validation.rulesVersions).toEqual([{ id: '2' }]);
+  });
+
+  it('handles arrays (feature group scenarios)', () => {
+    const fg = {
+      name: 'FG1',
+      scenarios: [{ name: 'S1', tests: [makeTest([{ id: '1' }], [{ id: '2' }])] }],
+    };
+    const result = stripVersions(fg, { includeResponseVersions: false, includeRulesVersions: false }) as typeof fg;
+    expect(result.scenarios[0].tests[0].validation.responseVersions).toBeUndefined();
+    expect(result.scenarios[0].tests[0].validation.rulesVersions).toBeUndefined();
+  });
+
+  it('handles array input', () => {
+    const arr = [makeTest([{ id: '1' }], undefined)];
+    const result = stripVersions(arr, { includeResponseVersions: false, includeRulesVersions: true }) as typeof arr;
+    expect(result[0].validation.responseVersions).toBeUndefined();
+  });
+
+  it('returns data unchanged when no validationConfig', () => {
+    const t = { name: 'T1', url: '/a', method: 'GET' };
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false });
+    expect(result).toEqual(t);
+  });
+});
+
+// ── countVersions ──
+describe('countVersions', () => {
+  it('counts response and rules versions across nested structure', () => {
+    const fg = {
+      scenarios: [{
+        tests: [
+          { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }, { id: '2' }], rulesVersions: [{ id: '3' }] } },
+          { url: '/b', method: 'GET', validation: { responseVersions: [{ id: '4' }] } },
+        ],
+      }],
+    };
+    const result = countVersions(fg);
+    expect(result.responseVersionCount).toBe(3);
+    expect(result.rulesVersionCount).toBe(1);
+  });
+
+  it('returns zeros for data without versions', () => {
+    expect(countVersions({ name: 'test' })).toEqual({ responseVersionCount: 0, rulesVersionCount: 0 });
+  });
+
+  it('counts versions in a single test', () => {
+    const t = { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }], rulesVersions: [{ id: '2' }, { id: '3' }] } };
+    expect(countVersions(t)).toEqual({ responseVersionCount: 1, rulesVersionCount: 2 });
+  });
+
+  it('handles arrays', () => {
+    const arr = [
+      { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } },
+      { url: '/b', method: 'GET', validation: { rulesVersions: [{ id: '2' }] } },
+    ];
+    expect(countVersions(arr)).toEqual({ responseVersionCount: 1, rulesVersionCount: 1 });
+  });
+});
+
+// ── wrapExport with version options ──
+describe('wrapExport with version options', () => {
+  it('strips versions from export when options say so', () => {
+    const test = {
+      name: 'T', url: '/x', method: 'GET',
+      validation: { responseVersions: [{ id: '1' }], rulesVersions: [{ id: '2' }] },
+    };
+    const result = wrapExport(test, 'test', {}, { includeResponseVersions: false, includeRulesVersions: false });
+    const data = result.data as typeof test;
+    expect(data.validation.responseVersions).toBeUndefined();
+    expect(data.validation.rulesVersions).toBeUndefined();
+    expect(result._exportMeta?.includesResponseVersions).toBe(false);
+    expect(result._exportMeta?.includesRulesVersions).toBe(false);
+  });
+
+  it('includes versions in export metadata when included', () => {
+    const test = {
+      name: 'T', url: '/x', method: 'GET',
+      validation: { responseVersions: [{ id: '1' }] },
+    };
+    const result = wrapExport(test, 'test', {}, { includeResponseVersions: true, includeRulesVersions: true });
+    expect(result._exportMeta?.includesResponseVersions).toBe(true);
+    expect(result._exportMeta?.includesRulesVersions).toBe(true);
+  });
+});
+
+describe('hasVersionData', () => {
+  it('returns true when responseVersions exist on a test', () => {
+    expect(hasVersionData({ url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } })).toBe(true);
+  });
+
+  it('returns true when rulesVersions exist on a test', () => {
+    expect(hasVersionData({ url: '/a', method: 'GET', validation: { rulesVersions: [{ id: '1' }] } })).toBe(true);
+  });
+
+  it('returns false when no versions exist', () => {
+    expect(hasVersionData({ url: '/a', method: 'GET', validation: {} })).toBe(false);
+  });
+
+  it('returns false for non-object input', () => {
+    expect(hasVersionData('string')).toBe(false);
+    expect(hasVersionData(null)).toBe(false);
+  });
+
+  it('returns true for array with versions in nested items', () => {
+    const arr = [{ url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } }];
+    expect(hasVersionData(arr)).toBe(true);
+  });
+
+  it('returns true for feature group with scenarios containing versions', () => {
+    const fg = {
+      scenarios: [{ tests: [{ url: '/a', method: 'GET', validation: { rulesVersions: [{ id: '1' }] } }] }],
+    };
+    expect(hasVersionData(fg)).toBe(true);
   });
 });

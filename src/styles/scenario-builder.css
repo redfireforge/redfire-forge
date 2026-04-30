@@ -1093,6 +1093,47 @@
 .version-panel-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+.version-duplicate-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.version-duplicate-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.version-duplicate-confirm .btn-xs {
+  padding: 2px 10px;
+  font-size: 0.75rem;
+}
+
+/* --- Rules Version Panel --- */
+.rules-version-panel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  overflow: hidden;
+}
+.rules-version-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.rules-version-panel-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 .version-empty {
   padding: 16px;
@@ -1215,43 +1256,104 @@
   background: #1a1a2e !important;
   color: #e0e0e0 !important;
 }
-.version-diff-viewer .json-diff-viewer tr .line-add {
-  background: rgba(39, 174, 96, 0.22) !important;
+/* === IntelliJ-style diff === */
+/* Override monokai theme: remove ALL row-level and cell background colors */
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr td,
+.version-diff-viewer .json-diff-viewer tr td {
+  background: transparent !important;
+  border-bottom: none !important;
 }
-.version-diff-viewer .json-diff-viewer tr .line-remove {
-  background: rgba(231, 76, 60, 0.22) !important;
+/* Remove row hover background */
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr:hover,
+.version-diff-viewer .json-diff-viewer tr:hover {
+  background: transparent !important;
 }
-.version-diff-viewer .json-diff-viewer tr .line-modify {
-  background: rgba(52, 152, 219, 0.18) !important;
+.version-diff-viewer .json-diff-viewer tr:hover td:before {
+  background: transparent !important;
 }
+/* Left-edge stripe on content cells only (not line-number cells) */
+.version-diff-viewer .json-diff-viewer td.line-add:not(.line-number) {
+  border-left: 3px solid #2ecc71 !important;
+}
+.version-diff-viewer .json-diff-viewer td.line-remove:not(.line-number) {
+  border-left: 3px solid #e74c3c !important;
+}
+.version-diff-viewer .json-diff-viewer td.line-modify:not(.line-number) {
+  border-left: 3px solid #3498db !important;
+}
+/* Inline diff: highlight only the changed text (IntelliJ-style) */
 .version-diff-viewer .json-diff-viewer pre .inline-diff-add {
-  background: rgba(39, 174, 96, 0.45) !important;
+  background: rgba(39, 174, 96, 0.35) !important;
   color: #2ecc71 !important;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px 3px;
+  border-radius: 2px;
   font-weight: 700;
   text-decoration: none;
 }
 .version-diff-viewer .json-diff-viewer pre .inline-diff-remove {
-  background: rgba(231, 76, 60, 0.4) !important;
+  background: rgba(231, 76, 60, 0.30) !important;
   color: #e74c3c !important;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px 3px;
+  border-radius: 2px;
   text-decoration: line-through;
 }
-.version-diff-viewer .json-diff-viewer td.line-number {
-  color: #666 !important;
-  border-right-color: rgba(255, 255, 255, 0.08) !important;
+/* Line numbers */
+.version-diff-viewer .json-diff-viewer td.line-number,
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .line-number {
+  color: #555 !important;
+  border-right-color: rgba(255, 255, 255, 0.06) !important;
   min-width: 36px;
   font-size: 0.75rem;
+  background: transparent !important;
 }
+/* Changed-line line numbers get accent color */
+.version-diff-viewer .json-diff-viewer td.line-number.line-add {
+  color: #2ecc71 !important;
+}
+.version-diff-viewer .json-diff-viewer td.line-number.line-remove {
+  color: #e74c3c !important;
+}
+.version-diff-viewer .json-diff-viewer td.line-number.line-modify {
+  color: #3498db !important;
+}
+/* Center gutter divider */
+.version-diff-viewer .json-diff-viewer td:nth-child(2) {
+  border-right: 2px solid rgba(255, 255, 255, 0.12) !important;
+  padding-right: 12px !important;
+  position: relative;
+}
+.version-diff-viewer .json-diff-viewer td:nth-child(3) {
+  padding-left: 10px !important;
+}
+/* Arrow indicators in center gutter for changed lines */
+.version-diff-viewer .json-diff-viewer tr td.line-add:nth-child(2)::after,
+.version-diff-viewer .json-diff-viewer tr td.line-remove:nth-child(2)::after,
+.version-diff-viewer .json-diff-viewer tr td.line-modify:nth-child(2)::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  z-index: 1;
+}
+.version-diff-viewer .json-diff-viewer tr td.line-add:nth-child(2)::after {
+  border-left: 7px solid #2ecc71;
+}
+.version-diff-viewer .json-diff-viewer tr td.line-remove:nth-child(2)::after {
+  border-left: 7px solid #e74c3c;
+}
+.version-diff-viewer .json-diff-viewer tr td.line-modify:nth-child(2)::after {
+  border-left: 7px solid #3498db;
+}
+/* Code font */
 .version-diff-viewer .json-diff-viewer pre {
   font-size: 0.85rem !important;
   line-height: 1.6 !important;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace !important;
-}
-.version-diff-viewer .json-diff-viewer tr:hover td:before {
-  background: rgba(255, 255, 255, 0.03) !important;
 }
 .version-diff-identical {
   padding: 24px 14px;
@@ -1274,6 +1376,58 @@
 }
 .version-diff-identical-icon {
   font-size: 1.1rem;
+}
+/* --- Version Diff Info Bar (IntelliJ-style summary) --- */
+.version-diff-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.version-diff-info-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.version-diff-info-side.version-diff-info-right {
+  justify-content: flex-end;
+}
+.version-diff-info-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+.version-diff-info-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.version-diff-info-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.version-diff-info-identical {
+  background: rgba(39, 174, 96, 0.15);
+  color: #2ecc71;
+}
+.version-diff-info-changed {
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+}
+.version-diff-info-same {
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
 }
 .version-diff-tabs {
   display: flex;
@@ -1519,5 +1673,55 @@
 .test-card.search-match {
   border-left: 3px solid var(--accent, #3b82f6);
   background: color-mix(in srgb, var(--accent, #3b82f6) 5%, var(--surface));
+}
+
+/* --- Export Options Popover --- */
+.export-opts-anchor { position: relative; display: inline-block; }
+.export-opts-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 120;
+  min-width: 220px;
+  background: var(--surface, #1e1e2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.export-opts-title { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.export-opts-check { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; }
+.export-opts-check input[type="checkbox"] { margin: 0; cursor: pointer; }
+.export-opts-count { font-size: 0.72rem; color: var(--text-muted); }
+.export-opts-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+
+/* --- Import Version Toggles --- */
+.import-version-opts { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.import-version-opts label { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; }
+.import-version-hint { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
+
+.import-version-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
+}
+.import-version-modal {
+  background: var(--bg-surface, #1e1e1e);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 300px; max-width: 400px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.import-version-title {
+  font-size: 0.95rem; font-weight: 600;
+  color: var(--text-primary, #eee);
+}
+.import-version-actions {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;
 }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, ResponseVersion, RulesVersion, Scenario, ValidationMode } from '../../../shared/types';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
+import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
 import RegexAssertionModal from '../../requests/components/RegexAssertionModal';
 import type { RegexAssertionResult } from '../../requests/components/RegexAssertionModal';
 import AssertionPresetMenu from './AssertionPresetMenu';
@@ -25,6 +26,14 @@ export interface TestEditorValidationTabProps {
   validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null;
   setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null) => void;
   onValidateResponse: () => void | Promise<void>;
+  /** When non-null, a new response was fetched but user has existing rules — show confirmation dialog */
+  pendingFetchResponse?: string | null;
+  /** Accept new response but keep existing validation rules */
+  onFetchKeepRules?: () => void;
+  /** Accept new response and clear all validation rules */
+  onFetchReplaceAll?: () => void;
+  /** Discard the fetched response entirely */
+  onFetchCancel?: () => void;
 }
 
 const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
@@ -74,6 +83,10 @@ export default function TestEditorValidationTab({
   validationResult,
   setValidationResult,
   onValidateResponse,
+  pendingFetchResponse,
+  onFetchKeepRules,
+  onFetchReplaceAll,
+  onFetchCancel,
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
@@ -332,6 +345,16 @@ export default function TestEditorValidationTab({
             )}
           </div>
           {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
+          {pendingFetchResponse && (
+            <div className="fetch-confirm-bar">
+              <span className="fetch-confirm-msg">New response fetched. You have <strong>{(draft.validation.expectedFields || []).length}</strong> existing rule(s).</span>
+              <div className="fetch-confirm-actions">
+                <button type="button" className="btn btn-sm btn-accent" onClick={onFetchKeepRules}>Keep Rules &amp; Update Response</button>
+                <button type="button" className="btn btn-sm btn-danger" onClick={onFetchReplaceAll}>Replace All</button>
+                <button type="button" className="btn btn-sm" onClick={onFetchCancel}>Cancel</button>
+              </div>
+            </div>
+          )}
           <JsonPathBuilder
             sampleJson={draft.validation.sampleJson || ''}
             onSampleJsonChange={(json) => {
@@ -460,6 +483,48 @@ export default function TestEditorValidationTab({
             onRenameVersion={(id, label) => {
               const prev = draftRef.current;
               onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
+            }}
+          />
+
+          <RulesVersionPanel
+            versions={draft.validation.rulesVersions || []}
+            currentValidation={draft.validation}
+            onSaveVersion={() => {
+              const prev = draftRef.current;
+              const v = prev.validation;
+              if (!(v.expectedFields || []).length) return;
+              const prevVersions = v.rulesVersions || [];
+              const newVersion: RulesVersion = {
+                id: uuidv4(), timestamp: Date.now(),
+                validationMode: v.mode,
+                selectiveMode: v.selectiveMode,
+                expectedFields: v.expectedFields ? [...v.expectedFields] : [],
+                excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
+                unorderedArrays: v.unorderedArrays,
+              };
+              onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, newVersion] } });
+            }}
+            onRestore={(ver) => {
+              const prev = draftRef.current;
+              onDraftChange({
+                ...prev,
+                validation: {
+                  ...prev.validation,
+                  mode: ver.validationMode || prev.validation.mode,
+                  selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
+                  expectedFields: ver.expectedFields || [],
+                  excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
+                  unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
+                },
+              });
+            }}
+            onDeleteVersion={(id) => {
+              const prev = draftRef.current;
+              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).filter((v) => v.id !== id) } });
+            }}
+            onRenameVersion={(id, label) => {
+              const prev = draftRef.current;
+              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
             }}
           />
         </>
