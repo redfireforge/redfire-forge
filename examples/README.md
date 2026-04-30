@@ -87,6 +87,38 @@ Demonstrates:
 
 ---
 
+## Assertion Examples
+
+Assertion preset examples demonstrating structured JSON body assertions (array length, numeric compare, date compare). Each corresponds to an in-app gallery preset and training manual.
+
+### `assertion-api-healthcheck.yaml`
+**Easy** — Verify a health endpoint returns 2xx and lists at least one service.
+- Status code assertion + array length check on `$.services`
+
+### `assertion-paginated-list.yaml`
+**Easy** — Validate a paginated API returns items on the first page with a valid total.
+- Array length on `$.data`, numeric checks on `$.page` and `$.total`
+
+### `assertion-token-expiry.yaml`
+**Medium** — Verify an auth endpoint returns a valid JWT token that hasn't expired.
+- Regex on `$.token` (JWT format), date compare on `$.expiresAt` vs today, numeric on `$.expiresIn`
+
+### `assertion-price-guard.yaml`
+**Medium** — Validate a product API returns reasonable prices and at least one variant.
+- Numeric range on `$.price` (> 0, < 10000), array length on `$.variants`
+
+### `assertion-api-contract.yaml`
+**Advanced** — Full contract validation with exact values, ranges, and format checks.
+- Equals, numeric range, regex on JSONPlaceholder `/todos/1`
+
+**Run:**
+```bash
+npx redfireforge run examples/assertion-api-healthcheck.yaml
+npx redfireforge run examples/assertion-price-guard.yaml
+```
+
+---
+
 ## Usage
 
 ### CLI Examples
