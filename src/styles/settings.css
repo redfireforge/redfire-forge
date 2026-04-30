@@ -542,6 +542,11 @@
   color: var(--text-muted);
   font-size: 12px;
 }
+.exi-version-opts {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 4px;
+}
+.exi-version-opts label { font-size: 12px; color: var(--text-muted); }
 .exi-action-btn { width: 100%; }
 
 /* ── Dropzone ── */
