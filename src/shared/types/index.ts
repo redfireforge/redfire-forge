@@ -64,6 +64,17 @@ export interface ResponseVersion {
   unorderedArrays?: boolean;
 }
 
+export interface RulesVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  validationMode: ValidationMode;
+  selectiveMode?: SelectiveMode;
+  expectedFields: ExpectedField[];
+  excludedPaths?: string[];
+  unorderedArrays?: boolean;
+}
+
 export type AssertionOperator = 'equals' | 'contains' | 'regex' | 'exists';
 
 export type ComparisonOperator = '=' | '!=' | '>' | '>=' | '<' | '<=';
@@ -90,6 +101,7 @@ export interface ValidationConfig {
   excludedPaths?: string[];
   unorderedArrays?: boolean;
   responseVersions?: ResponseVersion[];
+  rulesVersions?: RulesVersion[];
   assertions?: Assertion[];
 }
 

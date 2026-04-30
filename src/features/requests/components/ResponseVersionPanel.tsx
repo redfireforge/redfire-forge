@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
+import { buildRulesSnapshot } from '../utils/versionUtils';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
@@ -48,6 +49,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   const [labelText, setLabelText] = useState('');
   const [unorderedArrays, setUnorderedArrays] = useState(false);
   const [diffTab, setDiffTab] = useState<'response' | 'rules'>('response');
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
@@ -81,21 +83,13 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     return diffResult.every(segment => segment.every(line => line.type === 'equal'));
   }, [diffResult]);
 
-  const buildRulesObj = (v: ResponseVersion) => ({
-    mode: v.validationMode || 'none',
-    selectiveMode: v.selectiveMode || 'include',
-    expectedFields: [...(v.expectedFields || [])].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath)),
-    excludedPaths: [...(v.excludedPaths || [])].sort(),
-    unorderedArrays: !!v.unorderedArrays,
-  });
-
   const rulesDiffResult = useMemo(() => {
     if (!showModal || !compareLeft || !compareRight) return null;
     const lv = versions.find((v) => v.id === compareLeft);
     const rv = versions.find((v) => v.id === compareRight);
     if (!lv || !rv) return null;
     try {
-      return differ.diff(buildRulesObj(lv), buildRulesObj(rv));
+      return differ.diff(buildRulesSnapshot(lv), buildRulesSnapshot(rv));
     } catch {
       return null;
     }
@@ -117,9 +111,9 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   };
 
 
-  const isDuplicate = useMemo(() => {
-    if (sorted.length === 0 || !currentJson.trim()) return false;
-    const latest = sorted[0];
+  /** Check ALL versions for a duplicate (not just latest). Returns matching version label or null. */
+  const duplicateOfLabel = useMemo(() => {
+    if (sorted.length === 0 || !currentJson.trim()) return null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const canon = (v: any): any => {
       if (v === null || v === undefined || typeof v !== 'object') return v;
@@ -146,23 +140,42 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
       }
       return clone;
     };
-    try {
-      const jsonSame = JSON.stringify(canon(strip(JSON.parse(currentJson)))) === JSON.stringify(canon(strip(JSON.parse(latest.json))));
-      if (!jsonSame) return false;
-    } catch {
-      if (currentJson.trim() !== latest.json) return false;
-    }
+
     const sortFields = (f: { jsonPath: string; expectedValue: string }[]) =>
       [...f].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath));
     const sortPaths = (p: string[]) => [...p].sort();
-    const rulesSame =
-      (currentValidation.mode || 'none') === (latest.validationMode || 'none') &&
-      (currentValidation.selectiveMode || 'include') === (latest.selectiveMode || 'include') &&
-      JSON.stringify(sortFields(currentValidation.expectedFields || [])) === JSON.stringify(sortFields(latest.expectedFields || [])) &&
-      JSON.stringify(sortPaths(currentValidation.excludedPaths || [])) === JSON.stringify(sortPaths(latest.excludedPaths || [])) &&
-      !!(currentValidation.unorderedArrays) === !!(latest.unorderedArrays);
-    return rulesSame;
+
+    let currentCanon: string;
+    try { currentCanon = JSON.stringify(canon(strip(JSON.parse(currentJson)))); }
+    catch { currentCanon = currentJson.trim(); }
+
+    for (let i = 0; i < sorted.length; i++) {
+      const ver = sorted[i];
+      let verCanon: string;
+      try { verCanon = JSON.stringify(canon(strip(JSON.parse(ver.json)))); }
+      catch { verCanon = ver.json; }
+
+      if (currentCanon !== verCanon) continue;
+
+      const rulesSame =
+        (currentValidation.mode || 'none') === (ver.validationMode || 'none') &&
+        (currentValidation.selectiveMode || 'include') === (ver.selectiveMode || 'include') &&
+        JSON.stringify(sortFields(currentValidation.expectedFields || [])) === JSON.stringify(sortFields(ver.expectedFields || [])) &&
+        JSON.stringify(sortPaths(currentValidation.excludedPaths || [])) === JSON.stringify(sortPaths(ver.excludedPaths || [])) &&
+        !!(currentValidation.unorderedArrays) === !!(ver.unorderedArrays);
+
+      if (rulesSame) return getVersionLabel(ver, i);
+    }
+    return null;
   }, [sorted, currentJson, excludedPaths, currentValidation]);
+
+  const handleSaveClick = useCallback(() => {
+    if (duplicateOfLabel) {
+      setShowDuplicateConfirm(true);
+    } else {
+      onSaveVersion();
+    }
+  }, [duplicateOfLabel, onSaveVersion]);
 
   const openCompare = () => {
     if (sorted.length >= 2) {
@@ -183,7 +196,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
             </button>
           )}
         </div>
-        <div className="version-empty">No versions saved yet. Paste or fetch a response, then click "Save as Version".</div>
+        <div className="version-empty">No versions saved yet. Paste or fetch a response, then click &ldquo;Save as Version&rdquo;.</div>
       </div>
     );
   }
@@ -194,9 +207,19 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
         <h4>Response Versions ({sorted.length})</h4>
         <div className="version-panel-actions">
           {currentJson.trim() && (
-            <button type="button" className="btn btn-sm btn-accent" onClick={onSaveVersion} disabled={isDuplicate} title={isDuplicate ? 'No changes since last version' : ''}>
-              {isDuplicate ? 'No Changes' : 'Save as Version'}
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                onClick={handleSaveClick}
+                title={duplicateOfLabel ? `Identical to ${duplicateOfLabel}` : ''}
+              >
+                Save as Version
+              </button>
+              {duplicateOfLabel && !showDuplicateConfirm && (
+                <span className="version-duplicate-hint">Identical to {duplicateOfLabel}</span>
+              )}
+            </>
           )}
           {sorted.length >= 2 && (
             <button type="button" className="btn btn-sm" onClick={openCompare}>
@@ -205,6 +228,14 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
           )}
         </div>
       </div>
+
+      {showDuplicateConfirm && (
+        <div className="version-duplicate-confirm">
+          <span>This is identical to <strong>{duplicateOfLabel}</strong>. Save anyway?</span>
+          <button type="button" className="btn btn-xs btn-accent" onClick={() => { onSaveVersion(); setShowDuplicateConfirm(false); }}>Save Anyway</button>
+          <button type="button" className="btn btn-xs" onClick={() => setShowDuplicateConfirm(false)}>Cancel</button>
+        </div>
+      )}
 
       <div className="version-list">
         {sorted.map((v, i) => {
@@ -279,29 +310,56 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                 </select>
               </label>
             </div>
-            {compareLeft && compareRight && compareLeft === compareRight && (
-              <div className="version-diff-identical">Same version selected on both sides.</div>
-            )}
-            {compareLeft && compareRight && compareLeft !== compareRight && (
-              <>
-                <div className="version-diff-tabs">
-                  <button type="button" className={`version-diff-tab ${diffTab === 'response' ? 'active' : ''}`} onClick={() => setDiffTab('response')}>
-                    Response {isIdentical ? '(identical)' : ''}
-                  </button>
-                  <button type="button" className={`version-diff-tab ${diffTab === 'rules' ? 'active' : ''}`} onClick={() => setDiffTab('rules')}>
-                    Validation Rules {isRulesIdentical ? '(identical)' : ''}
-                  </button>
-                </div>
-                {isIdentical && isRulesIdentical && (
-                  <div className="version-diff-identical-banner">
-                    <span className="version-diff-identical-icon">&#x2714;</span>
-                    These two versions are identical{unorderedArrays ? ' (with unordered array matching)' : ''}
+            {compareLeft && compareRight && (() => {
+              const lv = versions.find((v) => v.id === compareLeft);
+              const rv = versions.find((v) => v.id === compareRight);
+              const li = lv ? sorted.indexOf(lv) : -1;
+              const ri = rv ? sorted.indexOf(rv) : -1;
+              if (!lv || !rv) return null;
+              const sameVersion = compareLeft === compareRight;
+              const allIdentical = !sameVersion && isIdentical && isRulesIdentical;
+              return (
+                <>
+                  <div className="version-diff-info-bar">
+                    <div className="version-diff-info-side">
+                      <span className="version-diff-info-label">{getVersionLabel(lv, li)}</span>
+                      <span className="version-diff-info-time">{formatTime(lv.timestamp)}</span>
+                      {lv.validationMode && lv.validationMode !== 'none' && (
+                        <span className="version-rules-tag">{lv.validationMode}{lv.selectiveMode ? `·${lv.selectiveMode}` : ''} · {(lv.expectedFields || []).length} rule(s)</span>
+                      )}
+                    </div>
+                    {sameVersion ? (
+                      <span className="version-diff-info-status version-diff-info-same">Same version selected</span>
+                    ) : allIdentical ? (
+                      <span className="version-diff-info-status version-diff-info-identical">✔ Identical{unorderedArrays ? ' (unordered)' : ''}</span>
+                    ) : (
+                      <span className="version-diff-info-status version-diff-info-changed">Changes detected</span>
+                    )}
+                    <div className="version-diff-info-side version-diff-info-right">
+                      <span className="version-diff-info-label">{getVersionLabel(rv, ri)}</span>
+                      <span className="version-diff-info-time">{formatTime(rv.timestamp)}</span>
+                      {rv.validationMode && rv.validationMode !== 'none' && (
+                        <span className="version-rules-tag">{rv.validationMode}{rv.selectiveMode ? `·${rv.selectiveMode}` : ''} · {(rv.expectedFields || []).length} rule(s)</span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </>
-            )}
+                  {!sameVersion && (
+                    <div className="version-diff-tabs">
+                      <button type="button" className={`version-diff-tab ${diffTab === 'response' ? 'active' : ''}`} onClick={() => setDiffTab('response')}>
+                        Response {isIdentical ? '(identical)' : ''}
+                      </button>
+                      <button type="button" className={`version-diff-tab ${diffTab === 'rules' ? 'active' : ''}`} onClick={() => setDiffTab('rules')}>
+                        Validation Rules {isRulesIdentical ? '(identical)' : ''}
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <div className="version-diff-viewer">
-              {diffTab === 'response' && diffResult ? (
+              {compareLeft && compareRight && compareLeft === compareRight ? (
+                <div className="version-diff-identical">Select different versions on each side to compare.</div>
+              ) : diffTab === 'response' && diffResult ? (
                 <Viewer
                   diff={diffResult}
                   indent={2}
