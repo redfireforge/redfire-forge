@@ -891,6 +891,32 @@ tr:hover td { background: var(--surface-hover); }
 .failure-path { font-weight: 600; color: var(--text); max-width: 200px; word-break: break-all; }
 .failure-expected { color: #22c55e; }
 .failure-actual { color: var(--danger); }
+
+/* ── Response/Request Headers Table ── */
+.response-headers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.response-headers-table th {
+  background: var(--surface);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.response-headers-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.header-name { font-weight: 600; color: var(--text); min-width: 140px; }
+.header-value { color: var(--text-muted); word-break: break-all; }
+
 .response-detail-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);

@@ -247,11 +247,13 @@ export async function executeHttpNode(
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
+    responseHeaders,
     timestamp: Date.now(),
     passed,
     validationMode: resolvedAbs.validation.mode,
     failureDetails,
     errorMessage,
+    requestLog: { headers, body: reqBody },
   };
 
   return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };

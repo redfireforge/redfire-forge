@@ -104,12 +104,14 @@ async function executeRequest(
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
+    responseHeaders,
     timestamp: Date.now(),
     passed,
     validationMode: scenario.validation.mode,
     failureDetails,
     errorMessage,
     timing,
+    requestLog: { headers, body: reqBody },
   };
 }
 

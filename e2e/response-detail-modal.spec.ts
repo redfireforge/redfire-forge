@@ -48,6 +48,15 @@ test.describe('Response Detail Modal', () => {
             url: 'http://localhost:5173/', method: 'GET', httpStatus: 200, responseTimeMs: 20,
             responseBody: longResponseBody, timestamp: Date.now(), passed: true,
             validationMode: 'none', failureDetails: [],
+            responseHeaders: {
+              'content-type': 'application/json',
+              'x-request-id': 'req-abc-123',
+              'cache-control': 'no-cache',
+            },
+            requestLog: {
+              headers: { 'Accept': 'application/json', 'Authorization': 'Bearer secret-token' },
+              body: '{"query":"test"}',
+            },
             timing: {
               dnsLookup: 2, tcpConnect: 3, tlsHandshake: 4,
               ttfb: 5, download: 6, total: 20,
@@ -233,5 +242,43 @@ test.describe('Response Detail Modal', () => {
     
     // Modal should reappear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('shows response headers section with header table', async ({ page }) => {
+    await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
+    await page.locator('tr.clickable-row').first().click();
+    await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
+
+    // Verify Response Headers section
+    await expect(page.locator('.response-detail-modal h4:has-text("Response Headers")')).toBeVisible();
+    const respHeadersTable = page.locator('.response-detail-modal .response-headers-table').last();
+    await expect(respHeadersTable.locator('td:has-text("content-type")')).toBeVisible();
+    await expect(respHeadersTable.locator('td:has-text("x-request-id")')).toBeVisible();
+    await expect(respHeadersTable.locator('td:has-text("req-abc-123")')).toBeVisible();
+  });
+
+  test('shows request headers and masks authorization value', async ({ page }) => {
+    await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
+    await page.locator('tr.clickable-row').first().click();
+    await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
+
+    // Verify Request Headers section
+    await expect(page.locator('.response-detail-modal h4:has-text("Request Headers")')).toBeVisible();
+    const reqHeadersTable = page.locator('.response-detail-modal .response-headers-table').first();
+    await expect(reqHeadersTable.locator('td:has-text("Accept")')).toBeVisible();
+    await expect(reqHeadersTable.locator('td:has-text("Authorization")')).toBeVisible();
+    // Auth value should be masked
+    await expect(reqHeadersTable.locator('td:has-text("••••••••")')).toBeVisible();
+    // Secret token should NOT appear
+    await expect(reqHeadersTable.locator('td:has-text("Bearer secret-token")')).not.toBeVisible();
+  });
+
+  test('shows request body section', async ({ page }) => {
+    await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
+    await page.locator('tr.clickable-row').first().click();
+    await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
+
+    // Verify Request Body section
+    await expect(page.locator('.response-detail-modal h4:has-text("Request Body")')).toBeVisible();
   });
 });

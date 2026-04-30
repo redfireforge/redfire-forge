@@ -73,6 +73,51 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
             </div>
           )}
 
+          {result.requestLog && Object.keys(result.requestLog.headers).length > 0 && (
+            <div className="response-detail-section">
+              <h4>Request Headers</h4>
+              <table className="response-headers-table">
+                <thead>
+                  <tr><th>Header</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                  {Object.entries(result.requestLog.headers).map(([k, v]) => (
+                    <tr key={k}>
+                      <td className="header-name">{k}</td>
+                      <td className="header-value">{k.toLowerCase() === 'authorization' ? '••••••••' : v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {result.requestLog?.body && (
+            <div className="response-detail-section">
+              <h4>Request Body</h4>
+              <pre className="response-body-pre">{formatResponseBody(result.requestLog.body)}</pre>
+            </div>
+          )}
+
+          {result.responseHeaders && Object.keys(result.responseHeaders).length > 0 && (
+            <div className="response-detail-section">
+              <h4>Response Headers</h4>
+              <table className="response-headers-table">
+                <thead>
+                  <tr><th>Header</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                  {Object.entries(result.responseHeaders).map(([k, v]) => (
+                    <tr key={k}>
+                      <td className="header-name">{k}</td>
+                      <td className="header-value">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {result.responseBody && (
             <div className="response-detail-section">
               <h4>Response Body</h4>
