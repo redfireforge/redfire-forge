@@ -172,22 +172,29 @@ test.describe('Workflow Creation', () => {
   test('loads sample workflow via template gallery', async ({ page }) => {
     // Already on workflow tab from beforeEach
 
-    // Click +New → From Template to open template gallery
+    // Click +New → From Template to navigate to Gallery
     await page.locator('button:has-text("+ New")').click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Select first template card
-    const firstCard = page.locator('.tg-card').first();
+    // Gallery page should appear — filter to Workflows domain
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+
+    // Select first workflow card
+    const firstCard = page.locator('.gallery-card').first();
     await firstCard.click();
+    await page.waitForTimeout(300);
 
-    // With new preview flow, should see "Use as Template" button
-    await expect(page.locator('button', { hasText: 'Use as Template' })).toBeVisible({ timeout: 5000 });
+    // Click "Load Workflow" action button in detail panel
+    await page.locator('button:has-text("Load Workflow")').click();
 
-    // Click to create the workflow
-    await page.locator('button', { hasText: 'Use as Template' }).click();
+    // Should show preview mode — click "Use as Template" to save
+    await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
+    await page.locator('button:has-text("Use as Template")').click();
 
-    // Should see a workflow item appear in sidebar
-    await expect(page.locator('.wf-sidebar-item')).toBeVisible();
+    // Should see a workflow item appear in sidebar (navigates back to workflow tab)
+    await expect(page.locator('.wf-sidebar-item')).toBeVisible({ timeout: 5000 });
   });
 });
 

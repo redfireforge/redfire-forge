@@ -26,7 +26,7 @@ async function openValidationTab(page: import('@playwright/test').Page) {
   await expect(page.locator('.modal-overlay')).toBeVisible();
 
   // Switch to Validation tab
-  const validationTab = page.locator('.test-editor-tab:has-text("Validation")');
+  const validationTab = page.locator('.builder-tab:has-text("Validation")');
   await validationTab.click();
 }
 
