@@ -48,11 +48,83 @@ export function setHttpTransport(fn: HttpTransportFn | null): void {
 }
 
 /**
+ * Browser / Web Worker: forwards the request through Vite’s POST /__proxy
+ * (available with `npm run dev` and `npm run preview`, not on plain static hosting).
+ */
+export async function httpFetchViaViteProxy(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+): Promise<HttpResponse> {
+  try {
+    const resp = await fetch('/__proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, method, headers, body }),
+    });
+    const rawText = await resp.text();
+    if (!resp.ok) {
+      return {
+        status: 0,
+        statusText: '',
+        headers: {},
+        body: '',
+        error:
+          `Vite HTTP proxy returned ${resp.status} ${resp.statusText}${rawText ? `: ${rawText.slice(0, 200)}` : ''}. `
+          + 'Serve the app with npm run dev or npm run preview so POST /__proxy exists.',
+      };
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawText) as unknown;
+    } catch {
+      return {
+        status: 0,
+        statusText: '',
+        headers: {},
+        body: '',
+        error:
+          `Vite HTTP proxy returned non-JSON (${rawText.slice(0, 160).replace(/\s+/g, ' ') || '(empty)'}). `
+          + 'Serve the app with npm run dev or npm run preview.',
+      };
+    }
+    if (
+      typeof parsed !== 'object'
+      || parsed === null
+      || !('status' in parsed)
+      || typeof (parsed as HttpResponse).status !== 'number'
+    ) {
+      return {
+        status: 0,
+        statusText: '',
+        headers: {},
+        body: '',
+        error: 'Invalid JSON from Vite HTTP proxy.',
+      };
+    }
+    return parsed as HttpResponse;
+  } catch (err) {
+    const hint =
+      err instanceof TypeError || (err instanceof Error && err.message === 'Failed to fetch')
+        ? 'Could not reach the app HTTP proxy (POST /__proxy). Start Vite with npm run dev or npm run preview; opening built files as static HTML has no proxy. For OAuth from a static bundle, use the desktop (Tauri) app.'
+        : deepErrorMessage(err);
+    return {
+      status: 0,
+      statusText: '',
+      headers: {},
+      body: '',
+      error: hint,
+    };
+  }
+}
+
+/**
  * Makes an HTTP request using the best available transport:
  * - Custom override (set via setHttpTransport — used by workers)
  * - Tauri native HTTP plugin (desktop app, no CORS)
  * - Node native fetch (CLI runner)
- * - Vite dev proxy (browser dev mode)
+ * - Vite dev/preview proxy (browser)
  */
 export async function httpFetch(
   url: string,
@@ -124,12 +196,7 @@ async function proxyFetch(
   headers: Record<string, string>,
   body?: string
 ): Promise<HttpResponse> {
-  const resp = await fetch('/__proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, method, headers, body }),
-  });
-  return resp.json();
+  return httpFetchViaViteProxy(url, method, headers, body);
 }
 
 let _nodeDispatcher: unknown = undefined;

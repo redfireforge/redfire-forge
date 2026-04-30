@@ -153,7 +153,7 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
     // Should have a label input with current value
-    const labelInput = modal.locator('input[type="text"]').first();
+    const labelInput = modal.locator('.wf-config-field input').first();
     await expect(labelInput).toHaveValue('Wait for Payment');
   });
 
@@ -201,8 +201,10 @@ test.describe('Correlation Wait Node — Test Webhook', () => {
     await page.locator('.wf-node-correlationWait .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(modal.locator('[data-testid="test-webhook-section"]')).toBeVisible();
-    await expect(modal.locator('text=Test Webhook')).toBeVisible();
+    const testWebhookSection = modal.locator('[data-testid="test-webhook-section"]');
+    await testWebhookSection.scrollIntoViewIfNeeded();
+    await expect(testWebhookSection).toBeVisible();
+    await expect(modal.locator('.wf-test-webhook-title')).toHaveText('Test Webhook');
   });
 
   test('Test Webhook textarea has default payload', async ({ page }) => {
@@ -212,7 +214,7 @@ test.describe('Correlation Wait Node — Test Webhook', () => {
     const textarea = modal.locator('[data-testid="test-webhook-payload"]');
     await expect(textarea).toBeVisible();
     const value = await textarea.inputValue();
-    expect(value).toContain('correlationId');
+    expect(value).toContain('paymentId');
   });
 
   test('Test Webhook has Send button', async ({ page }) => {
@@ -239,7 +241,7 @@ test.describe('Correlation Wait Node — Test Webhook', () => {
 test.describe('Execution History — Paused Tab', () => {
   test('paused filter option exists in execution history', async ({ page }) => {
     await seedAppData(page);
-    await page.goto('/?tab=execution-history');
+    await page.goto('/?tab=workflow-executions');
     await page.waitForSelector('.app-header', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
 

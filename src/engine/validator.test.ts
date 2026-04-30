@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath, validate, evaluateAssertions, matchesStatusPattern } from './validator';
-import type { Assertion } from '../shared/types';
+import { getByPath, validate, evaluateAssertions, matchesStatusPattern, compare, resolveDate, toDayString, formatOp } from './validator';
+import type { Assertion, ComparisonOperator, DateReference } from '../shared/types';
 
 // ---------------------------------------------------------------------------
 // getByPath
@@ -1176,5 +1176,510 @@ describe('validate – unordered arrays', () => {
       response
     );
     expect(result).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compare()
+// ---------------------------------------------------------------------------
+describe('compare()', () => {
+  it('= returns true for equal values', () => {
+    expect(compare(5, '=', 5)).toBe(true);
+  });
+
+  it('= returns false for unequal values', () => {
+    expect(compare(5, '=', 6)).toBe(false);
+  });
+
+  it('!= returns true for unequal values', () => {
+    expect(compare(5, '!=', 6)).toBe(true);
+  });
+
+  it('!= returns false for equal values', () => {
+    expect(compare(5, '!=', 5)).toBe(false);
+  });
+
+  it('> returns false at boundary', () => {
+    expect(compare(5, '>', 5)).toBe(false);
+  });
+
+  it('> returns true when greater', () => {
+    expect(compare(6, '>', 5)).toBe(true);
+  });
+
+  it('>= returns true at boundary', () => {
+    expect(compare(5, '>=', 5)).toBe(true);
+  });
+
+  it('< returns false at boundary', () => {
+    expect(compare(5, '<', 5)).toBe(false);
+  });
+
+  it('< returns true when less', () => {
+    expect(compare(4, '<', 5)).toBe(true);
+  });
+
+  it('<= returns true at boundary', () => {
+    expect(compare(5, '<=', 5)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toDayString()
+// ---------------------------------------------------------------------------
+describe('toDayString()', () => {
+  it('extracts day from ISO string', () => {
+    expect(toDayString('2024-12-31T10:00:00Z')).toBe('2024-12-31');
+  });
+
+  it('handles date-only string', () => {
+    expect(toDayString('2024-12-31')).toBe('2024-12-31');
+  });
+
+  it('converts unix timestamp (ms)', () => {
+    // 2024-01-01T00:00:00Z
+    expect(toDayString(1704067200000)).toBe('2024-01-01');
+  });
+
+  it('returns null for non-date string', () => {
+    expect(toDayString('hello')).toBe(null);
+  });
+
+  it('returns null for null/undefined', () => {
+    expect(toDayString(null)).toBe(null);
+    expect(toDayString(undefined)).toBe(null);
+  });
+
+  it('returns null for object', () => {
+    expect(toDayString({ date: '2024-01-01' })).toBe(null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveDate()
+// ---------------------------------------------------------------------------
+describe('resolveDate()', () => {
+  it('returns fixed ISO date truncated to day', () => {
+    expect(resolveDate({ kind: 'fixed', iso: '2024-06-15T12:30:00Z' })).toBe('2024-06-15');
+  });
+
+  it('returns fixed date-only string as-is', () => {
+    expect(resolveDate({ kind: 'fixed', iso: '2024-06-15' })).toBe('2024-06-15');
+  });
+
+  it('returns today UTC as YYYY-MM-DD', () => {
+    const result = resolveDate({ kind: 'today', timezone: 'utc' });
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result).toBe(new Date().toISOString().slice(0, 10));
+  });
+
+  it('returns today local as YYYY-MM-DD', () => {
+    const result = resolveDate({ kind: 'today', timezone: 'local' });
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatOp()
+// ---------------------------------------------------------------------------
+describe('formatOp()', () => {
+  it('maps all operators', () => {
+    expect(formatOp('=')).toBe('=');
+    expect(formatOp('!=')).toBe('≠');
+    expect(formatOp('>')).toBe('>');
+    expect(formatOp('>=')).toBe('≥');
+    expect(formatOp('<')).toBe('<');
+    expect(formatOp('<=')).toBe('≤');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions — arrayLength
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions — arrayLength', () => {
+  const ctx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseHeaders: {},
+    responseBody: {
+      items: [1, 2, 3],
+      name: 'Alice',
+      nested: { results: [{ id: 1 }, { id: 2 }] },
+      empty: [],
+    },
+  };
+
+  it('passes: array length = 3', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '=', value: 3 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: array length >= 2', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '>=', value: 2 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: array length < 10', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '<', value: 10 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: array length > 5', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '>', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].path).toBe('(arrayLength:$.items)');
+    expect(r.failures[0].actual).toBe('length 3');
+  });
+
+  it('fails: not an array', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.name', operator: '=', value: 1 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toContain('not an array');
+  });
+
+  it('fails: path not found', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.missing', operator: '=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toBe('undefined');
+  });
+
+  it('passes: empty array = 0', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.empty', operator: '=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: nested array path', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.nested.results', operator: '=', value: 2 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: != operator when equal', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '!=', value: 3 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+  });
+
+  it('passes: != operator when not equal', () => {
+    const r = evaluateAssertions(
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '!=', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions — numeric
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions — numeric', () => {
+  const ctx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseHeaders: {},
+    responseBody: {
+      price: 19.99,
+      count: 5,
+      zero: 0,
+      negative: -5,
+      strNum: '42.5',
+      strBad: 'abc',
+      name: 'Alice',
+    },
+  };
+
+  it('passes: equals', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.price', operator: '=', value: 19.99 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: greater than', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.price', operator: '>', value: 10 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: less than or equal', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.count', operator: '<=', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: less than at boundary', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.count', operator: '<', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toBe('5');
+  });
+
+  it('passes: not equals', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.count', operator: '!=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: path missing', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.missing', operator: '=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toBe('undefined');
+  });
+
+  it('passes: zero value', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.zero', operator: '=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: negative number', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.negative', operator: '<', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: string-encoded number', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.strNum', operator: '=', value: 42.5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: string-encoded NaN', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.strBad', operator: '=', value: 0 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toContain('not a number');
+  });
+
+  it('passes: >= at boundary', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.count', operator: '>=', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: > at boundary', () => {
+    const r = evaluateAssertions(
+      [{ type: 'numeric', jsonPath: '$.count', operator: '>', value: 5 }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions — date
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions — date', () => {
+  const todayUTC = new Date().toISOString().slice(0, 10);
+
+  const ctx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseHeaders: {},
+    responseBody: {
+      createdAt: '2024-06-15T10:30:00Z',
+      expiresAt: '2025-01-01',
+      pastDate: '2020-01-01',
+      futureDate: '2099-12-31',
+      today: todayUTC + 'T00:00:00Z',
+      name: 'Alice',
+      ts: 1704067200000, // 2024-01-01T00:00:00Z
+    },
+  };
+
+  it('passes: fixed date equals', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.createdAt', operator: '=', reference: { kind: 'fixed', iso: '2024-06-15' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: after fixed date', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'fixed', iso: '2024-12-31' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: before fixed date', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.pastDate', operator: '>', reference: { kind: 'fixed', iso: '2024-12-31' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toBe('2020-01-01');
+  });
+
+  it('passes: today reference equals', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.today', operator: '=', reference: { kind: 'today', timezone: 'utc' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: future date > today', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.futureDate', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: past date > today', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.pastDate', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+  });
+
+  it('passes: != operator', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.createdAt', operator: '!=', reference: { kind: 'fixed', iso: '2024-12-31' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('fails: not a date string', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.name', operator: '=', reference: { kind: 'fixed', iso: '2024-01-01' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toContain('not a date');
+  });
+
+  it('fails: path missing', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.missing', operator: '=', reference: { kind: 'today', timezone: 'utc' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(1);
+    expect(r.failures[0].actual).toBe('undefined');
+  });
+
+  it('passes: date-only string', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.expiresAt', operator: '=', reference: { kind: 'fixed', iso: '2025-01-01' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: unix timestamp', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.ts', operator: '=', reference: { kind: 'fixed', iso: '2024-01-01' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it('passes: <= operator', () => {
+    const r = evaluateAssertions(
+      [{ type: 'date', jsonPath: '$.createdAt', operator: '<=', reference: { kind: 'fixed', iso: '2024-06-15' } }],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateAssertions — mixed structured assertions
+// ---------------------------------------------------------------------------
+describe('evaluateAssertions — mixed structured assertions', () => {
+  const ctx = {
+    httpStatus: 200,
+    responseTimeMs: 50,
+    responseHeaders: { 'content-type': 'application/json' },
+    responseBody: {
+      items: [1, 2, 3],
+      price: 19.99,
+      createdAt: '2024-06-15',
+    },
+  };
+
+  it('all pass together', () => {
+    const r = evaluateAssertions(
+      [
+        { type: 'status', expected: '200' },
+        { type: 'header', name: 'content-type', operator: 'contains', value: 'json' },
+        { type: 'arrayLength', jsonPath: '$.items', operator: '>=', value: 1 },
+        { type: 'numeric', jsonPath: '$.price', operator: '>', value: 0 },
+        { type: 'date', jsonPath: '$.createdAt', operator: '=', reference: { kind: 'fixed', iso: '2024-06-15' } },
+      ] as Assertion[],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(0);
+    expect(r.statusAsserted).toBe(true);
+  });
+
+  it('partial failures report correct details', () => {
+    const r = evaluateAssertions(
+      [
+        { type: 'status', expected: '200' },
+        { type: 'arrayLength', jsonPath: '$.items', operator: '>', value: 10 },
+        { type: 'numeric', jsonPath: '$.price', operator: '<', value: 5 },
+        { type: 'date', jsonPath: '$.createdAt', operator: '>', reference: { kind: 'fixed', iso: '2025-01-01' } },
+      ] as Assertion[],
+      ctx,
+    );
+    expect(r.failures).toHaveLength(3);
+    expect(r.failures.map(f => f.path)).toEqual([
+      '(arrayLength:$.items)',
+      '(numeric:$.price)',
+      '(date:$.createdAt)',
+    ]);
+    expect(r.statusAsserted).toBe(true);
   });
 });

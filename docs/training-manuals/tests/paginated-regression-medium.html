@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paginated API Regression — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📄</div>
+    <h1>Paginated API Regression</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Regression · 4 Scenarios · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Paginated API Regression</strong> test verifies that the DummyJSON Products API handles pagination correctly across multiple scenarios — from normal page navigation to edge cases like out-of-range offsets.</p>
+  <p>Pagination is a critical feature for any API serving large datasets. This regression suite ensures that:</p>
+  <ul>
+    <li>Pages return the correct number of items based on <code>limit</code> and <code>skip</code> parameters.</li>
+    <li>Different pages return different data (no duplicate results across pages).</li>
+    <li>Edge cases like extremely large <code>skip</code> values are handled gracefully.</li>
+    <li>The <code>total</code> count remains consistent across all paginated requests.</li>
+  </ul>
+  <p>All scenarios target the DummyJSON Products API (<code>dummyjson.com/products</code>) using <code>limit</code> and <code>skip</code> query parameters.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Regression testing</strong> — verifying that existing pagination behavior remains correct.</li>
+    <li><strong>Pagination parameters</strong> — how <code>limit</code> and <code>skip</code> control result sets.</li>
+    <li><strong>Numeric assertions</strong> — comparing response values against expected numbers.</li>
+    <li><strong>Array length assertions</strong> — verifying page sizes match the requested <code>limit</code>.</li>
+    <li><strong>Edge case testing</strong> — handling out-of-range values and boundary conditions.</li>
+    <li><strong>Data consistency checks</strong> — ensuring <code>total</code> count is stable across requests.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 4 scenarios that progressively test pagination behavior:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Page 1</td>
+        <td><code>GET</code></td>
+        <td><code>/products?limit=5&amp;skip=0</code></td>
+        <td>Status = 200, products array length = 5, skip = 0</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Page 2</td>
+        <td><code>GET</code></td>
+        <td><code>/products?limit=5&amp;skip=5</code></td>
+        <td>Status = 200, products array length = 5, skip = 5</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Out-of-Range</td>
+        <td><code>GET</code></td>
+        <td><code>/products?limit=5&amp;skip=9999</code></td>
+        <td>Status = 200, products array length = 0</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Total Consistency</td>
+        <td><code>GET</code></td>
+        <td><code>/products?limit=1&amp;skip=0</code></td>
+        <td>Status = 200, total &gt; 0, total matches expected count</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — Page 1</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The paginated endpoint responds successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>equals</td>
+        <td><code>5</code></td>
+        <td>Exactly 5 products are returned (matching the <code>limit</code>).</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.skip</code></td>
+        <td>equals</td>
+        <td><code>0</code></td>
+        <td>The response confirms the skip offset is 0.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Page 2</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>Page 2 is accessible with offset.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>equals</td>
+        <td><code>5</code></td>
+        <td>Page 2 also returns exactly 5 products.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.skip</code></td>
+        <td>equals</td>
+        <td><code>5</code></td>
+        <td>The response confirms the skip offset is 5.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — Out-of-Range</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The API does not error on out-of-range skip values.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>equals</td>
+        <td><code>0</code></td>
+        <td>No products are returned when skip exceeds total count.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 4 — Total Consistency</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The endpoint responds successfully.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.total</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The total count is a positive number.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.limit</code></td>
+        <td>equals</td>
+        <td><code>1</code></td>
+        <td>The limit parameter is correctly reflected in the response.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>📄 Paginated API Regression</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 4 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Examine how each scenario uses different <code>limit</code> and <code>skip</code> values.</li>
+    <li>Note how Scenario 3 tests an edge case (out-of-range offset) and Scenario 4 validates metadata consistency.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 4 scenarios sequentially.</li>
+    <li>Watch each scenario's assertions evaluate in real time.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> and verify all scenarios pass.</li>
+    <li>Pay special attention to Scenario 3 — it should show <code>products</code> array length of <code>0</code> (not an error).</li>
+    <li>Compare the <code>total</code> value across scenarios to confirm consistency.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The DummyJSON API returns a <code>total</code> field in every paginated response. This is a common pattern in real-world APIs and is essential for building reliable pagination in client applications.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h4>Exercise 1 — Test the Last Page</h4>
+  <p>Add a scenario that fetches the last page of products. Use the <code>total</code> value from Scenario 4 to calculate the correct <code>skip</code> offset, and assert that the returned array length is less than or equal to the <code>limit</code>.</p>
+
+  <h4>Exercise 2 — Negative Skip Value</h4>
+  <p>Create a scenario with <code>skip=-1</code>. Does the API handle negative values? Add appropriate assertions for the response.</p>
+
+  <h4>Exercise 3 — Large Limit</h4>
+  <p>Add a scenario with <code>limit=100&amp;skip=0</code>. Assert that the products array length matches the <code>total</code> if total is less than 100, or equals 100 otherwise.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Regression tests are most valuable when they cover both the "happy path" and edge cases. Always include at least one boundary condition in your test suites.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Paginated API Regression · April 2026
+  </footer>
+
+</body>
+</html>

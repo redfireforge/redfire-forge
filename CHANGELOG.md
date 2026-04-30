@@ -48,6 +48,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - New E2E test: `popup-modals.spec.ts` — CopyTestModal and MoveModal open/close/overlay behavior.
 - Fixed `ExtractionMapperModal` and `RegexAssertionModal` tests to match FullPanelModal migration (overlay click, expand controls, button text).
 
+### Refactored (Round 2 — Code Consolidation)
+- **Shim removal — sampleWorkflows**: Deleted 3 re-export shim files (`sampleWorkflows.ts`, `sampleWorkflows/index.ts`, `sampleWorkflows/types.ts`); updated 4 consumers to import from canonical `galleries/workflows/` path.
+- **Shim removal — sampleCatalogSpecs**: Migrated 2 legacy YAML specs into `galleries/catalog-specs/specs.ts`, inlined entries + `CATALOG_SPEC_CATEGORIES` into `galleries/catalog-specs/index.ts`; updated `CatalogImportModal` to import from `galleries/catalog-specs`; deleted `sampleCatalogSpecs.ts` + test.
+- **Import unification — acquireOAuth2Token**: All 6 consumers now import from canonical `tokenManager.ts`; removed stale re-export from `executor.ts`.
+- **Auth header deduplication**: Created shared `resolveAuthHeaders()` utility (`src/shared/utils/authHeaders.ts`); refactored 6 files (executor, RequestEditor, CatalogEndpointCard, curlGenerator, catalogCurlGenerator, TestEditorModal) to use it — eliminated 5 copies of the same auth-to-header logic.
+- **Data fixes**: Corrected 3 inaccurate `endpointCount` values in catalog specs (FakeStore: 7→6, DummyJSON: 15→14, HTTPBin: 21→20).
+
+### Tests (Round 2)
+- New unit tests: `authHeaders` (14 tests, 100% coverage), `catalogSpecs` OpenAPI parsing + category tests (3 new tests).
+- Fixed stale tests: `ExtractionMapperModal` (3 tests referencing removed expand buttons), `RegexAssertionModal` (6 tests for removed expand/shrink + close button), `workflows.test.ts` (removed backward-compat shim test).
+
 - **WorkflowDesigner.tsx monolith reduction**: 1062 → 893 lines (−169 lines, −16%). Now under the 900-line monolith threshold.
   - Extracted `useWorkflowPersistence` hook: owns `serializeRFNodes`/`serializeRFEdges` (pure helpers), `persistWorkflow` (incl. webhook PUT registration), `insertNodeAndPersist`, paste/duplicate/copy/undo/redo handlers, `handleSave` + `saveAcknowledged` lifecycle, and `handleUpdateWorkflowVariables`.
   - Extracted `useWorkflowExtractionSample` hook: encapsulates the design-time "Fetch sample response" flow used by the Extract tab — host/auth resolution, entry-point variable seeding (start/schedule), JSON pretty-print of error bodies, and reset-on-selection-change.

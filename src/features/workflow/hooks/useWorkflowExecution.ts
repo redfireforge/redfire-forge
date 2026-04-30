@@ -111,7 +111,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       if (s.state === 'fail') failed++;
     }
     const elapsed = lastRunStatus === 'running' ? runElapsed : (lastRunTime ?? 0);
-    return { completed, total: totalNodes, failed, elapsedMs: elapsed, lastRunStatus };
+    return { completed, total: totalNodes, failed, elapsedMs: elapsed, lastRunStatus: lastRunStatus as RunProgress['lastRunStatus'] };
   }, [nodeStatuses, nodes, lastRunStatus, lastRunTime, runElapsed]);
 
   const failedStepLabel = useMemo(() => {
@@ -191,6 +191,8 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         subWorkflowResults.set(summary.parentNodeId, summary);
       },
       onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => {
+        // If the user already stopped the run, don't override with pass/fail
+        if (abortRef.current?.signal.aborted) return;
         setIsRunning(false);
         if (debugController) {
           setIsDebugMode(false);
@@ -274,6 +276,8 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       },
       new RemoteCorrelationStore(),
     ).catch(() => {
+      // If the user already stopped the run, don't override with 'fail'
+      if (abortRef.current?.signal.aborted) return;
       setIsRunning(false);
       if (debugController) {
         setIsDebugMode(false);
@@ -297,6 +301,9 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const handleQuickTest = useCallback(() => {
     if (isRunning) {
       abortRef.current?.abort();
+      setIsRunning(false);
+      setLastRunStatus('stopped');
+      setLastRunError(null);
       return;
     }
     executeWorkflowRun();
@@ -306,6 +313,11 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     if (isRunning) {
       debugControllerRef.current?.stop();
       abortRef.current?.abort();
+      setIsRunning(false);
+      setIsDebugMode(false);
+      debugControllerRef.current = null;
+      setLastRunStatus('stopped');
+      setLastRunError(null);
       return;
     }
     const dc = new DebugController();
@@ -320,7 +332,13 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const handleDebugStop = useCallback(() => {
     debugControllerRef.current?.stop();
     abortRef.current?.abort();
-  }, []);
+    // Immediately reset UI state — don't rely solely on onComplete/catch
+    setIsRunning(false);
+    setIsDebugMode(false);
+    debugControllerRef.current = null;
+    setLastRunStatus('stopped');
+    setLastRunError(null);
+  }, [setLastRunStatus, setLastRunError]);
 
   const handleResetRunStatus = useCallback(() => {
     setNodeStatuses({});

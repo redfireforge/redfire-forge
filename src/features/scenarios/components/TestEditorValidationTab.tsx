@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Assertion, AssertionOperator, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, ResponseVersion, Scenario, ValidationMode } from '../../../shared/types';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RegexAssertionModal from '../../requests/components/RegexAssertionModal';
 import type { RegexAssertionResult } from '../../requests/components/RegexAssertionModal';
+import AssertionPresetMenu from './AssertionPresetMenu';
+import JsonPathPicker from './JsonPathPicker';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -23,6 +25,37 @@ export interface TestEditorValidationTabProps {
   validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null;
   setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null) => void;
   onValidateResponse: () => void | Promise<void>;
+}
+
+const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
+  { value: '=', label: 'equals (=)' },
+  { value: '!=', label: 'not equals (≠)' },
+  { value: '>', label: 'greater than (>)' },
+  { value: '>=', label: 'at least (≥)' },
+  { value: '<', label: 'less than (<)' },
+  { value: '<=', label: 'at most (≤)' },
+];
+
+const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
+  { value: '=', label: 'equals (=)' },
+  { value: '!=', label: 'not equals (≠)' },
+  { value: '>', label: 'after (>)' },
+  { value: '>=', label: 'on or after (≥)' },
+  { value: '<', label: 'before (<)' },
+  { value: '<=', label: 'on or before (≤)' },
+];
+
+function ComparisonSelect({ value, onChange, options, className }: {
+  value: ComparisonOperator;
+  onChange: (op: ComparisonOperator) => void;
+  options: { value: ComparisonOperator; label: string }[];
+  className?: string;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value as ComparisonOperator)} className={className ?? 'assertion-select assertion-select-operator'}>
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
 }
 
 export default function TestEditorValidationTab({
@@ -75,6 +108,11 @@ export default function TestEditorValidationTab({
     onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
     setShowAddMenu(false);
   }
+  function importAssertions(items: Assertion[]) {
+    const prev = draftRef.current;
+    const list = [...(prev.validation.assertions ?? []), ...items];
+    onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
+  }
 
   return (
     <div>
@@ -83,6 +121,7 @@ export default function TestEditorValidationTab({
         <div className="assertions-header">
           <span className="assertions-title">Assertions</span>
           <span className="assertions-hint">Run on every request regardless of validation mode</span>
+          <AssertionPresetMenu onImport={importAssertions} />
           <div className="assertions-add-wrap" ref={addMenuRef}>
             <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
             {showAddMenu && (
@@ -113,6 +152,22 @@ export default function TestEditorValidationTab({
                   <span className="aam-label">Regex Builder…</span>
                   <span className="aam-desc">Visual builder with pattern library</span>
                 </button>
+                <div className="aam-divider" />
+                <button type="button" onClick={() => addAssertion({ type: 'arrayLength', jsonPath: '', operator: '>=', value: 1 })}>
+                  <span className="aam-icon">📏</span>
+                  <span className="aam-label">Array Length</span>
+                  <span className="aam-desc">Assert array size at a JSON path</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'numeric', jsonPath: '', operator: '=', value: 0 })}>
+                  <span className="aam-icon">🔢</span>
+                  <span className="aam-label">Numeric Compare</span>
+                  <span className="aam-desc">Compare number at a JSON path</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'date', jsonPath: '', operator: '>', reference: { kind: 'today', timezone: 'utc' } })}>
+                  <span className="aam-icon">📅</span>
+                  <span className="aam-label">Date Compare</span>
+                  <span className="aam-desc">Compare date at a JSON path</span>
+                </button>
               </div>
             )}
           </div>
@@ -122,7 +177,7 @@ export default function TestEditorValidationTab({
             {assertions.map((a, i) => (
               <div key={i} className="assertion-row">
                 <span className={`assertion-type-badge assertion-type-${a.type}`}>
-                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : 'REGEX'}
+                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : 'DATE'}
                 </span>
                 {a.type === 'status' && (
                   <div className="assertion-field">
@@ -154,10 +209,56 @@ export default function TestEditorValidationTab({
                 {a.type === 'regex' && (
                   <div className="assertion-field">
                     <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.path" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
                     <span className="assertion-regex-slash">/</span>
                     <input value={a.pattern} onChange={(e) => updateAssertion(i, { pattern: e.target.value })} placeholder="pattern" className="assertion-input" />
                     <span className="assertion-regex-slash">/</span>
                     <button type="button" className="assertion-builder-btn" onClick={() => setRegexModalIdx(i)} title="Open Regex Builder">Builder</button>
+                  </div>
+                )}
+                {a.type === 'arrayLength' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.items" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <span className="assertion-field-label assertion-field-label-fixed">length</span>
+                    <ComparisonSelect value={a.operator} onChange={(op) => updateAssertion(i, { operator: op })} options={NUMERIC_OP_OPTIONS} />
+                    <input type="number" value={a.value} onChange={(e) => updateAssertion(i, { value: Number(e.target.value) || 0 })} className="assertion-input assertion-input-sm" min={0} />
+                  </div>
+                )}
+                {a.type === 'numeric' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.price" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <span className="assertion-field-label assertion-field-label-fixed">&nbsp;</span>
+                    <ComparisonSelect value={a.operator} onChange={(op) => updateAssertion(i, { operator: op })} options={NUMERIC_OP_OPTIONS} />
+                    <input type="number" value={a.value} onChange={(e) => updateAssertion(i, { value: Number(e.target.value) || 0 })} className="assertion-input assertion-input-sm" step="any" />
+                  </div>
+                )}
+                {a.type === 'date' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.expiresAt" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <span className="assertion-field-label assertion-field-label-fixed">&nbsp;</span>
+                    <ComparisonSelect value={a.operator} onChange={(op) => updateAssertion(i, { operator: op })} options={DATE_OP_OPTIONS} />
+                    <select value={a.reference.kind} onChange={(e) => {
+                      const kind = e.target.value as 'today' | 'fixed';
+                      const ref: DateReference = kind === 'today'
+                        ? { kind: 'today', timezone: (a.reference.kind === 'today' ? a.reference.timezone : 'utc') }
+                        : { kind: 'fixed', iso: (a.reference.kind === 'fixed' ? a.reference.iso : new Date().toISOString().slice(0, 10)) };
+                      updateAssertion(i, { reference: ref });
+                    }} className="assertion-select">
+                      <option value="today">today</option>
+                      <option value="fixed">fixed date</option>
+                    </select>
+                    {a.reference.kind === 'today' && (
+                      <select value={a.reference.timezone} onChange={(e) => updateAssertion(i, { reference: { kind: 'today', timezone: e.target.value as 'utc' | 'local' } })} className="assertion-select assertion-select-sm">
+                        <option value="utc">UTC</option>
+                        <option value="local">Local</option>
+                      </select>
+                    )}
+                    {a.reference.kind === 'fixed' && (
+                      <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
+                    )}
                   </div>
                 )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>

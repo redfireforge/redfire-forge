@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Pokémon Details — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚡</div>
+    <h1>Get Pokémon Details</h1>
+    <div class="subtitle">Easy Sample — Training Guide</div>
+    <p>Retrieve detailed information about a specific Pokémon from the PokéAPI. This sample demonstrates working with deeply nested JSON responses and path-based resource lookups.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★☆☆<br />
+      <code>GET</code> · pokeapi.co
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request fetches comprehensive data about Pikachu from the PokéAPI — a free, open RESTful API that serves data for every Pokémon game. The API requires no authentication and returns richly structured JSON.</p>
+  <p><strong>Real-world analogy:</strong> Think of this like looking up a detailed product page on an e-commerce site. You request one item by name, and the API returns everything about it — stats, categories, images, and related links. In this case, the "product" is a Pokémon.</p>
+  <p>This sample is great for learning because:</p>
+  <ul>
+    <li>The response is deeply nested — arrays inside objects inside arrays.</li>
+    <li>The response is large (~12 KB), showing how APIs can return substantial payloads.</li>
+    <li>You can look up any Pokémon by name or ID using the same URL pattern.</li>
+    <li>No authentication or special headers are needed.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Path parameters</strong> — the Pokémon name (<code>pikachu</code>) is part of the URL path, not a query parameter.</li>
+    <li><strong>Deeply nested JSON</strong> — navigating through arrays of objects with their own nested structures.</li>
+    <li><strong>Large response payloads</strong> — handling responses that are ~12 KB with dozens of fields.</li>
+    <li><strong>Resource lookup by name</strong> — using human-readable identifiers (names) instead of numeric IDs.</li>
+    <li><strong>HTTP status code 200</strong> — successful retrieval of a single resource.</li>
+    <li><strong>Content-Type header</strong> — response returned as <code>application/json; charset=utf-8</code>.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>GET</code></td></tr>
+    <tr><td>URL</td><td><code>https://pokeapi.co/api/v2/pokemon/pikachu</code></td></tr>
+    <tr><td>Headers</td><td>None required</td></tr>
+    <tr><td>Body</td><td>None (GET requests do not have a body)</td></tr>
+    <tr><td>Query Parameters</td><td>None</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The PokéAPI is case-insensitive for Pokémon names — <code>pikachu</code>, <code>Pikachu</code>, and <code>PIKACHU</code> all work. However, the API uses lowercase internally, so responses always show lowercase names.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
+    <tr><td>Response Size</td><td>~12 KB (deeply nested object)</td></tr>
+  </table>
+
+  <p>Sample response (key fields shown — the full response contains many more fields):</p>
+
+<pre>{
+  "id": 25,
+  "name": "pikachu",
+  "height": 4,
+  "weight": 60,
+  "base_experience": 112,
+  "abilities": [
+    {
+      "ability": { "name": "static", "url": "https://pokeapi.co/api/v2/ability/9/" },
+      "is_hidden": false,
+      "slot": 1
+    },
+    {
+      "ability": { "name": "lightning-rod", "url": "https://pokeapi.co/api/v2/ability/31/" },
+      "is_hidden": true,
+      "slot": 3
+    }
+  ],
+  "types": [
+    {
+      "slot": 1,
+      "type": { "name": "electric", "url": "https://pokeapi.co/api/v2/type/13/" }
+    }
+  ],
+  "stats": [
+    { "base_stat": 35, "effort": 0, "stat": { "name": "hp" } },
+    { "base_stat": 55, "effort": 0, "stat": { "name": "attack" } },
+    { "base_stat": 40, "effort": 0, "stat": { "name": "defense" } },
+    { "base_stat": 50, "effort": 0, "stat": { "name": "special-attack" } },
+    { "base_stat": 50, "effort": 0, "stat": { "name": "special-defense" } },
+    { "base_stat": 90, "effort": 2, "stat": { "name": "speed" } }
+  ],
+  "sprites": {
+    "front_default": "https://raw.githubusercontent.com/.../25.png"
+  }
+  // ... many more fields (moves, game_indices, forms, etc.)
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The full response includes arrays for <code>moves</code> (with 80+ entries), <code>game_indices</code>, and <code>sprites</code> (with multiple image URLs). Use RedfireForge's response viewer to collapse sections and focus on what matters.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Get Pokémon Details</strong> (marked with ⚡) or use the search bar. It's tagged as <span class="badge badge-easy">Easy</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import and execute immediately, or press <strong>Try It</strong> to preview the configuration first.</p>
+
+  <h3>Step 4 — Run the Request</h3>
+  <p>If you chose "Try It", review the URL in the editor panel, then click <strong>Send</strong>. The response will appear in the response panel below.</p>
+
+  <h3>Step 5 — Inspect the Response</h3>
+  <p>In the response panel, explore:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code> — the Pokémon was found.</li>
+    <li><strong>Body</strong>: A large JSON object with nested arrays and objects.</li>
+    <li><strong>Nested data</strong>: Expand <code>abilities</code>, <code>types</code>, and <code>stats</code> to see their structure.</li>
+    <li><strong>Size</strong>: Note the response size (~12 KB) in the response metadata.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    If you request a Pokémon that doesn't exist (e.g., <code>/pokemon/fakemon</code>), the API returns <code>404 Not Found</code>. Try it to see how error responses look!
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to explore the PokéAPI further:</p>
+
+  <h3>Exercise 1 — Look Up by ID</h3>
+  <p>Replace the Pokémon name with a numeric ID:</p>
+  <pre>GET https://pokeapi.co/api/v2/pokemon/6</pre>
+  <p>Which Pokémon has ID 6? What types does it have? (Hint: it has two types.)</p>
+
+  <h3>Exercise 2 — Compare Stats</h3>
+  <p>Fetch data for a different Pokémon and compare its stats with Pikachu:</p>
+  <pre>GET https://pokeapi.co/api/v2/pokemon/mewtwo</pre>
+  <p>Which Pokémon has higher <code>base_stat</code> values? Which stat is each one strongest in?</p>
+
+  <h3>Exercise 3 — Explore a Related Endpoint</h3>
+  <p>The PokéAPI has many related endpoints. Try fetching type information:</p>
+  <pre>GET https://pokeapi.co/api/v2/type/electric</pre>
+  <p>How many Pokémon are listed under the "electric" type? What does the response structure look like compared to a single Pokémon?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The PokéAPI follows a consistent pattern: <code>/api/v2/{resource}/{id-or-name}</code>. Try other resources like <code>ability</code>, <code>berry</code>, or <code>move</code> to discover more data.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Get Pokémon Details · April 2026
+  </footer>
+
+</body>
+</html>

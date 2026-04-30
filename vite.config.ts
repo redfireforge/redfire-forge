@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import type { Plugin } from 'vite'
+import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
@@ -29,15 +29,13 @@ function proxyPlugin(): Plugin {
     return pooledDispatcher;
   }
 
-  return {
-    name: 'api-proxy',
-    configureServer(server) {
-      server.httpServer?.on('close', () => {
-        pooledDispatcher?.close?.();
-        pooledDispatcher = undefined;
-      });
+  function attachProxyMiddleware(server: ViteDevServer | PreviewServer) {
+    server.httpServer?.on('close', () => {
+      pooledDispatcher?.close?.();
+      pooledDispatcher = undefined;
+    });
 
-      server.middlewares.use('/__proxy', async (req, res) => {
+    server.middlewares.use('/__proxy', async (req, res) => {
         if (req.method !== 'POST') {
           res.writeHead(405);
           res.end('Method not allowed');
@@ -143,6 +141,15 @@ function proxyPlugin(): Plugin {
           }));
         }
       });
+  }
+
+  return {
+    name: 'api-proxy',
+    configureServer(server) {
+      attachProxyMiddleware(server);
+    },
+    configurePreviewServer(server) {
+      attachProxyMiddleware(server);
     },
   };
 }
@@ -155,6 +162,7 @@ export default defineConfig({
   clearScreen: false,
   server: {
     strictPort: true,
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -165,6 +173,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    strictPort: true,
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

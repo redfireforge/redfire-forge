@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Orchestration: Category Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🎭</div>
+  <h1>Orchestration</h1>
+  <div class="subtitle">Workflow Category — Overview</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Orchestration workflows coordinate multi-step processes, invoke reusable
+    sub-workflows, batch-process data sets, and manage parallel deployments
+    across regions. These patterns form the backbone of production-grade
+    automation.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Overview — Training Manual &nbsp;|&nbsp; Category: Orchestration<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">What is Orchestration?</a></li>
+  <li><a href="#catalog">Sample Catalog</a></li>
+  <li><a href="#concepts">Key Concepts</a></li>
+  <li><a href="#learning-path">Learning Path</a></li>
+  <li><a href="#comparison">Pattern Comparison</a></li>
+  <li><a href="#best-practices">Best Practices</a></li>
+  <li><a href="#next-steps">Next Steps</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. WHAT IS ORCHESTRATION?                   -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. What is Orchestration?</h2>
+<p>
+  <strong>Orchestration</strong> is the coordination of multiple workflow steps, services,
+  or sub-workflows into a single, cohesive automated process. Unlike simple linear
+  workflows, orchestration patterns manage complexity through composition, parallelism,
+  and delegation.
+</p>
+<p>
+  In RedfireForge, orchestration workflows typically involve:
+</p>
+<ul>
+  <li><strong>Sub-workflow invocation</strong> — calling reusable workflow components from a parent workflow</li>
+  <li><strong>Batch processing</strong> — iterating over data sets and processing each item through a pipeline</li>
+  <li><strong>Parallel execution</strong> — running multiple branches simultaneously for throughput</li>
+  <li><strong>Multi-stage pipelines</strong> — chaining dependent steps with error handling and rollback</li>
+</ul>
+<p>
+  <strong>Real-world examples:</strong> user provisioning systems, CI/CD pipelines,
+  order fulfillment engines, multi-region deployments, and ETL data pipelines.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. SAMPLE CATALOG                           -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="catalog">2. Sample Catalog</h2>
+<table>
+  <tr>
+    <th>Sample</th>
+    <th>Difficulty</th>
+    <th>Nodes</th>
+    <th>Key Pattern</th>
+  </tr>
+  <tr>
+    <td><a href="batch-provisioning-advanced.html">Batch User Provisioning</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>6</td>
+    <td>Batch processing, loop iteration, error accumulation</td>
+  </tr>
+  <tr>
+    <td><a href="sub-workflow-advanced.html">Sub-Workflow Orchestrator</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>5</td>
+    <td>Sub-workflow invocation, parameter passing</td>
+  </tr>
+  <tr>
+    <td><a href="order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>7</td>
+    <td>Multi-stage pipeline, sub-workflow validation</td>
+  </tr>
+  <tr>
+    <td><a href="deploy-orchestrator-advanced.html">Multi-Region Deploy Orchestrator</a></td>
+    <td><span class="badge badge-advanced">★★★ Advanced</span></td>
+    <td>8</td>
+    <td>Parallel execution, health checks, rollback</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. KEY CONCEPTS                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">3. Key Concepts</h2>
+
+<h3>Sub-Workflows</h3>
+<p>
+  A <strong>sub-workflow</strong> is a self-contained workflow invoked by a parent.
+  It receives input parameters, executes its logic, and returns results to the caller.
+  This enables <em>composition</em> — building complex automation from tested, reusable
+  building blocks.
+</p>
+<ul>
+  <li>Sub-workflows have their own Start/End nodes and variable scope</li>
+  <li>Parameters are passed explicitly via the Call Sub-Workflow node</li>
+  <li>Results are extracted from the sub-workflow's output variables</li>
+  <li>Errors in a sub-workflow propagate to the parent unless caught</li>
+</ul>
+
+<h3>Batch Processing</h3>
+<p>
+  <strong>Batch processing</strong> iterates over a collection (CSV rows, JSON arrays,
+  API pages) and applies the same logic to each item. Key considerations:
+</p>
+<ul>
+  <li>Use a <strong>Loop</strong> node to iterate over the data set</li>
+  <li>Accumulate errors in a results array rather than failing on the first error</li>
+  <li>Generate a summary report at the end with success/failure counts</li>
+  <li>Consider rate limiting when calling external APIs in a loop</li>
+</ul>
+
+<h3>Multi-Region Patterns</h3>
+<p>
+  <strong>Multi-region orchestration</strong> deploys or invokes services across
+  geographic regions in parallel. This pattern requires:
+</p>
+<ul>
+  <li>Parallel branching to execute region-specific deployments simultaneously</li>
+  <li>Health checks after each deployment to verify success</li>
+  <li>Rollback logic to revert failed regions without affecting successful ones</li>
+  <li>Aggregation of results from all regions into a unified status report</li>
+</ul>
+
+<div class="callout">
+  <strong>📘 Orchestration vs. Choreography</strong>
+  Orchestration uses a central coordinator (the parent workflow) that controls the
+  sequence. Choreography lets each service react to events independently. RedfireForge
+  workflows follow the orchestration model, giving you explicit control over execution
+  order, error handling, and retry logic.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. LEARNING PATH                            -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="learning-path">4. Learning Path</h2>
+<p>
+  All orchestration samples are advanced. We recommend completing these prerequisites
+  before starting:
+</p>
+<ol>
+  <li><strong>Flow Control — Conditional Branching</strong> (Easy): understand decision nodes</li>
+  <li><strong>API Patterns — Create → Extract → Verify</strong> (Easy): learn HTTP + extraction</li>
+  <li><strong>Flow Control — Loop patterns</strong> (Medium): master iteration</li>
+</ol>
+
+<h3>Recommended Order for Orchestration Samples</h3>
+<ol>
+  <li>
+    <strong><a href="sub-workflow-advanced.html">Sub-Workflow Orchestrator</a></strong>
+    — Start here to learn the fundamental sub-workflow invocation pattern.
+  </li>
+  <li>
+    <strong><a href="batch-provisioning-advanced.html">Batch User Provisioning</a></strong>
+    — Combines looping with error accumulation and reporting.
+  </li>
+  <li>
+    <strong><a href="order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a></strong>
+    — Multi-stage pipeline using sub-workflows for validation.
+  </li>
+  <li>
+    <strong><a href="deploy-orchestrator-advanced.html">Multi-Region Deploy Orchestrator</a></strong>
+    — The most complex sample: parallel execution, health checks, and rollback.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. PATTERN COMPARISON                       -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="comparison">5. Pattern Comparison</h2>
+<table>
+  <tr>
+    <th>Pattern</th>
+    <th>When to Use</th>
+    <th>Complexity</th>
+  </tr>
+  <tr>
+    <td>Sequential Pipeline</td>
+    <td>Steps must execute in strict order (e.g., validate → process → confirm)</td>
+    <td>Medium</td>
+  </tr>
+  <tr>
+    <td>Sub-Workflow Delegation</td>
+    <td>Reusable logic shared across multiple parent workflows</td>
+    <td>Advanced</td>
+  </tr>
+  <tr>
+    <td>Batch Loop</td>
+    <td>Processing collections of items with per-item error handling</td>
+    <td>Advanced</td>
+  </tr>
+  <tr>
+    <td>Parallel Fan-Out</td>
+    <td>Independent tasks that can run simultaneously for throughput</td>
+    <td>Advanced</td>
+  </tr>
+  <tr>
+    <td>Saga / Rollback</td>
+    <td>Multi-step transactions requiring compensating actions on failure</td>
+    <td>Expert</td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. BEST PRACTICES                           -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="best-practices">6. Best Practices</h2>
+<ul>
+  <li><strong>Keep sub-workflows focused:</strong> each sub-workflow should do one thing well</li>
+  <li><strong>Define clear contracts:</strong> document input parameters and output variables for sub-workflows</li>
+  <li><strong>Accumulate, don't fail fast:</strong> in batch processing, collect all errors and report at the end</li>
+  <li><strong>Add health checks:</strong> after deployments or provisioning, always verify the result</li>
+  <li><strong>Plan for rollback:</strong> any action that modifies state should have a compensating undo action</li>
+  <li><strong>Use timeouts:</strong> sub-workflow and HTTP calls should have explicit timeout values</li>
+  <li><strong>Log at boundaries:</strong> add Log nodes before and after sub-workflow calls for traceability</li>
+</ul>
+
+<div class="callout callout-tip">
+  <strong>💡 Tip: Start Simple</strong>
+  Build and test each sub-workflow independently before wiring it into a parent
+  orchestration workflow. This makes debugging dramatically easier.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. NEXT STEPS                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="next-steps">7. Next Steps</h2>
+<p>
+  Ready to build your first orchestration workflow? Start with the
+  <a href="sub-workflow-advanced.html">Sub-Workflow Orchestrator</a> to learn the
+  core pattern, then progress through the catalog in the recommended order above.
+</p>
+<p>
+  For foundational skills, revisit:
+</p>
+<ul>
+  <li><a href="../flow-control/conditional-branching-easy.html">Conditional Branching (Easy)</a> — decision logic</li>
+  <li><a href="../api-patterns/create-extract-verify-easy.html">Create → Extract → Verify (Easy)</a> — HTTP patterns</li>
+</ul>
+
+<footer>RedfireForge Training Manual — Orchestration Overview · April 2026</footer>
+
+</body>
+</html>

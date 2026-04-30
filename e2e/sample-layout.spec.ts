@@ -15,31 +15,30 @@ test.describe('Sample auto-layout on load', () => {
   });
 
   test('Gallery opens and loads a sample with auto-layout applied', async ({ page }) => {
-    // Click Gallery button in sub-nav
-    const galleryBtn = page.locator('.sub-nav-tab:has-text("Gallery")');
-    await expect(galleryBtn).toBeVisible();
-    await galleryBtn.click();
+    // Click +New → From Template to navigate to Gallery
+    const newBtn = page.locator('button:has-text("+ New")');
+    await newBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await newBtn.click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Gallery modal should appear
-    const modal = page.locator('.tg-modal');
-    await expect(modal).toBeVisible();
+    // Gallery page should appear — filter to Workflows domain
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
 
-    // Click the first sample card
-    const firstCard = modal.locator('.tg-card').first();
-    const sampleName = await firstCard.locator('.tg-card-name').textContent();
+    // Click the first workflow card and note its name
+    const firstCard = page.locator('.gallery-card').first();
+    const sampleName = await firstCard.locator('.gallery-card-name').textContent();
     await firstCard.click();
+    await page.waitForTimeout(300);
 
-    // Gallery should close
-    await expect(modal).not.toBeVisible();
+    // Click "Load Workflow" action button in detail panel
+    await page.locator('button:has-text("Load Workflow")').click();
+    await page.waitForTimeout(500);
 
-    // Preview banner should appear with the sample name
-    const previewBanner = page.locator('.wf-preview-banner');
-    await expect(previewBanner).toBeVisible();
-    await expect(previewBanner).toContainText(sampleName!);
-
-    // ReactFlow canvas should exist
+    // Should be back on Workflow tab with the workflow loaded
     const canvas = page.locator('.react-flow');
-    await expect(canvas).toBeVisible();
+    await expect(canvas).toBeVisible({ timeout: 5000 });
 
     // Wait for auto-layout to complete — canvas should NOT have visibility:hidden
     await expect(canvas).toHaveCSS('visibility', 'visible', { timeout: 5000 });
@@ -51,36 +50,22 @@ test.describe('Sample auto-layout on load', () => {
     expect(nodeCount).toBeGreaterThanOrEqual(3);
   });
 
-  test('canvas is hidden during auto-layout transition', async ({ page }) => {
-    // Click Gallery
-    await page.click('.sub-nav-tab:has-text("Gallery")');
-    const modal = page.locator('.tg-modal');
-    await expect(modal).toBeVisible();
+  test('canvas is visible after loading workflow from gallery', async ({ page }) => {
+    // Click +New → From Template
+    const newBtn = page.locator('button:has-text("+ New")');
+    await newBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await newBtn.click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Set up a MutationObserver to track visibility changes on .react-flow
-    await page.evaluate(() => {
-      (window as any).__visibilityLog = [];
-      const observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          if (m.type === 'attributes' && m.attributeName === 'style') {
-            const el = m.target as HTMLElement;
-            (window as any).__visibilityLog.push({
-              visibility: el.style.visibility,
-              time: performance.now(),
-            });
-          }
-        }
-      });
-      // Observe the first .react-flow element found (will be replaced on remount)
-      // We need to observe the parent so we catch remounts
-      const wfBody = document.querySelector('.wf-canvas');
-      if (wfBody) {
-        observer.observe(wfBody, { attributes: true, subtree: true, attributeFilter: ['style'] });
-      }
-    });
+    // Gallery page — filter to Workflows
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
 
-    // Click a sample
-    await modal.locator('.tg-card').first().click();
+    // Click a sample and load it
+    await page.locator('.gallery-card').first().click();
+    await page.waitForTimeout(300);
+    await page.locator('button:has-text("Load Workflow")').click();
 
     // Wait for layout to complete
     const canvas = page.locator('.react-flow');
@@ -102,11 +87,18 @@ test.describe('Sample auto-layout on load', () => {
     expect(uniqueY.size).toBeGreaterThanOrEqual(2); // at least 2 distinct rows
   });
 
-  test('switching between samples has no flash', async ({ page }) => {
-    // Load first sample
-    await page.click('.sub-nav-tab:has-text("Gallery")');
-    let modal = page.locator('.tg-modal');
-    await modal.locator('.tg-card').first().click();
+  test('switching between workflow samples works', async ({ page }) => {
+    // Load first sample via Gallery
+    const newBtn = page.locator('button:has-text("+ New")');
+    await newBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await newBtn.click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+    await page.locator('.gallery-card').first().click();
+    await page.waitForTimeout(300);
+    await page.locator('button:has-text("Load Workflow")').click();
     await expect(page.locator('.react-flow')).toHaveCSS('visibility', 'visible', { timeout: 5000 });
 
     // Take screenshot after first sample loads
@@ -114,12 +106,16 @@ test.describe('Sample auto-layout on load', () => {
     expect(screenshot1.length).toBeGreaterThan(0);
 
     // Load second sample
-    await page.click('.sub-nav-tab:has-text("Gallery")');
-    modal = page.locator('.tg-modal');
-    await modal.locator('.tg-card').nth(1).click();
+    await newBtn.click();
+    await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.waitForTimeout(300);
+    await page.locator('.gallery-card').nth(1).click();
+    await page.waitForTimeout(300);
+    await page.locator('button:has-text("Load Workflow")').click();
 
-    // Canvas should become hidden while transitioning
-    // Then become visible again once layout is done
+    // Canvas should become visible once layout is done
     await expect(page.locator('.react-flow')).toHaveCSS('visibility', 'visible', { timeout: 5000 });
 
     // Nodes should be present

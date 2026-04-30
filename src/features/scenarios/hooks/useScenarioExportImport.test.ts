@@ -67,6 +67,7 @@ describe('useScenarioExportImport', () => {
     selectedEnvId: 'env1',
     selectedEnvName: 'Dev',
     setCsvImportOpen,
+    confirm: (_title: string, _msg: string, onConfirm: () => void) => onConfirm(),
     ...overrides,
   });
 
@@ -146,16 +147,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const importedFg = makeFg('fg1', 'Feature 1', [makeTestScenario('s2', 'S2')]);
     mockPickJsonFile.mockImplementation((cb) => cb([importedFg]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importAll());
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState).toHaveLength(2); // original + imported copy
-    confirmSpy.mockRestore();
   });
 
   it('importAll cancels import when user declines conflict', () => {
@@ -163,16 +163,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const importedFg = makeFg('fg1', 'Feature 1', [makeTestScenario('s2', 'S2')]);
     mockPickJsonFile.mockImplementation((cb) => cb([importedFg]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.fn(); // does NOT call onConfirm
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importAll());
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState).toEqual([existingFg]); // unchanged
-    confirmSpy.mockRestore();
   });
 
   it('importAll with no conflicts imports without confirm', () => {
@@ -306,16 +305,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const imported = makeTestScenario('s2', 'Scenario 1', [makeScenario()]);
     mockPickJsonFile.mockImplementation((cb) => cb([imported]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importScenariosInto('fg1'));
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState[0].scenarios).toHaveLength(2);
-    confirmSpy.mockRestore();
   });
 
   it('importScenariosInto cancels when user declines duplicate', () => {
@@ -324,16 +322,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const imported = makeTestScenario('s2', 'Scenario 1', [makeScenario()]);
     mockPickJsonFile.mockImplementation((cb) => cb([imported]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.fn(); // does NOT call onConfirm
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importScenariosInto('fg1'));
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState[0].scenarios).toHaveLength(1); // unchanged
-    confirmSpy.mockRestore();
   });
 
   it('importScenariosInto into non-existing fg skips confirm', () => {
@@ -399,16 +396,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const importedTest = makeScenario({ id: 't2', name: 'Test 1' });
     mockPickJsonFile.mockImplementation((cb) => cb([importedTest]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importTestsInto('fg1', 's1'));
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState[0].scenarios[0].tests).toHaveLength(2);
-    confirmSpy.mockRestore();
   });
 
   it('importTestsInto cancels when user declines duplicate', () => {
@@ -418,16 +414,15 @@ describe('useScenarioExportImport', () => {
     fgsState = [existingFg];
     const importedTest = makeScenario({ id: 't2', name: 'Test 1' });
     mockPickJsonFile.mockImplementation((cb) => cb([importedTest]));
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.fn(); // does NOT call onConfirm
 
     const { result } = renderHook(() => useScenarioExportImport(
-      defaultParams({ featureGroups: [existingFg] })
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
     ));
     act(() => result.current.importTestsInto('fg1', 's1'));
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(fgsState[0].scenarios[0].tests).toHaveLength(1); // unchanged
-    confirmSpy.mockRestore();
   });
 
   it('importTestsInto into non-existing scenario skips confirm', () => {

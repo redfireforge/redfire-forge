@@ -1,4 +1,4 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../shared/types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator, DateReference } from '../shared/types';
 
 const STAR = '__PATH_STAR__';
 
@@ -341,6 +341,47 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
   return null;
 }
 
+export function compare(a: number, op: ComparisonOperator, b: number): boolean {
+  switch (op) {
+    case '=':  return a === b;
+    case '!=': return a !== b;
+    case '>':  return a > b;
+    case '>=': return a >= b;
+    case '<':  return a < b;
+    case '<=': return a <= b;
+  }
+}
+
+export function resolveDate(ref: DateReference): string {
+  if (ref.kind === 'fixed') return ref.iso.slice(0, 10);
+  const now = new Date();
+  if (ref.timezone === 'utc') {
+    return now.toISOString().slice(0, 10);
+  }
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function toDayString(val: unknown): string | null {
+  if (typeof val === 'string') {
+    const match = val.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : null;
+  }
+  if (typeof val === 'number') {
+    return new Date(val).toISOString().slice(0, 10);
+  }
+  return null;
+}
+
+export function formatOp(op: ComparisonOperator): string {
+  const map: Record<ComparisonOperator, string> = {
+    '=': '=', '!=': '≠', '>': '>', '>=': '≥', '<': '<', '<=': '≤',
+  };
+  return map[op];
+}
+
 export function matchesStatusPattern(httpStatus: number, pattern: string): boolean {
   const p = pattern.trim();
   if (/^\d+$/.test(p)) return httpStatus === Number(p);
@@ -422,6 +463,75 @@ export function evaluateAssertions(
             expected: `valid regex /${a.pattern}/`,
             actual: 'invalid regex pattern',
           });
+        }
+        break;
+      }
+      case 'arrayLength': {
+        const arr = getByPath(ctx.responseBody, a.jsonPath);
+        if (!Array.isArray(arr)) {
+          failures.push({
+            path: `(arrayLength:${a.jsonPath})`,
+            expected: `array with length ${formatOp(a.operator)} ${a.value}`,
+            actual: arr === undefined ? 'undefined' : `not an array (${typeof arr})`,
+          });
+        } else if (!compare(arr.length, a.operator, a.value)) {
+          failures.push({
+            path: `(arrayLength:${a.jsonPath})`,
+            expected: `length ${formatOp(a.operator)} ${a.value}`,
+            actual: `length ${arr.length}`,
+          });
+        }
+        break;
+      }
+      case 'numeric': {
+        const raw = getByPath(ctx.responseBody, a.jsonPath);
+        const num = typeof raw === 'number' ? raw : Number(raw);
+        if (raw === undefined) {
+          failures.push({
+            path: `(numeric:${a.jsonPath})`,
+            expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
+            actual: 'undefined',
+          });
+        } else if (isNaN(num)) {
+          failures.push({
+            path: `(numeric:${a.jsonPath})`,
+            expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
+            actual: `not a number: ${JSON.stringify(raw)}`,
+          });
+        } else if (!compare(num, a.operator, a.value)) {
+          failures.push({
+            path: `(numeric:${a.jsonPath})`,
+            expected: `${formatOp(a.operator)} ${a.value}`,
+            actual: String(num),
+          });
+        }
+        break;
+      }
+      case 'date': {
+        const rawDate = getByPath(ctx.responseBody, a.jsonPath);
+        const dayStr = toDayString(rawDate);
+        if (rawDate === undefined) {
+          failures.push({
+            path: `(date:${a.jsonPath})`,
+            expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
+            actual: 'undefined',
+          });
+        } else if (dayStr === null) {
+          failures.push({
+            path: `(date:${a.jsonPath})`,
+            expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
+            actual: `not a date: ${JSON.stringify(rawDate)}`,
+          });
+        } else {
+          const refStr = resolveDate(a.reference);
+          const cmp = dayStr.localeCompare(refStr);
+          if (!compare(cmp, a.operator, 0)) {
+            failures.push({
+              path: `(date:${a.jsonPath})`,
+              expected: `${formatOp(a.operator)} ${refStr}`,
+              actual: dayStr,
+            });
+          }
         }
         break;
       }

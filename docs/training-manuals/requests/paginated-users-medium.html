@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paginated User List — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📄</div>
+    <h1>Paginated User List</h1>
+    <div class="subtitle">Medium Sample — Training Guide</div>
+    <p>Fetch a specific page of users from a REST API using limit and skip parameters. This sample demonstrates the most common pagination pattern — essential for working with any API that returns large datasets.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★★☆<br />
+      <code>GET</code> · dummyjson.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request fetches the second page of users from the DummyJSON API — a free REST API that provides realistic mock data with built-in pagination support. Unlike simple mock APIs, DummyJSON returns proper pagination metadata so you can navigate through datasets page by page.</p>
+  <p><strong>Real-world analogy:</strong> Imagine browsing a company directory that shows 6 employees per page. You click "Next" to see employees 7–12. Behind the scenes, the browser sends a request saying "give me 6 users, starting after the first 6" — that's exactly what <code>limit=6&amp;skip=6</code> does.</p>
+  <p>This sample is Medium difficulty because:</p>
+  <ul>
+    <li>It introduces pagination concepts (<code>limit</code>, <code>skip</code>, <code>total</code>).</li>
+    <li>You need to understand the relationship between these parameters to navigate pages correctly.</li>
+    <li>The response structure wraps the data array inside an object with metadata.</li>
+    <li>It teaches a pattern used by virtually every real-world API.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Pagination with limit/skip</strong> — using <code>limit</code> to control page size and <code>skip</code> to offset into the dataset.</li>
+    <li><strong>Total count</strong> — how the <code>total</code> field tells you the complete dataset size, enabling you to calculate the number of pages.</li>
+    <li><strong>Navigating pages</strong> — the math behind pagination: page 2 with 6 items per page means <code>skip = (2 - 1) × 6 = 6</code>.</li>
+    <li><strong>Wrapped response structure</strong> — the data array (<code>users</code>) is nested inside an object alongside pagination metadata.</li>
+    <li><strong>Consistent page sizes</strong> — how <code>limit</code> ensures each page returns the same number of items (except possibly the last page).</li>
+    <li><strong>Edge cases</strong> — what happens when <code>skip</code> exceeds <code>total</code>, or when the last page has fewer items than <code>limit</code>.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>GET</code></td></tr>
+    <tr><td>URL</td><td><code>https://dummyjson.com/users?limit=6&amp;skip=6</code></td></tr>
+    <tr><td>Headers</td><td>None required</td></tr>
+    <tr><td>Body</td><td>None (GET requests do not have a body)</td></tr>
+    <tr><td>Query Parameters</td><td><code>limit=6</code>, <code>skip=6</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>limit</code> parameter controls how many users to return per page, and <code>skip</code> controls how many to skip from the beginning. With <code>limit=6&amp;skip=6</code>, you're requesting users 7–12 (the second page of 6).
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+    <tr><td>Response Size</td><td>~3–5 KB</td></tr>
+  </table>
+
+  <p>Sample response (showing 2 of 6 users for brevity):</p>
+
+<pre>{
+  "users": [
+    {
+      "id": 7,
+      "firstName": "Alexander",
+      "lastName": "Jones",
+      "age": 38,
+      "email": "alexander.jones@example.com",
+      "phone": "+1 234-567-8901",
+      "image": "https://dummyjson.com/icon/alexanderj/128"
+    },
+    {
+      "id": 8,
+      "firstName": "Madison",
+      "lastName": "Collins",
+      "age": 26,
+      "email": "madison.collins@example.com",
+      "phone": "+1 345-678-9012",
+      "image": "https://dummyjson.com/icon/madisonc/128"
+    }
+    // ... 4 more users follow
+  ],
+  "total": 30,
+  "skip": 6,
+  "limit": 6
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The pagination metadata at the bottom of the response is key: <code>total: 30</code> means there are 30 users in the entire dataset. With <code>limit: 6</code>, that's 5 pages total (30 ÷ 6 = 5). The <code>skip: 6</code> confirms you're on page 2.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Paginated User List</strong> (marked with 📄) or use the search bar. It's tagged as <span class="badge badge-medium">Medium</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Run the Request</h3>
+  <p>If you chose "Try It", review the URL and its query parameters in the editor panel. Click <strong>Send</strong> to execute.</p>
+
+  <h3>Step 5 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code> — the request was successful.</li>
+    <li><strong>Body</strong>: A JSON object containing a <code>users</code> array and pagination fields (<code>total</code>, <code>skip</code>, <code>limit</code>).</li>
+    <li><strong>User IDs</strong>: Notice the IDs start at 7 (not 1), confirming we skipped the first 6.</li>
+    <li><strong>Time</strong>: The response time in milliseconds (typically 100–400ms).</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Compare the <code>users</code> array length with the <code>limit</code> value — they should match. On the last page, the array may have fewer items than <code>limit</code>.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Fetch the First Page</h3>
+  <p>Get the first page of users by setting <code>skip</code> to 0:</p>
+  <pre>GET https://dummyjson.com/users?limit=6&amp;skip=0</pre>
+  <p>What IDs do the users have? Compare with the second page you already fetched.</p>
+
+  <h3>Exercise 2 — Navigate to the Last Page</h3>
+  <p>With 30 total users and 6 per page, what <code>skip</code> value gets you to the last page?</p>
+  <pre>GET https://dummyjson.com/users?limit=6&amp;skip=24</pre>
+  <p>How many users are in the response? Does the <code>users</code> array length match <code>limit</code>?</p>
+
+  <h3>Exercise 3 — Skip Beyond the Total</h3>
+  <p>What happens when you skip past all available users?</p>
+  <pre>GET https://dummyjson.com/users?limit=6&amp;skip=100</pre>
+  <p>Is the <code>users</code> array empty? What does <code>total</code> still show? Understanding this edge case is important for building robust pagination logic.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The formula for calculating skip is: <code>skip = (pageNumber - 1) × limit</code>. Try computing this for pages 1 through 5 with a limit of 6 to verify your understanding!
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Paginated User List · April 2026
+  </footer>
+
+</body>
+</html>

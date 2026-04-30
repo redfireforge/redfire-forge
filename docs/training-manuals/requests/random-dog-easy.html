@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random Dog Image — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🐕</div>
+    <h1>Random Dog Image</h1>
+    <div class="subtitle">Easy Sample — Training Guide</div>
+    <p>Fetch a random dog image URL from the Dog CEO API. This is the simplest possible API request — a perfect "hello world" for learning how APIs work.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★☆☆<br />
+      <code>GET</code> · dog.ceo
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request calls the Dog CEO API to get a single random dog image URL. The response is just two fields — a URL and a status — making it the most minimal API response you'll encounter.</p>
+  <p><strong>Real-world analogy:</strong> Imagine pressing a button on a vending machine that gives you a random sticker. You don't choose which one — you just press the button and get a surprise. This API works the same way: every call returns a different random dog photo.</p>
+  <p>This is the ideal first API request because:</p>
+  <ul>
+    <li>The response has only 2 fields — impossible to get confused.</li>
+    <li>No parameters, headers, or configuration needed.</li>
+    <li>Every call returns a different result — you can see "live" API behavior.</li>
+    <li>The API is fast, free, and always available.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>HTTP GET method</strong> — retrieving data from a server with a simple URL.</li>
+    <li><strong>Minimal JSON response</strong> — understanding the simplest possible JSON structure.</li>
+    <li><strong>Non-deterministic responses</strong> — the same URL returns different data each time (random content).</li>
+    <li><strong>HTTP status code 200</strong> — standard success response.</li>
+    <li><strong>API status field</strong> — many APIs include a <code>status</code> field in the response body alongside the data.</li>
+    <li><strong>URL as data</strong> — the response contains a URL pointing to an image, not the image itself.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>GET</code></td></tr>
+    <tr><td>URL</td><td><code>https://dog.ceo/api/breeds/image/random</code></td></tr>
+    <tr><td>Headers</td><td>None required</td></tr>
+    <tr><td>Body</td><td>None (GET requests do not have a body)</td></tr>
+    <tr><td>Query Parameters</td><td>None</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The Dog CEO API is completely free with no API key or registration required. It serves over 20,000 dog images across 120+ breeds.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+    <tr><td>Response Size</td><td>~120 bytes</td></tr>
+  </table>
+
+  <p>Sample response:</p>
+
+<pre>{
+  "message": "https://images.dog.ceo/breeds/terrier-norfolk/n02094114_1003.jpg",
+  "status": "success"
+}</pre>
+
+  <p>The response contains exactly two fields:</p>
+  <ul>
+    <li><code>message</code> — a direct URL to a random dog image (JPEG format).</li>
+    <li><code>status</code> — always <code>"success"</code> when the request works.</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Run the request multiple times — you'll get a different dog image URL each time! This is a great way to see that APIs can return dynamic, non-cached data.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Random Dog Image</strong> (marked with 🐕) or use the search bar. It's tagged as <span class="badge badge-easy">Easy</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import and execute immediately, or press <strong>Try It</strong> to preview first.</p>
+
+  <h3>Step 4 — Run the Request</h3>
+  <p>If you chose "Try It", review the simple request setup, then click <strong>Send</strong>. The response appears almost instantly.</p>
+
+  <h3>Step 5 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code>.</li>
+    <li><strong>Body</strong>: Just two fields — <code>message</code> (the image URL) and <code>status</code>.</li>
+    <li><strong>Try clicking Send again</strong> — you'll get a completely different image URL each time.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    You can paste the <code>message</code> URL into your browser to see the actual dog image. Each URL points directly to a JPEG file.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises:</p>
+
+  <h3>Exercise 1 — Get Multiple Random Images</h3>
+  <p>Modify the URL to request 3 random images at once:</p>
+  <pre>GET https://dog.ceo/api/breeds/image/random/3</pre>
+  <p>How does the <code>message</code> field change? (Hint: it becomes an array instead of a string.)</p>
+
+  <h3>Exercise 2 — Get a Specific Breed</h3>
+  <p>Request a random image of a specific breed:</p>
+  <pre>GET https://dog.ceo/api/breed/husky/images/random</pre>
+  <p>Notice how the URL path changes — <code>breed</code> (singular) instead of <code>breeds</code>, with the breed name in the path.</p>
+
+  <h3>Exercise 3 — List All Breeds</h3>
+  <p>Fetch the complete list of available breeds:</p>
+  <pre>GET https://dog.ceo/api/breeds/list/all</pre>
+  <p>How is the <code>message</code> field structured? Some breeds have sub-breeds (e.g., "terrier" has "norfolk", "scottish", etc.) — how are these represented in the JSON?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The Dog CEO API is great for practicing because it has a very simple, consistent URL structure and always returns fast responses. Experiment with different breed names!
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Random Dog Image · April 2026
+  </footer>
+
+</body>
+</html>
