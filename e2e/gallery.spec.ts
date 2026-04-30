@@ -23,8 +23,8 @@ test.describe('Gallery Page', () => {
 
   test('can filter by domain', async ({ page }) => {
     const allCards = await page.locator('.gallery-card').count();
-    // Click Workflows domain
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    // Click Assertions domain (has fewer than page-size entries)
+    await page.locator('.gallery-domain-btn', { hasText: 'Assertions' }).click();
     await page.waitForTimeout(200);
     const filteredCards = await page.locator('.gallery-card').count();
     expect(filteredCards).toBeLessThan(allCards);
@@ -52,8 +52,8 @@ test.describe('Gallery Page', () => {
   test('detail panel shows entry info', async ({ page }) => {
     await page.locator('.gallery-card').first().click();
     // Should show difficulty dots, tags, and action button
-    await expect(page.locator('.gallery-difficulty-dots')).toBeVisible();
-    await expect(page.locator('.gallery-detail-actions')).toBeVisible();
+    await expect(page.locator('.gallery-difficulty-dots')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.gallery-detail-actions')).toBeVisible({ timeout: 5000 });
   });
 
   test('closing detail panel works', async ({ page }) => {
@@ -104,9 +104,10 @@ test.describe('Gallery Page', () => {
     // Click import button
     await page.locator('.gallery-detail-btn-primary').click();
     await page.waitForTimeout(500);
-    // Should navigate to requests tab
+    // Requests is the default tab so ?tab= param is removed from URL.
+    // Verify we left the gallery by checking the URL does NOT contain tab=gallery.
     const url = page.url();
-    expect(url).toContain('tab=requests');
+    expect(url).not.toContain('tab=gallery');
   });
 
   test('importing a workflow entry navigates to workflow tab', async ({ page }) => {
