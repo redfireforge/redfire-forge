@@ -2,11 +2,11 @@
 
 ## Current Status
 - Overall Coverage: 91.47% lines | 90.23% stmts | 87.31% funcs | 85.14% branch ✅ (>90% target met)
-- Tests: 200 test files, 4613 tests passing ✅
-- E2E Tests: 14 new tests passing (async-correlation, correlation-handler) ✅
-- Branch: `develop` (merged from `feature/review` via `release/0.5.5`)
+- Tests: 215 test files, 4900 tests passing ✅
+- E2E Tests: 264 tests passing (2 skipped) ✅
+- Branch: `release/0.5.5` (merged from `feature/structured-assertions` via `develop`)
 - Version: 0.5.5-beta.2
-- Last updated: 2026-04-28
+- Last updated: 2026-04-29
 
 ## Completed ✅
 
