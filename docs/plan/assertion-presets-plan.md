@@ -219,9 +219,9 @@ examples/
 
 ## Implementation Phases
 
-### Phase F — Gallery Data Layer ✅
+### Phase F — Gallery Data Layer ✅ Complete
 
-**Files to create:**
+**Files created:**
 - [x] `src/data/galleries/types.ts`
 - [x] `src/data/galleries/assertion-presets/types.ts`
 - [x] `src/data/galleries/assertion-presets/presets.ts`
@@ -231,23 +231,23 @@ examples/
 
 ---
 
-### Phase G — UI Preset Menu ✅
+### Phase G — UI Preset Menu ✅ Complete
 
-**Files to create:**
+**Files created:**
 - [x] `src/features/scenarios/components/AssertionPresetMenu.tsx`
 
-**Files to modify:**
+**Files modified:**
 - [x] `src/features/scenarios/components/TestEditorValidationTab.tsx` — add "Presets" button
 
-**CSS:** Add styles to existing `scenario-builder.css` (or `json-path-builder.css`)
+**CSS:** Added styles to existing `scenario-builder.css`
 
 **Validation:** Visual — open Validation tab → click Presets → import a preset → verify assertions appear
 
 ---
 
-### Phase H — Unit Tests ✅
+### Phase H — Unit Tests ✅ Complete
 
-**Files to create:**
+**Files created:**
 - [x] `src/data/galleries/assertion-presets/assertionPresets.test.ts`
 - [x] `src/features/scenarios/components/AssertionPresetMenu.test.tsx`
 
@@ -257,7 +257,7 @@ examples/
 
 ---
 
-### Phase I — CLI Examples ✅ (YAML files done, README pending)
+### Phase I — CLI Examples ✅ Complete
 
 **Files created:**
 - [x] `examples/assertion-api-healthcheck.yaml`
@@ -266,8 +266,8 @@ examples/
 - [x] `examples/assertion-price-guard.yaml`
 - [x] `examples/assertion-api-contract.yaml`
 
-**Remaining:**
-- [x] `examples/README.md` — add Assertion Examples section
+**Also updated:**
+- [x] `examples/README.md` — added Assertion Examples section
 
 **Validation:** `npx redfireforge run examples/assertion-api-healthcheck.yaml` (if CLI supports assertion types)
 
@@ -289,7 +289,7 @@ examples/
 
 ---
 
-### Phase K — E2E Tests for Presets ✅
+### Phase K — E2E Tests for Presets ✅ Complete
 
 **Files modified:**
 - [x] `e2e/structured-assertions.spec.ts` — added 3 preset tests + fixed ambiguous `+ Add` selector
@@ -305,7 +305,7 @@ examples/
 
 ---
 
-### Phase L — Review & Quality Gate ✅
+### Phase L — Review & Quality Gate ✅ Complete
 
 - [x] All files <900 lines (largest: 230 lines)
 - [x] `npx tsc --noEmit` — 0 errors
