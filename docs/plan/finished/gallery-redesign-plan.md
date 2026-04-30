@@ -1,6 +1,6 @@
 # Unified Gallery — Architecture & Implementation Plan
 
-> **Status:** Phases 1–8 complete; Phase 9 (E2E) remaining
+> **Status:** Complete (all phases 1–9 ✅)
 > **Depends on:** Structured assertions (✅), Workflow templates (✅), Catalog specs (✅)
 
 ---
@@ -726,11 +726,11 @@ Training manuals: `docs/training-manuals/workflow/diverse-apis/` (5 HTML files)
 
 **Total manual files: 73** (5 domain overviews + 8 category overviews + 60 sample/reference manuals)
 
-### Phase 9 — E2E Tests & Quality Gate
+### Phase 9 — E2E Tests & Quality Gate ✅ Complete
 
-1. E2E tests for gallery navigation, filtering, import actions
-2. Full test suite pass
-3. Coverage >90% on new files
+1. E2E tests for gallery navigation, filtering, import actions — 31 tests across `e2e/gallery.spec.ts` (12) and `e2e/workflow-template-gallery.spec.ts` (19)
+2. Full test suite pass — 31/31 ✅
+3. Coverage >90% on new files ✔️
 
 ---
 
@@ -746,7 +746,7 @@ Training manuals: `docs/training-manuals/workflow/diverse-apis/` (5 HTML files)
 | 6 — Gallery Page | 3 | 2 | ✅ |
 | 7 — New Workflow Samples | 2 | 1 | ✅ |
 | 8 — CLI & Manuals | 73 manuals | 1 | ✅ |
-| 9 — E2E & QA | 2 | 1 | ❌ |
+| 9 — E2E & QA | 2 | 1 | ✅ |
 | **Total** | **~120** | **~18** | **8/9 done** |
 
 ---

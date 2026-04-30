@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FeatureGroup, Scenario } from '../../../shared/types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
+import { parseJsonToScenarios } from '../utils/csvTemplateJson';
 import type { CsvParseResult } from '../utils/csvTemplate';
 import PopupModal from '../../../shared/components/PopupModal';
 
@@ -30,6 +31,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const scenarios = selectedFg?.scenarios ?? [];
 
   const isExcelFile = (name: string) => /\.xlsx?$/i.test(name);
+  const isJsonFile = (name: string) => /\.json$/i.test(name);
 
   const toggleRowError = (rowIdx: number) => {
     setExpandedErrors(prev => {
@@ -45,10 +47,23 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
     setParseResult(null);
     setParseError(null);
     setExpandedErrors(new Set());
-    const baseName = file.name.replace(/\.(xlsx?|csv|txt)$/i, '').replace(/[_-]/g, ' ').trim();
+    const baseName = file.name.replace(/\.(xlsx?|csv|txt|json)$/i, '').replace(/[_-]/g, ' ').trim();
     setNewScenarioName(prev => prev || baseName);
     try {
-      if (isExcelFile(file.name)) {
+      if (isJsonFile(file.name)) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const text = ev.target?.result as string;
+            const result = parseJsonToScenarios(text);
+            setParseResult(result);
+          } catch (e) {
+            setParseError(`Failed to parse JSON file: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        };
+        reader.onerror = () => setParseError('Failed to read file. It may be corrupted or too large.');
+        reader.readAsText(file);
+      } else if (isExcelFile(file.name)) {
         const reader = new FileReader();
         reader.onload = (ev) => {
           try {
@@ -108,7 +123,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
       dragCounter.current = 0;
       setDragging(false);
       const file = e.dataTransfer?.files?.[0];
-      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt') || isExcelFile(file.name))) {
+      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt') || file.name.endsWith('.json') || isExcelFile(file.name))) {
         processFile(file);
       }
     };
@@ -159,9 +174,10 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
 
   return (
     <PopupModal
-      title="Import Tests from CSV / Excel"
+      title="Import Tests from CSV / Excel / JSON"
       onClose={onClose}
       dialogClassName="csv-import-modal"
+      bodyClassName="csv-import-body"
       footerClassName="csv-import-footer"
       footer={(
         <>
@@ -176,7 +192,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           {/* Step 1: Download template */}
           <div className="csv-step">
             <div className="csv-step-label">Step 1 — Get a template</div>
-            <div className="csv-step-desc">Use "Export Template" from any existing test's editor to generate an Excel template pre-filled with its URL, headers, and validation rules. You can also import legacy CSV files.</div>
+            <div className="csv-step-desc">Use "Export Template" from any existing test's editor to generate an Excel or JSON template pre-filled with its URL, headers, and validation rules. You can also import CSV files or plain JSON arrays.</div>
             <button className="btn btn-xs" onClick={handleDownloadSample}>Download Sample Template</button>
           </div>
 
@@ -196,14 +212,14 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
               ) : (
                 <div className="csv-drop-zone-empty">
                   <span className="csv-drop-zone-icon">{dragging ? '📥' : '📁'}</span>
-                  <span className="csv-drop-zone-label">{dragging ? 'Drop file here' : 'Drag & drop an Excel or CSV file here'}</span>
-                  <span className="csv-drop-zone-hint">or click to browse · .xlsx .csv</span>
+                  <span className="csv-drop-zone-label">{dragging ? 'Drop file here' : 'Drag & drop a file here'}</span>
+                  <span className="csv-drop-zone-hint">or click to browse · .xlsx .csv .json</span>
                 </div>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls,.csv,.txt"
+                accept=".xlsx,.xls,.csv,.txt,.json"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
@@ -345,16 +361,18 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
             <div className="csv-step">
               <div className="csv-step-label">Step 4 — Select destination</div>
               <div className="csv-dest-fields">
-                <div className="csv-dest-field">
-                  <label>Feature Group</label>
+                {/* Feature Group row */}
+                <div className="csv-dest-row">
+                  <span className="csv-dest-row-label">Feature Group</span>
                   {!createNewFg ? (
-                    <select value={selectedFgId} onChange={(e) => { setSelectedFgId(e.target.value); setSelectedScenarioId(''); setCreateNewScenario(false); }}>
+                    <select className="csv-dest-select" value={selectedFgId} onChange={(e) => { setSelectedFgId(e.target.value); setSelectedScenarioId(''); setCreateNewScenario(false); }}>
                       {featureGroups.map(fg => (
                         <option key={fg.id} value={fg.id}>{fg.name}</option>
                       ))}
                     </select>
                   ) : (
                     <input
+                      className="csv-dest-select"
                       type="text"
                       placeholder="New feature group name"
                       value={newFgName}
@@ -377,10 +395,12 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                     Create new feature group
                   </label>
                 </div>
-                <div className="csv-dest-field">
-                  <label>Scenario</label>
+
+                {/* Scenario row */}
+                <div className="csv-dest-row">
+                  <span className="csv-dest-row-label">Scenario</span>
                   {(!createNewScenario && !createNewFg) ? (
-                    <select value={selectedScenarioId} onChange={(e) => setSelectedScenarioId(e.target.value)}>
+                    <select className="csv-dest-select" value={selectedScenarioId} onChange={(e) => setSelectedScenarioId(e.target.value)}>
                       <option value="">— Select —</option>
                       {scenarios.map(sc => (
                         <option key={sc.id} value={sc.id}>{sc.name} ({sc.tests.length} tests)</option>
@@ -388,6 +408,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                     </select>
                   ) : (
                     <input
+                      className="csv-dest-select"
                       type="text"
                       placeholder="New scenario name"
                       value={newScenarioName}
@@ -395,16 +416,20 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                       autoFocus={!createNewFg}
                     />
                   )}
-                  {!createNewFg && (
+                  {!createNewFg ? (
                     <label className="csv-checkbox-label">
                       <input type="checkbox" checked={createNewScenario} onChange={(e) => { setCreateNewScenario(e.target.checked); setSelectedScenarioId(''); }} />
                       Create new scenario
                     </label>
+                  ) : (
+                    <span className="csv-dest-empty-cell" />
                   )}
                 </div>
-                <div className="csv-dest-field">
-                  <label>If test name already exists</label>
-                  <select value={duplicateMode} onChange={(e) => setDuplicateMode(e.target.value as 'skip' | 'append')}>
+
+                {/* Duplicate handling */}
+                <div className="csv-dest-row">
+                  <span className="csv-dest-row-label">Duplicates</span>
+                  <select className="csv-dest-select" value={duplicateMode} onChange={(e) => setDuplicateMode(e.target.value as 'skip' | 'append')}>
                     <option value="append">Add anyway (allow duplicates)</option>
                     <option value="skip">Skip duplicates</option>
                   </select>

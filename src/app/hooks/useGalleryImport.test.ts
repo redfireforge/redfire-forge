@@ -157,7 +157,7 @@ describe('useGalleryImport', () => {
     it('reuses existing gallery environment', () => {
       const deps = makeDeps({
         environments: [{ id: 'env-1', name: 'Gallery Samples' }],
-        microservices: [{ id: 'svc-1', name: 'Gallery Samples', baseUrls: {} }],
+        microservices: [{ id: 'svc-1', name: 'Gallery Samples', baseUrls: { 'env-1': '' } }],
       });
       const entry = makeEntry('tests', {
         factory: () => ({ id: 'fg', name: 'Test FG', scenarios: [] }),

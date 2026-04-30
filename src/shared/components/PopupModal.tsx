@@ -11,6 +11,8 @@ interface Props {
   overlayClassName?: string;
   /** Extra class(es) appended to the dialog element */
   dialogClassName?: string;
+  /** Extra class(es) appended to the body element */
+  bodyClassName?: string;
   /** Extra class(es) appended to the footer element */
   footerClassName?: string;
 }
@@ -37,6 +39,7 @@ export default function PopupModal({
   footer,
   overlayClassName,
   dialogClassName,
+  bodyClassName,
   footerClassName,
 }: Props) {
   const resolvedFooter = footer === undefined
@@ -54,6 +57,7 @@ export default function PopupModal({
       onClose={onClose}
       overlayClassName={['popup-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
       dialogClassName={['popup-modal modal-no-chrome', dialogClassName].filter(Boolean).join(' ')}
+      bodyClassName={bodyClassName}
       footerClassName={['popup-modal-footer', footerClassName].filter(Boolean).join(' ')}
       closeButtonKind="none"
       footer={resolvedFooter}

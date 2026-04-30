@@ -1,12 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
-import { validate, evaluateAssertions } from './validator';
 import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
 import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
+import { buildValidationResult } from './validationResult';
 
 async function executeRequest(
   scenario: Scenario,
@@ -58,23 +58,8 @@ async function executeRequest(
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
 
-  const assertions = scenario.validation.assertions ?? [];
-  const { failures: assertionFailures, statusAsserted } = assertions.length > 0
-    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
-    : { failures: [], statusAsserted: false };
-
-  const httpOk = httpStatus > 0 && httpStatus < 400;
-  const statusOk = statusAsserted
-    ? assertionFailures.every(f => f.path !== '(status)')
-    : httpOk;
-
-  const jsonFailures = scenario.validation.mode !== 'none' && statusOk
-    ? validate(scenario.validation, responseObj)
-    : [];
-
-  let failureDetails = [...assertionFailures, ...jsonFailures];
-
-  const httpFailed = !statusAsserted && (httpStatus >= 400 || httpStatus === 0);
+  // Extract error message from response body for HTTP failures (load-test specific)
+  const httpFailed = (httpStatus >= 400 || httpStatus === 0);
   if (httpFailed && !errorMessage && responseBody) {
     try {
       const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
@@ -86,12 +71,12 @@ async function executeRequest(
       errorMessage = responseBody.slice(0, 300);
     }
   }
-  if (httpFailed && errorMessage) {
-    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }, ...assertionFailures];
-  }
 
-  const networkError = httpStatus === 0 && !statusAsserted;
-  const passed = !networkError && failureDetails.length === 0;
+  const assertions = scenario.validation.assertions ?? [];
+  const vr = buildValidationResult({
+    httpStatus, responseTimeMs, responseHeaders, responseBody, responseObj,
+    errorMessage, validation: scenario.validation, assertions,
+  });
 
   return {
     id,
@@ -104,12 +89,14 @@ async function executeRequest(
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
+    responseHeaders,
     timestamp: Date.now(),
-    passed,
+    passed: vr.passed,
     validationMode: scenario.validation.mode,
-    failureDetails,
-    errorMessage,
+    failureDetails: vr.failureDetails,
+    errorMessage: vr.errorMessage,
     timing,
+    requestLog: { headers, body: reqBody },
   };
 }
 
@@ -235,6 +222,8 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
             validationMode: scenario.validation.mode,
             failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
             errorMessage: err instanceof Error ? err.message : String(err),
+            responseHeaders: {},
+            requestLog: { headers: {}, body: reqBody },
           };
           allResults.push(errorResult);
           breaker.record(errorResult);

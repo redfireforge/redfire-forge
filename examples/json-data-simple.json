@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Get all users",
+    "url": "https://jsonplaceholder.typicode.com/users",
+    "method": "GET"
+  },
+  {
+    "name": "Get user by ID",
+    "url": "https://jsonplaceholder.typicode.com/users/1",
+    "method": "GET"
+  },
+  {
+    "name": "Create new post",
+    "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "POST",
+    "body": "{\"title\": \"Hello World\", \"body\": \"This is a test post\", \"userId\": 1}"
+  },
+  {
+    "name": "Get posts for user 2",
+    "url": "https://jsonplaceholder.typicode.com/posts?userId=2",
+    "method": "GET"
+  }
+]

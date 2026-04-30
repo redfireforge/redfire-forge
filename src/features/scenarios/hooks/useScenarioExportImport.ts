@@ -37,12 +37,12 @@ export function useScenarioExportImport({
   }, [featureGroups, exportMeta]);
 
   const importAll = useCallback(() => {
-    if (!selectedSvcId || !selectedEnvId) { alert('Select a microservice and environment first.'); return; }
+    if (!selectedSvcId || !selectedEnvId) { confirm('Import Error', 'Select a microservice and environment first.', () => {}); return; }
     pickJsonFile((raw) => {
       const data = unwrapImport(raw);
       const items = Array.isArray(data) ? data as FeatureGroup[] : [data as FeatureGroup];
       if (!items.every((fg) => fg.name && Array.isArray(fg.scenarios))) {
-        alert('Invalid file: expected feature group(s).'); return;
+        confirm('Import Error', 'Invalid file: expected feature group(s).', () => {}); return;
       }
       const existingNames = new Set(featureGroups.map((fg) => fg.name.toLowerCase()));
       const existingIds = new Set(featureGroups.map((fg) => fg.id));
@@ -111,7 +111,7 @@ export function useScenarioExportImport({
     const data = unwrapImport(raw);
     const items = Array.isArray(data) ? data as TestScenario[] : [data as TestScenario];
     if (!items.every((sc) => sc.name && Array.isArray(sc.tests))) {
-      alert('Invalid file: expected scenario(s) with a name and tests array.'); return;
+      confirm('Import Error', 'Invalid file: expected scenario(s) with a name and tests array.', () => {}); return;
     }
     const fg = featureGroups.find((f) => f.id === featureId);
     if (fg) {
@@ -142,7 +142,7 @@ export function useScenarioExportImport({
     const data = unwrapImport(raw);
     const items = Array.isArray(data) ? data as Scenario[] : [data as Scenario];
     if (!items.every((t) => t.name && t.url && t.method)) {
-      alert('Invalid file: expected test(s) with name, url, and method.'); return;
+      confirm('Import Error', 'Invalid file: expected test(s) with name, url, and method.', () => {}); return;
     }
     const fg = featureGroups.find((f) => f.id === featureId);
     const sc = fg?.scenarios.find((s) => s.id === scenarioId);

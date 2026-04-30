@@ -31,9 +31,9 @@ export default function WorkflowRequestsSettingsModal({
   environments,
   microservices,
   globalAuthProfiles,
-  harnessEnvId,
-  harnessSvcId,
-  harnessBaseUrl,
+  harnessEnvId: harnessEnvId,
+  harnessSvcId: harnessSvcId,
+  harnessBaseUrl: harnessBaseUrl,
   onApply,
   onClose,
 }: Props) {

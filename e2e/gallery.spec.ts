@@ -51,9 +51,11 @@ test.describe('Gallery Page', () => {
 
   test('detail panel shows entry info', async ({ page }) => {
     await page.locator('.gallery-card').first().click();
-    // Should show difficulty dots, tags, and action button
-    await expect(page.locator('.gallery-difficulty-dots')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.gallery-detail-actions')).toBeVisible({ timeout: 5000 });
+    const panel = page.locator('.gallery-detail-panel');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+    // Should show difficulty dots and action button inside the detail panel
+    await expect(panel.locator('.gallery-difficulty-dots')).toBeVisible({ timeout: 5000 });
+    await expect(panel.locator('.gallery-detail-actions')).toBeVisible({ timeout: 5000 });
   });
 
   test('closing detail panel works', async ({ page }) => {

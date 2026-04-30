@@ -11,7 +11,7 @@ import type { GraphRunCallbacks } from './graphRunner';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
-import { validate, evaluateAssertions } from '../../../engine/validator';
+import { buildValidationResult } from '../../../engine/validationResult';
 import { resolveScenario } from './resolveScenario';
 import { extractVariables } from './extractVariables';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
@@ -204,22 +204,10 @@ export async function executeHttpNode(
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
 
   const assertions = resolvedAbs.validation.assertions ?? [];
-  const { failures: assertionFailures, statusAsserted } = assertions.length > 0
-    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
-    : { failures: [], statusAsserted: false };
-
-  const httpOk = httpStatus > 0 && httpStatus < 400;
-  const statusOk = statusAsserted ? assertionFailures.every(f => f.path !== '(status)') : httpOk;
-  const jsonFailures = resolvedAbs.validation.mode !== 'none' && statusOk ? validate(resolvedAbs.validation, responseObj) : [];
-  let failureDetails = [...assertionFailures, ...jsonFailures];
-
-  const httpFailed = !statusAsserted && (httpStatus >= 400 || httpStatus === 0);
-  if (httpFailed && errorMessage) {
-    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }, ...assertionFailures];
-  }
-
-  const networkError = httpStatus === 0 && !statusAsserted;
-  const passed = !networkError && failureDetails.length === 0;
+  const { failureDetails, passed, errorMessage: finalErrorMessage } = buildValidationResult({
+    httpStatus, responseTimeMs, responseHeaders, responseBody, responseObj,
+    errorMessage, validation: resolvedAbs.validation, assertions,
+  });
 
   let extracted: Record<string, string> = {};
   if (data.scenario.extractions?.length) {
@@ -247,11 +235,13 @@ export async function executeHttpNode(
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
+    responseHeaders,
     timestamp: Date.now(),
     passed,
     validationMode: resolvedAbs.validation.mode,
     failureDetails,
-    errorMessage,
+    errorMessage: finalErrorMessage,
+    requestLog: { headers, body: reqBody },
   };
 
   return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };

@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "version": 1,
+    "method": "GET",
+    "urlPattern": "https://api.example.com/v1/vehicles/{{vin}}/offers",
+    "headers": [
+      { "key": "Accept-Language", "value": "en-US" },
+      { "key": "Content-Type", "value": "application/json" }
+    ],
+    "body": "",
+    "auth": { "type": "inherit" },
+    "validationMode": "selective",
+    "selectiveMode": "include",
+    "pathVariables": ["vin"]
+  },
+  "data": [
+    {
+      "name": "US - Standard VIN lookup",
+      "path:vin": "LRBAZN111R1079862",
+      "param:channel": "MC_WEBRNW",
+      "param:country": "US",
+      "validate:$.data.status": "active"
+    },
+    {
+      "name": "MX - Web channel VIN lookup",
+      "path:vin": "1G1Y92145T1079842",
+      "param:channel": "WEB",
+      "param:country": "MX",
+      "validate:$.data.status": "active"
+    },
+    {
+      "name": "CA - Renewal VIN lookup",
+      "path:vin": "1GYKPW1KXR107983C",
+      "param:channel": "MC_WEBRNW",
+      "param:country": "CA",
+      "validate:$.data.status": "active"
+    }
+  ]
+}

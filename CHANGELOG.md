@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Response Headers in Results** — Response Detail Modal now shows response headers in a table; captured from both harness and workflow executors
+- **Request Log** — Response Detail Modal shows the resolved request headers and body as sent; Authorization header values are masked (`••••••••`) for security
 - **Structured JSON Body Assertions**
   - Three new assertion types: **arrayLength** (assert array length at JSONPath, e.g. `$.items` length ≥ 4), **numeric** (compare numeric values, e.g. `$.price > 0`), **date** (compare dates vs `today` or fixed ISO date)
   - Six comparison operators (`=`, `!=`, `>`, `>=`, `<`, `<=`) shared across all three types
@@ -35,10 +37,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Import unification: all 6 `acquireOAuth2Token` consumers now import from canonical `tokenManager.ts`
   - Auth header deduplication: created shared `resolveAuthHeaders()` utility, refactored 6 files
   - Corrected 3 inaccurate `endpointCount` values in catalog specs
+- **Template parser deduplication**: Extracted `csvTemplateShared.ts` with `buildTemplateMetaAndSample()` and `buildScenarioFromRow()` — eliminates ~120 lines of identical code duplicated between `csvTemplateCsv.ts` (214→65 lines) and `csvTemplateJson.ts` (321→155 lines)
+- **Validation result extraction**: Extracted `validationResult.ts` with `buildValidationResult()` — centralises assertion evaluation + failure assembly previously duplicated in `requestExecution.ts` and `graphRunnerHelpers.ts`
+- **Bug fix**: Added missing `responseHeaders` and `requestLog` fields to `runPool` error fallback `RequestResult` (type inconsistency)
 
 ### Tests
 - **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
-- **264 E2E tests passing** (2 skipped), **4900 unit tests passing** (215 files)
+- **264 E2E tests passing** (2 skipped), **4966 unit tests passing** (219 files)
 
 - **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
   - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
