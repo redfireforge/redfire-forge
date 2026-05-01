@@ -5,15 +5,15 @@ import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { getStorageUsage, getMaxRuns } from '../../shared/utils/storage';
 import SettingsStorageTab from './SettingsStorageTab';
 import SettingsExportImportTab from './SettingsExportImportTab';
-import WorkflowEditorModalFrame from '../workflow/components/modals/WorkflowEditorModalFrame';
+import AuditLogPanel from '../audit/components/AuditLogPanel';
+import { logAuthProfileCreated, logAuthProfileDeleted, logAuthProfileRenamed, logAuthProfileUpdated } from '../audit/utils/auditLog';
 
-export interface SettingsModalProps {
+export interface SettingsPageProps {
   appGlobalAuthProfiles: GlobalAuthProfile[];
   setAppGlobalAuthProfiles: React.Dispatch<React.SetStateAction<GlobalAuthProfile[]>>;
   environments: Environment[];
   microservices: Microservice[];
   featureGroups: FeatureGroup[];
-  onClose: () => void;
   onImport: (data: {
     environments?: Environment[];
     microservices?: Microservice[];
@@ -23,17 +23,16 @@ export interface SettingsModalProps {
   confirm: (message: string, onConfirm: () => void) => void;
 }
 
-export default function SettingsModal({
+export default function SettingsPage({
   appGlobalAuthProfiles,
   setAppGlobalAuthProfiles,
   environments,
   microservices,
   featureGroups,
-  onClose,
   onImport,
   confirm,
-}: SettingsModalProps) {
-  const [settingsTab, setSettingsTab] = useState<'globalAuth' | 'exportImport' | 'storage'>('globalAuth');
+}: SettingsPageProps) {
+  const [settingsTab, setSettingsTab] = useState<'globalAuth' | 'exportImport' | 'storage' | 'auditLog'>('globalAuth');
   const [maxRunsLocal, setMaxRunsLocal] = useState(50);
   const [storageUsage, setStorageUsage] = useState<{ usedBytes: number; entries: Record<string, number> }>({ usedBytes: 0, entries: {} });
   const [storageExpanded, setStorageExpanded] = useState(false);
@@ -51,19 +50,16 @@ export default function SettingsModal({
   }, []);
 
   return (
-    <WorkflowEditorModalFrame
-      title="Settings"
-      onClose={onClose}
-      overlayClassName="settings-overlay"
-      dialogClassName="settings-modal settings-modal-split modal-no-chrome"
-      bodyClassName="settings-split"
-      bodyScrollable={false}
-      footer={<button className="btn btn-primary" onClick={onClose}>Close</button>}
-    >
+    <div className="settings-page">
+      <div className="settings-page-header">
+        <h2>Settings</h2>
+      </div>
+      <div className="settings-split">
       <nav className="settings-nav">
         <button type="button" className={`settings-nav-item ${settingsTab === 'globalAuth' ? 'active' : ''}`} onClick={() => setSettingsTab('globalAuth')}>Global Auth Profiles</button>
         <button type="button" className={`settings-nav-item ${settingsTab === 'exportImport' ? 'active' : ''}`} onClick={() => setSettingsTab('exportImport')}>Export & Import</button>
         <button type="button" className={`settings-nav-item ${settingsTab === 'storage' ? 'active' : ''}`} onClick={() => setSettingsTab('storage')}>Storage</button>
+        <button type="button" className={`settings-nav-item ${settingsTab === 'auditLog' ? 'active' : ''}`} onClick={() => setSettingsTab('auditLog')}>Audit Log</button>
       </nav>
 
       <div className="settings-content">
@@ -81,9 +77,11 @@ export default function SettingsModal({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newGlobalProfileName.trim()) {
                     const id = uuidv4();
-                    setAppGlobalAuthProfiles((prev) => [...prev, { id, name: newGlobalProfileName.trim(), auth: { type: 'none' } }]);
+                    const name = newGlobalProfileName.trim();
+                    setAppGlobalAuthProfiles((prev) => [...prev, { id, name, auth: { type: 'none' } }]);
                     setNewGlobalProfileName('');
                     setEditingGlobalAuth(id);
+                    void logAuthProfileCreated(name, id);
                   }
                 }}
               />
@@ -93,9 +91,11 @@ export default function SettingsModal({
                 onClick={() => {
                   if (!newGlobalProfileName.trim()) return;
                   const id = uuidv4();
-                  setAppGlobalAuthProfiles((prev) => [...prev, { id, name: newGlobalProfileName.trim(), auth: { type: 'none' } }]);
+                  const name = newGlobalProfileName.trim();
+                  setAppGlobalAuthProfiles((prev) => [...prev, { id, name, auth: { type: 'none' } }]);
                   setNewGlobalProfileName('');
                   setEditingGlobalAuth(id);
+                  void logAuthProfileCreated(name, id);
                 }}
                 disabled={!newGlobalProfileName.trim()}
               >
@@ -116,6 +116,13 @@ export default function SettingsModal({
                       value={profile.name}
                       onChange={(e) => {
                         setAppGlobalAuthProfiles((prev) => prev.map((authProfile) => authProfile.id === profile.id ? { ...authProfile, name: e.target.value } : authProfile));
+                      }}
+                      onBlur={(e) => {
+                        const newName = e.target.value.trim();
+                        const oldProfile = appGlobalAuthProfiles.find((p) => p.id === profile.id);
+                        if (oldProfile && oldProfile.name !== newName && newName) {
+                          void logAuthProfileRenamed(profile.id, oldProfile.name, newName);
+                        }
                       }}
                     />
                     <span className={`auth-badge ${profileAuth.type === 'none' ? 'auth-badge-none' : `auth-badge-type-${profileAuth.type}`}`}>
@@ -139,6 +146,7 @@ export default function SettingsModal({
                         confirm(`Delete global auth profile "${profile.name}"?`, () => {
                           setAppGlobalAuthProfiles((prev) => prev.filter((authProfile) => authProfile.id !== profile.id));
                           if (editingGlobalAuth === profile.id) setEditingGlobalAuth(null);
+                          void logAuthProfileDeleted(profile.name, profile.id);
                         });
                       }}
                     >
@@ -152,7 +160,14 @@ export default function SettingsModal({
                         <label>Type</label>
                         <select
                           value={profileAuth.type}
-                          onChange={(e) => setAppGlobalAuthProfiles((prev) => prev.map((authProfile) => authProfile.id === profile.id ? { ...authProfile, auth: { ...profileAuth, type: e.target.value as AuthType } } : authProfile))}
+                          onChange={(e) => {
+                            const newType = e.target.value as AuthType;
+                            const oldType = profileAuth.type;
+                            setAppGlobalAuthProfiles((prev) => prev.map((authProfile) => authProfile.id === profile.id ? { ...authProfile, auth: { ...profileAuth, type: newType } } : authProfile));
+                            if (oldType !== newType) {
+                              void logAuthProfileUpdated(profile.name, profile.id, [{ field: 'type', oldValue: oldType, newValue: newType }]);
+                            }
+                          }}
                         >
                           <option value="none">No Auth</option>
                           <option value="basic">Basic Auth</option>
@@ -291,7 +306,12 @@ export default function SettingsModal({
             onImport={onImport}
           />
         )}
+
+        {settingsTab === 'auditLog' && (
+          <AuditLogPanel />
+        )}
       </div>
-    </WorkflowEditorModalFrame>
+      </div>
+    </div>
   );
 }

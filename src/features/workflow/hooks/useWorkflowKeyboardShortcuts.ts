@@ -55,7 +55,8 @@ export function useWorkflowKeyboardShortcuts({
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+        || !!target.closest?.('.monaco-editor');
 
       if (e.key === '?' && !mod && !isInput) {
         e.preventDefault();

@@ -1,16 +1,19 @@
-/* Settings modal */
-.settings-modal.wf-config-modal.modal.ram-modal {
-  max-width: none;
-  width: 100%;
+/* Settings page (inline tab, not a modal) */
+.settings-page {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  max-height: 100%;
-  border-radius: 0;
+  overflow: hidden;
 }
-/* chrome hidden via .modal-no-chrome */
-.settings-modal-split .settings-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
+.settings-page-header {
   flex-shrink: 0;
+  padding: 18px 28px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-page-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 .settings-split {
   display: flex;
@@ -681,4 +684,75 @@
   font-size: 13px;
   margin-top: 4px;
 }
+
+/* ── Audit Log Panel ── */
+
+.audit-log-panel { overflow-y: auto; }
+.audit-log-toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;
+}
+.audit-log-search {
+  flex: 1; min-width: 160px; padding: 5px 10px;
+  border: 1px solid var(--border, #444); border-radius: 6px;
+  background: var(--bg-input, #181825); color: var(--text, #cdd6f4);
+  font-size: 0.82rem;
+}
+.audit-log-filter {
+  padding: 5px 8px; border: 1px solid var(--border, #444); border-radius: 6px;
+  background: var(--bg-input, #181825); color: var(--text, #cdd6f4);
+  font-size: 0.82rem; cursor: pointer;
+}
+.audit-log-actions {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
+}
+.audit-log-confirm-text { font-size: 0.82rem; color: var(--danger, #f44336); }
+.audit-log-timeline {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 480px; overflow-y: auto; padding-right: 4px;
+}
+.audit-log-entry {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 10px; border-radius: 6px;
+  background: var(--bg-surface-alt, rgba(255,255,255,0.02));
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.audit-log-entry:hover { border-color: var(--border, #333); }
+.audit-log-action-icon {
+  font-size: 1rem; font-weight: 700; line-height: 1.4;
+  width: 18px; text-align: center; flex-shrink: 0;
+}
+.audit-log-entry-body { flex: 1; min-width: 0; }
+.audit-log-entry-header {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  font-size: 0.82rem; line-height: 1.4;
+}
+.audit-log-entity-type {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--text-muted, #888); font-weight: 600;
+}
+.audit-log-entity-name { color: var(--text, #cdd6f4); }
+.audit-log-action-badge {
+  font-size: 0.7rem; padding: 1px 6px; border-radius: 4px;
+  font-weight: 600; text-transform: uppercase;
+}
+.audit-log-action-created { background: rgba(76,175,80,0.15); color: #4caf50; }
+.audit-log-action-updated { background: rgba(33,150,243,0.15); color: #2196f3; }
+.audit-log-action-deleted { background: rgba(244,67,54,0.15); color: #f44336; }
+.audit-log-action-renamed { background: rgba(255,152,0,0.15); color: #ff9800; }
+.audit-log-timestamp {
+  margin-left: auto; font-size: 0.72rem; color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+.audit-log-changes {
+  margin-top: 4px; display: flex; flex-direction: column; gap: 2px;
+}
+.audit-log-change {
+  display: flex; gap: 4px; align-items: baseline;
+  font-size: 0.78rem; color: var(--text-muted, #888);
+}
+.audit-log-change-field { font-weight: 600; color: var(--text-dim, #aaa); }
+.audit-log-change-old { color: var(--danger, #f44336); text-decoration: line-through; }
+.audit-log-change-arrow { color: var(--text-muted, #666); }
+.audit-log-change-new { color: var(--color-success, #4caf50); }
 

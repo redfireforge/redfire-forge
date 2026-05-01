@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Environment, Microservice, GlobalAuthProfile } from '../../shared/types';
+import {
+  logEnvironmentCreated, logEnvironmentDeleted,
+  logMicroserviceCreated, logMicroserviceDeleted, logMicroserviceUpdated,
+} from '../audit/utils/auditLog';
+import type { AuditChange } from '../audit/utils/auditLog';
 
 export interface EnvironmentManagerProps {
   environments: Environment[];
@@ -27,6 +32,63 @@ export default function EnvironmentManager({
   const [draggingEnvIdx, setDraggingEnvIdx] = useState<number | null>(null);
   const [draggingSvcIdx, setDraggingSvcIdx] = useState<number | null>(null);
 
+  // ── Audit-wrapped CRUD helpers ──
+
+  const addEnv = useCallback((name: string) => {
+    const id = uuidv4();
+    setEnvironments((prev) => [...prev, { id, name }]);
+    void logEnvironmentCreated(name, id);
+  }, [setEnvironments]);
+
+  const deleteEnv = useCallback((env: Environment) => {
+    setEnvironments((prev) => prev.filter((e) => e.id !== env.id));
+    setMicroservices((prev) => prev.map((s) => {
+      const next = { ...s.baseUrls };
+      delete next[env.id];
+      return { ...s, baseUrls: next };
+    }));
+    void logEnvironmentDeleted(env.name, env.id);
+  }, [setEnvironments, setMicroservices]);
+
+  const addSvc = useCallback((name: string) => {
+    const id = uuidv4();
+    setMicroservices((prev) => [...prev, { id, name, baseUrls: {} }]);
+    void logMicroserviceCreated(name, id);
+  }, [setMicroservices]);
+
+  const deleteSvc = useCallback((svc: Microservice) => {
+    setMicroservices((prev) => prev.filter((s) => s.id !== svc.id));
+    void logMicroserviceDeleted(svc.name, svc.id);
+  }, [setMicroservices]);
+
+  const saveBaseUrl = useCallback((svc: Microservice, envId: string, url: string) => {
+    const oldUrl = svc.baseUrls[envId] ?? '';
+    setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [envId]: url } } : s));
+    setEditingUrl(null);
+    if (oldUrl !== url) {
+      const envName = environments.find((e) => e.id === envId)?.name ?? svc.customEnvs?.find((e) => e.id === envId)?.name ?? envId;
+      const changes: AuditChange[] = [{ field: `baseUrl[${envName}]`, oldValue: oldUrl, newValue: url }];
+      void logMicroserviceUpdated(svc.name, svc.id, changes);
+    }
+  }, [setMicroservices, environments]);
+
+  const setAuthProfile = useCallback((svc: Microservice, envId: string, profileId: string | undefined) => {
+    const oldProfileId = svc.authProfileIds?.[envId] ?? '';
+    setMicroservices((prev) => prev.map((s) => {
+      if (s.id !== svc.id) return s;
+      const next = { ...(s.authProfileIds ?? {}) };
+      if (profileId) next[envId] = profileId; else delete next[envId];
+      return { ...s, authProfileIds: next };
+    }));
+    if (oldProfileId !== (profileId ?? '')) {
+      const envName = environments.find((e) => e.id === envId)?.name ?? svc.customEnvs?.find((e) => e.id === envId)?.name ?? envId;
+      const oldName = (appGlobalAuthProfiles.find((p) => p.id === oldProfileId)?.name ?? oldProfileId) || '(none)';
+      const newName = (appGlobalAuthProfiles.find((p) => p.id === profileId)?.name ?? profileId) || '(none)';
+      const changes: AuditChange[] = [{ field: `authProfile[${envName}]`, oldValue: oldName, newValue: newName }];
+      void logMicroserviceUpdated(svc.name, svc.id, changes);
+    }
+  }, [setMicroservices, environments, appGlobalAuthProfiles]);
+
   return (
     <div className="env-manager">
       <div className="env-manager-header">
@@ -44,14 +106,14 @@ export default function EnvironmentManager({
               onChange={(e) => setNewEnvName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newEnvName.trim()) {
-                  setEnvironments((prev) => [...prev, { id: uuidv4(), name: newEnvName.trim() }]);
+                  addEnv(newEnvName.trim());
                   setNewEnvName('');
                 }
               }}
             />
             <button type="button" className="btn btn-primary btn-xs" onClick={() => {
               if (!newEnvName.trim()) return;
-              setEnvironments((prev) => [...prev, { id: uuidv4(), name: newEnvName.trim() }]);
+              addEnv(newEnvName.trim());
               setNewEnvName('');
             }} disabled={!newEnvName.trim()}>Add</button>
           </div>
@@ -80,12 +142,7 @@ export default function EnvironmentManager({
                 <span>{env.name}</span>
                 <button type="button" className="settings-chip-delete" onClick={() => {
                   confirm(`Delete environment "${env.name}"?`, () => {
-                    setEnvironments((prev) => prev.filter((e) => e.id !== env.id));
-                    setMicroservices((prev) => prev.map((s) => {
-                      const next = { ...s.baseUrls };
-                      delete next[env.id];
-                      return { ...s, baseUrls: next };
-                    }));
+                    deleteEnv(env);
                   });
                 }} title="Delete">×</button>
               </div>
@@ -103,14 +160,14 @@ export default function EnvironmentManager({
               onChange={(e) => setNewSvcName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newSvcName.trim()) {
-                  setMicroservices((prev) => [...prev, { id: uuidv4(), name: newSvcName.trim(), baseUrls: {} }]);
+                  addSvc(newSvcName.trim());
                   setNewSvcName('');
                 }
               }}
             />
             <button type="button" className="btn btn-primary btn-xs" onClick={() => {
               if (!newSvcName.trim()) return;
-              setMicroservices((prev) => [...prev, { id: uuidv4(), name: newSvcName.trim(), baseUrls: {} }]);
+              addSvc(newSvcName.trim());
               setNewSvcName('');
             }} disabled={!newSvcName.trim()}>Add</button>
           </div>
@@ -145,7 +202,7 @@ export default function EnvironmentManager({
                     <button type="button" className="btn btn-xs" onClick={() => setEditingBaseUrls(isSvcExpanded ? null : svc.id)}>{isSvcExpanded ? 'Collapse' : 'Configure'}</button>
                     <button type="button" className="btn btn-xs btn-danger" onClick={() => {
                       confirm(`Delete microservice "${svc.name}"?`, () => {
-                        setMicroservices((prev) => prev.filter((s) => s.id !== svc.id));
+                        deleteSvc(svc);
                       });
                     }}>Delete</button>
                   </div>
@@ -191,15 +248,13 @@ export default function EnvironmentManager({
                                             onChange={(e) => setEditingUrl({ ...editingUrl, value: e.target.value })}
                                             onKeyDown={(e) => {
                                               if (e.key === 'Enter') {
-                                                setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [env.id]: editingUrl.value } } : s));
-                                                setEditingUrl(null);
+                                                saveBaseUrl(svc, env.id, editingUrl.value);
                                               }
                                               if (e.key === 'Escape') setEditingUrl(null);
                                             }}
                                             placeholder={`https://${svc.name}.${env.name}.example.com`} />
                                           <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-                                            setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [env.id]: editingUrl.value } } : s));
-                                            setEditingUrl(null);
+                                            saveBaseUrl(svc, env.id, editingUrl.value);
                                           }}>Save</button>
                                           <button type="button" className="btn btn-xs" onClick={() => setEditingUrl(null)}>Cancel</button>
                                         </div>
@@ -218,12 +273,7 @@ export default function EnvironmentManager({
                                         value={svc.authProfileIds?.[env.id] ?? ''}
                                         onChange={(e) => {
                                           const profileId = e.target.value || undefined;
-                                          setMicroservices((prev) => prev.map((s) => {
-                                            if (s.id !== svc.id) return s;
-                                            const next = { ...(s.authProfileIds ?? {}) };
-                                            if (profileId) next[env.id] = profileId; else delete next[env.id];
-                                            return { ...s, authProfileIds: next };
-                                          }));
+                                          setAuthProfile(svc, env.id, profileId);
                                         }}
                                       >
                                         <option value="">No Auth</option>
@@ -268,15 +318,13 @@ export default function EnvironmentManager({
                                             onChange={(e) => setEditingUrl({ ...editingUrl, value: e.target.value })}
                                             onKeyDown={(e) => {
                                               if (e.key === 'Enter') {
-                                                setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [cEnv.id]: editingUrl.value } } : s));
-                                                setEditingUrl(null);
+                                                saveBaseUrl(svc, cEnv.id, editingUrl.value);
                                               }
                                               if (e.key === 'Escape') setEditingUrl(null);
                                             }}
                                             placeholder={`https://${svc.name}.${cEnv.name}.example.com`} />
                                           <button type="button" className="btn btn-primary btn-xs" onClick={() => {
-                                            setMicroservices((prev) => prev.map((s) => s.id === svc.id ? { ...s, baseUrls: { ...s.baseUrls, [cEnv.id]: editingUrl.value } } : s));
-                                            setEditingUrl(null);
+                                            saveBaseUrl(svc, cEnv.id, editingUrl.value);
                                           }}>Save</button>
                                           <button type="button" className="btn btn-xs" onClick={() => setEditingUrl(null)}>Cancel</button>
                                         </div>
@@ -296,12 +344,7 @@ export default function EnvironmentManager({
                                           value={svc.authProfileIds?.[cEnv.id] ?? ''}
                                           onChange={(e) => {
                                             const profileId = e.target.value || undefined;
-                                            setMicroservices((prev) => prev.map((s) => {
-                                              if (s.id !== svc.id) return s;
-                                              const next = { ...(s.authProfileIds ?? {}) };
-                                              if (profileId) next[cEnv.id] = profileId; else delete next[cEnv.id];
-                                              return { ...s, authProfileIds: next };
-                                            }));
+                                            setAuthProfile(svc, cEnv.id, profileId);
                                           }}
                                         >
                                           <option value="">No Auth</option>

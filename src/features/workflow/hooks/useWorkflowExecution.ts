@@ -21,6 +21,7 @@ import type { RunProgress } from '../components/canvas/WorkflowToolbar';
 import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
 import type { WorkflowRunHistoryEntry } from './useWorkflowRunCache';
 import type { CachedWorkflowRun } from './useWorkflowRunCache';
+import type { ToastApi } from '../components/WorkflowToastProvider';
 
 interface UseWorkflowExecutionOptions {
   selected: Workflow | null;
@@ -55,6 +56,7 @@ interface UseWorkflowExecutionOptions {
   clearConsole: () => void;
   pushConsoleLine: (line: ConsoleLine) => void;
   sampleWorkflowCatalog: { id: string; companionFactories?: (() => Workflow)[] }[];
+  toast: ToastApi;
 }
 
 export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
@@ -72,7 +74,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     setLastRunError,
     setRunVariableSnapshot,
     pushRunHistory, clearConsole, pushConsoleLine,
-    sampleWorkflowCatalog,
+    sampleWorkflowCatalog, toast,
   } = opts;
 
   const [isRunning, setIsRunning] = useState(false);
@@ -133,8 +135,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       if (!readiness.ready) {
         const names = readiness.issues.map((i) => i.serviceName).join(', ');
         const envLabel = environments.find((e) => e.id === selectedEnvId)?.name ?? selectedEnvId;
-        alert(`Cannot run on "${envLabel}" — missing configuration for: ${names}.\n\nOpen Service Registry to configure these services for this environment.`);
-        return;
+        toast.show('warning', `Some services not configured for "${envLabel}"`, `Missing: ${names}`, 5000);
       }
     }
 

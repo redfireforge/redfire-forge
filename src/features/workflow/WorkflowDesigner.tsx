@@ -17,18 +17,18 @@ import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } 
 import type { CatalogEntry } from '../catalog/types/catalog';
 import type {
   WorkflowNode,
-  HttpNodeData,
   SubWorkflowNodeData,
   WorkflowHostProfile,
   WorkflowAuthProfile,
   WorkflowService,
   WorkflowErrorConfig,
+  WorkflowVersion,
   Workflow,
 } from './types/workflow';
 import {
   isHttpWorkflowNode,
 } from './utils/workflowVariableHints';
-import { resolveHttpNodeBaseUrl, resolveServiceAuth } from './utils/workflowHostResolve';
+import { resolveHttpNodeBaseUrl } from './utils/workflowHostResolve';
 import type { WorkflowHook } from './hooks/useWorkflows';
 import { getAutoLayoutNodes } from './utils/workflowAutoLayout';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './components/panels/WorkflowNodeRunContext';
@@ -44,6 +44,7 @@ import { useWorkflowNodeActions } from './hooks/useWorkflowNodeActions';
 import { useWorkflowEdgeOps } from './hooks/useWorkflowEdgeOps';
 import { useWorkflowCanvasSync, useWorkflowVariableHints } from './hooks/useWorkflowCanvasSync';
 import { useWorkflowPersistence } from './hooks/useWorkflowPersistence';
+import { useWorkflowResolvers } from './hooks/useWorkflowResolvers';
 import { useWorkflowExtractionSample } from './hooks/useWorkflowExtractionSample';
 
 import WorkflowToolbar from './components/canvas/WorkflowToolbar';
@@ -58,13 +59,15 @@ import WorkflowDetailModal from './components/modals/WorkflowDetailModal';
 import WorkflowNodeContextMenu from './components/canvas/WorkflowNodeContextMenu';
 import WorkflowServiceRegistryModal from './components/modals/WorkflowServiceRegistryModal';
 import WorkflowServicesPanelInline from './components/panels/WorkflowServicesPanelInline';
+import { useWorkflowVersioning } from './hooks/useWorkflowVersioning';
+import WorkflowVersionPanel from './components/panels/WorkflowVersionPanel';
+import WorkflowVersionDiff from './components/modals/WorkflowVersionDiff';
 import WorkflowDebugBar from './components/WorkflowDebugBar';
 import WorkflowConsolePanel from './components/panels/WorkflowConsolePanel';
 import WorkflowBreadcrumb from './components/WorkflowBreadcrumb';
 import WorkflowCanvasControls from './components/canvas/WorkflowCanvasControls';
 import WorkflowShortcutsOverlay from './components/canvas/WorkflowShortcutsOverlay';
 import WorkflowCommandPalette from './components/canvas/WorkflowCommandPalette';
-import WorkflowToastProvider from './components/WorkflowToastProvider';
 import { useToast } from '../../shared/hooks/useToast';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useNodeClipboard } from './hooks/useNodeClipboard';
@@ -102,9 +105,7 @@ interface WorkflowNodeContextMenuData {
 export default function WorkflowDesignerWrapper(props: Props) {
   return (
     <ReactFlowProvider>
-      <WorkflowToastProvider>
-        <WorkflowDesignerInner {...props} />
-      </WorkflowToastProvider>
+      <WorkflowDesignerInner {...props} />
     </ReactFlowProvider>
   );
 }
@@ -183,6 +184,7 @@ function WorkflowDesignerInner({
     () => edgesRef.current,
     (n) => setNodes(n as WorkflowRFNode[]),
     (e) => setEdges(e as WorkflowRFEdge[]),
+    selected?.id,
   );
 
   // Clear undo stack on workflow switch
@@ -208,6 +210,33 @@ function WorkflowDesignerInner({
     nodeInitialVarsRef, nodesRef, selectedNodeId,
     nextNodeY, setNodes, setWorkflowVariables, workflowVariablesRef,
     update, clipboard, undoRedo, toast,
+  });
+
+  // ── Workflow version history (extracted hook) ──
+  const versioning = useWorkflowVersioning({
+    selectedId: selected?.id ?? null,
+    versions: selected?.versions ?? [],
+    update: (id, patch) => update(id, patch),
+    takeSnapshot: (label) => undoRedo.takeSnapshot(label),
+    applyToCanvas: useCallback((version: WorkflowVersion) => {
+      setNodes(version.nodes.map((n) => enrichNodeData(n as WorkflowRFNode, {})) as WorkflowRFNode[]);
+      setEdges(version.edges as WorkflowRFEdge[]);
+      setWorkflowVariables(version.variables);
+      if (version.services) setWorkflowServices(version.services);
+    }, [setNodes, setEdges, setWorkflowVariables, setWorkflowServices]),
+    persistRestore: useCallback((version: WorkflowVersion) => {
+      if (!selected) return;
+      update(selected.id, {
+        nodes: version.nodes,
+        edges: version.edges,
+        variables: version.variables,
+        services: version.services ?? selected.services,
+      });
+    }, [selected, update]),
+    showToast: toast.show,
+    isPreview: !!previewWorkflow,
+    closeServicePanel: useCallback(() => setServiceRegistryMode('closed'), []),
+    deselectNode: useCallback(() => setSelectedNodeId(null), []),
   });
 
   // Keyboard shortcuts (extracted hook)
@@ -236,23 +265,14 @@ function WorkflowDesignerInner({
     nextNodeY,
   });
 
-  // ── Resolver callbacks for execution ──
-  const resolveHttpBaseUrlForGraph = useCallback(
-    (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, microservices, workflowHostProfiles, workflowServices, selectedEnvId),
-    [microservices, workflowHostProfiles, workflowServices, selectedEnvId],
-  );
-
-  const resolveHttpAuthForGraph = useCallback(
-    (data: HttpNodeData) => {
-      // Service Registry auth (delegates to shared resolver)
-      const svcAuth = resolveServiceAuth(data, workflowServices, selectedEnvId, microservices, globalAuthProfiles);
-      if (svcAuth) return svcAuth;
-      // Legacy path
-      if (!data.authProfileId) return undefined;
-      return workflowAuthProfiles.find((p) => p.id === data.authProfileId)?.auth;
-    },
-    [workflowAuthProfiles, workflowServices, selectedEnvId, microservices, globalAuthProfiles],
-  );
+  // ── Resolver callbacks for execution (extracted hook) ──
+  const { handleEnvSelect, resolveHttpBaseUrlForGraph, resolveHttpAuthForGraph } = useWorkflowResolvers({
+    selected, previewWorkflow, selectedEnvId, resolvedBaseUrl,
+    environments, microservices, globalAuthProfiles,
+    workflowHostProfiles, workflowAuthProfiles, workflowServices,
+    selectedNode: undefined, // effectiveQuickTestBaseUrl computed after selectedNode is available
+    onEnvSelect, update,
+  });
 
   // ── Execution (Quick Test + Debug) via extracted hook ── MUST BE BEFORE useWorkflowCanvasSync
   const {
@@ -276,7 +296,7 @@ function WorkflowDesignerInner({
     lastRunError, setLastRunError,
     setRunVariableSnapshot,
     pushRunHistory, clearConsole, pushConsoleLine,
-    sampleWorkflowCatalog,
+    sampleWorkflowCatalog, toast,
   });
   handleQuickTestRef.current = handleQuickTest;
   handleDebugQuickTestRef.current = handleDebugQuickTest;
@@ -351,7 +371,9 @@ function WorkflowDesignerInner({
     onClearPreview();
     setNavStack([]);
     select(id);
-  }, [select, onClearPreview, setNavStack]);  const inspectActions = useMemo(
+  }, [select, onClearPreview, setNavStack]);
+
+  const inspectActions = useMemo(
     () => ({
       openStepDetail,
       openVariableDetail,
@@ -388,7 +410,8 @@ function WorkflowDesignerInner({
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: WorkflowRFNode) => {
     setSelectedNodeId(node.id);
     setServiceRegistryMode((m) => m === 'panel' ? 'closed' : m);
-  }, []);
+    versioning.closeVersionPanel();
+  }, [versioning]);
 
   const handlePaneClick = useCallback(() => {
     setSelectedNodeId(null);
@@ -422,6 +445,37 @@ function WorkflowDesignerInner({
     return s.size;
   }, [workflowVariables, nodes, nodeInitialVars]);
 
+  const configModalWorkflows = useMemo(() => {
+    const base = workflows.map((w) => ({ id: w.id, name: w.name }));
+    if (previewWorkflow) {
+      const entry = sampleWorkflowCatalog.find(e => e.id === previewWorkflow.id);
+      if (entry?.companionFactories) {
+        for (const cf of entry.companionFactories) {
+          const companion = cf();
+          if (!base.some(b => b.id === companion.id)) {
+            base.push({ id: companion.id, name: companion.name });
+          }
+        }
+      }
+    }
+    return base;
+  }, [workflows, previewWorkflow]);
+
+  const handleServiceRegistryApply = useCallback((svcs: WorkflowService[]) => {
+    setWorkflowServices(svcs);
+    const svcMap = new Map(svcs.map((s) => [s.id, s.name]));
+    const syncedNodes = nodes.map((n) => {
+      if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
+      const newName = svcMap.get(n.data.serviceId);
+      if (newName && n.data.label !== newName) {
+        return { ...n, data: { ...n.data, label: newName } };
+      }
+      return n;
+    });
+    setNodes(syncedNodes);
+    persistWorkflow({ services: svcs, rfNodes: syncedNodes });
+  }, [nodes, setNodes, setWorkflowServices, persistWorkflow]);
+
   // ── Render ───────────────────────────────────────────
 
   if (!selected) {
@@ -445,9 +499,10 @@ function WorkflowDesignerInner({
         workflows={workflows} selected={selected} isRunning={isRunning} saveAcknowledged={saveAcknowledged}
         serviceCount={workflowServices.length}
         variableCount={variableCount}
+        versionCount={versioning.versionCount}
         environments={environments}
         selectedEnvId={selectedEnvId}
-        onEnvSelect={onEnvSelect}
+        onEnvSelect={handleEnvSelect}
         workflowServices={workflowServices}
         isPreview={!!previewWorkflow}
         onNew={handleNew} onSelect={handleSelect} onSave={handleSave}
@@ -456,9 +511,11 @@ function WorkflowDesignerInner({
         isDebugMode={isDebugMode}
         onOpenServices={() => {
           setServiceRegistryMode((m) => m === 'closed' ? 'panel' : 'closed');
+          versioning.closeVersionPanel();
           setSelectedNodeId(null);
         }}
         onOpenDefaults={() => setShowDefaultsModal(true)}
+        onOpenVersions={versioning.openVersionPanel}
         runProgress={runProgress}
         onReset={handleResetRunStatus}
       />
@@ -685,6 +742,25 @@ function WorkflowDesignerInner({
             </div>
           </>
         )}
+
+        {versioning.versionPanelOpen && (
+          <>
+            <div
+              className="wf-resize-handle"
+              onMouseDown={(e) => startDrag('right', e)}
+            />
+            <div style={{ width: 320, flexShrink: 0 }}>
+              <WorkflowVersionPanel
+                versions={selected?.versions ?? []}
+                onRestore={versioning.handleVersionRestore}
+                onDelete={versioning.handleVersionDelete}
+                onRename={versioning.handleVersionRename}
+                onCompare={versioning.handleVersionCompare}
+                onClose={versioning.closeVersionPanel}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <WorkflowDetailModal
@@ -748,21 +824,7 @@ function WorkflowDesignerInner({
           httpVariableHints={httpVariableHints}
           workflowServices={workflowServices}
           nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
-          workflows={(() => {
-            const base = workflows.map((w) => ({ id: w.id, name: w.name }));
-            if (previewWorkflow) {
-              const entry = sampleWorkflowCatalog.find(e => e.id === previewWorkflow.id);
-              if (entry?.companionFactories) {
-                for (const cf of entry.companionFactories) {
-                  const companion = cf();
-                  if (!base.some(b => b.id === companion.id)) {
-                    base.push({ id: companion.id, name: companion.name });
-                  }
-                }
-              }
-            }
-            return base;
-          })()}
+          workflows={configModalWorkflows}
         />
       )}
 
@@ -787,22 +849,7 @@ function WorkflowDesignerInner({
         globalAuthProfiles={globalAuthProfiles}
         selectedEnvId={selectedEnvId}
         workflowName={selected?.name}
-        onApply={(svcs) => {
-          setWorkflowServices(svcs);
-          // Sync node labels to updated service names
-          const svcMap = new Map(svcs.map((s) => [s.id, s.name]));
-          const syncedNodes = nodes.map((n) => {
-            if (!isHttpWorkflowNode(n) || !n.data.serviceId) return n;
-            const newName = svcMap.get(n.data.serviceId);
-            if (newName && n.data.label !== newName) {
-              return { ...n, data: { ...n.data, label: newName } };
-            }
-            return n;
-          });
-          setNodes(syncedNodes);
-          // Persist immediately so service changes survive a refresh
-          persistWorkflow({ services: svcs, rfNodes: syncedNodes });
-        }}
+        onApply={handleServiceRegistryApply}
         onClose={() => setServiceRegistryMode('closed')}
       />
 
@@ -841,6 +888,15 @@ function WorkflowDesignerInner({
         open={showShortcuts}
         onClose={() => setShowShortcuts(false)}
       />
+
+      {versioning.versionDiffState && (
+        <WorkflowVersionDiff
+          open
+          older={versioning.versionDiffState.older}
+          newer={versioning.versionDiffState.newer}
+          onClose={versioning.closeVersionDiff}
+        />
+      )}
 
       <WorkflowCommandPalette
         open={showCommandPalette}

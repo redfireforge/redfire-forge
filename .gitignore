@@ -33,3 +33,4 @@ coverage/
 
 # Playwright test results
 test-results/
+test-script-paste.cjs

@@ -70,6 +70,35 @@ describe('checkEnvReadiness', () => {
     expect(result.ready).toBe(true);
     expect(result.issues).toEqual([]);
   });
+
+  it('returns ready when service uses __all__ pseudo-env (same URL for all)', () => {
+    const svc = makeService('s1', 'Svc', [
+      { envId: '__all__', url: 'https://api.example.com', enabled: true, authMode: 'inherit', source: 'manual' },
+    ]);
+    const result = checkEnvReadiness('t01', [svc]);
+    expect(result.ready).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('prefers exact env match over __all__ fallback', () => {
+    const svc = makeService('s1', 'Svc', [
+      { envId: '__all__', url: 'https://fallback.com', enabled: true, authMode: 'inherit', source: 'manual' },
+      { envId: 't01', url: '', enabled: true, authMode: 'inherit', source: 'manual' },
+    ]);
+    // Exact match found but URL is empty → should report missing (not fall back to __all__)
+    const result = checkEnvReadiness('t01', [svc]);
+    expect(result.ready).toBe(false);
+  });
+
+  it('falls back to __all__ when no exact env endpoint exists', () => {
+    const svc = makeService('s1', 'Svc', [
+      { envId: '__all__', url: 'https://api.com', enabled: true, authMode: 'inherit', source: 'manual' },
+      { envId: 'p01', url: 'https://prod.com', enabled: true, authMode: 'inherit', source: 'manual' },
+    ]);
+    // t01 not in endpoints, but __all__ is → should be ready
+    const result = checkEnvReadiness('t01', [svc]);
+    expect(result.ready).toBe(true);
+  });
 });
 
 describe('checkAllEnvReadiness', () => {

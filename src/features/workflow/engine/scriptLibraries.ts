@@ -15,6 +15,22 @@ export interface ScriptLibrary {
   createdAt: string;
   /** When the library was last updated */
   updatedAt: string;
+  /** Version history snapshots */
+  versions?: ScriptLibraryVersion[];
+}
+
+export interface ScriptLibrarySnapshot {
+  name: string;
+  description: string;
+  code: string;
+}
+
+export interface ScriptLibraryVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  changeSummary?: string;
+  snapshot: ScriptLibrarySnapshot;
 }
 
 const STORAGE_KEY = 'workflow:scriptLibraries';
