@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Auth Patterns — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔐</div>
+    <h1>Workflow Auth Patterns</h1>
+    <div class="subtitle">Advanced — Auth Strategies Training Manual</div>
+    <p>Per-node auth overrides, Service Registry auth resolution, Auth Profiles, and the complete auth resolution order for workflow HTTP nodes.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 3 — Workflow Auth Patterns<br />
+      Scenario: <em>Multi-Service Workflow with Per-Node Auth Overrides</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Auth in Workflows vs. Tests</h2>
+  <p>In standalone tests, auth is configured directly on the Scenario (or inherited from Feature Group → Global Profile). In workflows, auth resolution is more complex because each HTTP node can target a different service with different credentials.</p>
+
+  <table>
+    <tr><th>Context</th><th>Auth Source</th><th>Scope</th></tr>
+    <tr><td>Standalone Test</td><td>Scenario → Feature Group → Global Profile → Environment</td><td>Single request</td></tr>
+    <tr><td>Workflow HTTP Node</td><td>Service endpoint → Service default → Auth Profile → Node scenario</td><td>Per-node</td></tr>
+  </table>
+
+  <div class="flow-diagram">
+    <strong>Workflow Auth Resolution Order</strong><br /><br />
+    1. Service endpoint (per-env custom auth)<br />
+    <span class="arrow">↓</span> fallback<br />
+    2. Service endpoint (inherit from microservice authProfileIds)<br />
+    <span class="arrow">↓</span> fallback<br />
+    3. Service defaultAuth<br />
+    <span class="arrow">↓</span> fallback<br />
+    4. Service legacy auth / authPerEnv<br />
+    <span class="arrow">↓</span> fallback<br />
+    5. Workflow Auth Profile (authProfileId on node)<br />
+    <span class="arrow">↓</span> fallback<br />
+    6. Node scenario auth (inline on the HTTP node)
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Service Registry Auth</h2>
+  <p>When an HTTP node is bound to a Service Registry entry (<code>serviceId</code>), auth is resolved from the service's endpoint matrix.</p>
+
+  <h3>resolveServiceAuth()</h3>
+<pre>export function resolveServiceAuth(
+  data: HttpNodeData,
+  services?: WorkflowService[],
+  selectedEnvId?: string,
+  microservices?: Microservice[],
+  globalAuthProfiles?: GlobalAuthProfile[],
+) {
+  // 1. Find the service
+  const svc = services.find(s => s.id === data.serviceId);
+
+  // 2. Check endpoint matrix for selected env
+  const ep = svc.endpoints.find(e =>
+    e.envId === selectedEnvId && e.enabled
+  ) ?? svc.endpoints.find(e =>
+    e.envId === '__all__' && e.enabled
+  );
+
+  // 3. Custom auth on endpoint row
+  if (ep?.authMode === 'custom' && ep.auth) return ep.auth;
+
+  // 4. Inherit from microservice authProfileIds
+  const envAuth = resolveEnvAuth(svc, selectedEnvId,
+    microservices, globalAuthProfiles);
+  if (envAuth) return envAuth;
+
+  // 5. Service defaultAuth
+  if (svc.defaultAuth) return svc.defaultAuth;
+
+  // 6. Legacy per-env auth
+  if (svc.authPerEnv?.[selectedEnvId]) return svc.authPerEnv[selectedEnvId];
+
+  // 7. Legacy service auth
+  return svc.auth;
+}</pre>
+
+  <h3>Endpoint Auth Modes</h3>
+  <table>
+    <tr><th>authMode</th><th>Behavior</th><th>Use Case</th></tr>
+    <tr>
+      <td><code>inherit</code></td>
+      <td>Uses service <code>defaultAuth</code>, or linked microservice's auth profile</td>
+      <td>Most endpoints — same auth across envs</td>
+    </tr>
+    <tr>
+      <td><code>custom</code></td>
+      <td>Uses endpoint-specific <code>auth</code> config</td>
+      <td>Different tokens per environment</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Per-Environment Tokens</strong>
+    Use <code>authMode: 'custom'</code> on each endpoint row to configure different API keys or tokens per environment. The test environment might use a sandbox key while production uses a live key.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. ServiceEndpoint Type</h2>
+<pre>export interface ServiceEndpoint {
+  envId: string;              // environment ID, or '__adhoc__'
+  url: string;                // base URL for this env
+  enabled: boolean;           // service available in this env?
+  authMode: 'inherit' | 'custom';
+  auth?: AuthConfig;          // only when authMode === 'custom'
+  source: 'manual' | 'microservice'; // how URL was populated
+}</pre>
+
+  <h3>WorkflowService Auth Fields</h3>
+<pre>export interface WorkflowService {
+  id: string;
+  name: string;
+  endpoints: ServiceEndpoint[];
+
+  /** Fallback auth for endpoints with authMode='inherit'. */
+  defaultAuth?: AuthConfig;
+
+  /** Linked microservice — auto-populates URLs and auth. */
+  microserviceId?: string;
+
+  // Legacy fields (migration compat):
+  auth?: AuthConfig;
+  authPerEnv?: Record&lt;string, AuthConfig>;
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Microservice Auth Profile Resolution</h2>
+  <p>When a service is linked to a microservice and the endpoint uses <code>authMode: 'inherit'</code>, auth is resolved from the microservice's per-environment auth profile:</p>
+
+<pre>function resolveEnvAuth(
+  svc: WorkflowService,
+  envId: string,
+  microservices: Microservice[],
+  globalAuthProfiles: GlobalAuthProfile[],
+): AuthConfig | undefined {
+  // Find the linked microservice
+  const ms = microservices.find(m => m.id === svc.microserviceId);
+
+  // Look up the auth profile ID for this environment
+  const profileId = ms?.authProfileIds?.[envId];
+
+  // Find the global auth profile
+  const profile = globalAuthProfiles.find(g => g.id === profileId);
+
+  return profile?.auth;
+}</pre>
+
+  <div class="flow-diagram">
+    <strong>Microservice Auth Chain</strong><br /><br />
+    WorkflowService (microserviceId: "ms-1")<br />
+    <span class="arrow">→</span> Microservice (authProfileIds: { "t01": "gap-1", "p01": "gap-2" })<br />
+    <span class="arrow">→</span> GlobalAuthProfile (id: "gap-1", auth: { type: "bearer", token: "test-token" })<br />
+    <span class="arrow">→</span> AuthConfig applied to HTTP node
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Workflow Auth Profiles</h2>
+  <p>Workflow Auth Profiles are an older mechanism for sharing auth across HTTP nodes. Each workflow stores an array of <code>WorkflowAuthProfile</code> objects:</p>
+
+<pre>export interface WorkflowAuthProfile {
+  id: string;
+  name: string;
+  auth: AuthConfig;   // bearer, basic, apiKey, oauth2, etc.
+}</pre>
+
+  <h3>How Nodes Reference Auth Profiles</h3>
+  <p>HTTP nodes can reference a profile via <code>authProfileId</code>:</p>
+<pre>// In resolveHttpAuthForGraph():
+const resolveHttpAuthForGraph = (data: HttpNodeData) => {
+  // 1. Try Service Registry auth first
+  const svcAuth = resolveServiceAuth(data, workflowServices,
+    selectedEnvId, microservices, globalAuthProfiles);
+  if (svcAuth) return svcAuth;
+
+  // 2. Fall back to Workflow Auth Profile
+  if (!data.authProfileId) return undefined;
+  return workflowAuthProfiles.find(p => p.id === data.authProfileId)?.auth;
+};</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Service Auth Takes Priority</strong>
+    If an HTTP node has both a <code>serviceId</code> and an <code>authProfileId</code>, the Service Registry auth always wins. The Auth Profile is only used as a fallback when no service auth is found.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. The useWorkflowResolvers Hook</h2>
+  <p>The <code>useWorkflowResolvers</code> hook centralizes both URL and auth resolution for the workflow engine:</p>
+
+<pre>export function useWorkflowResolvers({
+  selected, previewWorkflow, selectedEnvId, resolvedBaseUrl,
+  environments, microservices, globalAuthProfiles,
+  workflowHostProfiles, workflowAuthProfiles, workflowServices,
+  selectedNode, onEnvSelect, update,
+}) {
+  // Per-workflow environment persistence
+  const handleEnvSelect = useCallback((envId) => {
+    onEnvSelect(envId);
+    if (selected && !previewWorkflow)
+      update(selected.id, { lastSelectedEnvId: envId });
+  }, [/* deps */]);
+
+  // Base URL resolution for graph runner
+  const resolveHttpBaseUrlForGraph = useCallback(
+    (data) => resolveHttpNodeBaseUrl(data, microservices,
+      workflowHostProfiles, workflowServices, selectedEnvId),
+    [/* deps */],
+  );
+
+  // Auth resolution for graph runner
+  const resolveHttpAuthForGraph = useCallback(
+    (data) => { /* service auth → auth profile fallback */ },
+    [/* deps */],
+  );
+
+  return {
+    handleEnvSelect,
+    resolveHttpBaseUrlForGraph,
+    resolveHttpAuthForGraph,
+    effectiveQuickTestBaseUrl,
+  };
+}</pre>
+
+  <p>Both <code>resolveHttpBaseUrlForGraph</code> and <code>resolveHttpAuthForGraph</code> are passed to <code>useWorkflowExecution</code>, which feeds them into the graph runner's handler context.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Per-Node Auth Override</h2>
+  <p>Every HTTP node also has inline auth on its <code>scenario</code>. This is the lowest priority — it's used only when no service auth and no auth profile is configured:</p>
+
+<pre>// HttpNodeData → scenario → auth
+export interface HttpNodeData {
+  label: string;
+  scenario: Scenario;       // contains .auth: AuthConfig
+  serviceId?: string;        // Service Registry binding
+  authProfileId?: string;    // Workflow Auth Profile
+  // ...
+}
+
+// Resolution order in the graph runner:
+// 1. resolveHttpAuthForGraph(data)   — service + profile
+// 2. data.scenario.auth              — inline fallback</pre>
+
+  <h3>Complete Resolution Summary</h3>
+  <table>
+    <tr><th>#</th><th>Source</th><th>Field</th><th>Priority</th></tr>
+    <tr><td>1</td><td>Service endpoint (custom)</td><td><code>endpoint.auth</code></td><td>Highest</td></tr>
+    <tr><td>2</td><td>Microservice auth profile</td><td><code>microservice.authProfileIds[env]</code></td><td></td></tr>
+    <tr><td>3</td><td>Service default auth</td><td><code>service.defaultAuth</code></td><td></td></tr>
+    <tr><td>4</td><td>Legacy service auth</td><td><code>service.auth / authPerEnv</code></td><td></td></tr>
+    <tr><td>5</td><td>Workflow Auth Profile</td><td><code>node.authProfileId</code></td><td></td></tr>
+    <tr><td>6</td><td>Inline scenario auth</td><td><code>node.scenario.auth</code></td><td>Lowest</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Multi-Service Workflow Example</h2>
+  <p>A workflow that calls three different services, each with different auth:</p>
+
+  <div class="flow-diagram">
+    <strong>Order Processing Workflow</strong><br /><br />
+    Start<br />
+    <span class="arrow">→</span> HTTP: Payment API (Service: "Stripe", env: prod, custom bearer token)<br />
+    <span class="arrow">→</span> HTTP: Inventory API (Service: "Warehouse", inherit from microservice profile)<br />
+    <span class="arrow">→</span> HTTP: Notification API (Auth Profile: "Internal Bearer", shared token)<br />
+    <span class="arrow">→</span> End
+  </div>
+
+  <table>
+    <tr><th>Node</th><th>Auth Source</th><th>Config</th></tr>
+    <tr>
+      <td>Payment API</td>
+      <td>Service endpoint (custom)</td>
+      <td><code>serviceId: "svc-stripe"</code>, endpoint has <code>authMode: 'custom'</code>, <code>auth: { type: 'bearer', token: 'sk_live_...' }</code></td>
+    </tr>
+    <tr>
+      <td>Inventory API</td>
+      <td>Microservice profile</td>
+      <td><code>serviceId: "svc-warehouse"</code>, endpoint has <code>authMode: 'inherit'</code>, microservice links to global auth profile</td>
+    </tr>
+    <tr>
+      <td>Notification API</td>
+      <td>Workflow Auth Profile</td>
+      <td><code>authProfileId: "ap-internal"</code>, profile has <code>auth: { type: 'bearer', token: 'internal-...' }</code></td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Environment Switching</h2>
+  <p>When you switch environments in the workflow harness bar, both URLs <em>and</em> auth are re-resolved:</p>
+
+  <ul>
+    <li><strong>URLs:</strong> <code>resolveServiceBaseUrl()</code> looks up the endpoint row for the new env.</li>
+    <li><strong>Auth:</strong> <code>resolveServiceAuth()</code> looks up the endpoint auth or microservice profile for the new env.</li>
+    <li><strong>Persistence:</strong> The selected env is saved per-workflow via <code>lastSelectedEnvId</code>.</li>
+  </ul>
+
+<pre>// Per-workflow env persistence:
+const handleEnvSelect = (envId: string) => {
+  onEnvSelect(envId);  // updates harness bar
+  if (selected && !previewWorkflow) {
+    update(selected.id, { lastSelectedEnvId: envId });
+  }
+};
+
+// On workflow switch — restore saved env:
+useEffect(() => {
+  if (selected?.lastSelectedEnvId) {
+    onEnvSelect(selected.lastSelectedEnvId);
+  }
+}, [selected?.id]);</pre>
+
+  <div class="callout">
+    <strong>📘 Quick Test URL vs. Service URL</strong>
+    The <code>effectiveQuickTestBaseUrl</code> prioritizes the selected node's service URL over the harness bar URL. This means if you select a node bound to a service, the Quick Test button targets that service's URL — not the default harness URL.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Exercises</h2>
+
+  <h3>Exercise 1: Service Registry Auth</h3>
+  <p><strong>Goal:</strong> Configure a workflow service with per-environment auth.</p>
+  <ol>
+    <li>Open the Service Registry panel in a workflow.</li>
+    <li>Create a service "Payment API" with two endpoint rows:
+      <ul>
+        <li>t01 (test): URL = <code>https://api.test.stripe.com</code>, authMode = <code>custom</code>, auth = Bearer <code>sk_test_...</code></li>
+        <li>p01 (prod): URL = <code>https://api.stripe.com</code>, authMode = <code>custom</code>, auth = Bearer <code>sk_live_...</code></li>
+      </ul>
+    </li>
+    <li>Add an HTTP node and bind it to "Payment API" (<code>serviceId</code>).</li>
+    <li>Switch environments — observe the URL and auth change together.</li>
+    <li>Run Quick Test in each environment — verify the correct token is sent.</li>
+  </ol>
+
+  <h3>Exercise 2: Workflow Auth Profile Fallback</h3>
+  <p><strong>Goal:</strong> Set up an Auth Profile and see how it falls back.</p>
+  <ol>
+    <li>Create a Workflow Auth Profile: name "Internal API", type Bearer, token "internal-tok".</li>
+    <li>Add an HTTP node with <code>authProfileId</code> pointing to this profile (no <code>serviceId</code>).</li>
+    <li>Run Quick Test — verify the Bearer token is applied from the profile.</li>
+    <li>Now bind the node to a Service with <code>defaultAuth</code> set to a different bearer token.</li>
+    <li>Run again — the Service auth wins over the Auth Profile.</li>
+  </ol>
+
+  <h3>Exercise 3: Microservice Auth Chain</h3>
+  <p><strong>Goal:</strong> Trace the full microservice → global auth profile chain.</p>
+  <ol>
+    <li>Create a Global Auth Profile: name "Warehouse Bearer", token "wh-tok".</li>
+    <li>Create a Microservice: name "Warehouse", set <code>authProfileIds.t01</code> to the profile ID.</li>
+    <li>Create a Workflow Service linked to this microservice (<code>microserviceId</code>).</li>
+    <li>Add an endpoint row: envId <code>t01</code>, authMode <code>inherit</code>.</li>
+    <li>Bind an HTTP node to this service.</li>
+    <li>Run Quick Test — verify the "Warehouse Bearer" token is applied via the chain.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 11 -->
+  <h2>11. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/utils/workflowHostResolve.ts</code></td><td><code>resolveServiceAuth()</code>, <code>resolveEnvAuth()</code>, <code>resolveHttpNodeBaseUrl()</code></td></tr>
+    <tr><td><code>src/features/workflow/hooks/useWorkflowResolvers.ts</code></td><td><code>resolveHttpAuthForGraph()</code>, <code>handleEnvSelect()</code></td></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>WorkflowAuthProfile</code>, <code>WorkflowService</code>, <code>ServiceEndpoint</code></td></tr>
+    <tr><td><code>src/features/workflow/WorkflowDesigner.tsx</code></td><td>Wiring of resolvers into execution pipeline</td></tr>
+  </table>
+
+  <h2>12. What's Next?</h2>
+  <ul>
+    <li>This is the final manual in the Auth Strategies training path.</li>
+    <li><strong>Previous:</strong> <em>Catalog Security Schemes</em> — OpenAPI security scheme mapping.</li>
+    <li><strong>Other paths:</strong> <em>Assertion Mastery</em> (advanced presets and composition) and <em>Workflow Patterns</em> (sub-workflows and debugging).</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies Phase 3 · Workflow Auth Patterns · Advanced
+  </footer>
+
+</body>
+</html>

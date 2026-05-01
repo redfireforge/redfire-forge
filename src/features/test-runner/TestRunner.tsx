@@ -237,7 +237,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
 
    
-  useMemo(() => {
+  useEffect(() => {
     const w: Record<string, number> = {};
     selectedTests.forEach((t) => (w[t.id] = weights[t.id] ?? 1));
     if (JSON.stringify(w) !== JSON.stringify(weights)) {

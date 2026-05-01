@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assertion Mastery — Training Path Overview</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✅</div>
+    <h1>Assertion Mastery</h1>
+    <div class="subtitle">Training Path Overview</div>
+    <p>Master every assertion type in RedfireForge — from simple status code checks to JSONPath numeric comparisons, regex patterns, date validations, and preset-based contract testing. Plus, understand the three validation modes that govern JSON body verification.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      10 Manuals · 3 Phases · Easy → Advanced
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1: Architecture -->
+  <h2>1. Assertion Architecture</h2>
+  <p>RedfireForge has <strong>two independent validation layers</strong> that compose together:</p>
+
+  <div class="flow-diagram">
+    <strong>HTTP Response</strong>
+    <br /><br />
+    ┌──────────────────────────┐&nbsp;&nbsp;&nbsp;┌──────────────────────────┐
+    <br />
+    │ <strong>Assertions</strong> (7 types) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│ <strong>Validation Mode</strong> (JSON)&nbsp;&nbsp;&nbsp;│
+    <br />
+    │ status, responseTime,&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│ none / full / selective&nbsp;&nbsp;│
+    <br />
+    │ header, regex, numeric,&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│ deep-compare or field&nbsp;&nbsp;&nbsp;&nbsp;│
+    <br />
+    │ arrayLength, date&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│ matching&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│
+    <br />
+    └──────────┬───────────────┘&nbsp;&nbsp;&nbsp;└──────────┬───────────────┘
+    <br /><br />
+    <span class="arrow">→</span> Merge failures <span class="arrow">→</span> <strong>Pass / Fail</strong>
+  </div>
+
+  <h3>The 7 Assertion Types</h3>
+<pre>type Assertion =
+  | { type: 'status'; expected: string }
+  | { type: 'responseTime'; maxMs: number }
+  | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
+  | { type: 'regex'; jsonPath: string; pattern: string }
+  | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference };</pre>
+
+  <table>
+    <tr><th>Type</th><th>Target</th><th>Operators</th><th>Example</th></tr>
+    <tr><td><code>status</code></td><td>HTTP status code</td><td>Pattern: exact, range, class, comma</td><td><code>200</code>, <code>2xx</code>, <code>200-299</code>, <code>200,201</code></td></tr>
+    <tr><td><code>responseTime</code></td><td>Latency (ms)</td><td>Implicit <code>&lt;=</code></td><td>max 500ms</td></tr>
+    <tr><td><code>header</code></td><td>Response header</td><td><code>equals</code>, <code>contains</code>, <code>regex</code>, <code>exists</code></td><td>Content-Type contains "json"</td></tr>
+    <tr><td><code>regex</code></td><td>Body field (JSONPath)</td><td>Regex test</td><td><code>$.email</code> matches <code>/^[^@]+@/</code></td></tr>
+    <tr><td><code>arrayLength</code></td><td>Array in body</td><td><code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code></td><td><code>$.items</code> length &gt;= 1</td></tr>
+    <tr><td><code>numeric</code></td><td>Number in body</td><td><code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code></td><td><code>$.price</code> &gt; 0</td></tr>
+    <tr><td><code>date</code></td><td>Date in body</td><td><code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code></td><td><code>$.expiry</code> &gt; today</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2: Validation Modes -->
+  <h2>2. The Three Validation Modes</h2>
+
+<pre>type ValidationMode = 'none' | 'full' | 'selective';</pre>
+
+  <table>
+    <tr><th>Mode</th><th>Behavior</th><th>When to Use</th></tr>
+    <tr><td><strong>None</strong></td><td>No JSON body validation. Assertions still run.</td><td>Status/timing checks only; response body is irrelevant</td></tr>
+    <tr><td><strong>Full</strong></td><td>Deep-compare entire response against <code>expectedJson</code></td><td>Contract testing — exact response shape must match</td></tr>
+    <tr><td><strong>Selective</strong></td><td>Validate only specific fields via <code>expectedFields[]</code></td><td>Check key fields without caring about the rest</td></tr>
+  </table>
+
+  <h3>Selective Mode Options</h3>
+  <ul>
+    <li><code>selectiveMode: 'include' | 'exclude'</code> — Include only listed paths, or exclude them</li>
+    <li><code>unorderedArrays: boolean</code> — Allow array items in any order</li>
+    <li><code>excludedPaths: string[]</code> — Paths to skip during comparison</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Assertions + Validation = Complete Coverage</strong>
+    Use <strong>assertions</strong> for targeted checks (status, timing, specific values). Use <strong>validation modes</strong> for structural verification (entire JSON shape). They run independently and their failures merge — so you can use both simultaneously.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3: Evaluation Pipeline -->
+  <h2>3. The Evaluation Pipeline</h2>
+  <p>All assertions are evaluated by <code>evaluateAssertions()</code> in <code>validator.ts</code>, called from <code>buildValidationResult()</code>:</p>
+
+<pre>function evaluateAssertions(
+  assertions: Assertion[],
+  ctx: AssertionContext,
+): { failures: FailureDetail[]; statusAsserted: boolean }
+
+interface AssertionContext {
+  httpStatus: number;
+  responseTimeMs: number;
+  responseHeaders: Record&lt;string, string&gt;;
+  responseBody: unknown;
+}</pre>
+
+  <h3>Key Helper Functions</h3>
+  <table>
+    <tr><th>Function</th><th>Purpose</th></tr>
+    <tr><td><code>matchesStatusPattern()</code></td><td>Exact, range, class, or comma-separated status matching</td></tr>
+    <tr><td><code>compare(a, op, b)</code></td><td>Numeric comparison: <code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code></td></tr>
+    <tr><td><code>getByPath(obj, path)</code></td><td>JSONPath resolution from response body</td></tr>
+    <tr><td><code>evaluateHeaderOp()</code></td><td>Header check: equals, contains, regex, exists</td></tr>
+    <tr><td><code>resolveDate(ref)</code></td><td>Convert DateReference to YYYY-MM-DD string</td></tr>
+    <tr><td><code>toDayString(val)</code></td><td>Extract YYYY-MM-DD from various date formats</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4: Phases -->
+  <h2>4. Training Phases</h2>
+
+  <h3>Phase 1 — Assertion Basics <span class="badge badge-easy">Easy</span></h3>
+  <p>Learn the most common assertions and understand validation modes.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>1</td><td>Status Code Assertions</td><td>Exact, range, class, comma patterns; matchesStatusPattern(); statusAsserted flag</td></tr>
+    <tr><td>2</td><td>Response Time Assertions</td><td>maxMs threshold, latency measurement, performance baselines</td></tr>
+    <tr><td>3</td><td>Validation Modes</td><td>None vs full vs selective; expectedJson; expectedFields; excludedPaths; unorderedArrays</td></tr>
+  </table>
+
+  <h3>Phase 2 — Intermediate Assertions <span class="badge badge-medium">Medium</span></h3>
+  <p>JSONPath-based assertions for headers, numbers, arrays, and regex patterns.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>4</td><td>Header Checks</td><td>Header assertion with 4 operators, case-insensitive lookup</td></tr>
+    <tr><td>5</td><td>JSONPath &amp; Regex</td><td>getByPath(), regex assertion, 18 built-in patterns, live match preview</td></tr>
+    <tr><td>6</td><td>Numeric &amp; Array Length</td><td>ComparisonOperator, numeric/arrayLength assertions, combine for data quality</td></tr>
+    <tr><td>7</td><td>Date Comparison</td><td>DateReference (today/fixed), toDayString(), timezone handling</td></tr>
+  </table>
+
+  <h3>Phase 3 — Advanced Assertions <span class="badge badge-advanced">Advanced</span></h3>
+  <p>Presets, composition patterns, and advanced JSONPath techniques.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>8</td><td>Assertion Presets</td><td>5 built-in presets, factory functions, category filters, import workflow</td></tr>
+    <tr><td>9</td><td>Assertion Composition</td><td>Multi-assertion strategies, combining types for contract testing</td></tr>
+    <tr><td>10</td><td>Advanced JSONPath</td><td>Nested paths, array indexing, wildcard, filter expressions</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5: Presets -->
+  <h2>5. Assertion Presets</h2>
+  <p>RedfireForge includes 5 built-in presets — pre-configured assertion sets you can import with one click:</p>
+
+  <table>
+    <tr><th>Preset</th><th>Category</th><th>Assertions</th><th>Difficulty</th></tr>
+    <tr><td>API Health Check</td><td>api-validation</td><td>status + arrayLength</td><td><span class="badge badge-easy">Easy</span></td></tr>
+    <tr><td>Paginated List</td><td>api-validation</td><td>arrayLength + numeric (×3)</td><td><span class="badge badge-easy">Easy</span></td></tr>
+    <tr><td>Token Expiry Guard</td><td>security</td><td>regex + date + numeric</td><td><span class="badge badge-medium">Medium</span></td></tr>
+    <tr><td>E-commerce Price Guard</td><td>data-quality</td><td>numeric + arrayLength</td><td><span class="badge badge-medium">Medium</span></td></tr>
+    <tr><td>Full API Contract</td><td>api-validation</td><td>status + numeric + regex (×5)</td><td><span class="badge badge-advanced">Advanced</span></td></tr>
+  </table>
+
+  <!-- Section 6: Gallery Samples -->
+  <h2>6. Gallery Samples Used</h2>
+  <table>
+    <tr><th>Sample ID</th><th>Name</th><th>Assertion Types</th><th>Difficulty</th></tr>
+    <tr><td><code>test-user-api-smoke</code></td><td>User API Smoke Test</td><td>status, arrayLength, numeric, regex</td><td>Easy</td></tr>
+    <tr><td><code>test-product-listing</code></td><td>Product Listing Check</td><td>status, arrayLength, numeric</td><td>Easy</td></tr>
+    <tr><td><code>test-paginated-regression</code></td><td>Paginated API Regression</td><td>status, numeric, arrayLength</td><td>Medium</td></tr>
+    <tr><td><code>test-pokemon-contract</code></td><td>Pokémon Data Contract</td><td>status, regex, numeric, arrayLength</td><td>Medium</td></tr>
+    <tr><td><code>test-multi-api-load</code></td><td>Multi-API Load Profile</td><td>status, responseTime</td><td>Advanced</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7: Key Source Files -->
+  <h2>7. Key Source Files</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code>, <code>ValidationMode</code>, <code>ComparisonOperator</code>, <code>AssertionOperator</code> types</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code>, <code>matchesStatusPattern()</code>, <code>compare()</code>, <code>getByPath()</code></td></tr>
+    <tr><td><code>src/engine/validationResult.ts</code></td><td><code>buildValidationResult()</code> — unified entry point merging assertions + validation</td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>Assertion editor UI — add/edit/delete assertions, JSONPath picker</td></tr>
+    <tr><td><code>src/features/scenarios/components/AssertionPresetMenu.tsx</code></td><td>Preset import dropdown with category tabs</td></tr>
+    <tr><td><code>src/features/requests/components/RegexAssertionModal.tsx</code></td><td>Visual regex builder — JSON tree, pattern library, live preview</td></tr>
+    <tr><td><code>src/data/galleries/assertion-presets/index.ts</code></td><td>5 built-in presets with factory functions</td></tr>
+  </table>
+
+  <!-- Section 8: Recommended Path -->
+  <h2>8. Recommended Learning Path</h2>
+  <ol>
+    <li><strong>Phase 1</strong> — Start with status codes (every test needs one), then response time, then validation modes.</li>
+    <li><strong>Phase 2</strong> — Add targeted checks: headers, regex, numeric, arrays, dates. Build real contract tests.</li>
+    <li><strong>Phase 3</strong> — Use presets for speed, compose multi-assertion strategies, and master JSONPath.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📘 Assertions Are Optional but Powerful</strong>
+    Without assertions, RedfireForge uses a simple <code>httpStatus &lt; 400</code> heuristic. Adding even one status assertion gives you precise control — and once you add response time + body checks, you have a complete contract test.
+  </div>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery · Training Path Overview
+  </footer>
+
+</body>
+</html>

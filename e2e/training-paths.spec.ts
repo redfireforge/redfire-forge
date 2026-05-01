@@ -15,17 +15,11 @@ test.describe('Training Paths — scroll & collapsible phases', () => {
     const scrollArea = page.locator('.gallery-scroll-area');
     await expect(scrollArea).toBeVisible();
 
-    // Click Versioning in the sidebar to highlight it
+    // Click Versioning in the sidebar — auto-expands the path
     await page.locator('.gallery-training-btn', { hasText: 'Versioning' }).click();
     await page.waitForTimeout(300);
 
-    // Click the Versioning path card hero to expand it (shows all phases)
-    const pathHero = page.locator('.training-path-hero', { hasText: 'Versioning' });
-    await expect(pathHero).toBeVisible();
-    await pathHero.click();
-    await page.waitForTimeout(300);
-
-    // Verify phases are visible
+    // Verify phases are visible (auto-expanded by sidebar click)
     await expect(page.locator('.training-phase-header').first()).toBeVisible();
 
     // The training paths view should have scrollable content
@@ -49,14 +43,8 @@ test.describe('Training Paths — scroll & collapsible phases', () => {
   });
 
   test('phase sections are collapsible', async ({ page }) => {
-    // Click Versioning in sidebar to highlight
+    // Click Versioning in sidebar — auto-expands the path
     await page.locator('.gallery-training-btn', { hasText: 'Versioning' }).click();
-    await page.waitForTimeout(300);
-
-    // Click the Versioning path card hero to expand it
-    const pathHero = page.locator('.training-path-hero', { hasText: 'Versioning' });
-    await expect(pathHero).toBeVisible();
-    await pathHero.click();
     await page.waitForTimeout(300);
 
     // Phases should be visible and expanded by default
@@ -90,10 +78,8 @@ test.describe('Training Paths — scroll & collapsible phases', () => {
   });
 
   test('collapse all / expand all button works', async ({ page }) => {
-    // Expand Versioning path
+    // Click Versioning in sidebar — auto-expands the path
     await page.locator('.gallery-training-btn', { hasText: 'Versioning' }).click();
-    await page.waitForTimeout(300);
-    await page.locator('.training-path-hero', { hasText: 'Versioning' }).click();
     await page.waitForTimeout(300);
 
     const manuals = page.locator('.training-manual-row');

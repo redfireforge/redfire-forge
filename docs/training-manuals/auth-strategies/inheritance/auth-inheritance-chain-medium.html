@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Auth Hierarchy — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .flow-diagram .level { display: inline-block; background: #1d3557; color: #fff; padding: 4px 12px; border-radius: 4px; margin: 4px 2px; font-size: 12px; }
+  .flow-diagram .level-dim { background: #6c757d; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔗</div>
+    <h1>The Auth Hierarchy</h1>
+    <div class="subtitle">Medium — Auth Strategies Training Manual</div>
+    <p>Understand how RedfireForge resolves authentication through a 5-level inheritance chain. Learn how to configure auth at any level, override parent settings, and leverage inheritance to eliminate repetitive auth configuration across hundreds of tests.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Auth Inheritance and Profiles<br />
+      Scenario: <em>Multi-Team API Suite — Shared Auth Across Feature Groups</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. The Problem: Auth Repetition</h2>
+  <p>Imagine a project with 5 feature groups, each containing 20 scenarios with 10 tests. That's <strong>1,000 tests</strong> — all calling the same API with the same bearer token.</p>
+
+  <p>Without inheritance, you'd configure auth on each test individually. When the token changes, you update 1,000 tests. That's not sustainable.</p>
+
+  <h3>The Solution: Auth Inheritance</h3>
+  <p>RedfireForge uses a <strong>cascading inheritance chain</strong> — configure auth once at a high level, and every test below automatically inherits it. Override at any level to customize specific branches.</p>
+
+  <div class="flow-diagram">
+    <strong>The 5-Level Auth Chain</strong><br /><br />
+    <span class="level">① Test</span>
+    <span class="arrow">→</span>
+    <span class="level">② Scenario</span>
+    <span class="arrow">→</span>
+    <span class="level">③ Feature Group</span>
+    <span class="arrow">→</span>
+    <span class="level">④ Global Profile</span>
+    <span class="arrow">→</span>
+    <span class="level">⑤ Env Fallback</span>
+    <span class="arrow">→</span>
+    <span class="level level-dim">none</span>
+    <br /><br />
+    <em>← Highest priority &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Lowest priority →</em>
+  </div>
+
+  <p>The resolver walks from <strong>left to right</strong>: it checks the test first; if the test says "inherit," it checks the scenario; if the scenario also says "inherit," it checks the feature group; and so on. The first level with a real auth config wins.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The resolveAuth() Function</h2>
+  <p>The entire chain is implemented in a single function — ~15 lines of code that handle all 5 levels:</p>
+
+<pre>// src/features/requests/utils/authResolver.ts
+
+export function resolveAuth(
+  test: Scenario,
+  scenario: Pick&lt;TestScenario, 'auth'&gt;,
+  featureGroup: Pick&lt;FeatureGroup, 'auth' | 'globalAuthProfileId'&gt;,
+  globalAuthProfiles: Pick&lt;GlobalAuthProfile, 'id' | 'auth'&gt;[],
+  envFallbackAuth?: AuthConfig,
+): AuthConfig {
+  // Level 1: Test — highest priority
+  if (test.auth.type !== 'inherit' &amp;&amp; test.auth.type !== 'none')
+    return test.auth;
+
+  // Level 2: Scenario
+  const scAuth = scenario.auth;
+  if (scAuth &amp;&amp; scAuth.type !== 'none' &amp;&amp; scAuth.type !== 'inherit')
+    return scAuth as AuthConfig;
+
+  // Level 3: Feature Group
+  const fgAuth = featureGroup.auth;
+  if (fgAuth &amp;&amp; fgAuth.type !== 'none' &amp;&amp; fgAuth.type !== 'inherit')
+    return fgAuth as AuthConfig;
+
+  // Level 4: Global Auth Profile (linked via featureGroup.globalAuthProfileId)
+  if (featureGroup.globalAuthProfileId) {
+    const profile = globalAuthProfiles.find(
+      (p) =&gt; p.id === featureGroup.globalAuthProfileId
+    );
+    if (profile &amp;&amp; profile.auth.type !== 'none')
+      return profile.auth;
+  }
+
+  // Level 5: Environment Fallback
+  if (envFallbackAuth &amp;&amp; envFallbackAuth.type !== 'none')
+    return envFallbackAuth;
+
+  // Nothing configured at any level
+  return { type: 'none' };
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key Insight: Both 'inherit' and 'none' Walk Up</strong>
+    At the test level, both <code>type: 'inherit'</code> and <code>type: 'none'</code> cause the resolver to walk up the chain. This means a test with no auth configured (<code>type: 'none'</code>) automatically inherits from its parent — you don't need to explicitly set <code>type: 'inherit'</code>.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Each Level Explained</h2>
+
+  <h3>Level 1: Test (Highest Priority)</h3>
+  <p>Every test (<code>Scenario</code>) has an <code>auth: AuthConfig</code> field. If you set an explicit auth type (bearer, basic, apikey, etc.), it <strong>always wins</strong> — the chain stops here.</p>
+
+<pre>// Test with explicit bearer auth — chain stops at Level 1
+{
+  id: 'test-123',
+  auth: { type: 'bearer', token: 'my-token', prefix: 'Bearer' }
+}</pre>
+
+  <p>Default for new tests: <code>{ type: 'none' }</code> — falls through to Level 2.</p>
+
+  <h3>Level 2: Scenario</h3>
+  <p>The scenario (<code>TestScenario</code>) can have optional auth. This is useful when all tests in a scenario share the same credentials but other scenarios in the feature group don't.</p>
+
+<pre>// Scenario auth — applies to all tests with 'inherit'/'none'
+{
+  id: 'scenario-456',
+  auth: { type: 'basic', username: 'admin', password: 'secret' },
+  scenarios: [ /* tests */ ]
+}</pre>
+
+  <h3>Level 3: Feature Group</h3>
+  <p>The feature group (<code>FeatureGroup</code>) can set auth that covers all scenarios and tests within it.</p>
+
+<pre>// Feature group auth — applies to all scenarios/tests below
+{
+  id: 'fg-789',
+  auth: { type: 'apikey', apiKeyName: 'X-Api-Key', apiKeyValue: '...', apiKeyIn: 'header' }
+}</pre>
+
+  <h3>Level 4: Global Auth Profile</h3>
+  <p>Instead of inline auth, a feature group can <strong>link to a Global Auth Profile</strong> via <code>globalAuthProfileId</code>. The profile is a reusable, named auth configuration managed in Settings.</p>
+
+<pre>// Feature group linked to a global profile
+{
+  id: 'fg-789',
+  auth: { type: 'none' },                       // no inline auth
+  globalAuthProfileId: 'profile-production-oauth' // links to global profile
+}</pre>
+
+  <p>The resolver looks up the profile by ID from the global profiles list. If found and not <code>type: 'none'</code>, it uses the profile's auth.</p>
+
+  <h3>Level 5: Environment Fallback</h3>
+  <p>The last resort before <code>{ type: 'none' }</code>. Each microservice can map environments to global auth profiles via <code>authProfileIds</code>. The engine resolves the profile for the current environment and passes it as <code>envFallbackAuth</code>.</p>
+
+<pre>// Microservice with per-environment auth profiles
+{
+  id: 'svc-api',
+  name: 'User API',
+  baseUrls: { prod: 'https://api.example.com', staging: 'https://staging.api.example.com' },
+  authProfileIds: { prod: 'profile-prod-key', staging: 'profile-staging-key' }
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The AuthConfig Type</h2>
+  <p>Every level in the chain uses the same <code>AuthConfig</code> interface:</p>
+
+<pre>type AuthType = 'none' | 'inherit' | 'basic' | 'bearer'
+              | 'apikey' | 'digest' | 'oauth2';
+
+interface AuthConfig {
+  type: AuthType;
+
+  // Basic &amp; Digest
+  username?: string;
+  password?: string;
+
+  // Bearer
+  token?: string;
+  prefix?: string;          // defaults to 'Bearer'
+
+  // API Key
+  apiKeyName?: string;
+  apiKeyValue?: string;
+  apiKeyIn?: 'header' | 'query';
+
+  // OAuth2 Client Credentials
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+
+  // Links to GlobalAuthProfile
+  globalProfileId?: string;
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Override Patterns</h2>
+  <p>The power of inheritance is in <strong>selective overrides</strong> — set auth at a high level, then override at a lower level only where needed.</p>
+
+  <h3>Pattern: Feature Group Default + Test Override</h3>
+  <table>
+    <tr><th>Level</th><th>Auth</th><th>Effect</th></tr>
+    <tr><td>Feature Group</td><td><code>bearer</code> with prod token</td><td>All tests use this token</td></tr>
+    <tr><td>Test A</td><td><code>none</code> (inherit)</td><td>Uses FG's bearer token ✅</td></tr>
+    <tr><td>Test B</td><td><code>none</code> (inherit)</td><td>Uses FG's bearer token ✅</td></tr>
+    <tr><td>Test C (admin)</td><td><code>bearer</code> with admin token</td><td>Uses its own token — overrides FG ✅</td></tr>
+    <tr><td>Test D (no auth)</td><td><code>apikey</code> with empty value</td><td>Stops inheritance — sends no real auth ✅</td></tr>
+  </table>
+
+  <h3>Pattern: Scenario-Level Override</h3>
+<pre>Feature Group: auth = { type: 'bearer', token: 'user-token' }
+  ├── Scenario "User Tests":    auth = undefined  → inherits FG's bearer
+  ├── Scenario "Admin Tests":   auth = { type: 'bearer', token: 'admin-token' }
+  │   └── All tests here get admin-token (Level 2 overrides Level 3)
+  └── Scenario "Public Tests":  auth = { type: 'basic', username: 'guest', password: '' }
+      └── All tests here get basic auth (Level 2 overrides Level 3)</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Stopping Inheritance</strong>
+    Setting an explicit auth type at any level <strong>stops the chain</strong>. Even setting <code>type: 'basic'</code> with empty credentials prevents walking up to the feature group. This is intentional — it lets you run tests without auth on endpoints that don't require it, even when the parent has auth configured.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Edge Cases</h2>
+  <p>The resolver handles several edge cases gracefully:</p>
+
+  <table>
+    <tr><th>Edge Case</th><th>Behavior</th></tr>
+    <tr>
+      <td>Missing <code>globalAuthProfileId</code></td>
+      <td>No profile lookup — skips Level 4, falls to Level 5</td>
+    </tr>
+    <tr>
+      <td><code>globalAuthProfileId</code> references deleted profile</td>
+      <td><code>find()</code> returns <code>undefined</code> — skips Level 4</td>
+    </tr>
+    <tr>
+      <td><code>scenario.auth</code> is <code>undefined</code></td>
+      <td>Guard <code>scAuth &&</code> catches it — skips Level 2</td>
+    </tr>
+    <tr>
+      <td><code>featureGroup.auth</code> is <code>undefined</code></td>
+      <td>Guard <code>fgAuth &&</code> catches it — skips Level 3</td>
+    </tr>
+    <tr>
+      <td>Global profile exists but has <code>type: 'none'</code></td>
+      <td><code>profile.auth.type !== 'none'</code> check skips it</td>
+    </tr>
+    <tr>
+      <td>Env fallback has <code>type: 'none'</code></td>
+      <td>Skipped — final return is <code>{ type: 'none' }</code></td>
+    </tr>
+    <tr>
+      <td>No auth configured at any level</td>
+      <td>Returns <code>{ type: 'none' }</code> — request sent without auth</td>
+    </tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Test Coverage</strong>
+    All edge cases above are covered by 16 unit tests in <code>authResolver.test.ts</code>. Each test sets up a specific chain configuration and verifies the resolved auth matches expectations.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. UI: Inheritance Hints</h2>
+  <p>When a test or scenario has <code>type: 'inherit'</code> or <code>type: 'none'</code>, the UI shows a hint explaining what auth will actually be used:</p>
+
+<pre>// src/features/scenarios/utils/scenarioAuth.ts
+
+function buildScenarioInheritHint(
+  fg: FeatureGroup,
+  allAuthProfiles: GlobalAuthProfile[]
+): string</pre>
+
+  <p>This function produces messages like:</p>
+  <ul>
+    <li><em>"Inherits Bearer token from Feature Group 'Payment API'"</em></li>
+    <li><em>"Inherits OAuth2 from Global Profile 'Production Credentials'"</em></li>
+    <li><em>"No auth configured — request will be sent without authentication"</em></li>
+  </ul>
+
+  <p>The companion function <code>resolveScenarioInheritedAuth()</code> resolves the effective auth from the feature group + global profile, returning both the <code>AuthConfig</code> and a human-readable label.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Basic Inheritance</h3>
+  <p><strong>Goal:</strong> Set auth on a feature group and verify tests inherit it.</p>
+  <ol>
+    <li>Create a new feature group.</li>
+    <li>Set the feature group's auth to <code>bearer</code> with token <code>test-token-123</code>.</li>
+    <li>Add a scenario with 2 tests — leave both tests' auth as <code>none</code>.</li>
+    <li>Run the tests. In the request details, verify both tests sent <code>Authorization: Bearer test-token-123</code>.</li>
+    <li>Check the UI hint on each test — it should say "Inherits Bearer from Feature Group."</li>
+  </ol>
+
+  <h3>Exercise 2: Scenario Override</h3>
+  <p><strong>Goal:</strong> Override feature group auth at the scenario level.</p>
+  <ol>
+    <li>Using the feature group from Exercise 1 (bearer on FG).</li>
+    <li>Add a second scenario. Set its auth to <code>apikey</code> with name <code>X-Api-Key</code> and value <code>my-key</code>.</li>
+    <li>Add a test to this scenario — leave the test auth as <code>none</code>.</li>
+    <li>Run — verify the test sends <code>X-Api-Key: my-key</code> (not the bearer token).</li>
+    <li>The first scenario's tests should still use the bearer token.</li>
+  </ol>
+
+  <h3>Exercise 3: Test-Level Override</h3>
+  <p><strong>Goal:</strong> Override at the test level, the highest priority.</p>
+  <ol>
+    <li>In the first scenario from Exercise 1, set one test to <code>basic</code> with username <code>admin</code> and password <code>secret</code>.</li>
+    <li>Run both tests in the scenario.</li>
+    <li>Test 1 (inherit): sends Bearer token from FG.</li>
+    <li>Test 2 (basic override): sends <code>Authorization: Basic YWRtaW46c2VjcmV0</code>.</li>
+  </ol>
+
+  <h3>Exercise 4: Walk the Full Chain</h3>
+  <p><strong>Goal:</strong> See all 5 levels in action.</p>
+  <ol>
+    <li>Remove all auth from the feature group, scenario, and test (set all to <code>none</code>).</li>
+    <li>Run a test — no auth header should be sent.</li>
+    <li>Now create a Global Auth Profile with bearer auth (see the <em>Global Auth Profiles</em> manual).</li>
+    <li>Link the feature group to this profile via <code>globalAuthProfileId</code>.</li>
+    <li>Run — the test should now inherit from the global profile (Level 4).</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/requests/utils/authResolver.ts</code></td><td><code>resolveAuth()</code> — the 5-level inheritance chain</td></tr>
+    <tr><td><code>src/features/requests/utils/authResolver.test.ts</code></td><td>16 unit tests covering all chain combinations</td></tr>
+    <tr><td><code>src/features/scenarios/utils/scenarioAuth.ts</code></td><td><code>buildScenarioInheritHint()</code>, <code>resolveScenarioInheritedAuth()</code></td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>AuthConfig</code>, <code>AuthType</code>, <code>GlobalAuthProfile</code>, <code>FeatureGroup</code></td></tr>
+    <tr><td><code>src/shared/utils/authHeaders.ts</code></td><td><code>resolveAuthHeaders()</code> — converts AuthConfig to HTTP headers</td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Global Auth Profiles</em> — Create, manage, and share reusable auth configurations.</li>
+    <li><strong>Previous:</strong> <em>OAuth2 Client Credentials</em> (Phase 1) — Token management and auto-refresh.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies Phase 2 · The Auth Hierarchy · Medium
+  </footer>
+
+</body>
+</html>
