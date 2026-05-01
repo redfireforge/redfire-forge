@@ -4,6 +4,7 @@ import type { Scenario, TestScenario, FeatureGroup, AuthConfig } from '../../../
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
+import { toggleSetItem } from '../../../shared/utils/setToggle';
 import {
   logScenarioAdded, logScenarioRemoved, logScenarioRenamed,
   logTestAdded, logTestRemoved, logTestCopied, logFgRenamed,
@@ -342,11 +343,11 @@ export function useScenarioMutations({
   // ── Toggle helpers ──
 
   const toggleFeature = (id: string) => {
-    setExpandedFeatures((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    toggleSetItem(setExpandedFeatures, id);
   };
 
   const toggleScenario = (id: string) => {
-    setExpandedScenarios((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    toggleSetItem(setExpandedScenarios, id);
   };
 
   return {
