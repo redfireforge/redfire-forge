@@ -1,6 +1,9 @@
 # Training Paths Plan — Workflow Patterns, Auth Strategies, Assertion Mastery
 
 > Companion to `Versioning-Training-Manaulal-Plan.md`. Covers the 3 remaining training paths shown as "soon" in the Gallery sidebar.
+>
+> **Status: ✅ COMPLETE** — 33/33 files delivered across 9 phases (P1–P9).
+> Branches: `feature/workflow-patterns-training-p1` through `feature/workflow-patterns-training-p7`.
 
 ---
 
@@ -677,17 +680,17 @@ From the `Assertion` union type:
 
 | Priority | Path | Manuals | Rationale | Status |
 |---|---|---|---|---|
-| **P1** | Workflow Patterns Phase 1–2 | 6 + overview | Most-used features, foundation for advanced patterns | 🔲 Not Started |
-| **P2** | Auth Strategies Phase 1 | 4 + overview | Daily workflow — auth is needed for most real APIs | 🔲 Not Started |
-| **P3** | Assertion Mastery Phase 1 | 3 + overview | Core testing — validation is the point of testing | 🔲 Not Started |
-| **P4** | Auth Strategies Phase 2 | 3 | Intermediate — inheritance and profiles | 🔲 Not Started |
-| **P5** | Assertion Mastery Phase 2 | 4 | Intermediate — advanced assertion types | 🔲 Not Started |
-| **P6** | Workflow Patterns Phase 3 | 3 | Intermediate — loops and error handling | 🔲 Not Started |
-| **P7** | Workflow Patterns Phase 4 | 3 | Advanced — sub-workflows and webhooks | 🔲 Not Started |
-| **P8** | Auth Strategies Phase 3 | 1 | Advanced — workflow auth patterns | 🔲 Not Started |
-| **P9** | Assertion Mastery Phase 3 | 3 | Advanced — presets and composition | 🔲 Not Started |
+| **P1** | Workflow Patterns Phase 1–2 | 6 + overview | Most-used features, foundation for advanced patterns | ✅ Done |
+| **P2** | Auth Strategies Phase 1 | 4 + overview | Daily workflow — auth is needed for most real APIs | ✅ Done |
+| **P3** | Assertion Mastery Phase 1 | 3 + overview | Core testing — validation is the point of testing | ✅ Done |
+| **P4** | Auth Strategies Phase 2 | 3 | Intermediate — inheritance and profiles | ✅ Done |
+| **P5** | Assertion Mastery Phase 2 | 4 | Intermediate — advanced assertion types | ✅ Done |
+| **P6** | Workflow Patterns Phase 3 | 3 | Intermediate — loops and error handling | ✅ Done |
+| **P7** | Workflow Patterns Phase 4 | 3 | Advanced — sub-workflows and webhooks | ✅ Done |
+| **P8** | Auth Strategies Phase 3 | 1 | Advanced — workflow auth patterns | ✅ Done |
+| **P9** | Assertion Mastery Phase 3 | 3 | Advanced — presets and composition | ✅ Done |
 
-**Progress: 0 / 33 files delivered (0%)**
+**Progress: 33 / 33 files delivered (100%)**
 
 ---
 
@@ -697,88 +700,88 @@ From the `Assertion` union type:
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `workflow-patterns/workflow-patterns.html` | Overview | 🔲 |
-| 2 | `workflow-patterns/foundation/workflow-http-chaining-easy.html` | Manual | 🔲 |
-| 3 | `workflow-patterns/foundation/workflow-delay-timing-easy.html` | Manual | 🔲 |
-| 4 | `workflow-patterns/foundation/workflow-variables-easy.html` | Manual | 🔲 |
-| 5 | `workflow-patterns/flow-control/workflow-condition-branching-medium.html` | Manual | 🔲 |
-| 6 | `workflow-patterns/flow-control/workflow-switch-multiway-medium.html` | Manual | 🔲 |
-| 7 | `workflow-patterns/flow-control/workflow-fork-join-medium.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1–2 | Code | 🔲 |
+| 1 | `workflow-patterns/workflow-patterns.html` | Overview | ✅ |
+| 2 | `workflow-patterns/foundation/workflow-http-chaining-easy.html` | Manual | ✅ |
+| 3 | `workflow-patterns/foundation/workflow-delay-timing-easy.html` | Manual | ✅ |
+| 4 | `workflow-patterns/foundation/workflow-variables-easy.html` | Manual | ✅ |
+| 5 | `workflow-patterns/flow-control/workflow-condition-branching-medium.html` | Manual | ✅ |
+| 6 | `workflow-patterns/flow-control/workflow-switch-multiway-medium.html` | Manual | ✅ |
+| 7 | `workflow-patterns/flow-control/workflow-fork-join-medium.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1–2 | Code | ✅ |
 
 ### P2 — Auth Strategies Phase 1 (5 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `auth-strategies/auth-strategies.html` | Overview | 🔲 |
-| 2 | `auth-strategies/basics/auth-bearer-token-easy.html` | Manual | 🔲 |
-| 3 | `auth-strategies/basics/auth-basic-easy.html` | Manual | 🔲 |
-| 4 | `auth-strategies/basics/auth-apikey-easy.html` | Manual | 🔲 |
-| 5 | `auth-strategies/basics/auth-oauth2-easy.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | 🔲 |
+| 1 | `auth-strategies/auth-strategies.html` | Overview | ✅ |
+| 2 | `auth-strategies/basics/auth-bearer-token-easy.html` | Manual | ✅ |
+| 3 | `auth-strategies/basics/auth-basic-easy.html` | Manual | ✅ |
+| 4 | `auth-strategies/basics/auth-apikey-easy.html` | Manual | ✅ |
+| 5 | `auth-strategies/basics/auth-oauth2-easy.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | ✅ |
 
 ### P3 — Assertion Mastery Phase 1 (4 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `assertion-mastery/assertion-mastery.html` | Overview | 🔲 |
-| 2 | `assertion-mastery/basics/assertion-status-codes-easy.html` | Manual | 🔲 |
-| 3 | `assertion-mastery/basics/assertion-response-time-easy.html` | Manual | 🔲 |
-| 4 | `assertion-mastery/basics/assertion-validation-modes-easy.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | 🔲 |
+| 1 | `assertion-mastery/assertion-mastery.html` | Overview | ✅ |
+| 2 | `assertion-mastery/basics/assertion-status-codes-easy.html` | Manual | ✅ |
+| 3 | `assertion-mastery/basics/assertion-response-time-easy.html` | Manual | ✅ |
+| 4 | `assertion-mastery/basics/assertion-validation-modes-easy.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | ✅ |
 
 ### P4 — Auth Strategies Phase 2 (3 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `auth-strategies/inheritance/auth-inheritance-chain-medium.html` | Manual | 🔲 |
-| 2 | `auth-strategies/inheritance/auth-global-profiles-medium.html` | Manual | 🔲 |
-| 3 | `auth-strategies/inheritance/auth-catalog-security-medium.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 2 manuals | Code | 🔲 |
+| 1 | `auth-strategies/inheritance/auth-inheritance-chain-medium.html` | Manual | ✅ |
+| 2 | `auth-strategies/inheritance/auth-global-profiles-medium.html` | Manual | ✅ |
+| 3 | `auth-strategies/inheritance/auth-catalog-security-medium.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 2 manuals | Code | ✅ |
 
 ### P5 — Assertion Mastery Phase 2 (4 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `assertion-mastery/intermediate/assertion-header-checks-medium.html` | Manual | 🔲 |
-| 2 | `assertion-mastery/intermediate/assertion-jsonpath-regex-medium.html` | Manual | 🔲 |
-| 3 | `assertion-mastery/intermediate/assertion-numeric-array-medium.html` | Manual | 🔲 |
-| 4 | `assertion-mastery/intermediate/assertion-date-comparison-medium.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 2 manuals | Code | 🔲 |
+| 1 | `assertion-mastery/intermediate/assertion-header-checks-medium.html` | Manual | ✅ |
+| 2 | `assertion-mastery/intermediate/assertion-jsonpath-regex-medium.html` | Manual | ✅ |
+| 3 | `assertion-mastery/intermediate/assertion-numeric-array-medium.html` | Manual | ✅ |
+| 4 | `assertion-mastery/intermediate/assertion-date-comparison-medium.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 2 manuals | Code | ✅ |
 
 ### P6 — Workflow Patterns Phase 3 (3 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `workflow-patterns/loops-errors/workflow-loop-patterns-medium.html` | Manual | 🔲 |
-| 2 | `workflow-patterns/loops-errors/workflow-aggregate-medium.html` | Manual | 🔲 |
-| 3 | `workflow-patterns/loops-errors/workflow-error-handling-advanced.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 3 manuals | Code | 🔲 |
+| 1 | `workflow-patterns/loops-errors/workflow-loop-patterns-medium.html` | Manual | ✅ |
+| 2 | `workflow-patterns/loops-errors/workflow-aggregate-medium.html` | Manual | ✅ |
+| 3 | `workflow-patterns/loops-errors/workflow-error-handling-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 3 manuals | Code | ✅ |
 
 ### P7 — Workflow Patterns Phase 4 (3 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `workflow-patterns/advanced/workflow-sub-workflow-advanced.html` | Manual | 🔲 |
-| 2 | `workflow-patterns/advanced/workflow-webhook-correlation-advanced.html` | Manual | 🔲 |
-| 3 | `workflow-patterns/advanced/workflow-debug-advanced.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 4 manuals | Code | 🔲 |
+| 1 | `workflow-patterns/advanced/workflow-sub-workflow-advanced.html` | Manual | ✅ |
+| 2 | `workflow-patterns/advanced/workflow-webhook-correlation-advanced.html` | Manual | ✅ |
+| 3 | `workflow-patterns/advanced/workflow-debug-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 4 manuals | Code | ✅ |
 
 ### P8 — Auth Strategies Phase 3 (1 file)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `auth-strategies/advanced/auth-workflow-advanced.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 3 manual | Code | 🔲 |
+| 1 | `auth-strategies/advanced/auth-workflow-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 3 manual | Code | ✅ |
 
 ### P9 — Assertion Mastery Phase 3 (3 files)
 
 | # | File | Type | Status |
 |---|---|---|---|
-| 1 | `assertion-mastery/advanced/assertion-presets-advanced.html` | Manual | 🔲 |
-| 2 | `assertion-mastery/advanced/assertion-composition-advanced.html` | Manual | 🔲 |
-| 3 | `assertion-mastery/advanced/assertion-jsonpath-advanced.html` | Manual | 🔲 |
-| — | `trainingPaths.ts` — add Phase 3 manuals | Code | 🔲 |
+| 1 | `assertion-mastery/advanced/assertion-presets-advanced.html` | Manual | ✅ |
+| 2 | `assertion-mastery/advanced/assertion-composition-advanced.html` | Manual | ✅ |
+| 3 | `assertion-mastery/advanced/assertion-jsonpath-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 3 manuals | Code | ✅ |
 
 ---
 
@@ -786,11 +789,11 @@ From the `Assertion` union type:
 
 | Deliverable | Count | Status |
 |---|---|---|
-| HTML manuals | 30 | 🔲 0 / 30 |
-| Overview pages | 3 | 🔲 0 / 3 |
-| `trainingPaths.ts` updates | 9 | 🔲 0 / 9 |
+| HTML manuals | 30 | ✅ 30 / 30 |
+| Overview pages | 3 | ✅ 3 / 3 |
+| `trainingPaths.ts` updates | 9 | ✅ 9 / 9 |
 | New gallery samples | 0 | N/A — all referenced samples already exist |
-| **Total files** | **33** | **🔲 0 / 33** |
+| **Total files** | **33** | **✅ 33 / 33** |
 
 ---
 
@@ -848,27 +851,588 @@ docs/training-manuals/
 
 ---
 
-## `trainingPaths.ts` Updates Required
+## `trainingPaths.ts` Updates — Complete
 
-Each training path entry needs `comingSoon: false` and populated `phases[]` array with manual references. Example structure:
+All three training path entries have been updated across 9 delivery phases:
 
-```typescript
-{
-  id: 'workflow-patterns',
-  name: 'Workflow Patterns',
-  icon: '⚡',
-  description: '...',
-  comingSoon: false,  // ← change from true
-  phases: [
-    {
-      id: 'wp-phase-1',
-      name: 'Foundation Nodes',
-      manuals: [
-        { id: 'workflow-http-chaining-easy', name: 'HTTP Request Chaining', difficulty: 'easy', manualPath: 'workflow-patterns/foundation/workflow-http-chaining-easy.html' },
-        // ...
-      ],
-    },
-    // ...
-  ],
-}
-```
+- **`workflow-patterns`** — `comingSoon` removed, 4 phases added (P1, P6, P7)
+- **`auth-strategies`** — `comingSoon` removed, 3 phases added (P2, P4, P8)
+- **`assertion-mastery`** — `comingSoon` removed, 3 phases added (P3, P5, P9)
+
+All phases reference their HTML manuals via `manualPath` and link to gallery samples via `sampleId` where applicable.
+
+---
+
+## Full Training Manual Inventory (All Folders)
+
+The `docs/training-manuals/` directory contains **123 HTML files** across **9 top-level folders** plus 1 standalone file. Only a subset belongs to this plan — the rest come from earlier finished plans.
+
+### Group A — Training Paths (registered in `trainingPaths.ts`, shown in Gallery UI)
+
+These are the structured curriculum paths rendered by `TrainingPathsView.tsx`. Each manual is linked to gallery samples and organized into phases.
+
+| Folder | Training Path | Files | Manuals in `trainingPaths.ts` | Plan |
+|---|---|---|---|---|
+| `versioning/` | Versioning 🔖 | 17 | 15 + 1 overview + 1 cross-entity | `Versioning-Training-Manaulal-Plan.md` |
+| `workflow-patterns/` | Workflow Patterns ⚡ | 13 | 12 + 1 overview | **This plan** (P1, P6, P7) |
+| `auth-strategies/` | Auth Strategies 🔐 | 9 | 8 + 1 overview | **This plan** (P2, P4, P8) |
+| `assertion-mastery/` | Assertion Mastery ✅ | 11 | 10 + 1 overview | **This plan** (P3, P5, P9) |
+| **Subtotal** | | **50** | **45 manuals + 4 overviews + 1 cross-entity** | |
+
+### Group B — Per-Sample Companion Manuals (NOT in `trainingPaths.ts`)
+
+These are legacy standalone HTML manuals created alongside gallery samples during earlier implementation phases. They are **not** integrated into the Training Paths UI — they exist as reference documentation on disk.
+
+| Folder | Files | Origin Plan | Notes |
+|---|---|---|---|
+| `requests/` | 13 | `gallery-redesign-plan.md` (finished) | 1 overview + 12 per-request manuals |
+| `tests/` | 10 | `gallery-redesign-plan.md` (finished) | 1 overview + 9 per-test manuals |
+| `catalog/` | 7 | `gallery-redesign-plan.md` (finished) | 1 overview + 6 per-catalog manuals |
+| `workflow/` | 36 | `gallery-redesign-plan.md` (finished) | 6 subfolders: api-patterns, async-correlation, diverse-apis, event-driven, flow-control, orchestration, script-node, node-reference |
+| `assertions/` | 6 | `assertion-presets-plan.md` (finished) | 1 overview + 5 preset companion manuals |
+| _(standalone)_ | 1 | — | `sub-workflow-samples-guide.html` |
+| **Subtotal** | **73** | | |
+
+### Grand Total
+
+| Category | Files |
+|---|---|
+| Training Path manuals (Group A) | 50 |
+| Per-sample companion manuals (Group B) | 73 |
+| **Total HTML files** | **123** |
+
+---
+
+## Gallery Sample Inventory
+
+All gallery samples available for import in the Gallery sidebar, organized by domain.
+
+### Requests (12 samples)
+
+| ID | Name |
+|---|---|
+| `req-get-all-users` | Get All Users |
+| `req-get-pokemon` | Get Pokemon |
+| `req-random-dog` | Random Dog |
+| `req-search-countries` | Search Countries |
+| `req-create-post` | Create Post |
+| `req-search-books` | Search Books |
+| `req-paginated-users` | Paginated Users |
+| `req-product-search` | Product Search |
+| `req-update-resource` | Update Resource |
+| `req-delete-resource` | Delete Resource |
+| `req-auth-login` | Auth Login |
+| `req-echo-headers` | Echo Headers |
+
+### Tests (8 samples)
+
+| ID | Name |
+|---|---|
+| `test-user-api-smoke` | User API Smoke |
+| `test-product-listing` | Product Listing |
+| `test-paginated-regression` | Paginated Regression |
+| `test-pokemon-contract` | Pokemon Contract |
+| `test-country-search` | Country Search |
+| `test-auth-flow` | Auth Flow |
+| `test-ecommerce-full` | E-Commerce Full |
+| `test-multi-api-load` | Multi-API Load |
+
+### API Catalog (8 specs)
+
+| ID | Name |
+|---|---|
+| `catalog-jsonplaceholder` | JSONPlaceholder |
+| `catalog-fakestore` | Fake Store |
+| `catalog-pokeapi` | PokéAPI |
+| `catalog-dummyjson` | DummyJSON |
+| `catalog-rest-countries` | REST Countries |
+| `catalog-httpbin` | HTTPBin |
+| `sample-catalog-correlation-wait` | Correlation Wait Catalog |
+| `sample-catalog-pet-store` | Pet Store |
+
+### Workflows (34 samples)
+
+| ID | Category |
+|---|---|
+| `sample-workflow-001` | Foundation — HTTP chaining, conditions |
+| `sample-workflow-parallel` | Foundation — Fork/Join parallel |
+| `sample-workflow-branching` | Flow Control — If/Else branching |
+| `sample-workflow-switch` | Flow Control — Switch routing |
+| `sample-workflow-loop-agg` | Loops — Loop + Aggregation |
+| `sample-workflow-error-handler` | Error — Node-level error handler |
+| `sample-workflow-wf-error-handler` | Error — Workflow-level error handler |
+| `sample-workflow-order-pipeline` | Orchestration — Order pipeline |
+| `sample-workflow-deploy-orchestrator` | Orchestration — Deploy orchestrator |
+| `sample-workflow-batch` | Orchestration — Batch provisioning |
+| `sample-workflow-sub-workflow` | Composition — Sub-workflow |
+| `sample-workflow-webhook` | Events — Webhook trigger |
+| `sample-workflow-schedule` | Events — Schedule trigger |
+| `sample-workflow-wait-condition` | Events — Wait for condition |
+| `sample-workflow-payment-callback-easy` | Correlation — Payment callback |
+| `sample-workflow-approval-medium` | Correlation — Approval workflow |
+| `sample-workflow-parallel-payment-advanced` | Correlation — Parallel payment |
+| `sample-workflow-script-easy` | Script — JSON formatter |
+| `sample-workflow-script-medium` | Script — Cross-API validator |
+| `sample-workflow-script-advanced` | Script — Data pipeline report |
+| `sample-workflow-expressions` | API Patterns — Expression functions |
+| `sample-workflow-log-debug` | API Patterns — Debug trace |
+| `sample-workflow-book-search` | Diverse APIs — Book search |
+| `sample-workflow-country-currency` | Diverse APIs — Country currency |
+| `sample-workflow-multi-api-dashboard` | Diverse APIs — Multi-API dashboard |
+| `sample-workflow-pokemon-evolution` | Diverse APIs — Pokemon evolution |
+| `sample-workflow-product-cart` | Diverse APIs — Product cart |
+| `sample-subwf-child` | Child — Sub-workflow child |
+| `sample-shipping-child` | Child — Shipping child |
+| `sample-rollback-child` | Child — Rollback child |
+| `sample-region-deploy-child` | Child — Region deploy child |
+| `sample-workflow-payment-callback-simulator` | Simulator — Payment callback |
+| `sample-workflow-approval-simulator` | Simulator — Approval |
+| `sample-workflow-parallel-payment-simulator` | Simulator — Parallel payment |
+
+### Assertion Presets (5 presets)
+
+| ID | Name |
+|---|---|
+| `preset-api-healthcheck` | API Health Check |
+| `preset-paginated-list` | Paginated List |
+| `preset-token-expiry` | Token Expiry |
+| `preset-price-guard` | Price Guard |
+| `preset-api-contract` | API Contract |
+
+### Summary
+
+| Domain | Count |
+|---|---|
+| Requests | 12 |
+| Tests | 8 |
+| API Catalog | 8 |
+| Workflows | 34 |
+| Assertion Presets | 5 |
+| **Total Gallery Samples** | **67** |
+
+---
+
+# Phase 2: Legacy Manual Integration into Training Paths UI
+
+> **Goal:** Register the 73 existing Group B companion manuals (+ 1 standalone + 1 cross-entity versioning) into `trainingPaths.ts` so they appear in the Gallery's Training Paths sidebar alongside the 4 existing paths.
+>
+> **Status: ✅ COMPLETE**
+>
+> **Completed:** 2026-05-01
+>
+> All 75 manuals registered across 15 training paths (8 original + 7 new workflow sub-paths + assertion overview added).
+
+## Integration Strategy
+
+### New Training Paths Added
+
+The legacy manuals were organized into **7 new training paths** + updates to existing paths:
+
+| # | Training Path ID | Name | Icon | Files | Status |
+|---|---|---|---|---|---|
+| 5 | `requests` | Request Basics | 📡 | 13 | ✅ |
+| 6 | `tests` | Test Suites | 🧪 | 10 | ✅ |
+| 7 | `catalog` | API Catalog | 📚 | 7 | ✅ |
+| 8 | `assertion-mastery` | Assertion Mastery (Phase 4 added) | ✅ | 17 (was 11, +6 preset samples) | ✅ |
+| 9 | `wf-flow-control` | Workflow: Flow Control | 🔀 | 6 | ✅ |
+| 10 | `wf-api-patterns` | Workflow: API Patterns | 🔗 | 5 | ✅ |
+| 11 | `wf-diverse-apis` | Workflow: Diverse APIs | 🌐 | 5 | ✅ |
+| 12 | `wf-script-node` | Workflow: Script Node | 📜 | 4 | ✅ |
+| 13 | `wf-event-driven` | Workflow: Event-Driven | 📡 | 4 | ✅ |
+| 14 | `wf-async-correlation` | Workflow: Async Correlation | ⏳ | 4 | ✅ |
+| 15 | `wf-orchestration` | Workflow: Orchestration | 🎭 | 5 | ✅ |
+| 16 | `wf-node-reference` | Workflow: Node Reference | 📋 | 3 | ✅ |
+
+Plus cross-entity versioning manual added as Phase 8 to the existing `versioning` path.
+
+**Total new manuals registered: 75** (1 YAML test spec excluded: `correlation-wait-api-yaml-test.html`)
+
+### Naming Convention
+
+Each new training path entry follows the existing `trainingPaths.ts` conventions:
+- `manualPath` — relative to `docs/training-manuals/`
+- `sampleId` — maps manual filename to gallery sample ID by convention:
+  - Requests: `get-all-users-easy.html` → `req-get-all-users`
+  - Tests: `user-api-smoke-easy.html` → `test-user-api-smoke`
+  - Catalog: `jsonplaceholder-easy.html` → `catalog-jsonplaceholder`
+  - Assertions: `api-healthcheck-easy.html` → `preset-api-healthcheck`
+  - Workflows: `conditional-branching-easy.html` → `sample-workflow-branching`
+
+### What Each Phase Delivers
+
+For each phase:
+1. Add `TrainingPath` entry to `trainingPaths.ts` (or add phases to existing path)
+2. Wire `manualPath` and `sampleId` for every manual
+3. Run `npx tsc --noEmit` to verify
+4. Update this plan tracker
+
+---
+
+## Delivery Phases
+
+### Phase 2A — Request Basics (13 files)
+
+**Training Path:** `requests` — "Request Basics" 📡
+**Description:** Learn to build, send, and inspect API requests against real public endpoints.
+
+#### Phase 2A-1: Getting Started (Easy) — 5 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `requests/requests.html` | — | Overview page |
+| 2 | `requests/get-all-users-easy.html` | `req-get-all-users` | GET request, JSON response, status codes |
+| 3 | `requests/get-pokemon-easy.html` | `req-get-pokemon` | Nested JSON, path parameters |
+| 4 | `requests/random-dog-easy.html` | `req-random-dog` | Simple GET, image URLs |
+| 5 | `requests/search-countries-easy.html` | `req-search-countries` | Query parameters, search filtering |
+| 6 | `requests/create-post-easy.html` | `req-create-post` | POST request, JSON body |
+
+#### Phase 2A-2: CRUD and Pagination (Medium) — 6 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 7 | `requests/search-books-medium.html` | `req-search-books` | Search queries, large payloads |
+| 8 | `requests/paginated-users-medium.html` | `req-paginated-users` | Pagination parameters, page traversal |
+| 9 | `requests/product-search-medium.html` | `req-product-search` | E-commerce search, filtering |
+| 10 | `requests/update-resource-medium.html` | `req-update-resource` | PUT/PATCH requests |
+| 11 | `requests/delete-resource-medium.html` | `req-delete-resource` | DELETE requests, status validation |
+| 12 | `requests/auth-login-medium.html` | `req-auth-login` | Login flow, token extraction |
+
+#### Phase 2A-3: Advanced Request Patterns (Advanced) — 1 manual
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 13 | `requests/echo-headers-advanced.html` | `req-echo-headers` | Custom headers, header inspection, debugging |
+
+**Delivery:** 1 `trainingPaths.ts` entry with 3 phases, 12 manuals + 1 overview.
+
+---
+
+### Phase 2B — Test Design (10 files)
+
+**Training Path:** `tests` — "Test Design" 🧪
+**Description:** Build multi-scenario test suites with assertions, data files, and real API endpoints.
+
+#### Phase 2B-1: First Tests (Easy) — 3 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `tests/tests.html` | — | Overview page |
+| 2 | `tests/user-api-smoke-easy.html` | `test-user-api-smoke` | Smoke test, basic assertions |
+| 3 | `tests/product-listing-easy.html` | `test-product-listing` | Product validation, multiple scenarios |
+| 4 | `tests/json-data-files-easy.html` | — | CSV/JSON data files, parameterized tests |
+
+#### Phase 2B-2: Intermediate Testing (Medium) — 4 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 5 | `tests/paginated-regression-medium.html` | `test-paginated-regression` | Regression testing, pagination |
+| 6 | `tests/pokemon-contract-medium.html` | `test-pokemon-contract` | Contract testing, schema validation |
+| 7 | `tests/country-search-medium.html` | `test-country-search` | Search validation, data integrity |
+| 8 | `tests/auth-flow-medium.html` | `test-auth-flow` | Auth-dependent tests, chained requests |
+
+#### Phase 2B-3: Advanced Test Suites (Advanced) — 2 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 9 | `tests/ecommerce-full-advanced.html` | `test-ecommerce-full` | Full e-commerce test suite, multi-scenario |
+| 10 | `tests/multi-api-load-advanced.html` | `test-multi-api-load` | Load testing, concurrent execution, metrics |
+
+**Delivery:** 1 `trainingPaths.ts` entry with 3 phases, 9 manuals + 1 overview.
+
+---
+
+### Phase 2C — API Catalog (7 files)
+
+**Training Path:** `catalog` — "API Catalog" 📚
+**Description:** Import and explore OpenAPI specifications, browse endpoints, and generate requests from specs.
+
+#### Phase 2C-1: Importing Specs (Easy) — 2 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `catalog/catalog.html` | — | Overview page |
+| 2 | `catalog/jsonplaceholder-easy.html` | `catalog-jsonplaceholder` | Import spec, browse endpoints |
+| 3 | `catalog/fakestore-easy.html` | `catalog-fakestore` | E-commerce spec, schema inspection |
+
+#### Phase 2C-2: Exploring APIs (Medium/Advanced) — 4 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 4 | `catalog/pokeapi-medium.html` | `catalog-pokeapi` | Nested schemas, complex endpoints |
+| 5 | `catalog/rest-countries-medium.html` | `catalog-rest-countries` | Filter endpoints, rich data models |
+| 6 | `catalog/dummyjson-medium.html` | `catalog-dummyjson` | Auth endpoints, pagination in specs |
+| 7 | `catalog/httpbin-advanced.html` | `catalog-httpbin` | Advanced spec, testing utilities |
+
+**Delivery:** 1 `trainingPaths.ts` entry with 2 phases, 6 manuals + 1 overview.
+
+---
+
+### Phase 2D — Assertion Preset Samples (6 files)
+
+**Training Path:** `assertion-mastery` — added as Phase 4 "Preset Sample Walkthroughs"
+**Description:** Ready-made assertion sets for common validation patterns — import, customize, and compose. Added as a new phase to the existing `assertion-mastery` path rather than a separate path.
+
+#### Phase 2D-1: Basic Presets (Easy/Medium) — 3 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `assertions/assertions.html` | — | Overview page |
+| 2 | `assertions/api-healthcheck-easy.html` | `preset-api-healthcheck` | Status + response time check |
+| 3 | `assertions/paginated-list-easy.html` | `preset-paginated-list` | Array length + pagination fields |
+| 4 | `assertions/token-expiry-medium.html` | `preset-token-expiry` | JWT regex + date assertion |
+
+#### Phase 2D-2: Advanced Presets (Medium/Advanced) — 2 manuals
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 5 | `assertions/price-guard-medium.html` | `preset-price-guard` | Numeric range + field presence |
+| 6 | `assertions/api-contract-advanced.html` | `preset-api-contract` | Full contract assertion composition |
+
+**Delivery:** Added Phase 4 ("Preset Sample Walkthroughs") to existing `assertion-mastery` path, 5 manuals + 1 overview.
+
+---
+
+### Phase 2E — Workflow Samples (37 files — split into 8 separate training paths)
+
+**Training Paths:** 8 new paths — `wf-flow-control`, `wf-api-patterns`, `wf-diverse-apis`, `wf-script-node`, `wf-event-driven`, `wf-async-correlation`, `wf-orchestration`, `wf-node-reference`
+**Description:** Hands-on walkthroughs of every gallery workflow sample — from simple API calls to multi-stage orchestrations. Split into 8 focused paths by topic rather than one large path.
+
+> The existing `workflow-patterns` path teaches **concepts** (nodes, patterns, techniques).
+> These new workflow paths teach **by example** (each manual walks through a specific gallery sample).
+>
+> **Note:** `correlation-wait-api-yaml-test.html` was excluded — it is a YAML test spec, not a training manual.
+
+#### Phase 2E-1: API Patterns (5 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `workflow/api-patterns/api-patterns.html` | — | Subfolder overview |
+| 2 | `workflow/api-patterns/create-extract-verify-easy.html` | `sample-workflow-001` | Create → extract ID → verify |
+| 3 | `workflow/api-patterns/parallel-api-calls-easy.html` | `sample-workflow-parallel` | Fork/Join parallel HTTP calls |
+| 4 | `workflow/api-patterns/expression-functions-advanced.html` | `sample-workflow-expressions` | Expression evaluation in nodes |
+| 5 | `workflow/api-patterns/debug-trace-advanced.html` | `sample-workflow-log-debug` | LogDebug, trace output |
+
+#### Phase 2E-2: Flow Control (6 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 6 | `workflow/flow-control/flow-control.html` | — | Subfolder overview |
+| 7 | `workflow/flow-control/conditional-branching-easy.html` | `sample-workflow-branching` | If/Else condition routing |
+| 8 | `workflow/flow-control/switch-order-router-medium.html` | `sample-workflow-switch` | Switch node multi-way |
+| 9 | `workflow/flow-control/paginated-fetcher-medium.html` | `sample-workflow-loop-agg` | Loop + pagination |
+| 10 | `workflow/flow-control/error-handler-advanced.html` | `sample-workflow-error-handler` | Node-level error handler |
+| 11 | `workflow/flow-control/wf-error-handler-advanced.html` | `sample-workflow-wf-error-handler` | Workflow-level error handler |
+
+#### Phase 2E-3: Event-Driven Workflows (4 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 12 | `workflow/event-driven/event-driven.html` | — | Subfolder overview |
+| 13 | `workflow/event-driven/webhook-trigger-easy.html` | `sample-workflow-webhook` | Webhook node setup |
+| 14 | `workflow/event-driven/schedule-trigger-easy.html` | `sample-workflow-schedule` | Schedule/cron triggers |
+| 15 | `workflow/event-driven/wait-condition-advanced.html` | `sample-workflow-wait-condition` | WaitForCondition polling |
+
+#### Phase 2E-4: Async Correlation (5 files, 4 registered)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 16 | `workflow/async-correlation/async-correlation.html` | — | Subfolder overview |
+| 17 | `workflow/async-correlation/payment-callback-easy.html` | `sample-workflow-payment-callback-easy` | Simple callback pattern |
+| 18 | `workflow/async-correlation/approval-workflow-medium.html` | `sample-workflow-approval-medium` | Human approval loop |
+| 19 | `workflow/async-correlation/parallel-payment-advanced.html` | `sample-workflow-parallel-payment-advanced` | Multi-provider payment |
+| 20 | `workflow/async-correlation/correlation-wait-api-yaml-test.html` | — | ⏭️ Excluded — YAML test spec, not a training manual |
+
+#### Phase 2E-5: Diverse APIs (5 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 21 | `workflow/diverse-apis/country-currency-easy.html` | `sample-workflow-country-currency` | REST Countries → currency |
+| 22 | `workflow/diverse-apis/pokemon-evolution-easy.html` | `sample-workflow-pokemon-evolution` | PokéAPI evolution chain |
+| 23 | `workflow/diverse-apis/book-search-medium.html` | `sample-workflow-book-search` | Open Library search |
+| 24 | `workflow/diverse-apis/multi-api-dashboard-medium.html` | `sample-workflow-multi-api-dashboard` | Multi-source aggregation |
+| 25 | `workflow/diverse-apis/product-cart-medium.html` | `sample-workflow-product-cart` | E-commerce cart flow |
+
+#### Phase 2E-6: Script Node (4 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 26 | `workflow/script-node/script-node.html` | — | Subfolder overview |
+| 27 | `workflow/script-node/json-formatter-easy.html` | `sample-workflow-script-easy` | Basic script, JSON transform |
+| 28 | `workflow/script-node/cross-api-validator-medium.html` | `sample-workflow-script-medium` | Cross-API validation script |
+| 29 | `workflow/script-node/data-pipeline-report-advanced.html` | `sample-workflow-script-advanced` | Data pipeline, report generation |
+
+#### Phase 2E-7: Orchestration (5 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 30 | `workflow/orchestration/orchestration.html` | — | Subfolder overview |
+| 31 | `workflow/orchestration/order-pipeline-advanced.html` | `sample-workflow-order-pipeline` | Multi-stage order processing |
+| 32 | `workflow/orchestration/deploy-orchestrator-advanced.html` | `sample-workflow-deploy-orchestrator` | Deployment with rollback |
+| 33 | `workflow/orchestration/batch-provisioning-advanced.html` | `sample-workflow-batch` | Batch resource provisioning |
+| 34 | `workflow/orchestration/sub-workflow-advanced.html` | `sample-workflow-sub-workflow` | Sub-workflow composition |
+
+#### Phase 2E-8: Node Reference + Standalone (2 files)
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 35 | `workflow/node-reference/node-reference.html` | — | Complete node type reference |
+| 36 | `workflow/workflow.html` | — | Workflow domain overview |
+| 37 | `sub-workflow-samples-guide.html` | — | Standalone sub-workflow guide |
+
+**Delivery:** 8 new `trainingPaths.ts` entries (one per workflow sub-category), 36 manuals total (excluding 1 YAML test spec).
+
+---
+
+### Phase 2F — Versioning Cross-Entity (1 file)
+
+Add the missing cross-entity manual to the **existing** Versioning training path.
+
+| # | File | `sampleId` | Topics |
+|---|---|---|---|
+| 1 | `versioning/cross-entity/cross-feature-versioning-advanced.html` | — | Full lifecycle across entities, version hygiene, team patterns |
+
+**Delivery:** Add 1 manual to existing `versioning` path as a new Phase 8 ("Cross-Entity Versioning").
+
+---
+
+## Phase 2 — Implementation Priority & Status
+
+| Phase | Scope | Manuals | `trainingPaths.ts` Change | Status |
+|---|---|---|---|---|
+| **2A** | Request Basics | 12 + overview | New path `requests` (3 phases) | ✅ Done |
+| **2B** | Test Design | 9 + overview | New path `tests` (3 phases) | ✅ Done |
+| **2C** | API Catalog | 6 + overview | New path `catalog` (2 phases) | ✅ Done |
+| **2D** | Assertion Preset Samples | 5 + overview | Added Phase 4 to existing `assertion-mastery` path | ✅ Done |
+| **2E** | Workflow Samples | 36 manuals across 8 sub-categories | 8 new paths: `wf-flow-control`, `wf-api-patterns`, `wf-diverse-apis`, `wf-script-node`, `wf-event-driven`, `wf-async-correlation`, `wf-orchestration`, `wf-node-reference` | ✅ Done |
+| **2F** | Versioning Cross-Entity | 1 | Added Phase 8 to existing `versioning` path | ✅ Done |
+
+**Progress: 75 / 75 manuals registered (100%)**
+
+---
+
+## Phase 2 — Detailed Delivery Tracker
+
+### 2A — Request Basics (13 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `requests/requests.html` | Overview | ✅ |
+| 2 | `requests/get-all-users-easy.html` | Manual | ✅ |
+| 3 | `requests/get-pokemon-easy.html` | Manual | ✅ |
+| 4 | `requests/random-dog-easy.html` | Manual | ✅ |
+| 5 | `requests/search-countries-easy.html` | Manual | ✅ |
+| 6 | `requests/create-post-easy.html` | Manual | ✅ |
+| 7 | `requests/search-books-medium.html` | Manual | ✅ |
+| 8 | `requests/paginated-users-medium.html` | Manual | ✅ |
+| 9 | `requests/product-search-medium.html` | Manual | ✅ |
+| 10 | `requests/update-resource-medium.html` | Manual | ✅ |
+| 11 | `requests/delete-resource-medium.html` | Manual | ✅ |
+| 12 | `requests/auth-login-medium.html` | Manual | ✅ |
+| 13 | `requests/echo-headers-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add `requests` path | Code | ✅ |
+
+### 2B — Test Design (10 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `tests/tests.html` | Overview | ✅ |
+| 2 | `tests/user-api-smoke-easy.html` | Manual | ✅ |
+| 3 | `tests/product-listing-easy.html` | Manual | ✅ |
+| 4 | `tests/json-data-files-easy.html` | Manual | ✅ |
+| 5 | `tests/paginated-regression-medium.html` | Manual | ✅ |
+| 6 | `tests/pokemon-contract-medium.html` | Manual | ✅ |
+| 7 | `tests/country-search-medium.html` | Manual | ✅ |
+| 8 | `tests/auth-flow-medium.html` | Manual | ✅ |
+| 9 | `tests/ecommerce-full-advanced.html` | Manual | ✅ |
+| 10 | `tests/multi-api-load-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add `tests` path | Code | ✅ |
+
+### 2C — API Catalog (7 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `catalog/catalog.html` | Overview | ✅ |
+| 2 | `catalog/jsonplaceholder-easy.html` | Manual | ✅ |
+| 3 | `catalog/fakestore-easy.html` | Manual | ✅ |
+| 4 | `catalog/pokeapi-medium.html` | Manual | ✅ |
+| 5 | `catalog/rest-countries-medium.html` | Manual | ✅ |
+| 6 | `catalog/dummyjson-medium.html` | Manual | ✅ |
+| 7 | `catalog/httpbin-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add `catalog` path | Code | ✅ |
+
+### 2D — Assertion Preset Samples (6 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `assertions/assertions.html` | Overview | ✅ |
+| 2 | `assertions/api-healthcheck-easy.html` | Manual | ✅ |
+| 3 | `assertions/paginated-list-easy.html` | Manual | ✅ |
+| 4 | `assertions/token-expiry-medium.html` | Manual | ✅ |
+| 5 | `assertions/price-guard-medium.html` | Manual | ✅ |
+| 6 | `assertions/api-contract-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 4 to `assertion-mastery` path | Code | ✅ |
+
+### 2E — Workflow Samples (37 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `workflow/workflow.html` | Domain Overview | ✅ |
+| 2 | `workflow/api-patterns/api-patterns.html` | Sub Overview | ✅ |
+| 3 | `workflow/api-patterns/create-extract-verify-easy.html` | Manual | ✅ |
+| 4 | `workflow/api-patterns/parallel-api-calls-easy.html` | Manual | ✅ |
+| 5 | `workflow/api-patterns/expression-functions-advanced.html` | Manual | ✅ |
+| 6 | `workflow/api-patterns/debug-trace-advanced.html` | Manual | ✅ |
+| 7 | `workflow/flow-control/flow-control.html` | Sub Overview | ✅ |
+| 8 | `workflow/flow-control/conditional-branching-easy.html` | Manual | ✅ |
+| 9 | `workflow/flow-control/switch-order-router-medium.html` | Manual | ✅ |
+| 10 | `workflow/flow-control/paginated-fetcher-medium.html` | Manual | ✅ |
+| 11 | `workflow/flow-control/error-handler-advanced.html` | Manual | ✅ |
+| 12 | `workflow/flow-control/wf-error-handler-advanced.html` | Manual | ✅ |
+| 13 | `workflow/event-driven/event-driven.html` | Sub Overview | ✅ |
+| 14 | `workflow/event-driven/webhook-trigger-easy.html` | Manual | ✅ |
+| 15 | `workflow/event-driven/schedule-trigger-easy.html` | Manual | ✅ |
+| 16 | `workflow/event-driven/wait-condition-advanced.html` | Manual | ✅ |
+| 17 | `workflow/async-correlation/async-correlation.html` | Sub Overview | ✅ |
+| 18 | `workflow/async-correlation/payment-callback-easy.html` | Manual | ✅ |
+| 19 | `workflow/async-correlation/approval-workflow-medium.html` | Manual | ✅ |
+| 20 | `workflow/async-correlation/parallel-payment-advanced.html` | Manual | ✅ |
+| 21 | `workflow/async-correlation/correlation-wait-api-yaml-test.html` | YAML Test Spec | ⏭️ Excluded (not a training manual) |
+| 22 | `workflow/diverse-apis/country-currency-easy.html` | Manual | ✅ |
+| 23 | `workflow/diverse-apis/pokemon-evolution-easy.html` | Manual | ✅ |
+| 24 | `workflow/diverse-apis/book-search-medium.html` | Manual | ✅ |
+| 25 | `workflow/diverse-apis/multi-api-dashboard-medium.html` | Manual | ✅ |
+| 26 | `workflow/diverse-apis/product-cart-medium.html` | Manual | ✅ |
+| 27 | `workflow/script-node/script-node.html` | Sub Overview | ✅ |
+| 28 | `workflow/script-node/json-formatter-easy.html` | Manual | ✅ |
+| 29 | `workflow/script-node/cross-api-validator-medium.html` | Manual | ✅ |
+| 30 | `workflow/script-node/data-pipeline-report-advanced.html` | Manual | ✅ |
+| 31 | `workflow/orchestration/orchestration.html` | Sub Overview | ✅ |
+| 32 | `workflow/orchestration/order-pipeline-advanced.html` | Manual | ✅ |
+| 33 | `workflow/orchestration/deploy-orchestrator-advanced.html` | Manual | ✅ |
+| 34 | `workflow/orchestration/batch-provisioning-advanced.html` | Manual | ✅ |
+| 35 | `workflow/orchestration/sub-workflow-advanced.html` | Manual | ✅ |
+| 36 | `workflow/node-reference/node-reference.html` | Reference | ✅ |
+| 37 | `sub-workflow-samples-guide.html` | Standalone | ✅ |
+| — | `trainingPaths.ts` — add 8 workflow paths | Code | ✅ |
+
+### 2F — Versioning Cross-Entity (1 file)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `versioning/cross-entity/cross-feature-versioning-advanced.html` | Manual | ✅ |
+| — | `trainingPaths.ts` — add Phase 8 to `versioning` path | Code | ✅ |
+
+---
+
+## Phase 2 — Summary
+
+| Deliverable | Count | Status |
+|---|---|---|
+| New training paths in `trainingPaths.ts` | 10 | ✅ 10 / 10 |
+| Existing path updates (`versioning`, `assertion-mastery`) | 2 | ✅ 2 / 2 |
+| Manuals registered | 62 | ✅ 62 / 62 |
+| Overview/reference pages registered | 13 | ✅ 13 / 13 |
+| **Total manuals wired** | **75** | **✅ 75 / 75** |
+
+> **Phase 2 completed:** 2026-05-01
+> All 75 legacy manuals are now accessible via the Gallery Training Paths UI.

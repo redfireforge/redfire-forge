@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OAuth2 Client Credentials — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>OAuth2 Client Credentials</h1>
+    <div class="subtitle">Easy — Auth Strategies Training Manual</div>
+    <p>Automate token acquisition using OAuth2 client-credentials grant. Learn how RedfireForge's TokenManager handles token caching, JWT expiry parsing, auto-refresh, and concurrent request deduplication — so you never manually copy-paste tokens again.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Auth Basics<br />
+      Build from scratch
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is OAuth2 Client Credentials?</h2>
+  <p>The <strong>Client Credentials</strong> grant is the simplest OAuth2 flow — designed for <strong>machine-to-machine</strong> communication. There's no user involved. Your app sends its client ID and secret to a token endpoint and receives an access token.</p>
+
+  <div class="flow-diagram">
+    <strong>RedfireForge</strong>
+    <span class="arrow">→</span>
+    POST <code>/oauth/token</code>
+    <br />
+    <code>grant_type=client_credentials</code>
+    <br />
+    <code>client_id=xxx &amp; client_secret=yyy</code>
+    <br /><br />
+    <strong>Auth Server</strong>
+    <span class="arrow">→</span>
+    <code>{ "access_token": "eyJ...", "expires_in": 3600 }</code>
+    <br /><br />
+    <strong>RedfireForge</strong>
+    <span class="arrow">→</span>
+    GET <code>/api/data</code>
+    <br />
+    <code>Authorization: Bearer eyJ...</code>
+  </div>
+
+  <h3>When to Use Client Credentials</h3>
+  <ul>
+    <li><strong>Service accounts</strong> — Backend services calling other APIs</li>
+    <li><strong>Azure/AWS/GCP APIs</strong> — Cloud service authentication</li>
+    <li><strong>CI/CD integration</strong> — Automated test pipelines</li>
+    <li><strong>API gateways</strong> — Centralized auth via identity providers</li>
+  </ul>
+
+  <h3>How It Differs from Bearer Token</h3>
+  <table>
+    <tr><th>Feature</th><th>Bearer (manual)</th><th>OAuth2 Client Credentials</th></tr>
+    <tr><td>Token source</td><td>You paste it manually</td><td>Auto-acquired from token endpoint</td></tr>
+    <tr><td>Expiry handling</td><td>Manual — token expires, tests fail</td><td>Auto-refresh before expiry</td></tr>
+    <tr><td>Configuration</td><td>Token string</td><td>Token URL + client ID + client secret</td></tr>
+    <tr><td>Best for</td><td>Quick one-off testing</td><td>Automated test suites</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The AuthConfig Data Model</h2>
+<pre>// AuthConfig for OAuth2
+{
+  type: 'oauth2',
+  tokenUrl: 'https://auth.example.com/oauth/token',
+  clientId: 'my-client-id',
+  clientSecret: 'my-client-secret'
+}</pre>
+
+  <h3>UI State Mapping</h3>
+<pre>// EnvAuthState (form fields)
+{
+  authType: 'oauth2',
+  tokenUrl: 'https://auth.example.com/oauth/token',
+  clientId: 'my-client-id',
+  clientSecret: 'my-client-secret',
+}</pre>
+
+  <h3>Generated Header</h3>
+  <p>After token acquisition, the engine generates:</p>
+<pre>Authorization: Bearer eyJhbGciOiJSUzI1NiIs...</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. The TokenManager</h2>
+  <p>RedfireForge's <code>TokenManager</code> class handles the full OAuth2 lifecycle automatically:</p>
+
+  <h3>Token Acquisition</h3>
+<pre>// acquireOAuth2Token — sends the grant request
+async function acquireOAuth2Token(auth: AuthConfig): Promise&lt;string&gt; {
+  const response = await fetch(auth.tokenUrl!, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: auth.clientId!,
+      client_secret: auth.clientSecret!,
+    }),
+  });
+  const data = await response.json();
+  return data.access_token;
+}</pre>
+
+  <h3>Token Caching</h3>
+  <p>The TokenManager caches tokens to avoid unnecessary requests:</p>
+  <ul>
+    <li><strong>Cache key</strong> — Based on <code>tokenUrl + clientId</code></li>
+    <li><strong>Expiry tracking</strong> — Parses JWT <code>exp</code> claim or uses <code>expires_in</code> from response</li>
+    <li><strong>30-second buffer</strong> — Refreshes 30 seconds before actual expiry</li>
+    <li><strong>In-flight deduplication</strong> — If 5 tests request a token simultaneously, only 1 HTTP call is made</li>
+  </ul>
+
+  <h3>Token Lifecycle Flow</h3>
+  <div class="flow-diagram">
+    <strong>Test starts</strong>
+    <span class="arrow">→</span>
+    Check cache
+    <span class="arrow">→</span>
+    Cached &amp; valid?
+    <br /><br />
+    Yes <span class="arrow">→</span> Use cached token
+    <br />
+    No <span class="arrow">→</span> In-flight request?
+    <br />
+    &nbsp;&nbsp;&nbsp;&nbsp;Yes <span class="arrow">→</span> Wait for existing request
+    <br />
+    &nbsp;&nbsp;&nbsp;&nbsp;No <span class="arrow">→</span> <strong>POST /oauth/token</strong> <span class="arrow">→</span> Cache result <span class="arrow">→</span> Use token
+  </div>
+
+  <div class="callout callout-tip">
+    <strong>💡 JWT Expiry Parsing</strong>
+    If the access token is a JWT, the TokenManager parses the <code>exp</code> claim (base64-decoded middle segment) to determine the exact expiry time. The 30-second buffer ensures the token is refreshed before it actually expires, preventing race conditions during long test runs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Configuring OAuth2 in the UI</h2>
+
+  <h3>Step 1: Select OAuth2</h3>
+  <ol>
+    <li>Open the test → <strong>Auth</strong> tab.</li>
+    <li>Select <strong>OAuth2</strong> from the Type dropdown.</li>
+  </ol>
+
+  <h3>Step 2: Enter Credentials</h3>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>Token URL</strong></td><td>The auth server's token endpoint</td><td><code>https://auth.example.com/oauth/token</code></td></tr>
+    <tr><td><strong>Client ID</strong></td><td>Your application's client identifier</td><td><code>my-app-client-id</code></td></tr>
+    <tr><td><strong>Client Secret</strong></td><td>Your application's secret</td><td><code>my-app-client-secret</code></td></tr>
+  </table>
+
+  <h3>Step 3: Verify</h3>
+  <p>Click <strong>Verify</strong>. For OAuth2, this performs a <em>real token acquisition</em>:</p>
+  <ul>
+    <li>Sends a <code>client_credentials</code> grant to the token URL</li>
+    <li>If successful: shows the token, decoded JWT payload (issuer, expiry, scopes), and "Token acquired OK"</li>
+    <li>If failed: shows the error response from the auth server</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Verify Makes a Real Request</strong>
+    Unlike Bearer/Basic verify (which just checks field presence), OAuth2 verify actually contacts the auth server. Make sure your client credentials are valid and the token URL is reachable.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Console Output for OAuth2</h2>
+  <p>When a test with OAuth2 auth runs, the console shows the full token lifecycle:</p>
+
+<pre>// First test — token acquisition
+* [Auth] OAuth2 client_credentials → POST https://auth.example.com/oauth/token
+* [Auth] Token acquired (expires in 3600s, refreshing at 3570s)
+&gt; GET https://api.example.com/users
+&gt; Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
+&lt; 200 OK (245ms)
+
+// Second test (within same run) — cached token
+* [Auth] Using cached OAuth2 token (expires in 3558s)
+&gt; GET https://api.example.com/orders
+&gt; Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
+&lt; 200 OK (112ms)
+
+// After expiry — auto-refresh
+* [Auth] Token expired, refreshing...
+* [Auth] OAuth2 client_credentials → POST https://auth.example.com/oauth/token
+* [Auth] Token refreshed (expires in 3600s)</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. OAuth2 with the Auth Verify Hook</h2>
+  <p>The <code>useAuthVerify</code> hook provides rich feedback for OAuth2:</p>
+
+<pre>// useAuthVerify result for OAuth2
+{
+  ok: true,
+  message: "Token acquired OK",
+  detail: {
+    token: "eyJhbGci...",     // truncated for display
+    expiresIn: 3600,
+    issuer: "https://auth.example.com",
+    scopes: ["read", "write"],
+    jwtPayload: { sub: "my-app", iss: "...", exp: 1714567890 }
+  }
+}</pre>
+
+  <p>If the credentials are wrong:</p>
+<pre>// Failed verification
+{
+  ok: false,
+  message: "Token acquisition failed: 401 Unauthorized",
+  detail: { error: "invalid_client", error_description: "Client not found" }
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Variable Interpolation</h2>
+  <p>All OAuth2 fields support <code>{{variable}}</code> interpolation:</p>
+<pre>{
+  type: 'oauth2',
+  tokenUrl: '{{authServerUrl}}/oauth/token',
+  clientId: '{{oauth2ClientId}}',
+  clientSecret: '{{oauth2ClientSecret}}'
+}</pre>
+
+  <p>This is especially useful for:</p>
+  <ul>
+    <li><strong>Per-environment credentials</strong> — Dev, staging, and prod each have different client IDs</li>
+    <li><strong>Shared Global Auth Profiles</strong> — One profile, different secrets per environment</li>
+    <li><strong>CI/CD pipelines</strong> — Inject secrets from environment variables</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Understand the Flow</h3>
+  <p><strong>Goal:</strong> Trace the token acquisition flow conceptually.</p>
+  <ol>
+    <li>Draw the 3-step flow: App → Auth Server → API.</li>
+    <li>Identify what data goes in each request (grant type, client ID, token).</li>
+    <li>What header does the final API call use?</li>
+  </ol>
+
+  <h3>Exercise 2: Configure OAuth2 Auth</h3>
+  <p><strong>Goal:</strong> Set up OAuth2 auth and use Verify to test it.</p>
+  <ol>
+    <li>Create a new test with any URL.</li>
+    <li>Set auth type to <strong>OAuth2</strong>.</li>
+    <li>Enter a token URL (use your own auth server, or a mock).</li>
+    <li>Click <strong>Verify</strong> and observe the result — token details, expiry, or error message.</li>
+  </ol>
+
+  <h3>Exercise 3: Compare with Manual Bearer</h3>
+  <p><strong>Goal:</strong> Understand why OAuth2 is better than manual Bearer for long-lived test suites.</p>
+  <ol>
+    <li>Create two versions of the same test — one with manual Bearer, one with OAuth2.</li>
+    <li>Run both. Note the console differences (manual has no token acquisition step).</li>
+    <li>Wait for the Bearer token to expire. Which test still works? Why?</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>AuthConfig.tokenUrl</code>, <code>clientId</code>, <code>clientSecret</code></td></tr>
+    <tr><td><code>src/shared/utils/authHeaders.ts</code></td><td><code>resolveAuthHeaders()</code> — OAuth2 → <code>Authorization: Bearer &lt;token&gt;</code></td></tr>
+    <tr><td><code>src/engine/tokenManager.ts</code></td><td><code>TokenManager</code> class — caching, JWT parsing, expiry buffer, deduplication</td></tr>
+    <tr><td><code>src/engine/executor.ts</code></td><td><code>buildHeaders()</code> — injects OAuth2 token via <code>resolveAuthHeaders</code></td></tr>
+    <tr><td><code>src/features/requests/hooks/useAuthVerify.ts</code></td><td>Live OAuth2 token verification — acquires real token, parses JWT</td></tr>
+    <tr><td><code>src/features/requests/utils/requestAuthState.ts</code></td><td><code>EnvAuthState.tokenUrl</code> / <code>clientId</code> / <code>clientSecret</code></td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next phase:</strong> <em>Phase 2 — Auth Inheritance</em> — Resolve auth across test → scenario → feature group → global profile → environment.</li>
+    <li><strong>Previous:</strong> <em>API Key Authentication</em> — Header and query-param key placement.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies Phase 1 · OAuth2 Client Credentials · Easy
+  </footer>
+
+</body>
+</html>

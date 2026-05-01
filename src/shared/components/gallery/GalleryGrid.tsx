@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { GalleryEntry } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
@@ -85,9 +85,8 @@ export function GalleryGrid<T = unknown>({
 
   const doShowDomain = showDomainBadges ?? multiDomain;
 
-  // Filter entries (reset page when filters change)
+  // Filter entries
   const filtered = useMemo(() => {
-    setPage(0);
     const search = (externalSearch ?? filters.search).toLowerCase();
     return entries.filter(e => {
       if (filters.domain !== 'all' && e.domain !== filters.domain) return false;
@@ -105,6 +104,15 @@ export function GalleryGrid<T = unknown>({
       return true;
     });
   }, [entries, filters, externalSearch]);
+
+  // Reset page when filters change
+  const prevFilteredLen = useRef(filtered.length);
+  useEffect(() => {
+    if (filtered.length !== prevFilteredLen.current) {
+      setPage(0);
+      prevFilteredLen.current = filtered.length;
+    }
+  }, [filtered.length]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -215,7 +223,7 @@ export function GalleryGrid<T = unknown>({
                 })()}
               </>
             ) : (
-              <>{trainingPaths.filter(p => !p.comingSoon).length} paths available</>
+              <>{trainingPaths.filter(p => !p.comingSoon).length} paths available{(externalSearch ?? filters.search) ? ` · searching "${externalSearch ?? filters.search}"` : ''}</>
             )}
           </span>
         </div>
@@ -303,6 +311,8 @@ export function GalleryGrid<T = unknown>({
           <TrainingPathsView
             paths={trainingPaths}
             activePathId={activePathId}
+            onClearActivePath={() => setActivePathId(undefined)}
+            search={externalSearch ?? filters.search}
             onImportSample={onAction ? (sampleId) => {
               const entry = entries.find(e => e.id === sampleId);
               if (entry) onAction(entry);

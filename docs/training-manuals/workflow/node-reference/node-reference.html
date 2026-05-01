@@ -805,8 +805,8 @@
 </div>
 
 <div class="callout">
-  <strong>📘 Assertions vs. JSON Validation</strong>
-  Assertions and JSON validation (Full Match / Selective Fields) are independent. Assertions always run — even with validation mode set to "None". Use assertions for cross-cutting checks (status, timing, headers) and JSON validation for response body structure.
+  <strong>📘 Assertions vs. Body Validation</strong>
+  Assertions and body validation (Full JSON Match / Selective Fields) are independent systems. Assertions always run — even with body validation set to "No Body Validation". Use assertions for cross-cutting checks (status, timing, headers) and body validation for response JSON structure. If "Full JSON Match" is selected without expected JSON, the mode is automatically switched to "No Body Validation" on save.
 </div>
 
 <!-- ════════════════════════════════════════════ -->

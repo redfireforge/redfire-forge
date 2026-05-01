@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Improved
+- **Validation Tab UX clarity** — 5 improvements to reduce confusion between assertions and body validation:
+  - Renamed "No Validation" → "No Body Validation" to clarify assertions still run independently
+  - Added "Body Validation" section heading with subtitle to visually separate it from the Assertions section
+  - Warning banner when "Full JSON Match" is selected but no expected JSON is pasted
+  - Clickable "No Body Validation" link in the warning for quick mode switch
+  - Validation tab dot now only appears when validation is meaningfully configured (not for empty Full JSON Match)
+  - Auto-switch to "No Body Validation" on save when Full JSON Match has no expected JSON
+
 ### Added
 - **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
   - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete

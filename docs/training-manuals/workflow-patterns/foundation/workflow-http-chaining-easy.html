@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTTP Request Chaining — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🌐</div>
+    <h1>HTTP Request Chaining</h1>
+    <div class="subtitle">Easy — Workflow Patterns Training Manual</div>
+    <p>Chain multiple API requests together on the workflow canvas — extract data from one response and use it as input for the next. Learn Start/End nodes, HTTP node configuration, variable extraction, and console log analysis.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Workflow Patterns<br />
+      Gallery Sample: <code>sample-workflow-001</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is HTTP Request Chaining?</h2>
+  <p>HTTP request chaining is the most fundamental workflow pattern: run one API call, extract data from its response, and feed that data into the next API call. This mirrors real-world scenarios like "look up a user, then fetch their orders."</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"User Lookup → Extract ID → Fetch Details"</em></p>
+  <p>You need to test an API integration where you first create a resource (POST), then verify it was created by fetching it back (GET) using the ID returned from the POST response. Without chaining, you'd have to manually copy the ID between tests.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>POST /posts</strong>
+    <span class="arrow">→</span>
+    <strong>Extract postId</strong>
+    <span class="arrow">→</span>
+    <strong>GET /posts/{{postId}}</strong>
+    <span class="arrow">→</span>
+    <strong>End</strong>
+  </div>
+
+  <h3>What You'll Learn</h3>
+  <ul>
+    <li>Start and End nodes — every workflow's entry and exit points</li>
+    <li>HTTP node configuration — method, URL, headers, body, auth</li>
+    <li>Variable extraction — capturing response data for downstream nodes</li>
+    <li><code>VariableContext</code> — the engine that resolves <code>{{variable}}</code> placeholders</li>
+    <li>Console log analysis — reading the <code>&gt;</code>, <code>&lt;</code>, <code>#</code>, <code>*</code> prefixed log lines</li>
+  </ul>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>RedfireForge installed and running</li>
+    <li>Basic understanding of HTTP methods (GET, POST) and JSON</li>
+    <li>No workflow experience needed — this is the starting point</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Start and End Nodes</h2>
+  <p>Every workflow begins with a <strong>Start</strong> node and ends with one or more <strong>End</strong> nodes. These are the entry and exit points of your graph.</p>
+
+  <h3>Start Node</h3>
+<pre>interface StartNodeData {
+  label: string;
+  inputVariables: Record&lt;string, string&gt;;
+}</pre>
+  <p>The Start node can define <strong>input variables</strong> — key-value pairs that are injected into the variable context before any other node runs. These act as configuration parameters for the workflow.</p>
+
+  <table>
+    <tr><th>Field</th><th>Purpose</th><th>Example</th></tr>
+    <tr><td><code>label</code></td><td>Display name on the canvas</td><td><code>"Start"</code></td></tr>
+    <tr><td><code>inputVariables</code></td><td>Pre-set variables for the workflow run</td><td><code>{ "baseUrl": "https://jsonplaceholder.typicode.com" }</code></td></tr>
+  </table>
+
+  <h3>End Node</h3>
+<pre>interface EndNodeData {
+  label: string;
+}</pre>
+  <p>The End node marks the workflow as complete. Its final state (<code>pass</code> or <code>fail</code>) depends on whether all preceding nodes passed. A workflow can have multiple End nodes — for example, one on each branch of a condition. Unvisited End nodes are automatically marked based on overall workflow success.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    You can have multiple End nodes in a workflow. This is common in conditional workflows where different branches lead to different exit points.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. The HTTP Node</h2>
+  <p>The HTTP node is the workhorse of every workflow. It sends an API request and captures the response.</p>
+
+<pre>interface HttpNodeData {
+  label: string;
+  scenario: Scenario;        // Contains the request definition
+  serviceId?: string;         // Optional service registry reference
+  initialVariables?: Record&lt;string, string&gt;;
+  hostEnvironmentId?: string; // Environment for base URL resolution
+}</pre>
+
+  <p>The <code>scenario</code> field contains the full request definition — method, URL, headers, body, auth, extractions, and assertions. This is the same data model used in standalone test scenarios.</p>
+
+  <h3>Configuring an HTTP Node</h3>
+  <ol>
+    <li><strong>Drag</strong> an HTTP node from the node palette onto the canvas.</li>
+    <li><strong>Double-click</strong> the node (or click the gear icon) to open the config modal.</li>
+    <li>Set the <strong>Method</strong> (GET, POST, PUT, DELETE, PATCH).</li>
+    <li>Enter the <strong>URL</strong> — supports <code>{{variable}}</code> interpolation.</li>
+    <li>Add <strong>Headers</strong> if needed (e.g., <code>Content-Type: application/json</code>).</li>
+    <li>Set the <strong>Body</strong> for POST/PUT/PATCH requests.</li>
+    <li>Configure <strong>Extractions</strong> to capture response data as variables.</li>
+  </ol>
+
+  <h3>Variable Extraction</h3>
+  <p>Extractions pull data from the HTTP response and store it as workflow variables. These variables are then available to all downstream nodes via <code>{{variableName}}</code>.</p>
+
+  <table>
+    <tr><th>Extraction Source</th><th>Syntax</th><th>Example</th></tr>
+    <tr><td>JSON body field</td><td>JSONPath</td><td><code>$.id</code> → extracts the <code>id</code> field</td></tr>
+    <tr><td>Response header</td><td>Header name</td><td><code>X-Request-Id</code></td></tr>
+    <tr><td>Status code</td><td>Built-in</td><td><code>httpStatus</code> (auto-extracted)</td></tr>
+    <tr><td>Full body</td><td>Built-in</td><td><code>responseBody</code> (auto-extracted)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Auto-Extracted Variables</strong>
+    Every HTTP node automatically sets <code>httpStatus</code> (the status code as string), <code>status</code> (pass/fail), and <code>responseBody</code> (the full response body). You don't need to configure these — they're always available.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Variable Context — How {{variables}} Work</h2>
+  <p>The <code>VariableContext</code> is the engine that resolves all <code>{{variableName}}</code> placeholders in URLs, headers, bodies, and other fields.</p>
+
+  <h3>Resolution Priority</h3>
+  <p>When you write <code>{{myVar}}</code>, the engine searches three layers (highest priority first):</p>
+  <ol>
+    <li><strong>Extracted layer</strong> — Variables set during execution (HTTP extractions, SetVariable)</li>
+    <li><strong>Manual layer</strong> — Initial variables from the Start node or workflow settings</li>
+    <li><strong>Environment layer</strong> — Low-priority variables from the environment configuration</li>
+  </ol>
+
+<pre>// Resolution example:
+// Manual layer: { baseUrl: "https://api.example.com" }
+// Extracted layer: { postId: "42" }
+
+// URL: "{{baseUrl}}/posts/{{postId}}"
+// Resolves to: "https://api.example.com/posts/42"</pre>
+
+  <h3>Per-Node Scoped Variables</h3>
+  <p>When an HTTP node extracts a variable, it's stored in the <strong>extracted layer</strong> (global scope by default). You can also access node-specific variables using:</p>
+<pre>{{node:"Create Post".httpStatus}}   // By label
+{{node:&lt;node-id&gt;.responseBody}}     // By ID</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: The Gallery Sample</h2>
+  <p>Let's examine the <code>sample-workflow-001</code> gallery workflow: <strong>"Create → Extract → Verify"</strong>.</p>
+
+  <h3>Workflow Structure</h3>
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>POST /posts</strong>
+    <span class="arrow">→</span>
+    <strong>Condition: Status 201?</strong>
+    <span class="arrow">→</span>
+    <strong>Delay 1s</strong>
+    <span class="arrow">→</span>
+    <strong>GET /posts/{{postId}}</strong>
+    <span class="arrow">→</span>
+    <strong>Condition: Valid User?</strong>
+  </div>
+
+  <h3>Step-by-Step Execution</h3>
+  <ol>
+    <li><strong>Start</strong> — No initial variables needed for this sample.</li>
+    <li><strong>HTTP "Create Post"</strong> — Sends <code>POST https://jsonplaceholder.typicode.com/posts</code> with a JSON body. Extracts <code>postId</code> and <code>httpStatus</code> from the response.</li>
+    <li><strong>Condition "Was it Created?"</strong> — Checks <code>httpStatus == 201</code>. If true (Yes branch), continues. If false (No branch), the remaining nodes are skipped.</li>
+    <li><strong>Delay</strong> — Waits 1000ms (simulating a real-world pause between create and verify).</li>
+    <li><strong>HTTP "Get Post Details"</strong> — Sends <code>GET https://jsonplaceholder.typicode.com/posts/{{postId}}</code>. The <code>{{postId}}</code> is replaced with the value extracted from step 2. Extracts <code>postTitle</code> and <code>postUserId</code>.</li>
+    <li><strong>Condition "Has Valid User?"</strong> — Checks <code>postUserId == 1</code>.</li>
+  </ol>
+
+  <h3>Console Log Output</h3>
+  <p>During execution, the console shows:</p>
+<pre>&gt; POST https://jsonplaceholder.typicode.com/posts
+&lt; 201 Created (245ms)
+# postId = "101"
+# httpStatus = "201"
+* [Create Post] → pass
+
+* [Was it Created?] condition: "201" == "201" → true (Yes branch)
+
+* [Delay] waiting 1000ms...
+* [Delay] → pass
+
+&gt; GET https://jsonplaceholder.typicode.com/posts/101
+&lt; 200 OK (89ms)
+# postTitle = "foo"
+# postUserId = "1"
+* [Get Post Details] → pass
+
+* [Has Valid User?] condition: "1" == "1" → true (Yes branch)</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Reading Console Prefixes</strong>
+    <code>&gt;</code> = request sent, <code>&lt;</code> = response received, <code>#</code> = variable extracted, <code>*</code> = node status change, <code>!</code> = error.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Building Your First Chain</h2>
+  <p>Let's build a 3-node HTTP chain from scratch. We'll fetch a list of users, extract the first user's ID, and then fetch that user's details.</p>
+
+  <h3>Step 1: Create the Workflow</h3>
+  <ol>
+    <li>Open the Workflow Designer (sidebar → Workflows → New Workflow).</li>
+    <li>Name it <strong>"User Lookup Chain"</strong>.</li>
+    <li>The canvas starts with a Start node already placed.</li>
+  </ol>
+
+  <h3>Step 2: Add the First HTTP Node</h3>
+  <ol>
+    <li>Click the <strong>+</strong> button on the canvas (or drag from the node palette).</li>
+    <li>Select <strong>HTTP</strong>.</li>
+    <li>Connect the Start node's output to the HTTP node's input.</li>
+    <li>Double-click to configure:
+      <ul>
+        <li>Label: <code>Get Users</code></li>
+        <li>Method: <code>GET</code></li>
+        <li>URL: <code>https://jsonplaceholder.typicode.com/users</code></li>
+      </ul>
+    </li>
+    <li>Add an extraction:
+      <ul>
+        <li>Variable name: <code>firstUserId</code></li>
+        <li>JSONPath: <code>$[0].id</code></li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>Step 3: Add the Second HTTP Node</h3>
+  <ol>
+    <li>Add another HTTP node and connect it after "Get Users".</li>
+    <li>Configure:
+      <ul>
+        <li>Label: <code>Get User Details</code></li>
+        <li>Method: <code>GET</code></li>
+        <li>URL: <code>https://jsonplaceholder.typicode.com/users/{{firstUserId}}</code></li>
+      </ul>
+    </li>
+    <li>Add extractions:
+      <ul>
+        <li><code>userName</code> → <code>$.name</code></li>
+        <li><code>userEmail</code> → <code>$.email</code></li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>Step 4: Add the Third HTTP Node</h3>
+  <ol>
+    <li>Add a third HTTP node and connect it after "Get User Details".</li>
+    <li>Configure:
+      <ul>
+        <li>Label: <code>Get User Posts</code></li>
+        <li>Method: <code>GET</code></li>
+        <li>URL: <code>https://jsonplaceholder.typicode.com/posts?userId={{firstUserId}}</code></li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>Step 5: Add the End Node and Run</h3>
+  <ol>
+    <li>Add an End node and connect it after "Get User Posts".</li>
+    <li>Click <strong>Run</strong> in the toolbar.</li>
+    <li>Watch the nodes turn green as each step completes.</li>
+    <li>Check the console for the <code>&gt;</code>, <code>&lt;</code>, <code>#</code> log lines.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Node State Transitions</h2>
+  <p>As the workflow runs, each node transitions through visual states:</p>
+
+  <table>
+    <tr><th>State</th><th>Visual</th><th>Meaning</th></tr>
+    <tr><td><code>idle</code></td><td>Default look</td><td>Workflow hasn't started yet</td></tr>
+    <tr><td><code>pending</code></td><td>Dimmed</td><td>Waiting to be executed</td></tr>
+    <tr><td><code>running</code></td><td>Blue pulse animation</td><td>Currently sending request / processing</td></tr>
+    <tr><td><code>pass</code></td><td>Green border</td><td>Completed successfully</td></tr>
+    <tr><td><code>fail</code></td><td>Red border</td><td>Request failed or assertion failed</td></tr>
+    <tr><td><code>skipped</code></td><td>Gray, dashed border</td><td>Branch not taken (after a condition)</td></tr>
+  </table>
+
+  <p>Click any node after execution to see its <strong>response detail</strong> — status code, response time, headers, body, and extracted variables.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Chain 3 HTTP Nodes</h3>
+  <p><strong>Goal:</strong> GET list → extract first ID → GET detail by ID → GET related data</p>
+  <ol>
+    <li>Create a new workflow named <strong>"Post Detail Chain"</strong>.</li>
+    <li>HTTP 1: <code>GET https://jsonplaceholder.typicode.com/posts</code> → extract <code>firstPostId</code> from <code>$[0].id</code>.</li>
+    <li>HTTP 2: <code>GET https://jsonplaceholder.typicode.com/posts/{{firstPostId}}</code> → extract <code>postUserId</code> from <code>$.userId</code>.</li>
+    <li>HTTP 3: <code>GET https://jsonplaceholder.typicode.com/users/{{postUserId}}</code>.</li>
+    <li>Run and verify all 3 nodes turn green.</li>
+  </ol>
+
+  <h3>Exercise 2: Add a SetVariable Node</h3>
+  <p><strong>Goal:</strong> Use SetVariable to transform data between HTTP calls.</p>
+  <ol>
+    <li>In the workflow from Exercise 1, add a <strong>SetVariable</strong> node between HTTP 2 and HTTP 3.</li>
+    <li>Add an assignment: <code>userProfileUrl</code> = <code>https://jsonplaceholder.typicode.com/users/{{postUserId}}</code>.</li>
+    <li>Change HTTP 3's URL to <code>{{userProfileUrl}}</code>.</li>
+    <li>Run and verify the result is the same as Exercise 1.</li>
+  </ol>
+
+  <h3>Exercise 3: Add a LogDebug Node</h3>
+  <p><strong>Goal:</strong> Inspect variables mid-flow using LogDebug.</p>
+  <ol>
+    <li>Add a <strong>LogDebug</strong> node after the SetVariable from Exercise 2.</li>
+    <li>Set the message to: <code>Post {{firstPostId}} by user {{postUserId}} — URL: {{userProfileUrl}}</code>.</li>
+    <li>Enable <strong>Snapshot Variables</strong> to log all current variables.</li>
+    <li>Run and check the console output — you should see the interpolated message and a variable dump.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunner.ts</code></td><td>Main execution engine — topological traversal, visit loop</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td>Per-node handler functions (HTTP, Delay, SetVariable, etc.)</td></tr>
+    <tr><td><code>src/features/workflow/engine/variableContext.ts</code></td><td>Variable resolution, <code>{{var}}</code> interpolation, 3-layer lookup</td></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td>All node data interfaces and type definitions</td></tr>
+    <tr><td><code>src/data/galleries/workflows/apiPatterns.ts</code></td><td>Gallery sample: <code>sample-workflow-001</code></td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Delays and Timing</em> — Learn fixed and random delays for paced execution.</li>
+    <li><strong>Then:</strong> <em>Variables and Context</em> — Deep dive into the variable system, environment layers, and built-in generators.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 1 · HTTP Request Chaining · Easy
+  </footer>
+
+</body>
+</html>

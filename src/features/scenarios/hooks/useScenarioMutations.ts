@@ -216,6 +216,14 @@ export function useScenarioMutations({
     const { featureId, scenarioId, testId } = editingTest;
 
     let finalDraft = draft;
+
+    // Auto-switch: if "Full JSON Match" is selected but no expected JSON is provided,
+    // silently downgrade to 'none' to avoid a no-op validation mode
+    if (finalDraft.validation.mode === 'full' && !finalDraft.validation.expectedJson?.trim()) {
+      finalDraft = { ...finalDraft, validation: { ...finalDraft.validation, mode: 'none' } };
+      setDraft(finalDraft);
+    }
+
     if (testId !== 'new') {
       const newVersions = autoSaveVersion(draft);
       if (newVersions) {

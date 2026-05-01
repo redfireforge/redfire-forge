@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Patterns — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚡</div>
+    <h1>Workflow Patterns</h1>
+    <div class="subtitle">Master Overview — Training Manual</div>
+    <p>Learn to build, debug, and optimize visual API workflows in RedfireForge — from simple HTTP chains to parallel execution, conditional branching, loops, sub-workflows, and error handling. This overview introduces the architecture, all 20 node types, and links to all 12 feature-specific manuals.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      4 Phases · 12 Manuals · 20 Node Types
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is a Workflow?</h2>
+  <p>A <strong>workflow</strong> in RedfireForge is a visual, directed graph of <strong>nodes</strong> connected by <strong>edges</strong>. Each node performs a specific action — sending an HTTP request, evaluating a condition, setting a variable, delaying execution, forking into parallel branches, or invoking a child workflow. The workflow engine executes nodes in <strong>topological order</strong>, following edges from start to end.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>HTTP "Get Users"</strong>
+    <span class="arrow">→</span>
+    <strong>Condition "Status OK?"</strong>
+    <span class="arrow">→</span>
+    <strong>HTTP "Get Details"</strong>
+    <span class="arrow">→</span>
+    <strong>End</strong>
+  </div>
+
+  <p>Workflows are built on the ReactFlow canvas with drag-and-drop nodes. The execution engine (<code>graphRunner.ts</code>) traverses the graph, resolving variables, running HTTP requests, and tracking pass/fail state for every node.</p>
+
+  <h3>Key Data Structures</h3>
+<pre>// Core workflow shape
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  variables: Record&lt;string, string&gt;;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  services?: WorkflowService[];
+  errorConfig?: WorkflowErrorConfig;
+}
+
+// Each node on the canvas
+interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;  // 'http' | 'condition' | 'delay' | ...
+  position: { x: number; y: number };
+  data: WorkflowNodeData;  // Type-specific payload
+}
+
+// Each connection between nodes
+interface WorkflowEdge {
+  id: string;
+  source: string;     // Source node ID
+  target: string;     // Target node ID
+  sourceHandle?: string; // e.g. 'true'/'false' for conditions
+  label?: string;
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. All 20 Node Types</h2>
+  <p>The <code>WorkflowNodeType</code> union defines every node available on the canvas:</p>
+
+  <table>
+    <tr><th>Node</th><th>Type</th><th>Purpose</th><th>Phase</th></tr>
+    <tr><td>▶ Start</td><td><code>start</code></td><td>Entry point; seeds initial variables</td><td>Phase 1</td></tr>
+    <tr><td>⏹ End</td><td><code>end</code></td><td>Termination point; marks workflow complete</td><td>Phase 1</td></tr>
+    <tr><td>🌐 HTTP</td><td><code>http</code></td><td>Send an API request (GET, POST, PUT, DELETE, PATCH)</td><td>Phase 1</td></tr>
+    <tr><td>⏱ Delay</td><td><code>delay</code></td><td>Pause execution (fixed or random duration)</td><td>Phase 1</td></tr>
+    <tr><td>📝 SetVariable</td><td><code>setVariable</code></td><td>Assign one or more variables</td><td>Phase 1</td></tr>
+    <tr><td>🐛 LogDebug</td><td><code>logDebug</code></td><td>Print variables to workflow console</td><td>Phase 1</td></tr>
+    <tr><td>❓ Condition</td><td><code>condition</code></td><td>If/else branching (Yes/No paths)</td><td>Phase 2</td></tr>
+    <tr><td>🔀 Switch</td><td><code>switch</code></td><td>Multi-way routing based on expression</td><td>Phase 2</td></tr>
+    <tr><td>🔱 Fork</td><td><code>fork</code></td><td>Split into parallel branches</td><td>Phase 2</td></tr>
+    <tr><td>🔗 Join</td><td><code>join</code></td><td>Wait for all parallel branches to complete</td><td>Phase 2</td></tr>
+    <tr><td>🔄 Loop</td><td><code>loop</code></td><td>Repeat nodes: count, forEach, or while</td><td>Phase 3</td></tr>
+    <tr><td>📊 Aggregate</td><td><code>aggregate</code></td><td>Collect and merge data from branches/iterations</td><td>Phase 3</td></tr>
+    <tr><td>🚨 Error Handler</td><td><code>errorHandler</code></td><td>Catch failures and run recovery logic</td><td>Phase 3</td></tr>
+    <tr><td>📂 Sub-Workflow</td><td><code>subWorkflow</code></td><td>Invoke a child workflow with input/output mappings</td><td>Phase 4</td></tr>
+    <tr><td>📡 Webhook</td><td><code>webhook</code></td><td>Start workflow from external HTTP trigger</td><td>Phase 4</td></tr>
+    <tr><td>⏰ Schedule</td><td><code>schedule</code></td><td>Start workflow on a timer/cron schedule</td><td>Phase 4</td></tr>
+    <tr><td>⏳ Correlation Wait</td><td><code>correlationWait</code></td><td>Pause until a matching webhook callback arrives</td><td>Phase 4</td></tr>
+    <tr><td>💻 Script</td><td><code>script</code></td><td>Execute custom JavaScript in a sandbox</td><td>Phase 4</td></tr>
+    <tr><td>⏸ Wait for Condition</td><td><code>waitForCondition</code></td><td>Poll until a condition becomes true</td><td>Phase 4</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    You don't need to learn all 20 nodes at once. Start with Phase 1 (6 foundation nodes), then progress through branching, loops, and advanced patterns.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How the Engine Executes a Workflow</h2>
+  <p>The execution engine in <code>graphRunner.ts</code> follows a <strong>topological traversal</strong> pattern:</p>
+
+  <ol>
+    <li><strong>Initialize</strong> — Create a <code>VariableContext</code> with initial variables and environment layer. Register all workflow nodes for label-based scoped references.</li>
+    <li><strong>Find start nodes</strong> — Prefer nodes of type <code>start</code>, <code>webhook</code>, or <code>schedule</code>. Fall back to nodes with no incoming edges.</li>
+    <li><strong>Set all nodes to <code>pending</code></strong> — Every node begins in the pending state.</li>
+    <li><strong>Visit recursively</strong> — For each node, dispatch to the appropriate handler (HTTP, Condition, Delay, etc.). After handling, follow outgoing edges to visit the next nodes.</li>
+    <li><strong>Join barrier</strong> — Join nodes track how many branches have arrived vs. how many are expected. Execution only continues past a Join when all branches have completed.</li>
+    <li><strong>Error handling</strong> — If any node fails and a workflow-level error handler is configured, the engine runs the error handler subgraph.</li>
+    <li><strong>Completion</strong> — Mark unvisited End nodes based on overall pass/fail. Report results, duration, and final variable state.</li>
+  </ol>
+
+  <h3>Node Run States</h3>
+  <p>Each node transitions through these states during execution:</p>
+  <table>
+    <tr><th>State</th><th>Meaning</th><th>Visual</th></tr>
+    <tr><td><code>idle</code></td><td>Not yet part of execution</td><td>Default appearance</td></tr>
+    <tr><td><code>pending</code></td><td>Queued for execution</td><td>Dimmed</td></tr>
+    <tr><td><code>running</code></td><td>Currently executing</td><td>Blue pulse</td></tr>
+    <tr><td><code>pass</code></td><td>Completed successfully</td><td>Green border</td></tr>
+    <tr><td><code>fail</code></td><td>Failed (error, assertion failure, timeout)</td><td>Red border</td></tr>
+    <tr><td><code>skipped</code></td><td>Branch not taken (condition/switch)</td><td>Gray, dashed</td></tr>
+    <tr><td><code>paused</code></td><td>Waiting at debug breakpoint</td><td>Yellow pulse</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Variable System</h2>
+  <p>The <code>VariableContext</code> class manages all variables during workflow execution. Variables can be referenced in any text field using <code>{{variableName}}</code> interpolation.</p>
+
+  <h3>Three Resolution Layers</h3>
+  <p>When resolving <code>{{name}}</code>, the engine checks layers in priority order:</p>
+  <ol>
+    <li><strong>Extracted</strong> (highest) — Variables set during execution (HTTP response extractions, SetVariable assignments)</li>
+    <li><strong>Manual</strong> — Initial variables defined on the Start node or workflow settings</li>
+    <li><strong>Environment</strong> (lowest) — Environment-layer variables (e.g., <code>baseUrl</code> from harness settings)</li>
+  </ol>
+
+  <h3>Per-Node Scoping</h3>
+  <p>Variables can be scoped to a specific node using <code>ctx.setForNode(nodeId, key, value)</code>. Access scoped variables with:</p>
+<pre>{{node:"Step Label".variableName}}
+{{node:&lt;nodeId&gt;.variableName}}</pre>
+
+  <h3>Built-in Generators</h3>
+  <table>
+    <tr><th>Generator</th><th>Example Output</th></tr>
+    <tr><td><code>$uuid</code></td><td><code>a1b2c3d4-e5f6-7890-abcd-ef1234567890</code></td></tr>
+    <tr><td><code>$timestamp</code></td><td><code>1714567890123</code></td></tr>
+    <tr><td><code>$isoDate</code></td><td><code>2026-05-01T12:00:00.000Z</code></td></tr>
+    <tr><td><code>$randomInt(1,100)</code></td><td><code>42</code></td></tr>
+    <tr><td><code>$randomEmail</code></td><td><code>user_abc123@test.com</code></td></tr>
+    <tr><td><code>$randomString(8)</code></td><td><code>xK9mP2qR</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Training Phases</h2>
+
+  <h3>Phase 1: Foundation Nodes <span class="badge badge-easy">Easy</span></h3>
+  <p>Learn the 6 building-block nodes that every workflow uses.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th></tr>
+    <tr><td>1</td><td>HTTP Request Chaining</td><td><span class="badge badge-easy">Easy</span></td><td><code>sample-workflow-001</code></td></tr>
+    <tr><td>2</td><td>Delays and Timing</td><td><span class="badge badge-easy">Easy</span></td><td>Build from scratch</td></tr>
+    <tr><td>3</td><td>Variables and Context</td><td><span class="badge badge-easy">Easy</span></td><td>Build from scratch</td></tr>
+  </table>
+
+  <h3>Phase 2: Branching and Flow Control <span class="badge badge-medium">Medium</span></h3>
+  <p>Control execution flow with conditions, multi-way routing, and parallel branches.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th></tr>
+    <tr><td>4</td><td>If/Else Conditions</td><td><span class="badge badge-medium">Medium</span></td><td><code>sample-workflow-order-pipeline</code></td></tr>
+    <tr><td>5</td><td>Switch Multi-Way Routing</td><td><span class="badge badge-medium">Medium</span></td><td>Build from scratch</td></tr>
+    <tr><td>6</td><td>Parallel Execution (Fork/Join)</td><td><span class="badge badge-medium">Medium</span></td><td><code>sample-workflow-deploy-orchestrator</code></td></tr>
+  </table>
+
+  <h3>Phase 3: Loops, Aggregation, and Error Handling <span class="badge badge-medium">Medium</span></h3>
+  <p>Iterate over data, collect results, and handle failures gracefully.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th></tr>
+    <tr><td>7</td><td>Loop Patterns</td><td><span class="badge badge-medium">Medium</span></td><td><code>sample-workflow-sub-workflow</code></td></tr>
+    <tr><td>8</td><td>Aggregation Patterns</td><td><span class="badge badge-medium">Medium</span></td><td>Build from scratch</td></tr>
+    <tr><td>9</td><td>Error Handling Strategies</td><td><span class="badge badge-advanced">Advanced</span></td><td><code>sample-workflow-wf-error-handler</code></td></tr>
+  </table>
+
+  <h3>Phase 4: Sub-Workflows and Advanced Patterns <span class="badge badge-advanced">Advanced</span></h3>
+  <p>Compose complex orchestrations with child workflows, webhooks, and step-through debugging.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th></tr>
+    <tr><td>10</td><td>Sub-Workflow Composition</td><td><span class="badge badge-advanced">Advanced</span></td><td><code>sample-workflow-sub-workflow</code></td></tr>
+    <tr><td>11</td><td>Webhooks and Correlation Wait</td><td><span class="badge badge-advanced">Advanced</span></td><td><code>sample-workflow-webhook</code></td></tr>
+    <tr><td>12</td><td>Debugging Workflows</td><td><span class="badge badge-advanced">Advanced</span></td><td>Any workflow</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Gallery Workflow Samples</h2>
+  <p>The following pre-built workflows are available in the Gallery sidebar. Load them to explore patterns before building your own.</p>
+
+  <table>
+    <tr><th>Sample</th><th>ID</th><th>Nodes</th><th>Key Patterns</th></tr>
+    <tr><td>Create → Extract → Verify</td><td><code>sample-workflow-001</code></td><td>6</td><td>HTTP chaining, variable extraction, conditions</td></tr>
+    <tr><td>Webhook Trigger</td><td><code>sample-workflow-webhook</code></td><td>5+</td><td>Webhook trigger, HTTP, delay</td></tr>
+    <tr><td>Sub-Workflow Orchestrator</td><td><code>sample-workflow-sub-workflow</code></td><td>9</td><td>Sub-workflow, loop, retry, forEach</td></tr>
+    <tr><td>Order Pipeline</td><td><code>sample-workflow-order-pipeline</code></td><td>8</td><td>Condition branching, sub-workflow, shipping</td></tr>
+    <tr><td>Multi-Region Deploy</td><td><code>sample-workflow-deploy-orchestrator</code></td><td>12</td><td>Fork/Join, multi-instance, dynamic rollback</td></tr>
+    <tr><td>Error Handler</td><td><code>sample-workflow-wf-error-handler</code></td><td>9</td><td>Workflow-level error handling, notification</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 How to Use Gallery Samples</strong>
+    Open the Gallery sidebar → Workflow Samples → click a sample card → click "Load Preview" to examine it on the canvas. Click "Import" to add it to your workspace for editing and execution.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Workflow Console</h2>
+  <p>During execution, the workflow console displays real-time logs with prefixed lines:</p>
+  <table>
+    <tr><th>Prefix</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>&gt;</code></td><td>HTTP request sent</td><td><code>&gt; POST https://api.example.com/users</code></td></tr>
+    <tr><td><code>&lt;</code></td><td>HTTP response received</td><td><code>&lt; 201 Created (142ms)</code></td></tr>
+    <tr><td><code>#</code></td><td>Variable extracted</td><td><code># userId = "abc-123"</code></td></tr>
+    <tr><td><code>*</code></td><td>Node status change</td><td><code>* [Get Users] → pass</code></td></tr>
+    <tr><td><code>!</code></td><td>Error occurred</td><td><code>! [Create Order] Network error: ECONNREFUSED</code></td></tr>
+  </table>
+
+  <h2>8. Recommended Learning Path</h2>
+  <ol>
+    <li><strong>Start with Phase 1</strong> — Build a simple 3-node HTTP chain. Understand Start/End, HTTP nodes, and variable extraction.</li>
+    <li><strong>Add complexity with Phase 2</strong> — Introduce condition branches, then try a fork/join for parallel calls.</li>
+    <li><strong>Phase 3</strong> — Learn loops for batch processing and error handlers for resilient workflows.</li>
+    <li><strong>Phase 4</strong> — Compose reusable child workflows, handle webhooks, and use the debugger to step through complex flows.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Each manual includes exercises with real APIs (JSONPlaceholder, DummyJSON). Work through the exercises in order — later manuals build on concepts from earlier ones.
+  </div>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Overview · 4 Phases · 12 Manuals
+  </footer>
+
+</body>
+</html>

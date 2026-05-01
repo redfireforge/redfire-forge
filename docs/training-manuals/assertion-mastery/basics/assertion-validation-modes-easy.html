@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Validation Modes — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔍</div>
+    <h1>Validation Modes</h1>
+    <div class="subtitle">Easy — Assertion Mastery Training Manual</div>
+    <p>Understand the three JSON body validation modes — None, Full, and Selective — and how they work alongside assertions as two independent validation layers that merge into a unified result.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Assertion Basics<br />
+      Gallery Sample: <code>test-user-api-smoke</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Two Validation Layers</h2>
+  <p>RedfireForge has <strong>two independent validation systems</strong> that run in parallel and merge their results:</p>
+
+  <div class="flow-diagram">
+    <strong>Layer 1: Assertions</strong> (status, responseTime, regex, numeric, …)<br />
+    <span class="arrow">↓</span><br />
+    failureDetails[]<br /><br />
+    <strong>Layer 2: Validation Mode</strong> (none, full, selective)<br />
+    <span class="arrow">↓</span><br />
+    failureDetails[]<br /><br />
+    <span class="arrow">→</span> <strong>buildValidationResult()</strong> <span class="arrow">→</span> merged failureDetails[] → pass/fail
+  </div>
+
+  <p>Both layers feed into <code>failureDetails[]</code>. If either layer produces failures, the test fails. They are <strong>complementary</strong> — you can use assertions alone, validation mode alone, or both together.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key Insight</strong>
+    Assertions check <em>specific properties</em> of the response (status, timing, individual fields). Validation modes check <em>the entire response body structure</em>. Together they provide both pinpoint and broad coverage.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The ValidationConfig Interface</h2>
+<pre>type ValidationMode = 'none' | 'full' | 'selective';
+type SelectiveMode = 'include' | 'exclude';
+
+interface ValidationConfig {
+  mode: ValidationMode;
+
+  // Full mode
+  expectedJson?: string;          // entire expected JSON body
+
+  // Selective mode
+  expectedFields?: ExpectedField[];
+  selectiveMode?: SelectiveMode;  // 'include' | 'exclude'
+
+  // Shared options
+  sampleJson?: string;            // reference sample for UI
+  excludedPaths?: string[];       // paths to ignore in full mode
+  unorderedArrays?: boolean;      // ignore array order
+
+  // Assertions (independent layer)
+  assertions?: Assertion[];
+}
+
+interface ExpectedField {
+  jsonPath: string;       // e.g., "$.user.name"
+  expectedValue: string;  // e.g., "John Doe"
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Mode: None ("No Body Validation")</h2>
+  <p><code>mode: 'none'</code> disables JSON body validation entirely. Only assertions (if any) are evaluated. In the UI, this is labeled <strong>"No Body Validation"</strong>.</p>
+
+<pre>{
+  mode: 'none',
+  assertions: [
+    { type: 'status', expected: '200' },
+    { type: 'responseTime', maxMs: 500 }
+  ]
+}</pre>
+
+  <h3>When to Use</h3>
+  <ul>
+    <li>You only care about status + response time, not body content</li>
+    <li>The response body is unpredictable (timestamps, random IDs)</li>
+    <li>You're doing basic connectivity or smoke testing</li>
+    <li>You have specific assertions that check individual fields already</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📘 "No Body Validation" ≠ No Validation At All</strong>
+    <code>mode: 'none'</code> only disables the <em>body validation layer</em>. Assertions still run! If you have a status assertion, it will still be checked. "No Body Validation" refers to JSON body comparison, not to all validation.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Mode: Full</h2>
+  <p><code>mode: 'full'</code> performs a deep comparison of the <strong>entire response body</strong> against an expected JSON snapshot.</p>
+
+<pre>{
+  mode: 'full',
+  expectedJson: '{"id": 1, "name": "Leanne Graham", "email": "Sincere@april.biz"}',
+  assertions: [
+    { type: 'status', expected: '200' }
+  ]
+}</pre>
+
+  <h3>How It Works</h3>
+  <ol>
+    <li>The engine parses <code>expectedJson</code> and the actual response body.</li>
+    <li>It performs a deep recursive comparison of every key and value.</li>
+    <li>Any difference produces a <code>FailureDetail</code> with the JSONPath of the mismatch.</li>
+  </ol>
+
+  <h3>Failure Example</h3>
+<pre>// Expected:  {"name": "Leanne Graham", "email": "Sincere@april.biz"}
+// Actual:    {"name": "Leanne Graham", "email": "new@email.com"}
+
+FailureDetail {
+  path: '$.email',
+  expected: '"Sincere@april.biz"',
+  actual: '"new@email.com"',
+  message: 'Value mismatch at $.email'
+}</pre>
+
+  <h3>Options That Modify Full Mode</h3>
+  <table>
+    <tr><th>Option</th><th>Effect</th></tr>
+    <tr><td><code>excludedPaths</code></td><td>Skip specific JSONPaths from comparison (e.g., <code>["$.timestamp", "$.requestId"]</code>)</td></tr>
+    <tr><td><code>unorderedArrays</code></td><td>When <code>true</code>, arrays are compared as sets — order doesn't matter</td></tr>
+  </table>
+
+  <h3>When to Use</h3>
+  <ul>
+    <li>API responses are deterministic (no timestamps, random IDs)</li>
+    <li>You want to catch <em>any</em> change to the response shape</li>
+    <li>Contract testing — "this endpoint must return exactly this structure"</li>
+    <li>Snapshot testing — capture a known-good response, compare on every run</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Dynamic Fields</strong>
+    Full mode will fail on dynamic fields like timestamps, UUIDs, or request IDs. Use <code>excludedPaths</code> to skip these, or switch to <code>selective</code> mode where you only check the stable fields.
+  </div>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Empty Expected JSON</strong>
+    If you select "Full JSON Match" but leave the expected JSON textarea empty, the UI will show a warning banner. On save, the mode is automatically switched to "No Body Validation" to prevent a silent no-op. Always paste the expected response before saving with Full JSON Match.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Mode: Selective</h2>
+  <p><code>mode: 'selective'</code> validates only <strong>specific fields</strong> by JSONPath, leaving everything else unchecked.</p>
+
+<pre>{
+  mode: 'selective',
+  selectiveMode: 'include',
+  expectedFields: [
+    { jsonPath: '$.name', expectedValue: 'Leanne Graham' },
+    { jsonPath: '$.email', expectedValue: 'Sincere@april.biz' },
+    { jsonPath: '$.address.city', expectedValue: 'Gwenborough' }
+  ]
+}</pre>
+
+  <h3>selectiveMode: Include vs. Exclude</h3>
+  <table>
+    <tr><th>Mode</th><th>Meaning</th><th>Use When</th></tr>
+    <tr>
+      <td><code>include</code></td>
+      <td>Only check the listed fields; ignore everything else</td>
+      <td>You know exactly which fields matter</td>
+    </tr>
+    <tr>
+      <td><code>exclude</code></td>
+      <td>Check everything <em>except</em> the listed fields</td>
+      <td>Most fields matter, but a few are dynamic</td>
+    </tr>
+  </table>
+
+  <h3>Include Mode Example</h3>
+<pre>// Only these 2 fields are checked — the rest can change freely
+{
+  mode: 'selective',
+  selectiveMode: 'include',
+  expectedFields: [
+    { jsonPath: '$.status', expectedValue: 'active' },
+    { jsonPath: '$.role', expectedValue: 'admin' }
+  ]
+}</pre>
+
+  <h3>Exclude Mode Example</h3>
+<pre>// Check everything in expectedJson EXCEPT these dynamic paths
+{
+  mode: 'selective',
+  selectiveMode: 'exclude',
+  expectedFields: [
+    { jsonPath: '$.updatedAt', expectedValue: '' },
+    { jsonPath: '$.requestId', expectedValue: '' }
+  ],
+  expectedJson: '{ ... full expected body ... }'
+}</pre>
+
+  <h3>When to Use</h3>
+  <ul>
+    <li>Responses have a mix of stable and dynamic fields</li>
+    <li>You want to validate business-critical fields without snapshot rigidity</li>
+    <li>Testing partial updates — "after PUT, verify only the changed fields"</li>
+    <li>API returns extra metadata you don't care about</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Choosing the Right Mode</h2>
+
+  <table>
+    <tr><th>Question</th><th>Answer → Mode</th></tr>
+    <tr><td>Do I only care about status/timing?</td><td>Yes → <code>none</code></td></tr>
+    <tr><td>Must the response be exactly this shape?</td><td>Yes → <code>full</code></td></tr>
+    <tr><td>Are there dynamic/unpredictable fields?</td><td>Some → <code>full</code> + <code>excludedPaths</code><br/>Many → <code>selective</code> (include)</td></tr>
+    <tr><td>Do I care about specific fields only?</td><td>Yes → <code>selective</code> (include)</td></tr>
+    <tr><td>I want full check minus a few fields?</td><td>→ <code>selective</code> (exclude)</td></tr>
+  </table>
+
+  <div class="flow-diagram">
+    <strong>Decision Flow</strong><br /><br />
+    Body matters? <span class="arrow">→</span> No <span class="arrow">→</span> <code>none</code><br />
+    <span class="arrow">↓</span> Yes<br />
+    All fields deterministic? <span class="arrow">→</span> Yes <span class="arrow">→</span> <code>full</code><br />
+    <span class="arrow">↓</span> No<br />
+    More stable than dynamic? <span class="arrow">→</span> Yes <span class="arrow">→</span> <code>full</code> + <code>excludedPaths</code><br />
+    <span class="arrow">↓</span> No<br />
+    <code>selective</code> (include specific fields)
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Combining Validation Mode + Assertions</h2>
+  <p>The two layers complement each other. Here's a complete validation config using both:</p>
+
+<pre>{
+  mode: 'selective',
+  selectiveMode: 'include',
+  expectedFields: [
+    { jsonPath: '$.name', expectedValue: 'Leanne Graham' },
+    { jsonPath: '$.company.name', expectedValue: 'Romaguera-Crona' }
+  ],
+  assertions: [
+    { type: 'status', expected: '200' },
+    { type: 'responseTime', maxMs: 500 },
+    { type: 'regex', jsonPath: '$.email', pattern: '^[^@]+@[^@]+\\.[^@]+$' }
+  ]
+}</pre>
+
+  <p>In this example:</p>
+  <ul>
+    <li><strong>Validation mode</strong> checks that <code>name</code> and <code>company.name</code> match expected values</li>
+    <li><strong>Status assertion</strong> checks HTTP 200</li>
+    <li><strong>Response time</strong> checks latency ≤ 500ms</li>
+    <li><strong>Regex assertion</strong> checks email format without pinning the exact value</li>
+  </ul>
+
+  <p>All four checks are independent — each can pass or fail on its own.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Compare None vs. Full</h3>
+  <p><strong>Goal:</strong> See how validation mode affects test results.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users/1</code>.</li>
+    <li>Set mode to <code>none</code>. Run — passes (only default heuristic).</li>
+    <li>Switch to <code>full</code>. Paste the response body as <code>expectedJson</code>.</li>
+    <li>Run — should pass (exact match).</li>
+    <li>Edit one value in <code>expectedJson</code>. Run — fails with a path-specific error.</li>
+  </ol>
+
+  <h3>Exercise 2: Selective Include</h3>
+  <p><strong>Goal:</strong> Validate only the fields you care about.</p>
+  <ol>
+    <li>Same test as above. Switch to <code>selective</code>, <code>include</code> mode.</li>
+    <li>Add expected fields: <code>$.name</code> = <code>Leanne Graham</code>, <code>$.email</code> = <code>Sincere@april.biz</code>.</li>
+    <li>Run — passes. Only those 2 fields are checked.</li>
+    <li>Change <code>$.name</code> expected to <code>Wrong Name</code> — fails on that field only.</li>
+  </ol>
+
+  <h3>Exercise 3: Full Mode with excludedPaths</h3>
+  <p><strong>Goal:</strong> Handle dynamic fields in full mode.</p>
+  <ol>
+    <li>Create a test: POST <code>https://jsonplaceholder.typicode.com/posts</code> with a JSON body.</li>
+    <li>Run once, copy the response as <code>expectedJson</code>.</li>
+    <li>Set mode to <code>full</code>. Run again — the <code>id</code> field changes each time → failure.</li>
+    <li>Add <code>"$.id"</code> to <code>excludedPaths</code>. Run — passes now.</li>
+  </ol>
+
+  <h3>Exercise 4: Both Layers Together</h3>
+  <p><strong>Goal:</strong> Use assertions + validation mode in one test.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users/1</code>.</li>
+    <li>Set mode to <code>selective</code> with <code>$.name</code> = <code>Leanne Graham</code>.</li>
+    <li>Add assertions: status = <code>200</code>, response time ≤ <code>1000</code>ms.</li>
+    <li>Run — all three checks should pass independently.</li>
+    <li>Change status to <code>201</code> — status fails, but selective validation still passes.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>ValidationConfig</code>, <code>ValidationMode</code>, <code>ExpectedField</code>, <code>SelectiveMode</code></td></tr>
+    <tr><td><code>src/engine/validationResult.ts</code></td><td><code>buildValidationResult()</code> — merges assertions + validation mode results</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — assertion layer</td></tr>
+    <tr><td><code>src/engine/jsonCompare.ts</code></td><td>Deep comparison engine for full mode, <code>excludedPaths</code>, <code>unorderedArrays</code></td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>UI: mode selector, expectedJson editor, expectedFields list</td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Phase 2:</strong> <em>Assertion Mastery — Advanced Types</em> — regex, numeric, arrayLength, jsonPath, and custom script assertions.</li>
+    <li><strong>Previous:</strong> <em>Response Time Assertions</em> — Latency thresholds and performance baselines.</li>
+    <li><strong>Path overview:</strong> <em>Assertion Mastery Overview</em> — All 7 types, 3 validation modes, presets.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 1 · Validation Modes · Easy
+  </footer>
+
+</body>
+</html>

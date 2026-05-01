@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assertion Presets — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>Assertion Presets</h1>
+    <div class="subtitle">Advanced — Assertion Mastery Training Manual</div>
+    <p>Import ready-made assertion sets from the built-in catalog, customize them for your API, and standardize validation patterns across your test suite.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 3 — Presets, Composition, and Advanced Patterns<br />
+      Scenario: <em>Standardizing Assertions Across a Test Suite</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Are Assertion Presets?</h2>
+  <p>Assertion presets are curated, importable sets of assertions. Instead of building assertions from scratch, you click <strong>📋 Presets</strong> and import a ready-made set that you can then customize.</p>
+
+  <div class="flow-diagram">
+    <strong>Preset Import Flow</strong><br /><br />
+    Click "📋 Presets"<br />
+    <span class="arrow">→</span> Browse catalog (filter by category)<br />
+    <span class="arrow">→</span> Click a preset card<br />
+    <span class="arrow">→</span> Assertions appended to your list<br />
+    <span class="arrow">→</span> Customize paths, values, operators
+  </div>
+
+  <h3>Key Characteristics</h3>
+  <ul>
+    <li><strong>Non-destructive:</strong> Importing a preset <em>appends</em> to existing assertions — it doesn't replace them.</li>
+    <li><strong>Fresh copies:</strong> Each import calls <code>factory()</code> to create new assertion objects.</li>
+    <li><strong>Customizable:</strong> After import, you edit any field — paths, operators, values, patterns.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Preset Catalog</h2>
+  <p>RedfireForge ships with 5 built-in presets across 3 categories:</p>
+
+  <table>
+    <tr><th>Preset</th><th>Icon</th><th>Category</th><th>Difficulty</th><th>Assertions</th></tr>
+    <tr><td><strong>API Health Check</strong></td><td>💚</td><td>api-validation</td><td>Easy</td><td>2 (status, arrayLength)</td></tr>
+    <tr><td><strong>Paginated List</strong></td><td>📄</td><td>api-validation</td><td>Easy</td><td>3 (arrayLength, numeric×2)</td></tr>
+    <tr><td><strong>Token Expiry Guard</strong></td><td>🔐</td><td>security</td><td>Medium</td><td>3 (regex, date, numeric)</td></tr>
+    <tr><td><strong>Price Guard</strong></td><td>💰</td><td>data-quality</td><td>Medium</td><td>3 (numeric×2, arrayLength)</td></tr>
+    <tr><td><strong>API Contract</strong></td><td>📜</td><td>api-validation</td><td>Advanced</td><td>5 (status, numeric×3, regex)</td></tr>
+  </table>
+
+  <h3>Categories</h3>
+  <table>
+    <tr><th>Category</th><th>Label</th><th>Purpose</th></tr>
+    <tr><td><code>api-validation</code></td><td>API Validation</td><td>General API response structure and status</td></tr>
+    <tr><td><code>data-quality</code></td><td>Data Quality</td><td>Value ranges, data integrity, consistency</td></tr>
+    <tr><td><code>security</code></td><td>Security</td><td>Auth tokens, JWT format, expiry checks</td></tr>
+    <tr><td><code>all</code></td><td>All</td><td>Show all presets (default tab)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Preset Architecture</h2>
+
+  <h3>AssertionPresetEntry Type</h3>
+<pre>export interface AssertionPresetEntry extends GalleryEntry&lt;Assertion[]> {
+  category: AssertionPresetCategory;  // 'api-validation' | 'data-quality' | 'security'
+  assertionCount: number;             // number of assertions produced
+  assertionTypes: string[];           // e.g. ['status', 'arrayLength']
+}
+
+// Base type:
+export interface GalleryEntry&lt;T> {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  difficulty: GalleryDifficulty;     // 'easy' | 'medium' | 'advanced'
+  tags: string[];
+  factory: () => T;
+}</pre>
+
+  <h3>Factory Functions</h3>
+  <p>Each preset has a factory function that returns a fresh <code>Assertion[]</code>:</p>
+
+<pre>// API Health Check — 2 assertions
+export function createApiHealthCheckAssertions(): Assertion[] {
+  return [
+    { type: 'status', expected: '2xx' },
+    { type: 'arrayLength', jsonPath: '$', operator: '>=', value: 1 },
+  ];
+}
+
+// Paginated List — 3 assertions
+export function createPaginatedListAssertions(): Assertion[] {
+  return [
+    { type: 'arrayLength', jsonPath: '$.data', operator: '>=', value: 1 },
+    { type: 'numeric', jsonPath: '$.page', operator: '=', value: 1 },
+    { type: 'numeric', jsonPath: '$.total', operator: '>', value: 0 },
+  ];
+}
+
+// Token Expiry Guard — 3 assertions
+export function createTokenExpiryAssertions(): Assertion[] {
+  return [
+    { type: 'regex', jsonPath: '$.token',
+      pattern: '^[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_]+$' },
+    { type: 'date', jsonPath: '$.expiresAt', operator: '>',
+      reference: { kind: 'today', timezone: 'utc' } },
+    { type: 'numeric', jsonPath: '$.expiresIn', operator: '>', value: 0 },
+  ];
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The AssertionPresetMenu Component</h2>
+  <p>The preset menu is a popover triggered by the <strong>📋 Presets</strong> button on the Validation tab:</p>
+
+<pre>// Placement on Validation tab:
+[+ Add ▾]  [📋 Presets ▾]
+
+// Component structure:
+&lt;AssertionPresetMenu onImport={(assertions) => { /* append to list */ }} />
+
+// Internal flow:
+1. User clicks "📋 Presets" → popover opens
+2. Category tabs filter the catalog
+3. Preset cards show: icon, name, description, difficulty badge, assertion count
+4. Click a card → factory() called → onImport(assertions) → popover closes</pre>
+
+  <h3>Key Features</h3>
+  <ul>
+    <li><strong>Category tabs:</strong> All, API Validation, Data Quality, Security</li>
+    <li><strong>Card metadata:</strong> Difficulty badge, assertion count, assertion types</li>
+    <li><strong>Click-outside close:</strong> Mouse event listener auto-closes the popover</li>
+    <li><strong>Fresh instances:</strong> Each import calls <code>factory()</code> — no shared references</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Import Multiple Presets</strong>
+    You can import multiple presets into the same test. Each import appends to the existing assertions list, so importing "API Health Check" + "Price Guard" gives you 5 assertions total.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Preset Details</h2>
+
+  <h3>1. API Health Check (Easy)</h3>
+  <table>
+    <tr><th>Assertion</th><th>Type</th><th>What It Checks</th></tr>
+    <tr><td>Status 2xx</td><td><code>status</code></td><td>Any 200-level status code</td></tr>
+    <tr><td>Array ≥ 1</td><td><code>arrayLength</code></td><td>Response root is non-empty array</td></tr>
+  </table>
+  <p><strong>Use case:</strong> Quick sanity check for health/status endpoints.</p>
+
+  <h3>2. Paginated List (Easy)</h3>
+  <table>
+    <tr><th>Assertion</th><th>Type</th><th>What It Checks</th></tr>
+    <tr><td>Data ≥ 1 item</td><td><code>arrayLength</code></td><td><code>$.data</code> has at least 1 element</td></tr>
+    <tr><td>Page = 1</td><td><code>numeric</code></td><td><code>$.page</code> equals 1 (first page)</td></tr>
+    <tr><td>Total > 0</td><td><code>numeric</code></td><td><code>$.total</code> is positive</td></tr>
+  </table>
+  <p><strong>Use case:</strong> Verify standard pagination structure.</p>
+
+  <h3>3. Token Expiry Guard (Medium)</h3>
+  <table>
+    <tr><th>Assertion</th><th>Type</th><th>What It Checks</th></tr>
+    <tr><td>JWT format</td><td><code>regex</code></td><td><code>$.token</code> matches <code>xxx.yyy.zzz</code> pattern</td></tr>
+    <tr><td>Not expired</td><td><code>date</code></td><td><code>$.expiresAt</code> is after today (UTC)</td></tr>
+    <tr><td>TTL positive</td><td><code>numeric</code></td><td><code>$.expiresIn</code> > 0</td></tr>
+  </table>
+  <p><strong>Use case:</strong> Auth endpoint validation — token is valid and not expired.</p>
+
+  <h3>4. Price Guard (Medium)</h3>
+  <table>
+    <tr><th>Assertion</th><th>Type</th><th>What It Checks</th></tr>
+    <tr><td>Price > 0</td><td><code>numeric</code></td><td>Price is positive</td></tr>
+    <tr><td>Price < 10000</td><td><code>numeric</code></td><td>Price below max threshold</td></tr>
+    <tr><td>Variants ≥ 1</td><td><code>arrayLength</code></td><td>At least one variant exists</td></tr>
+  </table>
+  <p><strong>Use case:</strong> E-commerce product data integrity.</p>
+
+  <h3>5. API Contract (Advanced)</h3>
+  <table>
+    <tr><th>Assertion</th><th>Type</th><th>What It Checks</th></tr>
+    <tr><td>Status 200</td><td><code>status</code></td><td>Exact 200 status</td></tr>
+    <tr><td>userId ≥ 1</td><td><code>numeric</code></td><td>Valid user ID range (lower)</td></tr>
+    <tr><td>userId ≤ 10</td><td><code>numeric</code></td><td>Valid user ID range (upper)</td></tr>
+    <tr><td>id = 1</td><td><code>numeric</code></td><td>Expected record ID</td></tr>
+    <tr><td>Title ≥ 3 chars</td><td><code>regex</code></td><td>Title is at least 3 characters</td></tr>
+  </table>
+  <p><strong>Use case:</strong> Full contract test for a REST resource endpoint.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Customizing Imported Presets</h2>
+  <p>After importing, every field is editable. Common customizations:</p>
+
+  <table>
+    <tr><th>Field</th><th>What to Change</th><th>Example</th></tr>
+    <tr><td><code>jsonPath</code></td><td>Point to your API's field names</td><td><code>$.data</code> → <code>$.results</code></td></tr>
+    <tr><td><code>operator</code></td><td>Adjust comparison</td><td><code>>=</code> → <code>=</code></td></tr>
+    <tr><td><code>value</code></td><td>Set expected thresholds</td><td><code>10000</code> → <code>50000</code></td></tr>
+    <tr><td><code>pattern</code></td><td>Modify regex</td><td>JWT pattern → UUID pattern</td></tr>
+    <tr><td><code>expected</code></td><td>Change status code</td><td><code>2xx</code> → <code>200</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Building Your Own Presets</strong>
+    While custom preset creation isn't available in the UI yet, the architecture supports it. Each preset is a factory function returning <code>Assertion[]</code>. Enterprise users can add presets by extending the <code>assertionPresetCatalog</code> array.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Import and Customize "API Health Check"</h3>
+  <ol>
+    <li>Create a new test targeting <code>https://jsonplaceholder.typicode.com/users</code>.</li>
+    <li>Go to the Validation tab.</li>
+    <li>Click <strong>📋 Presets</strong> → select <strong>API Health Check</strong>.</li>
+    <li>Two assertions appear: status 2xx and array ≥ 1.</li>
+    <li>Run the test — both pass (200 status, 10 users).</li>
+    <li>Edit the arrayLength assertion: change path to <code>$[0].address</code> — now it checks nested structure.</li>
+  </ol>
+
+  <h3>Exercise 2: Import "Token Expiry Guard" and Adjust</h3>
+  <ol>
+    <li>Import the Token Expiry Guard preset.</li>
+    <li>Change <code>$.token</code> to your API's actual token field path (e.g., <code>$.access_token</code>).</li>
+    <li>Adjust the regex pattern if your token isn't JWT format.</li>
+    <li>Change the date assertion to check <code>$.expires_at</code> instead of <code>$.expiresAt</code>.</li>
+    <li>Run against your auth endpoint and verify all 3 assertions pass.</li>
+  </ol>
+
+  <h3>Exercise 3: Combine Multiple Presets</h3>
+  <ol>
+    <li>Import "API Health Check" (2 assertions).</li>
+    <li>Import "Price Guard" (3 assertions).</li>
+    <li>You now have 5 assertions on one test.</li>
+    <li>Customize the Price Guard paths for your product API.</li>
+    <li>Run — verify all 5 assertions are evaluated.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/data/galleries/assertion-presets/types.ts</code></td><td><code>AssertionPresetEntry</code>, <code>AssertionPresetCategory</code></td></tr>
+    <tr><td><code>src/data/galleries/assertion-presets/presets.ts</code></td><td>5 factory functions</td></tr>
+    <tr><td><code>src/data/galleries/assertion-presets/index.ts</code></td><td><code>assertionPresetCatalog</code> array, category list</td></tr>
+    <tr><td><code>src/features/scenarios/components/AssertionPresetMenu.tsx</code></td><td>Popover UI for preset import</td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> union type (7 variants)</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Complex Assertion Strategies</em> — Combining assertions with validation modes.</li>
+    <li><strong>Previous:</strong> <em>Date Assertions</em> — Date comparison operators and references.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 3 · Assertion Presets · Advanced
+  </footer>
+
+</body>
+</html>

@@ -156,7 +156,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Styled Data Sheet** — Request/Response category headers with color-coded columns (blue for request, green for validation)
 - [x] **Styled Metadata Sheet** — Formatted COLUMN MAPPINGS, CONFIG, HEADERS sections with bold headings and table layout
 - [x] **Excel Template Import** — Parse `.xlsx` with file-level and row-level validation, dynamic column detection for user-added fields
-- [x] **All Validation Modes** — Full support for none, full JSON match, and selective fields through export/import round-trip
+- [x] **All Validation Modes** — Full support for no body validation, full JSON match, and selective fields through export/import round-trip
 - [x] **Response Error Display** — Clickable error snippets on failed result rows; Response Detail modal with error message, validation failures table, and full response body
 - [x] **HTTP Error Message Extraction** — Executor parses `message`/`error`/`detail` from 4xx/5xx response bodies
 - [x] **Detail Header Row** — Column headers shown when expanding grouped results to individual test rows
