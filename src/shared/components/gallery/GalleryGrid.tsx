@@ -2,9 +2,11 @@ import { useState, useMemo, useCallback } from 'react';
 import type { GalleryEntry } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
+import { trainingPaths } from '../../../data/galleries/trainingPaths';
 import { GalleryCard } from './GalleryCard';
-import { GalleryFilters, defaultFilterState, apiHostname, type GalleryFilterState } from './GalleryFilters';
+import { GalleryFilters, defaultFilterState, apiHostname, type GalleryFilterState, type GalleryMode } from './GalleryFilters';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
+import { TrainingPathsView } from './TrainingPathsView';
 
 type LabelProp<T> = string | ((entry: GalleryEntry<T>) => string | undefined);
 
@@ -55,18 +57,23 @@ export function GalleryGrid<T = unknown>({
   const [filters, setFilters] = useState<GalleryFilterState>(defaultFilterState);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [mode, setMode] = useState<GalleryMode>('samples');
+  const [activePathId, setActivePathId] = useState<string | undefined>();
 
   // Derive unique categories and live-API hostnames for filter dropdowns
-  const { categories, liveApiHosts } = useMemo(() => {
+  const { categories, liveApiHosts, allTags } = useMemo(() => {
     const cats = new Set<string>();
     const apis = new Set<string>();
+    const tgs = new Set<string>();
     for (const e of entries) {
       cats.add(e.category);
       for (const a of e.liveApis) apis.add(apiHostname(a));
+      for (const t of e.tags) tgs.add(t);
     }
     return {
       categories: [...cats].sort(),
       liveApiHosts: [...apis].sort(),
+      allTags: [...tgs].sort(),
     };
   }, [entries]);
 
@@ -90,6 +97,7 @@ export function GalleryGrid<T = unknown>({
         const match = e.liveApis.some(a => apiHostname(a) === filters.liveApi);
         if (!match) return false;
       }
+      if (filters.tag && !e.tags.includes(filters.tag)) return false;
       if (search) {
         const hay = `${e.name} ${e.description} ${e.tags.join(' ')} ${e.category}`.toLowerCase();
         if (!hay.includes(search)) return false;
@@ -103,6 +111,35 @@ export function GalleryGrid<T = unknown>({
   const safePage = Math.min(page, totalPages - 1);
   const paged = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
+  // Group paired entries (main + simulator) for rendering
+  type EntryGroup = { key: string; main: GalleryEntry<T>; simulator?: GalleryEntry<T> };
+  const groups = useMemo<EntryGroup[]>(() => {
+    const pagedIds = new Set(paged.map(e => e.id));
+    const consumed = new Set<string>();
+    const out: EntryGroup[] = [];
+    for (const entry of paged) {
+      if (consumed.has(entry.id)) continue;
+      if (entry.simulatorOf) {
+        // Orphan simulator (main not on this page) → render solo
+        if (!pagedIds.has(entry.simulatorOf)) {
+          out.push({ key: entry.id, main: entry });
+          consumed.add(entry.id);
+        }
+        continue;
+      }
+      const sim = paged.find(s => s.simulatorOf === entry.id);
+      if (sim) {
+        out.push({ key: entry.id, main: entry, simulator: sim });
+        consumed.add(entry.id);
+        consumed.add(sim.id);
+      } else {
+        out.push({ key: entry.id, main: entry });
+        consumed.add(entry.id);
+      }
+    }
+    return out;
+  }, [paged]);
+
   const selected = useMemo(
     () => (selectedId ? filtered.find(e => e.id === selectedId) ?? null : null),
     [filtered, selectedId],
@@ -112,47 +149,122 @@ export function GalleryGrid<T = unknown>({
     setSelectedId(prev => (prev === entry.id ? null : entry.id));
   }, []);
 
+  const handleModeChange = useCallback((newMode: GalleryMode) => {
+    setMode(newMode);
+    if (newMode === 'samples') {
+      setActivePathId(undefined);
+    }
+  }, []);
+
+  const handleSelectPath = useCallback((pathId: string) => {
+    setActivePathId(pathId);
+    setMode('paths');
+  }, []);
+
   return (
     <div className="gallery-layout">
       <GalleryFilters
         domains={galleryDomains}
         categories={categories}
         liveApis={liveApiHosts}
+        tags={allTags}
         value={filters}
         onChange={setFilters}
+        mode={mode}
+        onModeChange={handleModeChange}
+        trainingPaths={trainingPaths}
+        activePathId={activePathId}
+        onSelectPath={handleSelectPath}
       />
 
       <div className="gallery-main">
         <div className="gallery-search-bar">
+          {/* Mode Toggle */}
+          <div className="gallery-mode-toggle">
+            <button
+              className={`gallery-mode-btn${mode === 'samples' ? ' gallery-mode-btn-active-samples' : ''}`}
+              onClick={() => handleModeChange('samples')}
+              type="button"
+            >
+              📦 Samples
+            </button>
+            <button
+              className={`gallery-mode-btn${mode === 'paths' ? ' gallery-mode-btn-active-paths' : ''}`}
+              onClick={() => { setMode('paths'); }}
+              type="button"
+            >
+              📖 Training Paths
+            </button>
+          </div>
           <input
             className="gallery-search-input"
             type="search"
-            placeholder="Search gallery..."
+            placeholder={mode === 'samples' ? 'Search gallery...' : 'Search training paths...'}
             value={externalSearch ?? filters.search}
             onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
             readOnly={externalSearch !== undefined}
             aria-label="Search gallery"
           />
           <span className="gallery-result-count">
-            {filtered.length} {filtered.length === 1 ? 'sample' : 'samples'}
-            {sampleStatus && (() => {
-              const loadedCount = filtered.filter(e => sampleStatus[e.id]).length;
-              return loadedCount > 0 ? ` · ${loadedCount} loaded` : '';
-            })()}
+            {mode === 'samples' ? (
+              <>
+                {filtered.length} {filtered.length === 1 ? 'sample' : 'samples'}
+                {sampleStatus && (() => {
+                  const loadedCount = filtered.filter(e => sampleStatus[e.id]).length;
+                  return loadedCount > 0 ? ` · ${loadedCount} loaded` : '';
+                })()}
+              </>
+            ) : (
+              <>{trainingPaths.filter(p => !p.comingSoon).length} paths available</>
+            )}
           </span>
         </div>
 
-        <div className="gallery-grid">
-          {paged.map(entry => (
-            <GalleryCard
-              key={entry.id}
-              entry={entry}
-              selected={entry.id === selectedId}
-              showDomain={doShowDomain}
-              onClick={handleCardClick}
-              sampleStatus={sampleStatus?.[entry.id]}
-            />
-          ))}
+        {mode === 'samples' ? (
+          <div className="gallery-scroll-area">
+            <div className="gallery-grid">
+          {groups.map(group => {
+            if (group.simulator) {
+              return (
+                <div key={group.key} className="gallery-pair-wrapper">
+                  <div className="gallery-pair-header">
+                    <span className="gallery-pair-icon">🔗</span>
+                    <span className="gallery-pair-title">Paired Sample &amp; Simulator</span>
+                  </div>
+                  <div className="gallery-pair-body">
+                    <GalleryCard
+                      entry={group.main}
+                      selected={group.main.id === selectedId}
+                      showDomain={doShowDomain}
+                      onClick={handleCardClick}
+                      sampleStatus={sampleStatus?.[group.main.id]}
+                    />
+                    <span className="gallery-pair-arrow" aria-hidden>→</span>
+                    <GalleryCard
+                      entry={group.simulator}
+                      selected={group.simulator.id === selectedId}
+                      showDomain={doShowDomain}
+                      onClick={handleCardClick}
+                      sampleStatus={sampleStatus?.[group.simulator.id]}
+                    />
+                  </div>
+                  <div className="gallery-pair-hint">
+                    Run main first → it pauses → run simulator → main resumes
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <GalleryCard
+                key={group.key}
+                entry={group.main}
+                selected={group.main.id === selectedId}
+                showDomain={doShowDomain}
+                onClick={handleCardClick}
+                sampleStatus={sampleStatus?.[group.main.id]}
+              />
+            );
+          })}
           {filtered.length === 0 && (
             <div className="gallery-empty">
               No samples match the current filters.
@@ -185,9 +297,23 @@ export function GalleryGrid<T = unknown>({
             </button>
           </div>
         )}
+          </div>
+        ) : (
+          <div className="gallery-scroll-area">
+          <TrainingPathsView
+            paths={trainingPaths}
+            activePathId={activePathId}
+            onImportSample={onAction ? (sampleId) => {
+              const entry = entries.find(e => e.id === sampleId);
+              if (entry) onAction(entry);
+            } : undefined}
+            sampleStatus={sampleStatus}
+          />
+          </div>
+        )}
       </div>
 
-      {selected && (
+      {selected && mode === 'samples' && (
         <GalleryDetailPanel
           entry={selected}
           actionLabel={typeof actionLabel === 'function' ? actionLabel(selected) : actionLabel}

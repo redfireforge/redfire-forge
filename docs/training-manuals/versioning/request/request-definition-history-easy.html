@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Definition History — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>Request Definition History</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn how RedfireForge automatically versions your API request definitions every time you switch between requests — snapshots, fingerprinting, change summaries, 15-version cap, and restore.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 5 — Versioning Training Path<br />
+      Gallery Sample: <code>req-get-all-users</code> · dummyjson.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is Request Definition Versioning?</h2>
+  <p>Every time you modify an API request (URL, method, headers, body, auth) and then navigate away, RedfireForge automatically saves a <strong>snapshot</strong> of the request definition. This creates a version history you can browse, compare, and restore — like "undo" for your API requests.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Accidental Header Deletion"</em></p>
+  <p>You're testing a REST API that requires a custom <code>X-Api-Key</code> header. While experimenting, you accidentally remove it and add a Bearer token instead. You switch to another request, come back, and realize the API key is gone. Without versioning, you'd have to remember the exact header value. With request definition versioning, you open the History tab, find the version that had the header, and click <strong>Restore</strong>.</p>
+
+  <h3>Key Differences from Test Definition Versioning</h3>
+  <table>
+    <tr><th>Feature</th><th>Test Definition</th><th>Request Definition</th></tr>
+    <tr><td>Max versions</td><td>20</td><td>15</td></tr>
+    <tr><td>Snapshot includes</td><td>Scenarios, assertions, extractions</td><td>Name, URL, method, headers, body, bodyType, bodyForm, auth</td></tr>
+    <tr><td>Excludes</td><td>Runtime results</td><td>id, savedQueryParams, catalogMeta, runtime fields</td></tr>
+    <tr><td>Auto-save trigger</td><td>Switching between tests</td><td>Switching between requests</td></tr>
+    <tr><td>UI location</td><td>Test editor → History tab</td><td>Request editor → History tab</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The RequestDefinitionVersion Data Model</h2>
+  <p>Each version entry stores:</p>
+<pre>interface RequestDefinitionVersion {
+  id: string;           // UUID — unique identifier
+  timestamp: number;    // Date.now() when saved
+  changeSummary: string; // Human-readable: "URL changed, 1 header added"
+  label?: string;       // Optional user-assigned label
+  snapshot: RequestDefinitionSnapshot;
+}</pre>
+
+  <p>The snapshot captures the request's editable fields:</p>
+<pre>interface RequestDefinitionSnapshot {
+  name: string;
+  url: string;
+  method: HttpMethod;       // GET, POST, PUT, PATCH, DELETE
+  headers: KeyValue[];      // Filtered — only non-empty keys
+  body: string;
+  bodyType?: string;        // 'json', 'form-data', 'raw', etc.
+  bodyForm?: KeyValue[];    // Form data entries (filtered)
+  auth: AuthConfig;         // Type + credentials
+}</pre>
+
+  <div class="callout">
+    <strong>📋 What's Excluded</strong>
+    The snapshot deliberately excludes: <code>id</code> (internal), <code>savedQueryParams</code> (ephemeral UI state), <code>catalogMeta</code> (immutable API reference data), and any runtime fields like response data or history.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Auto-Save Works</h2>
+  <p>Versions are created automatically — you don't click "Save Version." The trigger is <strong>navigation</strong>:</p>
+
+  <ol>
+    <li>You edit Request A (change URL, add a header).</li>
+    <li>You click on Request B to switch.</li>
+    <li>The <code>selectRequest()</code> hook detects the switch.</li>
+    <li>It calls <code>autoSaveVersion(requestA)</code> on the <em>previous</em> request.</li>
+    <li><code>autoSaveVersion()</code> checks if Request A has changed since the last version.</li>
+    <li>If changed → creates a new version. If identical → skips (deduplication).</li>
+  </ol>
+
+  <h3>3.1 Fingerprint-Based Deduplication</h3>
+  <p>To determine "has it changed?", RedfireForge computes a <strong>canonical JSON fingerprint</strong>:</p>
+<pre>function computeSnapshotFingerprint(snapshot: RequestDefinitionSnapshot): string {
+  return JSON.stringify(canonicalize(snapshot));
+}
+
+function hasChanged(request: RequestItem, versions: RequestDefinitionVersion[]): boolean {
+  if (versions.length === 0) return true;  // Always save first version
+  const latest = versions[0];              // Newest first
+  const current = createSnapshot(request);
+  return computeSnapshotFingerprint(current)
+      !== computeSnapshotFingerprint(latest.snapshot);
+}</pre>
+
+  <p>The <code>canonicalize()</code> function sorts object keys alphabetically and recursively normalizes nested objects. This means:</p>
+  <ul>
+    <li><code>{"b": 1, "a": 2}</code> and <code>{"a": 2, "b": 1}</code> produce the <strong>same</strong> fingerprint.</li>
+    <li>Only genuine content changes trigger a new version — reordering JSON keys doesn't.</li>
+    <li>Empty headers (key = <code>""</code>) are filtered out before snapshotting, so adding/removing empty rows doesn't create versions.</li>
+  </ul>
+
+  <h3>3.2 The autoSaveVersion() Function</h3>
+<pre>function autoSaveVersion(
+  request: RequestItem,
+  maxVersions: number = MAX_VERSIONS,  // 15
+): RequestDefinitionVersion[] | null {
+  const versions = request.definitionVersions ?? [];
+  if (!hasChanged(request, versions)) return null;  // No change → no save
+  const version = createRequestDefinitionVersion(request, versions);
+  return addVersionToList(versions, version, maxVersions);
+}</pre>
+
+  <p>Returns <code>null</code> if no changes detected — the caller checks this and skips the update.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Switching to another request and switching back <em>without making changes</em> will NOT create a duplicate version. The fingerprint comparison prevents this.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The 15-Version Cap</h2>
+  <p>Request definitions are capped at 15 versions per request (vs. 20 for test definitions). When you exceed the limit, the oldest version is evicted:</p>
+
+<pre>const MAX_VERSIONS = 15;
+
+function addVersionToList(
+  versions: RequestDefinitionVersion[],
+  version: RequestDefinitionVersion,
+  maxVersions: number = MAX_VERSIONS,
+): RequestDefinitionVersion[] {
+  return [version, ...versions].slice(0, maxVersions);
+  //       ^-- newest first         ^-- trim oldest
+}</pre>
+
+  <p>This is a <strong>FIFO (First-In-First-Out)</strong> strategy:</p>
+  <ul>
+    <li>New versions are prepended to the array (index 0 = newest).</li>
+    <li><code>.slice(0, 15)</code> trims the array to the cap.</li>
+    <li>The oldest version (index 15+) is silently discarded.</li>
+    <li>No warning is shown — this is by design to keep the UX simple.</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Important</strong>
+    If you have a version you want to keep permanently, give it a <strong>label</strong> (e.g., "Working v1.0"). Labeled versions aren't automatically preserved — they're evicted like any other — but the label makes them easy to identify before they rotate out. Consider exporting critical requests to preserve their full history.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Change Summaries</h2>
+  <p>Each version includes a human-readable <code>changeSummary</code> generated by <code>generateChangeSummary()</code>:</p>
+
+<pre>function generateChangeSummary(
+  oldSnap: RequestDefinitionSnapshot,
+  newSnap: RequestDefinitionSnapshot,
+): string {
+  const changes: string[] = [];
+
+  if (oldSnap.name !== newSnap.name) changes.push('name changed');
+  if (oldSnap.url !== newSnap.url) changes.push('URL changed');
+  if (oldSnap.method !== newSnap.method)
+    changes.push(`method → ${newSnap.method}`);
+
+  // Header diff — counts added/removed, detects modifications
+  const headerDiff = newHeaders.length - oldHeaders.length;
+  if (headerDiff > 0) changes.push(`${headerDiff} header added`);
+  else if (headerDiff < 0) changes.push(`${-headerDiff} header removed`);
+  else if (headersModified) changes.push('headers modified');
+
+  if (oldSnap.body !== newSnap.body) changes.push('body modified');
+  if (oldSnap.bodyType !== newSnap.bodyType)
+    changes.push(`body type → ${newSnap.bodyType ?? 'none'}`);
+  if (formDataChanged) changes.push('form data modified');
+  if (authChanged)
+    changes.push(`auth ${oldSnap.auth.type} → ${newSnap.auth.type}`);
+
+  return changes.join(', ') || 'no changes detected';
+}</pre>
+
+  <p>Example summaries you'll see in the History panel:</p>
+  <table>
+    <tr><th>Change Made</th><th>Summary Text</th></tr>
+    <tr><td>First version ever</td><td><code>initial version</code></td></tr>
+    <tr><td>Changed URL path</td><td><code>URL changed</code></td></tr>
+    <tr><td>Switched GET → POST, added body</td><td><code>method → POST, body modified</code></td></tr>
+    <tr><td>Added 2 headers</td><td><code>2 headers added</code></td></tr>
+    <tr><td>Changed from API key to Bearer</td><td><code>auth apikey → bearer</code></td></tr>
+    <tr><td>Changed URL + body + removed header</td><td><code>URL changed, 1 header removed, body modified</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Get All Users"</strong> (<code>req-get-all-users</code>) from the Requests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>req-get-all-users</code></td></tr>
+    <tr><td>Name</td><td>Get All Users</td></tr>
+    <tr><td>Method</td><td><code>GET</code></td></tr>
+    <tr><td>URL</td><td><code>https://dummyjson.com/users</code></td></tr>
+    <tr><td>Headers</td><td>None (default)</td></tr>
+    <tr><td>Body</td><td>None (GET request)</td></tr>
+    <tr><td>Auth</td><td>None</td></tr>
+    <tr><td>Tags</td><td><code>users</code>, <code>rest</code>, <code>dummyjson</code>, <code>versioning-tutorial</code></td></tr>
+  </table>
+
+  <p>This sample is ideal because it starts simple (GET with no headers/body), giving you a clean baseline to modify step by step.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> → <strong>Requests</strong> → find <strong>"Get All Users"</strong> (<code>req-get-all-users</code>). Click <strong>Load Request</strong>. The request appears in your collection.</p>
+
+  <h3>Step 2 — Verify Initial State</h3>
+  <p>Click the <strong>History</strong> tab in the request editor. You should see: <em>"No definition history yet"</em>. This is because no versions have been saved — versions are created on navigation, not on load.</p>
+
+  <h3>Step 3 — Make Your First Change</h3>
+  <p>Change the URL from <code>https://dummyjson.com/users</code> to <code>https://dummyjson.com/users?limit=10</code>.</p>
+  <p>Now switch to another request in your collection (any request). Switch back to "Get All Users." Open the <strong>History</strong> tab — you should now see <strong>1 version</strong> with summary <code>initial version</code>.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Why "initial version"?</strong>
+    The first version always shows <code>initial version</code> because there's no previous snapshot to compare against. Subsequent versions show specific change summaries.
+  </div>
+
+  <h3>Step 4 — Create Multiple Versions</h3>
+  <p>Make the following changes, switching to another request after each one:</p>
+  <ol>
+    <li>Add header: <code>Accept: application/json</code> → switch away → switch back.</li>
+    <li>Change method to <code>POST</code> and add body: <code>{"limit": 10}</code> → switch away → switch back.</li>
+    <li>Add header: <code>X-Request-ID: test-123</code> → switch away → switch back.</li>
+    <li>Change auth from None to Bearer Token with value <code>test-token-abc</code> → switch away → switch back.</li>
+  </ol>
+  <p>After all changes, the History tab should show <strong>5 versions</strong>, newest first:</p>
+  <table>
+    <tr><th>#</th><th>Timestamp</th><th>Change Summary</th></tr>
+    <tr><td>1</td><td>(most recent)</td><td><code>auth none → bearer</code></td></tr>
+    <tr><td>2</td><td></td><td><code>1 header added</code></td></tr>
+    <tr><td>3</td><td></td><td><code>method → POST, body modified</code></td></tr>
+    <tr><td>4</td><td></td><td><code>1 header added</code></td></tr>
+    <tr><td>5</td><td>(oldest)</td><td><code>initial version</code></td></tr>
+  </table>
+
+  <h3>Step 5 — Rename a Version</h3>
+  <p><strong>Double-click</strong> the label of version #5 ("initial version" timestamp). A text field appears. Type <code>Original GET</code> and press <strong>Enter</strong>. The version now shows your custom label instead of the timestamp.</p>
+  <p>You can also click the <strong>✏ Rename</strong> button on any version row.</p>
+  <p>Under the hood, this calls:</p>
+<pre>function renameVersion(
+  versions: RequestDefinitionVersion[],
+  versionId: string,
+  label: string,
+): RequestDefinitionVersion[] {
+  return versions.map(v =>
+    v.id === versionId ? { ...v, label } : v
+  );
+}</pre>
+
+  <h3>Step 6 — Restore a Previous Version</h3>
+  <p>Click <strong>↩ Restore</strong> on the "Original GET" version (#5). The request editor immediately reverts to:</p>
+  <ul>
+    <li>Method: <code>GET</code></li>
+    <li>URL: <code>https://dummyjson.com/users</code></li>
+    <li>Headers: empty</li>
+    <li>Body: empty</li>
+    <li>Auth: None</li>
+  </ul>
+  <p>The restore applies a partial patch to the request:</p>
+<pre>function restoreFromVersion(version: RequestDefinitionVersion): Partial&lt;RequestItem&gt; {
+  const s = version.snapshot;
+  return {
+    name: s.name,
+    url: s.url,
+    method: s.method,
+    headers: s.headers.length > 0 ? s.headers : [{ key: '', value: '' }],
+    body: s.body,
+    bodyType: s.bodyType,
+    bodyForm: s.bodyForm,
+    auth: s.auth,
+  };
+}</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Important</strong>
+    Restoring does <strong>not</strong> create a new version automatically. The version is only created when you navigate away. If you restore and immediately navigate, the restored state becomes the latest version.
+  </div>
+
+  <h3>Step 7 — Delete a Version</h3>
+  <p>Click <strong>✕ Delete</strong> on version #3 (the POST change). Confirm if prompted. The version is removed from the list. Version count drops to 4.</p>
+<pre>function deleteVersion(
+  versions: RequestDefinitionVersion[],
+  versionId: string,
+): RequestDefinitionVersion[] {
+  return versions.filter(v => v.id !== versionId);
+}</pre>
+
+  <h3>Step 8 — Test Deduplication</h3>
+  <p>Without making any changes, switch to another request and back. Check the History tab — the version count should remain the same. The fingerprint comparison detected no changes and skipped saving.</p>
+  <p>Now make a purely cosmetic change: reorder JSON body keys (if present). Switch away and back. The version count should <em>still</em> remain the same — the canonical fingerprint normalizes key order.</p>
+
+  <h3>Step 9 — Test the 15-Version Cap</h3>
+  <p>Create versions rapidly by making small changes (append <code>/1</code>, <code>/2</code>, ... to the URL) and switching between requests each time. When you reach 15 versions, the next save will evict the oldest version from the list.</p>
+  <p>Check that the footer shows <code>15 versions</code> (never more).</p>
+
+  <h3>Step 10 — Select Versions for Comparison</h3>
+  <p>Click the <strong>checkbox</strong> on two different versions. A <strong>"Compare"</strong> button appears in the toolbar. Click it to open the diff view (covered in the <a href="request-definition-diff-medium.html">Request Definition Diff</a> manual).</p>
+  <p>You can select at most 2 versions. Selecting a third deselects nothing — the UI limits selection to 2.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Version Panel UI Reference</h2>
+  <p>The <code>RequestDefinitionVersionPanel</code> component provides:</p>
+
+  <table>
+    <tr><th>UI Element</th><th>Action</th><th>Behavior</th></tr>
+    <tr><td>Checkbox (per version)</td><td>Click</td><td>Toggle selection (max 2) for comparison</td></tr>
+    <tr><td>Version label/timestamp</td><td>Double-click</td><td>Inline rename input</td></tr>
+    <tr><td>↩ Restore button</td><td>Click</td><td>Apply version snapshot to current request</td></tr>
+    <tr><td>✏ Rename button</td><td>Click</td><td>Open inline rename input</td></tr>
+    <tr><td>✕ Delete button</td><td>Click</td><td>Remove version from list</td></tr>
+    <tr><td>Compare button (toolbar)</td><td>Click</td><td>Open diff modal with 2 selected versions</td></tr>
+    <tr><td>Clear selection (footer)</td><td>Click</td><td>Deselect all checkboxes</td></tr>
+    <tr><td>Footer count</td><td>—</td><td>Shows total version count</td></tr>
+  </table>
+
+  <p>Timestamps show relative time (<em>"5m ago"</em>, <em>"2h ago"</em>, <em>"3d ago"</em>) for recent versions, switching to absolute format (<em>"May 1, 2:30 PM"</em>) for versions older than 7 days.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. API Reference</h2>
+  <p>All functions live in <code>src/features/requests/utils/requestDefinitionVersioning.ts</code> (~212 lines):</p>
+
+  <table>
+    <tr><th>Function</th><th>Purpose</th><th>Returns</th></tr>
+    <tr><td><code>createSnapshot(request)</code></td><td>Extract editable fields into a snapshot</td><td><code>RequestDefinitionSnapshot</code></td></tr>
+    <tr><td><code>computeSnapshotFingerprint(snap)</code></td><td>Canonical JSON string for equality check</td><td><code>string</code></td></tr>
+    <tr><td><code>hasChanged(request, versions)</code></td><td>Check if request differs from latest version</td><td><code>boolean</code></td></tr>
+    <tr><td><code>generateChangeSummary(old, new)</code></td><td>Human-readable diff description</td><td><code>string</code></td></tr>
+    <tr><td><code>createRequestDefinitionVersion(req, vers)</code></td><td>Build a new version entry</td><td><code>RequestDefinitionVersion</code></td></tr>
+    <tr><td><code>addVersionToList(vers, ver, max)</code></td><td>Prepend + cap at MAX_VERSIONS</td><td><code>RequestDefinitionVersion[]</code></td></tr>
+    <tr><td><code>autoSaveVersion(request, max)</code></td><td>Auto-save if changed; returns null if no change</td><td><code>RequestDefinitionVersion[] | null</code></td></tr>
+    <tr><td><code>restoreFromVersion(version)</code></td><td>Extract patch from version snapshot</td><td><code>Partial&lt;RequestItem&gt;</code></td></tr>
+    <tr><td><code>deleteVersion(versions, id)</code></td><td>Remove a version by ID</td><td><code>RequestDefinitionVersion[]</code></td></tr>
+    <tr><td><code>renameVersion(versions, id, label)</code></td><td>Set user label on a version</td><td><code>RequestDefinitionVersion[]</code></td></tr>
+    <tr><td><code>countRequestDefinitionVersions(req)</code></td><td>Count versions (for export/badges)</td><td><code>number</code></td></tr>
+    <tr><td><code>stripRequestDefinitionVersions(req)</code></td><td>Remove versions from export</td><td><code>RequestItem</code></td></tr>
+    <tr><td><code>hasRequestDefinitionVersions(req)</code></td><td>Boolean check for badge display</td><td><code>boolean</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a 5-Version History</h3>
+  <p>Import "Get All Users" from the Gallery. Create 5 versions by making these changes (switch away after each):</p>
+  <ol>
+    <li>Add <code>?limit=5</code> to the URL.</li>
+    <li>Add header <code>Accept: application/json</code>.</li>
+    <li>Change method to <code>POST</code>.</li>
+    <li>Add a JSON body: <code>{"skip": 0, "limit": 5}</code>.</li>
+    <li>Change auth to Bearer Token with value <code>my-token</code>.</li>
+  </ol>
+  <p>Verify: 5 versions in History tab. Label version #5 (oldest) as "Original GET". Restore it and verify the request reverts to a simple GET with no headers/body/auth.</p>
+
+  <h3>Exercise 2 — Deduplication Test</h3>
+  <p>Without changing anything, switch away 3 times and back. Verify the version count stays at 5 — no duplicates created.</p>
+
+  <h3>Exercise 3 — Cap Eviction</h3>
+  <p>Create 12 more versions (total 17 attempts). Verify the History tab shows exactly 15 versions. Check that the 2 oldest versions were evicted. Was your "Original GET" label preserved if it was within the newest 15?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    If your labeled version was evicted (it was the oldest), this demonstrates why periodic exports are important for preserving critical request configurations. Consider using collection export to save the full request with its version history.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="request-definition-diff-medium.html">request-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>4-tab diff modal — Overview, Headers, Body, Auth with json-diff-kit</td>
+    </tr>
+    <tr>
+      <td><a href="../test/test-definition-history-easy.html">test-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Test definition versioning — 20-version cap, scenario snapshots</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-history-easy.html">workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Workflow versioning — nodes, edges, variables snapshots</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Request Definition History (Easy) · May 2026
+  </footer>
+
+</body>
+</html>

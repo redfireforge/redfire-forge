@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cross-Feature Versioning — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #c62828; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .timeline { position: relative; margin: 20px 0 20px 24px; padding-left: 20px; border-left: 3px solid #457b9d; }
+  .timeline-item { margin-bottom: 18px; position: relative; }
+  .timeline-item::before { content: ''; position: absolute; left: -27px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: #e63946; border: 2px solid #fff; }
+  .timeline-item h4 { margin: 0 0 4px; }
+  .timeline-item p { margin: 0; }
+  .entity-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+  .entity-card { border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px; background: #f8f9fa; font-size: 12px; }
+  .entity-card h5 { color: #1d3557; margin: 0 0 4px; font-size: 13px; }
+  .entity-card .cap { color: #6c757d; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏗️</div>
+    <h1>Cross-Feature Versioning</h1>
+    <div class="subtitle">Advanced — Capstone Training Manual</div>
+    <p>Master the full RedfireForge versioning lifecycle — coordinate workflow versions, test definition history, request diffs, script library impact analysis, audit logs, run baselines, and feature-group structure logs across a complete release cycle.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★★<br />
+      Capstone — All Versioning Phases Combined<br />
+      Prerequisites: All Easy &amp; Medium versioning manuals<br />
+      Gallery Samples: E-Commerce Full Suite, Webhook Trigger, Get All Users
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. The Big Picture</h2>
+  <p>RedfireForge versions <strong>7 entity types</strong> independently. Each has its own storage, caps, and auto-save triggers. This capstone manual ties them all together into a cohesive release workflow.</p>
+
+  <div class="entity-map">
+    <div class="entity-card">
+      <h5>📐 Workflow</h5>
+      Nodes, edges, variables, services<br />
+      <span class="cap">Cap: 30 · Trigger: explicit save</span>
+    </div>
+    <div class="entity-card">
+      <h5>🧪 Test Definition</h5>
+      Scenarios, expectations, assertions<br />
+      <span class="cap">Cap: 20 · Trigger: save with changes</span>
+    </div>
+    <div class="entity-card">
+      <h5>📨 Request Definition</h5>
+      URL, method, headers, body, auth<br />
+      <span class="cap">Cap: 15 · Trigger: navigation</span>
+    </div>
+    <div class="entity-card">
+      <h5>📜 Script Library</h5>
+      Name, description, code<br />
+      <span class="cap">Cap: 15 · Trigger: edit save</span>
+    </div>
+    <div class="entity-card">
+      <h5>📋 Audit Log</h5>
+      Environment, service, auth CRUD<br />
+      <span class="cap">Cap: 500 entries · Trigger: any mutation</span>
+    </div>
+    <div class="entity-card">
+      <h5>📊 Run Baselines</h5>
+      P50, P95, P99, error rate, throughput<br />
+      <span class="cap">Cap: 10 · Trigger: manual mark</span>
+    </div>
+  </div>
+  <div class="entity-map" style="grid-template-columns: 1fr 1fr;">
+    <div class="entity-card">
+      <h5>📁 Feature Group Structure</h5>
+      Scenario/test/FG mutations<br />
+      <span class="cap">Cap: 50 · Trigger: any mutation</span>
+    </div>
+    <div class="entity-card">
+      <h5>📦 Export/Import</h5>
+      4 version checkboxes + structure log<br />
+      <span class="cap">Selective inclusion per type</span>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Version Caps at a Glance</h2>
+  <table>
+    <tr><th>Entity</th><th>Storage</th><th>Max Versions</th><th>Auto-Save Trigger</th><th>Eviction</th></tr>
+    <tr><td>Workflow</td><td>localStorage (<code>workflow.versions[]</code>)</td><td>30</td><td>Explicit save (fingerprint dedup)</td><td>FIFO</td></tr>
+    <tr><td>Test Definition</td><td>localStorage (<code>definitionVersions[]</code>)</td><td>20</td><td>Save with changes (fingerprint dedup)</td><td>FIFO</td></tr>
+    <tr><td>Request Definition</td><td>localStorage (<code>RequestItem</code>)</td><td>15</td><td>Request/collection switch (fingerprint dedup)</td><td>FIFO</td></tr>
+    <tr><td>Script Library</td><td>localStorage (<code>ScriptLibrary</code>)</td><td>15</td><td>Edit save (fingerprint dedup)</td><td>FIFO</td></tr>
+    <tr><td>Audit Log</td><td>localStorage (<code>perf-test-audit-log</code>)</td><td>500</td><td>Any env/svc/auth CRUD</td><td>FIFO</td></tr>
+    <tr><td>Run Baselines</td><td>IndexedDB (<code>TestRun</code>)</td><td>10</td><td>Manual mark</td><td>FIFO</td></tr>
+    <tr><td>FG Structure Log</td><td>localStorage (<code>FeatureGroup</code>)</td><td>50</td><td>Any scenario/test/FG mutation</td><td>FIFO</td></tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Storage Budget</strong>
+    All version data shares localStorage (except run baselines in IndexedDB). A heavily versioned project can use significant storage. Monitor usage in <strong>Settings → Data Management</strong>. RedfireForge warns at 80% localStorage quota.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Scenario: E-Commerce Platform Release</h2>
+  <p>This walkthrough simulates a real development sprint. You'll use all 7 versioning features together to manage a release from development through deployment.</p>
+
+  <h3>3.1 Setup — Import Gallery Samples</h3>
+  <p>From the Gallery catalog, import these samples:</p>
+  <table>
+    <tr><th>Sample</th><th>Sample ID</th><th>API</th><th>What It Provides</th></tr>
+    <tr><td>E-Commerce Full Suite</td><td><code>test-ecommerce-full</code></td><td>dummyjson.com</td><td>6 scenarios with product/cart/order tests</td></tr>
+    <tr><td>Webhook Trigger</td><td><code>sample-workflow-webhook</code></td><td>jsonplaceholder.typicode.com</td><td>Workflow with webhook-triggered nodes</td></tr>
+    <tr><td>Get All Users</td><td><code>req-get-all-users</code></td><td>jsonplaceholder.typicode.com</td><td>Request definition with headers and auth</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Starting Clean</strong>
+    These gallery samples come without version history. This gives you a clean slate to build versions through the walkthrough, just as you would in a real project.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Phase 1 — Pre-Release Snapshot</h2>
+  <p>Before making any changes, capture the current state across all entity types.</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <h4>4.1 Save All Workflows</h4>
+      <p>Open each workflow and click <strong>Save</strong>. This creates the first workflow version for each. Since there are no prior versions, each gets the summary <code>"initial version"</code>.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>4.2 Save Test Definitions</h4>
+      <p>Open the test editor. Make sure all test definitions are saved. The first version of each test definition is auto-created with the current scenario structure and expectations.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>4.3 Mark a Run Baseline</h4>
+      <p>Run the full test suite. When results appear, click <strong>Mark as Baseline</strong>. Name it <code>[2026-05-01] Pre-Release v3.0</code>. This captures P50, P95, P99, error rate, and throughput as your reference point.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>4.4 Note the Audit Log State</h4>
+      <p>Open the Audit Log panel. Note how many entries exist. After the development phase, you'll filter by date to see only the new changes.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>📋 Snapshot Checklist</strong>
+    At this point you should have: workflow versions (1 each), test definition versions (1 each), a named run baseline, and an audit log starting point. No request versions yet (they're created on navigation), and no script library versions yet (they're created on edit).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Phase 2 — Development Sprint</h2>
+  <p>Simulate a development sprint by making changes across all entity types. Each change auto-creates version history.</p>
+
+  <h3>5.1 Modify Workflow: Add Retry Logic</h3>
+  <ol>
+    <li>Open the "Webhook Trigger" workflow.</li>
+    <li>Add a new node: a retry wrapper around the HTTP request node.</li>
+    <li>Connect the retry node to the existing flow.</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+  <p>A new workflow version is created. The change summary will show something like <code>"1 node added, 2 edges added"</code>.</p>
+
+  <h3>5.2 Update Test Definition: Change Expected Status</h3>
+  <ol>
+    <li>Open the "Create Order" test (or equivalent scenario in the E-Commerce suite).</li>
+    <li>Change the expected HTTP status from <code>200</code> to <code>201</code>.</li>
+    <li>Save the test.</li>
+  </ol>
+  <p>A new test definition version is created. The Overview tab in the diff shows the expectation change.</p>
+
+  <h3>5.3 Update Request Definition: Add Header</h3>
+  <ol>
+    <li>Open the "Get All Users" request.</li>
+    <li>Add a new header: <code>X-Idempotency-Key: abc-123</code>.</li>
+    <li>Navigate to another request (or collection) to trigger auto-save.</li>
+  </ol>
+  <p>A request definition version is created on navigation. The Headers tab in the diff shows <code>1 header added</code>.</p>
+
+  <h3>5.4 Modify Script Library: Add Validation Rule</h3>
+  <ol>
+    <li>Open the Script Library Manager from any workflow.</li>
+    <li>Create (or edit) a "Response Validator" library.</li>
+    <li>Add a new validation function.</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+  <p>A script library version is created. Click <strong>History</strong> to see the "Used by" section — this shows which workflows will be affected by your change.</p>
+
+  <h3>5.5 Change Environment Config</h3>
+  <ol>
+    <li>Go to <strong>Settings → Environments</strong>.</li>
+    <li>Change the staging environment base URL (e.g., from <code>https://staging-v2.example.com</code> to <code>https://staging-v3.example.com</code>).</li>
+  </ol>
+  <p>The audit log automatically records this change with timestamp, old value, new value, and the action type (<code>environment-update</code>).</p>
+
+  <h3>5.6 Rearrange Feature Groups</h3>
+  <ol>
+    <li>In the scenario builder, move a test from one feature group to another.</li>
+    <li>Rename a feature group to reflect the sprint's focus.</li>
+  </ol>
+  <p>The structure change log captures both mutations with action types (<code>test-move</code>, <code>fg-rename</code>).</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Phase 3 — Change Audit Trail</h2>
+  <p>Now review what changed during the sprint using each versioning tool.</p>
+
+  <h3>6.1 Audit Log Review</h3>
+  <ol>
+    <li>Open the <strong>Audit Log</strong> panel.</li>
+    <li>Filter by date: set the range to cover your sprint (e.g., last 7 days).</li>
+    <li>You should see entries for every environment, service, and auth change.</li>
+    <li>Click <strong>Export CSV</strong> to save a copy for your team's sprint retrospective.</li>
+  </ol>
+
+  <h3>6.2 Workflow Version Comparison</h3>
+  <ol>
+    <li>Open the "Webhook Trigger" workflow version panel.</li>
+    <li>Select the pre-release version and the post-change version.</li>
+    <li>Click <strong>Compare</strong>. The 4-tab diff shows:
+      <ul>
+        <li><strong>Overview</strong> — summary of changes.</li>
+        <li><strong>Nodes</strong> — the new retry node highlighted.</li>
+        <li><strong>Edges</strong> — new connections.</li>
+        <li><strong>Variables/Services</strong> — any config changes.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>6.3 Script Library Impact Check</h3>
+  <ol>
+    <li>Open the "Response Validator" library's History panel.</li>
+    <li>Check the <strong>"Used by"</strong> section — lists all affected workflows.</li>
+    <li>Compare the two versions to see exactly what code changed (Code tab).</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Phase 4 — Regression Detection</h2>
+  <p>Run your tests and compare against the pre-release baseline.</p>
+
+  <ol>
+    <li>Run the full E-Commerce test suite.</li>
+    <li>When results appear, click <strong>Compare with Baseline</strong>.</li>
+    <li>Select the <code>[2026-05-01] Pre-Release v3.0</code> baseline.</li>
+    <li>Review the comparison:
+      <ul>
+        <li><strong>P50 latency</strong> — did it increase by more than 15%? If yes, <code>RegressionAlert</code> fires.</li>
+        <li><strong>Error rate</strong> — did it increase by more than 1 percentage point?</li>
+        <li><strong>Throughput</strong> — did it drop significantly?</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="callout callout-danger">
+    <strong>🚨 Regression Alert Thresholds</strong>
+    RedfireForge flags regressions at: P50 latency &gt; 15% increase, Error Rate &gt; 1pp increase, P95/P99 &gt; 20% increase. These alerts help you catch performance degradation before deploying.
+  </div>
+
+  <h3>7.1 Investigating a Regression</h3>
+  <p>Suppose P50 latency increased 25% and one test is failing. Use <strong>cross-entity traceability</strong> to find the root cause:</p>
+
+  <table>
+    <tr><th>Check</th><th>Tool</th><th>Finding</th></tr>
+    <tr><td>Was the request URL changed?</td><td>Request version diff → URL tab</td><td>✅ URL unchanged</td></tr>
+    <tr><td>Were test expectations changed?</td><td>Test definition diff → Overview tab</td><td>✅ Expectations unchanged</td></tr>
+    <tr><td>Was the workflow modified?</td><td>Workflow version diff → Nodes tab</td><td>✅ Only retry node added (expected)</td></tr>
+    <tr><td>Was the environment changed?</td><td>Audit Log → filter by environment</td><td>❌ Base URL changed 2 days ago!</td></tr>
+  </table>
+
+  <p><strong>Root cause:</strong> The staging environment base URL was updated to a new server that has higher latency. The version diff for the request is clean, the test expectations are correct, but the infrastructure changed. Without the audit log, this would have been much harder to diagnose.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Phase 5 — Export/Import with Version Data</h2>
+  <p>Before deploying, create a full backup with all version history.</p>
+
+  <h3>8.1 Export with Version Checkboxes</h3>
+  <p>Open the Export dialog. You'll see checkboxes for each version type:</p>
+  <table>
+    <tr><th>Checkbox</th><th>What It Includes</th><th>Recommendation</th></tr>
+    <tr><td>☑ Include Response Versions</td><td>Workflow version arrays</td><td>Always include for backups</td></tr>
+    <tr><td>☑ Include Rules Versions</td><td>Test definition version arrays</td><td>Always include for backups</td></tr>
+    <tr><td>☑ Include Definition Versions</td><td>Request definition version arrays</td><td>Include for full traceability</td></tr>
+    <tr><td>☑ Include Structure Log</td><td>Feature group structure change log</td><td>Include for audit trail</td></tr>
+  </table>
+
+  <h3>8.2 Verify Before Export</h3>
+  <p>Use <code>countVersions()</code> to check what's included:</p>
+<pre>// countVersions() returns:
+{
+  workflowVersionCount: 4,      // 2 workflows × 2 versions each
+  definitionVersionCount: 3,     // 3 test defs with versions
+  requestVersionCount: 2,        // 2 request defs with versions
+  scriptLibraryVersionCount: 1,  // 1 script library with versions
+  structureLogCount: 2           // 2 structure change entries
+}</pre>
+
+  <h3>8.3 Import on Another Machine</h3>
+  <p>When importing, the same checkboxes appear. You can selectively import version data — useful when you want the latest test definitions but don't need historical versions from another team member's export.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Export as Safety Net</strong>
+    Before major refactors, export with ALL version checkboxes checked. If the refactor goes wrong, you can import the backup and restore to the pre-refactor state — complete with all version history.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Version Hygiene Best Practices</h2>
+
+  <h3>9.1 Naming Conventions</h3>
+  <table>
+    <tr><th>Entity</th><th>Convention</th><th>Example</th></tr>
+    <tr><td>Workflow versions</td><td><code>[Sprint-XX] Description</code></td><td><code>[Sprint-42] Added retry logic</code></td></tr>
+    <tr><td>Test definitions</td><td><code>[Sprint-XX] Description</code></td><td><code>[Sprint-42] Updated status assertions</code></td></tr>
+    <tr><td>Run baselines</td><td><code>[YYYY-MM-DD] Context</code></td><td><code>[2026-05-01] Pre-Release v3.0</code></td></tr>
+    <tr><td>Script libraries</td><td><code>vN Description</code></td><td><code>v3 Added retry with backoff</code></td></tr>
+  </table>
+
+  <h3>9.2 Regular Cleanup</h3>
+  <ul>
+    <li><strong>Workflows (30 cap):</strong> Delete unnamed versions periodically. Keep labeled milestones (sprint boundaries, releases).</li>
+    <li><strong>Test definitions (20 cap):</strong> Label versions that correspond to spec changes. Let minor iterations be auto-evicted.</li>
+    <li><strong>Script libraries (15 cap):</strong> Always rename versions with meaningful descriptions. Code changes without labels are hard to identify later.</li>
+    <li><strong>Audit log (500 cap):</strong> Export to CSV before clearing. Use exports in sprint retrospectives.</li>
+    <li><strong>Run baselines (10 cap):</strong> Keep one baseline per release. Delete intermediate benchmarks after the release ships.</li>
+    <li><strong>FG structure log (50 cap):</strong> Review after major reorganizations. Clear once the new structure is stable.</li>
+  </ul>
+
+  <h3>9.3 Cap Awareness</h3>
+  <p>All version arrays use FIFO eviction — the oldest entry is silently dropped when the cap is reached. This means:</p>
+  <ul>
+    <li>You can never lose the <em>most recent</em> version (it's always index 0).</li>
+    <li>Important historical versions (release milestones) should be <strong>labeled</strong> so you notice if they're about to be evicted.</li>
+    <li>If a cap feels too low, export the entity before it's evicted — the export preserves all versions at the time of export.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Cross-Entity Traceability Map</h2>
+  <p>When debugging a failure, use this decision tree to trace the root cause across entity types:</p>
+
+<pre>Test is failing
+├── Check request version diff
+│   ├── URL changed? → Request was modified
+│   ├── Headers changed? → Auth or config issue
+│   └── Body changed? → Payload was updated
+├── Check test definition diff
+│   ├── Expectations changed? → Test was updated
+│   └── Assertions changed? → Validation rules modified
+├── Check workflow version diff (if workflow-driven)
+│   ├── Nodes added/removed? → Flow logic changed
+│   └── Variables changed? → Runtime config modified
+├── Check script library impact (if scripts involved)
+│   ├── Which workflows affected? → Check "Used by"
+│   └── What code changed? → Review Code tab diff
+├── Check audit log
+│   ├── Environment URL changed? → Infrastructure issue
+│   ├── Service config changed? → Backend change
+│   └── Auth credentials rotated? → Auth issue
+└── Compare run baseline
+    ├── P50 regressed? → Performance degradation
+    └── Error rate increased? → Reliability issue</pre>
+
+  <div class="callout">
+    <strong>📋 The Power of Cross-Entity Debugging</strong>
+    No single versioning feature tells the whole story. A test failure might be caused by a request change (request versioning), a test update (test versioning), a workflow modification (workflow versioning), a shared script change (script impact analysis), or an infrastructure change (audit log). Cross-entity traceability lets you check all of these systematically.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 11 -->
+  <h2>11. Team Collaboration Patterns</h2>
+
+  <h3>11.1 Sprint Boundary Workflow</h3>
+  <ol>
+    <li><strong>Sprint start:</strong> Export current state with all versions → archive as <code>sprint-41-start.json</code>.</li>
+    <li><strong>During sprint:</strong> Make changes freely. Versions auto-accumulate.</li>
+    <li><strong>Sprint end:</strong> Run full test suite. Compare with sprint-start baseline. Export → <code>sprint-41-end.json</code>.</li>
+    <li><strong>Retrospective:</strong> Export audit log CSV. Review infrastructure changes as a team.</li>
+  </ol>
+
+  <h3>11.2 Release Checklist</h3>
+  <table>
+    <tr><th>#</th><th>Step</th><th>Versioning Feature Used</th></tr>
+    <tr><td>1</td><td>Label all workflow versions with release tag</td><td>Workflow versioning</td></tr>
+    <tr><td>2</td><td>Label script library versions</td><td>Script library versioning</td></tr>
+    <tr><td>3</td><td>Run tests and mark baseline</td><td>Run baselines</td></tr>
+    <tr><td>4</td><td>Compare with previous release baseline</td><td>Baseline comparison</td></tr>
+    <tr><td>5</td><td>Export audit log for the release period</td><td>Audit log</td></tr>
+    <tr><td>6</td><td>Full export with all version data</td><td>Export/import</td></tr>
+    <tr><td>7</td><td>Clean up unlabeled versions</td><td>All version panels</td></tr>
+  </table>
+
+  <h3>11.3 Shared Library Governance</h3>
+  <p>For teams sharing script libraries across workflows:</p>
+  <ul>
+    <li><strong>Before editing:</strong> Always check "Used by" in the impact analysis panel.</li>
+    <li><strong>Blast radius &gt; 5 workflows:</strong> Consider creating a new library version instead of modifying in place. Migrate workflows one at a time.</li>
+    <li><strong>After editing:</strong> Re-run all affected workflows (use "Used by" as your checklist).</li>
+    <li><strong>Document changes:</strong> Rename the version with a meaningful label immediately after saving.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 12 -->
+  <h2>12. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Full Release Simulation</h3>
+  <p>Import the three gallery samples. Follow the complete flow:</p>
+  <ol>
+    <li>Pre-release snapshot (save everything, mark baseline).</li>
+    <li>Make 5+ changes across different entity types.</li>
+    <li>Review all changes using version diffs and audit log.</li>
+    <li>Run tests and compare with baseline.</li>
+    <li>Export with all version checkboxes.</li>
+  </ol>
+  <p>Verify you can trace every change back to its source using cross-entity traceability.</p>
+
+  <h3>Exercise 2 — Root Cause Analysis</h3>
+  <p>Intentionally break a test by changing the environment base URL (not the request URL). Run tests. Use the traceability map from Section 10 to systematically find the root cause. Verify the audit log is the tool that reveals the issue.</p>
+
+  <h3>Exercise 3 — Version Cap Management</h3>
+  <p>Pick one entity type (e.g., script library with cap 15). Make 16+ changes. Verify the oldest version is evicted. Label a mid-range version, then continue making changes. Is your labeled version still there after the cap is reached, or was it evicted? (It will be evicted — FIFO doesn't preserve labels. This is why exports are your safety net.)</p>
+
+  <h3>Exercise 4 — Export/Import Round-Trip</h3>
+  <p>Export with all version checkboxes. Clear all data (Settings → Data Management). Import the export file. Verify all version histories are restored. Verify the audit log is restored. Verify baselines are accessible.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 13 -->
+  <h2>13. Source Code Reference</h2>
+  <table>
+    <tr><th>Phase</th><th>Utility Module</th><th>UI Components</th><th>Tests</th></tr>
+    <tr><td>V1 — Workflow</td><td><code>workflowVersioning.ts</code></td><td><code>WorkflowVersionPanel</code>, <code>WorkflowVersionDiff</code></td><td>108</td></tr>
+    <tr><td>V2 — Test Def</td><td><code>testDefinitionVersioning.ts</code></td><td><code>TestDefinitionVersionPanel</code>, <code>TestDefinitionVersionDiff</code></td><td>62</td></tr>
+    <tr><td>V3 — Audit</td><td><code>auditLog.ts</code></td><td><code>AuditLogPanel</code></td><td>42</td></tr>
+    <tr><td>V4 — Baselines</td><td><code>runBaselines.ts</code></td><td>Comparison view</td><td>27</td></tr>
+    <tr><td>V5 — Request Def</td><td><code>requestDefinitionVersioning.ts</code></td><td><code>RequestDefinitionVersionPanel</code>, <code>RequestDefinitionVersionDiff</code></td><td>32</td></tr>
+    <tr><td>V6 — FG Structure</td><td><code>structureChangeLog.ts</code></td><td>FG history panel</td><td>36</td></tr>
+    <tr><td>V7 — Script Lib</td><td><code>scriptLibraryVersioning.ts</code></td><td><code>ScriptLibraryVersionPanel</code>, <code>ScriptLibraryVersionDiff</code></td><td>60</td></tr>
+    <tr><td>Export</td><td><code>scenarioImportExport.ts</code></td><td><code>VersionCheckboxGroup</code>, <code>ExportOptionsPopover</code></td><td>—</td></tr>
+  </table>
+
+  <!-- Section 14 -->
+  <h2>14. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Phase</th></tr>
+    <tr><td><a href="../workflow/workflow-version-history-easy.html">workflow-version-history-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 1</td></tr>
+    <tr><td><a href="../workflow/workflow-version-diff-medium.html">workflow-version-diff-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 1</td></tr>
+    <tr><td><a href="../workflow/workflow-version-advanced.html">workflow-version-advanced</a></td><td><span class="badge badge-advanced">Advanced</span></td><td>V-Phase 1</td></tr>
+    <tr><td><a href="../test/test-definition-history-easy.html">test-definition-history-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 2</td></tr>
+    <tr><td><a href="../test/test-definition-diff-medium.html">test-definition-diff-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 2</td></tr>
+    <tr><td><a href="../request/request-definition-history-easy.html">request-definition-history-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 2</td></tr>
+    <tr><td><a href="../request/request-definition-diff-medium.html">request-definition-diff-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 2</td></tr>
+    <tr><td><a href="../catalog/environment-audit-log-easy.html">environment-audit-log-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 3</td></tr>
+    <tr><td><a href="../catalog/environment-audit-export-medium.html">environment-audit-export-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 3</td></tr>
+    <tr><td><a href="../catalog/run-baselines-easy.html">run-baselines-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 4</td></tr>
+    <tr><td><a href="../catalog/run-baselines-comparison-medium.html">run-baselines-comparison-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 4</td></tr>
+    <tr><td><a href="../catalog/feature-group-history-easy.html">feature-group-history-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 5</td></tr>
+    <tr><td><a href="../catalog/feature-group-history-medium.html">feature-group-history-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 5</td></tr>
+    <tr><td><a href="script-library-versioning-easy.html">script-library-versioning-easy</a></td><td><span class="badge badge-easy">Easy</span></td><td>V-Phase 7</td></tr>
+    <tr><td><a href="script-library-impact-medium.html">script-library-impact-medium</a></td><td><span class="badge badge-medium">Medium</span></td><td>V-Phase 7</td></tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Cross-Feature Versioning (Advanced / Capstone) · May 2026
+  </footer>
+
+</body>
+</html>
