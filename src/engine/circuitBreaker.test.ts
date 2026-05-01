@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CircuitBreaker } from './circuitBreaker';
-import type { RequestResult } from '../types';
+import type { RequestResult } from '../shared/types';
 
 function makeResult(passed: boolean, errorMessage?: string): RequestResult {
   return {

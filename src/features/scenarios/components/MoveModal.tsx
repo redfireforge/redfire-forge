@@ -1,0 +1,133 @@
+import { useState, useMemo } from 'react';
+import type { FeatureGroup } from '../../../shared/types';
+import PopupModal from '../../../shared/components/PopupModal';
+
+export type MoveType = 'scenario' | 'test';
+
+export interface MoveTarget {
+  fgId?: string;
+  scenarioId?: string;
+}
+
+interface Props {
+  type: MoveType;
+  itemName: string;
+  featureGroups: FeatureGroup[];
+  currentFgId?: string;
+  currentScenarioId?: string;
+  onMove: (target: MoveTarget) => void;
+  onClose: () => void;
+}
+
+export default function MoveModal({
+  type, itemName, featureGroups, currentFgId, currentScenarioId,
+  onMove, onClose,
+}: Props) {
+  const [targetFgId, setTargetFgId] = useState('');
+  const [targetScenarioId, setTargetScenarioId] = useState('');
+
+  const targetFG = useMemo(
+    () => featureGroups.find((fg) => fg.id === targetFgId),
+    [featureGroups, targetFgId],
+  );
+
+  const availableScenarios = useMemo(() => {
+    if (type !== 'test' || !targetFG) return [];
+    return targetFG.scenarios;
+  }, [type, targetFG]);
+
+  const isSameLocation = (() => {
+    if (type === 'scenario') {
+      return targetFgId === currentFgId;
+    }
+    return targetFgId === currentFgId && targetScenarioId === currentScenarioId;
+  })();
+
+  const canMove = (() => {
+    if (type === 'scenario') return !!targetFgId && !isSameLocation;
+    return !!targetFgId && !!targetScenarioId && !isSameLocation;
+  })();
+
+  const handleMove = () => {
+    if (!canMove) return;
+    onMove({
+      fgId: targetFgId || undefined,
+      scenarioId: targetScenarioId || undefined,
+    });
+  };
+
+  const typeLabel = type === 'scenario' ? 'Scenario' : 'Test';
+
+  return (
+    <PopupModal
+      title={`Move ${typeLabel}`}
+      onClose={onClose}
+      footer={(
+        <>
+          <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleMove} disabled={!canMove}>Move</button>
+        </>
+      )}
+    >
+          <div className="popup-modal-banner">
+            Moving: <strong>{itemName}</strong>
+          </div>
+
+          <div className="popup-modal-field">
+            <label>Target Feature Group</label>
+            {featureGroups.length === 0 ? (
+              <div className="popup-modal-empty">No feature groups available</div>
+            ) : (
+              <select
+                value={targetFgId}
+                onChange={(e) => {
+                  setTargetFgId(e.target.value);
+                  setTargetScenarioId('');
+                }}
+              >
+                <option value="">— Select Feature Group —</option>
+                {featureGroups.map((fg) => {
+                  const isCurrent = fg.id === currentFgId;
+                  return (
+                    <option key={fg.id} value={fg.id}>
+                      {fg.name} ({fg.scenarios.length} scenarios){isCurrent ? ' (current)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </div>
+
+          {type === 'test' && targetFgId && (
+            <div className="popup-modal-field">
+              <label>Target Scenario</label>
+              {availableScenarios.length === 0 ? (
+                <div className="popup-modal-empty">No scenarios in this feature group</div>
+              ) : (
+                <select
+                  value={targetScenarioId}
+                  onChange={(e) => setTargetScenarioId(e.target.value)}
+                >
+                  <option value="">— Select Scenario —</option>
+                  {availableScenarios.map((sc) => {
+                    const isCurrent = sc.id === currentScenarioId && targetFgId === currentFgId;
+                    return (
+                      <option key={sc.id} value={sc.id}>
+                        {sc.name} ({sc.tests.length} tests){isCurrent ? ' (current)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+            </div>
+          )}
+
+          {isSameLocation && targetFgId && (
+            <div className="popup-modal-warning">
+              This is the current location. Select a different destination.
+            </div>
+          )}
+    </PopupModal>
+  );
+}

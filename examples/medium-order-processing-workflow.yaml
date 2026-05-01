@@ -1,0 +1,417 @@
+# RedfireForge Workflow — Medium: Order Processing Pipeline
+# Fetches an order, validates inventory via loop, routes by payment type,
+# then calls a sub-workflow for shipping label generation.
+#
+# Difficulty: ★★☆ (Medium)
+# Features demonstrated:
+#   • Loop (count mode) iterating over order items
+#   • Switch node for multi-way payment routing
+#   • Aggregate node for totals
+#   • SetVariable with expression functions ($count, $sum, $if)
+#   • Sub-Workflow call with input/output mappings
+#   • Error Handler wrapping the payment step
+#   • Condition for order value threshold
+#   • LogDebug for tracing
+#
+# Flow:
+#   Start (orderId)
+#     → GET /orders/:id (extract items, paymentType, customerId)
+#       → SetVariable (itemCount, init totals)
+#         → Loop (count = itemCount)
+#           ├─ Body: GET /inventory/:sku → Aggregate (stock levels)
+#           └─ Done:
+#              → Switch on {{paymentType}}
+#                ├─ "credit_card" → POST /payments/card (wrapped in ErrorHandler)
+#                ├─ "paypal"      → POST /payments/paypal
+#                └─ Default       → POST /payments/invoice
+#              → Condition (total > 500?)
+#                ├─ Yes → LogDebug (high-value flag)
+#                └─ (both) → Sub-Workflow: Generate Shipping Label
+#                    → End
+
+name: Order Processing Pipeline
+description: >
+  Process an e-commerce order: validate inventory for each line item,
+  route payment, and generate a shipping label via sub-workflow.
+
+schemaVersion: 5
+
+variables:
+  apiBase: "https://api.example.com"
+
+services:
+  - id: svc-orders
+    name: Orders API
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{ORDER_API_TOKEN}}"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        orderId: "ORD-2024-1234"
+
+  # ── 1. Fetch the order ──
+  - id: http-get-order
+    type: http
+    position: { x: 400, y: 120 }
+    data:
+      label: Fetch Order
+      serviceId: svc-orders
+      scenario:
+        id: sc-order
+        name: Get Order
+        url: "/orders/{{orderId}}"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions:
+            - type: status
+              expected: "200"
+        extractions:
+          - name: items
+            source: body
+            expression: $.items
+          - name: paymentType
+            source: body
+            expression: $.payment.type
+          - name: customerId
+            source: body
+            expression: $.customerId
+          - name: shippingAddress
+            source: body
+            expression: $.shipping.address
+
+  # ── 2. Compute item count and initialise ──
+  - id: setvar-init
+    type: setVariable
+    position: { x: 400, y: 270 }
+    data:
+      label: Init Loop Variables
+      assignments:
+        - id: a1
+          name: itemCount
+          expression: "$count('{{items}}')"
+        - id: a2
+          name: allInStock
+          expression: "true"
+        - id: a3
+          name: totalPrice
+          expression: "0"
+        - id: a4
+          name: checkedSkus
+          expression: "[]"
+
+  # ── 3. Loop through each order item ──
+  - id: loop-items
+    type: loop
+    position: { x: 400, y: 410 }
+    data:
+      label: Check Inventory
+      mode: count
+      countExpression: "{{itemCount}}"
+      indexVariable: itemIdx
+      maxIterations: 100
+
+  # ── Loop body: check stock for current item ──
+  - id: setvar-current-item
+    type: setVariable
+    position: { x: 400, y: 550 }
+    data:
+      label: Extract Current SKU
+      assignments:
+        - id: a1
+          name: currentSku
+          expression: "$jsonpath('{{items}}', '$[{{itemIdx}}].sku')"
+        - id: a2
+          name: currentQty
+          expression: "$jsonpath('{{items}}', '$[{{itemIdx}}].quantity')"
+
+  - id: http-check-stock
+    type: http
+    position: { x: 400, y: 690 }
+    data:
+      label: "GET Inventory"
+      serviceId: svc-orders
+      scenario:
+        id: sc-stock
+        name: Check Stock
+        url: "/inventory/{{currentSku}}"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: stockLevel
+            source: body
+            expression: $.available
+
+  - id: agg-stock
+    type: aggregate
+    position: { x: 400, y: 830 }
+    data:
+      label: Track Stock Results
+      sourceExpression: "{{stockLevel}}"
+      operation: collect
+      targetVariable: stockLevels
+
+  # ── 4. After loop: route by payment type ──
+  - id: log-loop-done
+    type: logDebug
+    position: { x: 400, y: 980 }
+    data:
+      label: Log Inventory Summary
+      message: "Checked {{itemCount}} items. Stock levels: {{stockLevels}}"
+
+  - id: switch-payment
+    type: switch
+    position: { x: 400, y: 1120 }
+    data:
+      label: Route Payment
+      expression: "{{paymentType}}"
+      cases:
+        - id: case-cc
+          value: "credit_card"
+          label: Credit Card
+        - id: case-pp
+          value: "paypal"
+          label: PayPal
+      defaultLabel: Invoice
+
+  # ── Payment branches ──
+
+  # Credit card — wrapped in error handler for retry
+  - id: error-handler-payment
+    type: errorHandler
+    position: { x: 100, y: 1280 }
+    data:
+      label: Payment Error Guard
+      strategy: retry
+      maxRetries: 2
+      retryDelayMs: 1000
+      fallbackExpression: ""
+
+  - id: http-pay-card
+    type: http
+    position: { x: 100, y: 1420 }
+    data:
+      label: Charge Card
+      serviceId: svc-orders
+      scenario:
+        id: sc-card
+        name: Charge Credit Card
+        url: "/payments/card"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "customerId": "{{customerId}}",
+            "amount": {{totalPrice}}
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions:
+            - type: status
+              expected: "200"
+        extractions:
+          - name: paymentId
+            source: body
+            expression: $.paymentId
+
+  - id: http-pay-paypal
+    type: http
+    position: { x: 400, y: 1280 }
+    data:
+      label: PayPal Checkout
+      serviceId: svc-orders
+      scenario:
+        id: sc-paypal
+        name: PayPal Payment
+        url: "/payments/paypal"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          { "orderId": "{{orderId}}", "customerId": "{{customerId}}" }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: paymentId
+            source: body
+            expression: $.paymentId
+
+  - id: http-pay-invoice
+    type: http
+    position: { x: 700, y: 1280 }
+    data:
+      label: Generate Invoice
+      serviceId: svc-orders
+      scenario:
+        id: sc-invoice
+        name: Invoice Payment
+        url: "/payments/invoice"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          { "orderId": "{{orderId}}", "customerId": "{{customerId}}" }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: paymentId
+            source: body
+            expression: $.paymentId
+
+  # ── 5. Value threshold check ──
+  - id: cond-high-value
+    type: condition
+    position: { x: 400, y: 1560 }
+    data:
+      label: High-Value Order?
+      left: "{{totalPrice}}"
+      operator: ">"
+      right: "500"
+
+  - id: log-high-value
+    type: logDebug
+    position: { x: 150, y: 1700 }
+    data:
+      label: Flag High-Value
+      message: "⚠ High-value order {{orderId}}: ${{totalPrice}} — requires manager approval"
+
+  # ── 6. Sub-workflow: generate shipping label ──
+  - id: sub-shipping
+    type: subWorkflow
+    position: { x: 400, y: 1840 }
+    data:
+      label: Generate Shipping Label
+      workflowId: "shipping-label-generator"
+      workflowName: "Shipping Label Generator"
+      inputMappings:
+        - sourceExpression: "{{orderId}}"
+          targetVariable: orderId
+        - sourceExpression: "{{shippingAddress}}"
+          targetVariable: address
+        - sourceExpression: "{{customerId}}"
+          targetVariable: customerId
+      outputMappings:
+        - sourceVariable: trackingNumber
+          targetVariable: trackingNumber
+        - sourceVariable: labelUrl
+          targetVariable: labelUrl
+      maxDepth: 5
+      timeoutMs: 30000
+      retryCount: 1
+      retryDelayMs: 2000
+      onChildFailure: continue
+
+  - id: end-1
+    type: end
+    position: { x: 400, y: 2000 }
+    data:
+      label: Order Complete
+
+edges:
+  # Main flow
+  - id: e1
+    source: start-1
+    target: http-get-order
+  - id: e2
+    source: http-get-order
+    target: setvar-init
+  - id: e3
+    source: setvar-init
+    target: loop-items
+  # Loop body
+  - id: e4
+    source: loop-items
+    target: setvar-current-item
+    sourceHandle: "body"
+  - id: e5
+    source: setvar-current-item
+    target: http-check-stock
+  - id: e6
+    source: http-check-stock
+    target: agg-stock
+  - id: e7
+    source: agg-stock
+    target: loop-items
+    targetHandle: "loopBack"
+  # Loop done → payment routing
+  - id: e8
+    source: loop-items
+    target: log-loop-done
+    sourceHandle: "done"
+  - id: e9
+    source: log-loop-done
+    target: switch-payment
+  # Switch cases
+  - id: e10
+    source: switch-payment
+    target: error-handler-payment
+    sourceHandle: "case-cc"
+  - id: e11
+    source: error-handler-payment
+    target: http-pay-card
+  - id: e12
+    source: switch-payment
+    target: http-pay-paypal
+    sourceHandle: "case-pp"
+  - id: e13
+    source: switch-payment
+    target: http-pay-invoice
+    sourceHandle: "default"
+  # All payment branches → condition
+  - id: e14
+    source: http-pay-card
+    target: cond-high-value
+  - id: e15
+    source: http-pay-paypal
+    target: cond-high-value
+  - id: e16
+    source: http-pay-invoice
+    target: cond-high-value
+  # Value check
+  - id: e17
+    source: cond-high-value
+    target: log-high-value
+    sourceHandle: "true"
+  - id: e18
+    source: cond-high-value
+    target: sub-shipping
+    sourceHandle: "false"
+  - id: e19
+    source: log-high-value
+    target: sub-shipping
+  # Sub-workflow → end
+  - id: e20
+    source: sub-shipping
+    target: end-1

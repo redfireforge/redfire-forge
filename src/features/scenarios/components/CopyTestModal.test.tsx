@@ -1,0 +1,125 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import CopyTestModal from './CopyTestModal';
+import type { FeatureGroup, Scenario } from '../../../shared/types';
+
+vi.mock('../../../shared/components/PopupModal', () => ({
+  __esModule: true,
+  default: ({ title, onClose, children, footer }: {
+    title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode;
+  }) => (
+    <div data-testid="popup-modal">
+      <div data-testid="modal-title">{title}</div>
+      <div data-testid="modal-body">{children}</div>
+      {footer && <div data-testid="modal-footer">{footer}</div>}
+    </div>
+  ),
+}));
+
+const makeTest = (overrides: Partial<Scenario> = {}): Scenario => ({
+  id: 'test-1',
+  name: 'Login Test',
+  url: '/api/login',
+  method: 'POST',
+  headers: [],
+  body: '',
+  auth: { type: 'none' },
+  validation: { mode: 'none' },
+  ...overrides,
+});
+
+const makeFeatureGroups = (): FeatureGroup[] => [
+  {
+    id: 'fg-1', name: 'Auth', microserviceId: 'svc-1', environmentId: 'env-1',
+    scenarios: [
+      { id: 'sc-1', name: 'Login Scenario', tests: [makeTest()] },
+      { id: 'sc-2', name: 'Signup Scenario', tests: [] },
+    ],
+  },
+  {
+    id: 'fg-2', name: 'Payments', microserviceId: 'svc-1', environmentId: 'env-1',
+    scenarios: [
+      { id: 'sc-3', name: 'Checkout Scenario', tests: [] },
+    ],
+  },
+];
+
+describe('CopyTestModal', () => {
+  const onConfirm = vi.fn();
+  const onClose = vi.fn();
+
+  beforeEach(() => { onConfirm.mockClear(); onClose.mockClear(); });
+
+  const renderModal = (overrides = {}) =>
+    render(
+      <CopyTestModal
+        test={makeTest()}
+        sourceFeatureId="fg-1"
+        sourceScenarioId="sc-1"
+        featureGroups={makeFeatureGroups()}
+        onConfirm={onConfirm}
+        onClose={onClose}
+        {...overrides}
+      />,
+    );
+
+  it('renders the title and test name banner', () => {
+    renderModal();
+    expect(screen.getByTestId('modal-title').textContent).toContain('Copy Test To...');
+    screen.getByText('Login Test');
+  });
+
+  it('renders feature group and scenario dropdowns', () => {
+    renderModal();
+    const selects = screen.getAllByRole('combobox');
+    expect(selects).toHaveLength(2);
+  });
+
+  it('defaults to source feature and scenario', () => {
+    renderModal();
+    const selects = screen.getAllByRole('combobox');
+    expect((selects[0] as HTMLSelectElement).value).toBe('fg-1');
+    expect((selects[1] as HTMLSelectElement).value).toBe('sc-1');
+  });
+
+  it('calls onConfirm with selected feature and scenario on Copy', () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Copy Here'));
+    expect(onConfirm).toHaveBeenCalledWith('fg-1', 'sc-1');
+  });
+
+  it('calls onClose when Cancel is clicked', () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates scenarios when feature group changes', () => {
+    renderModal();
+    const fgSelect = screen.getAllByRole('combobox')[0];
+    fireEvent.change(fgSelect, { target: { value: 'fg-2' } });
+
+    const scSelect = screen.getAllByRole('combobox')[1];
+    expect((scSelect as HTMLSelectElement).value).toBe('sc-3');
+  });
+
+  it('marks current scenario in the dropdown', () => {
+    renderModal();
+    screen.getByText('Login Scenario (current)');
+  });
+
+  it('disables Copy button when no scenario is selected', () => {
+    // When sourceScenarioId doesn't exist in featureGroups, the component
+    // still initialises targetScenario from props. Simulate a fresh render
+    // with no source scenario so targetScenario starts empty.
+    renderModal({
+      sourceScenarioId: '',
+      featureGroups: [{ id: 'fg-1', name: 'Empty', microserviceId: 's', environmentId: 'e', scenarios: [] }],
+    });
+    const copyBtn = screen.getByText('Copy Here').closest('button')!;
+    expect(copyBtn.disabled).toBe(true);
+  });
+});

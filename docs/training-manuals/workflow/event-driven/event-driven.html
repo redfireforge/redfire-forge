@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Event-Driven: Category Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">⚡</div>
+  <h1>Event-Driven</h1>
+  <div class="subtitle">Workflow Category</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Overview — Training Manual
+  </p>
+  <p style="max-width: 560px; color: #495057; font-size: 13px; margin-top: 12px;">
+    Event-driven workflows react to external triggers — incoming webhooks,
+    scheduled timers, and polling loops — to initiate automated processing
+    without manual intervention.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Category: Event-Driven &nbsp;|&nbsp; Samples: 3 &nbsp;|&nbsp; Difficulty: Easy → Advanced<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#catalog">Workflow Catalog</a></li>
+  <li><a href="#key-concepts">Key Concepts Deep Dive</a></li>
+  <li><a href="#related">Related Categories</a></li>
+  <li><a href="#learning-path">Learning Path</a></li>
+  <li><a href="#next-steps">Next Steps</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  Event-driven workflows start execution in response to an <strong>external event</strong>
+  rather than a manual trigger. They are the backbone of reactive systems — processing
+  incoming data the moment it arrives, running maintenance tasks on a schedule, or
+  monitoring long-running jobs until completion.
+</p>
+<p><strong>Real-world scenarios:</strong></p>
+<ul>
+  <li>A payment gateway sends a webhook when a transaction completes</li>
+  <li>A cron-based health check pings all services every 5 minutes</li>
+  <li>A CI/CD pipeline polls a build server until a deployment finishes</li>
+  <li>An order system waits for an asynchronous fulfillment callback</li>
+</ul>
+<p>
+  This category covers three core trigger patterns: <strong>webhook triggers</strong>,
+  <strong>schedule triggers</strong>, and <strong>polling with wait-for-condition</strong>.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Configuring <strong>WebhookTrigger</strong> nodes to listen for incoming HTTP requests</li>
+  <li>Setting up <strong>ScheduleTrigger</strong> nodes with cron expressions</li>
+  <li>Implementing <strong>polling loops</strong> with Wait and Condition nodes</li>
+  <li>Handling <strong>incoming payloads</strong> — extracting and transforming event data</li>
+  <li>Understanding <strong>idempotency</strong> and retry semantics for event handlers</li>
+  <li>Differentiating <strong>push-based</strong> (webhook) vs. <strong>pull-based</strong> (polling) patterns</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. CATALOG                                  -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="catalog">3. Workflow Catalog</h2>
+
+<table>
+  <tr>
+    <th>Sample</th>
+    <th>Difficulty</th>
+    <th>Nodes</th>
+    <th>Pattern</th>
+    <th>Manual</th>
+  </tr>
+  <tr>
+    <td>⚡ Webhook Trigger</td>
+    <td><span class="badge badge-easy">Easy ★☆☆</span></td>
+    <td>4</td>
+    <td>Listen for incoming HTTP → process → respond</td>
+    <td><a href="webhook-trigger-easy.html">Open</a></td>
+  </tr>
+  <tr>
+    <td>⏰ Schedule Trigger</td>
+    <td><span class="badge badge-easy">Easy ★☆☆</span></td>
+    <td>4</td>
+    <td>Cron-based timer → health check → conditional log</td>
+    <td><a href="schedule-trigger-easy.html">Open</a></td>
+  </tr>
+  <tr>
+    <td>🔄 Polling with Wait for Condition</td>
+    <td><span class="badge badge-advanced">Advanced ★★★</span></td>
+    <td>6</td>
+    <td>Start job → poll loop (wait + check) → process result</td>
+    <td><a href="wait-condition-advanced.html">Open</a></td>
+  </tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. KEY CONCEPTS                             -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="key-concepts">4. Key Concepts Deep Dive</h2>
+
+<h3>Webhooks</h3>
+<p>
+  A webhook is a <strong>push-based</strong> integration pattern. An external system
+  sends an HTTP request to your workflow's endpoint when an event occurs. The
+  <code>WebhookTrigger</code> node registers a URL (e.g., <code>/webhook</code>) and
+  starts the workflow when a request arrives. Benefits: real-time, no wasted polling
+  cycles, minimal latency.
+</p>
+
+<h3>Schedules</h3>
+<p>
+  Schedule triggers use <strong>cron expressions</strong> to start workflows at fixed
+  intervals. The <code>ScheduleTrigger</code> node fires automatically based on its
+  cron configuration (e.g., <code>*/5 * * * *</code> for every 5 minutes). Ideal for
+  periodic health checks, report generation, and batch processing.
+</p>
+
+<h3>Polling</h3>
+<p>
+  Polling is a <strong>pull-based</strong> pattern where the workflow actively checks
+  an external system for status changes. A loop repeatedly sends a request, evaluates
+  a condition, and either continues polling (with a delay) or exits when the condition
+  is met. Used when the external system does not support webhooks or callbacks.
+</p>
+
+<h3>Correlation (Async Callbacks)</h3>
+<p>
+  For advanced async patterns, the <strong>async-correlation</strong> subdirectory
+  contains workflows that combine webhooks with correlation IDs — sending a request,
+  then parking the workflow until a matching callback arrives. This bridges the gap
+  between polling and pure push-based patterns.
+</p>
+
+<div class="callout">
+  <strong>📘 Push vs. Pull</strong>
+  Prefer webhooks (push) when available — they are more efficient and provide lower
+  latency. Use polling (pull) only when the external system does not support callbacks
+  or when you need to monitor a system that only exposes a status endpoint.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. RELATED                                  -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="related">5. Related Categories</h2>
+
+<table>
+  <tr><th>Category</th><th>Relation</th></tr>
+  <tr>
+    <td><a href="../async-correlation/">Async Correlation</a></td>
+    <td>Extends event-driven patterns with correlation IDs for request-callback pairing</td>
+  </tr>
+  <tr>
+    <td><a href="../flow-control/">Flow Control</a></td>
+    <td>Condition and Switch nodes used inside event-driven workflows for routing</td>
+  </tr>
+  <tr>
+    <td><a href="../api-patterns/">API Patterns</a></td>
+    <td>HTTP nodes used in webhook responses and polling requests</td>
+  </tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Async Correlation Workflows</strong>
+  The correlation-based workflows (e.g., "Send Request → Wait for Callback") live in
+  a separate <code>async-correlation/</code> subdirectory. They build on event-driven
+  concepts but add correlation ID matching, which is a distinct advanced pattern.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. LEARNING PATH                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="learning-path">6. Learning Path</h2>
+
+<ol>
+  <li>
+    <strong>Start with <a href="webhook-trigger-easy.html">Webhook Trigger</a></strong> (Easy)<br>
+    Learn how a workflow listens for an incoming HTTP request and responds.
+  </li>
+  <li>
+    <strong>Then try <a href="schedule-trigger-easy.html">Schedule Trigger</a></strong> (Easy)<br>
+    Configure cron-based execution and periodic health checking.
+  </li>
+  <li>
+    <strong>Advance to <a href="wait-condition-advanced.html">Polling with Wait for Condition</a></strong> (Advanced)<br>
+    Build a polling loop that monitors a long-running job until completion.
+  </li>
+  <li>
+    <strong>Explore <a href="../async-correlation/">Async Correlation</a></strong> (Advanced)<br>
+    Combine webhooks with correlation IDs for request-callback patterns.
+  </li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>💡 Recommended Prerequisite</strong>
+  If you're new to RedfireForge, complete the
+  <a href="../flow-control/conditional-branching-easy.html">Conditional Branching</a>
+  sample first. It introduces the Condition node, which is used in both the Schedule
+  Trigger and Polling workflows.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. NEXT STEPS                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="next-steps">7. Next Steps</h2>
+
+<ul>
+  <li>Open the <strong>Template Gallery</strong> in RedfireForge and filter by the <em>Event-Driven</em> category to load any sample with one click.</li>
+  <li>Combine event-driven triggers with <a href="../flow-control/">flow-control</a> patterns (conditions, switches, loops) to build production-grade reactive workflows.</li>
+  <li>Add <strong>assertions</strong> to your event-driven workflows to validate payloads and response codes automatically.</li>
+  <li>Explore the <strong>CLI</strong> to run event-driven workflows in headless mode for CI/CD integration.</li>
+</ul>
+
+<footer>RedfireForge Training Manual — Event-Driven Overview · April 2026</footer>
+
+</body>
+</html>

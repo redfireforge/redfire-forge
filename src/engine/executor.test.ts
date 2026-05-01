@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, TestConfig } from '../types';
-import { buildHeaders, buildUrl, runTest } from './executor';
+import type { Scenario, TestConfig } from '../shared/types';
+import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
@@ -164,6 +164,24 @@ describe('buildUrl', () => {
   });
 });
 
+describe('proxyFetch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('delegates to httpFetch with the same arguments', async () => {
+    const { httpFetch } = await import('../shared/utils/httpClient');
+    const res = await proxyFetch('https://api.example.com/r', 'PATCH', { 'X-Req': '1' }, '{"a":1}');
+    expect(vi.mocked(httpFetch)).toHaveBeenCalledWith(
+      'https://api.example.com/r',
+      'PATCH',
+      { 'X-Req': '1' },
+      '{"a":1}'
+    );
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('runTest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -202,6 +220,17 @@ describe('runTest', () => {
     expect(results.length).toBe(3);
   });
 
+  it('runs test with load-profile mode', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      totalTransactions: 1,
+      loadProfile: { type: 'sustained', durationSec: 0.08, maxConcurrency: 1 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBeGreaterThanOrEqual(0);
+  });
+
   it('distributes scenarios by weight', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Scenario1' });
     const s2 = makeScenario({ id: 's2', name: 'Scenario2' });
@@ -236,6 +265,23 @@ describe('runTest', () => {
     expect(results.length).toBe(2);
   });
 
+  it('breaks equal scenario weights with Math.random when undersampling', async () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+    const s1 = makeScenario({ id: 's1', name: 'Eq1' });
+    const s2 = makeScenario({ id: 's2', name: 'Eq2' });
+    const config = makeConfig({
+      totalTransactions: 1,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 4 },
+        { scenarioId: 's2', weight: 4 },
+      ],
+    });
+    const results = await runTest(config, [s1, s2], vi.fn());
+    randomSpy.mockRestore();
+    expect(results).toHaveLength(1);
+    expect(['Eq1', 'Eq2']).toContain(results[0].scenarioName);
+  });
+
   it('applies timeout config', async () => {
     const s = makeScenario();
     const config = makeConfig({ timeoutSec: 5 });
@@ -255,5 +301,52 @@ describe('runTest', () => {
     });
     const results = await runTest(config, [s1, s2], vi.fn());
     expect(results.every(r => r.scenarioName === 'Active')).toBe(true);
+  });
+
+  it('applies constant think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      thinkTime: { mode: 'constant', constantMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('applies uniform think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'batch',
+      concurrency: 2,
+      thinkTime: { mode: 'uniform', minMs: 0, maxMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('applies gaussian think time config', async () => {
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'pool',
+      concurrency: 2,
+      totalTransactions: 3,
+      thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
+    });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(3);
+  });
+
+  it('works without thinkTime config (backward compatible)', async () => {
+    const s = makeScenario();
+    const config = makeConfig();
+    expect(config.thinkTime).toBeUndefined();
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('treats mode none same as no thinkTime', async () => {
+    const s = makeScenario();
+    const config = makeConfig({ thinkTime: { mode: 'none' } });
+    const results = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
   });
 });

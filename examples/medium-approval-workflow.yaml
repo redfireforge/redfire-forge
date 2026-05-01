@@ -1,0 +1,415 @@
+# RedfireForge Workflow — Medium: Manager Approval Workflow
+# Submits a request, sends an approval notification to a manager,
+# then waits for an approval/rejection webhook callback.
+# Routes the result via Switch node to handle approved vs rejected.
+#
+# Difficulty: ★★☆ (Medium)
+# Features demonstrated:
+#   • CorrelationWait with header-based correlation source
+#   • Webhook filter expression ({{webhook.type}} == approval)
+#   • Long timeout (72 hours for human approval)
+#   • Switch node branching on extracted webhook data
+#   • SetVariable for building notification payloads
+#   • Error Handler wrapping the approval wait
+#
+# Flow:
+#   Start (requestId, requestType, requestedBy)
+#     → POST /requests/submit (create request)
+#       → POST /notifications/send (notify approver)
+#         → ErrorHandler
+#           └─ CorrelationWait (header X-Correlation-ID, filter: type==approval, 72h timeout)
+#             → Switch on {{approvalDecision}}
+#               ├─ "approved"  → POST /requests/approve → POST /notifications/approved → End
+#               ├─ "rejected"  → POST /requests/reject  → POST /notifications/rejected → End
+#               └─ Default     → LogDebug (unexpected decision) → End
+
+name: Manager Approval Workflow
+description: >
+  Submit a request for manager approval. The manager receives a notification
+  with a callback URL. When they approve or reject, the workflow resumes
+  and routes accordingly. Demonstrates header-based correlation with
+  webhook filter expressions.
+
+schemaVersion: 5
+
+variables:
+  apiBase: "https://api.example.com"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        requestId: "REQ-2024-0042"
+        requestType: "budget_increase"
+        requestedBy: "john.doe@company.com"
+        approverEmail: "manager@company.com"
+        approverName: "Jane Smith"
+
+  # ── 1. Submit the request ──
+  - id: http-submit
+    type: http
+    position: { x: 400, y: 140 }
+    data:
+      label: Submit Request
+      scenario:
+        id: sc-submit
+        name: Submit Request
+        url: "{{apiBase}}/requests"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "requestId": "{{requestId}}",
+            "type": "{{requestType}}",
+            "requestedBy": "{{requestedBy}}",
+            "status": "pending_approval"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "201"
+            - type: body
+              expression: $.status
+              expected: "pending_approval"
+        extractions:
+          - name: internalId
+            source: body
+            expression: $.id
+          - name: requestUrl
+            source: body
+            expression: $.reviewUrl
+        # Expected response:
+        # {
+        #   "id": "req_internal_0042",
+        #   "requestId": "REQ-2024-0042",
+        #   "status": "pending_approval",
+        #   "createdAt": "2024-01-15T09:00:00.000Z",
+        #   "reviewUrl": "https://approvals.example.com/review/req_internal_0042",
+        #   "escalationPolicy": "auto-escalate-72h"
+        # }
+
+  # ── 2. Notify the approver ──
+  - id: http-notify
+    type: http
+    position: { x: 400, y: 300 }
+    data:
+      label: Notify Approver
+      scenario:
+        id: sc-notify
+        name: Send Approval Notification
+        url: "{{apiBase}}/notifications/send"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "to": "{{approverEmail}}",
+            "subject": "Approval Required: {{requestType}} by {{requestedBy}}",
+            "body": "Please review and approve/reject request {{requestId}}.",
+            "callbackUrl": "http://localhost:3001/webhooks/callback/approval",
+            "correlationHeader": "X-Correlation-ID",
+            "correlationValue": "{{requestId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions: []
+        extractions: []
+
+  # ── 3. Wait for approval callback ──
+  - id: err-handler
+    type: errorHandler
+    position: { x: 400, y: 460 }
+    data:
+      label: Approval Error Handler
+      errorAction: log
+      retryCount: 0
+
+  - id: cw-approval
+    type: correlationWait
+    position: { x: 400, y: 560 }
+    data:
+      label: Wait for Approval
+      correlationIdExpression: "{{requestId}}"
+      webhookPath: "/webhooks/callback/approval"
+      correlationSource: header
+      correlationHeader: "X-Correlation-ID"
+      extractVariables:
+        - name: approvalDecision
+          jsonPath: "$.decision"
+        - name: approverComment
+          jsonPath: "$.comment"
+        - name: decidedAt
+          jsonPath: "$.decidedAt"
+      timeoutMs: 259200000   # 72 hours
+      webhookFilter: "{{webhook.type}} == approval"
+      notes: >
+        Waits up to 72 hours for the approver to respond.
+        The approver's system sends a POST with header
+        X-Correlation-ID matching the requestId.
+        Filter ensures only "approval" type webhooks are accepted.
+
+        Expected webhook payload from approval system:
+        POST /webhooks/callback/approval
+        Content-Type: application/json
+        X-Correlation-ID: REQ-2024-0042
+        x-idempotency-key: approval-REQ-2024-0042-decision-001
+
+        {
+          "type": "approval",
+          "decision": "approved",
+          "comment": "Budget increase approved. Keep spend under $15k/quarter.",
+          "decidedAt": "2024-01-16T14:22:07.541Z",
+          "decidedBy": {
+            "email": "manager@company.com",
+            "name": "Jane Smith",
+            "role": "Engineering Manager"
+          },
+          "metadata": {
+            "reviewDurationMs": 105727541,
+            "reviewUrl": "https://approvals.example.com/review/req_internal_0042",
+            "ipAddress": "10.0.1.42"
+          }
+        }
+
+        RedfireForge responses:
+        200 { "resumed": true, "correlationId": "REQ-2024-0042",
+              "executionId": "exec-def-002", "workflowId": "wf-approval-flow" }
+        404 { "resumed": false, "error": "No matching paused workflow found" }
+        422 { "resumed": false, "error": "Webhook filter rejected: ...",
+              "correlationId": "REQ-2024-0042" }
+
+  # ── 4. Route by decision ──
+  - id: switch-decision
+    type: switch
+    position: { x: 400, y: 740 }
+    data:
+      label: Route by Decision
+      expression: "{{approvalDecision}}"
+      cases:
+        - id: case-approved
+          value: "approved"
+          label: Approved
+        - id: case-rejected
+          value: "rejected"
+          label: Rejected
+      defaultLabel: Unknown
+
+  # ── 5a. Approved path ──
+  - id: http-approve
+    type: http
+    position: { x: 200, y: 900 }
+    data:
+      label: Mark Approved
+      scenario:
+        id: sc-approve
+        name: Approve Request
+        url: "{{apiBase}}/requests/{{requestId}}/approve"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "approvedBy": "{{approverName}}",
+            "approvedByEmail": "{{approverEmail}}",
+            "comment": "{{approverComment}}",
+            "decidedAt": "{{decidedAt}}",
+            "requestId": "{{requestId}}",
+            "internalId": "{{internalId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+            - type: body
+              expression: $.status
+              expected: "approved"
+        extractions:
+          - name: approvalRecordId
+            source: body
+            expression: $.approvalRecordId
+        # Expected response:
+        # {
+        #   "status": "approved",
+        #   "approvalRecordId": "APR-2024-0042-001",
+        #   "requestId": "REQ-2024-0042",
+        #   "effectiveAt": "2024-01-16T14:22:10.000Z",
+        #   "nextSteps": ["budget_updated", "notification_sent"]
+        # }
+
+  - id: http-notify-approved
+    type: http
+    position: { x: 200, y: 1060 }
+    data:
+      label: Notify — Approved
+      scenario:
+        id: sc-notify-ok
+        name: Send Approval Notification
+        url: "{{apiBase}}/notifications/send"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "to": "{{requestedBy}}",
+            "subject": "✅ Request {{requestId}} Approved",
+            "body": "Your {{requestType}} request has been approved by {{approverName}}. Approval record: {{approvalRecordId}}. Comment: {{approverComment}}",
+            "priority": "normal",
+            "channel": "email"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions: []
+        extractions: []
+        # Expected response:
+        # { "sent": true, "notificationId": "notif_001", "channel": "email" }
+
+  # ── 5b. Rejected path ──
+  - id: http-reject
+    type: http
+    position: { x: 600, y: 900 }
+    data:
+      label: Mark Rejected
+      scenario:
+        id: sc-reject
+        name: Reject Request
+        url: "{{apiBase}}/requests/{{requestId}}/reject"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "rejectedBy": "{{approverName}}",
+            "rejectedByEmail": "{{approverEmail}}",
+            "comment": "{{approverComment}}",
+            "decidedAt": "{{decidedAt}}",
+            "requestId": "{{requestId}}",
+            "internalId": "{{internalId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+            - type: body
+              expression: $.status
+              expected: "rejected"
+        extractions: []
+        # Expected response:
+        # {
+        #   "status": "rejected",
+        #   "requestId": "REQ-2024-0042",
+        #   "rejectedAt": "2024-01-16T14:22:10.000Z",
+        #   "canResubmit": true,
+        #   "resubmitDeadline": "2024-01-23T14:22:10.000Z"
+        # }
+
+  - id: http-notify-rejected
+    type: http
+    position: { x: 600, y: 1060 }
+    data:
+      label: Notify — Rejected
+      scenario:
+        id: sc-notify-rej
+        name: Send Rejection Notification
+        url: "{{apiBase}}/notifications/send"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "to": "{{requestedBy}}",
+            "subject": "❌ Request {{requestId}} Rejected",
+            "body": "Your {{requestType}} request was rejected by {{approverName}}. Reason: {{approverComment}}. You may resubmit within 7 days.",
+            "priority": "high",
+            "channel": "email"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions: []
+        extractions: []
+        # Expected response:
+        # { "sent": true, "notificationId": "notif_002", "channel": "email" }
+
+  # ── 5c. Unknown decision ──
+  - id: log-unknown
+    type: logDebug
+    position: { x: 400, y: 900 }
+    data:
+      label: Unknown Decision
+      message: "Unexpected approval decision: {{approvalDecision}} for request {{requestId}}"
+      level: warn
+
+  # ── End ──
+  - id: end-1
+    type: end
+    position: { x: 400, y: 1220 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-submit
+  - id: e2
+    source: http-submit
+    target: http-notify
+  - id: e3
+    source: http-notify
+    target: err-handler
+  - id: e4
+    source: err-handler
+    target: cw-approval
+  - id: e5
+    source: cw-approval
+    target: switch-decision
+  - id: e6
+    source: switch-decision
+    target: http-approve
+    sourceHandle: case-approved
+  - id: e7
+    source: switch-decision
+    target: http-reject
+    sourceHandle: case-rejected
+  - id: e8
+    source: switch-decision
+    target: log-unknown
+    sourceHandle: default
+  - id: e9
+    source: http-approve
+    target: http-notify-approved
+  - id: e10
+    source: http-reject
+    target: http-notify-rejected
+  - id: e11
+    source: http-notify-approved
+    target: end-1
+  - id: e12
+    source: http-notify-rejected
+    target: end-1
+  - id: e13
+    source: log-unknown
+    target: end-1

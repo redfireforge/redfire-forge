@@ -1,0 +1,256 @@
+# RedfireForge Workflow — Multi-API Array Aggregation
+# Fetches data from multiple endpoints, merges/aggregates arrays,
+# computes cross-endpoint statistics using expression functions.
+#
+# Flow:
+#   Start
+#     → GET /users (extract user count + IDs)
+#       → GET /posts (extract post count)
+#         → GET /comments (extract comment count)
+#           → SetVariable: cross-API aggregation
+#             → Condition: engagement ratio check
+#               ├─ Yes → Log: High engagement summary
+#               └─ No  → Log: Low engagement alert
+#                   → End
+#
+# Key expression patterns demonstrated:
+#   • $count on extracted JSON arrays
+#   • $divide + $round for averages and ratios
+#   • $multiply for projections
+#   • $concat + $join for building formatted output
+#   • $if + $equals for conditional text
+#   • $jsonpath for deep property extraction
+#   • $merge for combining data from multiple steps
+#   • $keys / $values for object introspection
+#   • $flatten for nested array merging
+#   • $coalesce for fallback chains
+
+name: Multi-API Aggregation with Expressions
+description: >
+  Aggregates arrays from multiple public API endpoints and computes
+  cross-dataset statistics using expression functions.
+
+schemaVersion: 4
+
+variables:
+  baseUrl: "https://jsonplaceholder.typicode.com"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        engagementThreshold: "3"
+
+  # ── Fetch users ──
+  - id: http-users
+    type: httpWorkflow
+    position: { x: 400, y: 120 }
+    data:
+      label: "1. Fetch Users"
+      scenario:
+        id: sc-users
+        name: Fetch Users
+        url: "{{baseUrl}}/users"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation: { mode: none, assertions: [] }
+      extractions:
+        - name: allUsers
+          source: body
+          expression: ""
+          fallback: "[]"
+        - name: user1Company
+          source: body
+          expression: "0.company.name"
+          fallback: "Unknown"
+        - name: user1Geo
+          source: body
+          expression: "0.address.geo"
+          fallback: "{}"
+
+  # ── Fetch posts ──
+  - id: http-posts
+    type: httpWorkflow
+    position: { x: 400, y: 280 }
+    data:
+      label: "2. Fetch Posts"
+      scenario:
+        id: sc-posts
+        name: Fetch Posts
+        url: "{{baseUrl}}/posts"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation: { mode: none, assertions: [] }
+      extractions:
+        - name: allPosts
+          source: body
+          expression: ""
+          fallback: "[]"
+        - name: post1Body
+          source: body
+          expression: "0.body"
+          fallback: ""
+
+  # ── Fetch comments ──
+  - id: http-comments
+    type: httpWorkflow
+    position: { x: 400, y: 440 }
+    data:
+      label: "3. Fetch Comments"
+      scenario:
+        id: sc-comments
+        name: Fetch Comments
+        url: "{{baseUrl}}/comments"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation: { mode: none, assertions: [] }
+      extractions:
+        - name: allComments
+          source: body
+          expression: ""
+          fallback: "[]"
+
+  # ── Aggregate cross-API stats ──
+  - id: set-aggregation
+    type: setVariable
+    position: { x: 400, y: 600 }
+    data:
+      label: "Aggregate Stats"
+      assignments:
+        # Array counts from each endpoint
+        - name: userCount
+          value: "{{$count({{allUsers}})}}"
+        - name: postCount
+          value: "{{$count({{allPosts}})}}"
+        - name: commentCount
+          value: "{{$count({{allComments}})}}"
+
+        # Total content items across all endpoints
+        - name: totalItems
+          value: "{{$add($add({{$count({{allUsers}})}}, {{$count({{allPosts}})}}), {{$count({{allComments}})}})}}"
+
+        # Average comments per post: comments / posts, rounded to 2 decimals
+        - name: commentsPerPost
+          value: "{{$round($divide({{$count({{allComments}})}}, {{$count({{allPosts}})}}), 2)}}"
+
+        # Average posts per user
+        - name: postsPerUser
+          value: "{{$round($divide({{$count({{allPosts}})}}, {{$count({{allUsers}})}}), 1)}}"
+
+        # Engagement ratio: (posts + comments) / users
+        - name: engagementRatio
+          value: "{{$round($divide($add({{$count({{allPosts}})}}, {{$count({{allComments}})}}), {{$count({{allUsers}})}}), 1)}}"
+
+        # Word count of first post body (split by space)
+        - name: post1WordCount
+          value: "{{$count($split({{post1Body}}, \" \"))}}"
+
+        # Extract geo keys from user address: ["lat","lng"]
+        - name: geoKeys
+          value: "{{$stringify($keys({{user1Geo}}))}}"
+
+        # Build a CSV-style summary line
+        - name: csvSummary
+          value: "{{$join($split($concat({{userCount}}, \",\", {{postCount}}, \",\", {{commentCount}}), \",\"), \", \")}}"
+
+        # Projected annual posts (monthly × 12)
+        - name: projectedAnnualPosts
+          value: "{{$multiply({{$count({{allPosts}})}}, 12)}}"
+
+        # Engagement label
+        - name: engagementLabel
+          value: "{{$if($not($isEmpty({{allComments}}))), $concat(\"Active (\", {{$count({{allComments}})}}, \" comments)\"), \"Inactive\")}}"
+
+  # ── Condition: check engagement ratio ──
+  - id: cond-engagement
+    type: condition
+    position: { x: 400, y: 780 }
+    data:
+      label: "High Engagement?"
+      left: "{{commentsPerPost}}"
+      operator: ">="
+      right: "{{engagementThreshold}}"
+
+  # ── Log: High engagement ──
+  - id: log-high
+    type: logDebug
+    position: { x: 150, y: 920 }
+    data:
+      label: "Log: High Engagement"
+      logLevel: info
+      message: >
+        === {{$upper("engagement report")}} ===
+        Users: {{userCount}} | Posts: {{postCount}} | Comments: {{commentCount}}
+        Total items: {{totalItems}}
+        Comments/Post: {{commentsPerPost}} | Posts/User: {{postsPerUser}}
+        Engagement ratio: {{engagementRatio}}
+        Company: {{$default({{user1Company}}, "N/A")}}
+        Geo keys: {{geoKeys}}
+        Summary (CSV): {{csvSummary}}
+        Projected annual posts: {{projectedAnnualPosts}}
+        Post 1 word count: {{post1WordCount}}
+      snapshotVariables: true
+
+  # ── Log: Low engagement ──
+  - id: log-low
+    type: logDebug
+    position: { x: 650, y: 920 }
+    data:
+      label: "Log: Low Engagement"
+      logLevel: warn
+      message: >
+        {{$upper("alert")}}: Engagement below threshold.
+        Comments/Post: {{commentsPerPost}} (need >= {{engagementThreshold}})
+        Posts/User: {{postsPerUser}}
+        Action: {{$if($equals({{commentCount}}, "0"), "Enable commenting", "Encourage more engagement")}}
+      snapshotVariables: true
+
+  # ── End ──
+  - id: end-1
+    type: end
+    position: { x: 400, y: 1060 }
+    data:
+      label: End
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-users
+  - id: e2
+    source: http-users
+    target: http-posts
+  - id: e3
+    source: http-posts
+    target: http-comments
+  - id: e4
+    source: http-comments
+    target: set-aggregation
+  - id: e5
+    source: set-aggregation
+    target: cond-engagement
+  - id: e6
+    source: cond-engagement
+    target: log-high
+    sourceHandle: "yes"
+  - id: e7
+    source: cond-engagement
+    target: log-low
+    sourceHandle: "no"
+  - id: e8
+    source: log-high
+    target: end-1
+  - id: e9
+    source: log-low
+    target: end-1

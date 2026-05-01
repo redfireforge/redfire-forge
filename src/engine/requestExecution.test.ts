@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, RequestResult } from '../types';
+import type { Scenario } from '../shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 
-vi.mock('../utils/httpClient', () => ({
+vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../utils/httpClient';
+import { httpFetch } from '../shared/utils/httpClient';
 const mockedFetch = vi.mocked(httpFetch);
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -36,6 +36,7 @@ function makeRunOpts(overrides: Partial<RunOpts> = {}): RunOpts {
     retryDelayMs: 0,
     breaker: new CircuitBreaker('continue'),
     onProgress: vi.fn(),
+    getThinkTimeMs: () => 0,
     ...overrides,
   };
 }
@@ -97,6 +98,40 @@ describe('executeWithRetry', () => {
     expect(result.passed).toBe(false);
     expect(result.errorMessage).toContain('after 3 attempts');
     expect(mockedFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('captures response headers in result', async () => {
+    mockedFetch.mockResolvedValueOnce({
+      status: 200, statusText: 'OK',
+      headers: { 'content-type': 'application/json', 'x-request-id': 'abc-123', 'cache-control': 'no-cache' },
+      body: '{"ok":true}',
+    });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    expect(result.responseHeaders).toEqual({
+      'content-type': 'application/json',
+      'x-request-id': 'abc-123',
+      'cache-control': 'no-cache',
+    });
+  });
+
+  it('captures request log with headers and body', async () => {
+    mockedFetch.mockResolvedValueOnce(successResponse());
+    const reqHeaders = { 'Content-Type': 'application/json', 'Authorization': 'Bearer tok' };
+    const reqBody = '{"name":"test"}';
+    const result = await executeWithRetry(makeScenario({ method: 'POST' }), reqHeaders, reqBody);
+    expect(result.requestLog).toEqual({ headers: reqHeaders, body: reqBody });
+  });
+
+  it('captures request log with undefined body for GET', async () => {
+    mockedFetch.mockResolvedValueOnce(successResponse());
+    const result = await executeWithRetry(makeScenario(), { 'Accept': 'application/json' }, undefined);
+    expect(result.requestLog).toEqual({ headers: { 'Accept': 'application/json' }, body: undefined });
+  });
+
+  it('captures empty response headers when none returned', async () => {
+    mockedFetch.mockResolvedValueOnce({ status: 200, statusText: 'OK', headers: {}, body: '{}' });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    expect(result.responseHeaders).toEqual({});
   });
 
   it('runs validation when enabled and request succeeds', async () => {
@@ -167,6 +202,17 @@ describe('executeWithRetry', () => {
     const result = await executeWithRetry(makeScenario(), {}, undefined);
     expect(result.passed).toBe(true);
     expect(result.responseBody).toBe('<html>Not JSON</html>');
+  });
+
+  it('uses truncated body when error field extraction throws', async () => {
+    mockedFetch.mockResolvedValueOnce(errorResponse(500, '{"error":{"nested":1}}'));
+    const stringifySpy = vi.spyOn(JSON, 'stringify').mockImplementationOnce(() => {
+      throw new TypeError('stringify blocked');
+    });
+    const result = await executeWithRetry(makeScenario(), {}, undefined);
+    stringifySpy.mockRestore();
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toBe('{"error":{"nested":1}}'.slice(0, 300));
   });
 });
 
@@ -252,5 +298,23 @@ describe('runPool', () => {
     const results = await runPool([makeScenario()], 1, makeRunOpts({ onProgress }));
     expect(results).toHaveLength(1);
     expect(onProgress).toHaveBeenCalled();
+  });
+
+  it('records pool error when token acquisition rejects', async () => {
+    mockedFetch.mockResolvedValue(successResponse());
+    const tokenManager = {
+      getToken: vi.fn().mockRejectedValue(new Error('token pool fail')),
+    } as unknown as TokenManager;
+    const results = await runPool([makeScenario()], 1, makeRunOpts({ tokenManager }));
+    expect(results).toHaveLength(1);
+    expect(results[0].passed).toBe(false);
+    expect(results[0].errorMessage).toBe('token pool fail');
+    expect(results[0].failureDetails[0].path).toBe('(error)');
+  });
+
+  it('resolves immediately for an empty queue', async () => {
+    mockedFetch.mockResolvedValue(successResponse());
+    const results = await runPool([], 2, makeRunOpts());
+    expect(results).toEqual([]);
   });
 });

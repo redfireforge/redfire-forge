@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMetrics } from './metrics';
-import type { RequestResult } from '../types';
+import type { RequestResult } from '../shared/types';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
   return {
@@ -28,6 +28,7 @@ describe('computeMetrics', () => {
       avgResponseTime: 0,
       minResponseTime: 0,
       maxResponseTime: 0,
+      p50ResponseTime: 0,
       p95ResponseTime: 0,
       p99ResponseTime: 0,
       errorRate: 0,
@@ -130,5 +131,82 @@ describe('computeMetrics', () => {
     expect(summary.avgResponseTime).toBe(200);
     expect(summary.p95ResponseTime).toBe(300);
     expect(summary.p99ResponseTime).toBe(300);
+  });
+
+  it('handles single result where p95/p99 may fall back', () => {
+    const summary = computeMetrics(
+      [
+        {
+          url: 'http://api/1',
+          method: 'GET',
+          httpStatus: 200,
+          responseTimeMs: 150,
+          passed: true,
+          failureDetails: [],
+          requestSentAt: 0,
+          responseBody: '',
+          responseHeaders: {},
+        },
+      ],
+      500,
+    );
+    expect(summary.p95ResponseTime).toBe(150);
+    expect(summary.p99ResponseTime).toBe(150);
+    expect(summary.totalRequests).toBe(1);
+  });
+
+  it('handles failed validation results', () => {
+    const summary = computeMetrics(
+      [
+        {
+          url: 'http://api/1',
+          method: 'GET',
+          httpStatus: 200,
+          responseTimeMs: 100,
+          passed: false,
+          failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
+          requestSentAt: 0,
+          responseBody: '',
+          responseHeaders: {},
+        },
+      ],
+      500,
+    );
+    expect(summary.failedValidations).toBe(1);
+  });
+
+  it('counts status 0 as failed request', () => {
+    const results = [makeResult({ httpStatus: 0 })];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.failedRequests).toBe(1);
+    expect(summary.errorsByStatus).toEqual({ 0: 1 });
+  });
+
+  it('handles large numbers of requests for percentiles', () => {
+    const results = Array.from({ length: 1000 }, (_, i) =>
+      makeResult({ id: String(i), responseTimeMs: i + 1 }),
+    );
+    const summary = computeMetrics(results, 60000);
+    expect(summary.p95ResponseTime).toBe(951);
+    expect(summary.p99ResponseTime).toBe(991);
+    expect(summary.totalRequests).toBe(1000);
+  });
+
+  it('handles all failed requests for 100% error rate', () => {
+    const results = [
+      makeResult({ id: '1', httpStatus: 500 }),
+      makeResult({ id: '2', httpStatus: 503 }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.errorRate).toBe(100);
+    expect(summary.successfulRequests).toBe(0);
+  });
+
+  it('does not count passed=false without failureDetails as validation failure', () => {
+    const results = [
+      makeResult({ id: '1', httpStatus: 200, passed: false, failureDetails: [] }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.failedValidations).toBe(0);
   });
 });

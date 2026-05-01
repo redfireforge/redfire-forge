@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Sample: Parallel Payment Processing (Hard)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6; max-width: 900px;
+    margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-hard { background: #f8d7da; color: #721c24; }
+  .badge-feature { background: #cce5ff; color: #004085; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 11px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-danger { background: #fce4ec; border-left-color: #c62828; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .back-link { font-size: 13px; margin-bottom: 16px; }
+  .back-link a { color: #457b9d; text-decoration: none; }
+  .back-link a:hover { text-decoration: underline; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="back-link">← <a href="async-correlation.html">Back to Async Correlation Manual</a></div>
+
+<h1>Parallel Payment Processing <span class="badge badge-hard">Hard</span></h1>
+<p style="color: #457b9d; font-size: 15px; margin-bottom: 24px;">
+  Split payment across card and loyalty points, wait for both callbacks in parallel,
+  aggregate results, then confirm or cancel the order.
+</p>
+
+<!-- ════════════════════════════════ -->
+<h2>Workflow Diagram</h2>
+
+<div class="flow-diagram">
+  ┌─────────┐   ┌──────────────┐   ┌──────────────┐   ┌────────┐
+  │  Start  │──▶│ SetVariable  │──▶│ ErrorHandler  │──▶│  Fork  │
+  └─────────┘   │ (split amts) │   │ (catch errs)  │   └───┬────┘
+                └──────────────┘   └──────────────┘       │
+                                                    ┌─────┴─────┐
+                                              ┌─────▼─────┐ ┌───▼─────────┐
+                                              │ HTTP:      │ │ HTTP:       │
+                                              │ Card       │ │ Loyalty     │
+                                              │ Charge     │ │ Deduct      │
+                                              │ → $.id     │ │ → $.id      │
+                                              └─────┬─────┘ └───┬─────────┘
+                                              ┌─────▼─────┐ ┌───▼─────────┐
+                                              │ SetVar:   │ │ SetVar:     │
+                                              │ Tag Card  │ │ Tag Loyalty │
+                                              │ card-{id} │ │ loyalty-{id}│
+                                              └─────┬─────┘ └───┬─────────┘
+                                              ┌─────▼─────┐ ┌───▼─────────┐
+                                              │ CorrWait  │ │ CorrWait    │
+                                              │ Card CB   │ │ Loyalty CB  │
+                                              │ (2 min)   │ │ (2 min)     │
+                                              └─────┬─────┘ └───┬─────────┘
+                                                    └─────┬─────┘
+                                                    ┌─────▼─────┐
+                                                    │   Join    │
+                                                    └─────┬─────┘
+                                                    ┌─────▼──────────┐
+                                                    │ Aggregate      │
+                                                    │ (combine)      │
+                                                    └─────┬──────────┘
+                                                    ┌─────▼──────────┐
+                                                    │ Condition      │
+                                                    │ both approved? │
+                                                    └──┬──────────┬──┘
+                                                 ┌─────▼───┐ ┌───▼─────────┐
+                                                 │ HTTP:   │ │ HTTP:       │
+                                                 │ Confirm │ │ Cancel      │
+                                                 │ Order   │ │ Order       │
+                                                 └─────┬───┘ └───┬─────────┘
+                                                       └────┬────┘
+                                                       ┌────▼────┐
+                                                       │  End    │
+                                                       └─────────┘
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>Key Concepts in This Sample</h2>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>🔀 Fork / Join</strong>
+    <p>Split into parallel branches and wait for both to complete</p>
+  </div>
+  <div class="feature-card">
+    <strong>🔗 Two CorrelationWaits</strong>
+    <p>Each branch waits independently for its own callback</p>
+  </div>
+  <div class="feature-card">
+    <strong>📊 Aggregate Node</strong>
+    <p>Combine results from parallel branches into a unified view</p>
+  </div>
+  <div class="feature-card">
+    <strong>🛡 ErrorHandler</strong>
+    <p>Wraps the entire fork to catch timeouts and failures</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ -->
+<h2>Step-by-Step Setup</h2>
+
+<h3><span class="step-num">1</span> Start Node — Input Variables</h3>
+<table>
+  <tr><th>Variable</th><th>Value</th></tr>
+  <tr><td><code>orderId</code></td><td><code>ORD-2024-0099</code></td></tr>
+  <tr><td><code>totalAmount</code></td><td><code>150.00</code></td></tr>
+  <tr><td><code>loyaltyPoints</code></td><td><code>5000</code></td></tr>
+</table>
+
+<h3><span class="step-num">2</span> SetVariable Node: Calculate Split</h3>
+<p>Calculate how much goes to card vs loyalty:</p>
+<table>
+  <tr><th>Variable</th><th>Expression</th></tr>
+  <tr><td><code>loyaltyAmount</code></td><td><code>50.00</code> (from points)</td></tr>
+  <tr><td><code>cardAmount</code></td><td><code>100.00</code> (remainder)</td></tr>
+</table>
+<div class="callout callout-info">
+  <strong>📝 Why no <code>cardPaymentId</code> / <code>loyaltyPaymentId</code> here?</strong>
+  Each branch's HTTP response returns its own gateway id (extracted as <code>$.id</code>),
+  then a per-branch SetVariable step prefixes it with <code>card-</code> or <code>loyalty-</code>
+  to guarantee the two parallel CorrelationWaits get distinct keys — even when the
+  upstream gateway echoes the same numeric id (e.g. test sandboxes returning <code>101</code>).
+</div>
+
+<h3><span class="step-num">3</span> ErrorHandler Node</h3>
+<p>Wrap the Fork → Join section to catch timeouts and payment failures:</p>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>Error Action</td><td>Continue with error data</td></tr>
+  <tr><td>Contains</td><td>Fork → Join (all parallel branches)</td></tr>
+</table>
+
+<div class="callout callout-danger">
+  <strong>🛡 Why ErrorHandler?</strong>
+  If either CorrelationWait times out, the ErrorHandler catches the error and routes to
+  the "Cancel Order" path instead of crashing the entire workflow.
+</div>
+
+<h3><span class="step-num">4</span> Fork Node</h3>
+<p>Split into two parallel branches:</p>
+<ul>
+  <li><strong>Branch A:</strong> Card payment → CorrelationWait (card callback)</li>
+  <li><strong>Branch B:</strong> Loyalty payment → CorrelationWait (loyalty callback)</li>
+</ul>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h3><span class="step-num">5</span> Branch A: Card Payment</h3>
+
+<h4>HTTP Node: Charge Card</h4>
+<pre>
+POST {{paymentBase}}/posts
+{
+  "<span class="field">orderId</span>": "<span class="string">{{orderId}}</span>",
+  "<span class="field">amount</span>": {{cardAmount}},
+  "<span class="field">currency</span>": "<span class="string">USD</span>",
+  "<span class="field">cardToken</span>": "<span class="string">{{cardToken}}</span>",
+  "<span class="field">callbackUrl</span>": "<span class="string">http://localhost:3001/webhooks/callback/card-payment</span>"
+}
+</pre>
+<p><strong>Extract:</strong> <code>cardPaymentId = $.id</code> from the response body.</p>
+
+<h4>SetVariable Node: Tag Card Payment ID</h4>
+<table>
+  <tr><th>Variable</th><th>Expression</th></tr>
+  <tr><td><code>cardPaymentId</code></td><td><code>card-{{cardPaymentId}}</code></td></tr>
+</table>
+<p>Prefixes the gateway id so the card branch's correlation key cannot collide with the loyalty branch.</p>
+
+<h4>CorrelationWait: Card Callback</h4>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>Label</td><td><code>Wait for Card Payment</code></td></tr>
+  <tr><td>Correlation ID Expression</td><td><code>{{cardPaymentId}}</code></td></tr>
+  <tr><td>Webhook Path</td><td><code>/webhooks/callback/card-payment</code></td></tr>
+  <tr><td>Correlation Source</td><td><code>body</code></td></tr>
+  <tr><td>Correlation JSONPath</td><td><code>$.paymentId</code></td></tr>
+  <tr><td>Timeout</td><td><code>120000</code> (2 minutes)</td></tr>
+</table>
+
+<h4>Extract Variables (Card)</h4>
+<table>
+  <tr><th>Variable Name</th><th>JSONPath</th></tr>
+  <tr><td><code>cardStatus</code></td><td><code>$.status</code></td></tr>
+  <tr><td><code>cardTransactionId</code></td><td><code>$.transactionId</code></td></tr>
+  <tr><td><code>cardAuthCode</code></td><td><code>$.authorizationCode</code></td></tr>
+</table>
+
+<!-- ════════════════════════════════ -->
+
+<h3><span class="step-num">6</span> Branch B: Loyalty Payment</h3>
+
+<h4>HTTP Node: Redeem Loyalty Points</h4>
+<pre>
+POST {{paymentBase}}/posts
+{
+  "<span class="field">orderId</span>": "<span class="string">{{orderId}}</span>",
+  "<span class="field">points</span>": {{loyaltyPointsToUse}},
+  "<span class="field">monetaryValue</span>": {{loyaltyAmount}},
+  "<span class="field">callbackUrl</span>": "<span class="string">http://localhost:3001/webhooks/callback/loyalty-payment</span>"
+}
+</pre>
+<p><strong>Extract:</strong> <code>loyaltyPaymentId = $.id</code> from the response body.</p>
+
+<h4>SetVariable Node: Tag Loyalty Payment ID</h4>
+<table>
+  <tr><th>Variable</th><th>Expression</th></tr>
+  <tr><td><code>loyaltyPaymentId</code></td><td><code>loyalty-{{loyaltyPaymentId}}</code></td></tr>
+</table>
+
+<h4>CorrelationWait: Loyalty Callback</h4>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>Label</td><td><code>Wait for Loyalty Deduction</code></td></tr>
+  <tr><td>Correlation ID Expression</td><td><code>{{loyaltyPaymentId}}</code></td></tr>
+  <tr><td>Webhook Path</td><td><code>/webhooks/callback/loyalty-payment</code></td></tr>
+  <tr><td>Correlation Source</td><td><code>body</code></td></tr>
+  <tr><td>Correlation JSONPath</td><td><code>$.paymentId</code></td></tr>
+  <tr><td>Timeout</td><td><code>120000</code> (2 minutes)</td></tr>
+</table>
+
+<h4>Extract Variables (Loyalty)</h4>
+<table>
+  <tr><th>Variable Name</th><th>JSONPath</th></tr>
+  <tr><td><code>loyaltyStatus</code></td><td><code>$.status</code></td></tr>
+  <tr><td><code>loyaltyConfirmationId</code></td><td><code>$.confirmationId</code></td></tr>
+</table>
+
+<!-- ════════════════════════════════ -->
+
+<h3><span class="step-num">7</span> Join Node</h3>
+<p>Waits for both branches to complete before continuing.</p>
+
+<h3><span class="step-num">8</span> Aggregate Node</h3>
+<p>Combines the results from both branches:</p>
+<table>
+  <tr><th>Output Variable</th><th>Expression</th></tr>
+  <tr><td><code>allPaymentsApproved</code></td><td><code>{{cardStatus}} == approved &amp;&amp; {{loyaltyStatus}} == approved</code></td></tr>
+</table>
+
+<h3><span class="step-num">9</span> Condition Node: Both Approved?</h3>
+<table>
+  <tr><th>Expression</th><th>Route</th></tr>
+  <tr><td><code>{{allPaymentsApproved}} == true</code></td><td>→ HTTP: Confirm Order</td></tr>
+  <tr><td>else</td><td>→ HTTP: Cancel Order</td></tr>
+</table>
+
+<!-- ════════════════════════════════ -->
+<div class="page-break"></div>
+
+<h3><span class="step-num">10</span> HTTP: Confirm Order (success path)</h3>
+<pre>
+POST https://api.example.com/orders/{{orderId}}/confirm
+{
+  "<span class="field">cardTransactionId</span>": "<span class="string">{{cardTransactionId}}</span>",
+  "<span class="field">loyaltyConfirmationId</span>": "<span class="string">{{loyaltyConfirmationId}}</span>",
+  "<span class="field">totalCharged</span>": {{totalAmount}}
+}
+</pre>
+
+<h3><span class="step-num">11</span> HTTP: Cancel Order (failure path)</h3>
+<pre>
+POST https://api.example.com/orders/{{orderId}}/cancel
+{
+  "<span class="field">reason</span>": "<span class="string">Payment partially failed</span>",
+  "<span class="field">cardStatus</span>": "<span class="string">{{cardStatus}}</span>",
+  "<span class="field">loyaltyStatus</span>": "<span class="string">{{loyaltyStatus}}</span>"
+}
+</pre>
+
+<!-- ════════════════════════════════ -->
+<h2>Testing the Flow</h2>
+
+<h3>Counterpart Simulator (recommended demo)</h3>
+<ol>
+  <li>Open <strong>Template Gallery</strong> &rarr; Event-Driven tab in a second tab</li>
+  <li>Pick <code>Sample: Parallel Payment (Simulator)</code> &rarr; Use Template</li>
+  <li>Run the main parallel payment workflow first &mdash; it pauses on <em>both</em> CorrelationWait nodes</li>
+  <li>Run the simulator workflow &mdash; its Fork/Join POSTs both <code>/webhooks/callback/card-payment</code> and <code>/webhooks/callback/loyalty-payment</code> in parallel</li>
+  <li>The main workflow resumes both branches; the Join node waits for both, then the Condition routes to confirm or refund</li>
+</ol>
+<div class="callout callout-tip">
+  <strong>💡 Test the failure path</strong>
+  Edit the simulator's <code>cardStatus</code> input variable to <code>declined</code> (or anything other than <code>approved</code>) to send the main workflow down the cancel/refund branch.
+</div>
+
+<p>Run the workflow — it pauses at <strong>both</strong> CorrelationWait nodes simultaneously.
+Send two separate webhooks to resume both branches:</p>
+
+<h3>Webhook 1: Card Payment Callback</h3>
+<pre>
+curl -X POST http://localhost:3001/webhooks/callback/card-payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">cpay_4kF9xR2mNqLp-result</span>" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">cpay_4kF9xR2mNqLp</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">transactionId</span>": "<span class="string">txn_card_8mK3vP7w</span>",
+    "<span class="field">authorizationCode</span>": "<span class="string">AUTH-442918</span>",
+    "<span class="field">amount</span>": 130.00,
+    "<span class="field">currency</span>": "<span class="string">USD</span>",
+    "<span class="field">cardBrand</span>": "<span class="string">visa</span>",
+    "<span class="field">last4</span>": "<span class="string">4242</span>",
+    "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:25:04.217Z</span>",
+    "<span class="field">receiptUrl</span>": "<span class="string">https://pay.example.com/receipts/txn_card_8mK3vP7w</span>"
+  }'
+</pre>
+
+<h3>Webhook 2: Loyalty Payment Callback</h3>
+<pre>
+curl -X POST http://localhost:3001/webhooks/callback/loyalty-payment \
+  -H "Content-Type: application/json" \
+  -H "<span class="field">x-idempotency-key</span>: <span class="string">lpay_9nR4kL2mPqWs-result</span>" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">lpay_9nR4kL2mPqWs</span>",
+    "<span class="field">status</span>": "<span class="string">approved</span>",
+    "<span class="field">deductionId</span>": "<span class="string">ded_5xT2rK8nMjQp</span>",
+    "<span class="field">pointsDeducted</span>": 2000,
+    "<span class="field">remainingPoints</span>": 13000,
+    "<span class="field">monetaryValue</span>": 20.00,
+    "<span class="field">processedAt</span>": "<span class="string">2024-01-15T10:25:03.891Z</span>"
+  }'
+</pre>
+
+<div class="callout callout-tip">
+  <strong>💡 Order Doesn't Matter</strong>
+  You can send the webhooks in any order. Each CorrelationWait matches independently.
+  The Join node waits until <em>both</em> branches have completed.
+</div>
+
+<h3>Test: Partial Failure</h3>
+<p>To test the cancel path, send one as <code>"status": "declined"</code>:</p>
+<pre>
+<span class="comment"># Card approved, but loyalty declined → Cancel Order + Refund path</span>
+curl -X POST http://localhost:3001/webhooks/callback/loyalty-payment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "<span class="field">paymentId</span>": "<span class="string">lpay_9nR4kL2mPqWs</span>",
+    "<span class="field">status</span>": "<span class="string">declined</span>",
+    "<span class="field">reason</span>": "<span class="string">Insufficient points balance (2000 required, 500 available)</span>"
+  }'
+</pre>
+
+<!-- ════════════════════════════════ -->
+<h2>RedfireForge Server Responses</h2>
+<p>Each CorrelationWait responds independently:</p>
+
+<h4>✅ Card Payment Matched (200)</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">cpay_4kF9xR2mNqLp</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-parallel-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-parallel-payment</span>",
+  "<span class="field">webhookData</span>": { <span class="comment">... full card webhook body ...</span> }
+}
+</pre>
+
+<h4>✅ Loyalty Payment Matched (200)</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">true</span>,
+  "<span class="field">correlationId</span>": "<span class="string">lpay_9nR4kL2mPqWs</span>",
+  "<span class="field">executionId</span>": "<span class="string">exec-parallel-001</span>",
+  "<span class="field">workflowId</span>": "<span class="string">wf-parallel-payment</span>",
+  "<span class="field">webhookData</span>": { <span class="comment">... full loyalty webhook body ...</span> }
+}
+</pre>
+
+<h4>❌ No Match (404) — e.g., wrong paymentId or already timed out</h4>
+<pre>
+{
+  "<span class="field">resumed</span>": <span class="keyword">false</span>,
+  "<span class="field">error</span>": "<span class="string">No matching paused workflow found</span>",
+  "<span class="field">webhookPath</span>": "<span class="string">/webhooks/callback/card-payment</span>"
+}
+</pre>
+
+<!-- ════════════════════════════════ -->
+<h2>Architecture Notes</h2>
+
+<h3>Why Fork/Join for Parallel Payments?</h3>
+<ul>
+  <li><strong>Speed</strong> — Both payment processors run simultaneously, reducing total wait time</li>
+  <li><strong>Independence</strong> — Each has its own webhook path and correlation ID</li>
+  <li><strong>Atomicity</strong> — The Condition node ensures both must succeed for confirmation</li>
+</ul>
+
+<h3>Error Scenarios</h3>
+<table>
+  <tr><th>Scenario</th><th>Result</th></tr>
+  <tr><td>Both approved</td><td>→ Confirm Order</td></tr>
+  <tr><td>Card approved, loyalty declined</td><td>→ Cancel Order (refund card)</td></tr>
+  <tr><td>Card declined, loyalty approved</td><td>→ Cancel Order (restore points)</td></tr>
+  <tr><td>Card timeout (5 min)</td><td>→ ErrorHandler catches → Cancel Order</td></tr>
+  <tr><td>Both timeout</td><td>→ ErrorHandler catches → Cancel Order</td></tr>
+</table>
+
+<h2>YAML Reference</h2>
+<p>File: <code>examples/hard-parallel-payment-workflow.yaml</code></p>
+
+<div class="callout">
+  <strong>📋 Import from Template Gallery</strong>
+  Open Workflow Designer → click "Template Gallery" → search "Parallel Payment" → Import
+</div>
+
+<footer>
+  RedfireForge &mdash; Parallel Payment Sample &mdash; April 2026
+</footer>
+
+</body>
+</html>

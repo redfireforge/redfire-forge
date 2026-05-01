@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo Headers &amp; Body — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📡</div>
+    <h1>Echo Headers &amp; Body</h1>
+    <div class="subtitle">Advanced Sample — Training Guide</div>
+    <p>Send a POST request with custom headers and a JSON body to an echo service that mirrors everything back. This sample demonstrates how to inspect exactly what your HTTP client sends — headers, body, origin IP, and more — making it an essential debugging tool.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★★★<br />
+      <code>POST</code> · httpbin.org
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request sends a POST to httpbin.org's <code>/post</code> endpoint — a service that echoes back everything it receives. The response contains your exact headers, body, origin IP address, and the full URL, making it invaluable for debugging HTTP requests.</p>
+  <p><strong>Real-world analogy:</strong> Imagine sending a letter and getting back a photocopy of everything the post office received — the envelope, the stamp, the return address, and the contents inside. That's what httpbin does for HTTP requests.</p>
+  <p>This sample teaches you:</p>
+  <ul>
+    <li>How to send custom headers and verify they arrive at the server.</li>
+    <li>How to use echo services for debugging HTTP requests.</li>
+    <li>How to include authorization headers in your requests.</li>
+    <li>How to inspect the exact data the server receives vs. what you think you sent.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Custom headers</strong> — how to add arbitrary headers like <code>X-Custom-Header</code> to your requests and verify they're sent correctly.</li>
+    <li><strong>Header inspection</strong> — reading back the headers the server received to confirm your client is sending what you expect.</li>
+    <li><strong>Request echo services</strong> — using tools like httpbin.org to debug and validate HTTP requests during development.</li>
+    <li><strong>Debugging HTTP requests</strong> — comparing what you intended to send with what the server actually received.</li>
+    <li><strong>Authorization header</strong> — how the <code>Authorization: Bearer</code> header is sent and received.</li>
+    <li><strong>Origin and URL inspection</strong> — the response includes your IP address and the full URL, useful for proxy and routing debugging.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>POST</code></td></tr>
+    <tr><td>URL</td><td><code>https://httpbin.org/post</code></td></tr>
+    <tr><td>Headers</td><td><code>Content-Type: application/json</code><br /><code>X-Custom-Header: my-value</code><br /><code>Authorization: Bearer test-token-123</code></td></tr>
+    <tr><td>Body</td><td>JSON object (see below)</td></tr>
+  </table>
+
+  <h3>Request Body</h3>
+<pre>{
+  "message": "Hello HTTPBin",
+  "timestamp": "2026-04-01T12:00:00Z"
+}</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    httpbin.org is a free HTTP request and response inspection service. It's widely used by developers to test and debug HTTP clients, proxies, and API integrations. The service simply echoes back whatever you send.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+  </table>
+
+  <p>The server echoes back everything it received, organized into sections:</p>
+
+<pre>{
+  "args": {},
+  "data": "{\"message\":\"Hello HTTPBin\",\"timestamp\":\"2026-04-01T12:00:00Z\"}",
+  "files": {},
+  "form": {},
+  "headers": {
+    "Accept": "*/*",
+    "Authorization": "Bearer test-token-123",
+    "Content-Type": "application/json",
+    "Host": "httpbin.org",
+    "X-Custom-Header": "my-value"
+  },
+  "json": {
+    "message": "Hello HTTPBin",
+    "timestamp": "2026-04-01T12:00:00Z"
+  },
+  "origin": "203.0.113.42",
+  "url": "https://httpbin.org/post"
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Notice how the response has both <code>data</code> (raw string) and <code>json</code> (parsed object) fields. The <code>headers</code> section shows <em>every</em> header the server received — including ones your HTTP client adds automatically, like <code>Accept</code> and <code>Host</code>.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Echo Headers &amp; Body</strong> (marked with 📡) or use the search bar. It's tagged as <span class="badge badge-advanced">Advanced</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Review the Headers</h3>
+  <p>Before sending, examine the three custom headers in the request editor:</p>
+  <ul>
+    <li><code>Content-Type: application/json</code> — tells the server the body format.</li>
+    <li><code>X-Custom-Header: my-value</code> — a custom header to demonstrate header echo.</li>
+    <li><code>Authorization: Bearer test-token-123</code> — simulates an auth token.</li>
+  </ul>
+
+  <h3>Step 5 — Run the Request</h3>
+  <p>Click <strong>Send</strong> to execute the POST request. The response will appear in the response panel below.</p>
+
+  <h3>Step 6 — Inspect the Response</h3>
+  <p>In the response panel, examine each section:</p>
+  <ul>
+    <li><strong>headers</strong>: Verify all three custom headers appear exactly as sent.</li>
+    <li><strong>json</strong>: Confirm the parsed body matches what you sent.</li>
+    <li><strong>data</strong>: The raw string representation of your body.</li>
+    <li><strong>origin</strong>: Your public IP address as seen by httpbin.</li>
+    <li><strong>url</strong>: The full URL the server received.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>headers</code> section may include additional headers added by your HTTP client or network proxies (like <code>User-Agent</code>, <code>Accept-Encoding</code>). These are normal and expected.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Add More Custom Headers</h3>
+  <p>Add additional custom headers to the request and verify they appear in the echo response:</p>
+<pre>X-Request-Id: req-001
+X-Client-Version: 2.0.1
+Accept-Language: en-US</pre>
+  <p>Do all custom headers appear in the <code>headers</code> section of the response?</p>
+
+  <h3>Exercise 2 — Try Different HTTP Methods</h3>
+  <p>httpbin supports multiple methods. Try changing to GET and compare:</p>
+  <pre>GET https://httpbin.org/get</pre>
+  <p>Note: GET requests don't have a body. How does the response structure differ?</p>
+
+  <h3>Exercise 3 — Send Form Data Instead of JSON</h3>
+  <p>Change the <code>Content-Type</code> to <code>application/x-www-form-urlencoded</code> and send form data:</p>
+<pre>Content-Type: application/x-www-form-urlencoded
+
+message=Hello+HTTPBin&amp;timestamp=2026-04-01</pre>
+  <p>Where does the data appear in the response? (Hint: check the <code>form</code> field instead of <code>json</code>.)</p>
+
+  <h3>Exercise 4 — Inspect Response Headers</h3>
+  <p>Look at the <em>response</em> headers (not the echoed request headers). What headers does httpbin send back? Can you identify caching, CORS, and server identification headers?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Echo services like httpbin.org are invaluable when debugging API integrations. If an API is returning unexpected results, send the same request to httpbin first to verify your client is sending what you think it's sending.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Echo Headers &amp; Body · April 2026
+  </footer>
+
+</body>
+</html>

@@ -39,6 +39,27 @@
   padding: 4px 8px;
 }
 
+.fetch-confirm-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  font-size: 0.82rem;
+}
+.fetch-confirm-msg {
+  flex: 1 1 auto;
+}
+.fetch-confirm-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .jpb-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -134,17 +155,6 @@
 .json-tree-row.selected { border-left-color: var(--primary); background: rgba(59, 130, 246, 0.08); }
 .json-tree-row.search-hit { background: rgba(245, 158, 11, 0.1); }
 
-.json-tree-toggle {
-  width: 14px;
-  text-align: center;
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  user-select: none;
-}
-.json-tree-toggle-spacer { width: 14px; flex-shrink: 0; }
-
 .json-tree-check {
   width: auto !important;
   flex-shrink: 0;
@@ -152,12 +162,6 @@
   accent-color: var(--primary);
 }
 
-.json-tree-key {
-  color: #e879f9;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.json-tree-colon { color: var(--text-muted); flex-shrink: 0; }
 .json-tree-value {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -233,7 +237,7 @@
   border-bottom: 1px solid var(--border);
 }
 .jpb-field-path {
-  color: #e879f9;
+  color: #c084fc;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.78rem;
   flex-shrink: 0;

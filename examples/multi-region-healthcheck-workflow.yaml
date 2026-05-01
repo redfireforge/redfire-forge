@@ -1,0 +1,496 @@
+# RedfireForge Workflow — Multi-Region Health Check
+# Complex workflow combining ALL 4 new nodes with Fork/Join for parallel checks.
+# Demonstrates: Loop (forEach), SetVariable, Switch, Aggregate, Fork, Join, Condition, Delay
+#
+# Flow:
+#   Start (regions=["us-east","eu-west","ap-south"])
+#     → SetVariable (initialise counters)
+#       → Loop (forEach region in {{regions}})
+#         ├─ Body:
+#         │    SetVariable (build regionUrl)
+#         │    → Fork (check 3 services in parallel)
+#         │        ├─ GET /api/health   → Aggregate (healthResults concat)
+#         │        ├─ GET /db/health    → Aggregate (healthResults concat)
+#         │        └─ GET /cache/health → Aggregate (healthResults concat)
+#         │    → Join
+#         │    → Aggregate (sum healthy count, count total)
+#         └─ Done:
+#              → Switch on {{overallStatus}}
+#                ├─ "healthy"  → End (All Systems Go)
+#                ├─ "degraded" → POST /alerts/degraded → End
+#                └─ Default    → POST /alerts/critical → Delay → POST /oncall/page → End
+
+name: Multi-Region Health Check
+description: Parallel health checks across regions with aggregated results and severity-based routing
+
+schemaVersion: 4
+
+variables:
+  alertWebhook: "https://hooks.example.com/alerts"
+  oncallEndpoint: "https://oncall.example.com/page"
+  healthyThreshold: "0.8"
+
+services:
+  - id: svc-infra
+    name: Infrastructure API
+    endpoints:
+      - envId: env-prod
+        url: https://infra.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{INFRA_TOKEN}}"
+
+  - id: svc-alerts
+    name: Alert Service
+    endpoints:
+      - envId: env-prod
+        url: https://alerts.example.com
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-Alert-Key
+      apiKeyValue: "{{ALERT_API_KEY}}"
+      apiKeyIn: header
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        regions: '["us-east","eu-west","ap-south"]'
+
+  # Initialise accumulators
+  - id: setvar-init
+    type: setVariable
+    position: { x: 400, y: 120 }
+    data:
+      label: Init Counters
+      assignments:
+        - id: a1
+          name: healthResults
+          expression: "[]"
+        - id: a2
+          name: healthyCount
+          expression: "0"
+        - id: a3
+          name: totalChecks
+          expression: "0"
+        - id: a4
+          name: overallStatus
+          expression: "healthy"
+
+  # Loop over each region
+  - id: loop-regions
+    type: loop
+    position: { x: 400, y: 260 }
+    data:
+      label: Each Region
+      mode: forEach
+      sourceExpression: "{{regions}}"
+      itemVariable: region
+      indexVariable: regionIndex
+      maxIterations: 20
+
+  # ══════════════════════════════════════════
+  # Loop Body
+  # ══════════════════════════════════════════
+
+  # Build the region-specific base URL
+  - id: setvar-url
+    type: setVariable
+    position: { x: 400, y: 400 }
+    data:
+      label: Build Region URL
+      assignments:
+        - id: a1
+          name: regionUrl
+          expression: "https://{{region}}.infra.example.com"
+        - id: a2
+          name: regionLabel
+          expression: "Region {{region}} (#{{regionIndex}})"
+
+  # Fork into 3 parallel health checks
+  - id: fork-checks
+    type: fork
+    position: { x: 400, y: 530 }
+    data:
+      label: Check Services
+
+  # ── API health check ──
+  - id: http-api-health
+    type: http
+    position: { x: 100, y: 670 }
+    data:
+      label: "API Health"
+      serviceId: svc-infra
+      scenario:
+        id: sc-api
+        name: API Health Check
+        url: "{{regionUrl}}/api/health"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: apiStatus
+            source: body
+            expression: $.status
+
+  - id: agg-api
+    type: aggregate
+    position: { x: 100, y: 810 }
+    data:
+      label: Record API
+      mappings:
+        - id: m1
+          sourceExpression: '{"region":"{{region}}","service":"api","status":"{{apiStatus}}"}'
+          targetVariable: healthResults
+          strategy: concat
+        - id: m2
+          sourceExpression: "1"
+          targetVariable: totalChecks
+          strategy: count
+
+  # ── Database health check ──
+  - id: http-db-health
+    type: http
+    position: { x: 400, y: 670 }
+    data:
+      label: "DB Health"
+      serviceId: svc-infra
+      scenario:
+        id: sc-db
+        name: DB Health Check
+        url: "{{regionUrl}}/db/health"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: dbStatus
+            source: body
+            expression: $.status
+
+  - id: agg-db
+    type: aggregate
+    position: { x: 400, y: 810 }
+    data:
+      label: Record DB
+      mappings:
+        - id: m1
+          sourceExpression: '{"region":"{{region}}","service":"db","status":"{{dbStatus}}"}'
+          targetVariable: healthResults
+          strategy: concat
+        - id: m2
+          sourceExpression: "1"
+          targetVariable: totalChecks
+          strategy: count
+
+  # ── Cache health check ──
+  - id: http-cache-health
+    type: http
+    position: { x: 700, y: 670 }
+    data:
+      label: "Cache Health"
+      serviceId: svc-infra
+      scenario:
+        id: sc-cache
+        name: Cache Health Check
+        url: "{{regionUrl}}/cache/health"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: cacheStatus
+            source: body
+            expression: $.status
+
+  - id: agg-cache
+    type: aggregate
+    position: { x: 700, y: 810 }
+    data:
+      label: Record Cache
+      mappings:
+        - id: m1
+          sourceExpression: '{"region":"{{region}}","service":"cache","status":"{{cacheStatus}}"}'
+          targetVariable: healthResults
+          strategy: concat
+        - id: m2
+          sourceExpression: "1"
+          targetVariable: totalChecks
+          strategy: count
+
+  # Join after parallel checks
+  - id: join-checks
+    type: join
+    position: { x: 400, y: 950 }
+    data:
+      label: Merge Results
+
+  # Count healthy checks per region
+  - id: agg-healthy
+    type: aggregate
+    position: { x: 400, y: 1080 }
+    data:
+      label: Count Healthy
+      mappings:
+        - id: m1
+          sourceExpression: "{{apiStatus}}"
+          targetVariable: healthyCount
+          strategy: custom
+          customExpression: "{{healthyCount}}"
+
+  # ══════════════════════════════════════════
+  # After Loop — evaluate overall health
+  # ══════════════════════════════════════════
+
+  # Decide overall status based on healthy ratio
+  - id: setvar-status
+    type: setVariable
+    position: { x: 400, y: 1260 }
+    data:
+      label: Evaluate Status
+      assignments:
+        - id: a1
+          name: summary
+          expression: "Checked {{totalChecks}} services across all regions. Healthy: {{healthyCount}}"
+
+  # Switch on overall status
+  - id: switch-severity
+    type: switch
+    position: { x: 400, y: 1400 }
+    data:
+      label: Severity Router
+      expression: "{{overallStatus}}"
+      cases:
+        - id: s1
+          value: "healthy"
+          label: All Healthy
+        - id: s2
+          value: "degraded"
+          label: Degraded
+
+  # ── Healthy path ──
+  - id: end-healthy
+    type: end
+    position: { x: 100, y: 1560 }
+    data:
+      label: "All Systems Go ✅"
+
+  # ── Degraded path ──
+  - id: http-degraded-alert
+    type: http
+    position: { x: 400, y: 1560 }
+    data:
+      label: Degraded Alert
+      serviceId: svc-alerts
+      scenario:
+        id: sc-degraded
+        name: Degraded Alert
+        url: /alerts/degraded
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "severity": "warning",
+            "summary": "{{summary}}",
+            "healthResults": {{healthResults}},
+            "timestamp": "{{triggerTime}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: end-degraded
+    type: end
+    position: { x: 400, y: 1700 }
+    data:
+      label: "Degraded Alert Sent ⚠️"
+
+  # ── Critical path (default) ──
+  - id: http-critical-alert
+    type: http
+    position: { x: 750, y: 1560 }
+    data:
+      label: Critical Alert
+      serviceId: svc-alerts
+      scenario:
+        id: sc-critical
+        name: Critical Alert
+        url: /alerts/critical
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "severity": "critical",
+            "summary": "{{summary}}",
+            "healthResults": {{healthResults}},
+            "timestamp": "{{triggerTime}}"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: delay-escalation
+    type: delay
+    position: { x: 750, y: 1700 }
+    data:
+      label: Wait 30s
+      delayMs: 30000
+      mode: fixed
+
+  - id: http-page-oncall
+    type: http
+    position: { x: 750, y: 1840 }
+    data:
+      label: Page On-Call
+      serviceId: svc-alerts
+      scenario:
+        id: sc-page
+        name: Page On-Call Engineer
+        url: /oncall/page
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "priority": "P1",
+            "summary": "{{summary}}",
+            "totalChecks": {{totalChecks}},
+            "escalation": true
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: end-critical
+    type: end
+    position: { x: 750, y: 1980 }
+    data:
+      label: "Critical — On-Call Paged 🚨"
+
+edges:
+  - id: e1
+    source: start-1
+    target: setvar-init
+
+  - id: e2
+    source: setvar-init
+    target: loop-regions
+
+  # Loop body
+  - id: e3
+    source: loop-regions
+    target: setvar-url
+    sourceHandle: body
+
+  - id: e4
+    source: setvar-url
+    target: fork-checks
+
+  # Fork → 3 parallel checks
+  - id: e5
+    source: fork-checks
+    target: http-api-health
+
+  - id: e6
+    source: fork-checks
+    target: http-db-health
+
+  - id: e7
+    source: fork-checks
+    target: http-cache-health
+
+  # Each check → aggregate
+  - id: e8
+    source: http-api-health
+    target: agg-api
+
+  - id: e9
+    source: http-db-health
+    target: agg-db
+
+  - id: e10
+    source: http-cache-health
+    target: agg-cache
+
+  # Aggregates → join
+  - id: e11
+    source: agg-api
+    target: join-checks
+
+  - id: e12
+    source: agg-db
+    target: join-checks
+
+  - id: e13
+    source: agg-cache
+    target: join-checks
+
+  # Join → per-region healthy count
+  - id: e14
+    source: join-checks
+    target: agg-healthy
+
+  # Loop done → evaluate status
+  - id: e15
+    source: loop-regions
+    target: setvar-status
+    sourceHandle: done
+
+  - id: e16
+    source: setvar-status
+    target: switch-severity
+
+  # Switch branches
+  - id: e17
+    source: switch-severity
+    target: end-healthy
+    sourceHandle: case-s1
+
+  - id: e18
+    source: switch-severity
+    target: http-degraded-alert
+    sourceHandle: case-s2
+
+  - id: e19
+    source: switch-severity
+    target: http-critical-alert
+    sourceHandle: default
+
+  # Degraded path → end
+  - id: e20
+    source: http-degraded-alert
+    target: end-degraded
+
+  # Critical path → delay → page → end
+  - id: e21
+    source: http-critical-alert
+    target: delay-escalation
+
+  - id: e22
+    source: delay-escalation
+    target: http-page-oncall
+
+  - id: e23
+    source: http-page-oncall
+    target: end-critical

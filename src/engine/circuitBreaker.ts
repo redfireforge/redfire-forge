@@ -1,4 +1,4 @@
-import type { ErrorPolicy, RequestResult } from '../types';
+import type { ErrorPolicy, RequestResult } from '../shared/types';
 
 export class CircuitBreaker {
   private errorCount = 0;

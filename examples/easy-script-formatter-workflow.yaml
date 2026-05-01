@@ -1,0 +1,113 @@
+# RedfireForge Workflow — Easy: Script JSON Formatter
+# Fetches a user profile from a public API, uses a Script node to parse
+# and reformat the JSON into a user card, then checks the output.
+#
+# Difficulty: ★☆☆ (Easy)
+# Features demonstrated:
+#   • Script node in "transform" mode
+#   • input.* / output.* variable passing
+#   • console.log output capture
+#   • Condition node to verify script output
+#
+# Flow:
+#   Start
+#     → GET /users/1 (extract full JSON)
+#       → Script: parse JSON, build user card
+#         → Condition (has display name?)
+#           → End
+
+name: "Script: JSON Formatter"
+description: >
+  Fetch a user profile, use a Script node to parse and reformat the
+  JSON into a summary card, then verify the output is valid.
+
+schemaVersion: 5
+
+nodes:
+  - id: se-start
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables: {}
+
+  - id: se-get-user
+    type: http
+    position: { x: 250, y: 120 }
+    data:
+      label: 1. Fetch User
+      scenario:
+        id: se-s1
+        name: Get User
+        url: "https://jsonplaceholder.typicode.com/users/1"
+        method: GET
+        headers:
+          - key: Accept
+            value: application/json
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: userJson
+            source: body
+            expression: "$"
+
+  - id: se-script-format
+    type: script
+    position: { x: 250, y: 280 }
+    data:
+      label: 2. Format User Card
+      mode: transform
+      inputVariables: [userJson]
+      outputVariables: [displayName, contactInfo, location, company]
+      timeoutMs: 5000
+      captureConsole: true
+      code: |
+        // Parse the raw API response and build a summary card
+        const user = JSON.parse(input.userJson);
+
+        output.displayName = user.name;
+        output.contactInfo = JSON.stringify({
+          email: user.email,
+          phone: user.phone,
+          website: user.website,
+        });
+        output.location = user.address.city + ", " + user.address.zipcode;
+        output.company = user.company.name;
+
+        console.log("Formatted card for: " + user.name);
+        console.log("Location: " + output.location);
+
+  - id: se-check
+    type: condition
+    position: { x: 250, y: 460 }
+    data:
+      label: 3. Has Display Name?
+      left: "{{displayName}}"
+      operator: "!="
+      right: ""
+
+  - id: se-end
+    type: end
+    position: { x: 300, y: 600 }
+    data:
+      label: Done
+
+edges:
+  - id: se-e1
+    source: se-start
+    target: se-get-user
+
+  - id: se-e2
+    source: se-get-user
+    target: se-script-format
+
+  - id: se-e3
+    source: se-script-format
+    target: se-check
+
+  - id: se-e4
+    source: se-check
+    target: se-end
+    sourceHandle: "true"

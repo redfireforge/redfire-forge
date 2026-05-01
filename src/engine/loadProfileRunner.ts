@@ -1,7 +1,8 @@
-import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../types';
+import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../shared/types';
 import { buildHeaders } from './executor';
-import { serializeWithContentType } from '../utils/bodySerializer';
+import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { executeWithRetry, type RunOpts } from './requestExecution';
+import { applyThinkTime } from './thinkTime';
 
 export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: number): number {
   const elapsed = elapsedMs / 1000;
@@ -68,7 +69,7 @@ export async function runLoadProfile(
   weights: ScenarioWeight[],
   opts: RunOpts
 ): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
   let inFlight = 0;
   const durationMs = profile.durationSec * 1000;
@@ -135,7 +136,7 @@ export async function runLoadProfile(
         if (timerStopped && inFlight === 0) {
           finish();
         } else if (!timerStopped) {
-          fillPool();
+          applyThinkTime(getThinkTimeMs, abortSignal).then(fillPool);
         }
       });
     }

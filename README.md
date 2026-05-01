@@ -2,7 +2,11 @@
 
 > *Fire. Measure. Validate.*
 
-A desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
+A **cross-platform** desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
+
+**✅ Supports:** macOS (Intel & Apple Silicon) • Windows 10/11 • Linux (Ubuntu, Debian, Fedora)
+
+📖 **[Full Cross-Platform Guide](docs/CROSS-PLATFORM.md)** — Installation, building, and platform-specific notes
 
 ---
 
@@ -17,6 +21,7 @@ A desktop & web API performance testing tool built with React + TypeScript + Vit
   - [Feature Groups & Scenarios](#feature-groups--scenarios)
   - [Test Editor](#test-editor)
   - [Test Runner](#test-runner)
+  - [Workflow Designer](#workflow-designer)
   - [Results Dashboard](#results-dashboard)
   - [API Catalog](#api-catalog)
   - [Requests](#requests-ad-hoc-api-testing)
@@ -228,7 +233,10 @@ src/
 │   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
 │   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
 │   ├── validator.ts         # Response validation (full, selective, unordered)
-│   └── metrics.ts           # Summary statistics computation
+│   ├── metrics.ts           # Summary statistics computation
+│   ├── executionWorker.ts   # Web Worker entry point for off-thread test execution
+│   ├── workerBridge.ts      # Main-thread bridge wrapping worker with runTest() interface
+│   └── workerProtocol.ts    # Typed message protocol for Main ↔ Worker communication
 ├── hooks/
 │   ├── useProjects.ts       # Project state, CRUD, moves, persistence
 │   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
@@ -244,7 +252,8 @@ src/
 │   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
 │   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
 │   ├── TestEditorAuthTab.tsx    # Auth tab: auth type selector, credentials, verify
-│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder
+│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder, assertions
+│   ├── RegexAssertionModal.tsx    # Regex assertion builder: JSON tree picker, pattern library, live preview
 │   ├── AuthConfigPanel.tsx      # Shared auth config form (used by Feature & Scenario panels)
 │   ├── LiveCharts.tsx           # Live time-series charts (response time, TPS, error rate)
 │   ├── ProfilePreview.tsx       # SVG load profile shape preview
@@ -277,8 +286,8 @@ src/
 │       └── CatalogWelcome.tsx         # Empty-state welcome page
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Tri-mode HTTP client (Tauri native / Vite proxy / Node fetch)
-│   ├── platform.ts          # Runtime platform detection (Tauri / browser / Node)
+│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling (Worker override / Tauri native / Vite proxy / Node fetch)
+│   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
 │   ├── tauriStore.ts        # Tauri file-system storage backend
 │   ├── curlParser.ts        # cURL command → test config parser
 │   ├── curlGenerator.ts     # Test config → cURL command builder
@@ -333,7 +342,7 @@ The app detects at runtime whether it's running inside Tauri or a browser:
 | Capability | Desktop (Tauri) | Web (Browser) |
 |---|---|---|
 | **Storage** | JSON files in `$APPDATA/redfireforge/` via Tauri `fs` plugin | `localStorage` (~5 MB) |
-| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS | Vite dev proxy (`/__proxy`) |
+| **HTTP requests** | Native HTTP client via Tauri `http` plugin — no CORS, pooled via `reqwest` | Vite dev proxy (`/__proxy`) with `undici.Agent` connection pooling |
 | **File save dialogs** | Native OS file picker via Tauri `dialog` plugin | File System Access API / browser download |
 | **Cross-browser data** | Shared — data lives on disk | Isolated per browser |
 
@@ -747,12 +756,114 @@ All execution settings are grouped in a single unified card below the Execution 
 
 1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
 2. Configure concurrency, transactions, timeout, retry, and error policy.
-3. Click **▶ Run Test**.
-4. A live progress bar shows completion percentage, current TPS, average response time, and error rate. A tag next to "Progress" shows the execution mode, concurrency, and total transactions (e.g., `Batch · C:2 · T:160 · 2 parallel, wait for all, repeat`). The active host is displayed alongside.
-5. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
-6. When complete, results auto-navigate to the Results tab.
+3. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
+4. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
+5. Click **▶ Run Test**.
+5. A live progress bar shows completion percentage, current TPS, average response time, and error rate. Tags next to "Progress" show the execution mode, concurrency, total transactions, think time config (if active), and active host.
+6. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
+7. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, timeout, retry, error policy, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, transactions, timeout, retry, error policy, think time, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+
+**Worker Thread Architecture:**
+
+Test execution automatically runs in a **Web Worker** (separate thread) when the browser supports it, keeping the UI fully responsive during runs:
+
+```
+Main Thread (UI)                Worker Thread (Engine)
+─────────────────               ─────────────────────
+React rendering                  runTest()
+Progress bar updates             ├── HTTP requests
+Live charts (60fps)              ├── Response validation
+User interactions (abort,        ├── Think time delays
+  scroll, click)                 ├── Circuit breaker logic
+State management                 └── Metrics tracking
+     ▲                                │
+     │      postMessage (progress)    │
+     └────────────────────────────────┘
+```
+
+| Benefit | Detail |
+|---|---|
+| **Responsive UI** | Main thread is free for rendering — no stuttering during high-concurrency runs, no "page unresponsive" warnings |
+| **Accurate metrics** | Engine timing isn't skewed by React reconciliation or DOM repaints competing for CPU |
+| **Parallel execution** | On multi-core machines, engine and UI truly run simultaneously (10–30% throughput improvement on CPU-bound validation-heavy tests) |
+| **Tauri support** | In desktop mode, HTTP requests are proxied from the worker back to the main thread via `postMessage` so the Tauri HTTP plugin (main-thread only) is still used |
+| **Automatic fallback** | If Web Workers are unavailable, falls back to direct main-thread execution (same behavior as before) |
+
+> **Note:** This is primarily a **responsiveness and reliability** improvement. HTTP throughput is still bounded by network I/O and browser connection limits (~6 per origin for HTTP/1.1). The worker offloads CPU-bound work (validation, metrics, serialization) — it does not bypass network constraints.
+
+### Workflow Designer
+
+Navigate to the **Workflow** tab (fourth tab) to build multi-step API test workflows with visual graph editing.
+
+**Visual Graph Editor:**
+
+- **Canvas**: React Flow-based infinite canvas with pan, zoom, and minimap navigation
+- **Node Palette**: Drag-and-drop nodes onto the canvas — HTTP requests, Conditions (If/Else), Delays, Start/End markers, Fork/Join for parallel execution, Switch/Loop/SetVariable/Aggregate for advanced control flow, Webhook/Schedule triggers for event-driven workflows
+- **Connections**: Click and drag from output handles to input handles to create edges between nodes
+- **Auto-Layout**: Click the auto-layout button in the canvas controls to apply Dagre hierarchical layout with smart centering and overlap resolution
+
+**Node Types:**
+
+| Node Type | Purpose | Features |
+|---|---|---|
+| **Start** | Entry point for workflow execution | Green node marking where execution begins; workflows auto-start from Start nodes when running Quick Test |
+| **HTTP** | Execute an API request | Same configuration as Harness tests: method, URL, headers, body, auth, validation; extract variables from response via JSONPath; inline `{{` autocomplete in URL, headers, body, and extraction fields |
+| **Condition** | If/Else branching | Compare two values (left vs right) with operators (`==`, `!=`, `>`, `<`, contains, regex); supports template variables; branches to True/False output handles; searchable variable picker with grouped results and type badges; expression mode with inline autocomplete |
+| **Delay** | Think time between steps | Pause execution for fixed/random duration (constant, uniform, gaussian); simulates realistic user behavior |
+| **Fork** | Parallel execution split | Spawns multiple parallel execution paths; each output handle runs concurrently |
+| **Join** | Parallel execution merge | Waits for all incoming paths to complete before continuing; synchronization point |
+| **Switch** | Multi-way branching | Evaluate expression against defined cases; each case creates an output path; unmatched values follow the Default path; visual badge showing expression and case count |
+| **Loop** | Iterative execution | Three modes: Count (fixed iterations), ForEach (iterate JSON array with item/index variables), While (condition-based); configurable max iterations safety limit |
+| **SetVariable** | Variable assignment | Assign variable name/value pairs during execution; supports template expressions; variables available to all downstream nodes |
+| **Aggregate** | Data collection | Collect and combine values across loop iterations; source→target mappings with strategies: concat, sum, count, first, last, array |
+| **End** | Terminal state | Marks workflow completion; stops execution even if other nodes haven't run yet |
+| **Webhook Trigger** | HTTP endpoint trigger | Configure HTTP method, endpoint path, and sample payload; extract variables via JSONPath for downstream nodes; visual badge with method/path/extraction count |
+| **Schedule Trigger** | Cron-based trigger | 5-field cron expression with timezone support; human-readable schedule description; automatic `{{triggerTime}}` (ISO) and `{{triggerTimestamp}}` (epoch) variables |
+
+**Parallel Execution:**
+
+Fork and Join nodes enable true parallel execution:
+- **Fork** splits execution into multiple concurrent paths — each path executes independently
+- **Join** waits for all incoming branches to complete before proceeding downstream
+- HTTP requests on parallel paths execute concurrently (respecting overall concurrency limits)
+- Condition branches can also execute in parallel when multiple outgoing edges exist
+
+**Variable Context:**
+
+- **Workflow Variables**: Define default variables in the Workflow Variables modal (toolbar button) — shared across all nodes
+- **Node Variables**: Each HTTP node can define initial variables that override workflow defaults
+- **Variable Extraction**: Extract values from HTTP responses via JSONPath, headers, or status code — scoped to downstream nodes
+- **Template Resolution**: Use `{{variableName}}` syntax in URLs, headers, body, and auth fields — inline autocomplete suggests available variables as you type `{{`
+- **Expression Functions**: Type `$` in any expression field to access built-in functions (`$upper`, `$concat`, `$jsonpath`, etc.) with inline autocomplete
+- **Built-in Generators**: `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(N)}}`
+
+**Service Registry:**
+
+- Configure external service endpoints per environment (similar to microservices in Harness mode)
+- HTTP nodes reference services by ID — URLs auto-resolve based on selected environment
+- Supports multi-environment testing: switch environments to test the same workflow against dev/QA/prod
+
+**Quick Test Execution:**
+
+- Click **Quick Test** in the toolbar to execute the workflow immediately with step-through debugging
+- Each node shows real-time status: ⏳ Running, ✓ Pass, ✗ Fail, ⊘ Skipped
+- Click **Step** to advance one node at a time; **Step All** to run to completion; **Resume All** to disable stepping
+- Join nodes show "Waiting for N threads" status when blocked on parallel paths
+- View response data for each HTTP node by clicking the node after execution
+
+**Sample Workflows:**
+
+- Click **Browse Samples** in the sidebar to load pre-built workflow templates
+- Samples demonstrate common patterns: linear sequences, parallel API calls, conditional branching, error handling
+- Click **Use as Template** to save a sample workflow to your workspace (auto-generates unique IDs)
+
+**Workflow Persistence:**
+
+- Workflows are saved automatically in local storage (browser) or Tauri's app-data directory (desktop)
+- Node positions, connections, variables, and service configurations are all persisted
+- Export/import workflows via JSON for sharing or version control
 
 ### Results Dashboard
 
@@ -840,6 +951,10 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
+| Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation; **Regex Builder modal** with JSON tree picker, pattern library (17 presets), and live match preview; assertion type badges on test cards |
+| Think time & pacing | Configurable delays between requests (constant, uniform random, gaussian distribution) for realistic virtual user simulation |
+| Worker thread execution | Test engine runs in a Web Worker for responsive UI at 60fps; validation/metrics/orchestration offloaded to separate thread; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; incremental result transfer |
+| Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
@@ -981,10 +1096,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 306 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 1781 tests) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:e2e` | Run Playwright E2E tests (17 tests, Chromium) |
+| `npm run test:e2e` | Run Playwright E2E tests (109 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |

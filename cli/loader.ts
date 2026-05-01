@@ -2,11 +2,18 @@ import { readFileSync } from 'fs';
 import { parse as parseYaml } from 'yaml';
 import { v4 as uuidv4 } from 'uuid';
 import type {
-  Scenario, TestConfig, AuthConfig, ValidationConfig,
+  Scenario, TestConfig, AuthConfig, ValidationConfig, Assertion, Extraction,
   KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig,
 } from '../src/types';
 
 // ── YAML/JSON test file schema ──────────────────────────────
+
+interface TestFileExtraction {
+  name: string;
+  source?: 'body' | 'header' | 'status';
+  expression: string;
+  fallback?: string;
+}
 
 interface TestFileScenario {
   name: string;
@@ -17,6 +24,7 @@ interface TestFileScenario {
   bodyType?: string;
   auth?: TestFileAuth;
   validation?: TestFileValidation;
+  extract?: TestFileExtraction[];
   weight?: number;
   featureGroup?: string;
   scenario?: string;
@@ -43,12 +51,14 @@ interface TestFileValidation {
   selectiveMode?: 'include' | 'exclude';
   excludedPaths?: string[];
   unorderedArrays?: boolean;
+  assertions?: Assertion[];
 }
 
 export interface TestFile {
   name?: string;
   baseUrl?: string;
   env?: string;
+  variables?: Record<string, string>;
   defaults?: {
     auth?: TestFileAuth;
     headers?: Record<string, string>;
@@ -114,7 +124,7 @@ function toAuth(a?: TestFileAuth): AuthConfig {
 }
 
 function toValidation(v?: TestFileValidation): ValidationConfig {
-  if (!v || v.mode === 'none') return { mode: 'none' };
+  if (!v || v.mode === 'none') return { mode: 'none', assertions: v?.assertions };
   return {
     mode: v.mode,
     expectedJson: v.expectedJson,
@@ -122,6 +132,7 @@ function toValidation(v?: TestFileValidation): ValidationConfig {
     selectiveMode: v.selectiveMode,
     excludedPaths: v.excludedPaths,
     unorderedArrays: v.unorderedArrays,
+    assertions: v.assertions,
   };
 }
 
@@ -152,6 +163,13 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string): Scenario[] 
       else mergedHeaders.push(h);
     }
 
+    const extractions: Extraction[] | undefined = t.extract?.map(e => ({
+      name: e.name,
+      source: e.source ?? 'body',
+      expression: e.expression,
+      fallback: e.fallback,
+    }));
+
     return {
       id: uuidv4(),
       name: t.name,
@@ -162,6 +180,7 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string): Scenario[] 
       bodyType: (t.bodyType as Scenario['bodyType']) ?? undefined,
       auth: t.auth ? toAuth(t.auth) : defaultAuth,
       validation: toValidation(t.validation),
+      extractions,
       featureGroupName: t.featureGroup,
       groupName: t.scenario,
     };
@@ -222,5 +241,6 @@ export function buildTestConfig(
     errorPolicy,
     maxErrors: cliOverrides.maxErrors ?? fc.maxErrors ?? 10,
     maxErrorRate: cliOverrides.maxErrorRate ?? fc.maxErrorRate ?? 50,
+    workflowVariables: file.variables,
   };
 }

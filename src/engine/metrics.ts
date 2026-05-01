@@ -1,4 +1,4 @@
-import type { RequestResult, TestSummary } from '../types';
+import type { RequestResult, TestSummary } from '../shared/types';
 
 export function computeMetrics(results: RequestResult[], totalDurationMs: number): TestSummary {
   const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
@@ -10,6 +10,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
       avgResponseTime: 0,
       minResponseTime: 0,
       maxResponseTime: 0,
+      p50ResponseTime: 0,
       p95ResponseTime: 0,
       p99ResponseTime: 0,
       errorRate: 0,
@@ -26,6 +27,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
   const avg = sum / total;
   const min = times[0];
   const max = times[total - 1];
+  const p50 = times[Math.floor(total * 0.50)] ?? max;
   const p95 = times[Math.floor(total * 0.95)] ?? max;
   const p99 = times[Math.floor(total * 0.99)] ?? max;
 
@@ -52,6 +54,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
     avgResponseTime: Math.round(avg * 100) / 100,
     minResponseTime: Math.round(min * 100) / 100,
     maxResponseTime: Math.round(max * 100) / 100,
+    p50ResponseTime: Math.round(p50 * 100) / 100,
     p95ResponseTime: Math.round(p95 * 100) / 100,
     p99ResponseTime: Math.round(p99 * 100) / 100,
     errorRate: Math.round(errorRate * 100) / 100,

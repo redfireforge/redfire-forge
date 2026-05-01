@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Flow Control: Conditional Branching (Easy)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🔀</div>
+  <h1>Conditional Branching</h1>
+  <div class="subtitle">Easy Sample — Step-by-Step Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Fetch a user from an API and branch the workflow based on whether the
+    user is active or inactive. The foundational pattern for all decision-based
+    workflow logic.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: ★☆☆ (Easy) &nbsp;|&nbsp; Nodes: 4 &nbsp;|&nbsp; Category: Flow Control<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates <strong>conditional branching</strong> — the most basic
+  flow-control pattern. You fetch a user from an API, inspect a field in the response,
+  and route execution down one of two paths based on the result.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> An account provisioning system fetches a user
+  profile. If the user is active, it proceeds with order processing. If inactive, it
+  logs a warning and skips the order.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Checking payment status before shipping an order</li>
+  <li>Validating user permissions before granting access</li>
+  <li>Routing support tickets to different queues based on priority</li>
+  <li>Enabling/disabling features based on a feature-flag API response</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Sending an <strong>HTTP GET</strong> request and extracting response fields</li>
+  <li>Using a <strong>Condition</strong> node to evaluate a boolean expression</li>
+  <li>Routing execution down <strong>true</strong> and <strong>false</strong> branches</li>
+  <li>Using <strong>Log</strong> nodes to record outcomes for debugging</li>
+  <li>The <strong>branch-and-converge</strong> pattern where divergent paths rejoin</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │  (no input variables)
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. Get User                │  GET https://jsonplaceholder
+  │     (HTTP)                  │      .typicode.com/users/1
+  │                             │
+  │  Extracts: userActive       │  → userActive (boolean from
+  │            ($.active)       │     response body)
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Is Active?              │  Condition
+  │     (Condition)             │
+  │                             │  {{userActive}} == true
+  │  true ──────┐  ┌── false   │
+  └─────────────┘  └───────────┘
+         │                │
+         ▼                ▼
+  ┌──────────────┐  ┌──────────────┐
+  │ 3a. Log      │  │ 3b. Log      │
+  │   Success    │  │   Inactive   │
+  │   (Log)      │  │   (Log)      │
+  └──────┬───────┘  └──────┬───────┘
+         │                │
+         └───────┬────────┘
+                 ▼
+          ┌─────────────┐
+          │    End      │
+          └─────────────┘
+</div>
+
+<p>
+  <strong>4 nodes, 5 edges</strong> — a branching pipeline. The Condition node splits
+  execution into two paths that both converge at the End node.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables needed — the user ID is hardcoded for this sample.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> Get User</td>
+    <td>HTTP</td>
+    <td>Sends a GET request to <code>jsonplaceholder.typicode.com/users/1</code>. Extracts the <code>active</code> field from the response body into <code>userActive</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Is Active?</td>
+    <td>Condition</td>
+    <td>Evaluates <code>{{userActive}} == true</code>. Routes to the <strong>true</strong> branch (Log Success) or <strong>false</strong> branch (Log Inactive).</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3a</span> Log Success</td>
+    <td>Log</td>
+    <td>Logs <code>"User is active — proceeding with order"</code>. Reached only when <code>userActive</code> is true.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3b</span> Log Inactive</td>
+    <td>Log</td>
+    <td>Logs <code>"User is inactive — skipping order"</code>. Reached only when <code>userActive</code> is false.</td>
+  </tr>
+</table>
+
+<h3>HTTP GET Configuration</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>userActive</code> ← body <code>$.active</code></td></tr>
+</table>
+
+<h3>Condition Configuration</h3>
+<table>
+  <tr><td><strong>Expression</strong></td><td><code>{{userActive}} == true</code></td></tr>
+  <tr><td><strong>True path</strong></td><td>→ Log Success</td></tr>
+  <tr><td><strong>False path</strong></td><td>→ Log Inactive</td></tr>
+</table>
+
+<div class="callout">
+  <strong>📘 Why Use a Condition Node?</strong>
+  The Condition node is the simplest decision point in a workflow. It evaluates a single
+  expression to a boolean result and offers exactly two exits: true and false. For more
+  than two paths, use a Switch node instead.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔀 Conditional Branching"</strong>
+    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Conditional Branching".
+  </li>
+  <li>
+    <strong>Add the HTTP GET node.</strong><br>
+    Drag an HTTP node onto the canvas. Configure:
+    <ul>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/users/1</code></li>
+      <li><em>Method</em>: GET</li>
+      <li><em>Extractions</em>: Add <code>userActive</code> ← body <code>$.active</code></li>
+    </ul>
+    Connect Start → Get User.
+  </li>
+  <li>
+    <strong>Add the Condition node.</strong><br>
+    Drag a Condition node. Configure:
+    <ul>
+      <li><em>Expression</em>: <code>{{userActive}} == true</code></li>
+    </ul>
+    Connect Get User → Is Active?.
+  </li>
+  <li>
+    <strong>Add two Log nodes.</strong><br>
+    Drag two Log nodes onto the canvas:
+    <ul>
+      <li><strong>Log Success</strong>: Message = <code>"User is active — proceeding with order"</code></li>
+      <li><strong>Log Inactive</strong>: Message = <code>"User is inactive — skipping order"</code></li>
+    </ul>
+    Connect the Condition node's <em>true</em> output → Log Success, and <em>false</em> output → Log Inactive.
+    Connect both Log nodes → End.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. Verify the GET returns user data, the Condition evaluates
+    the <code>active</code> field, and the correct branch executes.
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Node States (when user is active)</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. Get User</td><td>✅ Pass</td><td>HTTP 200 OK, userActive = true</td></tr>
+  <tr><td>2. Is Active?</td><td>✅ Pass</td><td>Condition: true → Log Success branch</td></tr>
+  <tr><td>3a. Log Success</td><td>✅ Pass</td><td>"User is active — proceeding with order"</td></tr>
+  <tr><td>3b. Log Inactive</td><td>⏭️ Skipped</td><td>False branch not taken</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+</table>
+
+<h3>GET Response (Node 1)</h3>
+<pre>
+{
+  "id": 1,
+  "name": "Leanne Graham",
+  "username": "Bret",
+  "email": "Sincere@april.biz",
+  "active": true,
+  ...
+}</pre>
+
+<div class="callout callout-warn">
+  <strong>⚠️ JSONPlaceholder Note</strong>
+  The JSONPlaceholder <code>/users</code> endpoint does not include an <code>active</code>
+  field by default. In this sample, we simulate the field for training purposes. When
+  building with a real API, map the condition to an actual boolean field in the response.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Parameterize the User ID</h3>
+<p>
+  Add a <code>userId</code> input variable to the Start node. Update the HTTP URL to
+  <code>https://jsonplaceholder.typicode.com/users/{{userId}}</code>. Run the workflow
+  with different user IDs (1–10).
+</p>
+
+<h3>Exercise 2: Add a Third Branch</h3>
+<p>
+  Replace the Condition node with a Switch node that checks the user's
+  <code>company.name</code> field. Create three cases: "Romaguera-Crona",
+  "Deckow-Crist", and a default. Log a different message for each.
+</p>
+
+<h3>Exercise 3: Chain a Follow-Up Action</h3>
+<p>
+  On the <strong>true</strong> branch, instead of just logging, add an HTTP POST node
+  that creates an order for the active user. Use the
+  <a href="../api-patterns/create-extract-verify-easy.html">Create → Extract → Verify</a>
+  pattern to POST and verify the order.
+</p>
+
+<h3>Exercise 4: Nested Conditions</h3>
+<p>
+  After the "Is Active?" check, add a second Condition node on the true branch that
+  checks <code>{{userEmail}}</code> contains <code>"@april"</code>. This creates a
+  nested decision tree: active → email domain check → specific action.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Once you're comfortable with two-way branching, try the
+  <a href="switch-order-router-medium.html">Switch Order Router</a> sample to learn
+  multi-path routing with a Switch node.
+</div>
+
+<footer>RedfireForge Training Manual — Conditional Branching · April 2026</footer>
+
+</body>
+</html>

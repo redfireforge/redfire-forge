@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Update a Resource (PUT) — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Update a Resource (PUT)</h1>
+    <div class="subtitle">Medium Sample — Training Guide</div>
+    <p>Replace a resource entirely using the HTTP PUT method. This sample demonstrates how to send a full object to update an existing resource on a REST API, covering request bodies, content-type headers, and idempotent operations.</p>
+    <div class="meta">
+      RedfireForge v0.5.4<br />
+      Difficulty: ★★☆<br />
+      <code>PUT</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>This request updates an existing post (ID 1) on the JSONPlaceholder API by replacing it entirely with a new object. The PUT method is the standard way to perform a <strong>full replacement</strong> of a resource — you send the complete object, and the server replaces whatever was there before.</p>
+  <p><strong>Real-world analogy:</strong> Imagine editing a document by deleting all the text and rewriting it from scratch. That's what PUT does — it doesn't merge changes, it replaces the entire resource with what you send.</p>
+  <p>This sample teaches you:</p>
+  <ul>
+    <li>How to send a JSON request body with a PUT request.</li>
+    <li>Why the <code>Content-Type</code> header is required when sending a body.</li>
+    <li>The difference between PUT (full replacement) and PATCH (partial update).</li>
+    <li>What "idempotent" means — sending the same PUT request multiple times produces the same result.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>HTTP PUT method</strong> — replaces the entire resource at the given URL with the data you provide.</li>
+    <li><strong>Request body</strong> — the JSON payload sent to the server containing the updated resource data.</li>
+    <li><strong>Content-Type header</strong> — tells the server that you're sending JSON (<code>application/json</code>).</li>
+    <li><strong>Idempotent operations</strong> — PUT is idempotent: sending the same request 10 times has the same effect as sending it once.</li>
+    <li><strong>Full resource replacement</strong> — unlike PATCH, PUT requires you to send the complete object. Any fields you omit will be removed.</li>
+    <li><strong>HTTP status code 200</strong> — the server confirms the resource was successfully updated.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Request Details</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Method</td><td><code>PUT</code></td></tr>
+    <tr><td>URL</td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td></tr>
+    <tr><td>Headers</td><td><code>Content-Type: application/json</code></td></tr>
+    <tr><td>Body</td><td>JSON object (see below)</td></tr>
+  </table>
+
+  <h3>Request Body</h3>
+<pre>{
+  "id": 1,
+  "title": "Updated Title",
+  "body": "Updated body content.",
+  "userId": 1
+}</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    JSONPlaceholder simulates the update — it accepts your data and returns it as if the resource was updated, but it doesn't actually persist changes. This makes it safe to experiment with.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Expected Response</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Status Code</td><td><code>200 OK</code></td></tr>
+    <tr><td>Content-Type</td><td><code>application/json; charset=utf-8</code></td></tr>
+  </table>
+
+  <p>The server returns the updated object, confirming the replacement:</p>
+
+<pre>{
+  "id": 1,
+  "title": "Updated Title",
+  "body": "Updated body content.",
+  "userId": 1
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Compare the response to your request body — they should match exactly. This confirms the server accepted your full replacement. If you omitted a field (like <code>userId</code>), it would be missing from the response too.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Open the Gallery</h3>
+  <p>Launch RedfireForge and click the <strong>Gallery</strong> icon in the sidebar. Navigate to the <strong>Requests</strong> tab.</p>
+
+  <h3>Step 2 — Find the Sample</h3>
+  <p>Scroll to find <strong>Update a Resource (PUT)</strong> (marked with 🔄) or use the search bar. It's tagged as <span class="badge badge-medium">Medium</span>.</p>
+
+  <h3>Step 3 — Import the Sample</h3>
+  <p>Click on the sample card to expand its details. Press <strong>Send Request</strong> to import it into your workspace and execute it immediately, or press <strong>Try It</strong> to preview the request configuration first.</p>
+
+  <h3>Step 4 — Review the Request Body</h3>
+  <p>Before sending, examine the request body in the editor panel. Notice the <code>Content-Type: application/json</code> header — this tells the server to expect JSON data.</p>
+
+  <h3>Step 5 — Run the Request</h3>
+  <p>Click <strong>Send</strong> to execute the PUT request. The response will appear in the response panel below.</p>
+
+  <h3>Step 6 — Inspect the Response</h3>
+  <p>In the response panel, observe:</p>
+  <ul>
+    <li><strong>Status</strong>: <code>200 OK</code> — the update was successful.</li>
+    <li><strong>Body</strong>: The returned object matches what you sent.</li>
+    <li><strong>Headers</strong>: Note the <code>Content-Type: application/json</code> response header.</li>
+  </ul>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the sample, try these exercises to deepen your understanding:</p>
+
+  <h3>Exercise 1 — Change the Title</h3>
+  <p>Modify the <code>title</code> field in the request body to something different and re-send. Does the response reflect your change?</p>
+
+  <h3>Exercise 2 — Omit a Field</h3>
+  <p>Remove the <code>body</code> field from the request and send again:</p>
+<pre>{
+  "id": 1,
+  "title": "Updated Title",
+  "userId": 1
+}</pre>
+  <p>What happens to the <code>body</code> field in the response? This demonstrates full replacement vs. partial update.</p>
+
+  <h3>Exercise 3 — Compare PUT vs. PATCH</h3>
+  <p>Try the same update using PATCH instead of PUT — send only the fields you want to change:</p>
+<pre>PATCH https://jsonplaceholder.typicode.com/posts/1
+
+{ "title": "Patched Title" }</pre>
+  <p>How does the PATCH response differ from PUT? Does it preserve the fields you didn't send?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Understanding the difference between PUT and PATCH is essential for working with real-world APIs. PUT = replace everything. PATCH = update only what you send.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Update a Resource (PUT) · April 2026
+  </footer>
+
+</body>
+</html>

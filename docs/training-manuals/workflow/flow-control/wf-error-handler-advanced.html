@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Flow Control: Workflow Error Handler (Advanced)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .var-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">🚨</div>
+  <h1>Workflow Error Handler</h1>
+  <div class="subtitle">Failure Notification — Advanced Training Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Attach a workflow-level error handler that catches <em>any</em> uncaught failure
+    across the entire workflow. On error, capture context, send a failure notification,
+    and log the incident — ensuring no failure goes unnoticed.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.4</strong><br>
+    Difficulty: <span class="badge badge-advanced">★★★ Advanced</span> &nbsp;|&nbsp; Nodes: 6 &nbsp;|&nbsp; Category: Flow Control<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose &amp; Use Case</a></li>
+  <li><a href="#concepts">Concepts You'll Learn</a></li>
+  <li><a href="#architecture">Architecture &amp; Flow Diagram</a></li>
+  <li><a href="#walkthrough">Node-by-Node Walkthrough</a></li>
+  <li><a href="#dev-guide">Step-by-Step Development Guide</a></li>
+  <li><a href="#expected-results">Expected Execution Results</a></li>
+  <li><a href="#exercises">Try It Yourself — Exercises</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PURPOSE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="purpose">1. Purpose &amp; Use Case</h2>
+<p>
+  This workflow demonstrates the <strong>Workflow Error Handler</strong> — a global
+  safety net that fires when <em>any</em> node in the workflow throws an uncaught
+  error. Unlike a TryCatch (which wraps specific nodes), the Workflow Error Handler
+  sits outside the main flow and activates regardless of where the failure occurs.
+</p>
+<p>
+  <strong>Real-world analogy:</strong> A nightly ETL pipeline pulls data from an API,
+  transforms it, and loads it into a database. If <em>any</em> step fails — HTTP
+  timeout, transformation error, DB write failure — the Workflow Error Handler sends
+  an email to the on-call engineer with the error details and marks the run as failed.
+</p>
+<p><strong>Examples of this pattern in production:</strong></p>
+<ul>
+  <li>Sending PagerDuty / Slack alerts when a critical scheduled workflow fails</li>
+  <li>Writing error details to an audit log for compliance tracking</li>
+  <li>Updating a status dashboard to reflect pipeline health</li>
+  <li>Triggering a compensating workflow to roll back partial changes</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. CONCEPTS                                 -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="concepts">2. Concepts You'll Learn</h2>
+<ul>
+  <li>Configuring a <strong>Workflow Error Handler</strong> (OnWorkflowError) as a global catch-all</li>
+  <li>Difference between <strong>workflow-level</strong> and <strong>node-level</strong> (TryCatch) error handling</li>
+  <li>Accessing <strong>error context</strong> variables: <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, <code>{{wf_errorTimestamp}}</code></li>
+  <li>Sending <strong>failure notifications</strong> (HTTP POST to a webhook) with structured error payloads</li>
+  <li>Using <strong>Log</strong> nodes inside the error handler for audit trails</li>
+  <li>Understanding <strong>error handler execution order</strong> — TryCatch fires first; only uncaught errors reach the Workflow Error Handler</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. ARCHITECTURE                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
+<div class="flow-diagram">
+  ┌─────────────┐
+  │    Start    │
+  └──────┬──────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  1. HTTP GET               │  GET /users/1
+  │     Fetch User Data        │
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  2. Process Data           │  Transform &amp; validate
+  │     (Set Variable)         │  user payload
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────┐
+  │    End      │
+  └─────────────┘
+
+  ═══ OnWorkflowError (global) ═══════════════
+
+  ┌─────────────────────────────┐
+  │  3. Capture Error          │  Collect wf_errorMessage,
+  │     (Set Variable)         │  wf_errorNodeName, timestamp
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  4. Send Notification      │  POST to webhook with
+  │     (HTTP POST)            │  error payload
+  └──────┬──────────────────────┘
+         ▼
+  ┌─────────────────────────────┐
+  │  5. Log Incident           │  Write structured log
+  │     (Log)                  │  for audit trail
+  └─────────────────────────────┘
+</div>
+
+<p>
+  <strong>6 nodes</strong> — a main pipeline (Start → HTTP GET → Process → End) plus
+  a detached OnWorkflowError handler (Capture → Notify → Log). The error handler is
+  <em>not</em> connected to the main flow; it activates automatically when any uncaught
+  error occurs.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. WALKTHROUGH                              -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="walkthrough">4. Node-by-Node Walkthrough</h2>
+
+<h3>Main Flow</h3>
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">S</span> Start</td>
+    <td>Start</td>
+    <td>Entry point. No input variables needed for this sample.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">1</span> HTTP GET</td>
+    <td>HTTP</td>
+    <td>Sends a GET request to <code>https://jsonplaceholder.typicode.com/users/1</code>. Extracts <code>name</code> and <code>email</code> from the response.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Process Data</td>
+    <td>Set Variable</td>
+    <td>Transforms the extracted fields — e.g., normalizes the email to lowercase, validates the name is non-empty. If validation fails, throws an error.</td>
+  </tr>
+</table>
+
+<h3>OnWorkflowError Handler</h3>
+<table>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="step-num">3</span> Capture Error</td>
+    <td>Set Variable</td>
+    <td>Collects error context into a structured payload: <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, and current timestamp.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Send Notification</td>
+    <td>HTTP</td>
+    <td>POSTs a JSON payload to a webhook URL (e.g., Slack incoming webhook) with workflow name, failed node, error message, and timestamp.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> Log Incident</td>
+    <td>Log</td>
+    <td>Logs <code>"[WORKFLOW ERROR] Node '{{wf_errorNodeName}}' failed: {{wf_errorMessage}} at {{wf_errorTimestamp}}"</code> for the audit trail.</td>
+  </tr>
+</table>
+
+<h3>HTTP GET Configuration (Node 1)</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>GET</td></tr>
+  <tr><td><strong>Extractions</strong></td><td><code>name</code> ← body <code>$.name</code>, <code>email</code> ← body <code>$.email</code></td></tr>
+</table>
+
+<h3>Notification POST Configuration (Node 4)</h3>
+<table>
+  <tr><td><strong>URL</strong></td><td><code>https://hooks.example.com/workflow-alerts</code></td></tr>
+  <tr><td><strong>Method</strong></td><td>POST</td></tr>
+  <tr><td><strong>Headers</strong></td><td><code>Content-Type: application/json</code></td></tr>
+  <tr><td><strong>Body</strong></td><td>See JSON payload below</td></tr>
+</table>
+<pre>
+{
+  "workflow": "Workflow Error Handler – Failure Notification",
+  "failedNode": "{{wf_errorNodeName}}",
+  "error": "{{wf_errorMessage}}",
+  "timestamp": "{{wf_errorTimestamp}}",
+  "severity": "critical"
+}</pre>
+
+<div class="callout">
+  <strong>📘 Workflow-Level vs. Node-Level Error Handling</strong>
+  The <strong>OnWorkflowError</strong> handler is a <em>global</em> catch-all. It fires
+  only for errors that are <em>not</em> caught by a TryCatch node. If a node is wrapped
+  in a TryCatch block, its errors are handled locally and never reach the Workflow Error
+  Handler. Use both together: TryCatch for expected, recoverable failures; OnWorkflowError
+  for unexpected, unrecoverable ones.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. DEV GUIDE                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="dev-guide">5. Step-by-Step Development Guide</h2>
+
+<ol>
+  <li>
+    <strong>Load from Template Gallery.</strong><br>
+    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🚨 Workflow Error Handler – Failure Notification"</strong>
+    in the <em>Flow Control</em> category. Click <em>Use Template</em>.
+    <br><br>
+    <em>— OR build manually: —</em>
+  </li>
+  <li>
+    <strong>Create a new workflow.</strong><br>
+    Click <em>Workflows → + New</em>. Name it "Workflow Error Handler – Failure Notification".
+  </li>
+  <li>
+    <strong>Build the main flow.</strong><br>
+    Add three nodes to the canvas:
+    <ul>
+      <li><strong>HTTP GET</strong> — URL: <code>https://jsonplaceholder.typicode.com/users/1</code>, Method: GET. Extract <code>name</code> and <code>email</code>.</li>
+      <li><strong>Process Data</strong> (Set Variable) — Normalize email: <code>email = {{email | lowercase}}</code>.</li>
+    </ul>
+    Connect Start → HTTP GET → Process Data → End.
+  </li>
+  <li>
+    <strong>Enable the Workflow Error Handler.</strong><br>
+    Open the workflow settings (gear icon) and toggle <em>Enable Workflow Error Handler</em>
+    to <strong>ON</strong>. This creates the OnWorkflowError region on the canvas.
+  </li>
+  <li>
+    <strong>Build the error handler.</strong><br>
+    Inside the OnWorkflowError region, add three nodes:
+    <ul>
+      <li><strong>Capture Error</strong> (Set Variable) — Set <code>errorPayload</code> from <code>{{wf_errorMessage}}</code>, <code>{{wf_errorNodeName}}</code>, and <code>{{wf_errorTimestamp}}</code>.</li>
+      <li><strong>Send Notification</strong> (HTTP POST) — URL: your webhook endpoint. Body: the JSON payload shown above.</li>
+      <li><strong>Log Incident</strong> (Log) — Message: <code>"[WORKFLOW ERROR] Node '{{wf_errorNodeName}}' failed: {{wf_errorMessage}} at {{wf_errorTimestamp}}"</code></li>
+    </ul>
+    Connect Capture Error → Send Notification → Log Incident.
+  </li>
+  <li>
+    <strong>Test the happy path.</strong><br>
+    Click <em>Quick Test</em>. The API should return user data, Process Data normalizes
+    it, and the workflow completes. The error handler should <em>not</em> activate.
+  </li>
+  <li>
+    <strong>Test the error path.</strong><br>
+    Change the HTTP URL to <code>https://jsonplaceholder.typicode.com/invalid/999</code>
+    or add an invalid variable reference in Process Data (e.g., <code>{{undefined_var | uppercase}}</code>).
+    Re-run and verify:
+    <ul>
+      <li>Capture Error collects the error context</li>
+      <li>Send Notification fires the POST</li>
+      <li>Log Incident writes the audit log</li>
+    </ul>
+  </li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. EXPECTED RESULTS                         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="expected-results">6. Expected Execution Results</h2>
+
+<h3>Happy Path (no errors)</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. HTTP GET</td><td>✅ Pass</td><td>HTTP 200 OK, name = "Leanne Graham", email = "Sincere@april.biz"</td></tr>
+  <tr><td>2. Process Data</td><td>✅ Pass</td><td>email normalized to "sincere@april.biz"</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>3. Capture Error</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
+  <tr><td>4. Send Notification</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
+  <tr><td>5. Log Incident</td><td>⏭️ Not triggered</td><td>No error occurred</td></tr>
+</table>
+
+<h3>Error Path (HTTP GET fails)</h3>
+<table>
+  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
+  <tr><td>1. HTTP GET</td><td>❌ Fail</td><td>HTTP 404 Not Found</td></tr>
+  <tr><td>2. Process Data</td><td>⏭️ Skipped</td><td>Workflow aborted</td></tr>
+  <tr><td>End</td><td>⏭️ Skipped</td><td>Workflow aborted</td></tr>
+  <tr><td>3. Capture Error</td><td>✅ Pass</td><td>wf_errorNodeName = "HTTP GET", wf_errorMessage = "HTTP 404 Not Found"</td></tr>
+  <tr><td>4. Send Notification</td><td>✅ Pass</td><td>POST sent to webhook with error payload</td></tr>
+  <tr><td>5. Log Incident</td><td>✅ Pass</td><td>"[WORKFLOW ERROR] Node 'HTTP GET' failed: HTTP 404 Not Found at 2026-04-29T10:00:00Z"</td></tr>
+</table>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Error Handler Failures</strong>
+  If a node <em>inside</em> the OnWorkflowError handler itself fails (e.g., the
+  notification webhook is down), the workflow terminates with an unhandled error.
+  Keep error handler logic as simple and reliable as possible — avoid complex
+  transformations or external calls that could themselves fail.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. EXERCISES                                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="exercises">7. Try It Yourself — Exercises</h2>
+
+<h3>Exercise 1: Add a TryCatch Inside the Main Flow</h3>
+<p>
+  Wrap the HTTP GET node in a TryCatch with a local fallback. Verify that the
+  TryCatch handles 404 errors locally and the Workflow Error Handler does <em>not</em>
+  fire. Then introduce an error in Process Data (outside the TryCatch) and confirm
+  the Workflow Error Handler catches it.
+</p>
+
+<h3>Exercise 2: Enrich the Notification Payload</h3>
+<p>
+  Add more fields to the notification POST body: workflow execution ID, environment
+  name (dev/staging/prod), and the number of nodes that executed before the failure.
+  Use <code>{{wf_executionId}}</code> and <code>{{wf_environment}}</code> context variables.
+</p>
+
+<h3>Exercise 3: Conditional Notification Routing</h3>
+<p>
+  Add a Condition node in the error handler that checks <code>{{wf_errorNodeName}}</code>.
+  If the failing node is "HTTP GET", send the notification to a <em>#api-alerts</em>
+  channel. For any other node, send to a generic <em>#workflow-errors</em> channel.
+</p>
+
+<h3>Exercise 4: Build a Dead-Letter Queue</h3>
+<p>
+  Instead of (or in addition to) sending a notification, have the error handler POST
+  the failed workflow's input data and error details to a "dead-letter" API endpoint.
+  A separate workflow can later consume the dead-letter queue and retry the failed
+  executions.
+</p>
+
+<div class="callout callout-tip">
+  <strong>💡 Learning Path</strong>
+  Combine this global error handler with the node-level TryCatch pattern from
+  <a href="error-handler-advanced.html">Resilient API with Error Handling</a> to
+  build defense-in-depth error handling strategies for production workflows.
+</div>
+
+<footer>RedfireForge Training Manual — Workflow Error Handler – Failure Notification · April 2026</footer>
+
+</body>
+</html>
