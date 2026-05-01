@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Variables and Context — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📝</div>
+    <h1>Variables and Context</h1>
+    <div class="subtitle">Easy — Workflow Patterns Training Manual</div>
+    <p>Master the variable system — initial variables, environment layers, {{interpolation}}, SetVariable assignments, LogDebug inspection, per-node scoping, and built-in runtime variables.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Workflow Patterns<br />
+      Build from scratch
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. The Variable System Overview</h2>
+  <p>Every workflow execution has a <strong>VariableContext</strong> — a three-layer store that holds all variables and resolves <code>{{variableName}}</code> placeholders in URLs, headers, bodies, conditions, and log messages.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Building a Dynamic URL from Environment Variables"</em></p>
+  <p>Your team tests against multiple environments (dev, staging, prod). Instead of hardcoding URLs, you set <code>baseUrl</code> as an initial variable and use <code>{{baseUrl}}/api/users</code> in every HTTP node. Switching environments is a single variable change.</p>
+
+  <h3>Three Resolution Layers</h3>
+  <p>When the engine resolves <code>{{name}}</code>, it searches three layers in priority order:</p>
+
+  <table>
+    <tr><th>Priority</th><th>Layer</th><th>Set By</th><th>Use Case</th></tr>
+    <tr><td>1 (highest)</td><td><strong>Extracted</strong></td><td>HTTP extractions, SetVariable nodes</td><td>Dynamic values computed during execution</td></tr>
+    <tr><td>2</td><td><strong>Manual</strong></td><td>Start node <code>inputVariables</code>, workflow settings</td><td>Configuration parameters, pre-set values</td></tr>
+    <tr><td>3 (lowest)</td><td><strong>Environment</strong></td><td>Environment layer (<code>environmentLayer</code>)</td><td>Shared defaults, base URLs, API keys</td></tr>
+  </table>
+
+  <p>The first layer that contains the variable name wins. This means an extracted variable <strong>overrides</strong> a manual variable with the same name, and a manual variable overrides an environment variable.</p>
+
+<pre>// Layer resolution example:
+// Environment layer: { baseUrl: "https://dev.api.com", timeout: "5000" }
+// Manual layer:      { baseUrl: "https://staging.api.com" }
+// Extracted layer:   { userId: "42" }
+
+// {{baseUrl}}  → "https://staging.api.com"  (manual overrides environment)
+// {{timeout}}  → "5000"                     (environment, no override)
+// {{userId}}   → "42"                       (extracted during execution)</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The VariableContext Class</h2>
+  <p>The <code>VariableContext</code> class manages all variable operations during a workflow run.</p>
+
+<pre>class VariableContext {
+  // Constructor: manual (initial) + environment layers
+  constructor(
+    initialVariables: Record&lt;string, string&gt;,
+    environmentLayer?: Record&lt;string, string&gt;
+  )
+
+  // Core operations
+  set(name: string, value: string): void     // Write to extracted layer
+  get(name: string): string | undefined      // Read: extracted → manual → env
+  resolve(template: string): string          // Replace all {{var}} placeholders
+
+  // Per-node scoping
+  setForNode(nodeId: string, name: string, value: string): void
+  getForNode(nodeId: string, name: string): string | undefined
+
+  // Utilities
+  registerWorkflowNodes(nodes: WorkflowNode[]): void  // Maps labels → IDs
+  snapshot(): Record&lt;string, string&gt;                   // Flat dump of all vars
+  child(): VariableContext                              // Create child context
+}</pre>
+
+  <h3>Key Methods Explained</h3>
+  <ul>
+    <li><code>set(name, value)</code> — Writes to the <strong>extracted</strong> layer (highest priority). Used by HTTP extractions and SetVariable nodes.</li>
+    <li><code>get(name)</code> — Reads from extracted → manual → environment. Returns the first match or <code>undefined</code>.</li>
+    <li><code>resolve(template)</code> — Replaces all <code>{{variableName}}</code> tokens in a string. Handles nested references and built-in generators.</li>
+    <li><code>snapshot()</code> — Returns a flat <code>Record&lt;string, string&gt;</code> of all variables across all layers. Used by LogDebug's "Snapshot Variables" feature.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Initial Variables (Start Node)</h2>
+  <p>The <strong>Start</strong> node's <code>inputVariables</code> field lets you define variables before the workflow runs. These go into the <strong>manual layer</strong>.</p>
+
+<pre>// Start node configuration
+{
+  label: "Start",
+  inputVariables: {
+    "baseUrl": "https://jsonplaceholder.typicode.com",
+    "userId": "1",
+    "maxRetries": "3"
+  }
+}</pre>
+
+  <h3>How to Configure</h3>
+  <ol>
+    <li>Double-click the Start node to open its config modal.</li>
+    <li>In the <strong>Input Variables</strong> section, add key-value pairs.</li>
+    <li>Each variable becomes available as <code>{{variableName}}</code> in all downstream nodes.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use initial variables for values that might change between runs: base URLs, user IDs, API keys, feature flags. This makes your workflow reusable across environments without editing individual HTTP nodes.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The SetVariable Node</h2>
+  <p>The <strong>SetVariable</strong> node lets you assign one or more variables at any point in the workflow. Each assignment has a <code>name</code> and an <code>expression</code> that supports <code>{{variable}}</code> interpolation.</p>
+
+<pre>interface SetVariableNodeData {
+  label: string;
+  assignments: SetVariableAssignment[];
+}
+
+interface SetVariableAssignment {
+  id: string;         // Unique assignment ID
+  name: string;       // Variable name to set
+  expression: string; // Value — supports {{var}} interpolation
+}</pre>
+
+  <h3>How the Engine Handles It</h3>
+  <p>The <code>handleSetVariableNode</code> handler iterates over each assignment:</p>
+  <ol>
+    <li>Resolve the <code>expression</code> via <code>ctx.resolve(expression)</code> — replaces all <code>{{var}}</code> placeholders.</li>
+    <li>Call <code>ctx.set(name, resolvedValue)</code> — writes to the extracted layer.</li>
+    <li>Log: <code># variableName = "resolvedValue"</code>.</li>
+  </ol>
+
+  <h3>Example: Computing a Derived URL</h3>
+<pre>// SetVariable configuration
+assignments: [
+  { id: "a1", name: "userUrl",  expression: "{{baseUrl}}/users/{{userId}}" },
+  { id: "a2", name: "greeting", expression: "Hello, user #{{userId}}!" }
+]
+
+// After execution:
+// userUrl  = "https://jsonplaceholder.typicode.com/users/1"
+// greeting = "Hello, user #1!"</pre>
+
+  <div class="callout">
+    <strong>📘 Multiple Assignments</strong>
+    A single SetVariable node can have multiple assignments. They execute in order, top to bottom. Later assignments can reference variables set by earlier assignments in the same node.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The LogDebug Node</h2>
+  <p>The <strong>LogDebug</strong> node prints a message to the workflow console. It's your primary debugging tool for inspecting variable values during execution.</p>
+
+<pre>interface LogDebugNodeData {
+  label: string;
+  message: string;              // Supports {{var}} interpolation
+  logLevel: 'info' | 'warn' | 'error' | 'debug';
+  snapshotVariables: boolean;   // If true, dumps all variables
+}</pre>
+
+  <h3>Log Levels</h3>
+  <table>
+    <tr><th>Level</th><th>Console Prefix</th><th>Use Case</th></tr>
+    <tr><td><code>info</code></td><td><code>ℹ</code></td><td>General information, progress messages</td></tr>
+    <tr><td><code>warn</code></td><td><code>⚠</code></td><td>Potential issues, unexpected but non-fatal values</td></tr>
+    <tr><td><code>error</code></td><td><code>❌</code></td><td>Error conditions, validation failures</td></tr>
+    <tr><td><code>debug</code></td><td><code>🐛</code></td><td>Detailed debugging info, variable dumps</td></tr>
+  </table>
+
+  <h3>Snapshot Variables</h3>
+  <p>When <code>snapshotVariables</code> is enabled, the LogDebug node calls <code>ctx.snapshot()</code> and prints every variable and its current value. This is invaluable for debugging complex workflows where you need to see the full state at a specific point.</p>
+
+<pre>// Console output with snapshotVariables: true
+🐛 [Debug Check] Variables at step 3:
+  baseUrl = "https://jsonplaceholder.typicode.com"
+  userId = "1"
+  postId = "42"
+  httpStatus = "200"
+  userUrl = "https://jsonplaceholder.typicode.com/users/1"</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Per-Node Variable Scoping</h2>
+  <p>By default, variables are <strong>global</strong> — any node can read any variable. But sometimes you need to access a variable that was set by a <em>specific</em> node. Per-node scoping lets you do this.</p>
+
+  <h3>Setting Per-Node Variables</h3>
+<pre>// During HTTP node execution, the engine calls:
+ctx.setForNode(nodeId, 'httpStatus', '200');
+ctx.setForNode(nodeId, 'responseBody', '{"id": 42, ...}');</pre>
+
+  <h3>Reading Per-Node Variables</h3>
+  <p>Reference a specific node's variable using the <code>node:</code> prefix:</p>
+<pre>// By label (the label you gave the node on the canvas):
+{{node:"Create Post".httpStatus}}     // → "201"
+{{node:"Get User".responseBody}}      // → '{"name": "John", ...}'
+
+// By node ID (from the canvas):
+{{node:abc123.httpStatus}}</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Label-Based References</strong>
+    When using <code>{{node:"Label".var}}</code>, the label must match exactly (case-sensitive). If you rename a node, update all references to its label. The engine calls <code>registerWorkflowNodes()</code> at startup to build the label → ID mapping.
+  </div>
+
+  <h3>Built-in Runtime Variables</h3>
+  <p>Every HTTP node automatically sets these variables (both globally and per-node):</p>
+  <table>
+    <tr><th>Variable</th><th>Content</th><th>Example</th></tr>
+    <tr><td><code>httpStatus</code></td><td>HTTP status code as string</td><td><code>"200"</code></td></tr>
+    <tr><td><code>status</code></td><td>Node pass/fail status</td><td><code>"pass"</code></td></tr>
+    <tr><td><code>responseBody</code></td><td>Full response body as string</td><td><code>'{"id": 42}'</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Built-in Generators</h2>
+  <p>The variable system includes built-in generators accessible via the <code>$name</code> syntax. These produce dynamic values on each resolution:</p>
+
+  <table>
+    <tr><th>Generator</th><th>Syntax</th><th>Example Output</th></tr>
+    <tr><td>UUID</td><td><code>{{$uuid}}</code></td><td><code>a1b2c3d4-e5f6-7890-abcd-ef1234567890</code></td></tr>
+    <tr><td>Timestamp</td><td><code>{{$timestamp}}</code></td><td><code>1714567890123</code></td></tr>
+    <tr><td>ISO Date</td><td><code>{{$isoDate}}</code></td><td><code>2026-05-01T12:00:00.000Z</code></td></tr>
+    <tr><td>Random Int</td><td><code>{{$randomInt(1,100)}}</code></td><td><code>42</code></td></tr>
+    <tr><td>Random Email</td><td><code>{{$randomEmail}}</code></td><td><code>user_abc123@test.com</code></td></tr>
+    <tr><td>Random String</td><td><code>{{$randomString(8)}}</code></td><td><code>xK9mP2qR</code></td></tr>
+  </table>
+
+  <h3>Expression Functions</h3>
+  <p>Beyond generators, the variable system supports expression functions from the <code>EXPRESSION_FUNCTION_MAP</code>:</p>
+  <table>
+    <tr><th>Function</th><th>Example</th><th>Result</th></tr>
+    <tr><td><code>$upper(val)</code></td><td><code>{{$upper(hello)}}</code></td><td><code>HELLO</code></td></tr>
+    <tr><td><code>$count(arr)</code></td><td><code>{{$count({{items}})}}</code></td><td><code>5</code></td></tr>
+    <tr><td><code>$add(a,b)</code></td><td><code>{{$add(10,5)}}</code></td><td><code>15</code></td></tr>
+    <tr><td><code>$concat(a,b)</code></td><td><code>{{$concat(hello, world)}}</code></td><td><code>helloworld</code></td></tr>
+    <tr><td><code>$if(cond,t,f)</code></td><td><code>{{$if(true,yes,no)}}</code></td><td><code>yes</code></td></tr>
+    <tr><td><code>$default(val,fb)</code></td><td><code>{{$default({{missing}},fallback)}}</code></td><td><code>fallback</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Walkthrough: Dynamic URL with Environment Variables</h2>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>SetVariable</strong>
+    <span class="arrow">→</span>
+    <strong>LogDebug</strong>
+    <span class="arrow">→</span>
+    <strong>HTTP "Get User"</strong>
+    <span class="arrow">→</span>
+    <strong>LogDebug</strong>
+    <span class="arrow">→</span>
+    <strong>End</strong>
+  </div>
+
+  <h3>Step-by-Step</h3>
+  <ol>
+    <li>Create a new workflow named <strong>"Variable Demo"</strong>.</li>
+    <li>Configure the <strong>Start</strong> node with initial variables:
+      <ul>
+        <li><code>baseUrl</code> = <code>https://jsonplaceholder.typicode.com</code></li>
+        <li><code>userId</code> = <code>1</code></li>
+      </ul>
+    </li>
+    <li>Add a <strong>SetVariable</strong> node with assignments:
+      <ul>
+        <li><code>userUrl</code> = <code>{{baseUrl}}/users/{{userId}}</code></li>
+        <li><code>requestId</code> = <code>{{$uuid}}</code></li>
+      </ul>
+    </li>
+    <li>Add a <strong>LogDebug</strong> node:
+      <ul>
+        <li>Message: <code>Fetching user {{userId}} from {{userUrl}} (request: {{requestId}})</code></li>
+        <li>Level: <code>info</code></li>
+      </ul>
+    </li>
+    <li>Add an <strong>HTTP</strong> node:
+      <ul>
+        <li>Method: <code>GET</code></li>
+        <li>URL: <code>{{userUrl}}</code></li>
+        <li>Extract: <code>userName</code> from <code>$.name</code></li>
+      </ul>
+    </li>
+    <li>Add another <strong>LogDebug</strong> node:
+      <ul>
+        <li>Message: <code>User {{userId}} is {{userName}} (status: {{httpStatus}})</code></li>
+        <li>Enable <strong>Snapshot Variables</strong></li>
+      </ul>
+    </li>
+    <li>Add <strong>End</strong> node, connect all, and run.</li>
+  </ol>
+
+  <h3>Expected Console Output</h3>
+<pre># userUrl = "https://jsonplaceholder.typicode.com/users/1"
+# requestId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+* [SetVariable] → pass
+
+ℹ [Log] Fetching user 1 from https://jsonplaceholder.typicode.com/users/1 (request: f47ac10b-...)
+* [Log] → pass
+
+&gt; GET https://jsonplaceholder.typicode.com/users/1
+&lt; 200 OK (92ms)
+# userName = "Leanne Graham"
+* [Get User] → pass
+
+ℹ [Log] User 1 is Leanne Graham (status: 200)
+🐛 Variable snapshot:
+  baseUrl = "https://jsonplaceholder.typicode.com"
+  userId = "1"
+  userUrl = "https://jsonplaceholder.typicode.com/users/1"
+  requestId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  userName = "Leanne Graham"
+  httpStatus = "200"
+* [Log] → pass</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Initial Variables for Dynamic URLs</h3>
+  <p><strong>Goal:</strong> Set <code>baseUrl</code> as an initial variable and use it in HTTP nodes.</p>
+  <ol>
+    <li>Create a workflow with Start → HTTP → End.</li>
+    <li>On the Start node, set <code>baseUrl</code> = <code>https://jsonplaceholder.typicode.com</code>.</li>
+    <li>In the HTTP node, set URL to <code>{{baseUrl}}/posts/1</code>.</li>
+    <li>Run and verify the request hits the correct URL.</li>
+    <li>Change <code>baseUrl</code> to <code>https://dummyjson.com</code> and URL to <code>{{baseUrl}}/products/1</code>. Run again.</li>
+  </ol>
+
+  <h3>Exercise 2: SetVariable for Computed Values</h3>
+  <p><strong>Goal:</strong> Use SetVariable to compute derived values.</p>
+  <ol>
+    <li>Create a workflow: Start → HTTP "Get Post" → SetVariable → HTTP "Get User" → End.</li>
+    <li>HTTP 1: <code>GET {{baseUrl}}/posts/1</code>, extract <code>postUserId</code> from <code>$.userId</code>.</li>
+    <li>SetVariable: <code>authorUrl</code> = <code>{{baseUrl}}/users/{{postUserId}}</code>.</li>
+    <li>HTTP 2: <code>GET {{authorUrl}}</code>.</li>
+    <li>Run and verify both HTTP nodes pass.</li>
+  </ol>
+
+  <h3>Exercise 3: LogDebug for Variable Inspection</h3>
+  <p><strong>Goal:</strong> Use LogDebug to print all variables at different stages.</p>
+  <ol>
+    <li>Extend Exercise 2 by adding LogDebug nodes after each SetVariable and HTTP node.</li>
+    <li>First LogDebug: <code>After SetVariable — authorUrl = {{authorUrl}}</code>, enable Snapshot Variables.</li>
+    <li>Second LogDebug (after HTTP 2): <code>Author name: {{userName}}</code>, enable Snapshot Variables.</li>
+    <li>Run and compare the two snapshots — notice how new variables appear as the workflow progresses.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/engine/variableContext.ts</code></td><td><code>VariableContext</code> class — 3-layer resolution, interpolation, generators</td></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>SetVariableNodeData</code>, <code>LogDebugNodeData</code>, <code>StartNodeData</code> interfaces</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td><code>handleSetVariableNode</code>, <code>handleLogDebugNode</code>, <code>handleStartNode</code></td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>If/Else Conditions</em> — Branch your workflow based on variable values and HTTP responses.</li>
+    <li><strong>Previous:</strong> <em>Delays and Timing</em> — Fixed and random delays for paced execution.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 1 · Variables and Context · Easy
+  </footer>
+
+</body>
+</html>

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues } from '../types/catalog';
 import type { Environment, Microservice, RequestCollection } from '../../../shared/types';
 import { collectAllGroups } from '../../requests/utils/requestTree';
+import { toggleSetItem } from '../../../shared/utils/setToggle';
 
 interface EnvOption {
   envId: string;
@@ -149,7 +150,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
   }, [epColWidths]);
 
   const toggleEnv = useCallback((envId: string) => {
-    setSelEnvs(prev => { const n = new Set(prev); if (n.has(envId)) n.delete(envId); else n.add(envId); return n; });
+    toggleSetItem(setSelEnvs, envId);
   }, []);
 
   const toggleAllEnvs = useCallback(() => {
@@ -157,7 +158,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
   }, [allEnvIds]);
 
   const toggleEp = useCallback((epId: string) => {
-    setSelEps(prev => { const n = new Set(prev); if (n.has(epId)) n.delete(epId); else n.add(epId); return n; });
+    toggleSetItem(setSelEps, epId);
   }, []);
 
   const toggleAllEps = useCallback(() => {
@@ -166,7 +167,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
 
   const toggleSample = useCallback((epId: string) => {
     if (!sampleableIds.has(epId)) return;
-    setSampleEps(prev => { const n = new Set(prev); if (n.has(epId)) n.delete(epId); else n.add(epId); return n; });
+    toggleSetItem(setSampleEps, epId);
   }, [sampleableIds]);
 
   const toggleAllSamples = useCallback(() => {
@@ -177,7 +178,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
   }, [sampleableIds]);
 
   const togglePreviewEnv = useCallback((envId: string) => {
-    setCollapsedPreviewEnvs(prev => { const n = new Set(prev); if (n.has(envId)) n.delete(envId); else n.add(envId); return n; });
+    toggleSetItem(setCollapsedPreviewEnvs, envId);
   }, []);
 
   const selectedEndpoints = useMemo(

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feature Group Comparison — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .diff-badge { display: inline-block; width: 20px; height: 20px; border-radius: 4px; text-align: center; line-height: 20px; font-weight: 700; font-size: 14px; margin-right: 6px; }
+  .diff-badge.added { background: #d4edda; color: #155724; }
+  .diff-badge.removed { background: #f8d7da; color: #721c24; }
+  .diff-badge.modified { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Feature Group Comparison</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Learn to analyze structure change patterns, manage logs during export/import, reconstruct feature group evolution from log entries, and apply advanced filtering strategies.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 6 — Versioning Training Path<br />
+      Gallery Sample: <code>test-country-search</code> · restcountries.com<br />
+      Prerequisite: <a href="feature-group-history-easy.html">Feature Group History (Easy)</a>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Easy manual taught you to <em>read</em> structure logs. This manual teaches you to <em>analyze</em> them — reconstructing the evolution of a feature group, understanding move patterns across groups, managing logs during export/import, and using the display helpers programmatically.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Pre-Release Structure Audit"</em></p>
+  <p>Before releasing a test suite to your team, you want to verify the final structure matches the planned design. Open the Structure History for each feature group. By reading the log chronologically (bottom to top), you reconstruct the evolution:</p>
+  <ol>
+    <li>Started with 3 scenarios from gallery import.</li>
+    <li>Added 2 custom scenarios for edge cases.</li>
+    <li>Moved "Auth Validation" from "User API" to the new "Auth API" group.</li>
+    <li>Renamed "Error Cases" to "Edge Cases" for consistency.</li>
+    <li>Copied "Health Check" test from "Infrastructure" group.</li>
+  </ol>
+  <p>This gives you confidence the structure is intentional, not accidental.</p>
+
+  <div class="callout">
+    <strong>📋 Prerequisite</strong>
+    Complete the <a href="feature-group-history-easy.html">Feature Group History (Easy)</a> manual first. This manual assumes you understand the 12 action types, filters, and basic panel operations.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Reconstructing Feature Group Evolution</h2>
+  <p>Structure logs are stored newest-first. To reconstruct the evolution, read <strong>bottom to top</strong>:</p>
+
+  <h3>2.1 Example Log (6 entries, newest first)</h3>
+  <table>
+    <tr><th>#</th><th>Badge</th><th>Action</th><th>Entity</th><th>Detail</th></tr>
+    <tr><td>1</td><td><span class="diff-badge modified">~</span></td><td>Test renamed</td><td>Search by Region</td><td>Search Countries → Search by Region</td></tr>
+    <tr><td>2</td><td><span class="diff-badge added">+</span></td><td>Test copied</td><td>Health Check</td><td>in Infrastructure</td></tr>
+    <tr><td>3</td><td><span class="diff-badge removed">−</span></td><td>Scenario moved out</td><td>Auth Validation</td><td>to Auth API</td></tr>
+    <tr><td>4</td><td><span class="diff-badge added">+</span></td><td>Scenario added</td><td>Edge Cases</td><td>—</td></tr>
+    <tr><td>5</td><td><span class="diff-badge added">+</span></td><td>Scenario added</td><td>Filtering</td><td>—</td></tr>
+    <tr><td>6</td><td><span class="diff-badge added">+</span></td><td>Test added</td><td>Search Countries</td><td>in Filtering</td></tr>
+  </table>
+
+  <h3>2.2 Reading Bottom to Top (Chronological)</h3>
+  <ol>
+    <li><strong>#6</strong> (oldest): Added test "Search Countries" to "Filtering" scenario.</li>
+    <li><strong>#5</strong>: Added "Filtering" scenario.</li>
+    <li><strong>#4</strong>: Added "Edge Cases" scenario.</li>
+    <li><strong>#3</strong>: Moved "Auth Validation" scenario out to "Auth API" group.</li>
+    <li><strong>#2</strong>: Copied "Health Check" test from "Infrastructure".</li>
+    <li><strong>#1</strong> (newest): Renamed "Search Countries" test to "Search by Region".</li>
+  </ol>
+
+  <p>This chronological reconstruction reveals the <em>intent</em> behind the current structure — not just the final state.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Move Patterns: Dual-Entry Design</h2>
+  <p>When a scenario or test is <strong>moved</strong> between feature groups, two entries are created — one in each group:</p>
+
+  <table>
+    <tr><th>Group</th><th>Entry</th><th>Detail</th></tr>
+    <tr><td>Source (User API)</td><td><span class="diff-badge removed">−</span> Scenario moved out</td><td><code>to Auth API</code></td></tr>
+    <tr><td>Target (Auth API)</td><td><span class="diff-badge added">+</span> Scenario moved in</td><td><code>from User API</code></td></tr>
+  </table>
+
+  <p>This dual-entry design has several benefits:</p>
+  <ul>
+    <li><strong>Self-contained</strong> — each group's log is complete without cross-referencing.</li>
+    <li><strong>Traceable</strong> — you can follow the trail from either direction.</li>
+    <li><strong>Audit-friendly</strong> — the <code>detail</code> field names the other group.</li>
+  </ul>
+
+  <h3>3.1 Move vs. Copy</h3>
+  <table>
+    <tr><th>Operation</th><th>Source Group Entry</th><th>Target Group Entry</th></tr>
+    <tr><td>Move scenario</td><td><code>scenario-moved-out</code></td><td><code>scenario-moved-in</code></td></tr>
+    <tr><td>Move test</td><td><code>test-moved-out</code></td><td><code>test-moved-in</code></td></tr>
+    <tr><td>Copy test</td><td><em>(none)</em></td><td><code>test-copied</code></td></tr>
+  </table>
+
+  <p>Copies only create an entry in the <em>target</em> group because the source is unchanged. Moves create entries in both groups because both are structurally modified.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Export &amp; Import Behavior</h2>
+  <p>The structure log interacts with test suite export/import in specific ways:</p>
+
+  <h3>4.1 Exporting with Logs</h3>
+  <p>By default, exporting a test suite <strong>includes</strong> the structure log. This preserves the full history for the recipient:</p>
+<pre>// Export includes structureLog
+{
+  "id": "fg1",
+  "name": "User API",
+  "scenarios": [...],
+  "structureLog": [
+    { "id": "...", "action": "scenario-added", "entityName": "Login", ... },
+    ...
+  ]
+}</pre>
+
+  <h3>4.2 Stripping Logs for Clean Export</h3>
+  <p>If you want a "clean" export without history, use <code>stripStructureLog()</code>:</p>
+<pre>function stripStructureLog(fg: FeatureGroup): FeatureGroup {
+  const { structureLog: _, ...rest } = fg;
+  return rest as FeatureGroup;
+}</pre>
+
+  <p>Use cases for stripping:</p>
+  <ul>
+    <li>Sharing a template — recipients don't need your development history.</li>
+    <li>Reducing file size — 50 entries × multiple groups adds up.</li>
+    <li>Privacy — log entries may reveal internal project names.</li>
+  </ul>
+
+  <h3>4.3 Importing with Logs</h3>
+  <p>Importing a test suite with structure logs <strong>preserves the imported history</strong>. The imported logs merge with any existing logs if the feature group already exists, or appear as-is if it's a new group.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Important</strong>
+    Imported structure logs retain their original timestamps. This means imported entries may appear chronologically mixed with local entries. Use the filter buttons to isolate entry types if the log becomes confusing after import.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Country Search Tests"</strong> (<code>test-country-search</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-country-search</code></td></tr>
+    <tr><td>Name</td><td>Country Search Tests</td></tr>
+    <tr><td>Feature Groups</td><td>1 (Country API)</td></tr>
+    <tr><td>Scenarios</td><td>2–3 (Search by Name, Search by Code, Filter by Region)</td></tr>
+    <tr><td>API</td><td><code>https://restcountries.com/v3.1/</code></td></tr>
+    <tr><td>Tags</td><td><code>countries</code>, <code>search</code>, <code>restcountries</code>, <code>versioning-tutorial</code></td></tr>
+  </table>
+
+  <p>This sample uses a different API (restcountries.com instead of dummyjson.com), providing variety. Its multiple scenarios make it ideal for practicing move and reorganization operations.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import and Set Up Two Feature Groups</h3>
+  <p>Import "Country Search Tests" from the Gallery. Create a second feature group called <strong>"Regional API"</strong>. You now have two groups: "Country API" (with scenarios) and "Regional API" (empty).</p>
+
+  <h3>Step 2 — Build a Rich History</h3>
+  <p>Perform these structural changes to build a realistic log:</p>
+  <ol>
+    <li>Add scenario "Population Filter" to "Country API".</li>
+    <li>Add test "Countries &gt; 1M" inside "Population Filter".</li>
+    <li>Add test "Countries &lt; 100K" inside "Population Filter".</li>
+    <li>Rename "Filter by Region" scenario to "Region Queries".</li>
+    <li>Move "Region Queries" scenario from "Country API" to "Regional API" (drag &amp; drop).</li>
+    <li>Copy a test from "Country API" to "Regional API".</li>
+    <li>Rename the feature group "Country API" to "Country Search API".</li>
+  </ol>
+
+  <h3>Step 3 — Analyze the Source Group Log</h3>
+  <p>Open the Structure History for "Country Search API". You should see ~6 entries. Read bottom to top to reconstruct the evolution:</p>
+  <ul>
+    <li>Added "Population Filter" scenario</li>
+    <li>Added 2 tests</li>
+    <li>Renamed a scenario</li>
+    <li>Moved "Region Queries" out to "Regional API"</li>
+    <li>Renamed the group itself</li>
+  </ul>
+
+  <h3>Step 4 — Analyze the Target Group Log</h3>
+  <p>Open the Structure History for "Regional API". You should see 2 entries:</p>
+  <ul>
+    <li><span class="diff-badge added">+</span> Scenario moved in — Region Queries — from Country Search API</li>
+    <li><span class="diff-badge added">+</span> Test copied — [test name] — in [scenario]</li>
+  </ul>
+  <p>Notice the <code>detail</code> field shows the source group name. Cross-reference with the source group's "moved out" entry to verify consistency.</p>
+
+  <h3>Step 5 — Filter to Isolate Patterns</h3>
+  <p>In "Country Search API", use the filter buttons:</p>
+  <ul>
+    <li><strong>Scenario</strong> filter: Shows 3 entries (added, renamed, moved out). This reveals the scenario lifecycle.</li>
+    <li><strong>Test</strong> filter: Shows 2 entries (both added). This isolates test-level changes.</li>
+    <li><strong>Group</strong> filter: Shows 1 entry (renamed). This isolates group-level changes.</li>
+  </ul>
+  <p>The footer shows filtered vs. total: <em>"3 of 6 entries"</em>.</p>
+
+  <h3>Step 6 — Understand the Display Helpers</h3>
+  <p>The three display helper functions control how entries render in the UI:</p>
+
+<pre>// Human-readable label for each action
+actionLabel('scenario-moved-in')  // → "Scenario moved in"
+actionLabel('test-renamed')       // → "Test renamed"
+actionLabel('fg-renamed')         // → "Group renamed"
+
+// Badge icon character
+actionIcon('scenario-added')     // → "+"  (addition)
+actionIcon('test-removed')       // → "−"  (removal)
+actionIcon('scenario-renamed')   // → "~"  (modification)
+
+// CSS class for color coding
+actionClass('test-moved-in')    // → "added"    (green)
+actionClass('scenario-removed') // → "removed"  (red)
+actionClass('fg-renamed')       // → "modified"  (amber)</pre>
+
+  <p>The logic uses string matching:</p>
+  <ul>
+    <li>Actions containing <code>added</code>, <code>moved-in</code>, or <code>copied</code> → green (<code>+</code>)</li>
+    <li>Actions containing <code>removed</code> or <code>moved-out</code> → red (<code>−</code>)</li>
+    <li>Actions containing <code>renamed</code> → amber (<code>~</code>)</li>
+  </ul>
+
+  <h3>Step 7 — Selective Entry Deletion</h3>
+  <p>Delete specific "noise" entries — for example, if you added a scenario by mistake and immediately removed it, delete both entries to keep the log clean. Use the × button on each entry.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Think of entry deletion as "curating" the log. In a clean log, every entry represents an intentional structural decision. Accidental add/remove pairs just add noise.
+  </div>
+
+  <h3>Step 8 — Test the 50-Entry Cap</h3>
+  <p>The cap is generous — 50 entries covers weeks of normal usage. But you can test it:</p>
+  <ol>
+    <li>Rapidly add and remove tests (each creates 2 entries: add + remove).</li>
+    <li>After 25 add/remove cycles (50 entries), the next action evicts the oldest entry.</li>
+    <li>Verify the footer never shows more than 50.</li>
+  </ol>
+
+  <h3>Step 9 — Prepare for Export</h3>
+  <p>Before exporting, decide whether to include or strip the log:</p>
+  <table>
+    <tr><th>Include Log</th><th>Strip Log</th></tr>
+    <tr><td>Team sharing — recipients benefit from history</td><td>Template sharing — history is irrelevant</td></tr>
+    <tr><td>Audit trail needed</td><td>Smaller file size desired</td></tr>
+    <tr><td>Import into same project (continuation)</td><td>Import into different project (clean start)</td></tr>
+  </table>
+
+  <h3>Step 10 — Correlate Logs Across Groups</h3>
+  <p>Open Structure History in both feature groups side by side. For each "moved out" entry in the source, find the matching "moved in" entry in the target. Verify:</p>
+  <ul>
+    <li>Same entity name appears in both.</li>
+    <li>Source detail says <code>to [target name]</code>.</li>
+    <li>Target detail says <code>from [source name]</code>.</li>
+    <li>Timestamps are within seconds of each other.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Common Structure Change Patterns</h2>
+  <p>Learn to recognize these patterns in your logs:</p>
+
+  <table>
+    <tr><th>Pattern</th><th>Log Signature</th><th>Meaning</th></tr>
+    <tr>
+      <td>Initial build-out</td>
+      <td>Cluster of <span class="diff-badge added">+</span> entries (added)</td>
+      <td>Feature group was populated from scratch</td>
+    </tr>
+    <tr>
+      <td>Reorganization</td>
+      <td>Alternating <span class="diff-badge removed">−</span> moved-out and <span class="diff-badge added">+</span> moved-in entries</td>
+      <td>Scenarios/tests were redistributed across groups</td>
+    </tr>
+    <tr>
+      <td>Cleanup</td>
+      <td>Cluster of <span class="diff-badge removed">−</span> removed entries</td>
+      <td>Unused scenarios/tests were pruned</td>
+    </tr>
+    <tr>
+      <td>Standardization</td>
+      <td>Multiple <span class="diff-badge modified">~</span> renamed entries</td>
+      <td>Naming convention was applied</td>
+    </tr>
+    <tr>
+      <td>Duplication</td>
+      <td><span class="diff-badge added">+</span> test-copied entries</td>
+      <td>Tests were shared across groups via copy</td>
+    </tr>
+    <tr>
+      <td>Accidental churn</td>
+      <td>Paired add + remove for same entity</td>
+      <td>Item was added then immediately removed (noise)</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Comparison with Audit Log</h2>
+  <p>Both the structure change log and the environment audit log are event-based systems, but they track different entities:</p>
+
+  <table>
+    <tr><th>Feature</th><th>Structure Change Log</th><th>Environment Audit Log</th></tr>
+    <tr><td>Tracks</td><td>Scenarios &amp; tests within feature groups</td><td>Environments, microservices, auth profiles</td></tr>
+    <tr><td>Scope</td><td>Per feature group</td><td>Global (all catalog entities)</td></tr>
+    <tr><td>Max entries</td><td>50</td><td>500</td></tr>
+    <tr><td>Storage</td><td>On <code>FeatureGroup.structureLog</code></td><td>In localStorage (<code>perf-test-audit-log</code>)</td></tr>
+    <tr><td>Export</td><td>Included in test suite export</td><td>Separate CSV/JSON export</td></tr>
+    <tr><td>Field-level diff</td><td>No (action + entity name only)</td><td>Yes (<code>AuditChange[]</code> with old/new values)</td></tr>
+    <tr><td>Filter categories</td><td>Scenario / Test / Group</td><td>Entity type (environment, microservice, auth)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Advanced Filtering Strategies</h2>
+  <p>The built-in filters cover the three main categories (Scenario, Test, Group). For more advanced analysis, combine filtering with manual reading:</p>
+
+  <h3>9.1 Finding All Moves</h3>
+  <p>Filter to <strong>Scenario</strong>, then scan for entries with <code>detail</code> containing "from" or "to". These are move operations. The detail field names the other group.</p>
+
+  <h3>9.2 Finding All Renames</h3>
+  <p>Filter to any category. Renamed entries always have a <span class="diff-badge modified">~</span> badge and a <code>detail</code> field showing <code>Old → New</code>.</p>
+
+  <h3>9.3 Correlating Test Changes with Scenarios</h3>
+  <p>Filter to <strong>Test</strong>. Each test entry includes <code>scenarioName</code> (shown as <em>"in [scenario]"</em>). This tells you which scenario the test belongs to, even if you've renamed or moved the scenario since.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The <code>scenarioName</code> on test entries captures the name <em>at the time the entry was created</em>. If the scenario was later renamed, the log entry still shows the old name. Cross-reference with <code>scenario-renamed</code> entries to resolve name changes.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Reconstruct a History</h3>
+  <p>Import "Country Search Tests". Perform 8 structural changes (mix of adds, removes, renames, and moves). Then close the Structure History panel. Reopen it and, reading bottom to top, write down the chronological story of the feature group's evolution. Verify each step matches what you did.</p>
+
+  <h3>Exercise 2 — Cross-Group Move Audit</h3>
+  <p>Create 3 feature groups. Move a scenario from Group A → Group B, then from Group B → Group C. Open the Structure History for all 3 groups. Verify:</p>
+  <ul>
+    <li>Group A: 1 "moved out" entry (to Group B)</li>
+    <li>Group B: 1 "moved in" entry (from A) + 1 "moved out" entry (to C)</li>
+    <li>Group C: 1 "moved in" entry (from B)</li>
+  </ul>
+  <p>The full migration path is traceable by following the chain: A → B → C.</p>
+
+  <h3>Exercise 3 — Log Curation</h3>
+  <p>Build a log with 10+ entries, including some "noise" (accidental add/remove pairs). Use selective deletion to curate the log — remove noise entries while preserving meaningful ones. Aim for a clean log where every entry represents an intentional change.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In production workflows, curate your structure logs before sharing test suites. A clean log is documentation — it communicates your structural decisions to teammates who import the suite.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="feature-group-history-easy.html">feature-group-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Structure log basics — 12 action types, panel UI, filters</td>
+    </tr>
+    <tr>
+      <td><a href="environment-audit-log-easy.html">environment-audit-log-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Environment audit log — field-level change tracking for catalog entities</td>
+    </tr>
+    <tr>
+      <td><a href="environment-audit-export-medium.html">environment-audit-export-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Audit export — JSON/CSV export, rotation management</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Feature Group Comparison (Medium) · May 2026
+  </footer>
+
+</body>
+</html>

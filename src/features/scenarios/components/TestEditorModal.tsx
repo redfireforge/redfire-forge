@@ -18,6 +18,7 @@ import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
 import { createSnapshot } from '../utils/testDefinitionVersioning';
+import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
 import { proxyFetch } from '../../../engine/executor';
@@ -276,13 +277,7 @@ export default function TestEditorModal({
           const isDup = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
           const updatedVersions = isDup
             ? prevVersions
-            : [...prevVersions, {
-                id: uuidv4(), timestamp: Date.now(), json: pretty,
-                validationMode: v.mode, selectiveMode: v.selectiveMode,
-                expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-                excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-                unorderedArrays: v.unorderedArrays,
-              } as ResponseVersion];
+            : [...prevVersions, createResponseVersion(v, pretty)];
           onDraftChange({
             ...latest,
             validation: {
@@ -309,15 +304,9 @@ export default function TestEditorModal({
     const v = latest.validation;
     const prevVersions = v.responseVersions || [];
     // Auto-save current state as a version before replacing
-    const autoSaveVersion: ResponseVersion = {
-      id: uuidv4(), timestamp: Date.now(), json: v.sampleJson || '',
-      validationMode: v.mode, selectiveMode: v.selectiveMode,
-      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-      unorderedArrays: v.unorderedArrays,
-    };
+    const autoSaveVer = createResponseVersion(v, v.sampleJson || '');
     const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVersion] : prevVersions;
+    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVer] : prevVersions;
     onDraftChange({
       ...latest,
       validation: {
@@ -336,27 +325,14 @@ export default function TestEditorModal({
     const v = latest.validation;
     const prevVersions = v.responseVersions || [];
     // Auto-save current state as a response version before replacing
-    const autoSaveVersion: ResponseVersion = {
-      id: uuidv4(), timestamp: Date.now(), json: v.sampleJson || '',
-      validationMode: v.mode, selectiveMode: v.selectiveMode,
-      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-      unorderedArrays: v.unorderedArrays,
-    };
+    const autoSaveVer = createResponseVersion(v, v.sampleJson || '');
     const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVersion] : prevVersions;
+    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVer] : prevVersions;
     // Auto-save current rules as a rules version before clearing
     const prevRulesVersions = v.rulesVersions || [];
     const hasRules = (v.expectedFields || []).length > 0;
-    const autoRulesVersion: RulesVersion = {
-      id: uuidv4(), timestamp: Date.now(),
-      validationMode: v.mode,
-      selectiveMode: v.selectiveMode,
-      expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-      excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-      unorderedArrays: v.unorderedArrays,
-    };
-    const updatedRulesVersions = hasRules ? [...prevRulesVersions, autoRulesVersion] : prevRulesVersions;
+    const autoRulesVer = createRulesVersion(v);
+    const updatedRulesVersions = hasRules ? [...prevRulesVersions, autoRulesVer] : prevRulesVersions;
     onDraftChange({
       ...latest,
       validation: {
@@ -678,7 +654,7 @@ export default function TestEditorModal({
                 Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
               </button>
               <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
-                Validation {draft.validation.mode !== 'none' && <span className="tab-badge-dot" />}
+                Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
               </button>
               <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
                 Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}

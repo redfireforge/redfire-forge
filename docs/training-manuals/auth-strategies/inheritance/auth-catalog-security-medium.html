@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catalog Security Schemes — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>Catalog Security Schemes</h1>
+    <div class="subtitle">Medium — Auth Strategies Training Manual</div>
+    <p>Learn how RedfireForge reads security schemes from OpenAPI specs, auto-configures auth from spec definitions, and lets you switch between "Inherit from Spec," global profile, and manual auth modes in the API Catalog.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Auth Inheritance and Profiles<br />
+      Scenario: <em>OpenAPI Spec with Multiple Security Schemes</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Are Catalog Security Schemes?</h2>
+  <p>When you import an OpenAPI specification into the API Catalog, the spec often defines <strong>security schemes</strong> — formal declarations of how the API expects authentication.</p>
+
+<pre>// OpenAPI 3.x — securitySchemes section
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      name: X-API-Key
+      in: header
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/token</pre>
+
+  <p>RedfireForge <strong>parses these schemes</strong> and offers three auth modes for each catalog entry:</p>
+
+  <table>
+    <tr><th>Mode</th><th>Description</th></tr>
+    <tr><td><strong>Inherit from Spec</strong></td><td>Auto-detect auth type from the scheme, pre-fill settings (key name, location), and prompt only for credentials</td></tr>
+    <tr><td><strong>From Environment</strong></td><td>Link to a Global Auth Profile — same as the test inheritance chain</td></tr>
+    <tr><td><strong>Manual</strong></td><td>Configure auth type and credentials directly, ignoring the spec</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The CatalogSecurityScheme Interface</h2>
+<pre>// src/features/catalog/types/catalog.ts
+
+interface CatalogSecurityScheme {
+  type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect';
+  name?: string;          // API key name (e.g., "X-API-Key")
+  in?: 'header' | 'query' | 'cookie';  // API key location
+  scheme?: string;        // HTTP scheme: "basic", "bearer", "digest"
+  bearerFormat?: string;  // e.g., "JWT"
+  description?: string;   // Human-readable description
+}</pre>
+
+  <h3>Mapping to OpenAPI Types</h3>
+  <table>
+    <tr><th>OpenAPI <code>type</code></th><th><code>CatalogSecurityScheme</code> Fields</th></tr>
+    <tr><td><code>apiKey</code></td><td><code>name</code>, <code>in</code> (header/query/cookie)</td></tr>
+    <tr><td><code>http</code></td><td><code>scheme</code> (basic/bearer/digest), <code>bearerFormat</code></td></tr>
+    <tr><td><code>oauth2</code></td><td>Flows defined in spec (mapped to bearer token)</td></tr>
+    <tr><td><code>openIdConnect</code></td><td>OpenID Connect URL (mapped to bearer token)</td></tr>
+  </table>
+
+  <h3>Parsing from OpenAPI Specs</h3>
+<pre>// src/features/catalog/utils/openApiParser.ts
+
+function extractSecuritySchemes(spec): Record&lt;string, CatalogSecurityScheme&gt;
+
+// Handles both:
+// - OpenAPI 3.x: spec.components.securitySchemes
+// - Swagger 2.x: spec.securityDefinitions</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. The schemeToAuthType() Function</h2>
+  <p>When "Inherit from Spec" mode is active, the catalog panel needs to convert an OpenAPI security scheme into a RedfireForge <code>AuthType</code>. This mapping is handled by <code>schemeToAuthType()</code>:</p>
+
+<pre>// src/features/catalog/components/CatalogAuthPanel.tsx
+
+function schemeToAuthType(scheme: CatalogSecurityScheme): AuthConfig['type'] {
+  if (scheme.type === 'apiKey') return 'apikey';
+  if (scheme.type === 'http') {
+    if (scheme.scheme === 'basic') return 'basic';
+    return 'bearer';   // bearer, digest, or unknown → bearer
+  }
+  if (scheme.type === 'oauth2') return 'bearer';
+  return 'bearer';     // openIdConnect → bearer
+}</pre>
+
+  <h3>Mapping Summary</h3>
+  <table>
+    <tr><th>OpenAPI Scheme</th><th>RedfireForge AuthType</th><th>Why</th></tr>
+    <tr><td><code>apiKey</code></td><td><code>apikey</code></td><td>Direct mapping — key name and location from spec</td></tr>
+    <tr><td><code>http</code> (basic)</td><td><code>basic</code></td><td>Username + password → Base64 header</td></tr>
+    <tr><td><code>http</code> (bearer)</td><td><code>bearer</code></td><td>Token → Authorization header</td></tr>
+    <tr><td><code>oauth2</code></td><td><code>bearer</code></td><td>OAuth2 produces a bearer token</td></tr>
+    <tr><td><code>openIdConnect</code></td><td><code>bearer</code></td><td>OIDC produces a bearer token</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Why OAuth2 Maps to Bearer</strong>
+    OAuth2 is an <em>auth flow</em> that ultimately produces a bearer token. The catalog panel detects the OAuth2 scheme type and maps it to <code>bearer</code> — the user provides the token (or uses the OAuth2 token manager from Phase 1 to obtain it).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. CatalogAuthConfig and Resolution Strategies</h2>
+  <p>Each catalog entry stores its auth configuration in a <code>CatalogAuthConfig</code>:</p>
+
+<pre>// src/features/catalog/types/catalog.ts
+
+interface CatalogAuthConfig {
+  strategy: ResolutionStrategy;   // how auth is resolved
+  hardcoded?: AuthConfig;         // for 'hardcoded' strategy
+  globalProfileId?: string;       // for 'global' strategy
+  inheritedSchemeId?: string;     // for 'inherited' strategy
+}
+
+type ResolutionStrategy =
+  | 'global'       // use a Global Auth Profile
+  | 'inherited'    // inherit from OpenAPI spec security scheme
+  | 'hardcoded'    // manual inline config
+  | 'environment'; // resolve from microservice env mapping</pre>
+
+  <h3>Strategy Priority in Catalog Entry Init</h3>
+  <p>When you select a catalog entry, auth is initialized with this priority:</p>
+
+  <div class="flow-diagram">
+    <strong>Catalog Auth Initialization</strong><br /><br />
+    1. Saved auth from previous session?<br />
+    <span class="arrow">↓</span> (if none)<br />
+    2. Saved auth has <code>__globalProfileId</code>? → resolve live profile<br />
+    <span class="arrow">↓</span> (if none)<br />
+    3. Entry has <code>microserviceId</code>? → <code>microservice.authProfileIds[envId]</code><br />
+    <span class="arrow">↓</span> (if none)<br />
+    4. Entry has security schemes? → auto-select first, set <code>__inherit: true</code><br />
+    <span class="arrow">↓</span> (if none)<br />
+    5. <code>{ type: 'none' }</code>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Auth Modes in CatalogAuthPanel</h2>
+  <p>The <code>CatalogAuthPanel</code> component renders the auth configuration UI for catalog entries. It supports these modes:</p>
+
+<pre>type AuthMode = 'inherit' | 'global' | 'none'
+              | 'bearer' | 'basic' | 'apikey' | 'oauth2';</pre>
+
+  <h3>Mode Detection from AuthConfig</h3>
+<pre>// Determine current mode from the AuthConfig
+const mode: AuthMode =
+  auth.__inherit    ? 'inherit'              // "Inherit from Spec"
+  : auth.__globalProfileId ? 'global'        // "From Environment"
+  : auth.type === 'none'   ? 'none'          // No auth
+  : auth.type as AuthMode;                   // Manual (bearer, basic, etc.)</pre>
+
+  <h3>Metadata Fields on AuthConfig</h3>
+  <p>Catalog auth modes use special double-underscore fields to track UI state:</p>
+
+  <table>
+    <tr><th>Field</th><th>Purpose</th></tr>
+    <tr><td><code>__inherit</code></td><td><code>true</code> when using "Inherit from Spec" mode</td></tr>
+    <tr><td><code>__schemeName</code></td><td>Name of the selected OpenAPI security scheme (e.g., "BearerAuth")</td></tr>
+    <tr><td><code>__globalProfileId</code></td><td>ID of the linked Global Auth Profile</td></tr>
+    <tr><td><code>__globalProfileName</code></td><td>Display name of the linked profile (for the UI badge)</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Double-Underscore Convention</strong>
+    Fields prefixed with <code>__</code> are <strong>UI state metadata</strong> — they are stored on the AuthConfig for the catalog panel to remember the user's mode selection. They are <em>not</em> used by <code>resolveAuthHeaders()</code> when building actual HTTP headers.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. "Inherit from Spec" Mode in Detail</h2>
+  <p>When you select "Inherit from Spec" in the catalog auth panel:</p>
+
+  <ol>
+    <li><strong>Scheme selector</strong> — If the spec has multiple security schemes, a dropdown lets you choose which one (e.g., "BearerAuth", "ApiKeyAuth").</li>
+    <li><strong>Auto-detection</strong> — <code>schemeToAuthType()</code> converts the selected scheme into a RedfireForge auth type.</li>
+    <li><strong>Pre-fill</strong> — For <code>apiKey</code> schemes, the <code>name</code> and <code>in</code> fields are auto-populated from the spec definition.</li>
+    <li><strong>Scheme badge</strong> — Shows the scheme type (APIKEY / HTTP / OAUTH2) with its description.</li>
+    <li><strong>Credential fields</strong> — Only the credential fields are shown (token, username/password, API key value) — the structure is already known from the spec.</li>
+  </ol>
+
+  <h3>Example: API Key Scheme</h3>
+<pre>// OpenAPI spec defines:
+ApiKeyAuth:
+  type: apiKey
+  name: X-API-Key
+  in: header
+
+// CatalogAuthPanel auto-fills:
+{
+  type: 'apikey',
+  apiKeyName: 'X-API-Key',    // ← from spec
+  apiKeyIn: 'header',          // ← from spec
+  apiKeyValue: '',             // ← user fills in
+  __inherit: true,
+  __schemeName: 'ApiKeyAuth',
+}</pre>
+
+  <h3>Example: Bearer Scheme</h3>
+<pre>// OpenAPI spec defines:
+BearerAuth:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+
+// CatalogAuthPanel auto-fills:
+{
+  type: 'bearer',
+  token: '',                   // ← user fills in
+  prefix: 'Bearer',
+  __inherit: true,
+  __schemeName: 'BearerAuth',
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. "From Environment" Mode</h2>
+  <p>This mode links the catalog entry to a Global Auth Profile, similar to how feature groups link to profiles:</p>
+
+<pre>// When user selects "From Environment" and picks a profile:
+{
+  type: 'bearer',              // resolved from the profile
+  token: 'the-profile-token',
+  __globalProfileId: 'prof-prod-oauth',
+  __globalProfileName: 'Production OAuth2',
+}</pre>
+
+  <p>The catalog panel shows a dropdown of all available Global Auth Profiles. When you select one, its auth configuration is applied to the catalog entry.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Catalog Auth vs. Test Auth</strong>
+    Catalog auth (CatalogAuthPanel) is used when making requests <em>from the API Catalog</em> — browsing endpoints, trying them out. Test auth (the 5-level chain) is used when running tests from feature groups. They are separate configurations, though both can reference the same Global Auth Profiles.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Multiple Security Schemes</h2>
+  <p>Many APIs support multiple security schemes — for example, both API key and OAuth2. The catalog panel handles this with a <strong>scheme selector dropdown</strong>.</p>
+
+<pre>// OpenAPI spec with multiple schemes:
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      name: X-API-Key
+      in: header
+    BearerAuth:
+      type: http
+      scheme: bearer
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.example.com/token</pre>
+
+  <p>In "Inherit from Spec" mode, the dropdown shows:</p>
+  <ul>
+    <li><span class="badge badge-medium">APIKEY</span> ApiKeyAuth</li>
+    <li><span class="badge badge-medium">HTTP</span> BearerAuth</li>
+    <li><span class="badge badge-medium">OAUTH2</span> OAuth2</li>
+  </ul>
+
+  <p>Selecting a different scheme updates the <code>__schemeName</code>, re-runs <code>schemeToAuthType()</code>, and switches the credential fields shown.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Import a Spec with Security Schemes</h3>
+  <p><strong>Goal:</strong> See how RedfireForge parses security schemes from an OpenAPI spec.</p>
+  <ol>
+    <li>Open <strong>API Catalog → Import</strong>.</li>
+    <li>Import an OpenAPI 3.x spec that defines at least one security scheme (e.g., the Petstore spec).</li>
+    <li>Select an endpoint from the imported spec.</li>
+    <li>Look at the auth panel — it should show "Inherit from Spec" with the scheme type badge.</li>
+    <li>Note the auto-filled fields (key name, location for API key schemes).</li>
+  </ol>
+
+  <h3>Exercise 2: Switch Between Auth Modes</h3>
+  <p><strong>Goal:</strong> Compare all three catalog auth modes.</p>
+  <ol>
+    <li>Select a catalog entry that has security schemes.</li>
+    <li><strong>Inherit from Spec:</strong> Note the auto-detected type and pre-filled fields.</li>
+    <li><strong>From Environment:</strong> Select a Global Auth Profile — note how it replaces the spec-based config.</li>
+    <li><strong>Manual (e.g., Bearer):</strong> Override everything manually.</li>
+    <li><strong>None:</strong> Disable auth entirely.</li>
+  </ol>
+
+  <h3>Exercise 3: Multiple Schemes</h3>
+  <p><strong>Goal:</strong> Switch between security schemes when the spec defines several.</p>
+  <ol>
+    <li>Import a spec with 2+ security schemes (apiKey + bearer, for example).</li>
+    <li>In "Inherit from Spec" mode, use the scheme selector dropdown.</li>
+    <li>Select the API key scheme — note <code>apiKeyName</code> and <code>apiKeyIn</code> are auto-filled.</li>
+    <li>Switch to the bearer scheme — note the fields change to token + prefix.</li>
+    <li>Enter credentials for the bearer scheme and make a test request.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/catalog/types/catalog.ts</code></td><td><code>CatalogSecurityScheme</code>, <code>CatalogAuthConfig</code>, <code>ResolutionStrategy</code></td></tr>
+    <tr><td><code>src/features/catalog/utils/openApiParser.ts</code></td><td><code>extractSecuritySchemes()</code> — parses OpenAPI 3.x and Swagger 2.x</td></tr>
+    <tr><td><code>src/features/catalog/components/CatalogAuthPanel.tsx</code></td><td><code>schemeToAuthType()</code>, auth mode selector, scheme dropdown, credential fields</td></tr>
+    <tr><td><code>src/features/catalog/ApiCatalog.tsx</code></td><td>Catalog entry auth initialization priority chain</td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>AuthConfig.__inherit</code>, <code>__schemeName</code>, <code>__globalProfileId</code> metadata fields</td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li><strong>Phase 3:</strong> <em>Workflow Auth and Advanced Patterns</em> (Advanced) — Service auth resolution, env-based auth in workflows, custom vs. inherited auth modes.</li>
+    <li><strong>Previous:</strong> <em>Global Auth Profiles</em> — Reusable named auth configurations.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies Phase 2 · Catalog Security Schemes · Medium
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feature Group History — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .diff-badge { display: inline-block; width: 20px; height: 20px; border-radius: 4px; text-align: center; line-height: 20px; font-weight: 700; font-size: 14px; margin-right: 6px; }
+  .diff-badge.added { background: #d4edda; color: #155724; }
+  .diff-badge.removed { background: #f8d7da; color: #721c24; }
+  .diff-badge.modified { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📂</div>
+    <h1>Feature Group History</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn how RedfireForge tracks every structural change to your feature groups — scenario additions, test moves, renames, and more — with a per-group changelog you can browse, filter, and manage.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 6 — Versioning Training Path<br />
+      Gallery Sample: <code>test-user-api-smoke</code> · dummyjson.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is the Structure Change Log?</h2>
+  <p>Every feature group maintains its own <strong>structure change log</strong> — a chronological record of every scenario and test added, removed, renamed, moved, or copied within that group. Think of it as a local Git log for your test organization.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Who Moved My Scenario?"</em></p>
+  <p>Your team shares a test suite with 5 feature groups. On Monday you had 3 scenarios in "User API." On Wednesday you notice only 2 remain. Instead of guessing, open the Structure History panel — it shows: <em>"Scenario moved out — Profile Tests → to Auth API"</em> with a timestamp. Mystery solved in seconds.</p>
+
+  <h3>How It Differs from Other Versioning</h3>
+  <table>
+    <tr><th>Feature</th><th>Structure Change Log</th><th>Definition Versioning</th></tr>
+    <tr><td>What it tracks</td><td>Structural changes (add, remove, move, rename)</td><td>Content changes (URL, body, headers, etc.)</td></tr>
+    <tr><td>Scope</td><td>Per feature group</td><td>Per request / per test definition</td></tr>
+    <tr><td>Trigger</td><td>Immediate — logged when action occurs</td><td>Navigation — logged when you switch items</td></tr>
+    <tr><td>Snapshots?</td><td>No — event log only (action + entity name)</td><td>Yes — full content snapshots</td></tr>
+    <tr><td>Restore?</td><td>No — informational only</td><td>Yes — full restore from snapshot</td></tr>
+    <tr><td>Max entries</td><td>50 per feature group</td><td>15–20 per item</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Key Difference</strong>
+    The structure log is an <strong>event log</strong>, not a snapshot system. It records <em>what happened</em> but doesn't store full copies. You can't "restore" a previous structure — but you can see exactly what changed and when.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The StructureChangeEntry Data Model</h2>
+<pre>interface StructureChangeEntry {
+  id: string;                    // UUID
+  timestamp: number;             // Date.now() when logged
+  action: StructureChangeAction; // One of 12 action types
+  entityName: string;            // Name of the changed entity
+  scenarioName?: string;         // Parent scenario (for test-level changes)
+  detail?: string;               // Additional context
+}</pre>
+
+  <h3>2.1 The 12 Action Types</h3>
+  <table>
+    <tr><th>Action</th><th>Label</th><th>Icon</th><th>CSS Class</th><th>entityName</th><th>detail</th></tr>
+    <tr><td><code>scenario-added</code></td><td>Scenario added</td><td><span class="diff-badge added">+</span></td><td><code>added</code></td><td>Scenario name</td><td>—</td></tr>
+    <tr><td><code>scenario-removed</code></td><td>Scenario removed</td><td><span class="diff-badge removed">−</span></td><td><code>removed</code></td><td>Scenario name</td><td>—</td></tr>
+    <tr><td><code>scenario-renamed</code></td><td>Scenario renamed</td><td><span class="diff-badge modified">~</span></td><td><code>modified</code></td><td>New name</td><td><code>Old → New</code></td></tr>
+    <tr><td><code>scenario-moved-in</code></td><td>Scenario moved in</td><td><span class="diff-badge added">+</span></td><td><code>added</code></td><td>Scenario name</td><td><code>from [FG name]</code></td></tr>
+    <tr><td><code>scenario-moved-out</code></td><td>Scenario moved out</td><td><span class="diff-badge removed">−</span></td><td><code>removed</code></td><td>Scenario name</td><td><code>to [FG name]</code></td></tr>
+    <tr><td><code>test-added</code></td><td>Test added</td><td><span class="diff-badge added">+</span></td><td><code>added</code></td><td>Test name</td><td>—</td></tr>
+    <tr><td><code>test-removed</code></td><td>Test removed</td><td><span class="diff-badge removed">−</span></td><td><code>removed</code></td><td>Test name</td><td>—</td></tr>
+    <tr><td><code>test-renamed</code></td><td>Test renamed</td><td><span class="diff-badge modified">~</span></td><td><code>modified</code></td><td>New name</td><td><code>Old → New</code></td></tr>
+    <tr><td><code>test-moved-in</code></td><td>Test moved in</td><td><span class="diff-badge added">+</span></td><td><code>added</code></td><td>Test name</td><td><code>from [FG name]</code></td></tr>
+    <tr><td><code>test-moved-out</code></td><td>Test moved out</td><td><span class="diff-badge removed">−</span></td><td><code>removed</code></td><td>Test name</td><td><code>to [FG name]</code></td></tr>
+    <tr><td><code>test-copied</code></td><td>Test copied</td><td><span class="diff-badge added">+</span></td><td><code>added</code></td><td>Test name</td><td>—</td></tr>
+    <tr><td><code>fg-renamed</code></td><td>Group renamed</td><td><span class="diff-badge modified">~</span></td><td><code>modified</code></td><td>New name</td><td><code>Old → New</code></td></tr>
+  </table>
+
+  <p>The visual language is consistent across RedfireForge:</p>
+  <ul>
+    <li><span class="diff-badge added">+</span> <strong>Green</strong> — something was added or moved <em>into</em> this group</li>
+    <li><span class="diff-badge removed">−</span> <strong>Red</strong> — something was removed or moved <em>out of</em> this group</li>
+    <li><span class="diff-badge modified">~</span> <strong>Amber</strong> — something was renamed</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Entries Are Created</h2>
+  <p>Unlike definition versioning (which auto-saves on navigation), structure log entries are created <strong>immediately</strong> when you perform an action. There are 12 convenience functions — one per action type:</p>
+
+<pre>// Adding a scenario
+function logScenarioAdded(fg: FeatureGroup, scenarioName: string): FeatureGroup {
+  return appendToLog(fg, createEntry('scenario-added', scenarioName));
+}
+
+// Moving a scenario between feature groups
+function logScenarioMovedIn(fg: FeatureGroup, scenarioName: string, fromFgName: string): FeatureGroup {
+  return appendToLog(fg, createEntry('scenario-moved-in', scenarioName, undefined, `from ${fromFgName}`));
+}
+
+// Renaming a test
+function logTestRenamed(fg: FeatureGroup, oldName: string, newName: string, scenarioName: string): FeatureGroup {
+  return appendToLog(fg, createEntry('test-renamed', newName, scenarioName, `${oldName} → ${newName}`));
+}</pre>
+
+  <p>Each function calls <code>appendToLog()</code> which prepends the entry and caps at 50:</p>
+<pre>function appendToLog(
+  fg: FeatureGroup,
+  entry: StructureChangeEntry,
+  maxEntries: number = MAX_LOG_ENTRIES,  // 50
+): FeatureGroup {
+  const log = [entry, ...(fg.structureLog ?? [])].slice(0, maxEntries);
+  return { ...fg, structureLog: log };
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Immutable Updates</strong>
+    Every function returns a <em>new</em> FeatureGroup object — it never mutates the original. This is essential for React state management and undo/redo compatibility.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The 50-Entry Cap</h2>
+  <p>Each feature group stores up to <strong>50</strong> structure log entries (vs. 15 for request versions, 20 for test versions, 500 for audit log).</p>
+
+<pre>const MAX_LOG_ENTRIES = 50;</pre>
+
+  <p>Why 50?</p>
+  <ul>
+    <li>Structure changes are less frequent than definition edits — 50 covers weeks of normal activity.</li>
+    <li>Entries are lightweight (no snapshots) — 50 entries use minimal memory.</li>
+    <li>FIFO eviction: oldest entry silently dropped when exceeding 50.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"User API Smoke Tests"</strong> (<code>test-user-api-smoke</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-user-api-smoke</code></td></tr>
+    <tr><td>Name</td><td>User API Smoke Tests</td></tr>
+    <tr><td>Feature Groups</td><td>1 (User API)</td></tr>
+    <tr><td>Scenarios</td><td>2–3 (varies: Get Users, Get User by ID, Search Users)</td></tr>
+    <tr><td>API</td><td><code>https://dummyjson.com/users</code></td></tr>
+    <tr><td>Tags</td><td><code>users</code>, <code>smoke</code>, <code>dummyjson</code>, <code>versioning-tutorial</code></td></tr>
+  </table>
+
+  <p>This sample provides a feature group with multiple scenarios and tests — ideal for practicing structural changes like adding, removing, moving, and renaming.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> → <strong>Tests</strong> → find <strong>"User API Smoke Tests"</strong> (<code>test-user-api-smoke</code>). Click <strong>Load Test</strong>. You should see a feature group named "User API" with 2–3 scenarios.</p>
+
+  <h3>Step 2 — Open the Structure History Panel</h3>
+  <p>Click the <strong>clock/history icon</strong> (🕒) on the feature group header bar. The <code>StructureChangeLogPanel</code> opens below the header. Initially it shows: <em>"No structure changes recorded"</em>.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Gallery imports don't create structure log entries. The log only records changes you make <em>after</em> importing.
+  </div>
+
+  <h3>Step 3 — Add a Scenario</h3>
+  <p>Click <strong>"+ Scenario"</strong> on the feature group. Name it <strong>"Delete User"</strong>. Check the Structure History panel — you should see:</p>
+  <table>
+    <tr><th>Badge</th><th>Action</th><th>Entity</th><th>Time</th></tr>
+    <tr><td><span class="diff-badge added">+</span></td><td>Scenario added</td><td>Delete User</td><td>just now</td></tr>
+  </table>
+
+  <h3>Step 4 — Add a Test to the New Scenario</h3>
+  <p>Inside "Delete User", click <strong>"+ Test"</strong>. Name it <strong>"Delete User by ID"</strong>. The structure log now shows 2 entries (newest first):</p>
+  <table>
+    <tr><th>Badge</th><th>Action</th><th>Entity</th><th>Context</th></tr>
+    <tr><td><span class="diff-badge added">+</span></td><td>Test added</td><td>Delete User by ID</td><td>in Delete User</td></tr>
+    <tr><td><span class="diff-badge added">+</span></td><td>Scenario added</td><td>Delete User</td><td>—</td></tr>
+  </table>
+
+  <p>Notice the <code>scenarioName</code> field: test-level entries show <em>"in [scenario name]"</em> so you know which scenario the test belongs to.</p>
+
+  <h3>Step 5 — Rename a Scenario</h3>
+  <p>Double-click the "Delete User" scenario name and rename it to <strong>"User Deletion"</strong>. The log now shows:</p>
+  <table>
+    <tr><th>Badge</th><th>Action</th><th>Entity</th><th>Detail</th></tr>
+    <tr><td><span class="diff-badge modified">~</span></td><td>Scenario renamed</td><td>User Deletion</td><td>Delete User → User Deletion</td></tr>
+  </table>
+
+  <p>The <code>detail</code> field shows the old → new name transition.</p>
+
+  <h3>Step 6 — Use Filters</h3>
+  <p>The toolbar has 4 filter buttons: <strong>All</strong>, <strong>Scenario</strong>, <strong>Test</strong>, <strong>Group</strong>.</p>
+  <ul>
+    <li>Click <strong>Scenario</strong> — shows only scenario-level entries (added, removed, renamed, moved).</li>
+    <li>Click <strong>Test</strong> — shows only test-level entries.</li>
+    <li>Click <strong>Group</strong> — shows only feature group rename entries.</li>
+    <li>Click <strong>All</strong> — shows everything.</li>
+  </ul>
+  <p>The footer updates to show filtered vs. total count: <em>"2 of 3 entries"</em>.</p>
+
+  <h3>Step 7 — Rename the Feature Group</h3>
+  <p>Double-click the feature group name "User API" and rename it to <strong>"User Management API"</strong>. A <code>fg-renamed</code> entry appears. Filter to <strong>Group</strong> to see it isolated.</p>
+
+  <h3>Step 8 — Move a Scenario</h3>
+  <p>If you have a second feature group, drag a scenario from "User Management API" to the other group. Two entries are created:</p>
+  <ul>
+    <li>In the <strong>source</strong> group: <span class="diff-badge removed">−</span> <em>"Scenario moved out — [name] → to [target FG]"</em></li>
+    <li>In the <strong>target</strong> group: <span class="diff-badge added">+</span> <em>"Scenario moved in — [name] → from [source FG]"</em></li>
+  </ul>
+  <p>This dual-entry design means each feature group has a complete local history — you don't need to check other groups to understand what happened.</p>
+
+  <h3>Step 9 — Delete an Entry</h3>
+  <p>Click the <strong>×</strong> button on any log entry. It's immediately removed from the list. This is useful for cleaning up noise (e.g., accidental adds followed by removes).</p>
+<pre>function deleteLogEntry(fg: FeatureGroup, entryId: string): FeatureGroup {
+  return {
+    ...fg,
+    structureLog: (fg.structureLog ?? []).filter(e => e.id !== entryId),
+  };
+}</pre>
+
+  <h3>Step 10 — Clear All Entries</h3>
+  <p>Click <strong>Clear</strong> in the toolbar. A confirmation appears: <em>"Clear all? [Yes] [No]"</em>. Click <strong>Yes</strong> to wipe the entire log. Click <strong>No</strong> to cancel.</p>
+  <p>The confirmation prevents accidental clearing — especially important since clearing is irreversible.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Where the Log Lives</h2>
+  <p>The structure log is stored directly on the <code>FeatureGroup</code> object:</p>
+<pre>interface FeatureGroup {
+  id: string;
+  name: string;
+  scenarios: TestScenario[];
+  structureLog?: StructureChangeEntry[];  // ← here
+  // ... other fields
+}</pre>
+
+  <p>This means:</p>
+  <ul>
+    <li>The log persists with the feature group — saved to IndexedDB alongside scenarios and tests.</li>
+    <li>Exporting a test suite includes the structure log (unless stripped with <code>stripStructureLog()</code>).</li>
+    <li>Each feature group has its <em>own</em> independent log — no cross-group log.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Panel UI Reference</h2>
+  <p>The <code>StructureChangeLogPanel</code> component provides:</p>
+
+  <table>
+    <tr><th>UI Element</th><th>Action</th><th>Behavior</th></tr>
+    <tr><td>Filter buttons (All/Scenario/Test/Group)</td><td>Click</td><td>Filter entries by action category</td></tr>
+    <tr><td>Clear button</td><td>Click</td><td>Shows confirmation → clears all entries</td></tr>
+    <tr><td>Entry row</td><td>—</td><td>Shows badge, action label, entity name, context, timestamp</td></tr>
+    <tr><td>× button (per entry)</td><td>Click</td><td>Deletes that single entry</td></tr>
+    <tr><td>Footer count</td><td>—</td><td>Shows filtered/total entry count</td></tr>
+  </table>
+
+  <p>Timestamps use relative format (<em>"just now"</em>, <em>"5m ago"</em>, <em>"2h ago"</em>, <em>"3d ago"</em>) for recent entries, switching to absolute (<em>"May 1, 2:30 PM"</em>) after 7 days.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. API Reference</h2>
+  <p>All functions live in <code>src/features/scenarios/utils/structureChangeLog.ts</code> (~152 lines):</p>
+
+  <table>
+    <tr><th>Function</th><th>Purpose</th></tr>
+    <tr><td><code>createEntry(action, entityName, scenarioName?, detail?)</code></td><td>Create a log entry with UUID + timestamp</td></tr>
+    <tr><td><code>appendToLog(fg, entry, maxEntries?)</code></td><td>Prepend entry + cap at 50</td></tr>
+    <tr><td><code>logScenarioAdded(fg, name)</code></td><td>Log scenario addition</td></tr>
+    <tr><td><code>logScenarioRemoved(fg, name)</code></td><td>Log scenario removal</td></tr>
+    <tr><td><code>logScenarioRenamed(fg, old, new)</code></td><td>Log scenario rename</td></tr>
+    <tr><td><code>logScenarioMovedIn(fg, name, fromFg)</code></td><td>Log scenario moved into this group</td></tr>
+    <tr><td><code>logScenarioMovedOut(fg, name, toFg)</code></td><td>Log scenario moved out of this group</td></tr>
+    <tr><td><code>logTestAdded(fg, name, scenario)</code></td><td>Log test addition</td></tr>
+    <tr><td><code>logTestRemoved(fg, name, scenario)</code></td><td>Log test removal</td></tr>
+    <tr><td><code>logTestRenamed(fg, old, new, scenario)</code></td><td>Log test rename</td></tr>
+    <tr><td><code>logTestMovedIn(fg, name, scenario, fromFg)</code></td><td>Log test moved in</td></tr>
+    <tr><td><code>logTestMovedOut(fg, name, scenario, toFg)</code></td><td>Log test moved out</td></tr>
+    <tr><td><code>logTestCopied(fg, name, scenario)</code></td><td>Log test copy</td></tr>
+    <tr><td><code>logFgRenamed(fg, old, new)</code></td><td>Log feature group rename</td></tr>
+    <tr><td><code>deleteLogEntry(fg, entryId)</code></td><td>Remove one entry</td></tr>
+    <tr><td><code>clearLog(fg)</code></td><td>Remove all entries</td></tr>
+    <tr><td><code>countLogEntries(fg)</code></td><td>Count entries</td></tr>
+    <tr><td><code>stripStructureLog(fg)</code></td><td>Remove log for export</td></tr>
+    <tr><td><code>hasStructureLog(fg)</code></td><td>Boolean check for badge</td></tr>
+    <tr><td><code>actionLabel(action)</code></td><td>Human-readable label</td></tr>
+    <tr><td><code>actionIcon(action)</code></td><td>Badge character (+, −, ~)</td></tr>
+    <tr><td><code>actionClass(action)</code></td><td>CSS class (added, removed, modified)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a Change History</h3>
+  <p>Import "User API Smoke Tests" from the Gallery. Perform these actions:</p>
+  <ol>
+    <li>Add a scenario "Error Handling".</li>
+    <li>Add a test "404 Not Found" inside "Error Handling".</li>
+    <li>Rename "Error Handling" to "Edge Cases".</li>
+    <li>Remove the test "404 Not Found".</li>
+  </ol>
+  <p>Verify: 4 entries in the Structure History. Use filters to isolate scenario vs. test entries.</p>
+
+  <h3>Exercise 2 — Cross-Group Moves</h3>
+  <p>Create a second feature group "Auth API". Drag a scenario from "User API" to "Auth API". Open the Structure History in <em>both</em> groups. Verify that the source shows "moved out" and the target shows "moved in" with the correct group names in the detail field.</p>
+
+  <h3>Exercise 3 — Cap & Clear</h3>
+  <p>Rapidly add and remove scenarios to generate 10+ entries. Delete individual entries using the × button. Then use Clear to wipe the log. Verify the confirmation dialog works correctly.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The structure log is especially valuable in team workflows. When you import a shared test suite and notice structural changes, the log tells you exactly what your teammates modified — even without Git history.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="feature-group-history-medium.html">feature-group-history-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Structure comparison, export/import with logs, advanced filtering</td>
+    </tr>
+    <tr>
+      <td><a href="environment-audit-log-easy.html">environment-audit-log-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Environment audit log — similar event-based tracking for catalog entities</td>
+    </tr>
+    <tr>
+      <td><a href="../request/request-definition-history-easy.html">request-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Request definition versioning — snapshot-based (contrast with event log)</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Feature Group History (Easy) · May 2026
+  </footer>
+
+</body>
+</html>

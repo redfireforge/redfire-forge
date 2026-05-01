@@ -2,11 +2,11 @@
 
 ## Current Status
 - Overall Coverage: >90% lines ✅ (target met)
-- Tests: 247 test files, 5487 tests passing ✅
-- E2E Tests: 264 tests passing (2 skipped) ✅
-- Branch: `feature/workflow-version-history` (merging to `develop`)
-- Version: 0.5.5-beta.2
-- Last updated: 2026-05-01
+- Tests: 257 test files, 5717 tests passing ✅
+- E2E Tests: 372 tests passing (0 skipped) ✅
+- Branch: `feature/versioning-training-manual` → merged to `develop` and `release/0.5.6`
+- Version: 0.5.6-beta.1
+- Last updated: 2026-05-02
 
 ## Completed ✅
 
@@ -14,7 +14,7 @@
 All coverage targets met after adding 192 new unit tests across 7 files.
 
 ### 2. Monolithic Components Refactored ✅
-- **WorkflowDesigner.tsx**: 1432 → 949 lines (6 hooks + useWorkflowResolvers extracted)
+- **WorkflowDesigner.tsx**: 1432 → 895 lines (8 hooks + 2 utility modules extracted)
 - **App.tsx**: 913 → 884 lines (useTheme + useWorkflowImportExport hooks extracted)
 - **ScenarioBuilder.tsx**: 984 → 702 lines (useScenarioMutations hook extracted)
 - **expressionFunctions.ts**: 957 → 9 modules

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parallel Execution (Fork/Join) — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔱</div>
+    <h1>Parallel Execution (Fork/Join)</h1>
+    <div class="subtitle">Medium — Workflow Patterns Training Manual</div>
+    <p>Split workflow execution into parallel branches with Fork, wait for all branches to complete with Join, and aggregate results. Learn thread IDs, join barriers, waiting state display, and result collection patterns.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Workflow Patterns<br />
+      Gallery Sample: <code>sample-workflow-deploy-orchestrator</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is Fork/Join?</h2>
+  <p>The <strong>Fork/Join</strong> pattern splits execution into multiple branches that run <strong>simultaneously</strong>, then waits at a barrier until all branches have completed. This is essential for workflows that need to make parallel API calls — like checking health across multiple services or deploying to multiple regions at once.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Multi-Region Health Check — Parallel Pings"</em></p>
+  <p>You need to verify that your API is healthy across 3 regions (US, EU, APAC). Instead of checking them one-by-one (3× slower), you fork into 3 parallel requests and join when all have responded.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>Fork</strong>
+    <br /><br />
+    &nbsp;&nbsp;&nbsp;├<span class="arrow">→</span> <strong>GET /health (US)</strong> ─┐
+    <br />
+    &nbsp;&nbsp;&nbsp;├<span class="arrow">→</span> <strong>GET /health (EU)</strong> ─┤<span class="arrow">→</span> <strong>Join</strong> <span class="arrow">→</span> <strong>Aggregate</strong> <span class="arrow">→</span> <strong>End</strong>
+    <br />
+    &nbsp;&nbsp;&nbsp;└<span class="arrow">→</span> <strong>GET /health (APAC)</strong>┘
+  </div>
+
+  <h3>Key Concepts</h3>
+  <ul>
+    <li><strong>Fork</strong> — Splits execution into parallel branches. Each branch gets a unique <code>threadId</code>.</li>
+    <li><strong>Join</strong> — Barrier node that waits until all incoming branches have arrived before proceeding.</li>
+    <li><strong>Thread IDs</strong> — Each fork branch is identified by a unique ID for tracking and debugging.</li>
+    <li><strong>Waiting state</strong> — The Join node displays <code>"waiting (2/3)"</code> as branches arrive.</li>
+  </ul>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Completed: Phase 1 manuals and Condition/Switch manuals</li>
+    <li>Comfortable with HTTP nodes, variable extraction, and console log analysis</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Fork and Join Node Data Models</h2>
+
+<pre>interface ForkNodeData {
+  label: string;
+}
+
+interface JoinNodeData {
+  label: string;
+}</pre>
+
+  <p>Both nodes are structurally simple — they have only a <code>label</code>. Their behavior comes entirely from the edge topology and the engine's handling of parallel execution.</p>
+
+  <h3>Fork Behavior</h3>
+  <p>The <code>handleForkNode</code> handler:</p>
+  <ol>
+    <li>Finds all outgoing edges from the Fork node.</li>
+    <li>Runs all target nodes <strong>in parallel</strong> using <code>Promise.all()</code>.</li>
+    <li>Each branch receives a unique <code>threadId</code> (e.g., <code>"fork-abc-0"</code>, <code>"fork-abc-1"</code>, <code>"fork-abc-2"</code>).</li>
+  </ol>
+
+<pre>// handleForkNode — simplified
+async function handleForkNode(nodeId, data, context) {
+  const outEdges = context.outgoing.get(nodeId) || [];
+  // Run ALL branches in parallel
+  await Promise.all(
+    outEdges.map((edge, i) =&gt;
+      context.visit(edge.target, `${context.threadId}-fork-${i}`)
+    )
+  );
+}</pre>
+
+  <h3>Join Behavior</h3>
+  <p>The <code>handleJoinNode</code> uses a <strong>barrier counter</strong>:</p>
+  <ol>
+    <li>Each time a branch arrives, increment <code>joinArrived.get(nodeId)</code>.</li>
+    <li>Compare against <code>incomingCount.get(nodeId)</code> — the total number of incoming edges.</li>
+    <li>If <code>arrived < expected</code>, display waiting state and return (don't proceed yet).</li>
+    <li>When <code>arrived === expected</code>, all branches have joined — proceed to outgoing edges.</li>
+  </ol>
+
+<pre>// Join barrier logic — simplified
+const arrived = joinArrived.get(nodeId) + 1;
+joinArrived.set(nodeId, arrived);
+const expected = incomingCount.get(nodeId);
+
+if (arrived &lt; expected) {
+  callbacks.onNodeStateChange(nodeId, 'running');
+  log(`* [${label}] waiting (${arrived}/${expected})`);
+  return; // Wait for more branches
+}
+
+// All branches arrived!
+log(`* [${label}] All branches joined`);
+visitOutgoing(nodeId); // Continue workflow</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Thread IDs and Parallel Tracking</h2>
+  <p>When a Fork splits execution, each branch gets a unique <code>threadId</code>. This allows the engine to track which branch is executing which node — critical for debugging and console log analysis.</p>
+
+  <table>
+    <tr><th>Branch</th><th>Thread ID</th><th>Nodes Visited</th></tr>
+    <tr><td>Branch 0</td><td><code>main-fork-0</code></td><td>HTTP "US Health" → (arrives at Join)</td></tr>
+    <tr><td>Branch 1</td><td><code>main-fork-1</code></td><td>HTTP "EU Health" → (arrives at Join)</td></tr>
+    <tr><td>Branch 2</td><td><code>main-fork-2</code></td><td>HTTP "APAC Health" → (arrives at Join)</td></tr>
+  </table>
+
+  <h3>Console Log with Thread IDs</h3>
+<pre>* [Fork] splitting into 3 parallel branches
+
+// Branch 0
+&gt; [thread:main-fork-0] GET https://us.api.example.com/health
+&lt; [thread:main-fork-0] 200 OK (89ms)
+
+// Branch 1
+&gt; [thread:main-fork-1] GET https://eu.api.example.com/health
+&lt; [thread:main-fork-1] 200 OK (142ms)
+
+// Branch 2
+&gt; [thread:main-fork-2] GET https://apac.api.example.com/health
+
+// Join waiting states
+* [Join] waiting (1/3) — branch 0 arrived
+* [Join] waiting (2/3) — branch 1 arrived
+
+&lt; [thread:main-fork-2] 200 OK (203ms)
+* [Join] All branches joined (3/3)</pre>
+
+  <div class="callout">
+    <strong>📘 Parallel ≠ Concurrent</strong>
+    "Parallel" in this context means all branches are initiated simultaneously via <code>Promise.all()</code>. The actual concurrency depends on the JavaScript event loop. HTTP requests will run truly concurrently (async I/O), but CPU-bound operations will interleave.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Join Waiting State Display</h2>
+  <p>While the Join node is waiting for branches, the canvas shows a real-time counter:</p>
+
+  <table>
+    <tr><th>State</th><th>Display</th><th>Visual</th></tr>
+    <tr><td>No branches arrived</td><td><code>waiting (0/3)</code></td><td>Dimmed, pending</td></tr>
+    <tr><td>1 of 3 arrived</td><td><code>waiting (1/3)</code></td><td>Blue pulse, running</td></tr>
+    <tr><td>2 of 3 arrived</td><td><code>waiting (2/3)</code></td><td>Blue pulse, running</td></tr>
+    <tr><td>All arrived</td><td><code>All branches joined</code></td><td>Green border, pass</td></tr>
+  </table>
+
+  <h3>What Happens If a Branch Fails?</h3>
+  <p>If one branch's HTTP node fails, the branch still "arrives" at the Join node. The Join will eventually proceed once all branches have arrived — but the overall <code>allPassed</code> flag will be <code>false</code>. You can use a Condition node after the Join to check results and handle failures.</p>
+
+  <h3>Interaction with Condition/Switch Branches</h3>
+  <p>If a condition node <em>before</em> the Join skips one of the fork branches, <code>markSubtreeSkipped()</code> decrements the Join's <code>incomingCount</code>. This means the Join doesn't wait forever for a skipped branch — it adjusts its expected count.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: The Gallery Sample</h2>
+  <p>The <code>sample-workflow-deploy-orchestrator</code> demonstrates a real-world Fork/Join pattern for multi-region deployment.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>Validate Version</strong>
+    <span class="arrow">→</span>
+    <strong>Fork</strong>
+    <br /><br />
+    &nbsp;&nbsp;&nbsp;├<span class="arrow">→</span> <strong>Smoke Test</strong> ──┐
+    <br />
+    &nbsp;&nbsp;&nbsp;└<span class="arrow">→</span> <strong>Feature Flags</strong>─┤<span class="arrow">→</span> <strong>Join</strong>
+    <span class="arrow">→</span>
+    <strong>Deploy (multi-instance)</strong>
+    <span class="arrow">→</span>
+    <strong>Success?</strong>
+  </div>
+
+  <h3>What This Workflow Does</h3>
+  <ol>
+    <li><strong>Start</strong> — Sets <code>version</code>, <code>regions</code> (JSON array), <code>rollbackWorkflowId</code>, <code>successThreshold</code>.</li>
+    <li><strong>Validate Version</strong> — HTTP call to verify the build artifact exists.</li>
+    <li><strong>Fork</strong> — Splits into 2 parallel pre-checks: smoke test and feature flag validation.</li>
+    <li><strong>Join</strong> — Waits for both pre-checks to complete.</li>
+    <li><strong>Deploy</strong> — Sub-workflow with multi-instance mode: deploys to each region in the <code>regions</code> array in parallel.</li>
+    <li><strong>Condition</strong> — Checks if enough regions succeeded (above <code>successThreshold</code>). If not, triggers a rollback sub-workflow.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Load the Sample</strong>
+    Gallery sidebar → Workflow Samples → "Multi-Region Deploy Orchestrator" → Load Preview. Examine the Fork/Join topology and the Join node's waiting state during execution.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Building a Fork/Join Workflow</h2>
+  <p>Build a parallel health check workflow that pings 3 different API endpoints simultaneously.</p>
+
+  <h3>Step 1: Create the Workflow</h3>
+  <ol>
+    <li>New workflow: <strong>"Parallel Health Check"</strong>.</li>
+    <li>Add Start → Fork → 3 HTTP nodes → Join → LogDebug → End.</li>
+  </ol>
+
+  <h3>Step 2: Add the Fork Node</h3>
+  <ul>
+    <li>Label: <code>Fork: Check All Services</code></li>
+    <li>Connect 3 outgoing edges to 3 different HTTP nodes.</li>
+  </ul>
+
+  <h3>Step 3: Configure 3 HTTP Nodes</h3>
+  <table>
+    <tr><th>Node</th><th>URL</th><th>Extract</th></tr>
+    <tr><td>Check Users</td><td><code>https://jsonplaceholder.typicode.com/users/1</code></td><td><code>usersStatus</code> ← <code>httpStatus</code></td></tr>
+    <tr><td>Check Posts</td><td><code>https://jsonplaceholder.typicode.com/posts/1</code></td><td><code>postsStatus</code> ← <code>httpStatus</code></td></tr>
+    <tr><td>Check Comments</td><td><code>https://jsonplaceholder.typicode.com/comments/1</code></td><td><code>commentsStatus</code> ← <code>httpStatus</code></td></tr>
+  </table>
+
+  <h3>Step 4: Add the Join Node</h3>
+  <ul>
+    <li>Label: <code>Join: Wait for All</code></li>
+    <li>Connect all 3 HTTP nodes' output edges to this Join node.</li>
+  </ul>
+
+  <h3>Step 5: Add a LogDebug After Join</h3>
+  <ul>
+    <li>Message: <code>All checks complete! Users: {{usersStatus}}, Posts: {{postsStatus}}, Comments: {{commentsStatus}}</code></li>
+    <li>Enable Snapshot Variables.</li>
+  </ul>
+
+  <h3>Step 6: Run and Observe</h3>
+  <ol>
+    <li>Click <strong>Run</strong>.</li>
+    <li>Watch all 3 HTTP nodes pulse blue simultaneously.</li>
+    <li>Watch the Join node show <code>waiting (1/3)</code>, <code>waiting (2/3)</code>, then <code>All branches joined</code>.</li>
+    <li>Total execution time should be approximately equal to the <strong>slowest</strong> branch, not the sum of all three.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Variable Sharing Across Branches</h2>
+  <p>All fork branches share the same <code>VariableContext</code>. This means:</p>
+
+  <ul>
+    <li>Variables extracted in one branch are visible to the Join node and all subsequent nodes.</li>
+    <li>If two branches set the same variable name, the <strong>last one to complete</strong> wins (race condition).</li>
+    <li>Use <strong>unique variable names</strong> per branch to avoid conflicts (e.g., <code>usersStatus</code> vs. <code>postsStatus</code>).</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Avoid Variable Name Conflicts</strong>
+    Since branches run in parallel and share the same variable context, never use the same extraction variable name in multiple branches. Use descriptive, branch-specific names like <code>userResponse</code>, <code>postResponse</code>, <code>commentResponse</code>.
+  </div>
+
+  <h3>Aggregating Results After Join</h3>
+  <p>After the Join node, use a SetVariable or LogDebug node to combine results from all branches:</p>
+<pre>// SetVariable after Join
+assignments: [
+  {
+    name: "healthReport",
+    expression: "Users: {{usersStatus}}, Posts: {{postsStatus}}, Comments: {{commentsStatus}}"
+  },
+  {
+    name: "allHealthy",
+    expression: "{{$if({{usersStatus}} == 200 && {{postsStatus}} == 200 && {{commentsStatus}} == 200, true, false)}}"
+  }
+]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Fork into 3 Parallel HTTP Requests</h3>
+  <p><strong>Goal:</strong> Build a fork/join that sends 3 requests simultaneously to different endpoints.</p>
+  <ol>
+    <li>Create a workflow: Start → Fork → 3 HTTP GETs → Join → End.</li>
+    <li>Use JSONPlaceholder endpoints: <code>/users/1</code>, <code>/posts/1</code>, <code>/todos/1</code>.</li>
+    <li>Extract a unique variable from each branch.</li>
+    <li>Run and verify all 3 nodes execute in parallel (check console timestamps).</li>
+  </ol>
+
+  <h3>Exercise 2: Observe Join Waiting Behavior</h3>
+  <p><strong>Goal:</strong> See the join barrier in action with different response times.</p>
+  <ol>
+    <li>Extend Exercise 1 — add a Delay node (2000ms) on one branch before its HTTP call.</li>
+    <li>Run and watch the Join show <code>waiting (1/3)</code> and <code>waiting (2/3)</code> while the delayed branch is still running.</li>
+    <li>Verify total execution time is ~2 seconds (dominated by the slowest branch).</li>
+  </ol>
+
+  <h3>Exercise 3: Aggregate Results After Join</h3>
+  <p><strong>Goal:</strong> Use SetVariable after Join to combine branch results.</p>
+  <ol>
+    <li>After the Join, add a SetVariable node with:
+      <ul>
+        <li><code>report</code> = <code>Users: {{userStatus}}, Posts: {{postStatus}}, Todos: {{todoStatus}}</code></li>
+      </ul>
+    </li>
+    <li>Add a LogDebug node: <code>Health Report: {{report}}</code>, enable Snapshot Variables.</li>
+    <li>Run and verify the aggregated report contains all 3 status values.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>ForkNodeData</code>, <code>JoinNodeData</code> interfaces</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td><code>handleForkNode</code> (Promise.all parallel), <code>handleJoinNode</code> (barrier counter)</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunner.ts</code></td><td><code>joinArrived</code> / <code>incomingCount</code> Maps for barrier tracking</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerHelpers.ts</code></td><td><code>markSubtreeSkipped</code> — decrements Join expected count for skipped branches</td></tr>
+    <tr><td><code>src/data/galleries/workflows/orchestration.ts</code></td><td>Gallery sample: <code>sample-workflow-deploy-orchestrator</code></td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next phase:</strong> <em>Phase 3 — Loops, Aggregation, and Error Handling</em> (coming soon)</li>
+    <li><strong>Previous:</strong> <em>Switch Multi-Way Routing</em> — Multi-way branching with Switch nodes.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 2 · Parallel Execution (Fork/Join) · Medium
+  </footer>
+
+</body>
+</html>

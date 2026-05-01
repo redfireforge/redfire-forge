@@ -44,11 +44,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 4966 unit/integration tests (Vitest) + 270+ E2E tests (Playwright) = 5236+ total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 5717 unit/integration tests (Vitest, 257 files) + 372 E2E tests (Playwright) = 6089 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 25 focused modules; largest file now ~1100 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 27 focused modules; largest file now ~895 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ### Load Testing Maturity Levels
@@ -156,7 +156,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Styled Data Sheet** — Request/Response category headers with color-coded columns (blue for request, green for validation)
 - [x] **Styled Metadata Sheet** — Formatted COLUMN MAPPINGS, CONFIG, HEADERS sections with bold headings and table layout
 - [x] **Excel Template Import** — Parse `.xlsx` with file-level and row-level validation, dynamic column detection for user-added fields
-- [x] **All Validation Modes** — Full support for none, full JSON match, and selective fields through export/import round-trip
+- [x] **All Validation Modes** — Full support for no body validation, full JSON match, and selective fields through export/import round-trip
 - [x] **Response Error Display** — Clickable error snippets on failed result rows; Response Detail modal with error message, validation failures table, and full response body
 - [x] **HTTP Error Message Extraction** — Executor parses `message`/`error`/`detail` from 4xx/5xx response bodies
 - [x] **Detail Header Row** — Column headers shown when expanding grouped results to individual test rows

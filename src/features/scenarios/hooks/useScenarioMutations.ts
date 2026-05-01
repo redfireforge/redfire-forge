@@ -4,6 +4,7 @@ import type { Scenario, TestScenario, FeatureGroup, AuthConfig } from '../../../
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
+import { toggleSetItem } from '../../../shared/utils/setToggle';
 import {
   logScenarioAdded, logScenarioRemoved, logScenarioRenamed,
   logTestAdded, logTestRemoved, logTestCopied, logFgRenamed,
@@ -216,6 +217,14 @@ export function useScenarioMutations({
     const { featureId, scenarioId, testId } = editingTest;
 
     let finalDraft = draft;
+
+    // Auto-switch: if "Full JSON Match" is selected but no expected JSON is provided,
+    // silently downgrade to 'none' to avoid a no-op validation mode
+    if (finalDraft.validation.mode === 'full' && !finalDraft.validation.expectedJson?.trim()) {
+      finalDraft = { ...finalDraft, validation: { ...finalDraft.validation, mode: 'none' } };
+      setDraft(finalDraft);
+    }
+
     if (testId !== 'new') {
       const newVersions = autoSaveVersion(draft);
       if (newVersions) {
@@ -334,11 +343,11 @@ export function useScenarioMutations({
   // ── Toggle helpers ──
 
   const toggleFeature = (id: string) => {
-    setExpandedFeatures((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    toggleSetItem(setExpandedFeatures, id);
   };
 
   const toggleScenario = (id: string) => {
-    setExpandedScenarios((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    toggleSetItem(setExpandedScenarios, id);
   };
 
   return {
