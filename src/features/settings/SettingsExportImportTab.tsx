@@ -87,7 +87,7 @@ export default function SettingsExportImportTab({ environments, microservices, f
       if (maskSecrets) {
         profiles = profiles.map(p => ({
           ...p,
-          auth: { ...p.auth, clientSecret: p.auth.type === 'oauth2' ? '***masked***' : (p.auth as Record<string, unknown>).clientSecret } as typeof p.auth,
+          auth: { ...p.auth, clientSecret: p.auth.type === 'oauth2' ? '***masked***' : (p.auth as unknown as Record<string, unknown>).clientSecret } as typeof p.auth,
         }));
       }
       data.appGlobalAuthProfiles = profiles;
