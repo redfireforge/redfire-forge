@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthConfig, KeyValue, GlobalAuthProfile, FailureDetail, ResponseVersion, RulesVersion } from '../../../shared/types';
+import type { Scenario, FeatureGroup, AuthConfig, KeyValue, GlobalAuthProfile, FailureDetail } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import {
