@@ -405,6 +405,21 @@ export interface WorkflowEdge {
   label?: string;
 }
 
+// ── Workflow Version History ─────────────────────────
+
+export interface WorkflowVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  fingerprint: string;
+  nodeCount: number;
+  edgeCount: number;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  variables: Record<string, string>;
+  services?: WorkflowService[];
+}
+
 // ── Saved workflow ───────────────────────────────────
 
 export interface Workflow {
@@ -424,6 +439,10 @@ export interface Workflow {
   authProfiles?: WorkflowAuthProfile[];
   /** Workflow-level error handling configuration. */
   errorConfig?: WorkflowErrorConfig;
+  /** Saved version history snapshots. */
+  versions?: WorkflowVersion[];
+  /** Last environment selected when this workflow was active. */
+  lastSelectedEnvId?: string;
   createdAt: number;
   updatedAt: number;
 }

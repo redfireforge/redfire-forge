@@ -21,6 +21,8 @@ interface Props {
   serviceCount?: number;
   /** Number of workflow-level default variables. */
   variableCount?: number;
+  /** Number of saved version snapshots. */
+  versionCount?: number;
   environments?: Environment[];
   selectedEnvId?: string;
   onEnvSelect?: (id: string) => void;
@@ -34,14 +36,15 @@ interface Props {
   isDebugMode?: boolean;
   onOpenServices?: () => void;
   onOpenDefaults?: () => void;
+  onOpenVersions?: () => void;
   runProgress?: RunProgress | null;
   onReset?: () => void;
 }
 
 export default function WorkflowToolbar({
-  workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0,
+  workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0, versionCount = 0,
   environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [], isPreview = false,
-  onNew, onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults,
+  onNew, onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults, onOpenVersions,
   runProgress = null, onReset,
 }: Props) {
   const envReadinessMap = useMemo(
@@ -104,6 +107,17 @@ export default function WorkflowToolbar({
               <svg className="wf-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Workflow Variables
               {variableCount > 0 && <span className="wf-toolbar-services-badge">{variableCount}</span>}
+            </button>
+
+            <button
+              className="btn btn-sm wf-toolbar-btn wf-toolbar-versions-btn"
+              onClick={onOpenVersions}
+              disabled={isRunning}
+              title="View and manage workflow version history"
+            >
+              <svg className="wf-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Versions
+              {versionCount > 0 && <span className="wf-toolbar-services-badge">{versionCount}</span>}
             </button>
 
             {!isPreview && (

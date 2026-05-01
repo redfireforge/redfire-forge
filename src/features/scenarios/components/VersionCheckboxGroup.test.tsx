@@ -6,36 +6,46 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import VersionCheckboxGroup from './VersionCheckboxGroup';
 
 describe('VersionCheckboxGroup', () => {
-  const counts = { responseVersionCount: 5, rulesVersionCount: 3 };
+  const counts = { responseVersionCount: 5, rulesVersionCount: 3, definitionVersionCount: 2 };
 
   it('renders both checkboxes with counts', () => {
     const onChange = vi.fn();
-    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true }} onChange={onChange} />);
+    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true, definitionVersions: true }} onChange={onChange} />);
     expect(screen.getByText('Response Versions')).toBeTruthy();
     expect(screen.getByText('Rules Versions')).toBeTruthy();
+    expect(screen.getByText('Definition Versions')).toBeTruthy();
     expect(screen.getByText('(5)')).toBeTruthy();
     expect(screen.getByText('(3)')).toBeTruthy();
+    expect(screen.getByText('(2)')).toBeTruthy();
   });
 
   it('reflects checked state', () => {
     const onChange = vi.fn();
-    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: false, rulesVersions: true }} onChange={onChange} />);
+    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: false, rulesVersions: true, definitionVersions: true }} onChange={onChange} />);
     const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
     expect(checkboxes[0].checked).toBe(false);
     expect(checkboxes[1].checked).toBe(true);
+    expect(checkboxes[2].checked).toBe(true);
   });
 
   it('calls onChange when response checkbox toggled', () => {
     const onChange = vi.fn();
-    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true }} onChange={onChange} />);
+    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true, definitionVersions: true }} onChange={onChange} />);
     fireEvent.click(screen.getAllByRole('checkbox')[0]);
-    expect(onChange).toHaveBeenCalledWith({ responseVersions: false, rulesVersions: true });
+    expect(onChange).toHaveBeenCalledWith({ responseVersions: false, rulesVersions: true, definitionVersions: true });
   });
 
   it('calls onChange when rules checkbox toggled', () => {
     const onChange = vi.fn();
-    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true }} onChange={onChange} />);
+    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true, definitionVersions: true }} onChange={onChange} />);
     fireEvent.click(screen.getAllByRole('checkbox')[1]);
-    expect(onChange).toHaveBeenCalledWith({ responseVersions: true, rulesVersions: false });
+    expect(onChange).toHaveBeenCalledWith({ responseVersions: true, rulesVersions: false, definitionVersions: true });
+  });
+
+  it('calls onChange when definition checkbox toggled', () => {
+    const onChange = vi.fn();
+    render(<VersionCheckboxGroup counts={counts} values={{ responseVersions: true, rulesVersions: true, definitionVersions: true }} onChange={onChange} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[2]);
+    expect(onChange).toHaveBeenCalledWith({ responseVersions: true, rulesVersions: true, definitionVersions: false });
   });
 });

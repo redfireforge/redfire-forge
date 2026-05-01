@@ -9,6 +9,7 @@ import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomi
 import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
 import { saveFile } from '../shared/utils/fileSaver';
 import { mergeById } from '../shared/utils/helpers';
+import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
@@ -29,7 +30,7 @@ import type { SendToRequestsPayload } from '../features/catalog/components/Catal
 
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
-import SettingsModal from '../features/settings/SettingsModal';
+import SettingsPage from '../features/settings/SettingsModal';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -45,9 +46,10 @@ import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayou
 import type { Workflow } from '../features/workflow/types/workflow';
 import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../features/requests/components/SubCollectionModal';
+import { useToast } from '../shared/hooks/useToast';
 import '../styles/index.css';
 
-type Tab = 'environments' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
 
 type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
@@ -59,7 +61,7 @@ const GALLERY_TABS = new Set<Tab>(['gallery']);
 const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
 const API_TABS = new Set<Tab>(['requests', 'catalog']);
 const isApiTab = (t: Tab) => API_TABS.has(t);
-const SETTINGS_TABS = new Set<Tab>(['environments']);
+const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences']);
 const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
 /** Derive the active domain from the current tab. */
@@ -71,7 +73,7 @@ function domainOf(tab: Tab): Domain {
   return 'settings'; // environments
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -123,12 +125,15 @@ export default function App() {
   const catalog = useCatalog();
   const wfHook = useWorkflows();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
+  const toast = useToast();
+  const { handleWorkflowExport, handleWorkflowImport } = useWorkflowImportExport({
+    wfHook, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
+  });
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  const [showSettings, setShowSettings] = useState(false);
 
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
@@ -213,6 +218,7 @@ export default function App() {
   }, [loading, environments, microservices, setMicroservices]);
 
   // ---- Derived view state ----
+
   const selectedEnv = environments.find((e) => e.id === selectedEnvId);
   const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
   const resolvedBaseUrl = selectedEnv && selectedSvc ? (selectedSvc.baseUrls[selectedEnv.id] ?? '') : '';
@@ -470,7 +476,7 @@ export default function App() {
       </nav>
 
       {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && !showSettings && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
       <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
 
         <div className="usb-content">
@@ -550,6 +556,8 @@ export default function App() {
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
+              onExport={handleWorkflowExport}
+              onImport={handleWorkflowImport}
             />
           )}
           {isHarnessTab(activeTab) && (
@@ -565,17 +573,17 @@ export default function App() {
           )}
         </div>
 
-        <button className="usb-settings-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
+        <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
       </aside>
       )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && !showSettings && (
+      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
         <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
       )}
       <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || showSettings ? 'collapsed' : ''}`}
+        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? 'collapsed' : ''}`}
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || showSettings ? { display: 'none' } : undefined}
+        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' ? { display: 'none' } : undefined}
       >
         {sidebarCollapsed ? '▶' : '◀'}
       </button>
@@ -609,7 +617,7 @@ export default function App() {
             {domainOf(activeTab) === 'settings' && (
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'environments' ? 'active' : ''}`} onClick={() => setActiveTab('environments')}>Environments</button>
-                <button className="sub-nav-tab" onClick={() => setShowSettings(true)}>Preferences</button>
+                <button className={`sub-nav-tab ${activeTab === 'preferences' ? 'active' : ''}`} onClick={() => setActiveTab('preferences')}>Preferences</button>
               </div>
             )}
           </div>
@@ -677,6 +685,18 @@ export default function App() {
               microservices={microservices}
               setMicroservices={setMicroservices}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
+              confirm={confirm}
+            />
+          )}
+
+          {activeTab === 'preferences' && (
+            <SettingsPage
+              appGlobalAuthProfiles={appGlobalAuthProfiles}
+              setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+              environments={environments}
+              microservices={microservices}
+              featureGroups={featureGroups}
+              onImport={handleImportData}
               confirm={confirm}
             />
           )}
@@ -816,18 +836,6 @@ export default function App() {
             );
           })()}
 
-          {showSettings && (
-            <SettingsModal
-              appGlobalAuthProfiles={appGlobalAuthProfiles}
-              setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-              environments={environments}
-              microservices={microservices}
-              featureGroups={featureGroups}
-              onClose={() => setShowSettings(false)}
-              onImport={handleImportData}
-              confirm={confirm}
-            />
-          )}
         </main>
       </div>
 

@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
 import type { TestRun, RequestResult } from '../../shared/types';
 import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
@@ -7,6 +6,9 @@ import { loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
 import { exportJson, exportCsv } from '../../shared/utils/export';
 import { buildGroups, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
+import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
+import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
+import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
 
 interface Props {
   envName?: string;
@@ -15,9 +17,13 @@ interface Props {
 
 export default function ResultsDashboard({ envName, svcName }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
+  const [baselines, setBaselines] = useState<BaselineMark[]>([]);
+  const [compareBaselineId, setCompareBaselineId] = useState<string>('');
+  const [showTrend, setShowTrend] = useState(false);
 
   useEffect(() => {
     loadTestRuns().then(setAllRuns);
+    loadBaselines().then(setBaselines);
   }, []);
 
   const runs = useMemo(() => {
@@ -65,24 +71,24 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   const refreshRuns = async () => {
     const fresh = await loadTestRuns();
     setAllRuns(fresh);
+    const bl = await loadBaselines();
+    setBaselines(bl);
   };
 
-  const histogramData = useMemo(() => {
-    if (!selectedRun) return [];
-    const times = selectedRun.results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
-    if (times.length === 0) return [];
-    const min = times[0];
-    const max = times[times.length - 1];
-    const bucketSize = Math.max((max - min) / 10, 1);
-    const buckets: { range: string; count: number }[] = [];
-    for (let i = 0; i < 10; i++) {
-      const lo = min + i * bucketSize;
-      const hi = lo + bucketSize;
-      const count = times.filter((t) => t >= lo && (i === 9 ? t <= hi : t < hi)).length;
-      buckets.push({ range: `${Math.round(lo)}-${Math.round(hi)}ms`, count });
+  const toggleBaseline = useCallback(async (runId: string) => {
+    if (isBaseline(baselines, runId)) {
+      const next = await unmarkBaseline(runId);
+      setBaselines(next);
+    } else {
+      const next = await markAsBaseline(runId);
+      setBaselines(next);
     }
-    return buckets;
-  }, [selectedRun]);
+  }, [baselines]);
+
+  const baselineRun = useMemo(() => {
+    if (!compareBaselineId) return null;
+    return runs.find((r) => r.id === compareBaselineId) ?? null;
+  }, [runs, compareBaselineId]);
 
   const filteredResults: RequestResult[] = useMemo(() => {
     if (!selectedRun) return [];
@@ -300,7 +306,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
         </div>
         <select className="results-run-select" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
           {runs.map((r) => {
+            const bl = isBaseline(baselines, r.id);
             const label = [
+              bl ? '★' : '',
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
@@ -311,7 +319,50 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             return <option key={r.id} value={r.id}>{label}</option>;
           })}
         </select>
+
+        {/* Baseline & Comparison Controls */}
+        {selectedRun && (
+          <div className="baseline-controls">
+            <button
+              className={`btn btn-sm baseline-toggle ${isBaseline(baselines, selectedRun.id) ? 'baseline-active' : ''}`}
+              onClick={() => toggleBaseline(selectedRun.id)}
+              title={isBaseline(baselines, selectedRun.id) ? 'Unmark baseline' : 'Mark as baseline'}
+            >
+              {isBaseline(baselines, selectedRun.id) ? '★ Baseline' : '☆ Set Baseline'}
+            </button>
+
+            <select
+              className="baseline-compare-select"
+              value={compareBaselineId}
+              onChange={(e) => setCompareBaselineId(e.target.value)}
+            >
+              <option value="">Compare against baseline...</option>
+              {runs.filter((r) => isBaseline(baselines, r.id) && r.id !== selectedRunId).map((r) => {
+                const bl = baselines.find((b) => b.runId === r.id);
+                const label = bl?.label ?? new Date(r.timestamp).toLocaleString();
+                return <option key={r.id} value={r.id}>★ {label} — {r.summary.tps} TPS</option>;
+              })}
+            </select>
+
+            <button
+              className={`btn btn-sm ${showTrend ? 'btn-primary' : ''}`}
+              onClick={() => setShowTrend(!showTrend)}
+            >
+              {showTrend ? 'Hide Trend' : 'Show Trend'}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Trend Chart */}
+      {showTrend && runs.length >= 2 && (
+        <TrendChart runs={runs} baselines={baselines} />
+      )}
+
+      {/* Run Comparison */}
+      {baselineRun && selectedRun && baselineRun.id !== selectedRun.id && (
+        <RunComparisonPanel baselineRun={baselineRun} currentRun={selectedRun} />
+      )}
 
       {/* Summary Metrics */}
       {summary && (
@@ -351,6 +402,10 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             </div>
           </div>
           <div className="metrics-row">
+            <div className="metric-card">
+              <div className="metric-value">{summary.p50ResponseTime ?? '—'} ms</div>
+              <div className="metric-label">P50</div>
+            </div>
             <div className="metric-card">
               <div className="metric-value">{summary.p95ResponseTime} ms</div>
               <div className="metric-label">P95</div>
@@ -394,29 +449,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       )}
 
       {/* Response Time Distribution Chart */}
-      {histogramData.length > 0 && (
-        <div className="section">
-          <h3>Response Time Distribution</h3>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={histogramData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" fontSize={11} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: '0.78rem', color: 'var(--text)' }}
-                  labelStyle={{ color: 'var(--text)' }}
-                  itemStyle={{ color: 'var(--text)' }}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {histogramData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={index < 7 ? '#3b82f6' : index < 9 ? '#f59e0b' : '#ef4444'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {selectedRun && selectedRun.results.length > 0 && (
+        <ResponseTimeHistogram run={selectedRun} />
       )}
 
       {/* Timing Breakdown */}

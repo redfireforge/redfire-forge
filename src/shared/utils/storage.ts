@@ -41,14 +41,14 @@ const MAX_STORED_RESULTS_PER_RUN = 2000;
 
 // ---------- Low-level read/write abstraction ----------
 
-async function readKey(key: string): Promise<string | null> {
+export async function readKey(key: string): Promise<string | null> {
   if (isTauri()) {
     return tauriStore.getItem(key);
   }
   return localStorage.getItem(key);
 }
 
-async function writeKey(key: string, value: string): Promise<void> {
+export async function writeKey(key: string, value: string): Promise<void> {
   if (isTauri()) {
     await tauriStore.setItem(key, value);
     return;

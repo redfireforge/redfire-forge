@@ -125,9 +125,9 @@ test.describe('Workflow Designer', () => {
   test('can save workflow', async ({ page }) => {
     // Already on workflow tab from beforeEach
 
-    // Click Save
-    const saveBtn = page.locator('.wf-toolbar button', { hasText: /Save/ }).first();
-    await saveBtn.click();
+    // Click Save (force to avoid Quick Test button overlap at default viewport)
+    const saveBtn = page.locator('.wf-toolbar-save-wrap button').first();
+    await saveBtn.click({ force: true });
 
     // Verify workflow was persisted
     const stored = await page.evaluate(() => localStorage.getItem('workflows'));
@@ -135,6 +135,58 @@ test.describe('Workflow Designer', () => {
     const parsed = JSON.parse(stored!);
     expect(parsed.length).toBeGreaterThan(0);
     expect(parsed.some((w: { name: string }) => w.name === 'E2E Workflow')).toBe(true);
+  });
+
+  test('service registry fullscreen modal does not overlap the sidebar', async ({ page }) => {
+    // Open inline services panel
+    const servicesBtn = page.locator('.wf-toolbar-services-btn:has-text("Services")');
+    await servicesBtn.click();
+    await expect(page.locator('.wf-svc-inline-list')).toBeVisible({ timeout: 3000 });
+
+    // Expand to fullscreen modal via the ⛶ button
+    await page.locator('button[title="Expand to full screen"]').click();
+
+    // Wait for fullscreen service registry modal
+    const modal = page.locator('.wf-svc-registry-modal');
+    await expect(modal).toBeVisible({ timeout: 5000 });
+
+    // The modal uses wf-config-modal-overlay (position: absolute within wf-designer)
+    // so it should NOT extend behind the sidebar
+    const overlay = page.locator('.wf-config-modal-overlay').first();
+    const overlayBox = await overlay.boundingBox();
+    expect(overlayBox).toBeTruthy();
+
+    // The sidebar is to the left — modal overlay's left edge must not be at x=0
+    // (which would mean it's covering the sidebar/activity bar area)
+    const sidebar = page.locator('.app-sidebar, .sidebar').first();
+    if (await sidebar.count() > 0) {
+      const sidebarBox = await sidebar.boundingBox();
+      if (sidebarBox && overlayBox) {
+        // Overlay must start at or after the sidebar's right edge
+        expect(overlayBox.x).toBeGreaterThanOrEqual(sidebarBox.x + sidebarBox.width - 2);
+      }
+    }
+
+    // Footer buttons (Cancel / Apply) must be visible and within the viewport
+    const footer = modal.locator('.wf-config-modal-footer');
+    await expect(footer).toBeVisible({ timeout: 3000 });
+    const cancelBtn = footer.locator('button', { hasText: 'Cancel' });
+    const applyBtn = footer.locator('button', { hasText: 'Apply' });
+    await expect(cancelBtn).toBeVisible();
+    await expect(applyBtn).toBeVisible();
+    const footerBox = await footer.boundingBox();
+    expect(footerBox).toBeTruthy();
+
+    // Footer must be within the visible viewport (not clipped below)
+    const viewport = page.viewportSize()!;
+    expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(viewport.height + 1);
+
+    // Expand/shrink and close buttons should be hidden (redundant with Cancel/Apply)
+    await expect(modal.locator('.ram-modal-close')).toHaveCount(0);
+
+    // Close the modal via Cancel button
+    await cancelBtn.click();
+    await expect(modal).not.toBeVisible();
   });
 });
 

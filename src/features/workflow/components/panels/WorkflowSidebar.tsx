@@ -10,6 +10,8 @@ interface Props {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onExport?: (id: string) => void;
+  onImport?: () => void;
 }
 
 interface WorkflowSidebarContextMenuState {
@@ -20,7 +22,7 @@ interface WorkflowSidebarContextMenuState {
 }
 
 export default function WorkflowSidebar({
-  workflows, selectedId, onSelect, onNew, onBrowseTemplates, onRename, onDelete, onDuplicate,
+  workflows, selectedId, onSelect, onNew, onBrowseTemplates, onRename, onDelete, onDuplicate, onExport, onImport,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<WorkflowSidebarContextMenuState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -142,6 +144,33 @@ export default function WorkflowSidebar({
             >
               Duplicate Workflow
             </button>
+            {onExport && (
+              <button
+                type="button"
+                className="wf-sidebar-ctx-item"
+                role="menuitem"
+                onClick={() => {
+                  onExport(contextMenu.workflowId);
+                  setContextMenu(null);
+                }}
+              >
+                Export Workflow
+              </button>
+            )}
+            {onImport && (
+              <button
+                type="button"
+                className="wf-sidebar-ctx-item"
+                role="menuitem"
+                onClick={() => {
+                  onImport();
+                  setContextMenu(null);
+                }}
+              >
+                Import Workflow
+              </button>
+            )}
+            <div className="wf-sidebar-ctx-divider" />
             <button
               type="button"
               className="wf-sidebar-ctx-item wf-sidebar-ctx-item-danger"

@@ -4,20 +4,26 @@ import type { TestScenario, FeatureGroup, Scenario } from '../../../shared/types
 export interface VersionExportOptions {
   includeResponseVersions: boolean;
   includeRulesVersions: boolean;
+  includeDefinitionVersions: boolean;
+  includeStructureLog: boolean;
 }
 
 export const DEFAULT_VERSION_EXPORT: VersionExportOptions = {
   includeResponseVersions: true,
   includeRulesVersions: true,
+  includeDefinitionVersions: true,
+  includeStructureLog: true,
 };
 
 /** Strip version arrays from a single Scenario based on options. */
 function stripTestVersions(test: Scenario, opts: VersionExportOptions): Scenario {
-  if (opts.includeResponseVersions && opts.includeRulesVersions) return test;
+  if (opts.includeResponseVersions && opts.includeRulesVersions && opts.includeDefinitionVersions) return test;
+  const result = { ...test };
   const validation = { ...test.validation };
   if (!opts.includeResponseVersions) delete validation.responseVersions;
   if (!opts.includeRulesVersions) delete validation.rulesVersions;
-  return { ...test, validation };
+  if (!opts.includeDefinitionVersions) delete result.definitionVersions;
+  return { ...result, validation };
 }
 
 /** Strip version arrays from scenarios. */
@@ -33,7 +39,7 @@ function stripScenarioVersions(scenarios: TestScenario[], opts: VersionExportOpt
  * Handles FeatureGroup[], FeatureGroup, TestScenario[], TestScenario, Scenario.
  */
 export function stripVersions(data: unknown, opts: VersionExportOptions): unknown {
-  if (opts.includeResponseVersions && opts.includeRulesVersions) return data;
+  if (opts.includeResponseVersions && opts.includeRulesVersions && opts.includeDefinitionVersions && opts.includeStructureLog) return data;
 
   // Single Scenario (test)
   if (data && typeof data === 'object' && 'url' in data && 'method' in data && 'validation' in data) {
@@ -47,7 +53,9 @@ export function stripVersions(data: unknown, opts: VersionExportOptions): unknow
   // Single FeatureGroup
   if (data && typeof data === 'object' && 'scenarios' in data && Array.isArray((data as FeatureGroup).scenarios)) {
     const fg = data as FeatureGroup;
-    return { ...fg, scenarios: stripScenarioVersions(fg.scenarios, opts) };
+    const stripped: FeatureGroup = { ...fg, scenarios: stripScenarioVersions(fg.scenarios, opts) };
+    if (!opts.includeStructureLog) delete stripped.structureLog;
+    return stripped;
   }
   // Array of FeatureGroups or TestScenarios
   if (Array.isArray(data)) {
@@ -57,13 +65,16 @@ export function stripVersions(data: unknown, opts: VersionExportOptions): unknow
 }
 
 /** Count how many tests have version data in the given data structure. */
-export function countVersions(data: unknown): { responseVersionCount: number; rulesVersionCount: number } {
+export function countVersions(data: unknown): { responseVersionCount: number; rulesVersionCount: number; definitionVersionCount: number; structureLogCount: number } {
   let responseVersionCount = 0;
   let rulesVersionCount = 0;
+  let definitionVersionCount = 0;
+  let structureLogCount = 0;
 
   function walkTest(t: Scenario) {
     if (t.validation?.responseVersions?.length) responseVersionCount += t.validation.responseVersions.length;
     if (t.validation?.rulesVersions?.length) rulesVersionCount += t.validation.rulesVersions.length;
+    if (t.definitionVersions?.length) definitionVersionCount += t.definitionVersions.length;
   }
   function walkScenarios(scenarios: TestScenario[]) {
     for (const sc of scenarios) sc.tests.forEach(walkTest);
@@ -74,22 +85,26 @@ export function countVersions(data: unknown): { responseVersionCount: number; ru
   } else if (data && typeof data === 'object' && 'tests' in data && Array.isArray((data as TestScenario).tests) && !('scenarios' in data)) {
     (data as TestScenario).tests.forEach(walkTest);
   } else if (data && typeof data === 'object' && 'scenarios' in data && Array.isArray((data as FeatureGroup).scenarios)) {
-    walkScenarios((data as FeatureGroup).scenarios);
+    const fg = data as FeatureGroup;
+    walkScenarios(fg.scenarios);
+    if (fg.structureLog?.length) structureLogCount += fg.structureLog.length;
   } else if (Array.isArray(data)) {
     for (const item of data) {
       const c = countVersions(item);
       responseVersionCount += c.responseVersionCount;
       rulesVersionCount += c.rulesVersionCount;
+      definitionVersionCount += c.definitionVersionCount;
+      structureLogCount += c.structureLogCount;
     }
   }
 
-  return { responseVersionCount, rulesVersionCount };
+  return { responseVersionCount, rulesVersionCount, definitionVersionCount, structureLogCount };
 }
 
-/** Returns true if data contains any response or rules version entries. */
+/** Returns true if data contains any response, rules, or definition version entries. */
 export function hasVersionData(data: unknown): boolean {
   const c = countVersions(data);
-  return c.responseVersionCount > 0 || c.rulesVersionCount > 0;
+  return c.responseVersionCount > 0 || c.rulesVersionCount > 0 || c.definitionVersionCount > 0 || c.structureLogCount > 0;
 }
 
 export function reIdScenarios(scenarios: TestScenario[]): TestScenario[] {
@@ -104,6 +119,7 @@ export interface ScenarioExportWrap {
     level: string;
     includesResponseVersions?: boolean;
     includesRulesVersions?: boolean;
+    includesDefinitionVersions?: boolean;
   };
   data: unknown;
 }
@@ -124,6 +140,7 @@ export function wrapExport(
       level,
       includesResponseVersions: effectiveOpts.includeResponseVersions,
       includesRulesVersions: effectiveOpts.includeRulesVersions,
+      includesDefinitionVersions: effectiveOpts.includeDefinitionVersions,
     },
     data: stripped,
   };

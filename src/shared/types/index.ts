@@ -116,6 +116,27 @@ export interface Extraction {
   fallback?: string;
 }
 
+/** Snapshot of a test definition at a point in time (excludes id, validation, runtime fields). */
+export interface TestDefinitionSnapshot {
+  name: string;
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers: KeyValue[];
+  body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
+  auth: AuthConfig;
+  extractions?: Extraction[];
+}
+
+export interface TestDefinitionVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  changeSummary?: string;
+  snapshot: TestDefinitionSnapshot;
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -132,6 +153,7 @@ export interface Scenario {
   fetchHostEnabled?: boolean;
   featureGroupName?: string;
   groupName?: string;
+  definitionVersions?: TestDefinitionVersion[];
 }
 
 export interface TestScenario {
@@ -147,6 +169,24 @@ export interface GlobalAuthProfile {
   auth: AuthConfig;
 }
 
+/** Structure change tracking for FeatureGroups */
+export type StructureChangeAction =
+  | 'scenario-added' | 'scenario-removed' | 'scenario-renamed' | 'scenario-moved-in' | 'scenario-moved-out'
+  | 'test-added' | 'test-removed' | 'test-renamed' | 'test-moved-in' | 'test-moved-out' | 'test-copied'
+  | 'fg-renamed';
+
+export interface StructureChangeEntry {
+  id: string;
+  timestamp: number;
+  action: StructureChangeAction;
+  /** Name of the entity that changed (scenario or test name) */
+  entityName: string;
+  /** Parent scenario name (for test-level changes) */
+  scenarioName?: string;
+  /** Additional detail (e.g. "from Scenario A" for moves, "old name → new name" for renames) */
+  detail?: string;
+}
+
 export interface FeatureGroup {
   id: string;
   name: string;
@@ -155,6 +195,8 @@ export interface FeatureGroup {
   auth?: AuthConfig;
   globalAuthProfileId?: string;
   scenarios: TestScenario[];
+  /** Structure change log — tracks scenario/test add/remove/rename/move */
+  structureLog?: StructureChangeEntry[];
   /** Origin of this feature group. Gallery-imported groups use absolute URLs and skip host replacement. */
   source?: 'user' | 'gallery';
   /** The gallery catalog entry ID this was imported from (e.g. 'test-user-api-smoke'). */
@@ -255,6 +297,7 @@ export interface TestSummary {
   avgResponseTime: number;
   minResponseTime: number;
   maxResponseTime: number;
+  p50ResponseTime: number;
   p95ResponseTime: number;
   p99ResponseTime: number;
   errorRate: number;
@@ -303,6 +346,26 @@ export interface CatalogRequestMeta {
   sourceSpec?: string;
 }
 
+/** Snapshot of a request definition at a point in time. */
+export interface RequestDefinitionSnapshot {
+  name: string;
+  url: string;
+  method: HttpMethod;
+  headers: KeyValue[];
+  body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
+  auth: AuthConfig;
+}
+
+export interface RequestDefinitionVersion {
+  id: string;
+  timestamp: number;
+  label?: string;
+  changeSummary?: string;
+  snapshot: RequestDefinitionSnapshot;
+}
+
 export interface RequestItem {
   id: string;
   name: string;
@@ -315,6 +378,7 @@ export interface RequestItem {
   auth: AuthConfig;
   savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
   catalogMeta?: CatalogRequestMeta;
+  definitionVersions?: RequestDefinitionVersion[];
 }
 
 export interface RequestFolder {

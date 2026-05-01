@@ -28,6 +28,7 @@ describe('computeMetrics', () => {
       avgResponseTime: 0,
       minResponseTime: 0,
       maxResponseTime: 0,
+      p50ResponseTime: 0,
       p95ResponseTime: 0,
       p99ResponseTime: 0,
       errorRate: 0,

@@ -116,7 +116,6 @@ export default function WorkflowRequestsSettingsModal({
       overlayClassName="wf-req-settings-overlay"
       dialogClassName="wf-req-settings-modal"
       bodyScrollable={false}
-      footerClassName="import-center-footer"
       footer={(
         <>
           <button className="btn btn-sm" onClick={onClose}>Cancel</button>

@@ -12,6 +12,7 @@ import {
   addFolderToParentSafe, findReqParentFolder,
   reorderInFolders, swapInFolders,
 } from '../utils/requestTree';
+import { autoSaveVersion } from '../utils/requestDefinitionVersioning';
 
 const EMPTY_REQUEST: () => RequestItem = () => ({
   id: uuidv4(),
@@ -95,7 +96,25 @@ export function useRequests() {
   }, []);
 
   const selectCollection = useCallback((colId: string) => {
-    setData((prev) => ({ ...prev, selectedCollectionId: colId, selectedRequestId: undefined }));
+    setData((prev) => {
+      let collections = prev.collections;
+      // Auto-save version for the request we're leaving
+      if (prev.selectedCollectionId && prev.selectedRequestId) {
+        const prevCol = collections.find(c => c.id === prev.selectedCollectionId);
+        const prevReq = prevCol ? findRequestInCollection(prevCol, prev.selectedRequestId) : null;
+        if (prevReq) {
+          const newVersions = autoSaveVersion(prevReq);
+          if (newVersions) {
+            collections = collections.map(c =>
+              c.id === prev.selectedCollectionId
+                ? mapRequests(c, prev.selectedRequestId!, r => ({ ...r, definitionVersions: newVersions }))
+                : c,
+            );
+          }
+        }
+      }
+      return { ...prev, collections, selectedCollectionId: colId, selectedRequestId: undefined };
+    });
   }, []);
 
   // ─── Folders ───────────────────────────────────────────
@@ -322,7 +341,25 @@ export function useRequests() {
   }, []);
 
   const selectRequest = useCallback((colId: string, reqId: string) => {
-    setData((prev) => ({ ...prev, selectedCollectionId: colId, selectedRequestId: reqId }));
+    // Auto-save definition version for the request we're leaving
+    setData((prev) => {
+      let collections = prev.collections;
+      if (prev.selectedCollectionId && prev.selectedRequestId && prev.selectedRequestId !== reqId) {
+        const prevCol = collections.find(c => c.id === prev.selectedCollectionId);
+        const prevReq = prevCol ? findRequestInCollection(prevCol, prev.selectedRequestId) : null;
+        if (prevReq) {
+          const newVersions = autoSaveVersion(prevReq);
+          if (newVersions) {
+            collections = collections.map(c =>
+              c.id === prev.selectedCollectionId
+                ? mapRequests(c, prev.selectedRequestId!, r => ({ ...r, definitionVersions: newVersions }))
+                : c,
+            );
+          }
+        }
+      }
+      return { ...prev, collections, selectedCollectionId: colId, selectedRequestId: reqId };
+    });
   }, []);
 
   const moveRequestToCollection = useCallback((srcColId: string, reqId: string, destColId: string, destFolderId: string | null) => {

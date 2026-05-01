@@ -14,7 +14,7 @@ const mockCountVersions = vi.mocked(countVersions);
 
 describe('ImportVersionModal', () => {
   beforeEach(() => {
-    mockCountVersions.mockReturnValue({ responseVersionCount: 2, rulesVersionCount: 3 });
+    mockCountVersions.mockReturnValue({ responseVersionCount: 2, rulesVersionCount: 3, definitionVersionCount: 0 });
   });
 
   it('renders with version counts', () => {
@@ -28,7 +28,7 @@ describe('ImportVersionModal', () => {
     const onConfirm = vi.fn();
     render(<ImportVersionModal data={{}} onConfirm={onConfirm} onCancel={() => {}} />);
     fireEvent.click(screen.getByText('Import'));
-    expect(onConfirm).toHaveBeenCalledWith({ importResponseVersions: true, importRulesVersions: true });
+    expect(onConfirm).toHaveBeenCalledWith({ importResponseVersions: true, importRulesVersions: true, importDefinitionVersions: true, importStructureLog: true });
   });
 
   it('calls onConfirm with unchecked response versions', () => {
@@ -37,7 +37,7 @@ describe('ImportVersionModal', () => {
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[0]); // uncheck response versions
     fireEvent.click(screen.getByText('Import'));
-    expect(onConfirm).toHaveBeenCalledWith({ importResponseVersions: false, importRulesVersions: true });
+    expect(onConfirm).toHaveBeenCalledWith({ importResponseVersions: false, importRulesVersions: true, importDefinitionVersions: true, importStructureLog: true });
   });
 
   it('calls onCancel when Cancel clicked', () => {

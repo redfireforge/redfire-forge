@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment, AuthConfig } from '../../../shared/types';
 import type { ModalAuthType, EnvAuthState } from '../utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../utils/requestAuthState';
+import { useToast } from '../../../shared/hooks/useToast';
 
 interface Props {
   collection: RequestCollection | null;
@@ -100,6 +101,7 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
 }
 
 export default function RequestCollectionModal({ collection, collections, environments, appEnvironments, appMicroservices, globalAuthProfiles, defaultMode, onSave, onAddEnv, onClose }: Props) {
+  const toast = useToast();
   const [name, setName] = useState(collection?.name ?? '');
   const [mode, setMode] = useState<'direct' | 'multi-env'>(collection?.mode === 'group' ? 'direct' : (collection?.mode ?? defaultMode ?? 'direct'));
   const [microserviceId, setMicroserviceId] = useState<string | undefined>(collection?.microserviceId);
@@ -158,7 +160,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
         c.id !== collection?.id && c.name.toLowerCase() === name.trim().toLowerCase()
       );
       if (duplicate) {
-        alert(`A collection with the name "${name.trim()}" already exists.`);
+        toast.show('warning', 'Name already exists', `A collection with the name "${name.trim()}" already exists.`);
         return;
       }
     }
@@ -276,7 +278,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && newEnvName.trim()) {
                           const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
-                          if (exists) { alert(`Environment "${newEnvName.trim()}" already exists.`); return; }
+                          if (exists) { toast.show('warning', 'Environment already exists', `Environment "${newEnvName.trim()}" already exists.`); return; }
                           onAddEnv(newEnvName.trim());
                           setNewEnvName('');
                         }
@@ -285,7 +287,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
                     <button className="btn btn-sm" disabled={!newEnvName.trim()}
                       onClick={() => {
                         const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
-                        if (exists) { alert(`Environment "${newEnvName.trim()}" already exists.`); return; }
+                        if (exists) { toast.show('warning', 'Environment already exists', `Environment "${newEnvName.trim()}" already exists.`); return; }
                         onAddEnv(newEnvName.trim());
                         setNewEnvName('');
                       }}>+ Add Env</button>

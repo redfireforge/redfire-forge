@@ -71,7 +71,7 @@ export default function SettingsExportImportTab({ environments, microservices, f
 
     let exportFgs = featureGroups;
     if (!includeResponseVersions || !includeRulesVersions) {
-      exportFgs = stripVersions(featureGroups, { includeResponseVersions, includeRulesVersions }) as FeatureGroup[];
+      exportFgs = stripVersions(featureGroups, { includeResponseVersions, includeRulesVersions, includeDefinitionVersions: true, includeStructureLog: true }) as FeatureGroup[];
     }
 
     const data: Record<string, unknown> = {
@@ -161,7 +161,7 @@ export default function SettingsExportImportTab({ environments, microservices, f
     const existingAuthIds = new Set(appGlobalAuthProfiles.map(a => a.id));
     let fgs = parsed.featureGroups;
     if (!importResponseVersions || !importRulesVersions) {
-      fgs = stripVersions(fgs, { includeResponseVersions: importResponseVersions, includeRulesVersions: importRulesVersions }) as FeatureGroup[];
+      fgs = stripVersions(fgs, { includeResponseVersions: importResponseVersions, includeRulesVersions: importRulesVersions, includeDefinitionVersions: true, includeStructureLog: true }) as FeatureGroup[];
     }
     onImport({
       environments: parsed.environments.filter(e => !existingEnvIds.has(e.id)),

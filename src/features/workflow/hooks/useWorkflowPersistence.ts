@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
+import { createWorkflowVersion, addVersionToList } from '../utils/workflowVersioning';
 import type {
   WorkflowNode,
   WorkflowService,
@@ -180,9 +181,27 @@ export function useWorkflowPersistence(opts: UseWorkflowPersistenceOpts) {
 
   const handleSave = useCallback(() => {
     if (previewWorkflow) return;
+    if (!selected) return;
+
+    // Auto-create a version snapshot before saving
+    const wfNodes = serializeNodes(nodes);
+    const wfEdges = serializeEdges(edges);
+    const version = createWorkflowVersion(
+      wfNodes,
+      wfEdges,
+      workflowVariables,
+      workflowServices,
+      selected.versions ?? [],
+    );
+
+    if (version) {
+      const updatedVersions = addVersionToList(selected.versions ?? [], version);
+      update(selected.id, { versions: updatedVersions });
+    }
+
     persistWorkflow();
     toast.show('success', 'Workflow saved', `${nodes.length} nodes · ${edges.length} connections`);
-  }, [persistWorkflow, previewWorkflow, toast, nodes.length, edges.length]);
+  }, [persistWorkflow, previewWorkflow, toast, nodes, edges, selected, serializeNodes, serializeEdges, workflowVariables, workflowServices, update]);
 
   useEffect(() => {
     if (!saveAcknowledged) return;
