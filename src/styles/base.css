@@ -870,6 +870,21 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertions-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .assertions-title { font-weight: 600; font-size: 13px; }
 .assertions-hint { font-size: 11px; color: var(--text-muted); flex: 1; }
+
+/* ── Body Validation Section ─────────────────────────── */
+.body-validation-section { margin-bottom: 12px; }
+.body-validation-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.body-validation-title { font-weight: 600; font-size: 13px; }
+.body-validation-hint { font-size: 11px; color: var(--text-muted); }
+.validation-empty-warning {
+  margin-top: 8px; padding: 8px 12px; border-radius: 6px;
+  background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #eab308; font-size: 12px; line-height: 1.5;
+}
+.validation-empty-warning .link-btn {
+  background: none; border: none; color: var(--accent); cursor: pointer;
+  text-decoration: underline; font-size: 12px; padding: 0;
+}
 .assertions-add-wrap { position: relative; }
 .assertions-add-menu {
   position: absolute; right: 0; top: 100%; z-index: 20;

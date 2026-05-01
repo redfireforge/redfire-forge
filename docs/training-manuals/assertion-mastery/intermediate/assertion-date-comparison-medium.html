@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Date Assertions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📅</div>
+    <h1>Date Assertions</h1>
+    <div class="subtitle">Medium — Assertion Mastery Training Manual</div>
+    <p>Compare response dates against dynamic references (today) or fixed ISO dates. Learn UTC vs local timezone handling, the resolveDate() pipeline, and how to verify token expiry, record freshness, and scheduling constraints.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Advanced Assertions<br />
+      Scenario: <em>Verifying Token Expiry Is in the Future</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Date Assertion Type</h2>
+  <p>Date assertions compare a date string from the response against a reference date using the same <code>ComparisonOperator</code> set as numeric assertions:</p>
+
+<pre>// Date assertion shape
+{
+  type: 'date',
+  jsonPath: string,              // path to the date value
+  operator: ComparisonOperator,  // '=' | '!=' | '>' | '>=' | '<' | '<='
+  reference: DateReference       // what to compare against
+}</pre>
+
+  <h3>DateReference</h3>
+  <p>The <code>reference</code> field specifies <em>what</em> the extracted date is compared against. It has two variants:</p>
+
+<pre>type DateReference =
+  | { kind: 'today'; timezone: 'utc' | 'local' }
+  | { kind: 'fixed'; iso: string };</pre>
+
+  <table>
+    <tr><th>Kind</th><th>Meaning</th><th>Example</th></tr>
+    <tr>
+      <td><code>today</code></td>
+      <td>Current date at evaluation time</td>
+      <td><code>{ kind: 'today', timezone: 'utc' }</code></td>
+    </tr>
+    <tr>
+      <td><code>fixed</code></td>
+      <td>A specific ISO date string</td>
+      <td><code>{ kind: 'fixed', iso: '2025-01-01' }</code></td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Dynamic vs Fixed References</strong>
+    Use <code>today</code> for assertions that should always pass regardless of when you run them (e.g., "token expires in the future"). Use <code>fixed</code> for assertions tied to known dates (e.g., "created after January 1, 2025").
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. How Date Evaluation Works</h2>
+
+  <div class="flow-diagram">
+    <code>getByPath(body, jsonPath)</code>
+    <span class="arrow">→</span>
+    <code>toDayString(raw)</code>
+    <span class="arrow">→</span>
+    <code>resolveDate(reference)</code>
+    <span class="arrow">→</span>
+    <code>compare(localeCompare)</code>
+  </div>
+
+  <h3>Step-by-Step Pipeline</h3>
+
+  <h4>Step 1: Extract the Value</h4>
+<pre>const raw = getByPath(ctx.responseBody, a.jsonPath);
+// e.g., raw = "2025-12-31T23:59:59Z"</pre>
+
+  <h4>Step 2: Normalize to Day String</h4>
+<pre>// toDayString() converts any date to "YYYY-MM-DD" format
+toDayString("2025-12-31T23:59:59Z")  →  "2025-12-31"
+toDayString("2025-06-15")             →  "2025-06-15"
+toDayString("Jun 15 2025")            →  "2025-06-15"</pre>
+
+  <h4>Step 3: Resolve the Reference</h4>
+<pre>// resolveDate() returns a "YYYY-MM-DD" string for comparison
+resolveDate({ kind: 'today', timezone: 'utc' })
+  → "2025-06-15"  // today's date in UTC
+
+resolveDate({ kind: 'fixed', iso: '2025-01-01' })
+  → "2025-01-01"  // the fixed date, normalized</pre>
+
+  <h4>Step 4: Compare</h4>
+<pre>// String comparison via localeCompare
+// Because dates are YYYY-MM-DD, lexicographic order = chronological order
+const cmp = dayStr.localeCompare(refStr);  // -1, 0, or 1
+compare(cmp, operator, 0);                  // reuses same compare() helper</pre>
+
+  <div class="callout">
+    <strong>📘 Why localeCompare Works for Dates</strong>
+    ISO date strings in <code>YYYY-MM-DD</code> format have a key property: alphabetical order equals chronological order. <code>"2025-06-01" &lt; "2025-12-31"</code> is true both alphabetically and chronologically. The engine normalizes all dates to this format via <code>toDayString()</code> before comparison.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Evaluation Source Code</h2>
+<pre>case 'date': {
+  const raw = getByPath(ctx.responseBody, a.jsonPath);
+
+  if (raw === undefined) {
+    failures.push({
+      path: `(date:${a.jsonPath})`,
+      expected: `date value ${formatOp(a.operator)} ${formatDateRef(a.reference)}`,
+      actual: 'undefined',
+    });
+    break;
+  }
+
+  const dayStr = toDayString(String(raw));
+  const refStr = resolveDate(a.reference);
+
+  if (!dayStr) {
+    failures.push({
+      path: `(date:${a.jsonPath})`,
+      expected: `valid date ${formatOp(a.operator)} ${refStr}`,
+      actual: `invalid date: ${JSON.stringify(raw)}`,
+    });
+  } else {
+    const cmp = dayStr.localeCompare(refStr);
+    if (!compare(cmp, a.operator, 0)) {
+      failures.push({
+        path: `(date:${a.jsonPath})`,
+        expected: `${formatOp(a.operator)} ${refStr}`,
+        actual: dayStr,
+      });
+    }
+  }
+  break;
+}</pre>
+
+  <h3>Failure Scenarios</h3>
+  <table>
+    <tr><th>Scenario</th><th>Failure Message</th></tr>
+    <tr><td>Path not found</td><td><code>actual: 'undefined'</code></td></tr>
+    <tr><td>Value isn't a valid date</td><td><code>actual: 'invalid date: "not-a-date"'</code></td></tr>
+    <tr><td>Comparison fails</td><td><code>expected: '&gt; 2025-06-15', actual: '2025-01-01'</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. UTC vs Local Timezone</h2>
+  <p>The <code>timezone</code> field on <code>today</code> references controls how "today" is determined:</p>
+
+  <table>
+    <tr><th>Timezone</th><th>Behavior</th><th>Use When</th></tr>
+    <tr>
+      <td><code>utc</code></td>
+      <td>Uses UTC date — consistent regardless of where you run</td>
+      <td>Server-side tokens, API responses with UTC timestamps</td>
+    </tr>
+    <tr>
+      <td><code>local</code></td>
+      <td>Uses the machine's local date — varies by timezone</td>
+      <td>User-facing dates, local scheduling</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Timezone Pitfall</strong>
+    Near midnight UTC, <code>utc</code> and <code>local</code> can differ by a day depending on your timezone. If a test passes in the morning but fails at night (or vice versa), check whether the assertion uses the correct timezone for the API's date format.
+  </div>
+
+  <h3>Examples</h3>
+<pre>// Token expires after today (UTC) — most common for API tokens
+{
+  type: 'date',
+  jsonPath: '$.expiresAt',
+  operator: '>',
+  reference: { kind: 'today', timezone: 'utc' }
+}
+
+// Record created before today (local timezone)
+{
+  type: 'date',
+  jsonPath: '$.createdAt',
+  operator: '<',
+  reference: { kind: 'today', timezone: 'local' }
+}
+
+// Event scheduled after a fixed date
+{
+  type: 'date',
+  jsonPath: '$.scheduledDate',
+  operator: '>',
+  reference: { kind: 'fixed', iso: '2025-01-01' }
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Operator Semantics for Dates</h2>
+  <p>The operators have intuitive date meanings when applied to chronological order:</p>
+
+  <table>
+    <tr><th>Operator</th><th>Date Meaning</th><th>Example</th></tr>
+    <tr><td><code>=</code></td><td>Same day</td><td>"Created today"</td></tr>
+    <tr><td><code>!=</code></td><td>Different day</td><td>"Not expired today"</td></tr>
+    <tr><td><code>&gt;</code></td><td>After (strictly later)</td><td>"Expires after today"</td></tr>
+    <tr><td><code>&gt;=</code></td><td>On or after</td><td>"Valid from today onward"</td></tr>
+    <tr><td><code>&lt;</code></td><td>Before (strictly earlier)</td><td>"Created before cutoff"</td></tr>
+    <tr><td><code>&lt;=</code></td><td>On or before</td><td>"Due by today"</td></tr>
+  </table>
+
+  <h3>Token Expiry Pattern</h3>
+  <p>The most common date assertion pattern is verifying that a token or session hasn't expired:</p>
+
+<pre>// "expiresAt must be in the future"
+{
+  type: 'date',
+  jsonPath: '$.expiresAt',
+  operator: '>',
+  reference: { kind: 'today', timezone: 'utc' }
+}
+
+// Response: { "expiresAt": "2025-12-31T23:59:59Z" }
+// Pipeline:
+//   toDayString("2025-12-31T23:59:59Z") → "2025-12-31"
+//   resolveDate({ kind: 'today', timezone: 'utc' }) → "2025-06-15"
+//   "2025-12-31".localeCompare("2025-06-15") → 1 (positive = after)
+//   compare(1, '>', 0) → true  ✅ passes</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Gallery Sample: Token Expiry Preset</h2>
+  <p>The gallery includes a <strong>Token Expiry</strong> assertion preset that demonstrates date assertions:</p>
+
+<pre>// Token Expiry preset assertions
+assertions: [
+  { type: 'status', expected: '200' },
+  {
+    type: 'date',
+    jsonPath: '$.expiresAt',
+    operator: '>',
+    reference: { kind: 'today', timezone: 'utc' },
+  },
+]</pre>
+
+  <p>This preset combines a status check (200 OK) with a date assertion (token is still valid). It's useful for any API that returns token metadata, session info, or certificate details.</p>
+
+  <h3>Combining Date with Other Assertions</h3>
+<pre>// Full token validation
+assertions: [
+  { type: 'status', expected: '200' },
+  { type: 'header', name: 'content-type', operator: 'contains', value: 'json' },
+  { type: 'date', jsonPath: '$.expiresAt', operator: '>',
+    reference: { kind: 'today', timezone: 'utc' } },
+  { type: 'date', jsonPath: '$.issuedAt', operator: '<=',
+    reference: { kind: 'today', timezone: 'utc' } },
+  { type: 'numeric', jsonPath: '$.ttl', operator: '>', value: 0 },
+]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Token Expiry</h3>
+  <p><strong>Goal:</strong> Verify a date field is in the future.</p>
+  <ol>
+    <li>Create a test that returns JSON with an <code>expiresAt</code> field (e.g., use a mock or echo API).</li>
+    <li>Add a date assertion: <code>$.expiresAt</code> <code>&gt;</code> today (UTC).</li>
+    <li>Set the response <code>expiresAt</code> to a future date — assertion passes.</li>
+    <li>Change it to yesterday's date — assertion fails with a clear error.</li>
+  </ol>
+
+  <h3>Exercise 2: Record Freshness</h3>
+  <p><strong>Goal:</strong> Assert a creation date is in the past.</p>
+  <ol>
+    <li>Create a test: GET an API that returns a <code>createdAt</code> timestamp.</li>
+    <li>Add a date assertion: <code>$.createdAt</code> <code>&lt;</code> today (UTC).</li>
+    <li>Run — should pass (the record was created before today).</li>
+    <li>Change operator to <code>=</code> — what happens if the record was created on a different day?</li>
+  </ol>
+
+  <h3>Exercise 3: Fixed Date Reference</h3>
+  <p><strong>Goal:</strong> Compare against a specific date instead of today.</p>
+  <ol>
+    <li>Create a test that returns a <code>publishedDate</code> field.</li>
+    <li>Add a date assertion: <code>$.publishedDate</code> <code>&gt;</code> fixed <code>2024-01-01</code>.</li>
+    <li>Verify — any publication date after Jan 1, 2024 passes.</li>
+    <li>Change the fixed date to <code>2030-01-01</code> — assertion fails (published in the past, not after 2030).</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> — date variant type definition</td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>DateReference</code> — today / fixed reference type</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — date case handler</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>resolveDate()</code> — resolves DateReference to YYYY-MM-DD</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>toDayString()</code> — normalizes date strings to YYYY-MM-DD</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>compare()</code> — shared comparison helper</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Phase 3 (Advanced):</strong> Custom Script Assertions, Chained Assertions, and Conditional Assertions.</li>
+    <li><strong>Previous:</strong> <em>Numeric and Array Length Assertions</em> — Range checks, pagination tests, price guards.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 2 · Date Assertions · Medium
+  </footer>
+
+</body>
+</html>

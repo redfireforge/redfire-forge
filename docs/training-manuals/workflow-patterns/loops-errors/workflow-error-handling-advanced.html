@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Error Handling Strategies — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🛡️</div>
+    <h1>Error Handling Strategies</h1>
+    <div class="subtitle">Advanced — Workflow Patterns Training Manual</div>
+    <p>Handle failures gracefully at the node and workflow level. Master retry strategies, error classification, catch paths, and failure notifications to build resilient API workflows.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 3 — Loops and Error Handling<br />
+      Scenario: <em>Payment Flow with Failure Notification</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Two Levels of Error Handling</h2>
+  <p>RedfireForge provides error handling at two levels:</p>
+
+  <table>
+    <tr><th>Level</th><th>Scope</th><th>Purpose</th></tr>
+    <tr>
+      <td><strong>Node-Level</strong></td>
+      <td>Error Handler node wrapping a subgraph</td>
+      <td>Retry, catch, and continue for specific steps</td>
+    </tr>
+    <tr>
+      <td><strong>Workflow-Level</strong></td>
+      <td>WorkflowErrorConfig on the workflow itself</td>
+      <td>Global fallback when any node fails</td>
+    </tr>
+  </table>
+
+  <p>Both levels can coexist — a node-level handler catches local failures, while the workflow-level handler catches anything that slips through.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Error Handler Node</h2>
+  <p>The Error Handler node wraps a subgraph in a try/catch pattern. It has three output handles:</p>
+
+  <div class="flow-diagram">
+    ┌────────────────────────────────────┐<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ Error Handler&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    │&nbsp;&nbsp;Retry ×2 (fixed 1000ms)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    │&nbsp;&nbsp;Catch all · continue&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    └──────┬──────────┬──────────┬───────┘<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Body</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Catch</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Done</strong><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓<br />
+    &nbsp;&nbsp;(try this)&nbsp;&nbsp;(on failure)&nbsp;&nbsp;(always)
+  </div>
+
+  <ul>
+    <li><strong>Body</strong> (25%) — The subgraph to protect. These nodes are retried on failure.</li>
+    <li><strong>Catch</strong> (50%) — Runs only when all retries are exhausted and the body still fails. Error variables are available here.</li>
+    <li><strong>Done</strong> (75%) — Runs after either success or catch completion. Always executes.</li>
+  </ul>
+
+  <h3>ErrorHandlerNodeData Type</h3>
+<pre>export type ErrorFilter =
+  | 'all'               // catch any error
+  | 'http-error'        // HTTP 4xx/5xx
+  | 'assertion-failure' // assertion checks failed
+  | 'network-error';    // connection refused, timeout, etc.
+
+export type RetryBackoffStrategy = 'fixed' | 'exponential';
+
+export interface ErrorHandlerNodeData {
+  label: string;
+  errorFilter: ErrorFilter;       // which errors to catch
+  retryCount: number;             // max retries (default: 2)
+  retryDelayMs: number;           // delay between retries (default: 1000)
+  retryBackoff: RetryBackoffStrategy;  // fixed or exponential
+  retryTimeoutMs: number;         // overall timeout, 0 = unlimited
+  continueOnError: boolean;       // true = workflow continues after catch
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Error Classification</h2>
+  <p>When a node in the body fails, the engine classifies the error type:</p>
+
+<pre>function classifyErrorType(result: RequestResult): string {
+  if (result.httpStatus === 0)          return 'network-error';
+  if (result.httpStatus >= 400)         return 'http-error';
+  if (result.failureDetails?.length > 0) return 'assertion-failure';
+  return 'http-error';
+}
+
+function matchesErrorFilter(errorType: string, filter: string): boolean {
+  if (filter === 'all') return true;
+  return errorType === filter;
+}</pre>
+
+  <h3>Error Filter Examples</h3>
+  <table>
+    <tr><th>Filter</th><th>Catches</th><th>Ignores</th></tr>
+    <tr><td><code>all</code></td><td>Everything</td><td>Nothing</td></tr>
+    <tr><td><code>http-error</code></td><td>HTTP 400, 401, 500, etc.</td><td>Network errors, assertion failures</td></tr>
+    <tr><td><code>assertion-failure</code></td><td>Assertion check failures</td><td>HTTP errors, network errors</td></tr>
+    <tr><td><code>network-error</code></td><td>ECONNREFUSED, ETIMEDOUT, DNS errors</td><td>HTTP errors, assertion failures</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 When to Use Specific Filters</strong>
+    Use <code>http-error</code> to retry flaky servers (503s) without retrying on bad requests (400s are usually not transient). Use <code>network-error</code> for resilience against connectivity issues. Use <code>all</code> as a catch-all safety net.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Retry Strategies</h2>
+
+  <h3>Fixed Backoff</h3>
+  <p>Wait the same duration between each retry:</p>
+<pre>{ retryCount: 3, retryDelayMs: 1000, retryBackoff: 'fixed' }
+// Attempt 1 → fail → wait 1000ms
+// Attempt 2 → fail → wait 1000ms
+// Attempt 3 → fail → wait 1000ms
+// Attempt 4 → fail → enter Catch path</pre>
+
+  <h3>Exponential Backoff</h3>
+  <p>Double the delay after each failure:</p>
+<pre>{ retryCount: 3, retryDelayMs: 1000, retryBackoff: 'exponential' }
+// Attempt 1 → fail → wait 1000ms  (1000 × 2⁰)
+// Attempt 2 → fail → wait 2000ms  (1000 × 2¹)
+// Attempt 3 → fail → wait 4000ms  (1000 × 2²)
+// Attempt 4 → fail → enter Catch path</pre>
+
+  <h3>Retry Timeout</h3>
+  <p>The <code>retryTimeoutMs</code> field sets an overall time limit for all retry attempts:</p>
+<pre>{ retryCount: 10, retryDelayMs: 500, retryTimeoutMs: 5000 }
+// Retries stop after 5 seconds, even if retryCount isn't exhausted
+// 0 = no timeout (default)</pre>
+
+  <h3>Badge Display</h3>
+<pre>// retryCount > 0:
+"Retry ×2 (fixed 1000ms)"    or    "Retry ×3 (exp 500ms)"
+
+// retryCount = 0:
+"No retry"
+
+// Plus filter + continue:
+"Catch all · continue"       or    "http error"</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Error Variables</h2>
+  <p>When the body fails and execution enters the Catch path, six error variables are injected:</p>
+
+  <table>
+    <tr><th>Variable</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>{{error.message}}</code></td><td>string</td><td>Human-readable error description</td></tr>
+    <tr><td><code>{{error.statusCode}}</code></td><td>string</td><td>HTTP status code (0 for network errors)</td></tr>
+    <tr><td><code>{{error.nodeId}}</code></td><td>string</td><td>ID of the node that failed</td></tr>
+    <tr><td><code>{{error.nodeLabel}}</code></td><td>string</td><td>Label of the node that failed</td></tr>
+    <tr><td><code>{{error.retryCount}}</code></td><td>string</td><td>Number of retries attempted</td></tr>
+    <tr><td><code>{{error.type}}</code></td><td>string</td><td>Classification: http-error, network-error, assertion-failure</td></tr>
+  </table>
+
+  <p>These variables are available to all nodes in the Catch subgraph:</p>
+<pre>// Example: Catch path sends a notification
+// HTTP POST to Slack webhook:
+{
+  "text": "⚠️ Node '{{error.nodeLabel}}' failed after {{error.retryCount}} retries. Status: {{error.statusCode}}. Error: {{error.message}}"
+}</pre>
+
+  <h3>continueOnError Behavior</h3>
+  <table>
+    <tr><th>Setting</th><th>After Catch Path</th><th>Workflow Result</th></tr>
+    <tr><td><code>true</code></td><td>State → <code>pass</code>, execute Done edges</td><td>Workflow continues normally</td></tr>
+    <tr><td><code>false</code></td><td>State → <code>fail</code>, execute Done edges</td><td>Workflow marked as failed</td></tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Success Skips Catch</strong>
+    If the body succeeds (on the first attempt or after a retry), the entire Catch subgraph is skipped via <code>markSubtreeSkipped</code>. Only the Done edges execute after success.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Workflow-Level Error Handling</h2>
+  <p>Independent of node-level handlers, the workflow itself can define a global error strategy:</p>
+
+<pre>export type WorkflowErrorMode = 'stop' | 'continue' | 'run-handler';
+
+export interface WorkflowErrorConfig {
+  mode: WorkflowErrorMode;
+  handlerEntryNodeId?: string;   // entry node for error subgraph
+  errorVariable?: string;        // default: 'error.message'
+}</pre>
+
+  <h3>Error Modes</h3>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th></tr>
+    <tr><td><code>stop</code></td><td>Stop execution on first failure (default)</td></tr>
+    <tr><td><code>continue</code></td><td>Continue executing remaining nodes despite failures</td></tr>
+    <tr><td><code>run-handler</code></td><td>After all nodes finish, run a dedicated error handler subgraph if any failed</td></tr>
+  </table>
+
+  <h3>run-handler Mode</h3>
+  <p>When <code>mode</code> is <code>run-handler</code>, the engine waits for all nodes to finish, then checks for failures:</p>
+<pre>// After all nodes visited:
+if (failedResults.length > 0 &amp;&amp; errorConfig.mode === 'run-handler') {
+  const errVar = errorConfig.errorVariable || 'error.message';
+  ctx.set(errVar, summarizeRequestFailure(firstFailed));
+  ctx.set('error.statusCode', String(firstFailed.httpStatus));
+  ctx.set('error.failedCount', String(failedResults.length));
+  await visit(errorConfig.handlerEntryNodeId);
+}</pre>
+
+  <h3>Workflow-Level Error Variables</h3>
+  <table>
+    <tr><th>Variable</th><th>Description</th></tr>
+    <tr><td><code>{{error.message}}</code></td><td>Summarized error from first failed node</td></tr>
+    <tr><td><code>{{error.statusCode}}</code></td><td>HTTP status of first failed node</td></tr>
+    <tr><td><code>{{error.failedCount}}</code></td><td>Total number of failed nodes (workflow-level only)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Node-Level vs Workflow-Level Variables</strong>
+    Node-level error handlers expose 6 variables (including <code>error.nodeId</code>, <code>error.nodeLabel</code>, <code>error.retryCount</code>, <code>error.type</code>). Workflow-level handlers expose 3 variables (including <code>error.failedCount</code> — a count of all failed nodes across the entire workflow).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Error Message Helpers</h2>
+
+  <h3>summarizeRequestFailure()</h3>
+  <p>Generates a human-readable summary from a <code>RequestResult</code>:</p>
+<pre>function summarizeRequestFailure(r: RequestResult): string {
+  // Priority 1: errorMessage (humanized)
+  if (r.errorMessage?.trim())
+    return humanizeError(r.errorMessage.trim());
+
+  // Priority 2: first failure detail
+  const fd = r.failureDetails?.[0];
+  if (fd) {
+    const a = (fd.actual ?? '').slice(0, 240);
+    const e = (fd.expected ?? '').slice(0, 120);
+    return e ? `${fd.path}: ${a} (expected ${e})` : `${fd.path}: ${a}`;
+  }
+
+  // Priority 3: HTTP status
+  if (r.httpStatus >= 400) return `HTTP ${r.httpStatus}`;
+  if (r.httpStatus === 0)
+    return 'Network error — could not reach the server...';
+
+  return 'Step failed';
+}</pre>
+
+  <h3>humanizeError()</h3>
+  <p>Transforms raw error codes into friendly messages:</p>
+  <table>
+    <tr><th>Raw Error</th><th>Humanized Message</th></tr>
+    <tr><td><code>ECONNREFUSED</code></td><td>Connection refused — server may be down</td></tr>
+    <tr><td><code>ETIMEDOUT</code></td><td>Connection timed out</td></tr>
+    <tr><td><code>CERT_HAS_EXPIRED</code></td><td>SSL certificate has expired</td></tr>
+    <tr><td><code>ENOTFOUND</code></td><td>DNS lookup failed — hostname not found</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Gallery Sample: Failure Notification</h2>
+  <p>The <strong>Workflow Error Handler — Failure Notification</strong> sample (<code>sample-workflow-wf-error-handler</code>) demonstrates workflow-level error handling:</p>
+
+  <div class="flow-diagram">
+    <strong>Main Flow:</strong><br />
+    Start → HTTP GET (intentionally bad URL) → End<br /><br />
+    <strong>Error Handler Subgraph:</strong><br />
+    Log Error ({{error.message}}, {{error.statusCode}}, {{error.failedCount}})<br />
+    <span class="arrow">→</span> HTTP POST notification → End
+  </div>
+
+<pre>// Workflow error config
+{
+  errorConfig: {
+    mode: 'run-handler',
+    handlerEntryNodeId: 'weh-log-err',
+  },
+}
+
+// Error handler subgraph logs and sends notification:
+// POST body: {
+//   "error": "{{error.message}}",
+//   "status": "{{error.statusCode}}",
+//   "failedNodes": "{{error.failedCount}}"
+// }</pre>
+
+  <p>The main flow intentionally calls a bad URL. When it fails, the engine sets the error variables and runs the handler subgraph, which logs the error and sends a notification POST.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Combining Node-Level and Workflow-Level</h2>
+  <p>A robust workflow uses both levels together:</p>
+
+  <div class="flow-diagram">
+    <strong>Payment Flow with Failure Notification</strong><br /><br />
+    Start<br />
+    <span class="arrow">→</span> Error Handler (retry ×3, exp backoff)<br />
+    &nbsp;&nbsp;&nbsp;├── <strong>Body:</strong> HTTP POST /api/payment<br />
+    &nbsp;&nbsp;&nbsp;├── <strong>Catch:</strong> HTTP POST /slack (node-level alert)<br />
+    &nbsp;&nbsp;&nbsp;└── <strong>Done:</strong> Condition (check payment result)<br />
+    <span class="arrow">→</span> End<br /><br />
+    <strong>Workflow Error Handler:</strong> (catches anything else)<br />
+    Log → HTTP POST /pagerduty (critical alert)
+  </div>
+
+  <ul>
+    <li>The <strong>node-level</strong> handler retries the payment API 3 times with exponential backoff. If all retries fail, it sends a Slack alert and continues.</li>
+    <li>The <strong>workflow-level</strong> handler catches any other unexpected failures (e.g., the Condition node itself erroring) and sends a critical PagerDuty alert.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Exercises</h2>
+
+  <h3>Exercise 1: Node-Level Retry</h3>
+  <p><strong>Goal:</strong> Create a workflow that retries a failing HTTP request.</p>
+  <ol>
+    <li>Create a workflow. Add an Error Handler node.</li>
+    <li>Set: retryCount <strong>2</strong>, retryDelayMs <strong>500</strong>, retryBackoff <strong>fixed</strong>, errorFilter <strong>all</strong>.</li>
+    <li>Connect <strong>Body</strong> to an HTTP node: GET <code>https://httpstat.us/500</code> (always returns 500).</li>
+    <li>Connect <strong>Catch</strong> to a SetVariable: <code>errorInfo</code> = <code>{{error.message}}</code>.</li>
+    <li>Connect <strong>Done</strong> to an End node.</li>
+    <li>Run — observe 3 attempts (1 original + 2 retries), then the catch path executes.</li>
+  </ol>
+
+  <h3>Exercise 2: Workflow-Level Error Handler</h3>
+  <p><strong>Goal:</strong> Add a global error handler that logs failure details.</p>
+  <ol>
+    <li>Open Workflow Settings. Set error mode to <strong>run-handler</strong>.</li>
+    <li>Create an error handler subgraph: a SetVariable node that stores <code>{{error.message}}</code>, <code>{{error.statusCode}}</code>, <code>{{error.failedCount}}</code>.</li>
+    <li>Set <code>handlerEntryNodeId</code> to the first node of the handler subgraph.</li>
+    <li>Add an HTTP node to the main flow that intentionally fails.</li>
+    <li>Run — after the main flow fails, the handler subgraph executes with error variables populated.</li>
+  </ol>
+
+  <h3>Exercise 3: Error Classification</h3>
+  <p><strong>Goal:</strong> Use different error filters for different failure types.</p>
+  <ol>
+    <li>Create an Error Handler with filter <strong>network-error</strong>.</li>
+    <li>In the body: HTTP GET <code>https://nonexistent.invalid/api</code> (DNS failure).</li>
+    <li>Run — the handler catches it (network error matches the filter).</li>
+    <li>Change the URL to <code>https://httpstat.us/500</code> (HTTP error, not network).</li>
+    <li>Run — the handler does <strong>not</strong> catch it (filter mismatch). The workflow fails directly.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 11 -->
+  <h2>11. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>ErrorHandlerNodeData</code>, <code>ErrorFilter</code>, <code>WorkflowErrorConfig</code></td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowNodeFactory.ts</code></td><td>Error handler factory defaults</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerErrorHandler.ts</code></td><td>Node-level retry, catch, body/catch/done orchestration</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerHelpers.ts</code></td><td><code>classifyErrorType()</code>, <code>matchesErrorFilter()</code></td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunner.ts</code></td><td>Workflow-level error config, run-handler mode</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowRunErrors.ts</code></td><td><code>summarizeRequestFailure()</code></td></tr>
+    <tr><td><code>src/shared/utils/helpers.ts</code></td><td><code>humanizeError()</code></td></tr>
+    <tr><td><code>src/features/workflow/components/nodes/ErrorHandlerNode.tsx</code></td><td>Node UI — retry badge, filter label, handles</td></tr>
+    <tr><td><code>src/data/galleries/workflows/flowControl.ts</code></td><td>Gallery sample: Failure Notification</td></tr>
+  </table>
+
+  <h2>12. What's Next?</h2>
+  <ul>
+    <li><strong>Next phase:</strong> <em>Sub-Workflow Composition</em> — Compose complex workflows from reusable sub-workflows.</li>
+    <li><strong>Previous:</strong> <em>Aggregation Patterns</em> — Collect results from loops and parallel branches.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 3 · Error Handling Strategies · Advanced
+  </footer>
+
+</body>
+</html>

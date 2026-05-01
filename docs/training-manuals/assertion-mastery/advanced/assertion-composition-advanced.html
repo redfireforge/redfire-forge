@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complex Assertion Strategies — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🧩</div>
+    <h1>Complex Assertion Strategies</h1>
+    <div class="subtitle">Advanced — Assertion Mastery Training Manual</div>
+    <p>Combine multiple assertion types with validation modes. Understand evaluation order, failure accumulation, and advanced patterns for testing error responses, multi-field contracts, and cross-concern validation.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 3 — Presets, Composition, and Advanced Patterns<br />
+      Scenario: <em>E-Commerce Order Validation — Status + Body + Headers + Timing</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Two Validation Layers</h2>
+  <p>RedfireForge has two independent validation layers that <strong>both apply</strong> to every request:</p>
+
+  <table>
+    <tr><th>Layer</th><th>Source</th><th>When It Runs</th></tr>
+    <tr><td><strong>Assertions</strong></td><td><code>validation.assertions[]</code></td><td>Always — regardless of validation mode</td></tr>
+    <tr><td><strong>Validation Mode</strong></td><td><code>validation.mode</code> (none/exact/selective/regex)</td><td>After assertions, when mode ≠ "none"</td></tr>
+  </table>
+
+  <div class="flow-diagram">
+    <strong>Evaluation Order</strong><br /><br />
+    Request completes<br />
+    <span class="arrow">→</span> Run ALL assertions (status, time, header, regex, numeric, date, arrayLength)<br />
+    <span class="arrow">→</span> Run validation mode (exact JSON / selective fields / regex)<br />
+    <span class="arrow">→</span> Combine failures from both layers<br />
+    <span class="arrow">→</span> <code>passed = (failures.length === 0)</code>
+  </div>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Both Layers Must Pass</strong>
+    A test only passes if <em>both</em> layers produce zero failures. Even if all assertions pass, a validation mode failure will fail the test (and vice versa).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Seven Assertion Types</h2>
+
+  <table>
+    <tr><th>Type</th><th>Fields</th><th>Evaluates</th></tr>
+    <tr>
+      <td><code>status</code></td>
+      <td><code>expected</code></td>
+      <td>HTTP status code against pattern (200, 2xx, 200,201, 400-499)</td>
+    </tr>
+    <tr>
+      <td><code>responseTime</code></td>
+      <td><code>maxMs</code></td>
+      <td>Response time ≤ max milliseconds</td>
+    </tr>
+    <tr>
+      <td><code>header</code></td>
+      <td><code>name, operator, value</code></td>
+      <td>Response header exists / equals / contains / matches</td>
+    </tr>
+    <tr>
+      <td><code>regex</code></td>
+      <td><code>jsonPath, pattern</code></td>
+      <td>JSONPath value matches regex pattern</td>
+    </tr>
+    <tr>
+      <td><code>arrayLength</code></td>
+      <td><code>jsonPath, operator, value</code></td>
+      <td>Array at jsonPath has length compared by operator</td>
+    </tr>
+    <tr>
+      <td><code>numeric</code></td>
+      <td><code>jsonPath, operator, value</code></td>
+      <td>Numeric value at jsonPath compared by operator</td>
+    </tr>
+    <tr>
+      <td><code>date</code></td>
+      <td><code>jsonPath, operator, reference</code></td>
+      <td>Date value at jsonPath compared to today or fixed date</td>
+    </tr>
+  </table>
+
+  <h3>Assertion Union Type</h3>
+<pre>export type Assertion =
+  | { type: 'status'; expected: string }
+  | { type: 'responseTime'; maxMs: number }
+  | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
+  | { type: 'regex'; jsonPath: string; pattern: string }
+  | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
+  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference };</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Combining Assertions</h2>
+  <p>You can add multiple assertions of any type — including multiple assertions of the <em>same</em> type:</p>
+
+<pre>// Example: Full e-commerce order validation
+assertions: [
+  // Status assertion
+  { type: 'status', expected: '200' },
+
+  // Performance assertion
+  { type: 'responseTime', maxMs: 500 },
+
+  // Header assertions
+  { type: 'header', name: 'Content-Type', operator: 'contains', value: 'application/json' },
+  { type: 'header', name: 'X-Request-Id', operator: 'exists' },
+
+  // Body assertions
+  { type: 'numeric', jsonPath: '$.orderId', operator: '>', value: 0 },
+  { type: 'numeric', jsonPath: '$.total', operator: '>=', value: 0 },
+  { type: 'regex', jsonPath: '$.status', pattern: '^(pending|confirmed|shipped)$' },
+  { type: 'arrayLength', jsonPath: '$.items', operator: '>=', value: 1 },
+  { type: 'date', jsonPath: '$.createdAt', operator: '<',
+    reference: { kind: 'today', timezone: 'utc' } },
+]</pre>
+
+  <p>All 9 assertions are evaluated independently. Each produces its own pass/fail result.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Assertions + Validation Mode</h2>
+  <p>The power of composition comes from using assertions <em>together with</em> a validation mode:</p>
+
+  <h3>Pattern: Status Assert + Selective Validation</h3>
+<pre>validation: {
+  mode: 'selective',
+  assertions: [
+    { type: 'status', expected: '200' },
+    { type: 'responseTime', maxMs: 1000 },
+  ],
+  // Selective validation also checks these fields:
+  expectedFields: [
+    { path: '$.name', operator: '=', expected: 'John' },
+    { path: '$.email', operator: 'contains', expected: '@' },
+  ],
+}</pre>
+  <p>The test checks: status = 200 AND response time ≤ 1s AND name = "John" AND email contains "@".</p>
+
+  <h3>Pattern: Error Response Testing</h3>
+<pre>validation: {
+  mode: 'selective',
+  assertions: [
+    { type: 'status', expected: '404' },    // Expect error status!
+  ],
+  expectedFields: [
+    { path: '$.error', operator: '=', expected: 'Not Found' },
+    { path: '$.message', operator: 'exists' },
+  ],
+}</pre>
+  <p>Assert the error status code AND validate the error body structure.</p>
+
+  <div class="callout">
+    <strong>📘 Why Not Just Use Assertions?</strong>
+    Assertions check individual values — they can't validate entire JSON structures. Selective validation checks field presence, type, and value across the whole response. Use both for comprehensive coverage.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Failure Details</h2>
+  <p>When assertions or validation fail, the engine accumulates all failures in a <code>failureDetails</code> array:</p>
+
+<pre>// Result structure:
+{
+  passed: false,
+  failureDetails: [
+    // Assertion failures:
+    { message: 'Status: expected 200 but got 500', source: 'assertion' },
+    { message: 'Response time 1234ms exceeded max 500ms', source: 'assertion' },
+    // Validation failures:
+    { message: '$.name: expected "John" but got "Jane"', source: 'validation' },
+  ],
+}</pre>
+
+  <h3>Key Behaviors</h3>
+  <ul>
+    <li><strong>All assertions run:</strong> Even if the first assertion fails, all remaining assertions are still evaluated.</li>
+    <li><strong>Both layers run:</strong> Assertion failures don't prevent validation mode from running.</li>
+    <li><strong>Complete failure list:</strong> You see every failure at once — no need to fix one and re-run.</li>
+    <li><strong>passed flag:</strong> <code>false</code> if ANY assertion or validation fails.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Advanced Patterns</h2>
+
+  <h4>Pattern 1: Range Validation with Two Numerics</h4>
+<pre>assertions: [
+  { type: 'numeric', jsonPath: '$.age', operator: '>=', value: 18 },
+  { type: 'numeric', jsonPath: '$.age', operator: '<=', value: 120 },
+]
+// Passes only if 18 ≤ age ≤ 120</pre>
+
+  <h4>Pattern 2: Multi-Header Contract</h4>
+<pre>assertions: [
+  { type: 'header', name: 'Content-Type', operator: 'equals', value: 'application/json' },
+  { type: 'header', name: 'Cache-Control', operator: 'contains', value: 'no-cache' },
+  { type: 'header', name: 'X-Correlation-Id', operator: 'exists' },
+  { type: 'header', name: 'X-Deprecated', operator: 'not-exists' },
+]</pre>
+
+  <h4>Pattern 3: Performance + Correctness</h4>
+<pre>assertions: [
+  { type: 'status', expected: '200' },
+  { type: 'responseTime', maxMs: 200 },   // strict SLA
+  { type: 'arrayLength', jsonPath: '$.results', operator: '>=', value: 10 },
+  { type: 'numeric', jsonPath: '$.totalPages', operator: '>=', value: 1 },
+]
+// Verifies: fast response + correct data</pre>
+
+  <h4>Pattern 4: Testing Error Responses</h4>
+<pre>assertions: [
+  { type: 'status', expected: '422' },     // validation error
+  { type: 'arrayLength', jsonPath: '$.errors', operator: '>=', value: 1 },
+  { type: 'regex', jsonPath: '$.errors[0].field', pattern: '^(email|name|age)$' },
+]
+// Verifies: correct error status + structured error response</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Build a 5-Assertion Suite</h3>
+  <p><strong>Goal:</strong> Create a comprehensive assertion set covering all concerns.</p>
+  <ol>
+    <li>Create a test targeting <code>https://jsonplaceholder.typicode.com/posts/1</code>.</li>
+    <li>Add 5 assertions:
+      <ul>
+        <li>Status: <code>200</code></li>
+        <li>Response time: ≤ <code>2000</code> ms</li>
+        <li>Header: <code>Content-Type</code> contains <code>json</code></li>
+        <li>Regex: <code>$.title</code> matches <code>.{3,}</code> (≥3 chars)</li>
+        <li>Numeric: <code>$.userId</code> ≥ 1</li>
+      </ul>
+    </li>
+    <li>Run the test — all 5 should pass.</li>
+    <li>Change the status assertion to <code>404</code> — observe partial failure.</li>
+  </ol>
+
+  <h3>Exercise 2: Combine Assertions with Selective Validation</h3>
+  <ol>
+    <li>Same test as above.</li>
+    <li>Set validation mode to <strong>Selective</strong>.</li>
+    <li>Add expected fields: <code>$.userId = 1</code> and <code>$.id = 1</code>.</li>
+    <li>Run — both assertions AND selective validation pass.</li>
+    <li>Change <code>$.userId</code> expected to <code>999</code> — observe validation failure alongside passing assertions.</li>
+  </ol>
+
+  <h3>Exercise 3: Test Error Responses</h3>
+  <ol>
+    <li>Create a test targeting <code>https://jsonplaceholder.typicode.com/posts/9999</code> (nonexistent).</li>
+    <li>Add assertions: status = <code>404</code>.</li>
+    <li>Set validation mode to <strong>Selective</strong> to validate the error body structure.</li>
+    <li>Run — the 404 status assertion passes, and body validation runs on the error response.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> union type, <code>ValidationConfig</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td>Assertion evaluation + validation mode execution</td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>UI for adding/editing assertions and validation mode</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Advanced JSONPath and Unordered Arrays</em> — Interactive JSON tree, field selection, and unordered array matching.</li>
+    <li><strong>Previous:</strong> <em>Assertion Presets</em> — Import ready-made assertion sets from the catalog.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 3 · Complex Assertion Strategies · Advanced
+  </footer>
+
+</body>
+</html>

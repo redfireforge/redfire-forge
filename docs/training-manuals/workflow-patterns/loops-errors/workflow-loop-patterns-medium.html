@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop Patterns — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #e8f5e9; color: #2e7d32; }
+  .badge-yellow { background: #fff8e1; color: #f57f17; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Loop Patterns</h1>
+    <div class="subtitle">Medium — Workflow Patterns Training Manual</div>
+    <p>Iterate over collections, repeat N times, or poll until a condition is met. Master the three loop modes — Count, ForEach, and While — with safety limits and variable scoping.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-yellow">★★☆ Medium</span><br />
+      Phase 3 — Loops and Error Handling<br />
+      Scenario: <em>Batch User Processing — Iterate Over a List</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Loop Node Overview</h2>
+  <p>The Loop node repeats its <strong>body subgraph</strong> multiple times. It has two output handles:</p>
+
+  <div class="flow-diagram">
+    <strong>Loop Node</strong><br /><br />
+    ┌────────────────────────────┐<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔄 Loop&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;×3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    └──────┬──────────────┬──────┘<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Body</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Done</strong><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓<br />
+    &nbsp;&nbsp;(repeat each&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(after all<br />
+    &nbsp;&nbsp;&nbsp;iteration)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;iterations)
+  </div>
+
+  <ul>
+    <li><strong>Body</strong> (left handle, 35%) — connects to nodes that run on <em>each iteration</em>. All body nodes are re-visited per iteration.</li>
+    <li><strong>Done</strong> (right handle, 65%) — connects to nodes that run <em>after the loop finishes</em>.</li>
+  </ul>
+
+  <h3>LoopNodeData Type</h3>
+<pre>export type LoopMode = 'count' | 'forEach' | 'while';
+
+export interface LoopNodeData {
+  label: string;
+  mode: LoopMode;
+
+  // Count mode
+  count?: number;               // static iteration count
+  countExpression?: string;      // dynamic count via variable: "{{itemCount}}"
+
+  // ForEach mode
+  sourceExpression?: string;     // array to iterate: "{{items}}"
+  itemVariable?: string;         // current element name (default: "item")
+
+  // Both count &amp; forEach
+  indexVariable?: string;        // 0-based index name (default: "i")
+
+  // While mode
+  whileLeft?: string;            // left operand
+  whileOperator?: ConditionOperator;
+  whileRight?: string;           // right operand
+
+  // Safety
+  maxIterations?: number;        // default: 100
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Count Mode — Repeat N Times</h2>
+  <p>The simplest loop mode. Runs the body a fixed number of times.</p>
+
+<pre>// Default factory values
+{
+  label: 'Loop',
+  mode: 'count',
+  count: 3,
+  indexVariable: 'i',
+  maxIterations: 100,
+}</pre>
+
+  <h3>Static Count</h3>
+  <p>Set <code>count</code> to a number. The body runs exactly that many times:</p>
+<pre>{ mode: 'count', count: 5 }
+// Body runs 5 times. {{i}} = 0, 1, 2, 3, 4</pre>
+
+  <h3>Dynamic Count via Expression</h3>
+  <p>Use <code>countExpression</code> to resolve the count from a workflow variable:</p>
+<pre>{ mode: 'count', countExpression: '{{itemCount}}' }
+// If {{itemCount}} resolves to "7", body runs 7 times</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 countExpression Takes Priority</strong>
+    When both <code>count</code> and <code>countExpression</code> are set, the engine uses <code>countExpression</code>. The static <code>count</code> is only used as a fallback when the expression is empty or unset.
+  </div>
+
+  <h3>Badge Display</h3>
+  <p>The node badge shows the iteration count:</p>
+  <table>
+    <tr><th>Configuration</th><th>Badge</th></tr>
+    <tr><td><code>count: 5</code></td><td><code>×5</code></td></tr>
+    <tr><td><code>countExpression: '{{itemCount}}'</code></td><td><code>×{{itemCount}}</code></td></tr>
+    <tr><td><code>count: 1</code> (default fallback)</td><td><code>×1</code></td></tr>
+  </table>
+
+  <h3>Variables Available in Body</h3>
+  <table>
+    <tr><th>Variable</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>{{i}}</code></td><td>number</td><td>0-based iteration index (customizable via <code>indexVariable</code>)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. ForEach Mode — Iterate Over a Collection</h2>
+  <p>Iterates over a JSON array, exposing each element as a variable.</p>
+
+<pre>{ mode: 'forEach', sourceExpression: '{{users}}', itemVariable: 'user' }
+// If {{users}} = '[{"id":1},{"id":2},{"id":3}]'
+// Iteration 0: {{user}} = '{"id":1}', {{i}} = '0'
+// Iteration 1: {{user}} = '{"id":2}', {{i}} = '1'
+// Iteration 2: {{user}} = '{"id":3}', {{i}} = '2'</pre>
+
+  <h3>Key Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Default</th><th>Purpose</th></tr>
+    <tr><td><code>sourceExpression</code></td><td>—</td><td>Variable or expression resolving to a JSON array</td></tr>
+    <tr><td><code>itemVariable</code></td><td><code>"item"</code></td><td>Name of the variable holding the current element</td></tr>
+    <tr><td><code>indexVariable</code></td><td><code>"i"</code></td><td>Name of the variable holding the 0-based index</td></tr>
+  </table>
+
+  <h3>How sourceExpression Is Parsed</h3>
+<pre>// The engine resolves the expression, then parses it as JSON
+const resolved = ctx.resolve(data.sourceExpression);  // e.g. '[1,2,3]'
+const items = JSON.parse(resolved);                    // → [1, 2, 3]
+// iterations = items.length</pre>
+
+  <h3>Item Variable Stringification</h3>
+  <p>If an array element is an object, it's JSON-stringified before being set as a variable:</p>
+<pre>// Array: [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+// Iteration 0: {{user}} = '{"id":1,"name":"Alice"}'
+// Use in HTTP body: { "userId": {{user.id}} }  — not directly!
+// The item is a string; use it in URL or body templates</pre>
+
+  <h3>Badge Display</h3>
+  <table>
+    <tr><th>Configuration</th><th>Badge</th></tr>
+    <tr><td><code>itemVariable: 'user'</code></td><td><code>∀ user</code></td></tr>
+    <tr><td><code>itemVariable: 'item'</code> (default)</td><td><code>∀ item</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Variable Hints</strong>
+    In forEach mode, downstream nodes see both <code>{{item}}</code> (or your custom name) and <code>{{i}}</code> in their variable hint dropdowns — making it easy to reference the current element and index.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. While Mode — Condition-Based Looping</h2>
+  <p>Repeats the body as long as a condition evaluates to true. Checked <em>before</em> each iteration.</p>
+
+<pre>{
+  mode: 'while',
+  whileLeft: '{{hasMore}}',
+  whileOperator: '==',
+  whileRight: 'true',
+  maxIterations: 10,
+}</pre>
+
+  <h3>Condition Evaluation</h3>
+  <p>Uses the same <code>evaluateCondition()</code> function as Condition nodes:</p>
+<pre>// Each iteration:
+evaluateCondition({
+  left: ctx.resolve(data.whileLeft),    // resolve variables
+  operator: data.whileOperator,          // ==, !=, >, <, etc.
+  right: ctx.resolve(data.whileRight),
+}, ctx)
+// Returns true → run body again
+// Returns false → exit to Done handle</pre>
+
+  <h3>Common While Patterns</h3>
+  <table>
+    <tr><th>Pattern</th><th>Left</th><th>Operator</th><th>Right</th></tr>
+    <tr><td>Poll until done</td><td><code>{{status}}</code></td><td><code>!=</code></td><td><code>complete</code></td></tr>
+    <tr><td>Paginate while more</td><td><code>{{hasMore}}</code></td><td><code>==</code></td><td><code>true</code></td></tr>
+    <tr><td>Retry until success</td><td><code>{{httpStatus}}</code></td><td><code>!=</code></td><td><code>200</code></td></tr>
+    <tr><td>Count up to limit</td><td><code>{{i}}</code></td><td><code>&lt;</code></td><td><code>{{maxPages}}</code></td></tr>
+  </table>
+
+  <h3>Badge Display</h3>
+  <table>
+    <tr><th>Configuration</th><th>Badge</th></tr>
+    <tr><td>Both left &amp; right set</td><td><code>{{hasMore}} == true</code></td></tr>
+    <tr><td>Missing operands</td><td><code>while …</code></td></tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ While Loops Need an Exit</strong>
+    Unlike count and forEach, while loops can run indefinitely if the condition never becomes false. Always ensure the body modifies the condition variable, or rely on <code>maxIterations</code> as a safety net.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Safety: maxIterations</h2>
+  <p>All three loop modes respect the <code>maxIterations</code> cap (default: 100). The loop stops when:</p>
+  <ul>
+    <li>The mode-specific condition is no longer met (count reached, array exhausted, while false), <strong>or</strong></li>
+    <li><code>iterations >= maxIterations</code>, <strong>or</strong></li>
+    <li>The abort signal is triggered (user cancellation), <strong>or</strong></li>
+    <li>The debug controller stops execution</li>
+  </ul>
+
+  <h3>Customizing maxIterations</h3>
+<pre>// Low limit for testing
+{ mode: 'while', maxIterations: 5, ... }
+
+// Higher limit for batch processing
+{ mode: 'forEach', maxIterations: 500, ... }</pre>
+
+  <p>The node only shows the max iterations badge when it differs from the default:</p>
+<pre>// Shows "max 10" below the mode badge
+{ maxIterations: 10 }  →  badge: "max 10"
+
+// Hidden (default value)
+{ maxIterations: 100 } →  no extra badge</pre>
+
+  <div class="callout callout-danger">
+    <strong>🛑 Infinite Loop Protection</strong>
+    The <code>maxIterations</code> cap prevents runaway workflows. If your while loop hits the limit, the loop exits gracefully via the Done handle — it does not fail. Check your condition logic if you're consistently hitting the cap.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Body Subgraph Mechanics</h2>
+  <p>Understanding how the engine handles body nodes is key to building correct loops.</p>
+
+  <h3>Re-Visitation</h3>
+  <p>On each iteration, all nodes reachable from the <strong>Body</strong> handle are cleared from the visited set and re-executed:</p>
+<pre>// Engine internals (simplified)
+for (const bid of bodyNodeIds) {
+  hCtx.visited.delete(bid);      // allow re-visit
+}
+// Then visit all body edges → nodes execute again</pre>
+
+  <h3>Body Isolation</h3>
+  <p>The engine uses <code>collectReachableFromEdges()</code> to discover which nodes belong to the body subgraph. Nodes connected to the <strong>Done</strong> handle are excluded — they only run after the loop finishes.</p>
+
+  <div class="flow-diagram">
+    <strong>Body vs Done Isolation</strong><br /><br />
+    Loop<br />
+    ├── <strong>Body</strong> → HTTP Request → SetVariable → (loops back)<br />
+    └── <strong>Done</strong> → Aggregate → End Node<br /><br />
+    Body nodes run N times. Done nodes run once.
+  </div>
+
+  <h3>Variable Scoping</h3>
+  <p>Variables set inside the loop body are visible to subsequent iterations and to Done nodes:</p>
+<pre>// Iteration 0: SetVariable sets {{result}} = "first"
+// Iteration 1: SetVariable sets {{result}} = "second"
+// Done: {{result}} = "second" (last value wins)
+
+// To accumulate results across iterations, use an Aggregate node</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Gallery Sample: Paginated API Fetcher</h2>
+  <p>The gallery includes <strong>Sample: Paginated API Fetcher</strong> (<code>sample-workflow-loop-agg</code>) demonstrating a while-loop with aggregation:</p>
+
+  <div class="flow-diagram">
+    Start<br />
+    <span class="arrow">→</span> SetVariable (hasMore=true, page=1)<br />
+    <span class="arrow">→</span> <strong>Loop</strong> (while {{hasMore}} == true, max 10)<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;├── <strong>Body:</strong> HTTP GET /api?page={{page}}<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;<span class="arrow">→</span> Aggregate (concat pageItems → allItems, sum itemCount → totalCount)<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;<span class="arrow">→</span> SetVariable (page++, update hasMore)<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;└── <strong>Done:</strong> Condition (check totalCount) → End
+  </div>
+
+  <h3>Loop Configuration</h3>
+<pre>{
+  mode: 'while',
+  whileLeft: '{{hasMore}}',
+  whileOperator: '==',
+  whileRight: 'true',
+  maxIterations: 10,
+}</pre>
+
+  <p>Each iteration fetches the next page, aggregates results, and updates <code>{{hasMore}}</code>. When the API returns no more pages, <code>{{hasMore}}</code> becomes <code>"false"</code> and the loop exits.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Count Loop — Sequential Requests</h3>
+  <p><strong>Goal:</strong> Make 5 sequential HTTP requests using a count loop.</p>
+  <ol>
+    <li>Create a new workflow. Add a Loop node, set mode to <strong>count</strong>, count to <strong>5</strong>.</li>
+    <li>Connect the <strong>Body</strong> handle to an HTTP node: GET <code>https://jsonplaceholder.typicode.com/posts/{{i}}</code>.</li>
+    <li>Connect the <strong>Done</strong> handle to an End node.</li>
+    <li>Run — observe 5 sequential requests in the console (posts 0–4).</li>
+    <li>Change <code>indexVariable</code> to <code>"postId"</code> and update the URL to <code>/posts/{{postId}}</code>.</li>
+  </ol>
+
+  <h3>Exercise 2: ForEach Loop — Process a List</h3>
+  <p><strong>Goal:</strong> Iterate over a JSON array from a previous response.</p>
+  <ol>
+    <li>Add an HTTP node: GET <code>https://jsonplaceholder.typicode.com/users</code>.</li>
+    <li>Add a SetVariable node: set <code>users</code> to <code>{{response.body}}</code>.</li>
+    <li>Add a Loop node: mode <strong>forEach</strong>, sourceExpression <code>{{users}}</code>, itemVariable <code>user</code>.</li>
+    <li>In the body: add an HTTP node that uses <code>{{user}}</code> in its URL or body.</li>
+    <li>Run — observe one request per user in the array.</li>
+  </ol>
+
+  <h3>Exercise 3: While Loop — Poll Until Done</h3>
+  <p><strong>Goal:</strong> Use a while loop to poll until a condition changes.</p>
+  <ol>
+    <li>Add a SetVariable: <code>status</code> = <code>pending</code>.</li>
+    <li>Add a Loop node: mode <strong>while</strong>, whileLeft <code>{{status}}</code>, operator <code>!=</code>, whileRight <code>complete</code>, maxIterations <code>5</code>.</li>
+    <li>In the body: HTTP GET to a status endpoint, then SetVariable to update <code>{{status}}</code> from the response.</li>
+    <li>Run — loop exits when status becomes "complete" or after 5 iterations.</li>
+    <li>Try lowering <code>maxIterations</code> to <code>2</code> and observe the early exit.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>LoopMode</code>, <code>LoopNodeData</code> type definitions</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowNodeFactory.ts</code></td><td>Loop node factory defaults</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td>Loop execution logic — shouldContinue(), body re-visitation</td></tr>
+    <tr><td><code>src/features/workflow/components/nodes/LoopNode.tsx</code></td><td>Loop node UI — modeBadge(), handles</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowVariableHints.ts</code></td><td>Variable hints for {{item}} and {{i}}</td></tr>
+    <tr><td><code>src/data/galleries/workflows/flowControl.ts</code></td><td>Gallery sample: Paginated API Fetcher</td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Aggregation Patterns</em> — Collect and combine results from parallel branches and loop iterations.</li>
+    <li><strong>Previous:</strong> <em>Fork/Join Parallel Execution</em> — Run branches in parallel and synchronize.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 3 · Loop Patterns · Medium
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced JSONPath and Unordered Arrays — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🌲</div>
+    <h1>Advanced JSONPath and Unordered Arrays</h1>
+    <div class="subtitle">Advanced — Assertion Mastery Training Manual</div>
+    <p>Use the interactive JSON tree to select validation paths, validate arrays in any order with row-based matching, and manage response and rule versions for regression testing.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 3 — Presets, Composition, and Advanced Patterns<br />
+      Scenario: <em>Validating Complex Nested E-Commerce Product Responses</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. The JsonPathBuilder Component</h2>
+  <p>The <code>JsonPathBuilder</code> provides an interactive tree view for selecting which JSON paths to validate. Instead of typing paths manually, you navigate a visual tree built from an actual API response.</p>
+
+  <div class="flow-diagram">
+    <strong>JsonPathBuilder Workflow</strong><br /><br />
+    1. Fetch sample response (or paste JSON)<br />
+    <span class="arrow">→</span> 2. <code>buildTree()</code> parses JSON into <code>JsonNode</code> tree<br />
+    <span class="arrow">→</span> 3. Tree renders with expandable nodes<br />
+    <span class="arrow">→</span> 4. Check/uncheck paths to validate<br />
+    <span class="arrow">→</span> 5. Selected paths become <code>ExpectedField[]</code> rules
+  </div>
+
+  <h3>Key Functions</h3>
+  <table>
+    <tr><th>Function</th><th>Purpose</th></tr>
+    <tr><td><code>buildTree(json)</code></td><td>Parses JSON into a navigable <code>JsonNode</code> tree with paths</td></tr>
+    <tr><td><code>getAllLeafPaths(tree)</code></td><td>Returns all selectable leaf paths from the tree</td></tr>
+    <tr><td>Checkbox selection</td><td>Toggle individual paths on/off for validation</td></tr>
+    <tr><td>Search filter</td><td>Filter nodes by name to find paths in large responses</td></tr>
+  </table>
+
+  <h3>Include vs. Exclude Mode</h3>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th><th>Use When</th></tr>
+    <tr>
+      <td><strong>Include</strong></td>
+      <td>Only checked paths are validated</td>
+      <td>You want to validate specific fields only</td>
+    </tr>
+    <tr>
+      <td><strong>Exclude</strong></td>
+      <td>All paths validated except unchecked ones</td>
+      <td>You want to validate everything except dynamic fields (timestamps, IDs)</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Exclude Mode for Volatile Fields</strong>
+    Use exclude mode and uncheck <code>$.createdAt</code>, <code>$.updatedAt</code>, and <code>$.id</code> — these change between runs. Everything else is validated automatically.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Selective Validation Modes</h2>
+  <p>RedfireForge supports four validation modes that determine how the response body is checked:</p>
+
+  <table>
+    <tr><th>Mode</th><th>Compares</th><th>Best For</th></tr>
+    <tr><td><code>none</code></td><td>Nothing (assertions only)</td><td>When assertions are sufficient</td></tr>
+    <tr><td><code>exact</code></td><td>Entire response body as JSON string</td><td>Snapshot testing</td></tr>
+    <tr><td><code>selective</code></td><td>Specific fields via <code>ExpectedField[]</code></td><td>Partial validation</td></tr>
+    <tr><td><code>regex</code></td><td>Response body against a regex pattern</td><td>Loose format checks</td></tr>
+  </table>
+
+  <h3>ExpectedField Interface</h3>
+<pre>export interface ExpectedField {
+  jsonPath: string;         // e.g. "$.data[0].name"
+  operator: string;         // '=', '!=', 'contains', 'exists', etc.
+  expectedValue: string;    // expected value to compare
+}</pre>
+
+  <p>When using <strong>selective</strong> mode, the JsonPathBuilder helps you select which paths become <code>ExpectedField</code> entries.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Unordered Array Validation</h2>
+  <p>By default, validation is <strong>ordered</strong>: <code>$.items[0].name = "A"</code> checks index 0 specifically. But many APIs return arrays in unpredictable order. The <code>unorderedArrays</code> flag enables <strong>row-based matching</strong>.</p>
+
+  <h3>The Problem</h3>
+<pre>// Expected (from when you recorded the test):
+{
+  "products": [
+    { "name": "Widget A", "code": "WA" },   // index 0
+    { "name": "Widget B", "code": "WB" },   // index 1
+  ]
+}
+
+// Actual response (different order):
+{
+  "products": [
+    { "name": "Widget B", "code": "WB" },   // index 0 — was index 1!
+    { "name": "Widget A", "code": "WA" },   // index 1 — was index 0!
+  ]
+}
+
+// With ordered validation:
+// ❌ $.products[0].name: expected "Widget A" got "Widget B"
+
+// With unorderedArrays: true:
+// ✅ Found matching row for {"name": "Widget A", "code": "WA"} at index 1</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. How validateFieldsUnordered() Works</h2>
+
+  <div class="flow-diagram">
+    <strong>Row-Based Matching Algorithm</strong><br /><br />
+    1. Group fields by array prefix (e.g., <code>products[0]</code>)<br />
+    <span class="arrow">→</span> 2. For each row group, extract field suffixes (<code>.name</code>, <code>.code</code>)<br />
+    <span class="arrow">→</span> 3. Scan ALL array indices for a row where ALL fields match<br />
+    <span class="arrow">→</span> 4. If found → pass. If not → report best partial match.
+  </div>
+
+<pre>function validateFieldsUnordered(
+  fields: ExpectedField[],
+  responseBody: unknown
+): FailureDetail[] {
+  // 1. Separate array fields from non-array fields
+  //    Array fields: path contains [N] like "products[0].name"
+  //    Non-array: simple paths like "$.total"
+
+  // 2. Validate non-array fields normally (exact path)
+
+  // 3. Group array fields by row prefix:
+  //    "products[0].name" → group "products[0]"
+  //    "products[0].code" → group "products[0]"
+  //    "products[1].name" → group "products[1]"
+
+  // 4. Group rows by array pattern:
+  //    "products[0]" and "products[1]" → array "products[*]"
+
+  // 5. For each expected row, search all indices:
+  //    Try products[0], products[1], ... products[N]
+  //    Check if ALL fields in the row match at that index
+  //    Track "used" indices to prevent double-matching
+}</pre>
+
+  <h3>Key Behaviors</h3>
+  <ul>
+    <li><strong>Row grouping:</strong> Fields with the same array prefix (e.g., <code>products[0].name</code> and <code>products[0].code</code>) are treated as one row.</li>
+    <li><strong>All-or-nothing:</strong> A row matches only if ALL fields in the row match at the same index.</li>
+    <li><strong>No reuse:</strong> Once an index is matched, it can't be used by another expected row.</li>
+    <li><strong>Best partial:</strong> If no exact match is found, the error reports the closest partial match.</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Non-Array Fields Are Always Ordered</strong>
+    <code>unorderedArrays</code> only affects paths containing array indices like <code>[0]</code>. Fields without array indices (e.g., <code>$.total</code>, <code>$.status</code>) are always validated by exact path.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The RulesTable Component</h2>
+  <p>The <code>RulesTable</code> provides a tabular view of your validation rules. Each row shows:</p>
+
+  <table>
+    <tr><th>Column</th><th>Shows</th></tr>
+    <tr><td>Path</td><td>JSONPath expression (e.g., <code>$.products[0].name</code>)</td></tr>
+    <tr><td>Operator</td><td>Comparison: <code>=</code>, <code>!=</code>, <code>contains</code>, <code>exists</code>, etc.</td></tr>
+    <tr><td>Expected</td><td>Expected value</td></tr>
+    <tr><td>Actual</td><td>Actual value from last response (live preview)</td></tr>
+    <tr><td>Status</td><td>✅ Pass / ❌ Fail indicator</td></tr>
+  </table>
+
+  <p>The RulesTable updates in real-time when you run a test, showing pass/fail for each rule.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Response and Rules Versioning</h2>
+  <p>For regression testing, you can save snapshots of responses and rule sets:</p>
+
+  <h3>Response Versions</h3>
+<pre>export interface ResponseVersion {
+  id: string;
+  label: string;       // e.g., "v1.2 baseline"
+  timestamp: string;
+  body: string;        // saved response body (JSON)
+}</pre>
+  <ul>
+    <li>Save a "known good" response as a baseline.</li>
+    <li>Compare current responses against the baseline.</li>
+    <li>Detect regressions when the API changes.</li>
+  </ul>
+
+  <h3>Rules Versions</h3>
+<pre>export interface RulesVersion {
+  id: string;
+  label: string;
+  timestamp: string;
+  fields: ExpectedField[];     // saved validation rules
+  excludedPaths?: string[];    // paths excluded from validation
+}</pre>
+  <ul>
+    <li>Save a set of validation rules as a named version.</li>
+    <li>Switch between rule versions to test different contracts.</li>
+    <li>Compare rule sets to see what changed.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📘 Version Workflow</strong>
+    1. Run test → save response as "v1 baseline" → save rules as "v1 contract".<br />
+    2. API changes → run again → compare new response against v1 baseline.<br />
+    3. Update rules if needed → save as "v2 contract".
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Putting It All Together</h2>
+  <p>A complete advanced validation setup for an e-commerce products endpoint:</p>
+
+<pre>validation: {
+  mode: 'selective',
+  unorderedArrays: true,       // products can arrive in any order
+  sampleJson: '...',           // stored for JsonPathBuilder tree
+
+  // Assertions (run always):
+  assertions: [
+    { type: 'status', expected: '200' },
+    { type: 'responseTime', maxMs: 500 },
+    { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 2 },
+  ],
+
+  // Selective fields (run because mode = 'selective'):
+  expectedFields: [
+    { jsonPath: '$.products[0].name', operator: '=', expectedValue: 'Widget A' },
+    { jsonPath: '$.products[0].price', operator: '=', expectedValue: '29.99' },
+    { jsonPath: '$.products[1].name', operator: '=', expectedValue: 'Widget B' },
+    { jsonPath: '$.products[1].price', operator: '=', expectedValue: '39.99' },
+  ],
+
+  // Exclude volatile paths:
+  excludedPaths: ['$.products[*].updatedAt', '$.requestId'],
+
+  // Saved versions for regression:
+  responseVersions: [{ id: 'v1', label: 'Baseline', ... }],
+  rulesVersions: [{ id: 'v1', label: 'Contract v1', ... }],
+}</pre>
+
+  <p>This setup: checks status + timing + array size via assertions, validates product fields unordered via selective mode, excludes volatile timestamps, and has version history for regression comparison.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Use the JSON Tree</h3>
+  <p><strong>Goal:</strong> Select validation paths from a complex nested response.</p>
+  <ol>
+    <li>Create a test targeting <code>https://dummyjson.com/products/1</code>.</li>
+    <li>Run the test once to populate the response.</li>
+    <li>Switch to Selective validation mode.</li>
+    <li>Open the JsonPathBuilder — the response tree appears.</li>
+    <li>Check <code>$.title</code>, <code>$.price</code>, <code>$.category</code>.</li>
+    <li>Uncheck <code>$.meta.updatedAt</code> (volatile).</li>
+    <li>Run again — only selected paths are validated.</li>
+  </ol>
+
+  <h3>Exercise 2: Unordered Array Validation</h3>
+  <p><strong>Goal:</strong> Validate products that arrive in any order.</p>
+  <ol>
+    <li>Create a test targeting <code>https://dummyjson.com/products?limit=3</code>.</li>
+    <li>Enable <strong>unorderedArrays</strong> in validation settings.</li>
+    <li>Add expected fields for <code>$.products[0].title</code> and <code>$.products[1].title</code>.</li>
+    <li>Run the test — even if the API returns products in different order, validation passes because unordered matching finds the row at any index.</li>
+  </ol>
+
+  <h3>Exercise 3: Response Versioning</h3>
+  <p><strong>Goal:</strong> Save a baseline and detect regressions.</p>
+  <ol>
+    <li>Run a test and save the response as "v1 baseline".</li>
+    <li>Save the current rules as "v1 contract".</li>
+    <li>Modify an expected field value to simulate an API change.</li>
+    <li>Run again — observe the failure against the new expectation.</li>
+    <li>Restore the "v1 contract" rules version — test passes again.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/requests/components/JsonPathBuilder.tsx</code></td><td>Interactive JSON tree, <code>buildTree()</code>, <code>getAllLeafPaths()</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>validateFieldsUnordered()</code>, validation mode execution</td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>ValidationConfig</code>, <code>ExpectedField</code>, <code>ResponseVersion</code>, <code>RulesVersion</code></td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>Validation tab UI, mode selector, rules table</td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li>This is the final manual in the Assertion Mastery training path.</li>
+    <li><strong>Previous:</strong> <em>Complex Assertion Strategies</em> — Combining assertions with validation modes.</li>
+    <li><strong>Other paths:</strong> <em>Workflow Patterns</em> (sub-workflows and debugging) and <em>Auth Strategies</em> (workflow auth).</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 3 · Advanced JSONPath and Unordered Arrays · Advanced
+  </footer>
+
+</body>
+</html>
