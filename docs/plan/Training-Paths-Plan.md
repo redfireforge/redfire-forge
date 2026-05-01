@@ -673,19 +673,124 @@ From the `Assertion` union type:
 
 ---
 
-## Implementation Priority
+## Implementation Priority & Status
 
 | Priority | Path | Manuals | Rationale | Status |
 |---|---|---|---|---|
-| **P1** | Workflow Patterns Phase 1–2 | 6 | Most-used features, foundation for advanced patterns | 🔲 |
-| **P2** | Auth Strategies Phase 1 | 4 | Daily workflow — auth is needed for most real APIs | 🔲 |
-| **P3** | Assertion Mastery Phase 1 | 3 | Core testing — validation is the point of testing | 🔲 |
-| **P4** | Auth Strategies Phase 2 | 3 | Intermediate — inheritance and profiles | 🔲 |
-| **P5** | Assertion Mastery Phase 2 | 4 | Intermediate — advanced assertion types | 🔲 |
-| **P6** | Workflow Patterns Phase 3 | 3 | Intermediate — loops and error handling | 🔲 |
-| **P7** | Workflow Patterns Phase 4 | 3 | Advanced — sub-workflows and webhooks | 🔲 |
-| **P8** | Auth Strategies Phase 3 | 1 | Advanced — workflow auth patterns | 🔲 |
-| **P9** | Assertion Mastery Phase 3 | 3 | Advanced — presets and composition | 🔲 |
+| **P1** | Workflow Patterns Phase 1–2 | 6 + overview | Most-used features, foundation for advanced patterns | 🔲 Not Started |
+| **P2** | Auth Strategies Phase 1 | 4 + overview | Daily workflow — auth is needed for most real APIs | 🔲 Not Started |
+| **P3** | Assertion Mastery Phase 1 | 3 + overview | Core testing — validation is the point of testing | 🔲 Not Started |
+| **P4** | Auth Strategies Phase 2 | 3 | Intermediate — inheritance and profiles | 🔲 Not Started |
+| **P5** | Assertion Mastery Phase 2 | 4 | Intermediate — advanced assertion types | 🔲 Not Started |
+| **P6** | Workflow Patterns Phase 3 | 3 | Intermediate — loops and error handling | 🔲 Not Started |
+| **P7** | Workflow Patterns Phase 4 | 3 | Advanced — sub-workflows and webhooks | 🔲 Not Started |
+| **P8** | Auth Strategies Phase 3 | 1 | Advanced — workflow auth patterns | 🔲 Not Started |
+| **P9** | Assertion Mastery Phase 3 | 3 | Advanced — presets and composition | 🔲 Not Started |
+
+**Progress: 0 / 33 files delivered (0%)**
+
+---
+
+## Detailed Delivery Tracker
+
+### P1 — Workflow Patterns Phase 1–2 (7 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `workflow-patterns/workflow-patterns.html` | Overview | 🔲 |
+| 2 | `workflow-patterns/foundation/workflow-http-chaining-easy.html` | Manual | 🔲 |
+| 3 | `workflow-patterns/foundation/workflow-delay-timing-easy.html` | Manual | 🔲 |
+| 4 | `workflow-patterns/foundation/workflow-variables-easy.html` | Manual | 🔲 |
+| 5 | `workflow-patterns/flow-control/workflow-condition-branching-medium.html` | Manual | 🔲 |
+| 6 | `workflow-patterns/flow-control/workflow-switch-multiway-medium.html` | Manual | 🔲 |
+| 7 | `workflow-patterns/flow-control/workflow-fork-join-medium.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1–2 | Code | 🔲 |
+
+### P2 — Auth Strategies Phase 1 (5 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `auth-strategies/auth-strategies.html` | Overview | 🔲 |
+| 2 | `auth-strategies/basics/auth-bearer-token-easy.html` | Manual | 🔲 |
+| 3 | `auth-strategies/basics/auth-basic-easy.html` | Manual | 🔲 |
+| 4 | `auth-strategies/basics/auth-apikey-easy.html` | Manual | 🔲 |
+| 5 | `auth-strategies/basics/auth-oauth2-easy.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | 🔲 |
+
+### P3 — Assertion Mastery Phase 1 (4 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `assertion-mastery/assertion-mastery.html` | Overview | 🔲 |
+| 2 | `assertion-mastery/basics/assertion-status-codes-easy.html` | Manual | 🔲 |
+| 3 | `assertion-mastery/basics/assertion-response-time-easy.html` | Manual | 🔲 |
+| 4 | `assertion-mastery/basics/assertion-validation-modes-easy.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — set `comingSoon: false`, add Phase 1 | Code | 🔲 |
+
+### P4 — Auth Strategies Phase 2 (3 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `auth-strategies/inheritance/auth-inheritance-chain-medium.html` | Manual | 🔲 |
+| 2 | `auth-strategies/inheritance/auth-global-profiles-medium.html` | Manual | 🔲 |
+| 3 | `auth-strategies/inheritance/auth-catalog-security-medium.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 2 manuals | Code | 🔲 |
+
+### P5 — Assertion Mastery Phase 2 (4 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `assertion-mastery/intermediate/assertion-header-checks-medium.html` | Manual | 🔲 |
+| 2 | `assertion-mastery/intermediate/assertion-jsonpath-regex-medium.html` | Manual | 🔲 |
+| 3 | `assertion-mastery/intermediate/assertion-numeric-array-medium.html` | Manual | 🔲 |
+| 4 | `assertion-mastery/intermediate/assertion-date-comparison-medium.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 2 manuals | Code | 🔲 |
+
+### P6 — Workflow Patterns Phase 3 (3 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `workflow-patterns/loops-errors/workflow-loop-patterns-medium.html` | Manual | 🔲 |
+| 2 | `workflow-patterns/loops-errors/workflow-aggregate-medium.html` | Manual | 🔲 |
+| 3 | `workflow-patterns/loops-errors/workflow-error-handling-advanced.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 3 manuals | Code | 🔲 |
+
+### P7 — Workflow Patterns Phase 4 (3 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `workflow-patterns/advanced/workflow-sub-workflow-advanced.html` | Manual | 🔲 |
+| 2 | `workflow-patterns/advanced/workflow-webhook-correlation-advanced.html` | Manual | 🔲 |
+| 3 | `workflow-patterns/advanced/workflow-debug-advanced.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 4 manuals | Code | 🔲 |
+
+### P8 — Auth Strategies Phase 3 (1 file)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `auth-strategies/advanced/auth-workflow-advanced.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 3 manual | Code | 🔲 |
+
+### P9 — Assertion Mastery Phase 3 (3 files)
+
+| # | File | Type | Status |
+|---|---|---|---|
+| 1 | `assertion-mastery/advanced/assertion-presets-advanced.html` | Manual | 🔲 |
+| 2 | `assertion-mastery/advanced/assertion-composition-advanced.html` | Manual | 🔲 |
+| 3 | `assertion-mastery/advanced/assertion-jsonpath-advanced.html` | Manual | 🔲 |
+| — | `trainingPaths.ts` — add Phase 3 manuals | Code | 🔲 |
+
+---
+
+## Summary
+
+| Deliverable | Count | Status |
+|---|---|---|
+| HTML manuals | 30 | 🔲 0 / 30 |
+| Overview pages | 3 | 🔲 0 / 3 |
+| `trainingPaths.ts` updates | 9 | 🔲 0 / 9 |
+| New gallery samples | 0 | N/A — all referenced samples already exist |
+| **Total files** | **33** | **🔲 0 / 33** |
 
 ---
 
