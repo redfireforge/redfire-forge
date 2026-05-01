@@ -281,14 +281,20 @@ export default function TestEditorValidationTab({
         )}
       </div>
 
-      {/* ── JSON Validation Mode ───────────────────────── */}
-      <div className="radio-group">
-        {(['none', 'full', 'selective'] as ValidationMode[]).map((m) => (
-          <label key={m} className="radio-label">
-            <input type="radio" name="validationMode" checked={draft.validation.mode === m} onChange={() => onDraftChange({ ...draft, validation: { ...draft.validation, mode: m } })} />
-            {m === 'none' ? 'No Validation' : m === 'full' ? 'Full JSON Match' : 'Selective Fields'}
-          </label>
-        ))}
+      {/* ── Body Validation Mode ──────────────────────── */}
+      <div className="body-validation-section">
+        <div className="body-validation-header">
+          <span className="body-validation-title">Body Validation</span>
+          <span className="body-validation-hint">Compare the response body against expected JSON</span>
+        </div>
+        <div className="radio-group">
+          {(['none', 'full', 'selective'] as ValidationMode[]).map((m) => (
+            <label key={m} className="radio-label">
+              <input type="radio" name="validationMode" checked={draft.validation.mode === m} onChange={() => onDraftChange({ ...draft, validation: { ...draft.validation, mode: m } })} />
+              {m === 'none' ? 'No Body Validation' : m === 'full' ? 'Full JSON Match' : 'Selective Fields'}
+            </label>
+          ))}
+        </div>
       </div>
       {draft.validation.mode === 'full' && (
         <div className="form-row">
@@ -299,6 +305,11 @@ export default function TestEditorValidationTab({
             onChange={(e) => onDraftChange({ ...draft, validation: { ...draft.validation, expectedJson: e.target.value } })}
             placeholder='Paste the complete expected JSON response here'
           />
+          {!draft.validation.expectedJson?.trim() && (
+            <div className="validation-empty-warning">
+              ⚠ No expected JSON provided — body validation won't run. Paste a response or switch to <button type="button" className="link-btn" onClick={() => onDraftChange({ ...draft, validation: { ...draft.validation, mode: 'none' } })}>No Body Validation</button>.
+            </div>
+          )}
         </div>
       )}
       {draft.validation.mode === 'selective' && (

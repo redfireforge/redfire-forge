@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bearer Token Authentication — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🎫</div>
+    <h1>Bearer Token Authentication</h1>
+    <div class="subtitle">Easy — Auth Strategies Training Manual</div>
+    <p>The most common API auth method. Learn how to configure Bearer tokens, customize the Authorization prefix, extract tokens from login responses, and verify credentials in RedfireForge.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Auth Basics<br />
+      Gallery Samples: <code>req-auth-login</code>, <code>test-auth-flow</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is Bearer Token Auth?</h2>
+  <p>Bearer token authentication sends a token in the <code>Authorization</code> header with every request. The server trusts whoever "bears" the token — no username/password is sent after the initial login.</p>
+
+  <h3>The HTTP Header</h3>
+<pre>Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
+
+  <p>The format is: <code>Authorization: &lt;prefix&gt; &lt;token&gt;</code>. The prefix is usually <code>Bearer</code> but some APIs use <code>Token</code>, <code>JWT</code>, or custom prefixes.</p>
+
+  <h3>Common Use Cases</h3>
+  <ul>
+    <li><strong>JWT tokens</strong> — Login once, receive a signed token, use it for subsequent requests</li>
+    <li><strong>Personal access tokens</strong> — GitHub, GitLab, Jira API tokens</li>
+    <li><strong>Session tokens</strong> — Server-issued tokens with expiry</li>
+  </ul>
+
+  <h3>How RedfireForge Handles It</h3>
+<pre>// AuthConfig for bearer
+{
+  type: 'bearer',
+  token: 'eyJhbGciOiJIUzI1NiIs...',
+  prefix: 'Bearer'     // optional — defaults to "Bearer"
+}</pre>
+
+  <p>The <code>resolveAuthHeaders()</code> function generates:</p>
+<pre>// resolveAuthHeaders() output
+{ "Authorization": "Bearer eyJhbGciOiJIUzI1NiIs..." }</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Configuring Bearer Auth on a Test</h2>
+
+  <h3>Step 1: Open the Auth Tab</h3>
+  <ol>
+    <li>Open any test in the Test Editor.</li>
+    <li>Click the <strong>Auth</strong> tab.</li>
+    <li>From the <strong>Type</strong> dropdown, select <strong>Bearer</strong>.</li>
+  </ol>
+
+  <h3>Step 2: Enter Token Details</h3>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>Token</strong></td><td>The bearer token string</td><td><code>eyJhbGciOiJIUzI1NiIs...</code></td></tr>
+    <tr><td><strong>Prefix</strong></td><td>The word before the token (default: <code>Bearer</code>)</td><td><code>Bearer</code>, <code>Token</code>, <code>JWT</code></td></tr>
+  </table>
+
+  <h3>Step 3: Verify</h3>
+  <p>Click the <strong>Verify</strong> button. For bearer auth, this validates that the token field is not empty and shows the generated header.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Custom Prefixes</strong>
+    Some APIs use non-standard prefixes. For example, DummyJSON expects just <code>Bearer</code>, but some internal APIs may use <code>Token</code> or even no prefix at all. Set the prefix field to match your API's requirements. Leave it blank to send just the token without a prefix word.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. The AuthConfig Data Model</h2>
+<pre>interface AuthConfig {
+  type: AuthType;        // 'bearer' for this manual
+  token?: string;        // The token value
+  prefix?: string;       // Defaults to "Bearer" if omitted
+  // ... other fields for other auth types
+}</pre>
+
+  <h3>How resolveAuthHeaders Works for Bearer</h3>
+<pre>function resolveAuthHeaders(auth: AuthConfig): Record&lt;string, string&gt; {
+  if (auth.type === 'bearer') {
+    const prefix = auth.prefix || 'Bearer';
+    return { Authorization: `${prefix} ${auth.token}` };
+  }
+  // ...
+}</pre>
+
+  <h3>UI State Mapping</h3>
+  <p>The <code>AuthConfigPanel</code> uses <code>EnvAuthState</code> internally:</p>
+<pre>// EnvAuthState (form fields)
+{
+  authType: 'bearer',
+  bearerToken: 'eyJhbGci...',   // maps to AuthConfig.token
+  bearerPrefix: 'Bearer',       // maps to AuthConfig.prefix
+}</pre>
+
+  <p>The <code>authToState()</code> and <code>stateToAuth()</code> functions convert between the flat form state and the nested <code>AuthConfig</code> object.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Walkthrough: Login-Then-Extract Pattern</h2>
+  <p>The most common pattern: send a login request, extract the token from the response, then use it in subsequent requests.</p>
+
+  <h3>Gallery Sample: <code>req-auth-login</code></h3>
+  <p>Load this sample from Gallery → Requests → "Auth Login (Token)".</p>
+
+  <div class="flow-diagram">
+    <strong>POST /auth/login</strong>
+    <span class="arrow">→</span>
+    Extract <code>token</code> from response
+    <span class="arrow">→</span>
+    <strong>GET /auth/me</strong> with <code>Authorization: Bearer {{token}}</code>
+  </div>
+
+  <h3>Step 1: Login Request</h3>
+  <ul>
+    <li>Method: <code>POST</code></li>
+    <li>URL: <code>https://dummyjson.com/auth/login</code></li>
+    <li>Body (JSON):
+<pre>{
+  "username": "emilys",
+  "password": "emilyspass"
+}</pre>
+    </li>
+    <li>Auth: <code>None</code> (no auth needed for login)</li>
+  </ul>
+
+  <h3>Step 2: Extract the Token</h3>
+  <p>The response contains an <code>accessToken</code> field:</p>
+<pre>// Response body
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "...",
+  "id": 1,
+  "username": "emilys"
+}</pre>
+  <p>Use variable extraction: <code>token</code> ← <code>$.accessToken</code> (JSONPath).</p>
+
+  <h3>Step 3: Use the Token</h3>
+  <p>In the next request (GET profile), set auth to Bearer and use the extracted variable:</p>
+  <ul>
+    <li>Auth Type: <code>Bearer</code></li>
+    <li>Token: <code>{{token}}</code></li>
+    <li>URL: <code>https://dummyjson.com/auth/me</code></li>
+  </ul>
+
+  <h3>Gallery Sample: <code>test-auth-flow</code></h3>
+  <p>This test sample demonstrates the complete flow with 3 scenarios: successful login, failed login (wrong password), and authenticated profile fetch.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Bearer Auth in the Console</h2>
+  <p>When you run a test with bearer auth, the console shows:</p>
+
+<pre>// Outgoing request with bearer auth
+&gt; POST https://dummyjson.com/auth/login
+&gt; Content-Type: application/json
+&lt; 200 OK (142ms)
+* Extracted: token = "eyJhbGci..."
+
+&gt; GET https://dummyjson.com/auth/me
+&gt; Authorization: Bearer eyJhbGci...
+&lt; 200 OK (89ms)</pre>
+
+  <div class="callout">
+    <strong>📘 Security Note</strong>
+    Bearer tokens in console logs are shown in full during development. In production scenarios, treat tokens as sensitive data. RedfireForge does not persist console logs to disk unless you explicitly export them.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Exercises</h2>
+
+  <h3>Exercise 1: Static Bearer Token</h3>
+  <p><strong>Goal:</strong> Configure a test with a hardcoded bearer token.</p>
+  <ol>
+    <li>Create a new test with URL: <code>https://httpbin.org/bearer</code>.</li>
+    <li>Set auth type to <strong>Bearer</strong>.</li>
+    <li>Enter any token value (e.g., <code>my-test-token-123</code>).</li>
+    <li>Run the test — HTTPBin echoes back your auth status.</li>
+    <li>Check the response: <code>{ "authenticated": true, "token": "my-test-token-123" }</code>.</li>
+  </ol>
+
+  <h3>Exercise 2: Login and Extract</h3>
+  <p><strong>Goal:</strong> Use the login-then-extract pattern with DummyJSON.</p>
+  <ol>
+    <li>Load the <code>req-auth-login</code> gallery sample.</li>
+    <li>Run the login request and verify the token is extracted.</li>
+    <li>Create a second test: GET <code>https://dummyjson.com/auth/me</code> with bearer auth using <code>{{token}}</code>.</li>
+    <li>Run both tests in sequence and verify the profile is returned.</li>
+  </ol>
+
+  <h3>Exercise 3: Custom Prefix</h3>
+  <p><strong>Goal:</strong> Use a non-standard auth prefix.</p>
+  <ol>
+    <li>Create a test to <code>https://httpbin.org/headers</code>.</li>
+    <li>Set auth to Bearer with prefix <code>Token</code> and token <code>abc123</code>.</li>
+    <li>Run and inspect the response — the <code>Authorization</code> header should show <code>Token abc123</code>.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>AuthType</code>, <code>AuthConfig</code> — type definitions</td></tr>
+    <tr><td><code>src/shared/utils/authHeaders.ts</code></td><td><code>resolveAuthHeaders()</code> — bearer → <code>Authorization</code> header</td></tr>
+    <tr><td><code>src/features/requests/utils/requestAuthState.ts</code></td><td><code>authToState()</code> / <code>stateToAuth()</code> — form ↔ AuthConfig</td></tr>
+    <tr><td><code>src/features/requests/components/AuthConfigPanel.tsx</code></td><td>UI: token field, prefix field, verify button</td></tr>
+    <tr><td><code>src/features/requests/hooks/useAuthVerify.ts</code></td><td>Credential verification for bearer (checks non-empty token)</td></tr>
+    <tr><td><code>src/engine/executor.ts</code></td><td><code>buildHeaders()</code> — merges auth headers into outgoing request</td></tr>
+  </table>
+
+  <h2>8. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Basic Authentication</em> — Username/password with Base64 encoding.</li>
+    <li><strong>Path overview:</strong> <em>Auth Strategies Overview</em> — All phases and the inheritance chain.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies Phase 1 · Bearer Token Authentication · Easy
+  </footer>
+
+</body>
+</html>

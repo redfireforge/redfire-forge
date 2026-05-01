@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Numeric and Array Length Assertions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔢</div>
+    <h1>Numeric and Array Length Assertions</h1>
+    <div class="subtitle">Medium — Assertion Mastery Training Manual</div>
+    <p>Compare numeric values with six operators and validate array sizes. Learn to build range checks, pagination tests, and price guards by combining multiple assertions on the same response.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Advanced Assertions<br />
+      Scenario: <em>E-Commerce Price Validation and Pagination Checks</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Two Assertion Types, One Operator Set</h2>
+  <p>Numeric and array length assertions share the same <code>ComparisonOperator</code> type and <code>compare()</code> function. The difference is <em>what</em> they compare:</p>
+
+  <table>
+    <tr><th>Type</th><th>Compares</th><th>Example</th></tr>
+    <tr><td><code>numeric</code></td><td>Value at JSONPath (as a number)</td><td><code>$.price > 0</code></td></tr>
+    <tr><td><code>arrayLength</code></td><td>Length of array at JSONPath</td><td><code>$.items length >= 1</code></td></tr>
+  </table>
+
+  <h3>ComparisonOperator</h3>
+<pre>type ComparisonOperator = '=' | '!=' | '>' | '>=' | '<' | '<=';</pre>
+
+  <table>
+    <tr><th>Operator</th><th>Meaning</th><th>Display (<code>formatOp</code>)</th></tr>
+    <tr><td><code>=</code></td><td>Equal to</td><td><code>=</code></td></tr>
+    <tr><td><code>!=</code></td><td>Not equal to</td><td><code>≠</code></td></tr>
+    <tr><td><code>&gt;</code></td><td>Greater than</td><td><code>&gt;</code></td></tr>
+    <tr><td><code>&gt;=</code></td><td>Greater than or equal</td><td><code>≥</code></td></tr>
+    <tr><td><code>&lt;</code></td><td>Less than</td><td><code>&lt;</code></td></tr>
+    <tr><td><code>&lt;=</code></td><td>Less than or equal</td><td><code>≤</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Numeric Assertions</h2>
+<pre>// Assertion type for numeric comparisons
+{
+  type: 'numeric',
+  jsonPath: string,             // path to extract value
+  operator: ComparisonOperator, // '=' | '!=' | '>' | '>=' | '<' | '<='
+  value: number                 // reference value to compare against
+}</pre>
+
+  <h3>How It's Evaluated</h3>
+<pre>case 'numeric': {
+  const raw = getByPath(ctx.responseBody, a.jsonPath);
+  const num = typeof raw === 'number' ? raw : Number(raw);
+
+  if (raw === undefined) {
+    failures.push({
+      path: `(numeric:${a.jsonPath})`,
+      expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
+      actual: 'undefined',
+    });
+  } else if (isNaN(num)) {
+    failures.push({
+      path: `(numeric:${a.jsonPath})`,
+      expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
+      actual: `not a number: ${JSON.stringify(raw)}`,
+    });
+  } else if (!compare(num, a.operator, a.value)) {
+    failures.push({
+      path: `(numeric:${a.jsonPath})`,
+      expected: `${formatOp(a.operator)} ${a.value}`,
+      actual: String(num),
+    });
+  }
+  break;
+}</pre>
+
+  <h3>Three Failure Scenarios</h3>
+  <table>
+    <tr><th>Scenario</th><th>Actual Value</th><th>Failure Message</th></tr>
+    <tr><td>Path not found</td><td><code>undefined</code></td><td><code>actual: 'undefined'</code></td></tr>
+    <tr><td>Value is not a number</td><td><code>"hello"</code></td><td><code>actual: 'not a number: "hello"'</code></td></tr>
+    <tr><td>Comparison fails</td><td><code>42</code> vs <code>&gt; 100</code></td><td><code>expected: '&gt; 100', actual: '42'</code></td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 String-to-Number Coercion</strong>
+    If the JSONPath value is a string like <code>"42"</code>, the engine coerces it to a number via <code>Number(raw)</code>. This handles APIs that return numeric values as strings. If coercion fails (e.g., <code>"hello"</code>), you get an <code>isNaN</code> failure — not a silent false pass.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Array Length Assertions</h2>
+<pre>// Assertion type for array length checks
+{
+  type: 'arrayLength',
+  jsonPath: string,             // path to the array
+  operator: ComparisonOperator,
+  value: number                 // expected length to compare
+}</pre>
+
+  <h3>How It's Evaluated</h3>
+<pre>case 'arrayLength': {
+  const arr = getByPath(ctx.responseBody, a.jsonPath);
+
+  if (!Array.isArray(arr)) {
+    failures.push({
+      path: `(arrayLength:${a.jsonPath})`,
+      expected: `array with length ${formatOp(a.operator)} ${a.value}`,
+      actual: arr === undefined
+        ? 'undefined'
+        : `not an array (${typeof arr})`,
+    });
+  } else if (!compare(arr.length, a.operator, a.value)) {
+    failures.push({
+      path: `(arrayLength:${a.jsonPath})`,
+      expected: `length ${formatOp(a.operator)} ${a.value}`,
+      actual: `length ${arr.length}`,
+    });
+  }
+  break;
+}</pre>
+
+  <h3>Failure Scenarios</h3>
+  <table>
+    <tr><th>Scenario</th><th>Failure Message</th></tr>
+    <tr><td>Path is <code>undefined</code></td><td><code>actual: 'undefined'</code></td></tr>
+    <tr><td>Value is not an array (e.g., object)</td><td><code>actual: 'not an array (object)'</code></td></tr>
+    <tr><td>Array length doesn't match</td><td><code>expected: 'length ≥ 1', actual: 'length 0'</code></td></tr>
+  </table>
+
+  <h3>Root-Level Arrays</h3>
+  <p>Many APIs return arrays at the root level (e.g., <code>GET /users</code> → <code>[{...}, {...}]</code>). Use <code>$</code> or <code>$.</code> as the JSONPath to target the root:</p>
+
+<pre>// Root-level array length check
+{ type: 'arrayLength', jsonPath: '$', operator: '>=', value: 1 }
+// or
+{ type: 'arrayLength', jsonPath: '$.', operator: '=', value: 10 }</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Combining Assertions for Range Checks</h2>
+  <p>A single assertion checks one condition. For range checks ("price between 0 and 10000"), use <strong>two assertions</strong>:</p>
+
+<pre>// Price must be positive and under 10,000
+assertions: [
+  { type: 'numeric', jsonPath: '$.price', operator: '>', value: 0 },
+  { type: 'numeric', jsonPath: '$.price', operator: '<', value: 10000 },
+]</pre>
+
+  <p>Both assertions run independently — if either fails, the test fails. This gives you precise error messages: "price is -5, expected &gt; 0" rather than a generic "price out of range."</p>
+
+  <h3>Common Combination Patterns</h3>
+
+  <h4>Pagination Response</h4>
+<pre>assertions: [
+  { type: 'numeric', jsonPath: '$.page', operator: '=', value: 1 },
+  { type: 'numeric', jsonPath: '$.total', operator: '>', value: 0 },
+  { type: 'arrayLength', jsonPath: '$.data', operator: '>=', value: 1 },
+  { type: 'arrayLength', jsonPath: '$.data', operator: '<=', value: 20 },
+]</pre>
+
+  <h4>User ID Bounds</h4>
+<pre>assertions: [
+  { type: 'numeric', jsonPath: '$.userId', operator: '>=', value: 1 },
+  { type: 'numeric', jsonPath: '$.userId', operator: '<=', value: 10 },
+]</pre>
+
+  <h4>Price Guard (E-Commerce)</h4>
+<pre>assertions: [
+  { type: 'numeric', jsonPath: '$.price', operator: '>', value: 0 },
+  { type: 'numeric', jsonPath: '$.price', operator: '<', value: 10000 },
+  { type: 'arrayLength', jsonPath: '$.variants', operator: '>=', value: 1 },
+]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Gallery Samples</h2>
+  <p>Several gallery presets demonstrate numeric and array assertions:</p>
+
+  <h3>Assertion Presets</h3>
+  <table>
+    <tr><th>Preset</th><th>Assertions</th></tr>
+    <tr>
+      <td><strong>API Health Check</strong></td>
+      <td><code>arrayLength '$' &gt;= 1</code></td>
+    </tr>
+    <tr>
+      <td><strong>Paginated List</strong></td>
+      <td><code>arrayLength '$.data' &gt;= 1</code>, <code>numeric '$.page' = 1</code>, <code>numeric '$.total' &gt; 0</code></td>
+    </tr>
+    <tr>
+      <td><strong>Price Guard</strong></td>
+      <td><code>numeric '$.price' &gt; 0</code>, <code>numeric '$.price' &lt; 10000</code>, <code>arrayLength '$.variants' &gt;= 1</code></td>
+    </tr>
+    <tr>
+      <td><strong>API Contract</strong></td>
+      <td><code>numeric '$.userId' &gt;= 1</code>, <code>numeric '$.userId' &lt;= 10</code></td>
+    </tr>
+  </table>
+
+  <h3>Request Presets</h3>
+  <table>
+    <tr><th>Preset</th><th>Assertions</th></tr>
+    <tr><td>Get All Users</td><td><code>arrayLength '$' = 10</code></td></tr>
+    <tr><td>Create Post</td><td><code>numeric '$.id' &gt; 0</code></td></tr>
+    <tr><td>Books Search</td><td><code>numeric '$.numFound' &gt; 0</code>, <code>arrayLength '$.docs' &gt;= 1</code></td></tr>
+    <tr><td>Countries</td><td><code>arrayLength '$' &gt;= 1</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. The compare() and formatOp() Helpers</h2>
+  <p>Both assertion types use shared helper functions:</p>
+
+<pre>// compare(actual, operator, expected) → boolean
+compare(42, '>', 10)    // true
+compare(42, '=', 42)    // true
+compare(42, '!=', 42)   // false
+compare(42, '<=', 100)  // true
+
+// formatOp(operator) → display string
+formatOp('>')    // '>'
+formatOp('>=')   // '≥'
+formatOp('!=')   // '≠'
+formatOp('<=')   // '≤'</pre>
+
+  <div class="callout">
+    <strong>📘 formatOp() in Failure Messages</strong>
+    The <code>formatOp()</code> function converts operators to human-readable symbols for failure messages. So you see <code>expected: '≥ 1'</code> instead of <code>expected: '>= 1'</code> — a small but helpful readability improvement.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Price Validation</h3>
+  <p><strong>Goal:</strong> Assert a numeric value is within a valid range.</p>
+  <ol>
+    <li>Create a test: GET <code>https://fakestoreapi.com/products/1</code>.</li>
+    <li>Add assertion: numeric <code>$.price</code> <code>&gt;</code> <code>0</code>.</li>
+    <li>Add assertion: numeric <code>$.price</code> <code>&lt;</code> <code>10000</code>.</li>
+    <li>Run — both should pass.</li>
+    <li>Change the lower bound to <code>&gt; 9999</code> — observe which assertion fails.</li>
+  </ol>
+
+  <h3>Exercise 2: Array Length Check</h3>
+  <p><strong>Goal:</strong> Validate that an array has expected number of elements.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users</code>.</li>
+    <li>Add assertion: arrayLength <code>$</code> <code>=</code> <code>10</code> (root array has exactly 10 users).</li>
+    <li>Run — should pass.</li>
+    <li>Change to <code>&gt;=</code> <code>1</code> — still passes (more resilient to data changes).</li>
+    <li>Change to <code>=</code> <code>5</code> — fails: <code>expected: 'length = 5', actual: 'length 10'</code>.</li>
+  </ol>
+
+  <h3>Exercise 3: Pagination Test</h3>
+  <p><strong>Goal:</strong> Combine numeric and array assertions for a paginated response.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/posts</code>.</li>
+    <li>Add assertions:
+      <ul>
+        <li>arrayLength <code>$</code> <code>&gt;=</code> <code>1</code> (non-empty)</li>
+        <li>numeric <code>$[0].userId</code> <code>&gt;=</code> <code>1</code> (valid user ID)</li>
+        <li>numeric <code>$[0].id</code> <code>&gt;</code> <code>0</code> (positive post ID)</li>
+      </ul>
+    </li>
+    <li>Run and verify all pass.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> — numeric and arrayLength variants</td></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>ComparisonOperator</code> — <code>'=' | '!=' | '>' | '>=' | '<' | '<='</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — numeric and arrayLength cases</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>compare()</code> — numeric comparison helper</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>formatOp()</code> — operator display formatting</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>getByPath()</code> — JSONPath value extraction</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Date Assertions</em> — Compare dates with today/fixed references, UTC vs local timezone.</li>
+    <li><strong>Previous:</strong> <em>JSONPath + Regex Assertions</em> — Pattern matching on extracted JSON values.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 2 · Numeric and Array Length Assertions · Medium
+  </footer>
+
+</body>
+</html>
