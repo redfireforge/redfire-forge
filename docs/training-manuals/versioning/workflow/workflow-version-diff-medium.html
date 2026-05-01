@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Version Diff — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .diff-added { background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .diff-removed { background: #f8d7da; color: #721c24; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .diff-modified { background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .diff-unchanged { background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔍</div>
+    <h1>Workflow Version Diff</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Compare two workflow versions side-by-side using the 4-tab diff modal. Understand exactly what changed — which nodes were added, edges rewired, variables modified, and services updated — with color-coded change indicators.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Gallery Sample: <code>sample-workflow-webhook</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Version history tells you <em>when</em> changes happened. The version diff tells you <em>what</em> changed. When a workflow has 10+ versions, being able to compare any two versions side-by-side is essential for understanding evolution, debugging regressions, and documenting changes for your team.</p>
+  <p><strong>Real-world scenario:</strong> <em>"Webhook Order Processing — Adding Fraud Detection"</em></p>
+  <p>You've imported a webhook-triggered order processing workflow from the Gallery. It handles incoming orders by checking inventory and routing to either "Process Order" or "Out of Stock Alert". Your task is to add a fraud detection step between the inventory check and the routing condition. After making these changes, you want to compare the before and after to verify exactly what was added, removed, and modified.</p>
+
+  <h2>2. Prerequisites</h2>
+  <ul>
+    <li>Completed the <strong>workflow-version-history-easy</strong> manual (understand snapshots, restore, version panel).</li>
+    <li>Basic familiarity with the workflow editor (nodes, edges, variables).</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Multi-select comparison</strong> — checking two version checkboxes to activate the Compare button.</li>
+    <li><strong>4-tab diff modal</strong> — Nodes, Edges, Variables, and Services tabs showing categorized changes.</li>
+    <li><strong>Change indicators</strong> — color coding: <span class="diff-added">Added</span> <span class="diff-removed">Removed</span> <span class="diff-modified">Modified</span> <span class="diff-unchanged">Unchanged</span></li>
+    <li><strong>Property-level diff</strong> — expanding a modified node to see exactly which properties changed (via <code>json-diff-kit</code>).</li>
+    <li><strong>VersionDiffResult</strong> — the data structure driving the diff display.</li>
+  </ul>
+
+  <!-- Section 4 -->
+  <h2>4. Key Data Model</h2>
+  <p>The <code>computeVersionDiff()</code> function compares two <code>WorkflowVersion</code> objects and returns a structured result:</p>
+
+<pre>interface VersionDiffResult {
+  addedNodes: WorkflowNode[];
+  removedNodes: WorkflowNode[];
+  modifiedNodes: Array&lt;{
+    id: string;
+    label: string;
+    old: WorkflowNode;
+    new: WorkflowNode;
+  }&gt;;
+  addedEdges: WorkflowEdge[];
+  removedEdges: WorkflowEdge[];
+  variableChanges: {
+    added: Array&lt;{ key: string; value: string }&gt;;
+    removed: Array&lt;{ key: string; value: string }&gt;;
+    modified: Array&lt;{ key: string; oldValue: string; newValue: string }&gt;;
+  };
+  serviceChanges: {
+    added: WorkflowService[];
+    removed: WorkflowService[];
+    modified: Array&lt;{
+      id: string;
+      name: string;
+      old: WorkflowService;
+      new: WorkflowService;
+    }&gt;;
+  };
+}</pre>
+
+  <p>The diff algorithm works by matching entities by <code>id</code>:</p>
+  <ul>
+    <li>A node in the <em>newer</em> version but not in the <em>older</em> → <span class="diff-added">Added</span></li>
+    <li>A node in the <em>older</em> version but not in the <em>newer</em> → <span class="diff-removed">Removed</span></li>
+    <li>A node in both but with different data → <span class="diff-modified">Modified</span> (property-level diff available)</li>
+    <li>A node in both with identical data → <span class="diff-unchanged">Unchanged</span></li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Webhook Trigger"</strong> (<code>sample-workflow-webhook</code>) from the Workflows Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>sample-workflow-webhook</code></td></tr>
+    <tr><td>Name</td><td>Webhook Trigger</td></tr>
+    <tr><td>Nodes</td><td>6 (Webhook, HTTP Request, Condition, HTTP Request × 2, End)</td></tr>
+    <tr><td>API</td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+    <tr><td>Flow</td><td>Webhook → Check Inventory → In Stock? → Process Order / Out of Stock Alert → End</td></tr>
+    <tr><td>Variables</td><td><code>orderId</code>, <code>customerId</code>, <code>totalAmount</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import and Save as Version 1</h3>
+  <p>Open the <strong>Gallery</strong> → <strong>Workflows</strong> tab. Find <strong>"Webhook Trigger"</strong> (<code>sample-workflow-webhook</code>). Click <strong>Import</strong>.</p>
+  <p>The workflow loads with 6 nodes. Click <strong>Save</strong> immediately to create <strong>Version 1</strong> — this captures the original Gallery state as your baseline.</p>
+
+  <h3>Step 2 — Evolve the Workflow</h3>
+  <p>Now add fraud detection between the inventory check and the routing condition:</p>
+  <ol>
+    <li><strong>Add a Script Node</strong> — Label: "Fraud Score Check". Position it between "Check Inventory" and the Condition node.</li>
+    <li><strong>Add a variable</strong> — Name: <code>fraudThreshold</code>, Value: <code>85</code>.</li>
+    <li><strong>Rewire edges:</strong>
+      <ul>
+        <li>Remove the direct edge from "Check Inventory" → Condition.</li>
+        <li>Add edge: "Check Inventory" → "Fraud Score Check".</li>
+        <li>Add edge: "Fraud Score Check" → Condition.</li>
+      </ul>
+    </li>
+  </ol>
+  <p>Click <strong>Save</strong> to create <strong>Version 2</strong>.</p>
+
+  <h3>Step 3 — Open Version History</h3>
+  <p>Click the <strong>clock/history icon</strong> in the toolbar. The Version Panel shows two entries: Version 2 (newest) and Version 1.</p>
+
+  <h3>Step 4 — Select Two Versions</h3>
+  <p>Check the <strong>checkbox</strong> on both Version 1 and Version 2. When exactly 2 versions are selected, the <strong>"Compare"</strong> button activates in the panel toolbar.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    You can only compare exactly 2 versions at a time. Checking a 3rd checkbox will deselect the oldest selection. The older version is always treated as the "baseline" and the newer as the "current" state.
+  </div>
+
+  <h3>Step 5 — Open the Diff Modal</h3>
+  <p>Click <strong>Compare</strong>. The <code>WorkflowVersionDiff</code> modal opens with 4 tabs across the top: <strong>Nodes</strong>, <strong>Edges</strong>, <strong>Variables</strong>, <strong>Services</strong>.</p>
+
+  <div class="page-break"></div>
+
+  <h3>Step 6 — Nodes Tab</h3>
+  <p>The Nodes tab shows all nodes from both versions, categorized by change type:</p>
+
+  <table>
+    <tr><th>Node</th><th>Status</th><th>Detail</th></tr>
+    <tr><td>Fraud Score Check</td><td><span class="diff-added">Added</span></td><td>New Script Node with fraud detection logic</td></tr>
+    <tr><td>Webhook</td><td><span class="diff-unchanged">Unchanged</span></td><td>Same configuration in both versions</td></tr>
+    <tr><td>Check Inventory</td><td><span class="diff-unchanged">Unchanged</span></td><td>Same HTTP Request configuration</td></tr>
+    <tr><td>Condition</td><td><span class="diff-unchanged">Unchanged</span></td><td>Same routing logic</td></tr>
+    <tr><td>Process Order</td><td><span class="diff-unchanged">Unchanged</span></td><td>Same HTTP Request configuration</td></tr>
+    <tr><td>Out of Stock Alert</td><td><span class="diff-unchanged">Unchanged</span></td><td>Same HTTP Request configuration</td></tr>
+  </table>
+
+  <p>Click on the <span class="diff-added">Added</span> "Fraud Score Check" node to expand its full configuration — you'll see the script code, label, position, and all node data.</p>
+
+  <h3>Step 7 — Edges Tab</h3>
+  <p>The Edges tab shows edge-level changes:</p>
+
+  <table>
+    <tr><th>Edge</th><th>Status</th><th>Detail</th></tr>
+    <tr><td>Check Inventory → Condition</td><td><span class="diff-removed">Removed</span></td><td>Direct connection replaced by the fraud check detour</td></tr>
+    <tr><td>Check Inventory → Fraud Score Check</td><td><span class="diff-added">Added</span></td><td>New connection to fraud detection node</td></tr>
+    <tr><td>Fraud Score Check → Condition</td><td><span class="diff-added">Added</span></td><td>New connection from fraud detection to routing</td></tr>
+    <tr><td>Webhook → Check Inventory</td><td><span class="diff-unchanged">Unchanged</span></td><td>Original connection preserved</td></tr>
+    <tr><td>Condition → Process Order</td><td><span class="diff-unchanged">Unchanged</span></td><td>Original routing preserved</td></tr>
+    <tr><td>Condition → Out of Stock Alert</td><td><span class="diff-unchanged">Unchanged</span></td><td>Original routing preserved</td></tr>
+  </table>
+
+  <p>This makes the rewiring clear: 1 edge removed, 2 edges added — the fraud check is now in the middle of the flow.</p>
+
+  <h3>Step 8 — Variables Tab</h3>
+  <p>The Variables tab shows variable-level changes:</p>
+
+  <table>
+    <tr><th>Variable</th><th>Status</th><th>Detail</th></tr>
+    <tr><td><code>fraudThreshold</code></td><td><span class="diff-added">Added</span></td><td>Value: <code>85</code></td></tr>
+    <tr><td><code>orderId</code></td><td><span class="diff-unchanged">Unchanged</span></td><td>Original webhook variable</td></tr>
+    <tr><td><code>customerId</code></td><td><span class="diff-unchanged">Unchanged</span></td><td>Original webhook variable</td></tr>
+    <tr><td><code>totalAmount</code></td><td><span class="diff-unchanged">Unchanged</span></td><td>Original webhook variable</td></tr>
+  </table>
+
+  <h3>Step 9 — Services Tab</h3>
+  <p>The Services tab shows service configuration changes. In this case, no services were added, removed, or modified — all HTTP requests still target <code>jsonplaceholder.typicode.com</code>.</p>
+  <p>The tab displays: <strong>"No service changes"</strong> or lists all services as <span class="diff-unchanged">Unchanged</span>.</p>
+
+  <h3>Step 10 — Interpret the Full Picture</h3>
+  <p>Across all 4 tabs, the diff tells a clear story:</p>
+  <ul>
+    <li><strong>1 node added</strong> (Fraud Score Check) — new capability.</li>
+    <li><strong>1 edge removed, 2 edges added</strong> — the flow was rerouted through the new node.</li>
+    <li><strong>1 variable added</strong> (<code>fraudThreshold</code>) — new configuration for the fraud check.</li>
+    <li><strong>0 service changes</strong> — no infrastructure impact.</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The diff summary at the top of the modal shows aggregate counts: "1 node added, 1 edge removed, 2 edges added, 1 variable added". Use this for a quick overview before diving into individual tabs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Understanding Modified Nodes</h2>
+  <p>In the walkthrough above, all existing nodes were unchanged. But when you <em>modify</em> a node (change its URL, method, body, script, or any configuration), the Nodes tab shows it as <span class="diff-modified">Modified</span> with an expandable property-level diff.</p>
+
+  <h4>Example: Changing a node's URL</h4>
+  <p>If you changed "Check Inventory" from <code>GET /posts</code> to <code>GET /posts/1</code>, the Nodes tab would show:</p>
+
+  <table>
+    <tr><th>Node</th><th>Status</th><th>Changed Properties</th></tr>
+    <tr>
+      <td>Check Inventory</td>
+      <td><span class="diff-modified">Modified</span></td>
+      <td>
+        <code>data.url</code>: <code>"/posts"</code> → <code>"/posts/1"</code>
+      </td>
+    </tr>
+  </table>
+
+  <p>Click the modified node to expand the full property diff. RedfireForge uses <code>json-diff-kit</code> to display a structured side-by-side comparison of the old vs. new node data, highlighting exactly which JSON properties changed.</p>
+
+<pre>// How modified nodes are detected
+const modifiedNodes = [];
+for (const [id, olderNode] of olderNodeMap) {
+  const newerNode = newerNodeMap.get(id);
+  if (newerNode &amp;&amp; JSON.stringify(olderNode.data) !== JSON.stringify(newerNode.data)) {
+    modifiedNodes.push({ id, label: newerNode.data?.label, old: olderNode, new: newerNode });
+  }
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Variable &amp; Service Change Details</h2>
+
+  <h3>Variable Changes</h3>
+  <p>The <code>variableChanges</code> section of <code>VersionDiffResult</code> categorizes variable changes into three groups:</p>
+  <ul>
+    <li><strong>Added</strong> — variable exists in the newer version but not the older. Shows key + value.</li>
+    <li><strong>Removed</strong> — variable exists in the older version but not the newer. Shows key + last known value.</li>
+    <li><strong>Modified</strong> — variable exists in both but the value changed. Shows key + old value → new value.</li>
+  </ul>
+
+  <h3>Service Changes</h3>
+  <p>Services are compared by <code>id</code>. A modified service shows the old and new <code>WorkflowService</code> objects side-by-side, highlighting changes to name, baseUrl, headers, or auth configuration.</p>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Modify Without Adding/Removing</h3>
+  <p>Starting from a saved version, change an existing node's URL (don't add or remove any nodes). Save. Compare the two versions. Verify the Nodes tab shows exactly 1 <span class="diff-modified">Modified</span> node with a property-level diff showing the old URL → new URL. The Edges, Variables, and Services tabs should show zero changes.</p>
+
+  <h3>Exercise 2 — Variable Value Change</h3>
+  <p>Change a variable's value (e.g., <code>fraudThreshold</code> from <code>85</code> to <code>70</code>) without changing its name. Save and compare. Verify the Variables tab shows it as <span class="diff-modified">Modified</span> with <code>oldValue: "85"</code> → <code>newValue: "70"</code>.</p>
+
+  <h3>Exercise 3 — Identity Comparison</h3>
+  <p>Select the same version twice (check its checkbox, uncheck, check again — or compare version 1 with version 1). The diff should show <strong>zero changes</strong> across all 4 tabs. This confirms the diff algorithm is working correctly — identical inputs produce an empty diff.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use the diff modal when reviewing changes before deploying a workflow update. It serves as a visual "code review" for workflow modifications — you can verify that only intended changes were made.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="workflow-version-history-easy.html">workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Create, browse, rename, and restore workflow version snapshots</td>
+    </tr>
+    <tr>
+      <td><a href="workflow-version-advanced.html">workflow-version-advanced</a></td>
+      <td><span class="badge badge-advanced">Advanced</span></td>
+      <td>Bulk operations, export/import with version data, 30-cap rotation strategies</td>
+    </tr>
+    <tr>
+      <td><a href="../test/test-definition-diff-medium.html">test-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>5-tab diff for test definitions — similar concepts applied to tests</td>
+    </tr>
+    <tr>
+      <td><a href="../request/request-definition-diff-medium.html">request-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>4-tab diff for request definitions — Overview, Headers, Body, Auth</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Workflow Version Diff (Medium) · May 2026
+  </footer>
+
+</body>
+</html>

@@ -22,4 +22,9 @@ export interface GalleryEntry<T> {
   /** The public API(s) this sample interacts with. */
   liveApis: string[];
   factory: () => T;
+  /**
+   * If set, marks this entry as a simulator/counterpart for another sample
+   * (value is the id of the main sample). Used to group pairs in the gallery.
+   */
+  simulatorOf?: string;
 }

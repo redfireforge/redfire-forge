@@ -4,6 +4,7 @@ import { useReactFlow } from '@xyflow/react';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { defaultNodeData } from '../utils/workflowNodeFactory';
 import type { WorkflowNodeType, WorkflowNode } from '../types/workflow';
+import { findClosestEdge } from '../utils/workflowEdgeGeometry';
 
 interface UseWorkflowDragDropOptions {
   nodesRef: React.RefObject<WorkflowRFNode[]>;
@@ -38,45 +39,8 @@ export function useWorkflowDragDrop({
   const canvasAreaRef = useRef<HTMLDivElement>(null);
 
   /** Find the closest edge to a flow-space point, within a threshold distance. */
-  const findClosestEdge = useCallback((flowPos: { x: number; y: number }, threshold = 60): WorkflowRFEdge | null => {
-    const rfNodes = nodesRef.current;
-    const rfEdges = edgesRef.current;
-    const nodeMap = new Map(rfNodes.map(n => [n.id, n]));
-
-    // Special handles that indicate branching edges (should not be split)
-    const branchHandles = new Set(['true', 'false', 'body', 'catch', 'done']);
-
-    let bestEdge: WorkflowRFEdge | null = null;
-    let bestDist = threshold;
-
-    for (const edge of rfEdges) {
-      const srcNode = nodeMap.get(edge.source);
-      const tgtNode = nodeMap.get(edge.target);
-      if (!srcNode || !tgtNode) continue;
-      if (edge.sourceHandle && branchHandles.has(edge.sourceHandle)) continue;
-      if (edge.sourceHandle && edge.sourceHandle.startsWith('case-')) continue;
-
-      const sw = (srcNode.measured?.width ?? (srcNode as unknown as { width?: number }).width ?? 160);
-      const sh = (srcNode.measured?.height ?? (srcNode as unknown as { height?: number }).height ?? 60);
-      const tw = (tgtNode.measured?.width ?? (tgtNode as unknown as { width?: number }).width ?? 160);
-      const sx = srcNode.position.x + sw / 2;
-      const sy = srcNode.position.y + sh;
-      const tx = tgtNode.position.x + tw / 2;
-      const ty = tgtNode.position.y;
-
-      const dx = tx - sx, dy = ty - sy;
-      const lenSq = dx * dx + dy * dy;
-      if (lenSq === 0) continue;
-      const t = Math.max(0, Math.min(1, ((flowPos.x - sx) * dx + (flowPos.y - sy) * dy) / lenSq));
-      const px = sx + t * dx, py = sy + t * dy;
-      const dist = Math.sqrt((flowPos.x - px) ** 2 + (flowPos.y - py) ** 2);
-
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestEdge = edge;
-      }
-    }
-    return bestEdge;
+  const findClosest = useCallback((flowPos: { x: number; y: number }, threshold = 60): WorkflowRFEdge | null => {
+    return findClosestEdge(flowPos, nodesRef.current, edgesRef.current, threshold);
   }, [nodesRef, edgesRef]);
 
   const lastEdgeCheckTime = useRef(0);
@@ -91,14 +55,14 @@ export function useWorkflowDragDrop({
       if (now - lastEdgeCheckTime.current > 16) {
         lastEdgeCheckTime.current = now;
         const flowPos = rfInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-        const closest = findClosestEdge(flowPos);
+        const closest = findClosest(flowPos);
         setDropTargetEdgeId(prev => {
           const next = closest?.id ?? null;
           return prev === next ? prev : next;
         });
       }
     }
-  }, [rfInstance, findClosestEdge]);
+  }, [rfInstance, findClosest]);
 
   const handleCanvasDragLeave = useCallback(() => {
     setIsDragOver(false);
@@ -128,7 +92,7 @@ export function useWorkflowDragDrop({
     };
 
     // Check if dropping on an edge → split it
-    const closestEdge = findClosestEdge(position);
+    const closestEdge = findClosest(position);
     if (closestEdge) {
       undoRedo.takeSnapshot('Insert node on edge');
       const newEdge1: WorkflowRFEdge = {
@@ -155,7 +119,7 @@ export function useWorkflowDragDrop({
     }
 
     insertNodeAndPersist(newNode, 'Add node');
-  }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance, findClosestEdge, setNodes, setEdges, serializeNodes, serializeEdges, update, undoRedo]);
+  }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance, findClosest, setNodes, setEdges, serializeNodes, serializeEdges, update, undoRedo]);
 
   return {
     isDragOver,
