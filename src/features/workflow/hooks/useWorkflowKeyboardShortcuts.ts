@@ -1,17 +1,11 @@
 import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type { Workflow } from '../types/workflow';
 import type { ToastApi } from '../components/WorkflowToastProvider';
-import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
 
 interface UseWorkflowKeyboardShortcutsOptions {
   selected: Workflow | null;
   previewWorkflow: Workflow | null;
-  nodesRef: React.RefObject<WorkflowRFNode[]>;
-  edgesRef: React.RefObject<WorkflowRFEdge[]>;
-  setNodes: React.Dispatch<React.SetStateAction<WorkflowRFNode[]>>;
-  setLayoutVersion: React.Dispatch<React.SetStateAction<number>>;
   persistWorkflow: () => void;
   handleToggleConsole: () => void;
   handleUndoAction: () => void;
@@ -21,6 +15,7 @@ interface UseWorkflowKeyboardShortcutsOptions {
   handleDuplicateNode: () => void;
   handleQuickTestRef: React.RefObject<() => void>;
   handleDebugQuickTestRef: React.RefObject<() => void>;
+  handleAutoLayout: () => void;
   setShowShortcuts: React.Dispatch<React.SetStateAction<boolean>>;
   setShowCommandPalette: React.Dispatch<React.SetStateAction<boolean>>;
   setShowMinimap: React.Dispatch<React.SetStateAction<boolean>>;
@@ -30,10 +25,6 @@ interface UseWorkflowKeyboardShortcutsOptions {
 export function useWorkflowKeyboardShortcuts({
   selected,
   previewWorkflow,
-  nodesRef,
-  edgesRef,
-  setNodes,
-  setLayoutVersion,
   persistWorkflow,
   handleToggleConsole,
   handleUndoAction,
@@ -43,6 +34,7 @@ export function useWorkflowKeyboardShortcuts({
   handleDuplicateNode,
   handleQuickTestRef,
   handleDebugQuickTestRef,
+  handleAutoLayout,
   setShowShortcuts,
   setShowCommandPalette,
   setShowMinimap,
@@ -90,9 +82,7 @@ export function useWorkflowKeyboardShortcuts({
         case 'l':
           if (!isInput) {
             e.preventDefault();
-            const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
-            setNodes(laid);
-            setLayoutVersion((v) => v + 1);
+            handleAutoLayout();
           }
           break;
         case 'm':
@@ -121,5 +111,5 @@ export function useWorkflowKeyboardShortcuts({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selected, previewWorkflow, persistWorkflow, toast, handleToggleConsole, handleUndoAction, handleRedoAction, handleCopyNode, handlePasteNode, handleDuplicateNode, rfInstance, setNodes, nodesRef, edgesRef, setLayoutVersion, setShowShortcuts, setShowCommandPalette, setShowMinimap, handleQuickTestRef, handleDebugQuickTestRef]);
+  }, [selected, previewWorkflow, persistWorkflow, toast, handleToggleConsole, handleUndoAction, handleRedoAction, handleCopyNode, handlePasteNode, handleDuplicateNode, rfInstance, setShowShortcuts, setShowCommandPalette, setShowMinimap, handleQuickTestRef, handleDebugQuickTestRef, handleAutoLayout]);
 }

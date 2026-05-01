@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baseline Comparison &amp; Regression Detection — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📈</div>
+    <h1>Baseline Comparison &amp; Regression Detection</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Learn to compare test runs against baselines using MetricDelta, detect regressions with configurable thresholds, analyze per-scenario breakdowns, and visualize performance trends.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 4 — Versioning Training Path<br />
+      Gallery Sample: <code>test-auth-flow</code> · dummyjson.com<br />
+      Prerequisite: <a href="run-baselines-easy.html">Run Baselines (Easy)</a>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Marking baselines is just the first step. The real power lies in <strong>comparison</strong> — quantifying how a current run differs from the baseline across every metric and every scenario.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Post-Deployment Regression Detection — Auth API"</em></p>
+  <p>Your team deploys Auth API v2.0. Login endpoint was refactored for security. Before deployment, you ran the "Auth Flow Validation" test and marked it as baseline. After deployment, you run the same test. The comparison reveals:</p>
+  <ul>
+    <li>Login success: response time +87% (145ms → 275ms) — <strong>critical regression</strong>.</li>
+    <li>Login failure: response time +12% — within threshold, no alert.</li>
+    <li>Profile fetch: response time −5% — <strong>improved</strong>.</li>
+    <li>Error rate: 0.5% → 2.3% (+1.8 percentage points) — exceeds 1pp threshold, <strong>regression alert</strong>.</li>
+  </ul>
+  <p>Without baseline comparison, you'd see raw numbers but have no context. With it, you immediately know what regressed, by how much, and whether it's critical.</p>
+
+  <div class="callout">
+    <strong>📋 Prerequisite</strong>
+    Complete the <a href="run-baselines-easy.html">Run Baselines (Easy)</a> manual first. This manual assumes you can mark, unmark, and label baselines.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>RunComparison</strong> — the top-level comparison result containing metric deltas, scenario deltas, and regression alerts.</li>
+    <li><strong>MetricDelta</strong> — per-metric comparison (baseline vs. current) with absolute and percentage change, plus improved/regressed flags.</li>
+    <li><strong>ScenarioDelta</strong> — per-scenario breakdown showing response time, request count, and error rate changes.</li>
+    <li><strong>RegressionAlert</strong> — triggered when a metric exceeds its configured threshold, with <code>warning</code> or <code>critical</code> severity.</li>
+    <li><strong>RegressionThresholds</strong> — configurable limits for each metric (P50 ±15%, P95 ±10%, etc.).</li>
+    <li><strong>TrendPoint</strong> — data point for trend visualization across multiple runs.</li>
+    <li><strong>Histogram overlay</strong> — response time distribution comparison between baseline and current run.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Models</h2>
+
+  <h3>3.1 MetricDelta</h3>
+<pre>interface MetricDelta {
+  metric: string;        // e.g., "Avg Response Time", "P95 Response Time", "TPS", "Error Rate"
+  baselineValue: number; // Value from the baseline run
+  currentValue: number;  // Value from the current run
+  delta: number;         // Absolute difference (current - baseline)
+  deltaPercent: number;  // Percentage change ((delta / baseline) * 100)
+  improved: boolean;     // True if change is favorable
+  regressed: boolean;    // True if change exceeds regression threshold
+}</pre>
+
+  <p>Direction of "improved" depends on the metric:</p>
+  <table>
+    <tr><th>Metric</th><th>Improved When</th><th>Regressed When</th></tr>
+    <tr><td>Response times (Avg, P50, P95, P99, Min, Max)</td><td>delta &lt; 0 (faster)</td><td>deltaPercent &gt; threshold</td></tr>
+    <tr><td>TPS (transactions per second)</td><td>delta &gt; 0 (higher throughput)</td><td>deltaPercent &lt; −threshold</td></tr>
+    <tr><td>Error Rate</td><td>delta &lt; 0 (fewer errors)</td><td>delta &gt; threshold (absolute pp)</td></tr>
+  </table>
+
+  <h3>3.2 ScenarioDelta</h3>
+<pre>interface ScenarioDelta {
+  scenarioName: string;
+  featureGroupName?: string;
+  baselineAvgTime: number;    // Avg response time from baseline
+  currentAvgTime: number;     // Avg response time from current
+  baselineCount: number;      // Number of requests in baseline
+  currentCount: number;       // Number of requests in current
+  baselineErrorRate: number;  // Error % in baseline
+  currentErrorRate: number;   // Error % in current
+  timeDelta: number;          // Absolute time difference
+  timeDeltaPercent: number;   // Percentage time change
+  regressed: boolean;         // True if timeDeltaPercent > P95 threshold
+}</pre>
+
+  <h3>3.3 RegressionAlert</h3>
+<pre>interface RegressionAlert {
+  metric: string;
+  threshold: number;    // The threshold that was exceeded
+  actual: number;       // The actual deviation
+  severity: 'warning' | 'critical';
+  // warning: deviation 1x–2x threshold
+  // critical: deviation > 2x threshold
+}</pre>
+
+  <h3>3.4 RunComparison</h3>
+<pre>interface RunComparison {
+  baselineRun: TestRun;
+  currentRun: TestRun;
+  metricDeltas: MetricDelta[];      // 8 metrics compared
+  scenarioDeltas: ScenarioDelta[];  // Per-scenario breakdown
+  regressions: RegressionAlert[];   // Only triggered alerts
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Default Regression Thresholds</h2>
+  <p>RedfireForge ships with sensible defaults that balance sensitivity with noise reduction:</p>
+
+<pre>const DEFAULT_THRESHOLDS: RegressionThresholds = {
+  p50Percent: 15,           // P50 response time ± 15%
+  p95Percent: 10,           // P95 response time ± 10% (stricter — tail latency matters)
+  p99Percent: 15,           // P99 response time ± 15%
+  avgPercent: 10,           // Average response time ± 10%
+  errorRateAbsolute: 1,     // Error rate ± 1 percentage point (absolute, not relative)
+  tpsPercent: 10,           // Transactions per second ± 10%
+};</pre>
+
+  <p>Why these values?</p>
+  <table>
+    <tr><th>Threshold</th><th>Value</th><th>Rationale</th></tr>
+    <tr><td>P50 ±15%</td><td>15%</td><td>Median is stable — 15% allows for natural network variance</td></tr>
+    <tr><td>P95 ±10%</td><td>10%</td><td>Tail latency is critical for user experience — tighter threshold</td></tr>
+    <tr><td>P99 ±15%</td><td>15%</td><td>P99 is inherently noisy — slightly relaxed to reduce false positives</td></tr>
+    <tr><td>Avg ±10%</td><td>10%</td><td>Average is the most common metric — 10% is a standard benchmark</td></tr>
+    <tr><td>Error Rate ±1pp</td><td>1pp</td><td>Absolute percentage points — even 1% more errors is significant</td></tr>
+    <tr><td>TPS ±10%</td><td>10%</td><td>Throughput drop of 10% indicates capacity regression</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Error rate uses <strong>absolute</strong> percentage points, not relative change. A jump from 0.5% to 1.5% is +1pp (triggers alert), even though the <em>relative</em> change is +200%. This avoids false alarms on very low base rates.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Auth Flow Validation"</strong> (<code>test-auth-flow</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-auth-flow</code></td></tr>
+    <tr><td>Name</td><td>Auth Flow Validation</td></tr>
+    <tr><td>Category</td><td>Security</td></tr>
+    <tr><td>Difficulty</td><td><span class="badge badge-medium">Medium</span></td></tr>
+    <tr><td>Scenarios</td><td>3 (Login Success, Login Failure, Profile Fetch)</td></tr>
+    <tr><td>API</td><td><code>https://dummyjson.com/auth/login</code>, <code>https://dummyjson.com/auth/me</code></td></tr>
+    <tr><td>Assertions</td><td>Status codes, regex token validation, numeric checks</td></tr>
+    <tr><td>Tags</td><td><code>auth</code>, <code>login</code>, <code>profile</code>, <code>security</code>, <code>dummyjson</code>, <code>versioning-tutorial</code></td></tr>
+  </table>
+
+  <p>This test covers the full auth lifecycle — login, failure handling, and authenticated profile fetch — making it ideal for regression detection since auth endpoints are sensitive to performance changes.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import and Establish Baseline</h3>
+  <p>Open the <strong>Gallery</strong> → <strong>Tests</strong> → find <strong>"Auth Flow Validation"</strong> (<code>test-auth-flow</code>). Click <strong>Load Test</strong>.</p>
+  <p>Run the test. All 3 scenarios execute against DummyJSON's auth endpoints. Mark this run as baseline with label <strong>"Pre-Deploy v2.0"</strong>.</p>
+
+  <h3>Step 2 — Build Trend Data</h3>
+  <p>Run the test 5 more times to build trend data. Response times will naturally vary due to network conditions. Don't mark these as baselines — they're regular comparison runs.</p>
+
+  <h3>Step 3 — Open Comparison View</h3>
+  <p>Select the baseline run and a recent run. Click <strong>"Compare"</strong>. The <code>compareRuns()</code> function executes:</p>
+<pre>function compareRuns(
+  baseline: TestRun,
+  current: TestRun,
+  thresholds: RegressionThresholds = DEFAULT_THRESHOLDS,
+): RunComparison {
+  const metricDeltas = computeMetricDeltas(baseline.summary, current.summary, thresholds);
+  const scenarioDeltas = computeScenarioDeltas(baseline, current, thresholds);
+  const regressions = detectRegressions(metricDeltas, baseline.summary, current.summary, thresholds);
+  return { baselineRun: baseline, currentRun: current, metricDeltas, scenarioDeltas, regressions };
+}</pre>
+
+  <h3>Step 4 — Review Metric Deltas</h3>
+  <p>The comparison view shows 8 metric comparisons. Example output:</p>
+
+  <table>
+    <tr><th>Metric</th><th>Baseline</th><th>Current</th><th>Delta</th><th>%</th><th>Status</th></tr>
+    <tr><td>Avg Response Time</td><td>145 ms</td><td>152 ms</td><td>+7 ms</td><td>+4.8%</td><td>✅ Within threshold</td></tr>
+    <tr><td>P50 Response Time</td><td>150 ms</td><td>148 ms</td><td>−2 ms</td><td>−1.3%</td><td>✅ Improved</td></tr>
+    <tr><td>P95 Response Time</td><td>320 ms</td><td>360 ms</td><td>+40 ms</td><td>+12.5%</td><td>⚠️ Regressed (&gt;10%)</td></tr>
+    <tr><td>P99 Response Time</td><td>450 ms</td><td>480 ms</td><td>+30 ms</td><td>+6.7%</td><td>✅ Within threshold</td></tr>
+    <tr><td>Min Response Time</td><td>85 ms</td><td>90 ms</td><td>+5 ms</td><td>+5.9%</td><td>—</td></tr>
+    <tr><td>Max Response Time</td><td>620 ms</td><td>750 ms</td><td>+130 ms</td><td>+21.0%</td><td>—</td></tr>
+    <tr><td>TPS</td><td>45</td><td>42</td><td>−3</td><td>−6.7%</td><td>✅ Within threshold</td></tr>
+    <tr><td>Error Rate</td><td>0.5%</td><td>0.8%</td><td>+0.3pp</td><td>—</td><td>✅ Within threshold</td></tr>
+  </table>
+
+  <p>Each row is computed by <code>computeMetricDeltas()</code> which compares <code>baseline.summary</code> fields with <code>current.summary</code> fields.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Min and Max response times use a threshold of 999 (effectively no alert) because single-sample extremes are too noisy for reliable regression detection.
+  </div>
+
+  <h3>Step 5 — Review Scenario Deltas</h3>
+  <p>The per-scenario breakdown shows which specific test scenario regressed most:</p>
+
+  <table>
+    <tr><th>Scenario</th><th>Baseline Avg</th><th>Current Avg</th><th>Delta</th><th>%</th><th>Regressed?</th></tr>
+    <tr><td>Login Success</td><td>180 ms</td><td>210 ms</td><td>+30 ms</td><td>+16.7%</td><td>⚠️ Yes</td></tr>
+    <tr><td>Login Failure</td><td>95 ms</td><td>98 ms</td><td>+3 ms</td><td>+3.2%</td><td>No</td></tr>
+    <tr><td>Profile Fetch</td><td>120 ms</td><td>112 ms</td><td>−8 ms</td><td>−6.7%</td><td>No (improved)</td></tr>
+  </table>
+
+  <p>Scenarios are sorted by <code>timeDeltaPercent</code> descending — the most regressed scenario appears first. This helps you quickly identify the problematic endpoint.</p>
+
+  <p>The <code>computeScenarioDeltas()</code> function groups requests by <code>scenarioName</code>, computes average response time and error rate per group, then compares baseline vs. current:</p>
+<pre>function computeScenarioDeltas(baseline, current, thresholds): ScenarioDelta[] {
+  const baselineScenarios = groupByScenario(baseline.results);
+  const currentScenarios = groupByScenario(current.results);
+  // Iterate all scenario names from both runs
+  // Compute avg time, error rate, count for each
+  // Mark regressed if timeDeltaPercent > p95Percent threshold
+}</pre>
+
+  <h3>Step 6 — Review Regression Alerts</h3>
+  <p>If any metric exceeds its threshold, <code>detectRegressions()</code> generates alerts:</p>
+
+<pre>// Example regression alert
+{
+  metric: "P95 Response Time",
+  threshold: 12.5,    // The actual percentage deviation
+  actual: 12.5,       // deltaPercent that triggered the alert
+  severity: "warning"  // 10% < 12.5% < 20% (1x–2x threshold)
+}</pre>
+
+  <p>Severity classification:</p>
+  <table>
+    <tr><th>Severity</th><th>Condition</th><th>Example (P95 threshold = 10%)</th></tr>
+    <tr><td><code>warning</code></td><td>Deviation 1×–2× threshold</td><td>10%–20% regression</td></tr>
+    <tr><td><code>critical</code></td><td>Deviation &gt; 2× threshold</td><td>&gt;20% regression</td></tr>
+  </table>
+
+  <p>For Error Rate, severity is based on absolute percentage points: &gt;1pp = warning, &gt;2pp = critical.</p>
+
+  <h3>Step 7 — Understand Threshold Logic</h3>
+  <p>Not all metrics use the same comparison direction:</p>
+<pre>// Response times: lower is better
+improved: delta &lt; 0          // Faster = improved
+regressed: deltaPercent &gt; threshold  // Slower beyond threshold = regressed
+
+// TPS: higher is better
+improved: delta &gt; 0          // More throughput = improved
+regressed: deltaPercent &lt; -threshold  // Lower throughput = regressed
+
+// Error Rate: lower is better, uses ABSOLUTE threshold
+improved: delta &lt; 0          // Fewer errors = improved
+regressed: delta &gt; errorRateAbsolute  // More errors (pp) = regressed</pre>
+
+  <h3>Step 8 — View Trend Data</h3>
+  <p>With multiple runs completed, view the trend chart. The <code>computeTrend()</code> function extracts data points:</p>
+<pre>function computeTrend(runs: TestRun[], baselines: BaselineMark[]): TrendPoint[] {
+  return [...runs].reverse().map((r) => {
+    const bl = baselines.find((b) => b.runId === r.id);
+    return {
+      runId: r.id,
+      timestamp: r.timestamp,
+      label: bl?.label,       // Baseline label (if marked)
+      tps: r.summary.tps,
+      avgResponseTime: r.summary.avgResponseTime,
+      p50ResponseTime: r.summary.p50ResponseTime ?? 0,
+      p95ResponseTime: r.summary.p95ResponseTime,
+      p99ResponseTime: r.summary.p99ResponseTime,
+      errorRate: r.summary.errorRate,
+      totalRequests: r.summary.totalRequests,
+    };
+  });
+}</pre>
+
+  <p>Trend points are sorted chronologically (oldest first, reversing the newest-first run list). Baseline runs are annotated with their label in the trend chart for easy identification.</p>
+
+  <h3>Step 9 — Response Time Histogram Overlay</h3>
+  <p>For deeper analysis, the histogram overlay compares the <em>distribution</em> of response times between baseline and current:</p>
+<pre>interface OverlayHistogram {
+  bins: { min: number; max: number }[];  // Shared bin boundaries
+  baseline: number[];       // Baseline request counts per bin
+  current: number[];        // Current request counts per bin
+  baselinePercent: number[];  // Baseline distribution (%)
+  currentPercent: number[];   // Current distribution (%)
+}</pre>
+
+  <p>This reveals distribution shifts that averages hide. For example, a bimodal distribution (some fast, some slow) would show the same average as a unimodal one, but the histogram makes the difference visually obvious.</p>
+
+  <h3>Step 10 — Interpret the Full Picture</h3>
+  <p>Combine all three analysis layers for a complete assessment:</p>
+  <ol>
+    <li><strong>Metric Deltas</strong> — "What changed at the aggregate level?"</li>
+    <li><strong>Scenario Deltas</strong> — "Which specific endpoint caused the regression?"</li>
+    <li><strong>Regression Alerts</strong> — "How severe is it? Warning or critical?"</li>
+    <li><strong>Trend</strong> — "Is this a one-time spike or a persistent degradation?"</li>
+    <li><strong>Histogram</strong> — "Did the distribution shift, or is it outlier-driven?"</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. How compareRuns() Works Internally</h2>
+  <p>The comparison pipeline has three stages:</p>
+
+  <h3>7.1 Stage 1 — computeMetricDeltas()</h3>
+  <p>Iterates over 8 metrics from <code>TestSummary</code>:</p>
+  <ul>
+    <li>6 time metrics: Avg, P50, P95, P99, Min, Max (lower is better)</li>
+    <li>1 throughput metric: TPS (higher is better)</li>
+    <li>1 error metric: Error Rate (lower is better, absolute threshold)</li>
+  </ul>
+  <p>For each metric, computes <code>delta = current - baseline</code> and <code>deltaPercent = (delta / baseline) * 100</code>. Sets <code>improved</code> and <code>regressed</code> flags based on direction and threshold.</p>
+
+  <h3>7.2 Stage 2 — computeScenarioDeltas()</h3>
+  <p>Groups request results by <code>scenarioName</code> using <code>groupByScenario()</code>. For each scenario:</p>
+  <ul>
+    <li>Computes average response time from individual request times</li>
+    <li>Counts total requests and error count (status ≥ 400 or status 0)</li>
+    <li>Calculates error rate: <code>(errorCount / totalCount) * 100</code></li>
+  </ul>
+  <p>Handles scenarios present in only one run (new scenarios or removed scenarios).</p>
+
+  <h3>7.3 Stage 3 — detectRegressions()</h3>
+  <p>Iterates <code>MetricDelta[]</code> and creates <code>RegressionAlert</code> for any delta where <code>regressed: true</code>. Severity is determined by comparing the actual deviation against 2× the threshold.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Practical Threshold Tuning</h2>
+  <p>The default thresholds work for most cases, but you may need to adjust them:</p>
+
+  <table>
+    <tr><th>Scenario</th><th>Recommended Adjustment</th></tr>
+    <tr><td>High-traffic production API</td><td>Tighten P95 to ±5%, Error Rate to ±0.5pp</td></tr>
+    <tr><td>Internal/batch APIs</td><td>Relax all thresholds by 2× (less latency-sensitive)</td></tr>
+    <tr><td>APIs with high natural variance</td><td>Widen P99 to ±25% to reduce false positives</td></tr>
+    <tr><td>Zero-tolerance error policy</td><td>Set errorRateAbsolute to 0.1 (any error increase triggers alert)</td></tr>
+    <tr><td>Migration/rewrite validation</td><td>Use strict thresholds: all ±5%, errorRate ±0.5pp</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    When running tests over the public internet, response time variance of ±10-15% is normal. If you see frequent false positive regressions on P95/P99, consider widening those thresholds or running tests against a local/staging environment for more consistent results.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Common Regression Patterns</h2>
+  <p>Learn to recognize these patterns in your comparison results:</p>
+
+  <table>
+    <tr><th>Pattern</th><th>Metric Signals</th><th>Likely Cause</th></tr>
+    <tr><td>Uniform slowdown</td><td>All response times ↑ proportionally, TPS ↓</td><td>Infrastructure issue (CPU, memory, network)</td></tr>
+    <tr><td>Tail latency spike</td><td>P95/P99 ↑↑, P50/Avg ↑ slightly</td><td>Contention (lock, queue, connection pool)</td></tr>
+    <tr><td>Error rate jump</td><td>Error Rate ↑, response times may ↓ (fast failures)</td><td>Bug in deployment (config, dependency)</td></tr>
+    <tr><td>Single scenario regression</td><td>One ScenarioDelta regressed, others stable</td><td>Endpoint-specific change (query, index, logic)</td></tr>
+    <tr><td>TPS drop with stable latency</td><td>TPS ↓, response times unchanged</td><td>Rate limiting, throttling, or reduced concurrency</td></tr>
+    <tr><td>Improved + regressed mix</td><td>Some metrics ↑, some ↓</td><td>Trade-off (e.g., caching improves reads, slows writes)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Full Comparison Workflow</h3>
+  <p>Import "Auth Flow Validation" from the Gallery. Run it, mark as baseline "v1.0". Run 5 more times. Compare the baseline against the run with the highest P95. Identify which scenario contributed most to the P95 regression using the scenario deltas.</p>
+
+  <h3>Exercise 2 — Threshold Sensitivity</h3>
+  <p>Using the same runs from Exercise 1, mentally calculate: would a P50 threshold of 5% (instead of 15%) trigger a regression alert? What about 25%? This helps you understand how threshold tuning affects alert sensitivity.</p>
+  <p>Hint: Find the P50 deltaPercent in your comparison. If it's 8%, then a 5% threshold would alert (8% &gt; 5%) but a 25% threshold would not (8% &lt; 25%).</p>
+
+  <h3>Exercise 3 — Trend Analysis</h3>
+  <p>Run the test 8 times total. Mark runs #1, #4, and #8 as baselines with labels "Sprint Start", "Mid-Sprint", "Sprint End". View the trend chart. Can you identify any performance drift over the 8 runs? Do baseline labels help you correlate performance with deployment events?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In real projects, label baselines with deployment versions and timestamps. A trend chart with labeled baselines becomes a visual deployment impact timeline — invaluable during incident investigations.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="run-baselines-easy.html">run-baselines-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Baseline fundamentals — marking, unmarking, labeling, 10-baseline cap</td>
+    </tr>
+    <tr>
+      <td><a href="../request/request-definition-history-easy.html">request-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Phase 5 — Request definition versioning with 15-version cap</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Baseline Comparison &amp; Regression Detection (Medium) · May 2026
+  </footer>
+
+</body>
+</html>

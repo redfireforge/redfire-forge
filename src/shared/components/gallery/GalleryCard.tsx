@@ -50,7 +50,10 @@ export function GalleryCard<T = unknown>({
       </div>
 
       <div className="gallery-card-tags">
-        {entry.tags.slice(0, 4).map(tag => (
+        {entry.tags.includes('versioning-tutorial') && (
+          <span className="gallery-tag gallery-tag-tutorial">📖 versioning-tutorial</span>
+        )}
+        {entry.tags.filter(t => t !== 'versioning-tutorial').slice(0, entry.tags.includes('versioning-tutorial') ? 3 : 4).map(tag => (
           <span key={tag} className="gallery-tag">#{tag}</span>
         ))}
       </div>

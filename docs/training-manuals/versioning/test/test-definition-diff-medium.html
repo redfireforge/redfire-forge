@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Definition Diff — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .diff-legend {
+    display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0 18px;
+    font-size: 12px; font-weight: 600;
+  }
+  .diff-legend span { padding: 3px 10px; border-radius: 4px; }
+  .diff-added { background: #d4edda; color: #155724; }
+  .diff-removed { background: #f8d7da; color: #721c24; }
+  .diff-modified { background: #fff3cd; color: #856404; }
+  .diff-unchanged { background: #e9ecef; color: #495057; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔬</div>
+    <h1>Test Definition Diff</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Master the 5-tab diff modal for comparing test definition versions. See exactly what changed — URL, headers, body, auth, and extractions — with color-coded indicators and property-level detail via json-diff-kit.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Gallery Sample: <code>test-ecommerce-full</code> · dummyjson.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Knowing <em>that</em> a test changed isn't enough — you need to know <em>what</em> changed and <em>how</em>. The 5-tab diff modal breaks down version differences into logical categories so you can review changes with surgical precision before deciding to keep or revert them.</p>
+  <p><strong>Real-world scenario:</strong> <em>"E-Commerce Test Suite — Comprehensive Configuration Evolution"</em></p>
+  <p>You've imported the "E-Commerce Full Suite" — 6 scenarios testing DummyJSON's product, search, cart, and user APIs. Over a sprint, you evolve one scenario from a simple GET to a POST with JSON body, authentication, and response extractions. The diff modal lets you compare the original and evolved versions across all 5 dimensions.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Prerequisites</strong>
+    Complete <a href="test-definition-history-easy.html">test-definition-history-easy</a> before starting this manual. You should be comfortable with creating snapshots, browsing history, and restoring versions.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>5-tab diff modal</strong> — Overview, Headers, Body, Auth, and Extractions tabs for structured comparison.</li>
+    <li><strong>Tab badges</strong> — each tab displays a change count (e.g., "Headers (2)") showing how many items changed.</li>
+    <li><strong>Color-coded indicators</strong> — green (added), red (removed), yellow (modified), gray (unchanged).</li>
+    <li><strong>Property-level diff</strong> — json-diff-kit shows exact old→new values for modified fields.</li>
+    <li><strong>SnapshotDiffResult</strong> — the data structure powering the diff modal.</li>
+    <li><strong>Multi-select comparison</strong> — select any two versions for side-by-side comparison.</li>
+    <li><strong>Export with definition versions</strong> — include version history when sharing tests.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Model</h2>
+  <p>The diff modal is powered by <code>SnapshotDiffResult</code>, which provides field-level granularity:</p>
+
+<pre>interface SnapshotDiffResult {
+  // Overview tab
+  nameChanged: boolean;
+  urlChanged: boolean;
+  methodChanged: boolean;
+
+  // Headers tab
+  headersAdded: Header[];
+  headersRemoved: Header[];
+  headersModified: Array&lt;{
+    key: string;
+    oldValue: string;
+    newValue: string;
+  }&gt;;
+
+  // Body tab
+  bodyChanged: boolean;
+  bodyOld?: RequestBody;
+  bodyNew?: RequestBody;
+
+  // Auth tab
+  authChanged: boolean;
+  authOld?: AuthConfig;
+  authNew?: AuthConfig;
+
+  // Extractions tab
+  extractionsAdded: Extraction[];
+  extractionsRemoved: Extraction[];
+  extractionsModified: Array&lt;{
+    jsonPath: string;
+    oldVariable: string;
+    newVariable: string;
+  }&gt;;
+}
+
+// Computed by:
+function computeSnapshotDiff(
+  older: TestDefinitionSnapshot,
+  newer: TestDefinitionSnapshot
+): SnapshotDiffResult;</pre>
+
+  <h3>3.1 Diff Color Legend</h3>
+  <div class="diff-legend">
+    <span class="diff-added">● Added</span>
+    <span class="diff-removed">● Removed</span>
+    <span class="diff-modified">● Modified</span>
+    <span class="diff-unchanged">● Unchanged</span>
+  </div>
+  <p>These colors are consistent across all diff modals in RedfireForge — workflows, tests, requests, and scripts all use the same color scheme.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"E-Commerce Full Suite"</strong> (<code>test-ecommerce-full</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-ecommerce-full</code></td></tr>
+    <tr><td>Name</td><td>E-Commerce Full Suite</td></tr>
+    <tr><td>Scenarios</td><td>6 (Products, Search, Categories, Cart, Users, Auth)</td></tr>
+    <tr><td>API</td><td><code>https://dummyjson.com</code></td></tr>
+    <tr><td>Scenario 1</td><td>GET <code>/products</code> — list all products</td></tr>
+    <tr><td>Scenario 2</td><td>GET <code>/products/search?q=phone</code> — search products</td></tr>
+    <tr><td>Scenario 3</td><td>GET <code>/products/categories</code> — list categories</td></tr>
+    <tr><td>Scenario 4</td><td>GET <code>/carts/1</code> — get cart</td></tr>
+    <tr><td>Scenario 5</td><td>GET <code>/users/1</code> — get user profile</td></tr>
+    <tr><td>Scenario 6</td><td>POST <code>/auth/login</code> — authentication</td></tr>
+  </table>
+
+  <p>This is one of the richest Gallery test samples — 6 scenarios covering search, CRUD, auth, and nested resources. We'll focus on the "Search Products" scenario to demonstrate the full diff experience.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> → <strong>Tests</strong>. Find <strong>"E-Commerce Full Suite"</strong> (<code>test-ecommerce-full</code>). Click <strong>Import</strong>.</p>
+  <p>A FeatureGroup with 6 scenarios loads into your workspace. All scenarios target <code>dummyjson.com</code> — a free JSON API that returns realistic e-commerce data.</p>
+
+  <h3>Step 2 — Open &amp; Save Version A</h3>
+  <p>Open the <strong>"Search Products"</strong> scenario. This is a simple GET request:</p>
+  <ul>
+    <li>URL: <code>https://dummyjson.com/products/search?q=phone</code></li>
+    <li>Method: GET</li>
+    <li>Headers: none</li>
+    <li>Body: none</li>
+    <li>Auth: none</li>
+    <li>Extractions: none</li>
+  </ul>
+  <p>Save to create <strong>Version A</strong> (the baseline).</p>
+
+  <h3>Step 3 — Evolve to Version B</h3>
+  <p>Now transform this scenario from a simple GET search to a comprehensive POST-based product filter. Make these changes:</p>
+
+  <h4>3a — Change Method &amp; URL</h4>
+  <ul>
+    <li>Method: <strong>GET → POST</strong></li>
+    <li>URL: <code>https://dummyjson.com/products/search?q=phone</code> → <code>https://dummyjson.com/products/add</code></li>
+  </ul>
+
+  <h4>3b — Add Headers</h4>
+  <table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+    <tr><td><code>Accept</code></td><td><code>application/json</code></td></tr>
+  </table>
+
+  <h4>3c — Add Body</h4>
+<pre>{
+  "title": "Test Phone",
+  "description": "A test product for automation",
+  "price": 549,
+  "category": "smartphones"
+}</pre>
+
+  <h4>3d — Add Auth</h4>
+  <p>Set auth type to <strong>Bearer Token</strong> with value <code>test-bearer-token-123</code>.</p>
+
+  <h4>3e — Add Extractions</h4>
+  <table>
+    <tr><th>JSONPath</th><th>Variable Name</th></tr>
+    <tr><td><code>$.id</code></td><td><code>newProductId</code></td></tr>
+  </table>
+
+  <p>Save to create <strong>Version B</strong>.</p>
+
+  <h3>Step 4 — Open History &amp; Select Versions</h3>
+  <p>Click the <strong>History</strong> tab. Two versions visible. Check the checkbox on both <strong>Version A</strong> and <strong>Version B</strong>. The <strong>"Compare"</strong> button activates.</p>
+
+  <h3>Step 5 — Open the Diff Modal</h3>
+  <p>Click <strong>"Compare"</strong>. The <code>TestDefinitionVersionDiff</code> modal opens with 5 tabs across the top. Each tab shows a badge with the number of changes in that category.</p>
+
+  <h3>Step 6 — Overview Tab</h3>
+  <p>The Overview tab shows high-level configuration changes:</p>
+  <table>
+    <tr><th>Field</th><th>Version A</th><th>Version B</th><th>Status</th></tr>
+    <tr><td>Name</td><td>Search Products</td><td>Search Products</td><td><span class="diff-unchanged">Unchanged</span></td></tr>
+    <tr><td>URL</td><td><code>/products/search?q=phone</code></td><td><code>/products/add</code></td><td><span class="diff-modified">Modified</span></td></tr>
+    <tr><td>Method</td><td>GET</td><td>POST</td><td><span class="diff-modified">Modified</span></td></tr>
+  </table>
+  <p>The tab badge shows <strong>"Overview (2)"</strong> — two fields changed (URL and Method).</p>
+
+  <h3>Step 7 — Headers Tab</h3>
+  <p>The Headers tab shows header-level diff:</p>
+  <ul>
+    <li><span class="diff-added">+ Content-Type: application/json</span> (added)</li>
+    <li><span class="diff-added">+ Accept: application/json</span> (added)</li>
+  </ul>
+  <p>Tab badge: <strong>"Headers (2)"</strong> — 2 headers added, 0 removed, 0 modified.</p>
+
+  <h3>Step 8 — Body Tab</h3>
+  <p>The Body tab shows the most dramatic change:</p>
+  <ul>
+    <li>Version A: <em>No body</em> (GET request)</li>
+    <li>Version B: Full JSON body with 4 fields</li>
+  </ul>
+  <p>The entire body appears as <span class="diff-added">added</span> (green). For structured JSON, <strong>json-diff-kit</strong> renders a tree view showing each property. Since there was no body before, every field is "added".</p>
+  <p>Tab badge: <strong>"Body (1)"</strong> — body changed from empty to populated.</p>
+
+  <h3>Step 9 — Auth Tab</h3>
+  <p>The Auth tab shows the authentication transition:</p>
+  <table>
+    <tr><th>Field</th><th>Version A</th><th>Version B</th></tr>
+    <tr><td>Auth Type</td><td><em>None</em></td><td>Bearer Token</td></tr>
+    <tr><td>Token</td><td>—</td><td><code>test-bearer-token-123</code></td></tr>
+  </table>
+  <p>The type transition is displayed as <span class="diff-modified">"None → Bearer Token"</span>. The token value appears as <span class="diff-added">added</span>.</p>
+  <p>Tab badge: <strong>"Auth (1)"</strong> — auth configuration changed.</p>
+
+  <h3>Step 10 — Extractions Tab</h3>
+  <p>The Extractions tab lists response data extractions:</p>
+  <ul>
+    <li><span class="diff-added">+ $.id → newProductId</span> (added)</li>
+  </ul>
+  <p>Each extraction shows its JSONPath expression and target variable name. Added extractions appear in green, removed in red.</p>
+  <p>Tab badge: <strong>"Extractions (1)"</strong> — 1 extraction added.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Tab badges give you an at-a-glance summary of where changes occurred. If you see "Headers (0)" you can skip that tab entirely — nothing changed there. Focus on tabs with non-zero badges.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Understanding Modified Items</h2>
+  <p>The walkthrough above showed mostly "added" items (since Version A was minimal). Let's explore what <strong>modified</strong> items look like.</p>
+
+  <h3>6.1 Modified Headers</h3>
+  <p>If you change a header's value (not its key), it appears as modified:</p>
+  <ul>
+    <li><span class="diff-modified">~ Accept: application/json → text/plain</span></li>
+  </ul>
+  <p>The key is unchanged, but the value shows old→new with the yellow modified indicator.</p>
+
+  <h3>6.2 Modified Body (json-diff-kit)</h3>
+  <p>When both versions have JSON bodies, json-diff-kit provides a structured comparison:</p>
+<pre>// Version A body                    // Version B body
+{                                    {
+  "title": "Test Phone",               "title": "Test Phone",      // unchanged
+  "price": 549,              →         "price": 599,               // modified
+  "category": "smartphones"             "category": "smartphones",  // unchanged
+                                        "stock": 25                 // added
+}</pre>
+  <p>Each property is individually categorized: unchanged (gray), modified (yellow with old→new), added (green), or removed (red).</p>
+
+  <h3>6.3 Modified Auth</h3>
+  <p>Changing just the token value (keeping Bearer Token type) shows:</p>
+  <ul>
+    <li>Auth Type: <span class="diff-unchanged">Bearer Token</span> (unchanged)</li>
+    <li>Token: <span class="diff-modified">test-bearer-token-123 → production-token-456</span> (modified)</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Export with Definition Versions</h2>
+  <p>When exporting a test, you can include version history so it travels with the test:</p>
+  <ol>
+    <li>Open the test's export dialog.</li>
+    <li>Check <strong>"Include Definition Versions"</strong>.</li>
+    <li>The badge shows the version count (e.g., "5 versions").</li>
+    <li>Export. The JSON includes a <code>definitionVersions[]</code> array with all snapshots.</li>
+  </ol>
+
+  <p>When importing, toggle "Include Definition Versions" to bring history along. Without it, the imported test starts with zero definition versions.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Definition versions are separate from response versions and rules versions. The export dialog has 3 checkboxes via <code>VersionExportOptions</code>:
+    <ul style="margin-top: 6px;">
+      <li><strong>Include Response Versions</strong> — saved response body snapshots</li>
+      <li><strong>Include Rules Versions</strong> — validation rule snapshots</li>
+      <li><strong>Include Definition Versions</strong> — the configuration snapshots covered in this manual</li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Workflow Diff vs Test Diff</h2>
+  <p>If you've completed the workflow diff manual, here's how the two compare:</p>
+
+  <table>
+    <tr><th>Aspect</th><th>Workflow Diff (4 tabs)</th><th>Test Definition Diff (5 tabs)</th></tr>
+    <tr><td>Tab 1</td><td>Nodes (structural)</td><td>Overview (URL, method, name)</td></tr>
+    <tr><td>Tab 2</td><td>Edges (connections)</td><td>Headers (key-value pairs)</td></tr>
+    <tr><td>Tab 3</td><td>Variables (key-value)</td><td>Body (JSON/form data)</td></tr>
+    <tr><td>Tab 4</td><td>Services (configs)</td><td>Auth (type + credentials)</td></tr>
+    <tr><td>Tab 5</td><td>—</td><td>Extractions (JSONPath + variable)</td></tr>
+    <tr><td>Diff engine</td><td>json-diff-kit for node data</td><td>json-diff-kit for body</td></tr>
+    <tr><td>Color scheme</td><td>Green/Red/Yellow/Gray</td><td>Green/Red/Yellow/Gray (same)</td></tr>
+    <tr><td>Tab badges</td><td>Change count per tab</td><td>Change count per tab</td></tr>
+  </table>
+
+  <p>The mental model is the same — select two versions, compare, read tab badges, drill into changes. The tabs just reflect different structural aspects of the entity being compared.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Header Modifications</h3>
+  <p>Add 3 headers to a test, then in a new version remove 2 and modify 1. Compare versions. Verify the Headers tab shows:</p>
+  <ul>
+    <li>2 removed (red)</li>
+    <li>1 modified (yellow) with old→new value</li>
+    <li>0 added (no green items)</li>
+    <li>Tab badge: <strong>"Headers (3)"</strong></li>
+  </ul>
+
+  <h3>Exercise 2 — Auth Token Change</h3>
+  <p>Change only the auth token value (keep the type as Bearer). Compare versions. The Auth tab should show:</p>
+  <ul>
+    <li>Auth Type: unchanged (gray)</li>
+    <li>Token: modified (yellow) with old→new values</li>
+    <li>Tab badge: <strong>"Auth (1)"</strong></li>
+  </ul>
+
+  <h3>Exercise 3 — Export with Versions</h3>
+  <p>Export a test with "Include Definition Versions" checked. Import into another scenario with the checkbox ON. Open the History tab on the imported test — verify all version history traveled with it. Then import the same file with the checkbox OFF — verify zero versions.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Exercise 3 is especially important for team workflows. Sharing tests with version history means reviewers can see the evolution of test configuration, not just the final state.
+  </div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="test-definition-history-easy.html">test-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Create, browse, rename, and restore test definition version snapshots</td>
+    </tr>
+    <tr>
+      <td><a href="run-baselines-easy.html">run-baselines-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Mark test runs as baselines for performance comparison</td>
+    </tr>
+    <tr>
+      <td><a href="../request/request-definition-diff-medium.html">request-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>4-tab diff for request definitions — similar concepts applied to standalone requests</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-diff-medium.html">workflow-version-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>4-tab workflow diff — compare with a different structural model</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Test Definition Diff (Medium) · May 2026
+  </footer>
+
+</body>
+</html>

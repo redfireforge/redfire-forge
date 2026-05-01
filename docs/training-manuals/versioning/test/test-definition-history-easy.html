@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Definition History — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🧪</div>
+    <h1>Test Definition History</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn to track, browse, and restore test definition versions. Every time you modify a scenario's configuration — URL, headers, body, auth, or extractions — RedfireForge captures a fingerprinted snapshot you can revisit at any time.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Gallery Sample: <code>test-user-api-smoke</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Test definitions evolve constantly — you tweak URLs, add headers, change authentication, refine assertions, and add extractions. Without version history, a misconfigured change can leave you guessing what the original setup looked like. Test definition versioning solves this by automatically capturing a snapshot whenever a meaningful change is saved.</p>
+  <p><strong>Real-world scenario:</strong> <em>"User API Smoke Test — Iterative Refinement"</em></p>
+  <p>You've imported the "User API Smoke Test" from the Gallery — 3 scenarios that validate JSONPlaceholder's user endpoints. The tests pass, but now you want to refine them: add request headers, change URL paths to target specific users, and add extractions for downstream use. With versioning, every refinement is captured so you can compare or roll back at any point.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    This manual uses the Gallery sample <code>test-user-api-smoke</code> ("User API Smoke Test") as its starting point. Import it from the Gallery before beginning the walkthrough.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Automatic snapshots</strong> — how saving a test definition triggers a version snapshot (if the fingerprint changed).</li>
+    <li><strong>Canonical JSON fingerprinting</strong> — keys are sorted alphabetically before hashing, so <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> produce the same fingerprint.</li>
+    <li><strong>History tab</strong> — browsing the version list (newest-first) with timestamps, labels, and change summaries.</li>
+    <li><strong>Change summaries</strong> — auto-generated descriptions like "URL changed, 1 header added".</li>
+    <li><strong>Inline rename</strong> — double-click a version label to give it a meaningful name.</li>
+    <li><strong>Restore with undo safety</strong> — reverting to an older version with an automatic undo snapshot.</li>
+    <li><strong>20-version FIFO cap</strong> — the oldest version is evicted when the cap is reached.</li>
+    <li><strong>Persistence</strong> — versions survive browser tab closes and app restarts via localStorage / Tauri store.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Model</h2>
+  <p>Understanding the underlying data helps you reason about what's captured in each snapshot:</p>
+
+<pre>interface TestDefinitionVersion {
+  id: string;             // Unique version ID (UUID)
+  timestamp: number;      // When the snapshot was taken (epoch ms)
+  label?: string;         // Optional user-assigned label
+  changeSummary?: string; // Auto-generated: "URL changed, 2 headers added"
+  snapshot: {
+    name: string;         // Scenario name
+    url: string;          // Request URL
+    method: string;       // HTTP method
+    headers: Header[];    // Request headers
+    body?: RequestBody;   // Request body (if applicable)
+    auth?: AuthConfig;    // Auth configuration
+    extractions: Extraction[]; // Response extractions
+  };
+}
+
+const MAX_TEST_DEFINITION_VERSIONS = 20;</pre>
+
+  <h3>3.1 Canonical JSON Fingerprinting</h3>
+  <p>Unlike workflows (which use <code>cyrb53</code>), test definitions use <strong>canonical JSON</strong> for fingerprinting. This means object keys are sorted alphabetically before hashing:</p>
+
+<pre>// Canonical JSON fingerprinting
+function computeSnapshotFingerprint(snapshot: TestDefinitionSnapshot): string {
+  // 1. Deep-sort all object keys alphabetically
+  // 2. JSON.stringify the sorted object
+  // 3. Hash the resulting string
+  //
+  // This ensures {"url":"...", "method":"GET"}
+  // and {"method":"GET", "url":"..."}
+  // produce the SAME fingerprint
+  return hash(JSON.stringify(sortKeys(snapshot)));
+}</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Canonical JSON fingerprinting guarantees that key ordering differences don't create false-positive "changes". The snapshot content must actually differ for a new version to be created.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"User API Smoke Test"</strong> (<code>test-user-api-smoke</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-user-api-smoke</code></td></tr>
+    <tr><td>Name</td><td>User API Smoke Test</td></tr>
+    <tr><td>Scenarios</td><td>3 (Get All Users, Get Single User, Get User Posts)</td></tr>
+    <tr><td>API</td><td><code>https://jsonplaceholder.typicode.com</code></td></tr>
+    <tr><td>Scenario 1</td><td>GET <code>/users</code> — status 200, arrayLength = 10</td></tr>
+    <tr><td>Scenario 2</td><td>GET <code>/users/1</code> — status 200, validates user fields</td></tr>
+    <tr><td>Scenario 3</td><td>GET <code>/users/1/posts</code> — status 200, validates post array</td></tr>
+  </table>
+
+  <p>The test suite is already fully configured with assertions and working API endpoints — no setup needed. It demonstrates a realistic smoke test pattern: validate list endpoint, specific resource, and nested resources.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> from the sidebar. Navigate to the <strong>Tests</strong> tab. Find <strong>"User API Smoke Test"</strong> (<code>test-user-api-smoke</code>). Click <strong>Import</strong>.</p>
+  <p>The test suite loads as a FeatureGroup with 3 scenarios. Each scenario is pre-configured with URL, method, and assertions.</p>
+
+  <h3>Step 2 — Open a Test Scenario</h3>
+  <p>Open the <strong>"Get All Users"</strong> scenario (GET <code>https://jsonplaceholder.typicode.com/users</code>). This is the simplest scenario — a plain GET with status 200 and arrayLength assertions.</p>
+
+  <h3>Step 3 — Save the Test</h3>
+  <p>Save the test definition. This triggers the versioning system:</p>
+  <ol>
+    <li>The current configuration (URL, method, headers, body, auth, extractions) is captured.</li>
+    <li><code>computeSnapshotFingerprint()</code> produces a canonical JSON hash.</li>
+    <li>Since there are no existing versions, the fingerprint is unique.</li>
+    <li>A <code>TestDefinitionVersion</code> is created with the full snapshot.</li>
+    <li>The <code>definitionVersions[]</code> array now has 1 entry.</li>
+    <li>The History tab badge shows <strong>"1"</strong>.</li>
+  </ol>
+
+  <h3>Step 4 — Add a Header</h3>
+  <p>In the Headers tab, add a new header:</p>
+  <table>
+    <tr><th>Key</th><th>Value</th></tr>
+    <tr><td><code>Accept</code></td><td><code>application/json</code></td></tr>
+  </table>
+  <p>Save. Version 2 is created. The auto-generated change summary reads: <strong>"1 header added"</strong>.</p>
+
+  <h3>Step 5 — Change the URL</h3>
+  <p>Change the URL from <code>https://jsonplaceholder.typicode.com/users</code> to <code>https://jsonplaceholder.typicode.com/users/1</code> (targeting a single user instead of the full list).</p>
+  <p>Save. Version 3. Change summary: <strong>"URL changed"</strong>.</p>
+
+  <h3>Step 6 — Add an Extraction</h3>
+  <p>In the Extractions tab, add:</p>
+  <table>
+    <tr><th>JSONPath</th><th>Variable Name</th></tr>
+    <tr><td><code>$.email</code></td><td><code>userEmail</code></td></tr>
+  </table>
+  <p>Save. Version 4. Change summary: <strong>"1 extraction added"</strong>.</p>
+
+  <h3>Step 7 — Open the History Tab</h3>
+  <p>In the Test Editor, click the <strong>History</strong> tab. The badge shows <strong>"4"</strong>. The list shows all versions newest-first:</p>
+  <ul>
+    <li><strong>Version 4</strong> — "1 extraction added" — shows extraction count changed</li>
+    <li><strong>Version 3</strong> — "URL changed" — shows URL diff</li>
+    <li><strong>Version 2</strong> — "1 header added" — shows header count changed</li>
+    <li><strong>Version 1</strong> — initial snapshot — no change summary</li>
+  </ul>
+  <p>Each entry displays a timestamp, optional label, and the auto-generated change summary.</p>
+
+  <h3>Step 8 — Restore Version 1</h3>
+  <p>Click <strong>Restore</strong> on Version 1 (the initial snapshot). The test reverts to its original configuration:</p>
+  <ol>
+    <li>The system first takes an <strong>undo snapshot</strong> of the current state (safety net).</li>
+    <li>Headers tab: empty (the <code>Accept</code> header disappears).</li>
+    <li>URL: back to <code>/users</code> (not <code>/users/1</code>).</li>
+    <li>Extractions: empty (the <code>userEmail</code> extraction disappears).</li>
+    <li>Auth: unchanged (was empty throughout).</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Restoring does NOT delete versions 2, 3, or 4. All versions remain in the history. A restore simply replaces the current editor state with the snapshot's data. You can restore any version at any time.
+  </div>
+
+  <h3>Step 9 — Rename Versions</h3>
+  <p>In the History tab, double-click the label area of key versions:</p>
+  <ul>
+    <li>Version 1 → <strong>"Initial bare test"</strong></li>
+    <li>Version 4 → <strong>"Final with extractions"</strong></li>
+  </ul>
+  <p>Named versions are easier to identify in a long history list. Use descriptive labels at milestone points.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use labels like "Before auth change", "Sprint 5 config", or "Pre-refactor" to document why a snapshot matters. When your history grows to 15+ versions, labels save time scrolling and reading change summaries.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. How the 20-Version Cap Works</h2>
+  <p>Test definitions can hold up to <strong>20 versions</strong>. When a 21st version is created, the oldest version is automatically evicted — FIFO (First-In, First-Out), identical to workflows but with a lower cap.</p>
+
+<pre>// FIFO enforcement for test definition versions
+function addDefinitionVersion(
+  versions: TestDefinitionVersion[],
+  newVersion: TestDefinitionVersion,
+  max = MAX_TEST_DEFINITION_VERSIONS  // 20
+): TestDefinitionVersion[] {
+  const updated = [newVersion, ...versions];
+  return updated.slice(0, max);
+}</pre>
+
+  <p>Key points:</p>
+  <ul>
+    <li>Named versions are <strong>NOT exempt</strong> from eviction — same as workflows.</li>
+    <li>Eviction is silent — no confirmation dialog.</li>
+    <li>To preserve important versions, export the test with "Include Definition Versions" checked.</li>
+    <li>The 20-version cap is lower than workflows (30) because test definition snapshots are typically smaller.</li>
+  </ul>
+
+  <h3>6.1 Workflows vs Tests — Version Comparison</h3>
+  <table>
+    <tr><th>Feature</th><th>Workflow Versioning</th><th>Test Definition Versioning</th></tr>
+    <tr><td>Max versions</td><td>30</td><td>20</td></tr>
+    <tr><td>Fingerprint method</td><td>cyrb53 hash</td><td>Canonical JSON</td></tr>
+    <tr><td>Auto-save trigger</td><td>Explicit save</td><td>On change (save)</td></tr>
+    <tr><td>Diff tabs</td><td>4 (Nodes, Edges, Variables, Services)</td><td>5 (Overview, Headers, Body, Auth, Extractions)</td></tr>
+    <tr><td>Restore</td><td>Full</td><td>Full</td></tr>
+    <tr><td>FIFO eviction</td><td>Yes</td><td>Yes</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Fingerprint Deduplication in Action</h2>
+  <p>Try this experiment: open a test, make NO changes, and save. Does a new version appear?</p>
+  <p><strong>No.</strong> The canonical JSON fingerprint of the current state matches the latest version's fingerprint, so no new snapshot is created. This prevents the version list from filling up with identical entries.</p>
+
+  <p>What counts as a "change" for fingerprinting?</p>
+  <table>
+    <tr><th>Change Type</th><th>Creates New Version?</th></tr>
+    <tr><td>Change URL</td><td>Yes</td></tr>
+    <tr><td>Change HTTP method</td><td>Yes</td></tr>
+    <tr><td>Add, remove, or modify a header</td><td>Yes</td></tr>
+    <tr><td>Change request body</td><td>Yes</td></tr>
+    <tr><td>Change auth type or credentials</td><td>Yes</td></tr>
+    <tr><td>Add, remove, or modify an extraction</td><td>Yes</td></tr>
+    <tr><td>Change scenario name</td><td>Yes</td></tr>
+    <tr><td>Change assertions/validation rules</td><td>No (tracked separately)</td></tr>
+    <tr><td>Reorder headers without changing values</td><td>No (canonical JSON sorts keys)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Assertions and validation rules are tracked by a separate versioning system (Rules Versions), not by definition versions. This manual covers only definition versioning — the configuration of the HTTP request itself.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Change Summaries</h2>
+  <p>Every version (except the first) includes an auto-generated change summary. The system compares the new snapshot against the previous one and produces a human-readable description:</p>
+
+  <table>
+    <tr><th>What Changed</th><th>Summary Example</th></tr>
+    <tr><td>URL modified</td><td>"URL changed"</td></tr>
+    <tr><td>Method changed</td><td>"Method changed (GET → POST)"</td></tr>
+    <tr><td>1 header added</td><td>"1 header added"</td></tr>
+    <tr><td>2 headers removed, 1 modified</td><td>"2 headers removed, 1 header modified"</td></tr>
+    <tr><td>Body added</td><td>"Body added"</td></tr>
+    <tr><td>Auth type changed</td><td>"Auth changed (None → Bearer Token)"</td></tr>
+    <tr><td>1 extraction added</td><td>"1 extraction added"</td></tr>
+    <tr><td>Multiple changes</td><td>"URL changed, 1 header added, body modified"</td></tr>
+  </table>
+
+  <p>Summaries are generated by comparing the snapshot's fields against the previous version's snapshot. Multiple changes are combined into a comma-separated list.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Fingerprint Dedup Test</h3>
+  <p>Open a test scenario. Save it without making any changes. Check the History tab — no new version should appear. The badge count stays the same. This confirms canonical JSON fingerprint deduplication is working.</p>
+
+  <h3>Exercise 2 — Change Summary Verification</h3>
+  <p>Change only the URL path from <code>/users/1</code> to <code>/users/2</code>. Save. Open the History tab. What does the change summary say? It should read <strong>"URL changed"</strong>. Now change the URL back to <code>/users/1</code>. Save again. The change summary should again read "URL changed" — even though you're reverting to an earlier value, the fingerprint differs from the <em>immediate previous</em> version.</p>
+
+  <h3>Exercise 3 — 20-Version Cap</h3>
+  <p>Starting from a test with 1 version, make 20 distinct changes (tweak the URL path each time: <code>/users/1</code>, <code>/users/2</code>, ..., <code>/users/20</code>). Save after each change. Verify the History tab shows 20 versions. Make one more change and save. Check the History tab — the oldest version should have been evicted. The count stays at 20.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    These exercises build on each other. Complete them in order to develop a full understanding of how test definition versioning differs from — and mirrors — workflow versioning.
+  </div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="test-definition-diff-medium.html">test-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Compare two test versions with the 5-tab diff modal (Overview, Headers, Body, Auth, Extractions)</td>
+    </tr>
+    <tr>
+      <td><a href="run-baselines-easy.html">run-baselines-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Mark test runs as baselines for performance comparison</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-history-easy.html">workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Compare with workflow versioning — same concepts, different data model</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Test Definition History (Easy) · May 2026
+  </footer>
+
+</body>
+</html>
