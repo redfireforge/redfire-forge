@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react';
 import type { GalleryDifficulty, GalleryDomain } from '../../../data/galleries/types';
 import type { GalleryDomainConfig } from '../../../data/galleries/registry';
 

@@ -1,4 +1,4 @@
-import type { GalleryEntry, GalleryDomain } from '../../../data/galleries/types';
+import type { GalleryEntry } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { DifficultyDots } from './DifficultyDots';
 import { LiveApiBadge } from './LiveApiBadge';

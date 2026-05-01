@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile } from '../../shared/types';
 import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
 import CsvImportModal from './components/CsvImportModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
@@ -97,8 +97,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     editingFeatureName, setEditingFeatureName,
     editingScenarioName, setEditingScenarioName,
     editName, setEditName,
-    editingFeatureAuth, setEditingFeatureAuth,
-    editingScenarioAuth, setEditingScenarioAuth,
+    editingFeatureAuth, setEditingFeatureAuth: _setEditingFeatureAuth,
+    editingScenarioAuth, setEditingScenarioAuth: _setEditingScenarioAuth,
     editingTest, setEditingTest,
     draft, setDraft,
     inputMode, setInputMode,
