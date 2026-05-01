@@ -10,6 +10,7 @@ import {
   ReactFlowProvider,
   ConnectionMode,
   MarkerType,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -478,7 +479,7 @@ function WorkflowDesignerInner({
   }, [nodes, setNodes, setWorkflowServices, persistWorkflow]);
 
   /** onInit handler for ReactFlow: auto-layout preview workflows after node measurement. */
-  const handleReactFlowInit = useCallback((instance: ReturnType<typeof useReactFlow>) => {
+  const handleReactFlowInit = useCallback((instance: ReactFlowInstance<WorkflowRFNode, WorkflowRFEdge>) => {
     if (previewWorkflow) {
       const currentPreviewId = previewWorkflow.id;
       setTimeout(() => {
