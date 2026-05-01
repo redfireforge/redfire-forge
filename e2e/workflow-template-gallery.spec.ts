@@ -140,7 +140,7 @@ test.describe('Gallery Page — Workflow Templates', () => {
     const allCount = await page.locator('.gallery-card').count();
 
     // Type in search
-    const searchInput = page.locator('.gallery-search input, input[placeholder*="Search"]');
+    const searchInput = page.getByRole('searchbox', { name: 'Search gallery' });
     if (await searchInput.isVisible()) {
       await searchInput.fill('Webhook');
       await page.waitForTimeout(300);

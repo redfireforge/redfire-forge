@@ -15,10 +15,4 @@ export interface SampleWorkflowEntry extends GalleryEntry<Workflow> {
   secondaryNodes: string[];
   /** Additional workflows bundled with this sample (e.g. child sub-workflows). */
   companionFactories?: Array<() => Workflow>;
-  /**
-   * If set, marks this entry as a simulator/counterpart-demo for another
-   * sample (the value is the id of the main sample). Used by the Template
-   * Gallery to render a "Simulator for: X" badge and group the pair together.
-   */
-  simulatorOf?: string;
 }

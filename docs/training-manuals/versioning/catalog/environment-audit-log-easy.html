@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Audit Log — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>Environment Audit Log</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn to browse audit entries, filter by entity type and action, and inspect field-level change tracking for environments, microservices, and auth profiles.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 3 — Versioning Training Path<br />
+      No gallery sample required — uses Settings → Audit Log
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Environments, microservices, and auth profiles are shared configuration entities — they affect every test, request, and workflow in your workspace. A stray deletion or a wrong base URL can break dozens of tests silently.</p>
+  <p>The <strong>Audit Log</strong> gives you a chronological record of every create, update, delete, and rename operation on these entities. It answers questions like:</p>
+  <ul>
+    <li><em>"Who changed the Staging base URL?"</em> — filter by entity type <code>microservice</code>, action <code>updated</code>.</li>
+    <li><em>"When was the OAuth profile deleted?"</em> — filter by <code>authProfile</code> + <code>deleted</code>.</li>
+    <li><em>"What was the old value before this rename?"</em> — expand the field-level change details.</li>
+  </ul>
+
+  <p><strong>Real-world scenario:</strong> <em>"Debugging a Broken Test Suite"</em></p>
+  <p>Your team's API regression suite suddenly fails across 12 tests — all returning 404. You suspect someone changed the Staging environment's base URL. Instead of asking around, you open the Audit Log, filter to <code>microservice</code> + <code>updated</code>, and immediately see the entry: <strong>baseUrls[staging]</strong> changed from <code>https://api.staging.example.com</code> to <code>https://api.staging.example.com/v2</code> — two hours ago. Mystery solved in seconds.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    The Audit Log does not require importing any gallery sample. It tracks changes you make in the <strong>Settings → Environments</strong> panel during normal app usage.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Audit entry</strong> — a timestamped record of a single CRUD operation on an environment, microservice, or auth profile.</li>
+    <li><strong>Entity types</strong> — three categories are tracked: <code>environment</code>, <code>microservice</code>, and <code>authProfile</code>.</li>
+    <li><strong>Actions</strong> — four action types: <code>created</code>, <code>updated</code>, <code>deleted</code>, and <code>renamed</code>.</li>
+    <li><strong>Field-level changes</strong> — for <code>updated</code> and <code>renamed</code> actions, the log records exactly which fields changed, with old and new values.</li>
+    <li><strong>Filtering &amp; search</strong> — combine entity type, action type, and free-text search to narrow results.</li>
+    <li><strong>Timeline view</strong> — entries displayed newest-first with action icons (+, ~, ×, →) and color-coded badges.</li>
+    <li><strong>500-entry FIFO cap</strong> — the log holds up to 500 entries; oldest entries are evicted automatically.</li>
+    <li><strong>Persistence</strong> — entries survive browser refreshes and app restarts (localStorage / Tauri store).</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Model</h2>
+  <p>Each audit entry follows this structure:</p>
+
+<pre>type AuditEntityType = 'environment' | 'microservice' | 'authProfile';
+type AuditAction = 'created' | 'updated' | 'deleted' | 'renamed';
+
+interface AuditChange {
+  field: string;       // Which field changed (e.g., "name", "baseUrls[staging]")
+  oldValue: unknown;   // Previous value
+  newValue: unknown;   // New value
+}
+
+interface AuditEntry {
+  id: string;             // UUID — unique entry identifier
+  timestamp: number;      // Epoch ms — when the action occurred
+  entityType: AuditEntityType;
+  entityId: string;       // UUID of the affected entity
+  entityName: string;     // Human-readable name at time of action
+  action: AuditAction;
+  changes?: AuditChange[];  // Field-level diffs (for update/rename)
+}
+
+const DEFAULT_MAX_ENTRIES = 500;</pre>
+
+  <p>Key points about the data model:</p>
+  <ul>
+    <li><code>changes</code> is only present for <code>updated</code> and <code>renamed</code> actions. <code>created</code> and <code>deleted</code> entries have no changes array.</li>
+    <li><code>entityName</code> captures the name <em>at the time of the action</em> — if the entity is later renamed, old entries still show the original name.</li>
+    <li>Each entry has a UUID <code>id</code> independent of the entity's own ID, so you can have many entries for the same entity.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>computeChanges()</code> utility automatically diffs two objects field-by-field using <code>JSON.stringify</code> comparison. This means nested object differences (like a changed JSON body) are detected as a single field change with the full old/new objects.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Where to Find the Audit Log</h2>
+  <p>The Audit Log panel lives inside the <strong>Settings</strong> modal:</p>
+  <ol>
+    <li>Click the <strong>⚙️ Settings</strong> button in the top toolbar.</li>
+    <li>The Settings modal opens with tabs: <strong>Global Auth</strong>, <strong>Export / Import</strong>, <strong>Storage</strong>, <strong>Audit Log</strong>.</li>
+    <li>Click the <strong>Audit Log</strong> tab.</li>
+  </ol>
+  <p>The panel shows a toolbar (search + filters), action buttons (Export, Refresh, Clear), and the timeline of entries.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Generate Audit Entries</h3>
+  <p>Before exploring the log, you need some entries. Go to <strong>Settings → Global Auth</strong> or close the modal and use the <strong>Environments</strong> section in the left sidebar. Perform these actions:</p>
+  <ol>
+    <li><strong>Create an environment</strong> — name it <code>Staging</code>. This logs a <code>created</code> entry for entity type <code>environment</code>.</li>
+    <li><strong>Create a microservice</strong> — name it <code>User API</code> with base URL <code>https://api.staging.example.com/users</code>. This logs a <code>created</code> entry for <code>microservice</code>.</li>
+    <li><strong>Update the microservice</strong> — change the base URL to <code>https://api.staging.example.com/v2/users</code>. This logs an <code>updated</code> entry with a field-level change on <code>baseUrls</code>.</li>
+    <li><strong>Create an auth profile</strong> — name it <code>OAuth Dev</code> in Settings → Global Auth. This logs a <code>created</code> entry for <code>authProfile</code>.</li>
+    <li><strong>Rename the auth profile</strong> — change it to <code>OAuth Staging</code>. This logs a <code>renamed</code> entry with a change on the <code>name</code> field.</li>
+  </ol>
+  <p>You should now have at least 5 audit entries covering all three entity types and multiple action types.</p>
+
+  <h3>Step 2 — Open the Audit Log</h3>
+  <p>Navigate to <strong>Settings → Audit Log</strong>. The panel header shows the total entry count: <strong>"5 entries recorded"</strong>.</p>
+
+  <h3>Step 3 — Read the Timeline</h3>
+  <p>Entries are displayed <strong>newest-first</strong>. Each entry shows:</p>
+  <table>
+    <tr><th>Element</th><th>Description</th></tr>
+    <tr><td>Action icon</td><td><code>+</code> (green) for created, <code>~</code> (blue) for updated, <code>×</code> (red) for deleted, <code>→</code> (orange) for renamed</td></tr>
+    <tr><td>Entity type</td><td>Badge showing "Environment", "Microservice", or "Auth Profile"</td></tr>
+    <tr><td>Entity name</td><td>Bold text — the entity's name at the time of the action</td></tr>
+    <tr><td>Action badge</td><td>Color-coded pill: Created / Updated / Deleted / Renamed</td></tr>
+    <tr><td>Timestamp</td><td>Formatted date and time (e.g., "May 1, 2:30 PM")</td></tr>
+    <tr><td>Changes</td><td>Expandable field-level diffs (only for updated/renamed actions)</td></tr>
+  </table>
+
+  <h3>Step 4 — Inspect Field-Level Changes</h3>
+  <p>Find the <strong>"User API — Updated"</strong> entry. Below the header, you'll see the changes section:</p>
+<pre>baseUrls[staging]: "https://api.staging.example.com/users" → "https://api.staging.example.com/v2/users"</pre>
+  <p>This tells you exactly which field changed, what the old value was, and what the new value is. For the <strong>"OAuth Staging — Renamed"</strong> entry, you'll see:</p>
+<pre>name: "OAuth Dev" → "OAuth Staging"</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Field-level changes use <code>JSON.stringify</code> comparison internally. For complex values (like nested objects), the full old and new objects are shown. Simple string values are displayed directly.
+  </div>
+
+  <h3>Step 5 — Filter by Entity Type</h3>
+  <p>Use the <strong>entity type dropdown</strong> in the toolbar. Select <strong>"Microservice"</strong>. The timeline now shows only microservice-related entries (created + updated). The counter updates to reflect the filtered count.</p>
+  <p>Try selecting <strong>"Auth Profile"</strong> — you should see the created and renamed entries.</p>
+
+  <h3>Step 6 — Filter by Action</h3>
+  <p>Reset the entity type filter to <strong>"All Types"</strong>. Now use the <strong>action dropdown</strong> and select <strong>"Updated"</strong>. Only entries where something was modified appear — the microservice URL change.</p>
+  <p>You can combine both filters: set entity type to <strong>"Auth Profile"</strong> and action to <strong>"Renamed"</strong> to see only auth profile rename operations.</p>
+
+  <h3>Step 7 — Free-Text Search</h3>
+  <p>Clear both dropdown filters. Type <code>OAuth</code> in the <strong>search box</strong>. The timeline filters to entries where the entity name, entity type, or action label contains "OAuth" — you should see the auth profile entries.</p>
+  <p>Search is case-insensitive and matches against:</p>
+  <ul>
+    <li><code>entityName</code> — e.g., "OAuth Staging"</li>
+    <li><code>formatEntityType()</code> — e.g., "Auth Profile"</li>
+    <li><code>formatAction()</code> — e.g., "Renamed"</li>
+  </ul>
+
+  <h3>Step 8 — Combine Filters with Search</h3>
+  <p>Try this combination: entity type = <code>microservice</code>, action = <code>updated</code>, search = <code>User</code>. This narrows the timeline to only microservice updates where the name contains "User" — a very precise query.</p>
+
+  <h3>Step 9 — Refresh the Log</h3>
+  <p>Click the <strong>Refresh</strong> button. This reloads entries from storage (localStorage or Tauri store). Use this if you've made changes in another tab or if you want to confirm the latest state.</p>
+
+  <h3>Step 10 — Delete an Entity and Check the Log</h3>
+  <p>Go back to the Environments panel and delete the <code>Staging</code> environment. Return to <strong>Settings → Audit Log</strong> and click <strong>Refresh</strong>. A new entry appears at the top: <strong>Environment — Staging — Deleted</strong> with a red <code>×</code> icon.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. How Entries Are Recorded</h2>
+  <p>Audit entries are created automatically by convenience logger functions called from the CRUD operations in the EnvironmentManager and SettingsModal:</p>
+
+  <table>
+    <tr><th>User Action</th><th>Logger Function</th><th>Entity Type</th><th>Action</th></tr>
+    <tr><td>Create environment</td><td><code>logEnvironmentCreated(name, id)</code></td><td>environment</td><td>created</td></tr>
+    <tr><td>Delete environment</td><td><code>logEnvironmentDeleted(name, id)</code></td><td>environment</td><td>deleted</td></tr>
+    <tr><td>Rename environment</td><td><code>logEnvironmentRenamed(id, old, new)</code></td><td>environment</td><td>renamed</td></tr>
+    <tr><td>Create microservice</td><td><code>logMicroserviceCreated(name, id)</code></td><td>microservice</td><td>created</td></tr>
+    <tr><td>Delete microservice</td><td><code>logMicroserviceDeleted(name, id)</code></td><td>microservice</td><td>deleted</td></tr>
+    <tr><td>Update microservice URL</td><td><code>logMicroserviceUpdated(name, id, changes)</code></td><td>microservice</td><td>updated</td></tr>
+    <tr><td>Create auth profile</td><td><code>logAuthProfileCreated(name, id)</code></td><td>authProfile</td><td>created</td></tr>
+    <tr><td>Delete auth profile</td><td><code>logAuthProfileDeleted(name, id)</code></td><td>authProfile</td><td>deleted</td></tr>
+    <tr><td>Update auth profile</td><td><code>logAuthProfileUpdated(name, id, changes)</code></td><td>authProfile</td><td>updated</td></tr>
+    <tr><td>Rename auth profile</td><td><code>logAuthProfileRenamed(id, old, new)</code></td><td>authProfile</td><td>renamed</td></tr>
+  </table>
+
+  <p>All loggers call <code>addAuditEntry()</code> which assigns a UUID and timestamp, appends to the log, and enforces the 500-entry FIFO cap.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>logMicroserviceUpdated()</code> and <code>logAuthProfileUpdated()</code> functions have a guard: if <code>changes.length === 0</code>, no entry is created. This prevents noise from save operations where nothing actually changed.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. The computeChanges() Utility</h2>
+  <p>When an entity is updated, the calling code uses <code>computeChanges()</code> to diff the old and new objects:</p>
+
+<pre>function computeChanges(
+  oldObj: Record&lt;string, unknown&gt;,
+  newObj: Record&lt;string, unknown&gt;,
+  fields?: string[],   // Optional — restrict to specific fields
+): AuditChange[]</pre>
+
+  <p>How it works:</p>
+  <ol>
+    <li>If <code>fields</code> is provided, only those keys are compared. Otherwise, the union of all keys from both objects is used.</li>
+    <li>For each key, <code>JSON.stringify(oldVal)</code> is compared with <code>JSON.stringify(newVal)</code>.</li>
+    <li>If they differ, an <code>AuditChange</code> is added with the field name, old value, and new value.</li>
+  </ol>
+
+  <p>Example:</p>
+<pre>const old = { name: 'User API', baseUrls: { prod: 'https://prod.api.com' } };
+const updated = { name: 'User API', baseUrls: { prod: 'https://prod.api.com/v2' } };
+
+computeChanges(old, updated);
+// → [{ field: 'baseUrls', oldValue: { prod: '...' }, newValue: { prod: '.../v2' } }]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Action Icons &amp; Color Coding</h2>
+  <p>The Audit Log panel uses consistent visual indicators:</p>
+  <table>
+    <tr><th>Action</th><th>Icon</th><th>Color</th><th>CSS Variable</th></tr>
+    <tr><td>Created</td><td><code>+</code></td><td>Green</td><td><code>--color-success (#4caf50)</code></td></tr>
+    <tr><td>Updated</td><td><code>~</code></td><td>Blue</td><td><code>--color-info (#2196f3)</code></td></tr>
+    <tr><td>Deleted</td><td><code>×</code></td><td>Red</td><td><code>--color-danger (#f44336)</code></td></tr>
+    <tr><td>Renamed</td><td><code>→</code></td><td>Orange</td><td><code>--color-warning (#ff9800)</code></td></tr>
+  </table>
+
+  <p>The action badge next to the entity name also uses color-coded styling with the class <code>audit-log-action-{action}</code> for quick visual scanning.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Persistence &amp; Storage</h2>
+  <p>Audit entries are stored under the key <code>perf-test-audit-log</code> in:</p>
+  <ul>
+    <li><strong>Web mode</strong> — <code>localStorage</code></li>
+    <li><strong>Desktop mode (Tauri)</strong> — Tauri store via <code>getItem</code> / <code>setItem</code></li>
+  </ul>
+  <p>The storage layer is abstracted by internal <code>readKey()</code> / <code>writeKey()</code> helpers that auto-detect the platform. Entries survive browser tab closes and app restarts.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build an Audit Trail</h3>
+  <p>Create 3 environments (<code>Dev</code>, <code>Staging</code>, <code>Production</code>) and 2 microservices (<code>User API</code>, <code>Order API</code>). Update one microservice's base URL. Delete the <code>Dev</code> environment. Open the Audit Log and verify you see 6 entries with correct entity types, actions, and field-level changes.</p>
+
+  <h3>Exercise 2 — Master Filtering</h3>
+  <p>Using the entries from Exercise 1, practice these filter combinations:</p>
+  <ul>
+    <li>Show only <code>environment</code> entries → expect 4 (3 created + 1 deleted).</li>
+    <li>Show only <code>deleted</code> actions → expect 1 (the Dev environment).</li>
+    <li>Combine: <code>microservice</code> + <code>updated</code> → expect 1.</li>
+    <li>Search for "Order" → expect entries related to Order API.</li>
+  </ul>
+
+  <h3>Exercise 3 — Persistence Check</h3>
+  <p>Create several audit entries. Close the browser tab entirely. Reopen RedfireForge and navigate to Settings → Audit Log. Verify all entries are intact — including field-level changes and timestamps.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use the Refresh button after generating entries in a different part of the app to ensure the Audit Log panel shows the latest data.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="environment-audit-export-medium.html">environment-audit-export-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Export audit log as JSON or CSV, understand 500-entry rotation management</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-history-easy.html">workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Workflow-level version snapshots — a different versioning approach for a different entity type</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Environment Audit Log (Easy) · May 2026
+  </footer>
+
+</body>
+</html>
