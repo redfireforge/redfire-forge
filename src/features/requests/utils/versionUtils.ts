@@ -1,4 +1,4 @@
-import type { ResponseVersion, RulesVersion } from '../../shared/types';
+import type { ResponseVersion, RulesVersion } from '../../../shared/types';
 
 /** Normalize a version's rule fields into a comparable plain object for diffing. */
 export function buildRulesSnapshot(v: ResponseVersion | RulesVersion) {

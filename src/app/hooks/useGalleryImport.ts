@@ -11,14 +11,14 @@ import { savePreviewSampleId } from '../../shared/utils/storage';
 export interface UseGalleryImportDeps {
   wb: {
     collections: RequestCollection[];
-    addCollection: (col: { name: string; mode: string }) => string;
+    addCollection: (col: { name: string; mode: 'direct' | 'multi-env' | 'group' }) => string;
     addRequest: (colId: string) => string;
     updateRequest: (colId: string, reqId: string, data: Partial<RequestItem>) => void;
   };
   featureGroups: FeatureGroup[];
   environments: Environment[];
   microservices: Microservice[];
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results') => void;
   setPreviewRequest: (req: PreviewRequest | null) => void;
   setPreviewWorkflow: (wf: Workflow | null) => void;
   setCatalogInitialSpec: (spec: { yaml: string; name: string } | undefined) => void;

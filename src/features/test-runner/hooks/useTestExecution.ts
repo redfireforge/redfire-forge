@@ -100,7 +100,7 @@ export function useTestExecution() {
     if (n === 0) {
       return {
         tps: 0, avgResponseTime: 0, minResponseTime: 0, maxResponseTime: 0,
-        p95ResponseTime: 0, p99ResponseTime: 0, errorRate: 0, errorsByStatus: {},
+        p50ResponseTime: 0, p95ResponseTime: 0, p99ResponseTime: 0, errorRate: 0, errorsByStatus: {},
         totalRequests: 0, successfulRequests: 0, failedRequests: 0, failedValidations: 0,
         totalDurationMs: Math.round(elapsedMs),
       };
@@ -118,6 +118,7 @@ export function useTestExecution() {
       minResponseTime: Math.round(inc.min * 100) / 100,
       maxResponseTime: Math.round(inc.max * 100) / 100,
       p95ResponseTime: Math.round(p95 * 100) / 100,
+      p50ResponseTime: Math.round(sorted[Math.floor(n * 0.5)] * 100) / 100,
       p99ResponseTime: Math.round(p99 * 100) / 100,
       errorRate: Math.round(errorRate * 100) / 100,
       errorsByStatus: { ...inc.errorsByStatus },

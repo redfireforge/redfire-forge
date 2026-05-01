@@ -1,8 +1,7 @@
-import { useState, useCallback } from 'react';
-import type { GalleryEntry, GalleryDomain } from '../../../data/galleries/types';
+import { useState } from 'react';
+import type { GalleryEntry } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { DifficultyDots } from './DifficultyDots';
-import { DomainBadge } from './DomainBadge';
 import { LiveApiBadge } from './LiveApiBadge';
 import AppModalFrame from '../AppModalFrame';
 
@@ -35,7 +34,7 @@ export function GalleryDetailPanel<T = unknown>({
   onSecondary,
   onClose,
   renderPreview,
-  sampleStatus,
+  sampleStatus: _sampleStatus,
 }: GalleryDetailPanelProps<T>) {
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');

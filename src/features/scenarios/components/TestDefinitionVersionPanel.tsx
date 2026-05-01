@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
-import { generateChangeSummary, computeSnapshotDiff } from '../utils/testDefinitionVersioning';
+import type { TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+
 
 interface Props {
   versions: TestDefinitionVersion[];
@@ -13,7 +13,7 @@ interface Props {
 
 export default function TestDefinitionVersionPanel({
   versions,
-  currentSnapshot,
+  currentSnapshot: _currentSnapshot,
   onRestore,
   onDelete,
   onRename,

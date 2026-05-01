@@ -36,7 +36,6 @@ import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
-import { TemplateGalleryContent } from '../features/workflow/components/modals/TemplateGalleryModal';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
