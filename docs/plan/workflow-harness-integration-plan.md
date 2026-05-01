@@ -371,12 +371,294 @@ Phase 5 (Run in Harness btn)  ←──  Phase 4 (Results Display)
 | 4. Results Display | High | M | Phase 3 |
 | 5. "Run in Harness" Button | Medium | S | Phase 2 |
 | 6. CLI Support | Medium | S | Phase 3 |
+| 7. Event-Driven Node Load Testing | Medium | L | Phase 3 |
 
-**Estimated total: ~6 implementation tasks across 3 priority tiers.**
+**Estimated total: ~7 implementation tasks across 3 priority tiers.**
 
 ---
 
-## 5. Design Principles
+## 5. Phase 7: Event-Driven Node Load Testing (Webhooks, Correlation Waits, Polling)
+
+> **Problem:** Standard workflow nodes (HTTP, Condition, Fork/Join) are self-contained — the engine drives them. But three node types are **externally-driven**: they pause execution and wait for something from outside. Running N concurrent iterations of these workflows requires solving the "who triggers the external event?" problem.
+
+### 5.1 The Challenge
+
+| Node Type | Runtime Behavior | Load Testing Problem |
+|---|---|---|
+| **Webhook Trigger** | Workflow starts when an external HTTP POST hits `/api/webhooks/:path` | The load runner needs to **send** N webhook requests to trigger N workflow iterations — the traditional "configure iterations and click Run" model doesn't apply |
+| **CorrelationWait** | Pauses mid-workflow, registers in `correlationStore`, waits for a specific webhook callback matched by `correlationId` | Each of N iterations blocks on a **unique** `correlationId` — needs N matching external callbacks to arrive before the workflow can continue |
+| **WaitForCondition** | Polls a body sub-graph repeatedly (interval + timeout + max attempts) until a condition expression evaluates to true | Each of N iterations polls independently — N iterations × M poll attempts = N×M API calls, which can overwhelm the target system |
+
+### 5.2 Strategy 1: Synthetic Event Injector (Recommended for CorrelationWait)
+
+The load runner itself acts as the external system. A background "event injector" monitors the `correlationStore` and automatically fires matching webhook callbacks after a configurable delay.
+
+**How it works:**
+
+```
+Iteration #1:
+  Start → HTTP Create Order → CorrelationWait(correlationId={{paymentId}})
+                                       │
+                                       ▼ (pauses, registers pay_001 in correlationStore)
+                                       │
+       [Event Injector] monitors correlationStore
+                │
+                ▼ (sees pay_001 waiting, waits configurable delay)
+                │
+                POST /api/webhooks/payment-callback { paymentId: "pay_001", status: "completed" }
+                                       │
+                                       ▼ (correlationStore.resume("pay_001") called)
+                                       │
+                               CorrelationWait resolves → continues to next node
+```
+
+**Implementation:**
+
+```typescript
+// src/features/workflow/engine/syntheticEventInjector.ts
+
+export interface SyntheticEventConfig {
+  /** Delay before sending the synthetic webhook (ms). Simulates real-world latency. */
+  responseDelayMs: number;
+  /** Mock payload template. Supports {{correlationId}} placeholder. */
+  payloadTemplate: Record<string, unknown>;
+  /** Optional jitter range (ms) added to responseDelayMs for realistic variance. */
+  jitterMs?: number;
+}
+
+export class SyntheticEventInjector {
+  private interval: ReturnType<typeof setInterval> | null = null;
+
+  constructor(
+    private correlationStore: ICorrelationStore,
+    private config: SyntheticEventConfig,
+    private webhookEndpoint: (path: string, body: Record<string, unknown>) => Promise<void>,
+  ) {}
+
+  start(): void {
+    // Poll correlationStore every 50ms for new paused entries
+    this.interval = setInterval(() => {
+      for (const entry of this.correlationStore.listPaused()) {
+        const delay = this.config.responseDelayMs + randomJitter(this.config.jitterMs);
+        setTimeout(() => {
+          const payload = resolveTemplate(this.config.payloadTemplate, entry.correlationId);
+          this.correlationStore.resume(entry.correlationId, payload);
+        }, delay);
+      }
+    }, 50);
+  }
+
+  stop(): void {
+    if (this.interval) clearInterval(this.interval);
+  }
+}
+```
+
+**UI in Harness (when workflow contains CorrelationWait nodes):**
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ ⚡ Event-Driven Nodes Detected                           │
+│                                                           │
+│ This workflow has 1 CorrelationWait node:                 │
+│   • "Wait for Payment Callback" (correlationId={{paymentId}}) │
+│                                                           │
+│ Load Test Mode:                                           │
+│   ◉ Auto-resume with synthetic events                    │
+│     Response delay: [200ms]  Jitter: [±50ms]             │
+│     Mock payload:                                         │
+│     ┌──────────────────────────────────────┐              │
+│     │ { "status": "completed",            │              │
+│     │   "paymentId": "{{correlationId}}" } │              │
+│     └──────────────────────────────────────┘              │
+│   ○ Auto-resume immediately (skip wait, use mock payload)│
+│   ○ Real external system (requires external event source)│
+└───────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Strategy 2: Auto-Resume Mode (Lightweight, for CI/Smoke Tests)
+
+For quick performance smoke tests, CorrelationWait nodes can skip the actual wait entirely and immediately resolve with a pre-configured mock payload.
+
+**Implementation:**
+
+Add a `performanceTestBehavior` option to `CorrelationWaitNodeData`:
+
+```typescript
+interface CorrelationWaitNodeData {
+  // ... existing fields ...
+  performanceTestBehavior?: {
+    mode: 'wait-for-real' | 'auto-resume' | 'synthetic-inject';
+    mockPayload?: Record<string, unknown>;
+    syntheticDelayMs?: number;
+  };
+}
+```
+
+In `handleCorrelationWaitNode`, when running under load:
+
+```typescript
+if (loadTestMode && data.performanceTestBehavior?.mode === 'auto-resume') {
+  // Skip the real wait — immediately inject mock data
+  const mockPayload = data.performanceTestBehavior.mockPayload ?? {};
+  hCtx.ctx.set('webhook.body', JSON.stringify(mockPayload));
+  hCtx.ctx.set('webhook.correlationId', correlationId);
+  hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+  await hCtx.visitOutgoing(nodeId, hCtx.threadId);
+  return;
+}
+```
+
+### 5.4 Strategy 3: Webhook Trigger Load Driver
+
+For workflows that **start** with a Webhook Trigger node (instead of a Start node), the traditional "N iterations" model doesn't work — the workflow only runs when an HTTP POST arrives.
+
+**Solution: Webhook Load Driver**
+
+Instead of iterating `runGraph()` N times internally, the load runner sends N HTTP requests to the workflow's webhook endpoint:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Webhook Load Test Configuration                     │
+│                                                     │
+│ Workflow: "Payment Processing"                      │
+│ Trigger: Webhook at /api/webhooks/payment-events    │
+│                                                     │
+│ Request Rate:                                       │
+│   ◉ Fixed rate: [50] requests/sec for [60] seconds │
+│   ○ Ramp: [10] → [100] requests/sec over [120] sec │
+│   ○ Burst: [200] requests in [5] seconds            │
+│                                                     │
+│ Payload Template:                                   │
+│ ┌─────────────────────────────────────────┐         │
+│ │ { "event": "payment.created",          │         │
+│ │   "amount": {{$randomInt(100,9999)}},   │         │
+│ │   "orderId": "{{$uuid}}" }              │         │
+│ └─────────────────────────────────────────┘         │
+│                                                     │
+│ Built-in generators: {{$uuid}}, {{$randomInt}},     │
+│   {{$randomEmail}}, {{$timestamp}}, {{$isoDate}}    │
+│                                                     │
+│         [▶ Run Webhook Load Test]                   │
+└─────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```typescript
+// src/features/workflow/engine/webhookLoadDriver.ts
+
+export async function runWebhookLoadTest(
+  webhookUrl: string,
+  payloadTemplate: string,
+  config: {
+    mode: 'fixed-rate' | 'ramp' | 'burst';
+    ratePerSec: number;
+    durationSec: number;
+    rampTo?: number;
+  },
+  onProgress: (sent: number, completed: number, results: RequestResult[]) => void,
+  abortSignal?: AbortSignal,
+): Promise<RequestResult[]> {
+  // Use the existing variable generator system ({{$uuid}}, etc.)
+  // to create unique payloads per request.
+  // Fire HTTP POSTs to the webhook endpoint at the configured rate.
+  // Collect responses (the webhook server returns execution results).
+}
+```
+
+The webhook server (`src-server/webhook-server.ts`) already handles incoming webhooks and triggers workflow execution via `executeWorkflow()`. The load driver just needs to send requests at the right rate.
+
+### 5.5 WaitForCondition Poll Throttle
+
+WaitForCondition nodes poll a sub-graph repeatedly. Under load, N iterations × M polls = N×M sub-graph executions. If the sub-graph contains HTTP calls, this can overwhelm the target.
+
+**Solution: Global poll concurrency limiter**
+
+```typescript
+// In runGraphLoad(), when constructing the NodeHandlerContext:
+const pollSemaphore = new Semaphore(config.maxConcurrentPolls ?? 20);
+
+// In handleWaitForConditionNode, before each poll attempt:
+await pollSemaphore.acquire();
+try {
+  for (const e of bodyEdges) {
+    await hCtx.visit(e.target, `${hCtx.threadId}-poll-${attempt}`);
+  }
+} finally {
+  pollSemaphore.release();
+}
+```
+
+**UI addition:**
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ ⚡ Polling Nodes Detected                                │
+│                                                           │
+│ This workflow has 1 WaitForCondition node:                │
+│   • "Wait for Order Shipped" (polls every 2000ms)        │
+│                                                           │
+│ Max concurrent polls across all iterations: [20]          │
+│ (Prevents poll storms against your target API)            │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 5.6 Combined Example: End-to-End Payment Flow
+
+A real-world workflow with all three event-driven patterns:
+
+```
+Webhook Trigger ──→ HTTP: Validate Payment ──→ HTTP: Create Order ──→ CorrelationWait(orderId)
+  (payment.created)                                                       │
+                                                                          ▼ (waits for shipment webhook)
+                                                          HTTP: Confirm Shipment ──→ WaitForCondition
+                                                                                       │ (polls: GET /orders/{{orderId}})
+                                                                                       │ (condition: status == "delivered")
+                                                                                       ▼
+                                                                                  HTTP: Send Receipt
+```
+
+**Load test config for this workflow:**
+
+| Setting | Value | Why |
+|---|---|---|
+| Webhook driver rate | 50 req/s for 60s | Simulates payment gateway sending events |
+| CorrelationWait mode | Synthetic inject, 500ms ± 100ms delay | Simulates shipment system callback latency |
+| WaitForCondition throttle | Max 20 concurrent polls | Prevents overwhelming order status API |
+| Expected total requests | ~3,000 webhook triggers → ~3,000 orders → ~3,000 correlation resumes → ~15,000 polls → ~3,000 receipts | Natural amplification from poll loop |
+
+### 5.7 Implementation Sequence
+
+```
+Phase 7a: Auto-resume mode for CorrelationWait (simplest, enables CI smoke tests)
+    ↓
+Phase 7b: Synthetic Event Injector (realistic delays, production-like)
+    ↓
+Phase 7c: Webhook Trigger Load Driver (replace "N iterations" with "N webhook POSTs")
+    ↓
+Phase 7d: WaitForCondition poll throttle (prevent poll storms)
+```
+
+| Sub-phase | Priority | Effort | Depends On |
+|---|---|---|---|
+| 7a. Auto-resume mode | High | S | Phase 3 |
+| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a |
+| 7c. Webhook Load Driver | Medium | M | Phase 3 |
+| 7d. Poll throttle | Medium | S | Phase 3 |
+
+### 5.8 Success Criteria for Phase 7
+
+- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests
+- [ ] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter
+- [ ] Webhook-triggered workflows can be load tested by sending N webhook POSTs at a configured rate
+- [ ] WaitForCondition polling is throttled across iterations to prevent poll storms
+- [ ] Harness UI detects event-driven nodes and shows appropriate configuration panels
+- [ ] Per-node metrics distinguish between "time waiting for event" and "time executing HTTP call"
+
+---
+
+## 6. Design Principles
 
 1. **Workflow IS the test.** Follow industry consensus: the workflow graph IS what gets iterated under load. Don't require users to manually re-select scenarios.
 
@@ -390,7 +672,7 @@ Phase 5 (Run in Harness btn)  ←──  Phase 4 (Results Display)
 
 ---
 
-## 6. Non-Goals (Out of Scope)
+## 7. Non-Goals (Out of Scope)
 
 - **Distributed execution** — Multi-machine load generation is Phase 1.x territory
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
@@ -399,7 +681,7 @@ Phase 5 (Run in Harness btn)  ←──  Phase 4 (Results Display)
 
 ---
 
-## 7. Success Criteria
+## 8. Success Criteria
 
 - [ ] User can select a saved workflow in the Harness and run it as a performance test
 - [ ] Full graph topology (conditions, forks, joins, loops) is respected during load runs
@@ -408,6 +690,9 @@ Phase 5 (Run in Harness btn)  ←──  Phase 4 (Results Display)
 - [ ] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Harness
 - [ ] CLI supports `--workflow` flag for graph-based load testing
 - [ ] Existing flat-chain workflow mode continues to work (backward compatible)
+- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
+- [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
 
 ---
 
