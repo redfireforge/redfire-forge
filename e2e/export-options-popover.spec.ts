@@ -85,21 +85,24 @@ test.describe('Export Options Popover', () => {
     // Verify title
     await expect(popover.locator('.export-opts-title')).toHaveText('Export Options');
 
-    // Verify all three checkbox labels
+    // Verify all four checkbox labels
     const checks = popover.locator('.export-opts-check');
-    await expect(checks).toHaveCount(3);
+    await expect(checks).toHaveCount(4);
     await expect(checks.nth(0)).toContainText('Response Versions');
     await expect(checks.nth(0)).toContainText('(2)');
     await expect(checks.nth(1)).toContainText('Rules Versions');
     await expect(checks.nth(1)).toContainText('(3)');
     await expect(checks.nth(2)).toContainText('Definition Versions');
     await expect(checks.nth(2)).toContainText('(2)');
+    await expect(checks.nth(3)).toContainText('Structure History');
+    await expect(checks.nth(3)).toContainText('(0)');
 
     // All checkboxes should be checked by default
     const checkboxes = popover.locator('input[type="checkbox"]');
     await expect(checkboxes.nth(0)).toBeChecked();
     await expect(checkboxes.nth(1)).toBeChecked();
     await expect(checkboxes.nth(2)).toBeChecked();
+    await expect(checkboxes.nth(3)).toBeChecked();
 
     // Verify action buttons
     await expect(popover.locator('button', { hasText: 'Cancel' })).toBeVisible();

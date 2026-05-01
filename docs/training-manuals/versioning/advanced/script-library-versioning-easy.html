@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Script Library Versioning — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📜</div>
+    <h1>Script Library Versioning</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn how RedfireForge versions your reusable script libraries — code snapshots, fingerprint-based deduplication, change summaries with line counts, 15-version cap, restore, and rename.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 7 — Versioning Training Path<br />
+      No gallery sample required — create libraries from scratch
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Are Script Libraries?</h2>
+  <p>Script libraries are <strong>reusable JavaScript functions</strong> that workflow script nodes can import. Instead of duplicating utility code in every script node, you write it once as a library and include it by checking a box.</p>
+
+  <p>Each library has three editable fields:</p>
+  <ul>
+    <li><strong>Name</strong> — identifier displayed in the library manager (e.g., "Response Helpers").</li>
+    <li><strong>Description</strong> — optional documentation (e.g., "Shared parsing and validation functions").</li>
+    <li><strong>Code</strong> — the JavaScript source that gets prepended to script nodes that include it.</li>
+  </ul>
+
+  <p><strong>Real-world scenario:</strong> <em>"The Evolving JSON Flattener"</em></p>
+  <p>You create a "JSON Flatten" library with a recursive function. Over time you add error handling, optimize for performance, then realize the optimized version has a bug. With script library versioning, you open the History panel, find the "v2 Error Handling" version, and restore it — keeping the improvements while reverting the broken optimization.</p>
+
+  <h3>How It Differs from Other Versioning</h3>
+  <table>
+    <tr><th>Feature</th><th>Script Library</th><th>Request Definition</th><th>Workflow</th></tr>
+    <tr><td>Max versions</td><td>15</td><td>15</td><td>30</td></tr>
+    <tr><td>Snapshot includes</td><td>name, description, code</td><td>url, method, headers, body, auth</td><td>nodes, edges, variables, services</td></tr>
+    <tr><td>Auto-save trigger</td><td>On edit save</td><td>On navigation</td><td>On explicit save</td></tr>
+    <tr><td>Change summary</td><td>Includes line count diff</td><td>Field-level summary</td><td>Node/edge count diff</td></tr>
+    <tr><td>Unique feature</td><td>Impact analysis (usage tracking)</td><td>—</td><td>4-tab diff</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Data Model</h2>
+
+  <h3>2.1 ScriptLibrarySnapshot</h3>
+  <p>A snapshot captures only the editable content — no metadata:</p>
+<pre>interface ScriptLibrarySnapshot {
+  name: string;
+  description: string;
+  code: string;
+}</pre>
+
+  <p>Excluded from snapshots: <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>, <code>versions</code> array itself.</p>
+
+  <h3>2.2 ScriptLibraryVersion</h3>
+<pre>interface ScriptLibraryVersion {
+  id: string;             // UUID
+  timestamp: number;      // Date.now() when saved
+  changeSummary: string;  // "code changed (+5 lines), name changed"
+  label?: string;         // Optional user-assigned label
+  snapshot: ScriptLibrarySnapshot;
+}</pre>
+
+  <h3>2.3 Storage</h3>
+  <p>Versions are stored directly on the <code>ScriptLibrary</code> object in its <code>versions</code> array:</p>
+<pre>interface ScriptLibrary {
+  id: string;
+  name: string;
+  description: string;
+  code: string;
+  createdAt: string;      // ISO timestamp
+  updatedAt: string;      // ISO timestamp
+  versions?: ScriptLibraryVersion[];  // ← version history
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Auto-Save Works</h2>
+  <p>Script library versions are created when you <strong>save edits</strong> — not on navigation like request definitions. The flow:</p>
+
+  <ol>
+    <li>You open a library in the Script Library Manager and click <strong>Edit</strong>.</li>
+    <li>You modify the name, description, or code.</li>
+    <li>You click <strong>Save</strong>.</li>
+    <li>Before applying your edits, the manager calls <code>autoSaveVersion()</code> on the <em>current</em> state.</li>
+    <li>If the current state differs from the latest version → a new version is created.</li>
+    <li>Then your edits are applied.</li>
+  </ol>
+
+<pre>function autoSaveVersion(
+  lib: ScriptLibrary,
+  maxVersions: number = MAX_VERSIONS,  // 15
+): ScriptLibrary {
+  if (!hasChanged(lib)) return lib;    // No change → return as-is
+
+  const snapshot = createSnapshot(lib);
+  const versions = lib.versions ?? [];
+  const changeSummary = versions.length > 0
+    ? generateChangeSummary(versions[0].snapshot, snapshot)
+    : 'initial version';
+
+  const version: ScriptLibraryVersion = {
+    id: uuidv4(),
+    timestamp: Date.now(),
+    changeSummary,
+    snapshot,
+  };
+
+  const updated = [version, ...versions].slice(0, maxVersions);
+  return { ...lib, versions: updated };
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key Difference</strong>
+    Unlike request/test definitions which return <code>null</code> when nothing changed, <code>autoSaveVersion()</code> for scripts returns the <em>original library object</em> unchanged. The caller can check referential equality (<code>versioned !== lib</code>) to know if a version was created.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Change Summaries with Line Counts</h2>
+  <p>Script change summaries are special — they include <strong>line count diffs</strong> for code changes:</p>
+
+<pre>function generateChangeSummary(
+  oldSnap: ScriptLibrarySnapshot,
+  newSnap: ScriptLibrarySnapshot,
+): string {
+  const parts: string[] = [];
+  if (oldSnap.name !== newSnap.name) parts.push('name changed');
+  if (oldSnap.description !== newSnap.description) parts.push('description changed');
+  if (oldSnap.code !== newSnap.code) {
+    const oldLines = oldSnap.code.split('\n').length;
+    const newLines = newSnap.code.split('\n').length;
+    const diff = newLines - oldLines;
+    if (diff > 0) parts.push(`code changed (+${diff} lines)`);
+    else if (diff &lt; 0) parts.push(`code changed (${diff} lines)`);
+    else parts.push('code changed');
+  }
+  return parts.length ? parts.join(', ') : 'no changes';
+}</pre>
+
+  <p>Example summaries:</p>
+  <table>
+    <tr><th>Change Made</th><th>Summary Text</th></tr>
+    <tr><td>First version</td><td><code>initial version</code></td></tr>
+    <tr><td>Added 5 lines of code</td><td><code>code changed (+5 lines)</code></td></tr>
+    <tr><td>Removed 3 lines of code</td><td><code>code changed (-3 lines)</code></td></tr>
+    <tr><td>Same number of lines, different content</td><td><code>code changed</code></td></tr>
+    <tr><td>Renamed + added code</td><td><code>name changed, code changed (+2 lines)</code></td></tr>
+    <tr><td>Only description changed</td><td><code>description changed</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The 15-Version Cap</h2>
+  <p>Script libraries use the same 15-version cap as request definitions:</p>
+
+<pre>const MAX_VERSIONS = 15;
+
+// In autoSaveVersion():
+const updated = [version, ...versions].slice(0, maxVersions);
+return { ...lib, versions: updated };</pre>
+
+  <p>FIFO eviction: oldest version silently dropped when cap is reached. Versions are stored newest-first (index 0 = most recent).</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Important</strong>
+    Script code can be significantly longer than request definitions. 15 versions of a 200-line library = 3,000+ lines stored. If you have many libraries with large codebases, consider periodically deleting old versions to manage storage.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Fingerprint-Based Deduplication</h2>
+  <p>Like all RedfireForge versioning, scripts use canonical JSON fingerprinting to prevent duplicate versions:</p>
+
+<pre>function hasChanged(lib: ScriptLibrary): boolean {
+  const versions = lib.versions ?? [];
+  if (versions.length === 0) return true;  // Always save first version
+  const latest = versions[0];
+  const current = createSnapshot(lib);
+  return computeSnapshotFingerprint(current)
+      !== computeSnapshotFingerprint(latest.snapshot);
+}</pre>
+
+  <p>The fingerprint covers all three snapshot fields (name, description, code). If <em>any</em> of them differ from the latest version, a new version is created. If all three are identical, no version is saved.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Create a Script Library</h3>
+  <p>Open a workflow editor. Click the <strong>Script Libraries</strong> button (or the equivalent in the toolbar). Click <strong>"+ New Library"</strong>. Fill in:</p>
+  <ul>
+    <li><strong>Name:</strong> <code>JSON Flatten</code></li>
+    <li><strong>Description:</strong> <code>Recursively flatten nested JSON objects</code></li>
+    <li><strong>Code:</strong></li>
+  </ul>
+<pre>function flatten(obj, prefix = '') {
+  const result = {};
+  for (const key in obj) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (typeof obj[key] === 'object' && obj[key] !== null) {
+      Object.assign(result, flatten(obj[key], fullKey));
+    } else {
+      result[fullKey] = obj[key];
+    }
+  }
+  return result;
+}</pre>
+  <p>Click <strong>Create</strong>.</p>
+
+  <h3>Step 2 — Verify Initial State</h3>
+  <p>Click <strong>History</strong> on the library. You should see: <em>"No version history yet"</em>. The first version is created when you <em>edit</em> the library, not when you create it.</p>
+
+  <h3>Step 3 — Make Your First Edit</h3>
+  <p>Click <strong>Edit</strong>. Add error handling:</p>
+<pre>function flatten(obj, prefix = '') {
+  if (obj === null || obj === undefined) return {};
+  if (typeof obj !== 'object') return { [prefix || 'value']: obj };
+  const result = {};
+  for (const key in obj) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (Array.isArray(obj[key])) {
+      obj[key].forEach((item, i) => {
+        Object.assign(result, flatten(item, `${fullKey}[${i}]`));
+      });
+    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+      Object.assign(result, flatten(obj[key], fullKey));
+    } else {
+      result[fullKey] = obj[key];
+    }
+  }
+  return result;
+}</pre>
+  <p>Click <strong>Save</strong>. The auto-save captures the <em>pre-edit</em> state as a version.</p>
+
+  <h3>Step 4 — Check Version History</h3>
+  <p>Click <strong>History</strong>. You should see <strong>1 version</strong>:</p>
+  <table>
+    <tr><th>#</th><th>Timestamp</th><th>Summary</th></tr>
+    <tr><td>1</td><td>(just now)</td><td><code>initial version</code></td></tr>
+  </table>
+
+  <h3>Step 5 — Create More Versions</h3>
+  <p>Edit the library again — add a <code>try/catch</code> wrapper around the whole function. Save. Edit again — change the function name to <code>flattenJSON</code>. Save. You now have 3 versions:</p>
+  <table>
+    <tr><th>#</th><th>Summary</th></tr>
+    <tr><td>1</td><td><code>name changed, code changed</code></td></tr>
+    <tr><td>2</td><td><code>code changed (+3 lines)</code></td></tr>
+    <tr><td>3</td><td><code>initial version</code></td></tr>
+  </table>
+
+  <h3>Step 6 — Rename Versions</h3>
+  <p><strong>Double-click</strong> the label of version #3 (oldest). Type <code>v1 Basic</code> and press Enter. Rename #2 to <code>v2 Error Handling</code> and #1 to <code>v3 Renamed</code>.</p>
+
+<pre>function renameVersion(
+  lib: ScriptLibrary,
+  versionId: string,
+  label: string,
+): ScriptLibrary {
+  return {
+    ...lib,
+    versions: versions.map(v =>
+      v.id === versionId ? { ...v, label: label.trim() || undefined } : v,
+    ),
+  };
+}</pre>
+
+  <p>Note: setting an empty label (<code>""</code>) removes the label (reverts to timestamp display).</p>
+
+  <h3>Step 7 — Restore a Previous Version</h3>
+  <p>Click <strong>↩ Restore</strong> on "v1 Basic". The library immediately reverts to the original simple recursive flatten — name, description, and code all restored:</p>
+
+<pre>function restoreFromVersion(
+  lib: ScriptLibrary,
+  versionId: string,
+): ScriptLibrary {
+  const version = versions.find(v => v.id === versionId);
+  if (!version) return lib;
+  return {
+    ...lib,
+    name: version.snapshot.name,
+    description: version.snapshot.description,
+    code: version.snapshot.code,
+    updatedAt: new Date().toISOString(),
+  };
+}</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Restoring updates <code>updatedAt</code> but does NOT auto-create a new version. The version is only created on the <em>next</em> edit save.
+  </div>
+
+  <h3>Step 8 — Delete a Version</h3>
+  <p>Click <strong>✕ Delete</strong> on version #2. It's removed from the list. The version count drops to 2.</p>
+
+  <h3>Step 9 — Test Deduplication</h3>
+  <p>Click Edit, make no changes, click Save. Check History — the version count should remain the same. The fingerprint detected no changes.</p>
+
+  <h3>Step 10 — Compare Two Versions</h3>
+  <p>Check the boxes on two versions. Click <strong>Compare</strong>. The diff view opens (covered in detail in the <a href="script-library-impact-medium.html">Script Impact Analysis</a> manual).</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Version Panel UI Reference</h2>
+  <p>The <code>ScriptLibraryVersionPanel</code> component provides:</p>
+
+  <table>
+    <tr><th>UI Element</th><th>Action</th><th>Behavior</th></tr>
+    <tr><td>Checkbox (per version)</td><td>Click</td><td>Toggle selection (max 2) for comparison</td></tr>
+    <tr><td>Version label/timestamp</td><td>Double-click</td><td>Inline rename input</td></tr>
+    <tr><td>↩ Restore button</td><td>Click</td><td>Restore library to version snapshot</td></tr>
+    <tr><td>✏ Rename button</td><td>Click</td><td>Open inline rename input</td></tr>
+    <tr><td>✕ Delete button</td><td>Click</td><td>Remove version from list</td></tr>
+    <tr><td>Compare button (toolbar)</td><td>Click</td><td>Open diff view with 2 selected versions</td></tr>
+    <tr><td>"Used by" section</td><td>—</td><td>Shows workflow nodes that reference this library</td></tr>
+    <tr><td>Clear selection (footer)</td><td>Click</td><td>Deselect all checkboxes</td></tr>
+    <tr><td>Footer count</td><td>—</td><td>Shows total version count</td></tr>
+    <tr><td>History button (library row)</td><td>Click</td><td>Opens version panel; shows badge with version count</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. API Reference</h2>
+  <p>All functions live in <code>src/features/workflow/engine/scriptLibraryVersioning.ts</code> (~221 lines):</p>
+
+  <table>
+    <tr><th>Function</th><th>Purpose</th><th>Returns</th></tr>
+    <tr><td><code>createSnapshot(lib)</code></td><td>Extract name + description + code</td><td><code>ScriptLibrarySnapshot</code></td></tr>
+    <tr><td><code>computeSnapshotFingerprint(snap)</code></td><td>Canonical JSON for equality</td><td><code>string</code></td></tr>
+    <tr><td><code>hasChanged(lib)</code></td><td>Check if lib differs from latest version</td><td><code>boolean</code></td></tr>
+    <tr><td><code>generateChangeSummary(old, new)</code></td><td>Human-readable diff with line counts</td><td><code>string</code></td></tr>
+    <tr><td><code>autoSaveVersion(lib, max?)</code></td><td>Auto-save if changed; returns updated lib</td><td><code>ScriptLibrary</code></td></tr>
+    <tr><td><code>restoreFromVersion(lib, versionId)</code></td><td>Restore from snapshot</td><td><code>ScriptLibrary</code></td></tr>
+    <tr><td><code>deleteVersion(lib, versionId)</code></td><td>Remove a version</td><td><code>ScriptLibrary</code></td></tr>
+    <tr><td><code>renameVersion(lib, versionId, label)</code></td><td>Set user label</td><td><code>ScriptLibrary</code></td></tr>
+    <tr><td><code>computeSnapshotDiff(older, newer)</code></td><td>Structured diff result</td><td><code>ScriptLibraryDiffResult</code></td></tr>
+    <tr><td><code>findLibraryUsages(workflows, libId)</code></td><td>Find workflow nodes using this lib</td><td><code>LibraryUsage[]</code></td></tr>
+    <tr><td><code>stripLibraryVersions(libs)</code></td><td>Remove versions for export</td><td><code>ScriptLibrary[]</code></td></tr>
+    <tr><td><code>countLibraryVersions(libs)</code></td><td>Total version count across all libs</td><td><code>number</code></td></tr>
+    <tr><td><code>hasLibraryVersions(libs)</code></td><td>Boolean check for any versions</td><td><code>boolean</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a 5-Version History</h3>
+  <p>Create a "JSON Flatten" library. Edit it 5 times, making progressively more sophisticated changes:</p>
+  <ol>
+    <li>Basic recursive flatten (initial).</li>
+    <li>Add null/undefined checks.</li>
+    <li>Add array handling.</li>
+    <li>Add try/catch error handling.</li>
+    <li>Change description to document the new features.</li>
+  </ol>
+  <p>Verify 5 versions in History. Check that code-related summaries include line count diffs.</p>
+
+  <h3>Exercise 2 — Description-Only Change</h3>
+  <p>Edit the library and change only the description (not the code or name). Save. Verify a new version is created with summary <code>description changed</code>. This confirms description is part of the fingerprint.</p>
+
+  <h3>Exercise 3 — Restore and Dedup</h3>
+  <p>Restore version #5 (the oldest). The library reverts to the simple version. Now click Edit → Save without making any changes. Does a new version appear? (It depends — if the restored state matches the latest version's fingerprint, no. If it doesn't, yes.) Explore why.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Script libraries are particularly valuable for shared utility code (date formatting, response parsing, auth token handling). Version each library independently so you can trace exactly when a shared function changed — and which workflows it might affect.
+  </div>
+
+  <!-- Section 11 -->
+  <h2>11. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="script-library-impact-medium.html">script-library-impact-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Impact analysis, findLibraryUsages(), 2-tab diff, cross-workflow dependencies</td>
+    </tr>
+    <tr>
+      <td><a href="../request/request-definition-history-easy.html">request-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Request versioning — same 15-cap, different auto-save trigger</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-history-easy.html">workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Workflow versioning — 30-version cap, explicit save trigger</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Script Library Versioning (Easy) · May 2026
+  </footer>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:5199';
+const BASE_URL = 'http://localhost:5173';
 
 /** Seed two feature groups with scenarios and tests, properly associated to env/svc. */
 async function seedData(page: import('@playwright/test').Page) {

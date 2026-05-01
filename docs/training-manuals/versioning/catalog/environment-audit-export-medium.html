@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audit Export &amp; Rotation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📤</div>
+    <h1>Audit Export &amp; Rotation</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Learn to export audit logs as JSON and CSV, understand the 500-entry FIFO rotation, and develop a rotation management strategy for long-running projects.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 3 — Versioning Training Path<br />
+      Prerequisite: <a href="environment-audit-log-easy.html">Environment Audit Log (Easy)</a>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The in-app Audit Log is excellent for quick lookups, but it has a hard cap of <strong>500 entries</strong>. In a busy project with frequent environment changes, 500 entries can fill up in weeks. Once the cap is reached, the oldest entries are silently evicted — lost forever unless you've exported them.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Quarterly Compliance Audit"</em></p>
+  <p>Your team's compliance officer asks: <em>"Show me every environment configuration change from the past 90 days."</em> If your team makes ~10 changes per day, that's ~900 entries — nearly double the 500-entry cap. Without periodic exports, you'd lose the first 400 entries to FIFO rotation.</p>
+
+  <p>This manual teaches you to:</p>
+  <ul>
+    <li>Export audit logs in <strong>JSON</strong> (machine-readable, re-importable) and <strong>CSV</strong> (spreadsheet-friendly).</li>
+    <li>Understand exactly how <strong>FIFO rotation</strong> works and when entries are evicted.</li>
+    <li>Develop a <strong>rotation management strategy</strong> — periodic exports before the cap is reached.</li>
+    <li>Use the <strong>Clear Log</strong> feature safely after exporting.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Prerequisite</strong>
+    Complete the <a href="environment-audit-log-easy.html">Environment Audit Log (Easy)</a> manual first. This manual assumes you can navigate to Settings → Audit Log and understand entry structure.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>JSON export</strong> — full-fidelity export preserving all fields, types, and nested change objects.</li>
+    <li><strong>CSV export</strong> — flattened tabular format for spreadsheet analysis; changes are serialized as a single text column.</li>
+    <li><strong>FIFO (First-In, First-Out) rotation</strong> — how the 500-entry cap works internally.</li>
+    <li><strong>Rotation management</strong> — strategies for archiving logs before eviction occurs.</li>
+    <li><strong>Clear Log</strong> — safely resetting the log after a confirmed export.</li>
+    <li><strong>File naming conventions</strong> — auto-generated filenames include the export date.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Export Formats</h2>
+
+  <h3>3.1 JSON Export</h3>
+  <p>Clicking <strong>Export JSON</strong> produces a file named <code>audit-log-YYYY-MM-DD.json</code> containing the full entries array:</p>
+
+<pre>[
+  {
+    "id": "a1b2c3d4-...",
+    "timestamp": 1714567890123,
+    "entityType": "microservice",
+    "entityId": "e5f6g7h8-...",
+    "entityName": "User API",
+    "action": "updated",
+    "changes": [
+      {
+        "field": "baseUrls",
+        "oldValue": { "staging": "https://api.staging.example.com/users" },
+        "newValue": { "staging": "https://api.staging.example.com/v2/users" }
+      }
+    ]
+  },
+  ...
+]</pre>
+
+  <p>JSON export characteristics:</p>
+  <table>
+    <tr><th>Property</th><th>Detail</th></tr>
+    <tr><td>Format</td><td>Indented JSON (<code>JSON.stringify(entries, null, 2)</code>)</td></tr>
+    <tr><td>MIME type</td><td><code>application/json</code></td></tr>
+    <tr><td>Filename</td><td><code>audit-log-{date}.json</code> (e.g., <code>audit-log-2026-05-01.json</code>)</td></tr>
+    <tr><td>Fidelity</td><td>Lossless — all fields, types, and nested objects preserved exactly</td></tr>
+    <tr><td>Use case</td><td>Archival, programmatic analysis, potential re-import</td></tr>
+  </table>
+
+  <h3>3.2 CSV Export</h3>
+  <p>Clicking <strong>Export CSV</strong> produces a file named <code>audit-log-YYYY-MM-DD.csv</code> with 5 columns:</p>
+
+<pre>Timestamp,Entity Type,Entity Name,Action,Changes
+"2026-05-01T14:30:00.123Z","microservice","User API","updated","baseUrls: {...} → {...}"
+"2026-05-01T14:28:00.456Z","environment","Staging","created",""
+...</pre>
+
+  <p>CSV export characteristics:</p>
+  <table>
+    <tr><th>Property</th><th>Detail</th></tr>
+    <tr><td>Columns</td><td>Timestamp, Entity Type, Entity Name, Action, Changes</td></tr>
+    <tr><td>MIME type</td><td><code>text/csv</code></td></tr>
+    <tr><td>Filename</td><td><code>audit-log-{date}.csv</code></td></tr>
+    <tr><td>Timestamp format</td><td>ISO 8601 UTC (<code>new Date(ts).toISOString()</code>)</td></tr>
+    <tr><td>Changes format</td><td>Semicolon-separated: <code>field: old → new; field2: old2 → new2</code></td></tr>
+    <tr><td>Quoting</td><td>All fields double-quoted; internal quotes escaped with <code>""</code></td></tr>
+    <tr><td>Use case</td><td>Spreadsheet analysis, sharing with non-technical stakeholders</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use JSON export for archival (lossless) and CSV export for quick analysis in Excel or Google Sheets. The CSV Changes column concatenates all field diffs into a single string, so complex nested objects may be harder to read.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The Export Code</h2>
+  <p>Understanding the export functions helps you know exactly what data is captured:</p>
+
+  <h3>4.1 JSON Export Handler</h3>
+<pre>const handleExportJson = async () => {
+  const data = JSON.stringify(entries, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  await saveFile(blob, {
+    filename: `audit-log-${new Date().toISOString().slice(0, 10)}.json`,
+    mimeType: 'application/json',
+  });
+};</pre>
+  <p>Key details:</p>
+  <ul>
+    <li>Exports the full <code>entries</code> state array — which is the <em>unfiltered</em> log.</li>
+    <li>Filters and search do NOT affect what is exported — you always get the complete log.</li>
+    <li><code>saveFile()</code> uses the browser's download API (web) or Tauri's file save dialog (desktop).</li>
+  </ul>
+
+  <h3>4.2 CSV Export Handler</h3>
+<pre>const handleExportCsv = async () => {
+  const csv = auditLogToCsv(entries);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  await saveFile(blob, {
+    filename: `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
+    mimeType: 'text/csv',
+  });
+};</pre>
+
+  <h3>4.3 The auditLogToCsv() Function</h3>
+<pre>function auditLogToCsv(entries: AuditEntry[]): string {
+  const header = 'Timestamp,Entity Type,Entity Name,Action,Changes';
+  const rows = entries.map((e) => {
+    const ts = new Date(e.timestamp).toISOString();
+    const changes = e.changes
+      ? e.changes.map((c) =>
+          `${c.field}: ${JSON.stringify(c.oldValue)} → ${JSON.stringify(c.newValue)}`
+        ).join('; ')
+      : '';
+    return `"${ts}","${e.entityType}","${e.entityName.replace(/"/g, '""')}",` +
+           `"${e.action}","${changes.replace(/"/g, '""')}"`;
+  });
+  return [header, ...rows].join('\n');
+}</pre>
+
+  <p>Notice how the function handles special characters:</p>
+  <ul>
+    <li>Entity names with double quotes are escaped: <code>"</code> → <code>""</code> (standard CSV escaping).</li>
+    <li>Changes text with double quotes from <code>JSON.stringify</code> is also escaped.</li>
+    <li>The arrow character <code>→</code> (U+2192) is used as a visual separator between old and new values.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. FIFO Rotation Deep Dive</h2>
+  <p>The audit log enforces a hard cap via the <code>addAuditEntry()</code> function:</p>
+
+<pre>export async function addAuditEntry(
+  entry: Omit&lt;AuditEntry, 'id' | 'timestamp'&gt;,
+  maxEntries = DEFAULT_MAX_ENTRIES,  // 500
+): Promise&lt;AuditEntry&gt; {
+  const full: AuditEntry = {
+    ...entry,
+    id: uuidv4(),
+    timestamp: Date.now(),
+  };
+  const log = await loadAuditLog();
+  log.push(full);              // Append new entry to end
+  while (log.length > maxEntries)
+    log.shift();               // Remove oldest (first) entry
+  await saveAuditLog(log);
+  return full;
+}</pre>
+
+  <h3>5.1 How Eviction Works</h3>
+  <table>
+    <tr><th>Step</th><th>What Happens</th></tr>
+    <tr><td>1</td><td>New entry is appended to the end of the array (<code>log.push(full)</code>).</td></tr>
+    <tr><td>2</td><td>If <code>log.length > 500</code>, a <code>while</code> loop removes entries from the front (<code>log.shift()</code>).</td></tr>
+    <tr><td>3</td><td>The oldest entry (index 0) is removed first — this is FIFO.</td></tr>
+    <tr><td>4</td><td>The trimmed array is saved back to storage.</td></tr>
+  </table>
+
+  <h3>5.2 Eviction Characteristics</h3>
+  <ul>
+    <li><strong>Silent</strong> — no notification, no confirmation. The entry simply disappears from the log.</li>
+    <li><strong>Non-selective</strong> — all entries are treated equally. Important entries (like deletions) are evicted just like trivial ones (like creates).</li>
+    <li><strong>Immediate</strong> — eviction happens in the same write operation as the new entry creation.</li>
+    <li><strong>Irreversible</strong> — once evicted, the entry is gone unless you exported it beforehand.</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Warning</strong>
+    There is no "undo eviction" feature. If an entry is lost to FIFO rotation, the only recovery path is a previously exported JSON or CSV file. Always export before approaching the 500-entry limit.
+  </div>
+
+  <h3>5.3 When Will You Hit the Cap?</h3>
+  <p>Estimate based on your team's activity:</p>
+  <table>
+    <tr><th>Changes/Day</th><th>Days to Fill 500</th><th>Recommended Export Frequency</th></tr>
+    <tr><td>2–5</td><td>100–250 days</td><td>Monthly</td></tr>
+    <tr><td>5–15</td><td>33–100 days</td><td>Bi-weekly</td></tr>
+    <tr><td>15–30</td><td>16–33 days</td><td>Weekly</td></tr>
+    <tr><td>30+</td><td>&lt; 16 days</td><td>Twice per week</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Ensure You Have Entries</h3>
+  <p>If you completed the Easy manual, you should have 5+ entries. If not, generate some by creating/updating/deleting environments and microservices in the Settings panel.</p>
+
+  <h3>Step 2 — Export as JSON</h3>
+  <ol>
+    <li>Open <strong>Settings → Audit Log</strong>.</li>
+    <li>Note the entry count in the header: <em>"N entries recorded."</em></li>
+    <li>Click the <strong>Export JSON</strong> button.</li>
+    <li>A file download starts — the filename is <code>audit-log-2026-05-01.json</code> (today's date).</li>
+    <li>Open the downloaded file in a text editor or JSON viewer.</li>
+    <li>Verify: the array has exactly N entries, each with <code>id</code>, <code>timestamp</code>, <code>entityType</code>, <code>entityId</code>, <code>entityName</code>, <code>action</code>, and optionally <code>changes</code>.</li>
+  </ol>
+
+  <h3>Step 3 — Export as CSV</h3>
+  <ol>
+    <li>Click the <strong>Export CSV</strong> button.</li>
+    <li>Open the file in Excel, Google Sheets, or a CSV viewer.</li>
+    <li>Verify the 5 columns: Timestamp, Entity Type, Entity Name, Action, Changes.</li>
+    <li>Check that timestamps are in ISO 8601 format.</li>
+    <li>For entries with changes (updated/renamed), verify the Changes column shows the field-level diffs.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In Google Sheets, use <strong>Data → Split text to columns</strong> on the Changes column with <code>;</code> as delimiter to split multiple field changes into separate columns for easier analysis.
+  </div>
+
+  <h3>Step 4 — Compare JSON vs CSV</h3>
+  <p>Open both exports side by side. Notice the differences:</p>
+  <table>
+    <tr><th>Aspect</th><th>JSON</th><th>CSV</th></tr>
+    <tr><td>Entry IDs</td><td>Included (<code>id</code> field)</td><td>Not included</td></tr>
+    <tr><td>Entity IDs</td><td>Included (<code>entityId</code>)</td><td>Not included</td></tr>
+    <tr><td>Timestamp</td><td>Epoch ms (<code>1714567890123</code>)</td><td>ISO string (<code>2026-05-01T14:30:00.123Z</code>)</td></tr>
+    <tr><td>Changes</td><td>Structured array of objects</td><td>Flattened text string</td></tr>
+    <tr><td>Nested values</td><td>Full JSON objects preserved</td><td>Serialized via <code>JSON.stringify</code></td></tr>
+  </table>
+
+  <h3>Step 5 — Understand Unfiltered Export</h3>
+  <p>Apply a filter in the Audit Log panel (e.g., entity type = <code>microservice</code>). Now click <strong>Export JSON</strong>. Open the downloaded file — it contains <strong>all entries</strong>, not just the filtered ones. Exports always include the full log regardless of active filters.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    This is by design. The export captures the complete audit trail for archival. If you need a filtered subset, use the JSON file and filter programmatically (e.g., <code>jq '.[] | select(.entityType == "microservice")'</code>).
+  </div>
+
+  <h3>Step 6 — Clear the Log Safely</h3>
+  <ol>
+    <li>Confirm you have a recent JSON export saved locally.</li>
+    <li>In the Audit Log panel, click <strong>Clear Log</strong>.</li>
+    <li>A confirmation prompt appears: <em>"Clear all entries?"</em> with <strong>Yes</strong> / <strong>No</strong> buttons.</li>
+    <li>Click <strong>Yes</strong>. The entry count drops to 0.</li>
+    <li>The empty state message appears: <em>"No audit entries yet."</em></li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Warning</strong>
+    Clear Log is <strong>irreversible</strong>. It calls <code>clearAuditLog()</code> which saves an empty array to storage. Always export first.
+  </div>
+
+  <h3>Step 7 — Verify New Entries After Clear</h3>
+  <p>After clearing, create a new environment. Open the Audit Log — you should see exactly 1 entry. The counter should read <em>"1 entries recorded."</em> This confirms the clear was successful and new entries are being recorded normally.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Rotation Management Strategy</h2>
+  <p>For teams that generate many audit entries, adopt this workflow to prevent data loss:</p>
+
+  <h3>7.1 Periodic Export Schedule</h3>
+  <ol>
+    <li><strong>Check the count</strong> — open Audit Log, note the entry count in the header.</li>
+    <li><strong>If count &gt; 400</strong> — export immediately (JSON + CSV for redundancy).</li>
+    <li><strong>Optionally clear</strong> — after a confirmed export, clear the log to reset the counter.</li>
+    <li><strong>Archive the export</strong> — save it with a consistent naming scheme: <code>audit-log-2026-Q2-week18.json</code>.</li>
+  </ol>
+
+  <h3>7.2 Naming Convention for Archives</h3>
+  <table>
+    <tr><th>Pattern</th><th>Example</th><th>When to Use</th></tr>
+    <tr><td><code>audit-log-YYYY-MM-DD.json</code></td><td><code>audit-log-2026-05-01.json</code></td><td>Daily/weekly exports (auto-generated)</td></tr>
+    <tr><td><code>audit-log-YYYY-QN.json</code></td><td><code>audit-log-2026-Q2.json</code></td><td>Quarterly compliance archives</td></tr>
+    <tr><td><code>audit-log-sprint-NN.json</code></td><td><code>audit-log-sprint-42.json</code></td><td>Sprint-aligned archives</td></tr>
+    <tr><td><code>audit-log-pre-release-vX.Y.json</code></td><td><code>audit-log-pre-release-v2.1.json</code></td><td>Pre-release configuration snapshots</td></tr>
+  </table>
+
+  <h3>7.3 What Happens If You Don't Export</h3>
+  <p>If the log reaches 500 entries and you keep making changes:</p>
+  <ul>
+    <li>Entry #501 is added → Entry #1 (oldest) is silently evicted.</li>
+    <li>Entry #502 is added → Entry #2 is evicted.</li>
+    <li>No warning, no notification, no undo.</li>
+    <li>You permanently lose the context of early configuration decisions.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Working with Exported Data</h2>
+
+  <h3>8.1 JSON Analysis with jq</h3>
+  <p>Use the <code>jq</code> command-line tool to query exported JSON:</p>
+
+<pre># Count entries by entity type
+cat audit-log-2026-05-01.json | jq 'group_by(.entityType) | map({type: .[0].entityType, count: length})'
+
+# Find all deletions
+cat audit-log-2026-05-01.json | jq '[.[] | select(.action == "deleted")]'
+
+# Extract microservice URL changes
+cat audit-log-2026-05-01.json | jq '[.[] | select(.entityType == "microservice" and .action == "updated")]'
+
+# Get entries from the last 7 days
+cat audit-log-2026-05-01.json | jq --argjson cutoff $(date -d '7 days ago' +%s000) '[.[] | select(.timestamp > $cutoff)]'</pre>
+
+  <h3>8.2 CSV Analysis in Spreadsheets</h3>
+  <p>Common analysis tasks in Excel / Google Sheets:</p>
+  <ul>
+    <li><strong>Pivot table</strong> — group by Entity Type and Action to see change frequency per category.</li>
+    <li><strong>Sort by timestamp</strong> — see the chronological order of all changes.</li>
+    <li><strong>Filter by date range</strong> — use the Timestamp column with date filters.</li>
+    <li><strong>Count deletions</strong> — <code>=COUNTIF(D:D, "deleted")</code> to see how many entities were removed.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Export and Compare</h3>
+  <p>Generate at least 8 audit entries (mix of creates, updates, deletes, renames across all 3 entity types). Export as both JSON and CSV. Open both files and verify the data matches — same entry count, same entities, same actions. Note the differences in timestamp format and change representation.</p>
+
+  <h3>Exercise 2 — Simulate Rotation Pressure</h3>
+  <p>You can't easily create 500 entries manually, but you can observe the mechanism:</p>
+  <ol>
+    <li>Note your current entry count.</li>
+    <li>Export JSON.</li>
+    <li>Clear the log.</li>
+    <li>Create 3 new entries.</li>
+    <li>Export again.</li>
+    <li>Compare both JSON files — the first should have your original entries, the second should have only 3.</li>
+  </ol>
+  <p>This simulates the "export then clear" workflow you'd use for rotation management.</p>
+
+  <h3>Exercise 3 — CSV Spreadsheet Analysis</h3>
+  <p>Import the CSV export into Google Sheets or Excel. Create a pivot table grouped by Entity Type and Action. Answer these questions:</p>
+  <ul>
+    <li>Which entity type has the most entries?</li>
+    <li>What's the most common action?</li>
+    <li>Are there any deletions you don't remember making?</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Make a habit of exporting before every major environment reconfiguration. If the reconfiguration goes wrong, the export gives you a record of the previous state you can reference to manually restore.
+  </div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="environment-audit-log-easy.html">environment-audit-log-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Audit Log basics — browsing entries, filtering, field-level change tracking</td>
+    </tr>
+    <tr>
+      <td><a href="../test/run-baselines-easy.html">run-baselines-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Phase 4 — Mark test runs as baselines for performance comparison</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Audit Export &amp; Rotation (Medium) · May 2026
+  </footer>
+
+</body>
+</html>
