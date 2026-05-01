@@ -95,6 +95,8 @@ export function createPokemonEvolutionWorkflow(): Workflow {
       { id: 'pe5', source: n.checkChain, target: n.done, sourceHandle: 'true' },
     ],
     services: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -169,6 +171,8 @@ export function createCountryCurrencyWorkflow(): Workflow {
       { id: 'ce4', source: n.checkCurrency, target: n.done, sourceHandle: 'true' },
     ],
     services: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -271,6 +275,8 @@ export function createProductCartWorkflow(): Workflow {
       { id: 'pce5', source: n.checkCart, target: n.done, sourceHandle: 'true' },
     ],
     services: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -350,6 +356,8 @@ export function createBookSearchWorkflow(): Workflow {
       { id: 'be4', source: n.checkAuthor, target: n.done, sourceHandle: 'true' },
     ],
     services: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -461,5 +469,7 @@ export function createMultiApiDashboardWorkflow(): Workflow {
       { id: 'de9', source: n.aggregate, target: n.done },
     ],
     services: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }

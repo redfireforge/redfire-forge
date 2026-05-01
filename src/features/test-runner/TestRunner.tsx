@@ -303,11 +303,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     });
   };
 
-  const selectAll = () => {
-    const allIds = featureGroups.flatMap((fg) => fg.scenarios.map((sc) => sc.id));
-    setSelectedScenarios(new Set(allIds));
-  };
-
   const selectAllUser = () => {
     setSelectedScenarios(new Set(userGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
   };

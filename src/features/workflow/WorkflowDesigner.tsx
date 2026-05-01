@@ -217,7 +217,7 @@ function WorkflowDesignerInner({
     selectedId: selected?.id ?? null,
     versions: selected?.versions ?? [],
     update: (id, patch) => update(id, patch),
-    takeSnapshot: (label) => undoRedo.takeSnapshot(label),
+    takeSnapshot: (label) => undoRedo.takeSnapshot(label ?? 'Snapshot'),
     applyToCanvas: useCallback((version: WorkflowVersion) => {
       setNodes(version.nodes.map((n) => enrichNodeData(n as WorkflowRFNode, {})) as WorkflowRFNode[]);
       setEdges(version.edges as WorkflowRFEdge[]);

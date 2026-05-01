@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { GalleryEntry, GalleryDomain, GalleryDifficulty } from '../../../data/galleries/types';
+import type { GalleryEntry } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
 import { GalleryCard } from './GalleryCard';

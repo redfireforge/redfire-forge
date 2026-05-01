@@ -50,7 +50,7 @@ export function ResponseTimeHistogram({ run }: SingleHistogramProps) {
             label={{ value: 'Requests', angle: -90, position: 'insideLeft', offset: -5, fontSize: 11, fill: 'var(--text-muted)' }}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [name === 'percent' ? `${value}%` : value, name === 'percent' ? 'Percentage' : 'Count']}
+            formatter={((value: number, name: string) => [name === 'percent' ? `${value}%` : value, name === 'percent' ? 'Percentage' : 'Count']) as any}
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
           />
@@ -135,10 +135,10 @@ export function ResponseTimeOverlayHistogram({ baselineRun, currentRun }: Overla
             label={{ value: mode === 'percent' ? '%' : 'Requests', angle: -90, position: 'insideLeft', offset: -5, fontSize: 11, fill: 'var(--text-muted)' }}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [
+            formatter={((value: number, name: string) => [
               mode === 'percent' ? `${value}%` : value,
               name === 'baseline' ? 'Baseline' : 'Current',
-            ]}
+            ]) as any}
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
           />
