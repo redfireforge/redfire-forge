@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Script Library Impact Analysis — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔍</div>
+    <h1>Script Library Impact Analysis</h1>
+    <div class="subtitle">Medium — Training Manual</div>
+    <p>Learn how to analyze cross-workflow dependencies before modifying shared script libraries — usage tracking with <code>findLibraryUsages()</code>, the 2-tab diff viewer, and safe restore patterns.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 7 — Versioning Training Path<br />
+      Prerequisite: <a href="script-library-versioning-easy.html">Script Library Versioning (Easy)</a><br />
+      No gallery sample required
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Why Impact Analysis Matters</h2>
+  <p>A script library is <strong>shared code</strong> — multiple workflow script nodes can include the same library. When you modify a library, every workflow that references it is affected. Without impact analysis, you're making changes blind.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"The Shared Auth Token Refresher"</em></p>
+  <p>Your team has an "Auth Token Refresher" library with OAuth token refresh logic. It's used by 4 workflows: User Registration, Payment Processing, Order Management, and Admin Health Check. You need to change the token expiry logic. Before touching the code, you check the "Used by" section in the version panel — it lists all 4 workflows and the specific script nodes that reference this library. You now have a retesting checklist <em>before</em> you even make the change.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ The Blast Radius Problem</strong>
+    Script libraries are the only versioned entity in RedfireForge with built-in <strong>cross-entity dependency tracking</strong>. Unlike workflow versioning (self-contained) or request versioning (per-request), script changes ripple across workflows. Impact analysis is your safety net.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The LibraryUsage Data Model</h2>
+
+  <h3>2.1 LibraryUsage Interface</h3>
+<pre>interface LibraryUsage {
+  workflowId: string;     // ID of the workflow containing the reference
+  workflowName: string;   // Human-readable workflow name
+  nodeId: string;         // ID of the specific script node
+  nodeLabel: string;      // Display label of the node (falls back to "Script")
+}</pre>
+
+  <h3>2.2 How References Work</h3>
+  <p>Each workflow script node has a <code>data.libraryIds</code> array listing the IDs of included libraries:</p>
+<pre>// Inside a workflow node:
+{
+  id: "node-5",
+  type: "script",
+  data: {
+    label: "Refresh Token",
+    libraryIds: ["lib-auth-001", "lib-utils-002"],
+    code: "// Node-specific code that uses library functions..."
+  }
+}</pre>
+  <p>When you include a library via checkbox in the Script Library Manager, its ID is added to <code>libraryIds</code>. When unchecked, it's removed.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How findLibraryUsages() Works</h2>
+  <p>The core impact analysis function scans all workflows for nodes that reference a specific library:</p>
+
+<pre>function findLibraryUsages(
+  workflows: Array&lt;{
+    id: string;
+    name: string;
+    nodes: Array&lt;{
+      id: string;
+      type: string;
+      data: Record&lt;string, unknown&gt;
+    }&gt;
+  }&gt;,
+  libraryId: string,
+): LibraryUsage[] {
+  const usages: LibraryUsage[] = [];
+  for (const wf of workflows) {
+    for (const node of wf.nodes) {
+      if (node.type === 'script') {
+        const data = node.data as {
+          libraryIds?: string[];
+          label?: string;
+        };
+        if (data.libraryIds?.includes(libraryId)) {
+          usages.push({
+            workflowId: wf.id,
+            workflowName: wf.name,
+            nodeId: node.id,
+            nodeLabel: data.label || 'Script',
+          });
+        }
+      }
+    }
+  }
+  return usages;
+}</pre>
+
+  <h3>Key Implementation Details</h3>
+  <ul>
+    <li>Only nodes with <code>type === 'script'</code> are scanned — other node types are skipped.</li>
+    <li>If a node has no <code>label</code>, it falls back to <code>"Script"</code>.</li>
+    <li>The function runs <strong>dynamically</strong> — it scans current workflows each time the version panel opens.</li>
+    <li>If a node references the library in <code>libraryIds</code> but isn't type <code>'script'</code>, it won't be found (by design).</li>
+    <li>A single workflow can produce <strong>multiple</strong> usages if it has multiple script nodes referencing the same library.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The "Used By" Section</h2>
+  <p>The <code>ScriptLibraryVersionPanel</code> displays library usages at the top of the version panel:</p>
+
+<pre>// In ScriptLibraryVersionPanel.tsx
+{usages.length > 0 && (
+  &lt;div className="script-lib-version-usages"&gt;
+    &lt;span className="script-lib-version-usages-label"&gt;Used by:&lt;/span&gt;
+    {usages.map((u, i) => (
+      &lt;span key={i}
+            className="script-lib-version-usage-tag"
+            title={`${u.workflowName} → ${u.nodeLabel}`}&gt;
+        {u.workflowName} › {u.nodeLabel}
+      &lt;/span&gt;
+    ))}
+  &lt;/div&gt;
+)}</pre>
+
+  <p>Each usage is rendered as a <strong>tag</strong> showing <code>WorkflowName › NodeLabel</code>. Hovering shows a tooltip with the full path.</p>
+
+  <h3>Example Display</h3>
+  <p>For a library used across 3 workflows:</p>
+  <table>
+    <tr><th>Tag Text</th><th>Tooltip</th></tr>
+    <tr><td>Payment Processing › Refresh Token</td><td>Payment Processing → Refresh Token</td></tr>
+    <tr><td>Order Management › Auth Check</td><td>Order Management → Auth Check</td></tr>
+    <tr><td>Admin Health Check › Get Token</td><td>Admin Health Check → Get Token</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Retesting Checklist</strong>
+    Treat the "Used by" list as your retesting checklist. After modifying a library, re-run each listed workflow to verify nothing broke. The workflow names tell you which tests to focus on.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The 2-Tab Diff Viewer</h2>
+  <p>When you select two versions and click <strong>Compare</strong>, the <code>ScriptLibraryVersionDiff</code> component shows a diff view with two tabs:</p>
+
+  <h3>5.1 Overview Tab</h3>
+  <p>Shows field-level changes for metadata fields:</p>
+  <ul>
+    <li><strong>Name</strong> — old → new (only shown if changed).</li>
+    <li><strong>Description</strong> — old → new (shows "(empty)" for blank values).</li>
+    <li>If neither name nor description changed: displays "No metadata changes — code may differ."</li>
+  </ul>
+
+<pre>// ScriptLibraryDiffResult structure
+{
+  nameChanged: true,
+  oldName: "Auth Helper",
+  newName: "Auth Token Refresher",
+  descriptionChanged: false,
+  codeChanged: true,
+  oldCode: "function refresh() { ... }",
+  newCode: "function refreshToken() { ... }"
+}</pre>
+
+  <h3>5.2 Code Tab</h3>
+  <p>Shows a full code diff using <code>json-diff-kit</code>:</p>
+  <ul>
+    <li><strong>Line numbers</strong> on both sides.</li>
+    <li><strong>Inline highlighting</strong> — added characters in green, removed in red.</li>
+    <li><strong>Monokai theme</strong> for dark code background.</li>
+    <li>Falls back to side-by-side <code>&lt;pre&gt;</code> blocks if json-diff-kit encounters an error.</li>
+  </ul>
+
+  <h3>Tab Badges</h3>
+  <p>Each tab shows a badge count indicating how many changes it contains:</p>
+  <table>
+    <tr><th>Tab</th><th>Badge Logic</th></tr>
+    <tr><td>Overview</td><td>Count of <code>[nameChanged, descriptionChanged].filter(Boolean)</code> (0–2)</td></tr>
+    <tr><td>Code</td><td><code>1</code> if code changed, <code>0</code> otherwise</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. How the Manager Wires It Together</h2>
+  <p>The <code>ScriptLibraryManager</code> orchestrates the full flow:</p>
+
+  <ol>
+    <li><strong>History button</strong> — Each library row shows a "History" button. If versions exist, a badge shows the count.</li>
+    <li><strong>Click History</strong> → sets <code>historyLibId</code> state, which triggers rendering <code>ScriptLibraryVersionPanel</code>.</li>
+    <li><strong>Usage computation</strong> — <code>findLibraryUsages(workflows, historyLibId)</code> runs as a <code>useMemo</code>, recalculating only when the selected library or workflow list changes.</li>
+    <li><strong>Auto-save on edit</strong> — <code>handleSaveEdit()</code> calls <code>autoSaveVersion(lib)</code> before applying changes, capturing the pre-edit state.</li>
+  </ol>
+
+<pre>// In ScriptLibraryManager.tsx
+const historyUsages = useMemo&lt;LibraryUsage[]&gt;(() => {
+  if (!historyLibId || workflows.length === 0) return [];
+  return findLibraryUsages(workflows, historyLibId);
+}, [historyLibId, workflows]);
+
+const handleSaveEdit = (id, name, description, code) => {
+  const lib = libraries.find(l => l.id === id);
+  let updatedLibs = libraries;
+  if (lib) {
+    const versioned = autoSaveVersion(lib);
+    if (versioned !== lib) {
+      updatedLibs = libraries.map(l =>
+        l.id === id ? versioned : l
+      );
+    }
+  }
+  onLibrariesChange(
+    updateScriptLibrary(updatedLibs, id, { name, description, code })
+  );
+};</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The <code>workflows</code> prop is optional (defaults to <code>[]</code>). If no workflows are provided, impact analysis simply returns an empty usages list and the "Used by" section is hidden.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Create a Shared Script Library</h3>
+  <p>Create a library called <strong>"Auth Token Refresher"</strong> with this code:</p>
+<pre>async function refreshAuthToken(currentToken) {
+  const response = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${currentToken}`
+    },
+    body: JSON.stringify({ token: currentToken })
+  });
+  if (!response.ok) {
+    throw new Error(`Token refresh failed: ${response.status}`);
+  }
+  const data = await response.json();
+  return data.accessToken;
+}</pre>
+
+  <h3>Step 2 — Reference in Multiple Workflows</h3>
+  <p>Create (or open) 3 workflows. In each, add a Script node. Open the Script Library Manager and check the "Auth Token Refresher" library. This adds the library's ID to the node's <code>data.libraryIds</code> array.</p>
+  <ul>
+    <li><strong>Workflow 1:</strong> "Payment Processing" — Script node labeled "Refresh Token"</li>
+    <li><strong>Workflow 2:</strong> "Order Management" — Script node labeled "Auth Check"</li>
+    <li><strong>Workflow 3:</strong> "Admin Health Check" — Script node labeled "Get Token"</li>
+  </ul>
+
+  <h3>Step 3 — Check Impact Analysis</h3>
+  <p>Go back to the Script Library Manager. Click <strong>History</strong> on "Auth Token Refresher". At the top of the version panel, you see:</p>
+  <p><strong>Used by:</strong> <code>Payment Processing › Refresh Token</code> · <code>Order Management › Auth Check</code> · <code>Admin Health Check › Get Token</code></p>
+  <p>This is your blast radius — 3 workflows will be affected by any change to this library.</p>
+
+  <h3>Step 4 — Make a Change</h3>
+  <p>Click the back button to return to the library list. Edit "Auth Token Refresher" — add retry logic:</p>
+<pre>async function refreshAuthToken(currentToken, retries = 3) {
+  for (let attempt = 1; attempt &lt;= retries; attempt++) {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentToken}`
+        },
+        body: JSON.stringify({ token: currentToken })
+      });
+      if (!response.ok) {
+        throw new Error(`Token refresh failed: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.accessToken;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+}</pre>
+  <p>Click <strong>Save</strong>. A new version is auto-created capturing the pre-edit state.</p>
+
+  <h3>Step 5 — Compare Versions</h3>
+  <p>Click <strong>History</strong>. You now see 1 version (the pre-change state). Check both the current-state awareness and the version entry. Select the version and the current state (if available) or make another edit to have 2 versions. Select both checkboxes and click <strong>Compare</strong>.</p>
+
+  <h4>Overview Tab</h4>
+  <p>Shows: name unchanged, description unchanged. Message: "No metadata changes — code may differ."</p>
+
+  <h4>Code Tab</h4>
+  <p>Shows the full side-by-side diff:</p>
+  <ul>
+    <li><span style="color: #e63946;">Red lines</span> — removed code (the old simple version)</li>
+    <li><span style="color: #2e7d32;">Green lines</span> — added code (the retry wrapper, try/catch, delay)</li>
+    <li>Inline highlighting shows exact character changes within modified lines.</li>
+  </ul>
+
+  <h3>Step 6 — Document Impact</h3>
+  <p>Before closing the version panel, note the "Used by" tags. These are your retesting checklist:</p>
+  <ol>
+    <li>Payment Processing → Run the workflow, verify token refresh works with retry.</li>
+    <li>Order Management → Run, verify auth check passes.</li>
+    <li>Admin Health Check → Run, verify token retrieval succeeds.</li>
+  </ol>
+
+  <h3>Step 7 — Safe Restore</h3>
+  <p>If the retry logic introduces issues (e.g., too many retries slowing down workflows), click <strong>↩ Restore</strong> on the original version. All 3 workflows immediately get the simpler version. Re-run them to confirm.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Edge Cases and Gotchas</h2>
+
+  <h3>8.1 Multiple Nodes in Same Workflow</h3>
+  <p>If "Payment Processing" has <em>two</em> script nodes both referencing "Auth Token Refresher", <code>findLibraryUsages()</code> returns <strong>two</strong> entries for that workflow — one per node. Each node is tracked individually.</p>
+
+  <h3>8.2 Dynamic Scanning</h3>
+  <p>The usage list is computed <em>live</em> from the current workflow state. If you delete a workflow or remove a library reference, the "Used by" list updates the next time you open the version panel.</p>
+
+  <h3>8.3 No Workflows Provided</h3>
+  <p>If the <code>workflows</code> prop is empty (e.g., no workflows exist), the "Used by" section is hidden entirely. The function returns an empty array.</p>
+
+  <h3>8.4 Non-Script Nodes Ignored</h3>
+  <p>Only <code>type === 'script'</code> nodes are scanned. If another node type somehow has <code>libraryIds</code> in its data, it won't appear in the usage list.</p>
+
+  <h3>8.5 Diff Fallback</h3>
+  <p>If <code>json-diff-kit</code> throws an error (e.g., the code is not valid for diffing), the Code tab falls back to plain side-by-side <code>&lt;pre&gt;</code> blocks. You still see the old and new code — just without line-level highlighting.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Impact Analysis as a Team Practice</h2>
+
+  <h3>9.1 Pre-Change Review</h3>
+  <p>Before modifying any shared library:</p>
+  <ol>
+    <li>Open the version panel.</li>
+    <li>Check "Used by" to understand the blast radius.</li>
+    <li>If the list is long (5+ workflows), consider whether the change is backward-compatible.</li>
+    <li>If it's a breaking change, plan to test all listed workflows.</li>
+  </ol>
+
+  <h3>9.2 Post-Change Verification</h3>
+  <p>After modifying a library:</p>
+  <ol>
+    <li>Run each workflow listed in "Used by".</li>
+    <li>If any workflow fails, compare the version diff to understand what changed.</li>
+    <li>Restore if needed — the previous version is one click away.</li>
+  </ol>
+
+  <h3>9.3 When to Split Libraries</h3>
+  <p>If a library has 10+ usages and frequent changes, consider splitting it into smaller, focused libraries. This reduces the blast radius of each change.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Remove a Workflow</h3>
+  <p>Delete one of the workflows that uses your shared library. Open the version panel again. Verify the "Used by" list now shows one fewer entry. This confirms <code>findLibraryUsages()</code> dynamically scans current workflows.</p>
+
+  <h3>Exercise 2 — Duplicate References</h3>
+  <p>In a single workflow, add <strong>two</strong> script nodes that both reference the same library. Open the version panel. Count the usage tags — you should see <strong>two</strong> entries for the same workflow (one per node). This is correct: each node is an independent consumer.</p>
+
+  <h3>Exercise 3 — Empty Usages</h3>
+  <p>Remove all library references (uncheck the library in all script nodes across all workflows). Open the version panel. The "Used by" section should be completely hidden — no tags, no label. This is the safest state: the library has no dependents, so you can freely modify or delete it.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Pro Tip</strong>
+    Use impact analysis as a <strong>pre-change safety check</strong>, not just a post-change audit. Before modifying a shared library, always check "Used by" first. If the blast radius is large, consider creating a new version of the library instead of modifying the existing one — then migrate workflows one at a time.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 11 -->
+  <h2>11. API Summary</h2>
+  <table>
+    <tr><th>Function / Interface</th><th>Purpose</th></tr>
+    <tr><td><code>findLibraryUsages(workflows, libId)</code></td><td>Scan all workflows for script nodes referencing this library</td></tr>
+    <tr><td><code>LibraryUsage</code></td><td>Return type: workflowId, workflowName, nodeId, nodeLabel</td></tr>
+    <tr><td><code>computeSnapshotDiff(older, newer)</code></td><td>Compute structured diff between two version snapshots</td></tr>
+    <tr><td><code>ScriptLibraryDiffResult</code></td><td>nameChanged, descriptionChanged, codeChanged, old/new values</td></tr>
+    <tr><td><code>ScriptLibraryVersionDiff</code></td><td>React component: 2-tab diff viewer (Overview + Code)</td></tr>
+    <tr><td><code>ScriptLibraryVersionPanel</code></td><td>React component: version list with "Used by" section</td></tr>
+    <tr><td><code>ScriptLibraryManager</code></td><td>React component: library CRUD + version panel integration</td></tr>
+  </table>
+
+  <!-- Section 12 -->
+  <h2>12. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Relationship</th></tr>
+    <tr>
+      <td><a href="script-library-versioning-easy.html">script-library-versioning-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Prerequisite — covers snapshots, auto-save, fingerprinting, version cap</td>
+    </tr>
+    <tr>
+      <td><a href="../cross-entity/cross-feature-versioning-advanced.html">cross-feature-versioning-advanced</a></td>
+      <td><span class="badge badge-advanced">Advanced</span></td>
+      <td>Capstone — uses impact analysis as part of full release lifecycle</td>
+    </tr>
+    <tr>
+      <td><a href="../workflow/workflow-version-diff-medium.html">workflow-version-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Similar concept — 4-tab diff for workflows vs 2-tab diff for scripts</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Script Library Impact Analysis (Medium) · May 2026
+  </footer>
+
+</body>
+</html>

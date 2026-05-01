@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Run Baselines — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Run Baselines</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn to mark test runs as performance baselines, label them for easy identification, and manage the 10-baseline cap for meaningful comparison benchmarks.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 4 — Versioning Training Path<br />
+      Gallery Sample: <code>test-product-listing</code> · dummyjson.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Every time you run a test suite, RedfireForge records full metrics — response times, TPS, error rates, percentiles. But which run represents your "known-good" performance? Without baselines, you're comparing against nothing.</p>
+  <p><strong>Baselines</strong> let you pin specific runs as reference points. They answer: <em>"Is today's performance better or worse than when we last deployed?"</em></p>
+
+  <p><strong>Real-world scenario:</strong> <em>"API Performance Baseline — Pre-Release Benchmark"</em></p>
+  <p>Your team is about to deploy API v2.0. You want to capture the current performance as a benchmark. You import the "Product Listing Check" from the Gallery, run it, and mark the result as baseline "Pre-v2.0 Release". After deployment, you run the same test and compare — instantly seeing whether response times improved, regressed, or stayed flat.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    This manual uses the Gallery sample <code>test-product-listing</code> ("Product Listing Check") as its starting point. Import it from the Gallery before beginning the walkthrough.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>BaselineMark</strong> — a lightweight index entry that references a run by ID, with an optional label and timestamp.</li>
+    <li><strong>Marking &amp; unmarking</strong> — pin or unpin any completed run as a baseline.</li>
+    <li><strong>Labeling</strong> — give baselines descriptive names for identification ("Pre-v2.0", "Morning Peak", "Post-Hotfix").</li>
+    <li><strong>10-baseline cap</strong> — FIFO eviction when the cap is reached.</li>
+    <li><strong>Deduplication</strong> — marking the same run twice has no effect.</li>
+    <li><strong>Persistence</strong> — baselines survive browser refreshes and app restarts (localStorage / Tauri store).</li>
+    <li><strong>Separation of concerns</strong> — baselines are stored separately from run data. Runs live in IndexedDB; baselines are a lightweight JSON array in localStorage.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Model</h2>
+  <p>Baselines are intentionally simple — they don't duplicate run data:</p>
+
+<pre>interface BaselineMark {
+  runId: string;     // References the TestRun stored in IndexedDB
+  label?: string;    // Optional user-assigned label
+  markedAt: number;  // Epoch ms — when the baseline was marked
+}
+
+const BASELINES_KEY = 'perf-test-baselines';
+const MAX_BASELINES = 10;</pre>
+
+  <p>Key design decisions:</p>
+  <ul>
+    <li><code>BaselineMark</code> is a <strong>pointer</strong>, not a copy. It references a run by ID. The actual run data (response times, metrics, scenarios) lives in IndexedDB.</li>
+    <li>This means deleting a run leaves a dangling baseline mark. The mark still exists, but the referenced run data is gone.</li>
+    <li>The <code>label</code> is optional — unmarked baselines show the run timestamp as their identifier.</li>
+    <li>The cap is 10, much smaller than the audit log's 500 — because baselines are high-value reference points, not a comprehensive history.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Baselines are stored under the key <code>perf-test-baselines</code> in localStorage (web) or Tauri store (desktop). They are global — not scoped per test. All tests share the same 10-baseline pool.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Product Listing Check"</strong> (<code>test-product-listing</code>) from the Tests Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>test-product-listing</code></td></tr>
+    <tr><td>Name</td><td>Product Listing Check</td></tr>
+    <tr><td>Category</td><td>Smoke</td></tr>
+    <tr><td>Difficulty</td><td><span class="badge badge-easy">Easy</span></td></tr>
+    <tr><td>Scenarios</td><td>2 (List Products, Get Single Product)</td></tr>
+    <tr><td>API</td><td><code>https://dummyjson.com/products</code></td></tr>
+    <tr><td>Assertions</td><td>Status 200, array length check, numeric validation</td></tr>
+    <tr><td>Tags</td><td><code>smoke</code>, <code>products</code>, <code>get</code>, <code>dummyjson</code>, <code>versioning-tutorial</code></td></tr>
+  </table>
+
+  <p>The test is already fully configured — two GET requests against DummyJSON's products API. No setup needed.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> from the sidebar. Navigate to the <strong>Tests</strong> domain. Find <strong>"Product Listing Check"</strong> (<code>test-product-listing</code>). Click <strong>Load Test</strong>.</p>
+  <p>The test loads into your workspace with 2 scenarios:</p>
+  <ul>
+    <li><strong>Scenario 1:</strong> GET <code>https://dummyjson.com/products</code> — returns a paginated list of products.</li>
+    <li><strong>Scenario 2:</strong> GET <code>https://dummyjson.com/products/1</code> — returns a single product detail.</li>
+  </ul>
+
+  <h3>Step 2 — Run the Test</h3>
+  <p>Click <strong>Run</strong> in the toolbar. Both scenarios execute against DummyJSON:</p>
+  <ol>
+    <li>Scenario 1 returns status 200 with a JSON array of products.</li>
+    <li>Scenario 2 returns status 200 with a single product object.</li>
+  </ol>
+  <p>All assertions pass. The results panel shows metrics: average response time, P50, P95, P99, TPS, error rate.</p>
+
+  <h3>Step 3 — Mark as Baseline</h3>
+  <p>In the results panel, click <strong>"Mark as Baseline"</strong>. A label input appears — type <strong>"Pre-v2.0 Release"</strong> and confirm.</p>
+  <p>Behind the scenes, <code>markAsBaseline()</code> executes:</p>
+<pre>markAsBaseline(runId: string, label?: string): Promise&lt;BaselineMark[]&gt;
+// 1. Loads existing baselines from storage
+// 2. Checks for duplicates (same runId) — skips if already marked
+// 3. Creates BaselineMark: { runId, markedAt: Date.now(), label }
+// 4. Prepends to the array (newest first)
+// 5. Caps at MAX_BASELINES (10) — oldest evicted if over
+// 6. Saves back to storage</pre>
+
+  <p>The run now shows a <strong>baseline badge</strong> (star icon) in the results list, confirming it's marked.</p>
+
+  <h3>Step 4 — Verify the Baseline</h3>
+  <p>The <code>isBaseline()</code> helper checks whether a given run ID is in the baselines array:</p>
+<pre>isBaseline(baselines: BaselineMark[], runId: string): boolean
+// → baselines.some(b => b.runId === runId)</pre>
+  <p>This function is called when rendering the results list to decide whether to show the baseline badge.</p>
+
+  <h3>Step 5 — Run the Test Again</h3>
+  <p>Click <strong>Run</strong> again. A new run is created with fresh metrics. This run is <em>not</em> a baseline — it's a regular run you can compare against the baseline you just created.</p>
+  <p>Notice the results list now shows two entries: the baseline (with star) and the new run (without star).</p>
+
+  <h3>Step 6 — Create Multiple Baselines</h3>
+  <p>Run the test 3 more times. Mark different runs as baselines with descriptive labels:</p>
+  <table>
+    <tr><th>Run</th><th>Label</th><th>Purpose</th></tr>
+    <tr><td>Run 2</td><td>"Morning Peak"</td><td>Capture performance during high-traffic hours</td></tr>
+    <tr><td>Run 4</td><td>"Off-Peak Hours"</td><td>Capture performance during low-traffic hours</td></tr>
+  </table>
+  <p>You now have 3 baselines: "Pre-v2.0 Release", "Morning Peak", "Off-Peak Hours".</p>
+
+  <h3>Step 7 — Rename a Baseline</h3>
+  <p>Find the "Pre-v2.0 Release" baseline in the results list. Double-click the label. Change it to <strong>"Production Benchmark v1.9"</strong>. Press Enter.</p>
+  <p>The <code>renameBaseline()</code> function updates the label in storage:</p>
+<pre>renameBaseline(runId: string, label: string): Promise&lt;BaselineMark[]&gt;
+// Maps over baselines: if runId matches, replaces label
+// Saves updated array to storage</pre>
+
+  <h3>Step 8 — Unmark a Baseline</h3>
+  <p>Click <strong>"Unmark Baseline"</strong> on the "Morning Peak" run. The baseline badge disappears, and it reverts to a regular run.</p>
+<pre>unmarkBaseline(runId: string): Promise&lt;BaselineMark[]&gt;
+// Filters out the matching runId from the baselines array
+// Saves the reduced array to storage</pre>
+  <p>The run data is <strong>NOT deleted</strong> — only the baseline mark is removed. The run's metrics, scenarios, and results are still available in IndexedDB.</p>
+
+  <h3>Step 9 — Understand Deduplication</h3>
+  <p>Try marking the "Production Benchmark v1.9" run as a baseline again. Nothing happens — <code>markAsBaseline()</code> checks for duplicates:</p>
+<pre>if (baselines.some((b) => b.runId === runId)) return baselines;
+// Already marked — return unchanged array</pre>
+
+  <h3>Step 10 — Observe the 10-Baseline Cap</h3>
+  <p>Create baselines until you have 10. Mark one more run as baseline. The oldest baseline (the one at the end of the array) is automatically evicted — FIFO, just like version history.</p>
+<pre>const next = [entry, ...baselines];  // Prepend new entry
+const capped = next.length > MAX_BASELINES
+  ? next.slice(0, MAX_BASELINES)      // Drop oldest if over 10
+  : next;</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Warning</strong>
+    Eviction is silent — no confirmation dialog. If you need to preserve more than 10 baselines, export the run data before the oldest baseline is evicted.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Storage Architecture</h2>
+  <p>Baselines and runs use different storage layers — this is important to understand:</p>
+
+  <table>
+    <tr><th>Data</th><th>Storage</th><th>Key/Database</th><th>Capacity</th></tr>
+    <tr><td>Baseline marks</td><td>localStorage / Tauri store</td><td><code>perf-test-baselines</code></td><td>10 entries</td></tr>
+    <tr><td>Run data (metrics, results)</td><td>IndexedDB</td><td>Test run database</td><td>Limited by browser quota</td></tr>
+  </table>
+
+  <p>The <code>readKey()</code> / <code>writeKey()</code> storage helpers auto-detect the platform:</p>
+  <ul>
+    <li><strong>Web mode:</strong> Uses <code>localStorage</code> for baselines.</li>
+    <li><strong>Desktop mode (Tauri):</strong> Uses the Tauri store via <code>getItem</code> / <code>setItem</code>.</li>
+  </ul>
+
+  <p>This separation means:</p>
+  <ul>
+    <li>Baselines are cheap to store (just run IDs and labels — a few KB).</li>
+    <li>Run data can be large (thousands of request results with response times).</li>
+    <li>Deleting a run from IndexedDB does NOT remove its baseline mark — the mark becomes a dangling reference.</li>
+    <li>Clearing localStorage removes baseline marks but NOT run data.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Baselines vs. Other Versioning Features</h2>
+  <p>Baselines are different from workflow/test/request versioning:</p>
+
+  <table>
+    <tr><th>Feature</th><th>What's Versioned</th><th>Max</th><th>Storage</th><th>Restore?</th></tr>
+    <tr><td>Workflow Versions</td><td>Node/edge/variable snapshots</td><td>30</td><td>localStorage</td><td>Yes — full restore</td></tr>
+    <tr><td>Test Definition Versions</td><td>Scenario configuration</td><td>20</td><td>localStorage</td><td>Yes — full restore</td></tr>
+    <tr><td>Request Versions</td><td>Request configuration</td><td>15</td><td>localStorage</td><td>Yes — partial patch</td></tr>
+    <tr><td>Audit Log</td><td>Config change events</td><td>500</td><td>localStorage</td><td>No</td></tr>
+    <tr><td><strong>Run Baselines</strong></td><td><strong>Test run references</strong></td><td><strong>10</strong></td><td><strong>localStorage</strong></td><td><strong>No — read-only comparison</strong></td></tr>
+  </table>
+
+  <p>Baselines don't "restore" anything — they're reference points for <em>comparison</em>. You compare a current run's metrics against a baseline to detect regressions or improvements.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. API Reference</h2>
+  <p>All baseline operations are async functions that read/write storage:</p>
+
+  <table>
+    <tr><th>Function</th><th>Description</th><th>Returns</th></tr>
+    <tr><td><code>loadBaselines()</code></td><td>Load all baseline marks from storage</td><td><code>BaselineMark[]</code></td></tr>
+    <tr><td><code>markAsBaseline(runId, label?)</code></td><td>Mark a run as baseline (dedup + FIFO cap)</td><td><code>BaselineMark[]</code></td></tr>
+    <tr><td><code>unmarkBaseline(runId)</code></td><td>Remove a baseline mark (keeps run data)</td><td><code>BaselineMark[]</code></td></tr>
+    <tr><td><code>renameBaseline(runId, label)</code></td><td>Update the label on an existing baseline</td><td><code>BaselineMark[]</code></td></tr>
+    <tr><td><code>isBaseline(baselines, runId)</code></td><td>Check if a run is marked as baseline</td><td><code>boolean</code></td></tr>
+    <tr><td><code>saveBaselines(baselines)</code></td><td>Save baselines array to storage (internal)</td><td><code>void</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a Baseline History</h3>
+  <p>Import "Product Listing Check" from the Gallery. Run it 5 times. Mark runs #1, #3, and #5 as baselines with labels: "Initial", "Mid-Sprint", "End-of-Sprint". Verify the baseline list shows 3 entries in newest-first order.</p>
+
+  <h3>Exercise 2 — Test the 10-Baseline Cap</h3>
+  <p>Run the test 10 times and mark each as a baseline. Mark an 11th run. Verify the oldest baseline (your first mark) was evicted. Check: does the evicted baseline's run data still exist in the results? (Yes — only the mark was removed.)</p>
+
+  <h3>Exercise 3 — Dangling References</h3>
+  <p>Mark a run as baseline. Then delete that run from the results history. Open the baseline list — the mark should still exist, but it references a missing run. What happens when you try to compare against it?</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use meaningful labels that capture context: deployment version, time of day, traffic conditions, or sprint milestones. These labels make it easy to find the right baseline weeks later when you need to compare.
+  </div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="run-baselines-comparison-medium.html">run-baselines-comparison-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Compare runs against baselines — MetricDelta, ScenarioDelta, regression detection, trend charts</td>
+    </tr>
+    <tr>
+      <td><a href="test-definition-history-easy.html">test-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>Phase 2 — Test definition version snapshots and restore</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Run Baselines (Easy) · May 2026
+  </footer>
+
+</body>
+</html>

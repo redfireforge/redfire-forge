@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Switch Multi-Way Routing — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔀</div>
+    <h1>Switch Multi-Way Routing</h1>
+    <div class="subtitle">Medium — Workflow Patterns Training Manual</div>
+    <p>Route execution to one of N branches based on a single expression — cleaner than nested conditions for multi-way decisions. Learn SwitchNode configuration, case matching, default branches, and when to choose Switch vs. Condition.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Workflow Patterns<br />
+      Build from scratch
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is a Switch Node?</h2>
+  <p>A <strong>Switch</strong> node evaluates a single expression and routes execution to the matching case branch. It's the workflow equivalent of a <code>switch/case</code> statement — ideal when you need 3 or more branches based on the same value.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"API Response Router — Different Handlers per Status Class"</em></p>
+  <p>After calling an API, you want to route to different handlers based on the response status class: <code>2xx</code> → process normally, <code>4xx</code> → handle client error, <code>5xx</code> → trigger retry logic, anything else → log unknown status.</p>
+
+  <div class="flow-diagram">
+    <strong>HTTP Request</strong>
+    <span class="arrow">→</span>
+    <strong>Switch: Status Class</strong>
+    <br /><br />
+    "2xx" <span class="arrow">→</span> <strong>Process Response</strong>
+    <br />
+    "4xx" <span class="arrow">→</span> <strong>Handle Client Error</strong>
+    <br />
+    "5xx" <span class="arrow">→</span> <strong>Retry Logic</strong>
+    <br />
+    default <span class="arrow">→</span> <strong>Log Unknown</strong>
+  </div>
+
+  <h3>Switch vs. Condition — When to Use Each</h3>
+  <table>
+    <tr><th>Feature</th><th>Condition</th><th>Switch</th></tr>
+    <tr><td>Branches</td><td>2 (Yes/No)</td><td>N (any number of cases)</td></tr>
+    <tr><td>Best for</td><td>True/false decisions</td><td>Routing by value (status, type, category)</td></tr>
+    <tr><td>Operators</td><td>==, !=, &gt;, &lt;, contains, regex</td><td>Equality match only</td></tr>
+    <tr><td>Default branch</td><td>No branch = the "else"</td><td>Explicit default case</td></tr>
+    <tr><td>Readability</td><td>Simple for 2-way</td><td>Much cleaner for 3+ ways</td></tr>
+  </table>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Completed: <em>If/Else Conditions</em> manual</li>
+    <li>Understand condition evaluation and branch skipping</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Switch Node Data Model</h2>
+
+<pre>interface SwitchNodeData {
+  label: string;
+  expression: string;       // The value to match — supports {{var}}
+  cases: SwitchCase[];      // Array of case branches
+}
+
+interface SwitchCase {
+  id: string;       // Unique case identifier
+  value: string;    // Match value (compared to expression)
+  label?: string;   // Optional display label on edge
+}</pre>
+
+  <h3>How Cases Work</h3>
+  <p>Each case has a <code>value</code> that is compared against the resolved <code>expression</code>. The first matching case wins. If no case matches, the <strong>default</strong> branch is taken (an edge with <code>sourceHandle: 'default'</code>).</p>
+
+<pre>// Switch configuration: route by HTTP status class
+{
+  label: "Status Router",
+  expression: "{{statusClass}}",
+  cases: [
+    { id: "c1", value: "2xx", label: "Success" },
+    { id: "c2", value: "4xx", label: "Client Error" },
+    { id: "c3", value: "5xx", label: "Server Error" }
+  ]
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Variable Interpolation</strong>
+    The <code>expression</code> field supports <code>{{variable}}</code> interpolation. You can compute the switch value upstream (e.g., in a SetVariable node) and reference it here.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How the Engine Handles Switch</h2>
+  <p>The <code>handleSwitchNode</code> handler follows this process:</p>
+
+  <ol>
+    <li><strong>Resolve expression</strong> — Pass <code>expression</code> through <code>ctx.resolve()</code> to replace <code>{{var}}</code> placeholders.</li>
+    <li><strong>Find matching case</strong> — Iterate through <code>cases</code> and find the first where <code>case.value === resolvedExpression</code>.</li>
+    <li><strong>Route to matching edge</strong> — Follow the outgoing edge whose <code>sourceHandle</code> matches the case <code>id</code>.</li>
+    <li><strong>Default fallback</strong> — If no case matches, follow the edge with <code>sourceHandle: 'default'</code>.</li>
+    <li><strong>Skip non-matching branches</strong> — Call <code>markSubtreeSkipped()</code> on all nodes reachable from non-matching case edges.</li>
+  </ol>
+
+  <h3>Console Log Output</h3>
+<pre>// Matching case found:
+* [Status Router] switch: "2xx" → matched case "Success"
+
+// No match, using default:
+* [Status Router] switch: "3xx" → no match, using default branch
+
+// No default configured:
+* [Status Router] switch: "3xx" → no match, no default branch</pre>
+
+  <h3>Edge Mapping</h3>
+  <p>Each case maps to outgoing edges via <code>sourceHandle</code>:</p>
+  <table>
+    <tr><th>Case ID</th><th>Edge <code>sourceHandle</code></th><th>Target</th></tr>
+    <tr><td><code>c1</code></td><td><code>"c1"</code></td><td>Process Response node</td></tr>
+    <tr><td><code>c2</code></td><td><code>"c2"</code></td><td>Handle Client Error node</td></tr>
+    <tr><td><code>c3</code></td><td><code>"c3"</code></td><td>Retry Logic node</td></tr>
+    <tr><td>(default)</td><td><code>"default"</code></td><td>Log Unknown node</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Configuring a Switch Node</h2>
+  <ol>
+    <li>Add a <strong>Switch</strong> node from the node palette.</li>
+    <li>Double-click to open the config modal.</li>
+    <li>Set the <strong>Expression</strong> — the value to match (supports <code>{{var}}</code>).</li>
+    <li>Add <strong>Cases</strong> — each with a match value and optional label.</li>
+    <li>Connect edges from each case handle to the target nodes.</li>
+    <li>Optionally, connect a <strong>default</strong> edge for unmatched values.</li>
+  </ol>
+
+  <h3>Canvas Display</h3>
+  <p>The Switch node on the canvas shows:</p>
+  <ul>
+    <li>The <strong>expression</strong> in the node body.</li>
+    <li>Multiple output handles — one per case plus a default handle.</li>
+    <li>Edge labels showing the case value or label.</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Always Add a Default Branch</strong>
+    Without a default branch, if the expression resolves to an unexpected value, no branch is taken and the workflow may end prematurely. Always add a default branch for safety, even if it just logs a warning.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: API Response Router</h2>
+  <p>Build a workflow that routes API responses to different handlers based on status class.</p>
+
+  <h3>Step 1: Set Up the Workflow</h3>
+  <ol>
+    <li>Create a new workflow: <strong>"API Response Router"</strong>.</li>
+    <li>Add Start → HTTP node → SetVariable → Switch → branch nodes → End.</li>
+  </ol>
+
+  <h3>Step 2: HTTP Node</h3>
+  <ul>
+    <li>Label: <code>Call API</code></li>
+    <li>Method: <code>GET</code></li>
+    <li>URL: <code>https://jsonplaceholder.typicode.com/posts/1</code></li>
+  </ul>
+
+  <h3>Step 3: SetVariable — Compute Status Class</h3>
+  <p>Since the Switch does equality matching, compute a status class variable:</p>
+<pre>assignments: [
+  {
+    name: "statusClass",
+    expression: "{{$if({{httpStatus}} >= 200 && {{httpStatus}} < 300, 2xx, {{$if({{httpStatus}} >= 400 && {{httpStatus}} < 500, 4xx, 5xx)}})}}"
+  }
+]</pre>
+  <p>Or more simply, just use the raw status for the switch:</p>
+<pre>assignments: [
+  { name: "statusCode", expression: "{{httpStatus}}" }
+]</pre>
+
+  <h3>Step 4: Switch Configuration</h3>
+  <ul>
+    <li>Expression: <code>{{statusCode}}</code></li>
+    <li>Cases:
+      <ul>
+        <li><code>200</code> → LogDebug "Success — processing response"</li>
+        <li><code>404</code> → LogDebug "Not found — creating resource"</li>
+        <li><code>500</code> → LogDebug "Server error — retrying"</li>
+      </ul>
+    </li>
+    <li>Default → LogDebug "Unexpected status: {{statusCode}}"</li>
+  </ul>
+
+  <h3>Step 5: Run and Test</h3>
+  <p>With <code>/posts/1</code>, the "200" case is matched. Change the URL to test different paths:</p>
+  <ul>
+    <li><code>/posts/99999</code> → likely returns 200 from JSONPlaceholder (it returns an empty object), so test with a different API for true 404 behavior.</li>
+    <li>Default branch catches any unexpected status codes.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Comparing Switch vs. Nested Conditions</h2>
+  <p>Here's the same 3-way routing logic implemented both ways:</p>
+
+  <h3>With Nested Conditions (verbose)</h3>
+  <div class="flow-diagram">
+    <strong>Condition: status==200?</strong>
+    <br />
+    Yes <span class="arrow">→</span> <strong>Process</strong>
+    <br />
+    No <span class="arrow">→</span> <strong>Condition: status==404?</strong>
+    <br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Yes <span class="arrow">→</span> <strong>Create</strong>
+    <br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No <span class="arrow">→</span> <strong>Error</strong>
+  </div>
+  <p><strong>3 nodes, complex nesting, hard to extend.</strong></p>
+
+  <h3>With Switch (clean)</h3>
+  <div class="flow-diagram">
+    <strong>Switch: {{statusCode}}</strong>
+    <br /><br />
+    "200" <span class="arrow">→</span> <strong>Process</strong>
+    &nbsp;&nbsp;
+    "404" <span class="arrow">→</span> <strong>Create</strong>
+    &nbsp;&nbsp;
+    default <span class="arrow">→</span> <strong>Error</strong>
+  </div>
+  <p><strong>1 node, flat structure, easy to add more cases.</strong></p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Rule of Thumb</strong>
+    Use <strong>Condition</strong> for 2-way (if/else). Use <strong>Switch</strong> for 3+ way. If you need complex operators (contains, regex, greater-than), use Condition — Switch only supports equality matching.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Three-Way Switch</h3>
+  <p><strong>Goal:</strong> Build a switch that routes to 3 different HTTP nodes based on a variable.</p>
+  <ol>
+    <li>Create a workflow with Start → SetVariable (set <code>action</code> to <code>"create"</code>) → Switch.</li>
+    <li>Cases: <code>"create"</code> → HTTP POST, <code>"read"</code> → HTTP GET, <code>"delete"</code> → HTTP DELETE.</li>
+    <li>Add End nodes after each HTTP node.</li>
+    <li>Run and verify the "create" branch executes.</li>
+    <li>Change the SetVariable to <code>"read"</code> and run again — verify the GET branch executes.</li>
+  </ol>
+
+  <h3>Exercise 2: Default Branch</h3>
+  <p><strong>Goal:</strong> Add a default branch for unmatched cases.</p>
+  <ol>
+    <li>Extend Exercise 1 — add a default edge to a LogDebug node: <code>"Unknown action: {{action}}"</code>.</li>
+    <li>Set the action to <code>"update"</code> (not in the cases list).</li>
+    <li>Run and verify the default branch executes with the log message.</li>
+  </ol>
+
+  <h3>Exercise 3: Compare with Nested Conditions</h3>
+  <p><strong>Goal:</strong> Build the same 3-way logic using nested Condition nodes, then compare.</p>
+  <ol>
+    <li>Create a duplicate workflow using nested conditions instead of Switch.</li>
+    <li>Condition 1: <code>{{action}} == create</code>. Yes → POST. No → Condition 2.</li>
+    <li>Condition 2: <code>{{action}} == read</code>. Yes → GET. No → DELETE.</li>
+    <li>Compare the two workflows — which is easier to understand? Easier to extend?</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>SwitchNodeData</code>, <code>SwitchCase</code> interfaces</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td><code>handleSwitchNode</code> — expression resolution, case matching, default routing</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerHelpers.ts</code></td><td><code>markSubtreeSkipped</code> — skips non-matching branches</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Parallel Execution (Fork/Join)</em> — Split into parallel branches, run simultaneously, and wait for all to complete.</li>
+    <li><strong>Previous:</strong> <em>If/Else Conditions</em> — Two-way branching with conditions.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 2 · Switch Multi-Way Routing · Medium
+  </footer>
+
+</body>
+</html>

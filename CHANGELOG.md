@@ -8,6 +8,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Refactored
+- **Code Consolidation (Round 5)**
+  - Extracted `toggleSetItem()` shared utility (`src/shared/utils/setToggle.ts`) — replaces 9 identical inline Set toggle patterns across 5 files (`useScenarioMutations`, `RequestsSidebar`, `MultiEnvResultRow`, `CatalogSendToRequestsModal`)
+  - Extracted `createResponseVersion()` / `createRulesVersion()` factory functions (`src/features/scenarios/utils/versionFactory.ts`) — replaces ~8 inline version object constructions across `TestEditorModal` and `TestEditorValidationTab`
+
+### Tests
+- New unit tests: `setToggle` (4), `versionFactory` (8) — **12 new tests** for Round 5 shared utilities
+- **5717 unit tests passing** (257 files)
+
+### Improved
+- **Validation Tab UX clarity** — 5 improvements to reduce confusion between assertions and body validation:
+  - Renamed "No Validation" → "No Body Validation" to clarify assertions still run independently
+  - Added "Body Validation" section heading with subtitle to visually separate it from the Assertions section
+  - Warning banner when "Full JSON Match" is selected but no expected JSON is pasted
+  - Clickable "No Body Validation" link in the warning for quick mode switch
+  - Validation tab dot now only appears when validation is meaningfully configured (not for empty Full JSON Match)
+  - Auto-switch to "No Body Validation" on save when Full JSON Match has no expected JSON
+
 ### Added
 - **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
   - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete
@@ -42,6 +60,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Pagination with configurable page size (12 per page)
 
 ### Refactored
+- **Code Consolidation (Round 4)**
+  - `WorkflowDesigner.tsx` reduced from 949 → 895 lines — extracted `workflowDesignerUtils.ts` (3 pure functions: `getNodeMiniMapColor`, `buildConfigModalWorkflowList`, `getDetailModalProps`) and `workflowEdgeGeometry.ts` (geometry utils: `pointToSegmentDistance`, `findClosestEdge`, `BRANCH_HANDLES`); consolidated 4 auto-layout call sites into single `handleAutoLayout` callback
+  - Fixed temporal dead zone (TDZ) error: `handleAutoLayout` referenced before declaration — moved above `useWorkflowKeyboardShortcuts`
 - **Code Consolidation (Round 3)**
   - `ScenarioBuilder.tsx` reduced from 984 → 702 lines — extracted `useScenarioMutations` hook (376 lines)
   - `WorkflowDesigner.tsx` reduced from 978 → 949 lines — extracted `useWorkflowResolvers` hook (per-workflow env + HTTP resolver callbacks)
@@ -58,7 +79,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Tests
 - **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
-- **264 E2E tests passing** (2 skipped), **5487 unit tests passing** (247 files)
+- **372 E2E tests passing** (0 skipped), **5717 unit tests passing** (257 files)
 
 - **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
   - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
@@ -76,6 +97,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Tests
 - New hook unit tests: `useWorkflowNavigation` (7), `useWorkflowConsole` (7), `useWorkflowEdgeOps` (8), `useWorkflowRunCache` (13), `useWorkflowPersistence` (13), `useWorkflowExtractionSample` (5) — **53 new tests** for hooks extracted from `WorkflowDesigner.tsx`.
+- New unit tests: `workflowDesignerUtils` (25), `workflowEdgeGeometry` (23), `useWorkflows` (16), `useWorkflowExecution` (14), `useWorkflowDetailModal` (16), `useWorkflowNodeActions` (13), `useWorkflowCanvasSync` (11) — **118 new tests** for Round 4 refactoring.
+- New E2E tests: `workflow-designer-refactor.spec.ts` (7 tests) — verifies extracted utils don't break canvas, minimap, auto-layout, or keyboard shortcuts.
+- E2E fixes: Fixed `structure-history.spec.ts` BASE_URL (5199→5173), `export-options-popover.spec.ts` checkbox count (3→4 for Structure History), `workflow-template-gallery.spec.ts` strict-mode search locator, `app-features.spec.ts` implemented 2 skipped test stubs.
 
 ### Refactored
 - **Modal standardization**: Migrated all modals to use `FullPanelModal` or `PopupModal` template components.

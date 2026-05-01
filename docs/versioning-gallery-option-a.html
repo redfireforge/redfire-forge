@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Option A — Grouped Versioning View</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1021; color: #c8ccd4; min-height: 100vh; display: flex; }
+
+/* ── Sidebar ── */
+.sidebar { width: 200px; background: #161830; padding: 18px 14px; flex-shrink: 0; border-right: 1px solid #232546; display: flex; flex-direction: column; gap: 6px; }
+.sidebar h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #6b7280; margin: 14px 0 6px; }
+.sidebar h4:first-child { margin-top: 0; }
+.domain-btn { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 6px; border: none; background: transparent; color: #9ca3af; font-size: 13px; cursor: pointer; width: 100%; text-align: left; transition: all .15s; }
+.domain-btn:hover { background: #1e2044; color: #e5e7eb; }
+.domain-btn.active { background: #2563eb22; color: #60a5fa; font-weight: 600; }
+.domain-btn.active-versioning { background: #7c3aed22; color: #a78bfa; font-weight: 600; border: 1px solid #7c3aed44; }
+.domain-icon { font-size: 15px; width: 20px; text-align: center; }
+
+/* Filters */
+.filter-group { margin-top: 10px; }
+.filter-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; display: block; margin-bottom: 4px; }
+.filter-group select { width: 100%; background: #1a1c3a; border: 1px solid #2d305a; border-radius: 6px; color: #c8ccd4; padding: 6px 8px; font-size: 12px; }
+
+/* Tag combobox */
+.tag-section { margin-top: 10px; }
+.tag-section label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; display: block; margin-bottom: 4px; }
+.tag-search { width: 100%; background: #1a1c3a; border: 1px solid #2d305a; border-radius: 6px; color: #c8ccd4; padding: 6px 8px; font-size: 12px; margin-bottom: 4px; }
+.tag-list { max-height: 140px; overflow-y: auto; font-size: 12px; }
+.tag-list div { padding: 3px 8px; cursor: pointer; border-radius: 4px; color: #9ca3af; }
+.tag-list div:hover { background: #1e2044; color: #e5e7eb; }
+
+/* ── Main ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { padding: 14px 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #232546; }
+.search-box { flex: 1; background: #1a1c3a; border: 1px solid #2d305a; border-radius: 8px; color: #c8ccd4; padding: 10px 16px; font-size: 14px; }
+.sample-count { font-size: 12px; color: #6b7280; white-space: nowrap; }
+
+/* ── Phase-grouped content ── */
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+.phase-banner { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #7c3aed44; }
+.phase-banner:first-child { margin-top: 0; }
+.phase-title { font-size: 16px; font-weight: 700; color: #e5e7eb; display: flex; align-items: center; gap: 10px; }
+.phase-number { background: #7c3aed; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+.phase-difficulty { font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 4px; }
+.phase-manual-count { font-size: 11px; color: #6b7280; background: #1e2044; padding: 2px 8px; border-radius: 10px; }
+
+.phase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+
+/* ── Cards ── */
+.card { background: #181a36; border: 1px solid #232546; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, box-shadow .15s; position: relative; }
+.card:hover { border-color: #7c3aed66; box-shadow: 0 0 12px #7c3aed22; }
+.card-header { display: flex; align-items: flex-start; gap: 10px; }
+.card-icon { font-size: 28px; flex-shrink: 0; }
+.card-title { font-size: 14px; font-weight: 600; color: #e5e7eb; line-height: 1.3; }
+.card-desc { font-size: 12px; color: #9ca3af; line-height: 1.5; }
+
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { background: #1e2044; color: #9ca3af; font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+
+.card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 8px; border-top: 1px solid #232546; }
+.domain-badge { background: #1d4ed822; color: #60a5fa; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.domain-badge.tests { background: #16a34a22; color: #4ade80; }
+.domain-badge.requests { background: #1d4ed822; color: #60a5fa; }
+.domain-badge.workflows { background: #eab30822; color: #fbbf24; }
+.api-host { font-size: 11px; color: #6b7280; display: flex; align-items: center; gap: 4px; }
+.api-host::before { content: '🌐'; font-size: 10px; }
+.difficulty-dots { display: flex; gap: 2px; align-items: center; font-size: 11px; color: #6b7280; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot.filled { background: #fbbf24; }
+.dot.empty { background: #2d305a; }
+
+/* Phase sub-badge on card */
+.phase-badge { position: absolute; top: 10px; right: 10px; background: #7c3aed33; color: #c4b5fd; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; }
+
+/* versioning-tutorial tag (purple) */
+.tag-tutorial { background: #7c3aed33; color: #c4b5fd; font-weight: 600; }
+
+/* Page header */
+.page-header { margin-bottom: 20px; }
+.page-header h2 { font-size: 20px; color: #e5e7eb; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.page-header p { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+.progress-bar-wrap { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+.progress-bar { flex: 1; height: 6px; background: #232546; border-radius: 3px; overflow: hidden; max-width: 300px; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 3px; }
+.progress-text { font-size: 12px; color: #9ca3af; }
+
+/* Annotation callout */
+.design-note { background: #fbbf2411; border: 1px dashed #fbbf2466; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 12px; color: #fbbf24; line-height: 1.6; }
+.design-note strong { color: #fde68a; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <h4>Domains</h4>
+  <button class="domain-btn"><span class="domain-icon">🔥</span> All</button>
+  <button class="domain-btn"><span class="domain-icon">📡</span> Requests</button>
+  <button class="domain-btn"><span class="domain-icon">📦</span> API Catalog</button>
+  <button class="domain-btn"><span class="domain-icon">✏️</span> Tests</button>
+  <button class="domain-btn"><span class="domain-icon">⚡</span> Workflows</button>
+  <button class="domain-btn"><span class="domain-icon">✅</span> Assertions</button>
+  <button class="domain-btn active-versioning"><span class="domain-icon">🔖</span> Versioning</button>
+
+  <div class="filter-group">
+    <label>Category</label>
+    <select><option>All Categories</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Difficulty</label>
+    <select><option>All Levels</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Live API</label>
+    <select><option>All APIs</option></select>
+  </div>
+  <div class="tag-section">
+    <label>Tag</label>
+    <input class="tag-search" placeholder="Search tags..." />
+    <div class="tag-list">
+      <div>#aggregate</div>
+      <div>#aggregation</div>
+      <div style="background:#7c3aed33;color:#c4b5fd;font-weight:600;">#versioning-tutorial</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <input class="search-box" placeholder="Search gallery..." />
+    <span class="sample-count">10 samples · 5 phases</span>
+  </div>
+
+  <div class="content">
+
+    <div class="page-header">
+      <h2>🔖 Versioning Training Path</h2>
+      <p>Samples organized by learning phase. Import the sample, follow the linked manual.</p>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:35%"></div></div>
+        <span class="progress-text">5 of 17 manuals complete</span>
+      </div>
+    </div>
+
+    <div class="design-note">
+      <strong>Design Note (Option A):</strong> Same gallery grid, but when 🔖 Versioning is active, cards are grouped by phase instead of flat. Each phase has a banner with phase number, name, difficulty range, and manual count. Cards get a small <code>P1·Easy</code> badge in the top-right corner. Minimal code change — just a grouped renderer in GalleryGrid.
+    </div>
+
+    <!-- Phase 1 -->
+    <div class="phase-banner">
+      <div class="phase-title"><span class="phase-number">P1</span> Workflow Versioning</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="phase-manual-count">3 manuals</span>
+        <div class="phase-difficulty">★☆☆ → ★★★</div>
+      </div>
+    </div>
+    <div class="phase-grid">
+      <div class="card">
+        <span class="phase-badge">P1 · Easy</span>
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <div>
+            <div class="card-title">Simple Sequential Flow</div>
+            <div class="card-desc">3-node linear workflow — the simplest workflow pattern for learning version history.</div>
+          </div>
+        </div>
+        <div class="card-tags">
+          <span class="tag tag-tutorial">📖 versioning-tutorial</span>
+          <span class="tag">#sequential</span>
+          <span class="tag">#basic</span>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge workflows">WORKFLOWS</span>
+          <span class="api-host">jsonplaceholder</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot empty"></span><span class="dot empty"></span> EASY</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="phase-badge">P1 · Med</span>
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <div>
+            <div class="card-title">Webhook-Triggered Flow</div>
+            <div class="card-desc">Webhook trigger + conditional branches — explore version diff across node changes.</div>
+          </div>
+        </div>
+        <div class="card-tags">
+          <span class="tag tag-tutorial">📖 versioning-tutorial</span>
+          <span class="tag">#webhook</span>
+          <span class="tag">#conditional</span>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge workflows">WORKFLOWS</span>
+          <span class="api-host">dummyjson.com</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot filled"></span><span class="dot empty"></span> MEDIUM</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="phase-badge">P1 · Adv</span>
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <div>
+            <div class="card-title">Sub-Workflow Composition</div>
+            <div class="card-desc">Nested sub-workflows — bulk version ops, export/import with history.</div>
+          </div>
+        </div>
+        <div class="card-tags">
+          <span class="tag tag-tutorial">📖 versioning-tutorial</span>
+          <span class="tag">#sub-workflow</span>
+          <span class="tag">#composition</span>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge workflows">WORKFLOWS</span>
+          <span class="api-host">jsonplaceholder</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot filled"></span><span class="dot filled"></span> ADVANCED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="phase-banner">
+      <div class="phase-title"><span class="phase-number">P2</span> Test Definition Versioning</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="phase-manual-count">2 manuals</span>
+        <div class="phase-difficulty">★☆☆ → ★★☆</div>
+      </div>
+    </div>
+    <div class="phase-grid">
+      <div class="card">
+        <span class="phase-badge">P2 · Easy</span>
+        <div class="card-header">
+          <span class="card-icon">✏️</span>
+          <div>
+            <div class="card-title">User API Smoke Test</div>
+            <div class="card-desc">Quick GET test on JSONPlaceholder — learn test definition snapshots &amp; restore.</div>
+          </div>
+        </div>
+        <div class="card-tags">
+          <span class="tag tag-tutorial">📖 versioning-tutorial</span>
+          <span class="tag">#smoke</span>
+          <span class="tag">#users</span>
+          <span class="tag">#get</span>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge tests">TESTS</span>
+          <span class="api-host">jsonplaceholder</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot empty"></span><span class="dot empty"></span> EASY</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="phase-badge">P2 · Med</span>
+        <div class="card-header">
+          <span class="card-icon">✏️</span>
+          <div>
+            <div class="card-title">E-Commerce Full Suite</div>
+            <div class="card-desc">6-scenario DummyJSON suite — master the 5-tab diff modal for test definitions.</div>
+          </div>
+        </div>
+        <div class="card-tags">
+          <span class="tag tag-tutorial">📖 versioning-tutorial</span>
+          <span class="tag">#ecommerce</span>
+          <span class="tag">#full-suite</span>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge tests">TESTS</span>
+          <span class="api-host">dummyjson.com</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot filled"></span><span class="dot empty"></span> MEDIUM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 3 (upcoming) -->
+    <div class="phase-banner" style="opacity: 0.5;">
+      <div class="phase-title"><span class="phase-number">P3</span> Environment Audit Log <span style="font-size:11px;color:#6b7280;font-weight:400;">— coming soon</span></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="phase-manual-count">2 manuals</span>
+        <div class="phase-difficulty">★☆☆ → ★★☆</div>
+      </div>
+    </div>
+    <div class="phase-grid" style="opacity: 0.35;">
+      <div class="card" style="border-style: dashed;">
+        <span class="phase-badge" style="opacity:0.5;">P3 · Easy</span>
+        <div class="card-header">
+          <span class="card-icon">📦</span>
+          <div>
+            <div class="card-title" style="color:#6b7280;">Audit Log Basics</div>
+            <div class="card-desc">Browse audit entries, filtering, field-level change tracking.</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge" style="opacity:0.5;">CATALOG</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot empty"></span><span class="dot empty"></span> EASY</span>
+        </div>
+      </div>
+      <div class="card" style="border-style: dashed;">
+        <span class="phase-badge" style="opacity:0.5;">P3 · Med</span>
+        <div class="card-header">
+          <span class="card-icon">📦</span>
+          <div>
+            <div class="card-title" style="color:#6b7280;">Audit Export</div>
+            <div class="card-desc">JSON/CSV export, 500-entry rotation management.</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge" style="opacity:0.5;">CATALOG</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot filled"></span><span class="dot empty"></span> MEDIUM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 5 (upcoming) -->
+    <div class="phase-banner" style="opacity: 0.5;">
+      <div class="phase-title"><span class="phase-number">P5</span> Request Definition Versioning <span style="font-size:11px;color:#6b7280;font-weight:400;">— coming soon</span></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="phase-manual-count">2 manuals</span>
+        <div class="phase-difficulty">★☆☆ → ★★☆</div>
+      </div>
+    </div>
+    <div class="phase-grid" style="opacity: 0.35;">
+      <div class="card" style="border-style: dashed;">
+        <span class="phase-badge" style="opacity:0.5;">P5 · Easy</span>
+        <div class="card-header">
+          <span class="card-icon">📡</span>
+          <div>
+            <div class="card-title" style="color:#6b7280;">Get All Users</div>
+            <div class="card-desc">Request definition version history basics.</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge" style="opacity:0.5;">REQUESTS</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot empty"></span><span class="dot empty"></span> EASY</span>
+        </div>
+      </div>
+      <div class="card" style="border-style: dashed;">
+        <span class="phase-badge" style="opacity:0.5;">P5 · Med</span>
+        <div class="card-header">
+          <span class="card-icon">📡</span>
+          <div>
+            <div class="card-title" style="color:#6b7280;">Create a New Post</div>
+            <div class="card-desc">4-tab request definition diff modal.</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="domain-badge" style="opacity:0.5;">REQUESTS</span>
+          <span class="difficulty-dots"><span class="dot filled"></span><span class="dot filled"></span><span class="dot empty"></span> MEDIUM</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

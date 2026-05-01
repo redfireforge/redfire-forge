@@ -73,6 +73,7 @@ import { useUndoRedo } from './hooks/useUndoRedo';
 import { useNodeClipboard } from './hooks/useNodeClipboard';
 import { useWorkflowRunCache } from './hooks/useWorkflowRunCache';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
+import { getNodeMiniMapColor, buildConfigModalWorkflowList, getDetailModalProps } from './utils/workflowDesignerUtils';
 
 interface Props {
   collections: RequestCollection[];
@@ -239,13 +240,24 @@ function WorkflowDesignerInner({
     deselectNode: useCallback(() => setSelectedNodeId(null), []),
   });
 
+  /** Shared auto-layout callback used by the canvas controls, command palette, and keyboard shortcuts. */
+  const handleAutoLayout = useCallback(() => {
+    const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
+    setNodes(laid);
+    setLayoutVersion((v) => v + 1);
+    if (!previewWorkflow) {
+      setTimeout(() => persistWorkflow({ rfNodes: laid }), 100);
+    }
+  }, [nodesRef, edgesRef, setNodes, setLayoutVersion, previewWorkflow, persistWorkflow]);
+
   // Keyboard shortcuts (extracted hook)
   useWorkflowKeyboardShortcuts({
-    selected, previewWorkflow, nodesRef, edgesRef,
-    setNodes, setLayoutVersion, persistWorkflow,
+    selected, previewWorkflow,
+    persistWorkflow,
     handleToggleConsole, handleUndoAction, handleRedoAction,
     handleCopyNode, handlePasteNode, handleDuplicateNode,
     handleQuickTestRef, handleDebugQuickTestRef,
+    handleAutoLayout,
     setShowShortcuts, setShowCommandPalette, setShowMinimap, toast,
   });
 
@@ -445,21 +457,10 @@ function WorkflowDesignerInner({
     return s.size;
   }, [workflowVariables, nodes, nodeInitialVars]);
 
-  const configModalWorkflows = useMemo(() => {
-    const base = workflows.map((w) => ({ id: w.id, name: w.name }));
-    if (previewWorkflow) {
-      const entry = sampleWorkflowCatalog.find(e => e.id === previewWorkflow.id);
-      if (entry?.companionFactories) {
-        for (const cf of entry.companionFactories) {
-          const companion = cf();
-          if (!base.some(b => b.id === companion.id)) {
-            base.push({ id: companion.id, name: companion.name });
-          }
-        }
-      }
-    }
-    return base;
-  }, [workflows, previewWorkflow]);
+  const configModalWorkflows = useMemo(
+    () => buildConfigModalWorkflowList(workflows, previewWorkflow, sampleWorkflowCatalog),
+    [workflows, previewWorkflow],
+  );
 
   const handleServiceRegistryApply = useCallback((svcs: WorkflowService[]) => {
     setWorkflowServices(svcs);
@@ -475,6 +476,34 @@ function WorkflowDesignerInner({
     setNodes(syncedNodes);
     persistWorkflow({ services: svcs, rfNodes: syncedNodes });
   }, [nodes, setNodes, setWorkflowServices, persistWorkflow]);
+
+  /** onInit handler for ReactFlow: auto-layout preview workflows after node measurement. */
+  const handleReactFlowInit = useCallback((instance: ReturnType<typeof useReactFlow>) => {
+    if (previewWorkflow) {
+      const currentPreviewId = previewWorkflow.id;
+      setTimeout(() => {
+        const measuredNodes = instance.getNodes();
+        const measuredEdges = instance.getEdges();
+        if (measuredNodes.length > 0) {
+          const laid = getAutoLayoutNodes(measuredNodes, measuredEdges);
+          instance.setNodes(laid);
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              instance.fitView({ padding: 0.15, maxZoom: 1, duration: 0 });
+              setLaidOutId(currentPreviewId);
+            });
+          });
+        } else {
+          setLaidOutId(currentPreviewId);
+        }
+      }, 100);
+    }
+  }, [previewWorkflow]);
+
+  const detailModalDerived = useMemo(
+    () => getDetailModalProps(detailModal, stepDetailMeta, selectedNode?.type, lastRunError),
+    [detailModal, stepDetailMeta, selectedNode?.type, lastRunError],
+  );
 
   // ── Render ───────────────────────────────────────────
 
@@ -603,30 +632,7 @@ function WorkflowDesignerInner({
               onPaneClick={handlePaneClick}
               nodeTypes={nodeTypes}
               fitView
-              onInit={(instance) => {
-                // For preview/sample workflows, re-run auto-layout after ReactFlow
-                // measures actual node dimensions, then fit viewport to show all nodes.
-                if (previewWorkflow) {
-                  const currentPreviewId = previewWorkflow.id;
-                  setTimeout(() => {
-                    const measuredNodes = instance.getNodes();
-                    const measuredEdges = instance.getEdges();
-                    if (measuredNodes.length > 0) {
-                      const laid = getAutoLayoutNodes(measuredNodes, measuredEdges);
-                      instance.setNodes(laid);
-                      // Wait for React to commit the new positions before revealing
-                      requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                          instance.fitView({ padding: 0.15, maxZoom: 1, duration: 0 });
-                          setLaidOutId(currentPreviewId);
-                        });
-                      });
-                    } else {
-                      setLaidOutId(currentPreviewId);
-                    }
-                  }, 100);
-                }
-              }}
+              onInit={handleReactFlowInit}
               connectionMode={ConnectionMode.Loose}
               connectionRadius={40}
               deleteKeyCode={['Backspace', 'Delete']}
@@ -653,32 +659,14 @@ function WorkflowDesignerInner({
                     }));
                   }
                 }}
-                onAutoLayout={() => {
-                  const laid = getAutoLayoutNodes(nodes, edges);
-                  setNodes(laid);
-                  setLayoutVersion(v => v + 1);
-                  if (!previewWorkflow) {
-                    setTimeout(() => persistWorkflow({ rfNodes: laid }), 100);
-                  }
-                }}
+                onAutoLayout={handleAutoLayout}
               />
               {showMinimap && (
                 <MiniMap
                   pannable
                   zoomable
                   style={{ background: 'var(--surface)' }}
-                  nodeColor={(node) => {
-                    const status = nodeStatuses[node.id];
-                    if (status?.state === 'fail') return '#ef4444';
-                    if (status?.state === 'running') return '#eab308';
-                    if (status?.state === 'pass') return '#22c55e';
-                    if (status?.state === 'skipped') return '#94a3b8';
-                    if (node.type === 'condition') return '#a78bfa';
-                    if (node.type === 'delay') return '#94a3b8';
-                    if (node.type === 'start') return '#22c55e';
-                    if (node.type === 'fork') return '#a855f7';
-                    return '#3b82f6';
-                  }}
+                  nodeColor={(node) => getNodeMiniMapColor(node, nodeStatuses)}
                 />
               )}
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
@@ -723,75 +711,37 @@ function WorkflowDesignerInner({
           />
         </div>
 
-        {serviceRegistryMode === 'panel' && (
-          <>
-            <div
-              className="wf-resize-handle"
-              onMouseDown={(e) => startDrag('right', e)}
+        {serviceRegistryMode === 'panel' && (<>
+          <div className="wf-resize-handle" onMouseDown={(e) => startDrag('right', e)} />
+          <div style={{ width: 320, flexShrink: 0 }}>
+            <WorkflowServicesPanelInline
+              services={workflowServices} environments={environments}
+              microservices={microservices} globalAuthProfiles={globalAuthProfiles}
+              selectedEnvId={selectedEnvId}
+              onExpand={() => setServiceRegistryMode('fullscreen')}
+              onClose={() => setServiceRegistryMode('closed')}
             />
-            <div style={{ width: 320, flexShrink: 0 }}>
-              <WorkflowServicesPanelInline
-                services={workflowServices}
-                environments={environments}
-                microservices={microservices}
-                globalAuthProfiles={globalAuthProfiles}
-                selectedEnvId={selectedEnvId}
-                onExpand={() => setServiceRegistryMode('fullscreen')}
-                onClose={() => setServiceRegistryMode('closed')}
-              />
-            </div>
-          </>
-        )}
+          </div>
+        </>)}
 
-        {versioning.versionPanelOpen && (
-          <>
-            <div
-              className="wf-resize-handle"
-              onMouseDown={(e) => startDrag('right', e)}
+        {versioning.versionPanelOpen && (<>
+          <div className="wf-resize-handle" onMouseDown={(e) => startDrag('right', e)} />
+          <div style={{ width: 320, flexShrink: 0 }}>
+            <WorkflowVersionPanel
+              versions={selected?.versions ?? []}
+              onRestore={versioning.handleVersionRestore} onDelete={versioning.handleVersionDelete}
+              onRename={versioning.handleVersionRename} onCompare={versioning.handleVersionCompare}
+              onClose={versioning.closeVersionPanel}
             />
-            <div style={{ width: 320, flexShrink: 0 }}>
-              <WorkflowVersionPanel
-                versions={selected?.versions ?? []}
-                onRestore={versioning.handleVersionRestore}
-                onDelete={versioning.handleVersionDelete}
-                onRename={versioning.handleVersionRename}
-                onCompare={versioning.handleVersionCompare}
-                onClose={versioning.closeVersionPanel}
-              />
-            </div>
-          </>
-        )}
+          </div>
+        </>)}
       </div>
 
       <WorkflowDetailModal
         open={detailModal !== null}
-        title={
-          detailModal?.type === 'step'
-            ? `Response — ${stepDetailMeta.title}`
-            : detailModal?.type === 'variable'
-              ? `Variable {{${detailModal.key}}}`
-              : detailModal?.type === 'runError'
-                ? 'Quick Test failed'
-                : ''
-        }
-        subtitle={
-          detailModal?.type === 'step'
-            ? 'Last Quick Test result for this step'
-            : detailModal?.type === 'variable'
-              ? selectedNode?.type === 'http'
-                ? 'Edit the value and click Apply to save to this step’s initial variables.'
-                : 'Edit the value and click Apply to save to workflow defaults.'
-              : detailModal?.type === 'runError'
-                ? 'Full error message (same as the status line, not truncated).'
-                : undefined
-        }
-        body={
-          detailModal?.type === 'step'
-            ? stepDetailMeta.body
-            : detailModal?.type === 'runError'
-              ? (lastRunError ?? '')
-              : undefined
-        }
+        title={detailModalDerived.title}
+        subtitle={detailModalDerived.subtitle}
+        body={detailModalDerived.body}
         variableMode={detailModal?.type === 'variable'}
         variableValue={variableDetailDraft}
         onVariableChange={setVariableDetailDraft}
@@ -906,11 +856,7 @@ function WorkflowDesignerInner({
           onQuickTest: handleQuickTest,
           onDebugTest: handleDebugQuickTest,
           onToggleConsole: handleToggleConsole,
-          onAutoLayout: () => {
-            const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
-            setNodes(laid);
-            setLayoutVersion((v) => v + 1);
-          },
+          onAutoLayout: handleAutoLayout,
           onFitView: () => rfInstance.fitView({ padding: 0.2, duration: 300 }),
           onToggleMinimap: () => setShowMinimap((v) => !v),
           onOpenServices: () => {

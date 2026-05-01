@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sub-Workflow Composition — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🧩</div>
+    <h1>Sub-Workflow Composition</h1>
+    <div class="subtitle">Advanced — Workflow Patterns Training Manual</div>
+    <p>Compose complex workflows from reusable child workflows. Pass data through input/output mappings, run multi-instance collections in parallel or sequentially, and extract existing nodes into child workflows.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 4 — Sub-Workflows and Advanced Patterns<br />
+      Scenario: <em>Orchestrating Multi-Step Deploys with Reusable Child Workflows</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Sub-Workflow Node Overview</h2>
+  <p>A Sub-Workflow node executes an entire child workflow as a single step in the parent workflow. The parent passes data in via <strong>input mappings</strong> and receives results via <strong>output mappings</strong>.</p>
+
+  <div class="flow-diagram">
+    <strong>Parent Workflow</strong><br /><br />
+    Start <span class="arrow">→</span> HTTP (get users) <span class="arrow">→</span> <strong>Sub-Workflow</strong> <span class="arrow">→</span> End<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↕ mappings<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Child Workflow</strong><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Start → Process → End
+  </div>
+
+  <h3>SubWorkflowNodeData Type</h3>
+<pre>export interface SubWorkflowNodeData {
+  label: string;
+  workflowId: string;                    // UUID of child workflow
+  workflowName?: string;                 // cached display name
+  inputMappings: Array&lt;{
+    sourceExpression: string;            // parent → child: "{{users}}"
+    targetVariable: string;              // child variable name
+  }>;
+  outputMappings: Array&lt;{
+    sourceVariable: string;              // child variable name
+    targetVariable: string;              // parent variable name
+  }>;
+  propagateAllOutputs?: boolean;         // pass all child vars to parent
+  maxDepth?: number;                     // recursion limit (default: 10)
+  timeoutMs?: number;                    // child timeout (0 = unlimited)
+  retryCount?: number;                   // retry on failure (default: 0)
+  retryDelayMs?: number;                 // delay between retries (default: 1000)
+  onChildFailure?: 'fail' | 'continue'; // behaviour on child failure
+  multiInstance?: {
+    collection: string;                  // JSON array expression
+    elementVariable: string;             // per-item variable name
+    mode: 'sequential' | 'parallel';     // execution order
+  };
+}</pre>
+
+  <h3>Factory Defaults</h3>
+<pre>{
+  label: 'Sub-Workflow',
+  workflowId: '',
+  inputMappings: [],
+  outputMappings: [],
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Input and Output Mappings</h2>
+
+  <h3>Input Mappings (Parent → Child)</h3>
+  <p>Each input mapping resolves a parent expression and injects it as a variable in the child workflow's context:</p>
+<pre>inputMappings: [
+  { sourceExpression: '{{userId}}',    targetVariable: 'userId'    },
+  { sourceExpression: '{{authToken}}', targetVariable: 'token'     },
+  { sourceExpression: 'production',    targetVariable: 'environment' },
+]
+// Child sees: {{userId}}, {{token}}, {{environment}}</pre>
+
+  <h3>Output Mappings (Child → Parent)</h3>
+  <p>After the child completes, its final variable state is mapped back to the parent:</p>
+<pre>outputMappings: [
+  { sourceVariable: 'deployStatus', targetVariable: 'childResult' },
+  { sourceVariable: 'logUrl',       targetVariable: 'childLogUrl' },
+]
+// Parent sees: {{childResult}}, {{childLogUrl}}</pre>
+
+  <h3>Propagate All Outputs</h3>
+  <p>When <code>propagateAllOutputs</code> is true, all child variables (except internal <code>__</code> prefixed ones) are copied to the parent:</p>
+<pre>// Engine logic:
+if (data.propagateAllOutputs) {
+  for (const [k, v] of Object.entries(run.childFinalVars)) {
+    if (!k.startsWith('__')) hCtx.ctx.set(k, v);
+  }
+}</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Variable Name Collisions</strong>
+    With <code>propagateAllOutputs</code>, child variables overwrite parent variables of the same name. Use explicit <code>outputMappings</code> with unique target names for production workflows to avoid unintended overwrites.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Dynamic Workflow IDs</h2>
+  <p>The <code>workflowId</code> field can contain variable expressions for runtime workflow selection:</p>
+
+<pre>// Static: always runs the same child
+{ workflowId: 'abc-123-def-456' }
+
+// Dynamic: resolved at runtime from a variable
+{ workflowId: '{{targetWorkflowId}}' }</pre>
+
+  <p>The engine resolves the expression before looking up the child workflow:</p>
+<pre>const resolvedWorkflowId = data.workflowId.includes('{{')
+  ? hCtx.ctx.resolve(data.workflowId)
+  : data.workflowId;
+const childWorkflow = hCtx.resolveSubWorkflow?.(resolvedWorkflowId);</pre>
+
+  <h3>Node Display</h3>
+  <table>
+    <tr><th>State</th><th>Display</th></tr>
+    <tr><td>No workflow selected</td><td><code>⚠ Select workflow…</code> (warning badge)</td></tr>
+    <tr><td>Dynamic ID</td><td><code>ƒ {{workflowId}}</code> (dynamic indicator)</td></tr>
+    <tr><td>Static ID</td><td>Cached <code>workflowName</code></td></tr>
+  </table>
+
+  <p>Additional display: mapping summary (<code>2 in · 1 out</code>), child preview stats (<code>5 nodes · 4 edges</code>), and a "Open child workflow" navigation button.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Multi-Instance Mode</h2>
+  <p>Run the child workflow once per item in a collection — like a forEach loop, but the body is an entire workflow:</p>
+
+<pre>multiInstance: {
+  collection: '{{regions}}',      // JSON array: '["us-east","eu-west","ap-south"]'
+  elementVariable: 'region',      // each child run sees {{region}}
+  mode: 'parallel',               // or 'sequential'
+}</pre>
+
+  <h3>Parallel vs Sequential</h3>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th><th>Use Case</th></tr>
+    <tr><td><code>parallel</code></td><td>All items run concurrently via <code>Promise.all</code></td><td>Independent operations (deploy to regions)</td></tr>
+    <tr><td><code>sequential</code></td><td>Items run one-by-one in order</td><td>Order-dependent operations (sequential migration)</td></tr>
+  </table>
+
+<pre>// Engine logic:
+if (mi.mode === 'parallel') {
+  await Promise.all(iterationItems.map((item, idx) =&gt; runOneItem(item, idx)));
+} else {
+  for (let idx = 0; idx &lt; iterationItems.length; idx++) {
+    await runOneItem(iterationItems[idx], idx);
+  }
+}</pre>
+
+  <h3>Node Badge</h3>
+  <p>Multi-instance mode shows: <code>⟳ parallel · region</code> or <code>⟳ sequential · item</code></p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Multi-Instance vs Loop + Sub-Workflow</strong>
+    Multi-instance mode is a shortcut for the common pattern of "Loop forEach → Sub-Workflow." It's simpler to configure (one node instead of two) and handles collection parsing, element injection, and result aggregation automatically.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Depth Guard and Recursion</h2>
+  <p>Sub-workflows can call other sub-workflows, creating a call chain. The <code>maxDepth</code> field prevents infinite recursion:</p>
+
+<pre>// Engine checks depth before execution:
+const currentDepth = parseInt(
+  hCtx.ctx.get('__subWorkflowDepth') ?? '0', 10
+) || 0;
+const maxDepth = data.maxDepth ?? 10;
+
+if (currentDepth >= maxDepth) {
+  throw new Error(`Sub-workflow depth limit (${maxDepth}) exceeded`);
+}
+
+// Each child increments depth:
+childCtx.set('__subWorkflowDepth', String(currentDepth + 1));</pre>
+
+  <table>
+    <tr><th>Depth</th><th>Example</th></tr>
+    <tr><td>0</td><td>Main workflow</td></tr>
+    <tr><td>1</td><td>Child workflow called by main</td></tr>
+    <tr><td>2</td><td>Grandchild workflow called by child</td></tr>
+    <tr><td>10 (default limit)</td><td>Error: depth limit exceeded</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Failure Handling and Retry</h2>
+
+  <h3>onChildFailure</h3>
+  <table>
+    <tr><th>Setting</th><th>Behavior</th></tr>
+    <tr><td><code>fail</code> (default)</td><td>Parent node fails → workflow fails</td></tr>
+    <tr><td><code>continue</code></td><td>Parent node marked pass (with warning), sets <code>{{__subWorkflowFailed}}</code> to <code>"true"</code></td></tr>
+  </table>
+
+  <h3>Retry Configuration</h3>
+<pre>{ retryCount: 3, retryDelayMs: 2000, onChildFailure: 'fail' }
+// Attempt 1 → child fails → wait 2000ms
+// Attempt 2 → child fails → wait 2000ms
+// Attempt 3 → child fails → wait 2000ms
+// Attempt 4 → child fails → parent node fails</pre>
+
+  <h3>SubWorkflowRunSummary</h3>
+  <p>Each child execution produces a summary accessible by the parent:</p>
+<pre>export interface SubWorkflowRunSummary {
+  parentNodeId: string;
+  childWorkflowName: string;
+  passed: boolean;
+  durationMs: number;
+  resultCount: number;
+  childSteps: Array&lt;{
+    nodeId: string;
+    label: string;
+    state: 'pass' | 'fail' | 'skipped';
+    statusCode?: number;
+    responseTimeMs?: number;
+    error?: string;
+  }>;
+  attempt: number;  // which retry attempt (1-based)
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Extract to Sub-Workflow</h2>
+  <p>The <strong>Extract to Sub-Workflow</strong> refactoring tool lets you select existing nodes and convert them into a child workflow with one click:</p>
+
+<pre>export function extractToSubWorkflow(
+  selectedNodeIds: string[],
+  parentNodes: WorkflowNode[],
+  parentEdges: WorkflowEdge[],
+  childName: string,
+): ExtractResult | null</pre>
+
+  <h3>How It Works</h3>
+  <ol>
+    <li><strong>Select nodes</strong> on the canvas (multi-select).</li>
+    <li>Right-click → <strong>Extract to Sub-Workflow</strong>.</li>
+    <li>The tool:
+      <ul>
+        <li>Classifies edges as internal, incoming, or outgoing</li>
+        <li>Creates a child workflow with auto-generated Start and End nodes</li>
+        <li>Replaces the selected nodes with a single Sub-Workflow node</li>
+        <li>Positions the new node at the centroid of the extracted nodes</li>
+        <li>Wires incoming/outgoing edges to the new Sub-Workflow node</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Non-Extractable Nodes</strong>
+    <code>start</code> and <code>end</code> nodes cannot be extracted. They're fundamental to the parent workflow's structure and are auto-generated for the child.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Gallery Samples</h2>
+
+  <table>
+    <tr><th>Sample</th><th>Demonstrates</th></tr>
+    <tr>
+      <td><strong>Sub-Workflow Orchestrator</strong><br /><code>sample-workflow-sub-workflow</code></td>
+      <td>Basic parent → child with input/output mappings, forEach multi-instance</td>
+    </tr>
+    <tr>
+      <td><strong>Order Pipeline</strong><br /><code>sample-workflow-order-pipeline</code></td>
+      <td>Order processing with shipping child workflow</td>
+    </tr>
+    <tr>
+      <td><strong>Multi-Region Deploy</strong><br /><code>sample-workflow-deploy-orchestrator</code></td>
+      <td>Parallel multi-instance deployment to regions, rollback child workflow on failure</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Parent-Child with Mappings</h3>
+  <p><strong>Goal:</strong> Create a parent and child workflow connected by input/output mappings.</p>
+  <ol>
+    <li>Create a <strong>child workflow</strong> named "Get User Details": Start → HTTP GET <code>/users/{{userId}}</code> → SetVariable (<code>userName</code>) → End.</li>
+    <li>Create a <strong>parent workflow</strong>: Start → SetVariable (<code>userId</code> = <code>1</code>) → Sub-Workflow node → End.</li>
+    <li>Configure the Sub-Workflow node:
+      <ul>
+        <li>Select the child workflow</li>
+        <li>Input mapping: <code>{{userId}}</code> → <code>userId</code></li>
+        <li>Output mapping: <code>userName</code> → <code>childUserName</code></li>
+      </ul>
+    </li>
+    <li>Run the parent — the child executes with the mapped userId and returns the name.</li>
+  </ol>
+
+  <h3>Exercise 2: Multi-Instance Parallel</h3>
+  <p><strong>Goal:</strong> Run a child workflow in parallel for each item in a collection.</p>
+  <ol>
+    <li>Create a child workflow that processes a single <code>{{region}}</code>.</li>
+    <li>In the parent, set <code>{{regions}}</code> = <code>["us-east","eu-west","ap-south"]</code>.</li>
+    <li>Configure multi-instance: collection <code>{{regions}}</code>, elementVariable <code>region</code>, mode <code>parallel</code>.</li>
+    <li>Run — observe all three child runs execute concurrently.</li>
+  </ol>
+
+  <h3>Exercise 3: Extract to Sub-Workflow</h3>
+  <p><strong>Goal:</strong> Refactor an existing workflow by extracting nodes.</p>
+  <ol>
+    <li>Create a workflow with 5+ nodes in a chain.</li>
+    <li>Select 3 middle nodes (not Start/End).</li>
+    <li>Right-click → Extract to Sub-Workflow.</li>
+    <li>Verify the selected nodes are replaced by a single Sub-Workflow node.</li>
+    <li>Open the child workflow and confirm it contains the extracted nodes with auto-generated Start/End.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>SubWorkflowNodeData</code> type definition</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowNodeFactory.ts</code></td><td>Factory defaults</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerSubWorkflowHandler.ts</code></td><td>Execution: depth guard, input/output mapping, multi-instance</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunner.ts</code></td><td><code>SubWorkflowRunSummary</code> interface</td></tr>
+    <tr><td><code>src/features/workflow/components/nodes/SubWorkflowNode.tsx</code></td><td>Node UI: badges, preview, navigation</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowExtractSubWorkflow.ts</code></td><td><code>extractToSubWorkflow()</code> refactoring tool</td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Webhooks and Correlation Wait</em> — External triggers, webhook callbacks, and pause-until-matched patterns.</li>
+    <li><strong>Previous:</strong> <em>Error Handling Strategies</em> — Node-level retry, catch paths, workflow-level handlers.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 4 · Sub-Workflow Composition · Advanced
+  </footer>
+
+</body>
+</html>
