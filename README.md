@@ -578,7 +578,7 @@ Import includes comprehensive validation:
 - **Dynamic columns**: Columns in the Data sheet not defined in Metadata are automatically treated as validation fields.
 - **Warnings**: Non-blocking issues (e.g., unmapped columns) displayed in a yellow box.
 
-All three validation modes are fully supported through the export/import round-trip: No Validation, Full JSON Match, and Selective Fields.
+All three body validation modes are fully supported through the export/import round-trip: No Body Validation, Full JSON Match, and Selective Fields.
 
 During import, choose the target:
 - **Existing Scenario**: Add tests to an existing scenario.
@@ -589,13 +589,13 @@ During import, choose the target:
 
 Below the validation rules, a "Verify Rules" button invokes the API with the current test configuration and compares the response against the expected validation rules. Results are displayed in a table showing pass/fail status with detailed discrepancies (path, expected value, actual value). A host override option lets you target a different server for verification.
 
-**Response Validation Modes:**
+**Response Body Validation Modes:**
 
 | Mode | Behavior |
 |---|---|
-| **None** | No validation — only checks HTTP status. |
-| **Full Match** | Deep-compares the entire response body against expected JSON. |
-| **Selective** | Validates specific JSON paths. Supports **include** (check listed paths) or **exclude** (check all except listed paths). |
+| **No Body Validation** | Skips body comparison — only assertions (status, headers, timing, regex) run. |
+| **Full JSON Match** | Deep-compares the entire response body against expected JSON. Shows a warning if no expected JSON is provided. |
+| **Selective Fields** | Validates specific JSON paths. Supports **include** (check listed paths) or **exclude** (check all except listed paths). |
 
 **Selective Validation Features:**
 

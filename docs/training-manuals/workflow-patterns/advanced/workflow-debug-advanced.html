@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Debugging Workflows — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🐛</div>
+    <h1>Debugging Workflows</h1>
+    <div class="subtitle">Advanced — Workflow Patterns Training Manual</div>
+    <p>Step through workflow execution node by node, inspect variables at each pause point, and diagnose failures in complex branching and parallel flows using the built-in debug controller.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 4 — Sub-Workflows and Advanced Patterns<br />
+      Scenario: <em>Step-Through Debugging a Failing API Chain</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Debug Mode Overview</h2>
+  <p>Debug mode lets you execute a workflow one node at a time. Each node pauses before execution, showing a <code>⏸ Paused</code> overlay on the canvas. You can inspect all workflow variables, then step forward or stop.</p>
+
+  <div class="flow-diagram">
+    <strong>Normal Run</strong>: Start → HTTP → SetVar → Condition → End&nbsp;&nbsp;(all at once)<br /><br />
+    <strong>Debug Run</strong>: Start → <strong>⏸</strong> HTTP → <strong>⏸</strong> SetVar → <strong>⏸</strong> Condition → <strong>⏸</strong> End&nbsp;&nbsp;(step by step)
+  </div>
+
+  <h3>Starting a Debug Session</h3>
+  <ol>
+    <li>Open any workflow in the editor.</li>
+    <li>Click the <strong>Debug Quick Test</strong> button (🐛) in the toolbar.</li>
+    <li>The workflow starts executing. Each node pauses before running.</li>
+    <li>Click <strong>⏭ Step</strong> on a paused node to execute it and advance.</li>
+    <li>Click <strong>Stop</strong> to abort the debug session at any time.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The DebugController</h2>
+  <p>The <code>DebugController</code> class orchestrates step-through execution. It manages threads, paused states, and resume signals.</p>
+
+<pre>export interface DebugThread {
+  id: string;
+  currentNodeId: string;
+  status: 'paused' | 'running' | 'completed' | 'waiting-join';
+}
+
+export class DebugController {
+  // Pause before executing a node — returns a Promise
+  async waitForStep(nodeId: string, threadId: string): Promise&lt;void>;
+
+  // Mark node as actively running (after step)
+  markRunning(nodeId: string, threadId: string): void;
+
+  // Mark thread as completed
+  markCompleted(threadId: string): void;
+
+  // Mark thread as waiting at a Join barrier
+  markWaitingJoin(nodeId: string, threadId: string): void;
+
+  // Step a single paused node
+  stepNode(nodeId: string): void;
+
+  // Step all currently paused nodes at once
+  stepAll(): void;
+
+  // Resume — disable pausing, run remaining nodes freely
+  resumeAll(): void;
+
+  // Abort the debug session
+  stop(): void;
+
+  // Query state
+  get isStopped(): boolean;
+  get isResumed(): boolean;
+  getPausedNodeIds(): string[];
+  getThreads(): ReadonlyMap&lt;string, DebugThread>;
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Debug Integrates with the Engine</h2>
+  <p>The debug controller hooks into the graph runner's <code>visit()</code> function — the core function that executes each node:</p>
+
+<pre>// In visit() — before executing any node:
+if (debugController) {
+  // 1. Show ⏸ Paused overlay on the canvas
+  callbacks.onNodeStateChange(nodeId, { state: 'paused' });
+
+  // 2. Wait — this Promise resolves when user clicks "Step"
+  await debugController.waitForStep(nodeId, threadId);
+
+  // 3. Check if user stopped the session
+  if (debugController.isStopped || abortSignal?.aborted) return;
+
+  // 4. Mark as running — overlay changes to executing state
+  debugController.markRunning(nodeId, threadId);
+}
+
+// Now execute the node normally...</pre>
+
+  <h3>Abort Checks in Long-Running Handlers</h3>
+  <p>Nodes that run iteratively (loops, waits) also check the debug controller:</p>
+<pre>// Loop handler:
+if (hCtx.abortSignal?.aborted || hCtx.debugController?.isStopped) return false;
+
+// CorrelationWait handler:
+const isAbort = hCtx.abortSignal?.aborted || hCtx.debugController?.isStopped;
+
+// WaitForCondition handler:
+if (hCtx.abortSignal?.aborted || hCtx.debugController?.isStopped) break;</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Debug Is Non-Invasive</strong>
+    The debug controller doesn't change how nodes execute — it only adds pause points before each node. The actual execution logic is identical to a normal run. This means debug results are reliable and reproducible.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Thread States</h2>
+  <p>In workflows with parallel branches (Fork/Join), the debug controller tracks multiple threads:</p>
+
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Visual</th></tr>
+    <tr><td><code>paused</code></td><td>Thread is waiting for user to step</td><td><code>⏸ Paused</code> badge on node</td></tr>
+    <tr><td><code>running</code></td><td>Thread is actively executing a node</td><td>Normal execution state</td></tr>
+    <tr><td><code>waiting-join</code></td><td>Thread reached a Join barrier, waiting for siblings</td><td>Join barrier indicator</td></tr>
+    <tr><td><code>completed</code></td><td>Thread finished execution</td><td>Pass/fail state on node</td></tr>
+  </table>
+
+  <h3>Debugging Fork/Join Workflows</h3>
+  <div class="flow-diagram">
+    Fork<br />
+    ├── Thread A: HTTP (⏸ Paused) → SetVar → Join (waiting-join)<br />
+    ├── Thread B: HTTP (⏸ Paused) → SetVar → Join (waiting-join)<br />
+    └── Thread C: HTTP (running) → ...<br /><br />
+    You can step threads independently.<br />
+    Join releases when all threads arrive.
+  </div>
+
+  <p>When debugging parallel branches:</p>
+  <ul>
+    <li>Each branch pauses independently — you can step Branch A while Branch B remains paused.</li>
+    <li>When a thread reaches a Join node, it shows <code>waiting-join</code> status.</li>
+    <li>The Join node only releases when all incoming threads have arrived.</li>
+    <li>Use <strong>Step All</strong> to advance all paused nodes simultaneously.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. The NodePausedOverlay Component</h2>
+  <p>Every workflow node includes the <code>NodePausedOverlay</code> component for debug visualization:</p>
+
+<pre>export function NodePausedOverlay({ nodeId, state, debugStep }) {
+  if (state !== 'paused') return null;
+
+  if (debugStep) {
+    return (
+      &lt;button className="wf-debug-step-btn"
+              title="Step this node"
+              onClick={(e) => { e.stopPropagation(); debugStep(nodeId); }}>
+        ⏭ Step
+      &lt;/button>
+    );
+  }
+
+  return &lt;span className="wf-status-badge wf-status-paused">⏸ Paused&lt;/span>;
+}</pre>
+
+  <h3>Two Modes</h3>
+  <table>
+    <tr><th>Mode</th><th>Shows</th><th>When</th></tr>
+    <tr><td>Interactive</td><td><code>⏭ Step</code> button</td><td>Debug mode active, <code>debugStep</code> callback provided</td></tr>
+    <tr><td>Indicator only</td><td><code>⏸ Paused</code> badge</td><td>No <code>debugStep</code> callback (read-only view)</td></tr>
+  </table>
+
+  <p>This component is included in all node types: HTTP, SetVariable, Condition, Loop, Fork, Join, Aggregate, SubWorkflow, CorrelationWait, Script, ErrorHandler, and more.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Debug Controls</h2>
+  <p>The <code>useWorkflowExecution</code> hook exposes three debug actions:</p>
+
+  <h3>Step Node</h3>
+<pre>const handleDebugStep = useCallback((nodeId: string) => {
+  debugControllerRef.current?.stepNode(nodeId);
+}, []);</pre>
+  <p>Advances a single paused node. The node executes and the next node in the chain pauses.</p>
+
+  <h3>Resume All</h3>
+<pre>debugControllerRef.current?.resumeAll();</pre>
+  <p>Disables all future pause points. The workflow runs to completion like a normal run. Useful when you've passed the section you wanted to debug.</p>
+
+  <h3>Stop</h3>
+<pre>const handleDebugStop = useCallback(() => {
+  debugControllerRef.current?.stop();
+  abortRef.current?.abort();
+  setIsRunning(false);
+  setIsDebugMode(false);
+  debugControllerRef.current = null;
+  setLastRunStatus('stopped');
+}, []);</pre>
+  <p>Immediately aborts the debug session. All pending nodes are cancelled. The workflow shows a "stopped" status.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Inspecting Variables</h2>
+  <p>At each pause point, all workflow variables are available for inspection. The Variables panel shows the current state of every variable set so far:</p>
+
+  <ul>
+    <li><strong>Before stepping a node:</strong> You see all variables set by previously executed nodes.</li>
+    <li><strong>After stepping a node:</strong> The variables panel updates with any new or modified variables from that node.</li>
+  </ul>
+
+  <h3>What to Look For</h3>
+  <table>
+    <tr><th>Debug Scenario</th><th>What to Inspect</th></tr>
+    <tr><td>HTTP response unexpected</td><td><code>{{response.body}}</code>, <code>{{httpStatus}}</code></td></tr>
+    <tr><td>Condition taking wrong branch</td><td>The variables used in the condition (left/right operands)</td></tr>
+    <tr><td>Loop not iterating</td><td><code>{{i}}</code>, <code>{{item}}</code>, collection variable</td></tr>
+    <tr><td>Sub-workflow failing</td><td><code>{{__subWorkflowDepth}}</code>, input mapping variables</td></tr>
+    <tr><td>Auth not applied</td><td><code>{{authToken}}</code>, <code>{{Authorization}}</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Console Log Analysis</strong>
+    The workflow console shows prefixed log lines during execution. In debug mode, logs appear incrementally as you step through nodes — making it easy to correlate each log entry with its source node.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Common Debugging Patterns</h2>
+
+  <h4>Pattern 1: Find Where a Variable Goes Wrong</h4>
+  <ol>
+    <li>Start a debug session.</li>
+    <li>Step through nodes one at a time.</li>
+    <li>After each step, check the target variable in the Variables panel.</li>
+    <li>When the variable value changes unexpectedly, you've found the problem node.</li>
+  </ol>
+
+  <h4>Pattern 2: Debug a Condition Branch</h4>
+  <ol>
+    <li>Step to the Condition node — it pauses before evaluation.</li>
+    <li>Inspect the left and right operand variables.</li>
+    <li>Step — observe which branch is taken.</li>
+    <li>If wrong, adjust the condition or fix the upstream variable.</li>
+  </ol>
+
+  <h4>Pattern 3: Debug Fork/Join Timing</h4>
+  <ol>
+    <li>Step the Fork node — all branches start paused.</li>
+    <li>Step one branch at a time to control execution order.</li>
+    <li>Observe when each thread reaches the Join (waiting-join status).</li>
+    <li>When all arrive, the Join releases and the next node pauses.</li>
+  </ol>
+
+  <h4>Pattern 4: Skip Past Uninteresting Nodes</h4>
+  <ol>
+    <li>Use <strong>Step All</strong> to advance all paused nodes at once.</li>
+    <li>When you reach the section you care about, switch to single-stepping.</li>
+    <li>Or use <strong>Resume All</strong> to run the rest without pausing.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Step-Through a Simple Chain</h3>
+  <p><strong>Goal:</strong> Debug a linear workflow and inspect variables at each step.</p>
+  <ol>
+    <li>Create a workflow: Start → HTTP GET <code>/users/1</code> → SetVariable (<code>userName</code>) → End.</li>
+    <li>Click <strong>Debug Quick Test</strong> (🐛).</li>
+    <li>The HTTP node pauses. Inspect the Variables panel — no response variables yet.</li>
+    <li>Click <strong>⏭ Step</strong> — the HTTP request executes. Check <code>{{response.body}}</code>.</li>
+    <li>Step the SetVariable — verify <code>{{userName}}</code> is set correctly.</li>
+    <li>Step the End node — debug session completes.</li>
+  </ol>
+
+  <h3>Exercise 2: Debug a Fork/Join</h3>
+  <p><strong>Goal:</strong> Observe parallel thread execution order.</p>
+  <ol>
+    <li>Create a workflow: Start → Fork → (Branch A: HTTP /users, Branch B: HTTP /posts) → Join → End.</li>
+    <li>Start debug mode.</li>
+    <li>After Fork, both branch HTTP nodes pause simultaneously.</li>
+    <li>Step Branch A only — observe it completes while Branch B is still paused.</li>
+    <li>Step Branch B — both threads reach the Join (waiting-join).</li>
+    <li>The Join releases and the End node pauses.</li>
+  </ol>
+
+  <h3>Exercise 3: Find a Bug</h3>
+  <p><strong>Goal:</strong> Use debugging to diagnose why a condition takes the wrong branch.</p>
+  <ol>
+    <li>Create a workflow where a Condition checks <code>{{status}} == "active"</code>.</li>
+    <li>Intentionally set <code>{{status}}</code> to <code>"Active"</code> (capital A).</li>
+    <li>Run normally — the condition fails (case-sensitive mismatch).</li>
+    <li>Start a debug session. Step to the Condition node.</li>
+    <li>Inspect <code>{{status}}</code> — see <code>"Active"</code> vs expected <code>"active"</code>.</li>
+    <li>Fix the upstream SetVariable or adjust the condition.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/engine/debugController.ts</code></td><td><code>DebugController</code> class, <code>DebugThread</code> interface</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunner.ts</code></td><td>Debug integration in <code>visit()</code> — pause/step/resume</td></tr>
+    <tr><td><code>src/features/workflow/components/nodes/NodePausedOverlay.tsx</code></td><td>⏸ Paused / ⏭ Step UI overlay</td></tr>
+    <tr><td><code>src/features/workflow/hooks/useWorkflowExecution.ts</code></td><td>Debug mode state, step/resume/stop handlers</td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li>This is the final manual in the Workflow Patterns training path.</li>
+    <li><strong>Other paths:</strong> <em>Auth Strategies</em> (advanced workflow auth) and <em>Assertion Mastery</em> (advanced presets and composition).</li>
+    <li><strong>Previous:</strong> <em>Webhooks and Correlation Wait</em> — Event-driven triggers and pause-until-matched patterns.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 4 · Debugging Workflows · Advanced
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSONPath + Regex Assertions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔎</div>
+    <h1>JSONPath + Regex Assertions</h1>
+    <div class="subtitle">Medium — Assertion Mastery Training Manual</div>
+    <p>Extract values from JSON response bodies using JSONPath expressions, then validate them with regular expression patterns. Learn the built-in getByPath() engine, wildcard traversal, and the Regex Builder modal.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Advanced Assertions<br />
+      Scenario: <em>Validating Email Formats and ID Patterns in API Responses</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. The Regex Assertion Data Model</h2>
+<pre>// Assertion type for JSONPath + Regex
+{
+  type: 'regex',
+  jsonPath: string,    // path to extract value (e.g., "$.email")
+  pattern: string      // regex pattern to test against
+}</pre>
+
+  <p>The assertion extracts a value from the response body at <code>jsonPath</code>, serializes it to a string, then tests it against <code>pattern</code> using <code>new RegExp(pattern)</code>.</p>
+
+  <h3>Examples</h3>
+<pre>// Email format
+{ type: 'regex', jsonPath: '$.email',
+  pattern: '^[^@]+@[^@]+\\.[^@]+$' }
+
+// UUID format
+{ type: 'regex', jsonPath: '$.id',
+  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' }
+
+// Name has 3+ characters
+{ type: 'regex', jsonPath: '$.name', pattern: '.{3,}' }
+
+// Status is "active" or "pending"
+{ type: 'regex', jsonPath: '$.status', pattern: '^(active|pending)$' }
+
+// Pokémon name is exactly "pikachu"
+{ type: 'regex', jsonPath: '$.name', pattern: '^pikachu$' }</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The getByPath() JSONPath Engine</h2>
+  <p>RedfireForge implements its own lightweight JSONPath engine — no external library. It handles the most common path expressions:</p>
+
+<pre>// src/engine/validator.ts
+
+function getByPath(obj: unknown, path: string): unknown
+
+// Internals:
+// 1. tokenizeJsonPath(path)  — splits path into tokens
+// 2. walkPath(obj, tokens, 0) — recursive traversal</pre>
+
+  <h3>Supported Path Syntax</h3>
+  <table>
+    <tr><th>Path</th><th>Meaning</th><th>Example Response</th><th>Result</th></tr>
+    <tr><td><code>$</code></td><td>Root object/array</td><td><code>[1,2,3]</code></td><td><code>[1,2,3]</code></td></tr>
+    <tr><td><code>$.name</code></td><td>Top-level property</td><td><code>{"name":"Jo"}</code></td><td><code>"Jo"</code></td></tr>
+    <tr><td><code>$.a.b</code></td><td>Nested property</td><td><code>{"a":{"b":1}}</code></td><td><code>1</code></td></tr>
+    <tr><td><code>$.items[0]</code></td><td>Array index</td><td><code>{"items":["x","y"]}</code></td><td><code>"x"</code></td></tr>
+    <tr><td><code>$.items[0].id</code></td><td>Property of array element</td><td><code>{"items":[{"id":1}]}</code></td><td><code>1</code></td></tr>
+    <tr><td><code>$.items[*].id</code></td><td>Wildcard — all element IDs</td><td><code>{"items":[{"id":1},{"id":2}]}</code></td><td><code>[1,2]</code></td></tr>
+    <tr><td><code>$.items.length</code></td><td>Array length</td><td><code>{"items":[1,2,3]}</code></td><td><code>3</code></td></tr>
+  </table>
+
+  <h3>The [*] Wildcard</h3>
+  <p>The <code>[*]</code> wildcard fans out across every element of an array. It returns an <strong>array of results</strong>, one per element:</p>
+
+<pre>// Response: { "users": [{ "email": "a@b.com" }, { "email": "c@d.com" }] }
+
+getByPath(response, '$.users[*].email')
+// → ["a@b.com", "c@d.com"]</pre>
+
+  <p>When the regex assertion receives an array, it <strong>serializes to JSON</strong> before testing:</p>
+<pre>// Serialized: '["a@b.com","c@d.com"]'
+// Your regex runs against this JSON string</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Wildcard + Regex Gotcha</strong>
+    When using <code>[*]</code>, the regex tests against the JSON serialization of the result array, not individual elements. If you need to test each element independently, use separate assertions for specific indices (e.g., <code>$.users[0].email</code>, <code>$.users[1].email</code>) or use a pattern that works on the serialized form.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Regex Evaluation Works</h2>
+<pre>// Inside evaluateAssertions()
+case 'regex': {
+  // Step 1: Extract value at JSONPath
+  const val = getByPath(ctx.responseBody, a.jsonPath);
+
+  // Step 2: Serialize to string
+  const str = val === undefined
+    ? 'undefined'
+    : typeof val === 'string'
+      ? val
+      : JSON.stringify(val);
+
+  // Step 3: Test regex
+  try {
+    const re = new RegExp(a.pattern);
+    if (!re.test(str)) {
+      failures.push({
+        path: `(regex:${a.jsonPath})`,
+        expected: `matches /${a.pattern}/`,
+        actual: str.length &gt; 200
+          ? str.slice(0, 200) + '…'
+          : str,
+      });
+    }
+  } catch {
+    // Step 4: Handle invalid regex
+    failures.push({
+      path: `(regex:${a.jsonPath})`,
+      expected: `valid regex /${a.pattern}/`,
+      actual: 'invalid regex pattern',
+    });
+  }
+  break;
+}</pre>
+
+  <h3>Key Behaviors</h3>
+  <table>
+    <tr><th>Scenario</th><th>Behavior</th></tr>
+    <tr><td>Path not found (<code>undefined</code>)</td><td>String becomes <code>"undefined"</code> — regex tests against that literal string</td></tr>
+    <tr><td>Value is a string</td><td>Used directly — no serialization</td></tr>
+    <tr><td>Value is a number, boolean, object, array</td><td>Serialized via <code>JSON.stringify()</code></td></tr>
+    <tr><td>Actual string is &gt; 200 chars</td><td>Truncated with <code>…</code> in failure message</td></tr>
+    <tr><td>Invalid regex pattern</td><td>Caught — failure says <code>"invalid regex pattern"</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Gallery Samples with Regex Assertions</h2>
+  <p>Several gallery presets demonstrate regex assertions:</p>
+
+  <table>
+    <tr><th>Sample</th><th>JSONPath</th><th>Pattern</th><th>What It Checks</th></tr>
+    <tr><td>Pokémon API</td><td><code>$.name</code></td><td><code>^pikachu$</code></td><td>Exact name match</td></tr>
+    <tr><td>Dog API</td><td><code>$.status</code></td><td><code>^success$</code></td><td>Status field is "success"</td></tr>
+    <tr><td>Token Expiry</td><td><code>$.token</code></td><td><code>^eyJ</code> (JWT prefix)</td><td>Token starts with JWT header</td></tr>
+    <tr><td>API Contract</td><td><code>$.title</code></td><td><code>.{3,}</code></td><td>Title has 3+ characters</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Regex vs. Equals</strong>
+    Use regex when you need <em>pattern matching</em> (format validation, partial matches). For exact value comparisons, consider using <code>selective</code> validation mode with <code>expectedFields</code> instead — it's simpler and the error messages are clearer.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Common Regex Patterns</h2>
+
+  <h3>Format Validation</h3>
+  <table>
+    <tr><th>What</th><th>Pattern</th></tr>
+    <tr><td>Email</td><td><code>^[^@]+@[^@]+\.[^@]+$</code></td></tr>
+    <tr><td>UUID v4</td><td><code>^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$</code></td></tr>
+    <tr><td>ISO date</td><td><code>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}</code></td></tr>
+    <tr><td>URL</td><td><code>^https?://</code></td></tr>
+    <tr><td>JWT</td><td><code>^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.</code></td></tr>
+    <tr><td>Semantic version</td><td><code>^\d+\.\d+\.\d+$</code></td></tr>
+  </table>
+
+  <h3>Value Constraints</h3>
+  <table>
+    <tr><th>What</th><th>Pattern</th></tr>
+    <tr><td>Non-empty string</td><td><code>.+</code></td></tr>
+    <tr><td>Only letters</td><td><code>^[a-zA-Z]+$</code></td></tr>
+    <tr><td>Exact value (one of)</td><td><code>^(active|inactive|pending)$</code></td></tr>
+    <tr><td>Starts with prefix</td><td><code>^prefix_</code></td></tr>
+    <tr><td>Ends with suffix</td><td><code>_suffix$</code></td></tr>
+    <tr><td>3–50 characters</td><td><code>^.{3,50}$</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. The JsonPathPicker</h2>
+  <p>When editing a regex assertion in the UI, the <strong>JsonPathPicker</strong> helps you build JSONPath expressions visually:</p>
+
+  <ol>
+    <li>Run the test once to capture a sample response.</li>
+    <li>Click the <strong>path picker icon</strong> next to the JSONPath field.</li>
+    <li>The sample response JSON appears as an interactive tree.</li>
+    <li>Click any value in the tree — the JSONPath is auto-generated.</li>
+    <li>The path is inserted into the assertion's <code>jsonPath</code> field.</li>
+  </ol>
+
+  <p>This eliminates guesswork when writing paths for deeply nested objects.</p>
+
+  <h3>The Regex Builder Modal</h3>
+  <p>For complex patterns, the <strong>Regex Builder</strong> provides:</p>
+  <ul>
+    <li>Visual pattern construction with building blocks</li>
+    <li>Pattern library with common patterns (email, UUID, URL, etc.)</li>
+    <li>Live preview — tests the pattern against the sample value</li>
+    <li>Escape helper — auto-escapes special regex characters</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Validate Email Format</h3>
+  <p><strong>Goal:</strong> Use regex to validate an email field in a JSON response.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users/1</code>.</li>
+    <li>Add assertion: regex, JSONPath <code>$.email</code>, pattern <code>^[^@]+@[^@]+\.[^@]+$</code>.</li>
+    <li>Run — should pass (the email "Sincere@april.biz" matches).</li>
+    <li>Change pattern to <code>^admin@</code> — should fail (email doesn't start with "admin@").</li>
+  </ol>
+
+  <h3>Exercise 2: Validate UUID Format</h3>
+  <p><strong>Goal:</strong> Assert that an ID field matches UUID format.</p>
+  <ol>
+    <li>Create a test to any API that returns UUID IDs.</li>
+    <li>Add assertion: regex, JSONPath <code>$.id</code>, pattern <code>^[0-9a-f]{8}-[0-9a-f]{4}</code>.</li>
+    <li>Run and observe pass/fail.</li>
+    <li>Try the <strong>Regex Builder</strong> to construct the pattern visually.</li>
+  </ol>
+
+  <h3>Exercise 3: Use the JsonPathPicker</h3>
+  <p><strong>Goal:</strong> Navigate deeply nested JSON with the path picker.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users/1</code>.</li>
+    <li>Run the test once to get sample data.</li>
+    <li>Add a regex assertion — click the <strong>path picker icon</strong>.</li>
+    <li>In the JSON tree, click on <code>company → catchPhrase</code>.</li>
+    <li>The picker fills in <code>$.company.catchPhrase</code>.</li>
+    <li>Set pattern to <code>.{5,}</code> (at least 5 characters). Run — should pass.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> — regex variant: <code>{ type: 'regex', jsonPath, pattern }</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>getByPath()</code> — JSONPath extraction (tokenize + walk)</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>tokenizeJsonPath()</code> — splits path into key/index/wildcard tokens</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>walkPath()</code> — recursive traversal with <code>[*]</code> fan-out</td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — regex case in switch</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Numeric and Array Length Assertions</em> — Comparison operators for numbers and array sizes.</li>
+    <li><strong>Previous:</strong> <em>Response Header Assertions</em> — exists, equals, contains, regex operators for headers.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 2 · JSONPath + Regex Assertions · Medium
+  </footer>
+
+</body>
+</html>

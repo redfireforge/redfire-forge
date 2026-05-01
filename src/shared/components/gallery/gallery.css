@@ -975,6 +975,16 @@
   padding: 20px 24px;
 }
 .training-paths-header { margin-bottom: 20px; }
+.training-paths-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 2px 0;
+  margin-bottom: 6px;
+}
+.training-paths-back-btn:hover { text-decoration: underline; }
 .training-paths-title {
   font-size: 1.2rem;
   font-weight: 700;

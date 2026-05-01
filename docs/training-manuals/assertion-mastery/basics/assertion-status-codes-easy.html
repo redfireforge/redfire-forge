@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Status Code Assertions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🎯</div>
+    <h1>Status Code Assertions</h1>
+    <div class="subtitle">Easy — Assertion Mastery Training Manual</div>
+    <p>The most fundamental assertion — verify that the API returns the HTTP status code you expect. Learn exact matching, range patterns, class wildcards, and how status assertions override the default pass/fail heuristic.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Assertion Basics<br />
+      Gallery Sample: <code>test-user-api-smoke</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Why Status Code Assertions Matter</h2>
+  <p>By default, RedfireForge uses a simple heuristic: <strong>any status &lt; 400 is a pass</strong>. This means a 301 redirect or a 204 No Content both pass — even if you expected a 200 OK.</p>
+
+  <p>A status assertion gives you <strong>precise control</strong>:</p>
+
+  <table>
+    <tr><th>Without Assertion</th><th>With Assertion</th></tr>
+    <tr><td>200 → Pass ✅</td><td>200 → <code>expected: '200'</code> → Pass ✅</td></tr>
+    <tr><td>301 → Pass ✅ (wrong!)</td><td>301 → <code>expected: '200'</code> → Fail ❌</td></tr>
+    <tr><td>204 → Pass ✅ (maybe wrong)</td><td>204 → <code>expected: '200'</code> → Fail ❌</td></tr>
+    <tr><td>404 → Fail ❌</td><td>404 → <code>expected: '404'</code> → Pass ✅ (intentional)</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 The statusAsserted Flag</strong>
+    When you add a status assertion, the engine sets <code>statusAsserted = true</code>. This tells <code>buildValidationResult()</code> to use <strong>your assertion result</strong> instead of the default <code>&lt; 400</code> heuristic. This is how you can make a 404 test pass — the assertion says "404 is expected."
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Status Assertion Data Model</h2>
+<pre>// Assertion type for status codes
+{ type: 'status', expected: string }</pre>
+
+  <p>The <code>expected</code> field is a <strong>pattern string</strong> — not just a number. It supports four matching modes:</p>
+
+  <h3>Four Matching Patterns</h3>
+  <table>
+    <tr><th>Pattern</th><th>Example</th><th>Matches</th></tr>
+    <tr><td><strong>Exact</strong></td><td><code>'200'</code></td><td>Only 200</td></tr>
+    <tr><td><strong>Range</strong></td><td><code>'200-299'</code></td><td>200, 201, 204, ..., 299</td></tr>
+    <tr><td><strong>Class wildcard</strong></td><td><code>'2xx'</code></td><td>Any 2xx status (200–299)</td></tr>
+    <tr><td><strong>Comma-separated</strong></td><td><code>'200,201,204'</code></td><td>200 or 201 or 204</td></tr>
+  </table>
+
+  <h3>Examples</h3>
+<pre>// Exact — only 200 passes
+{ type: 'status', expected: '200' }
+
+// Range — any success status
+{ type: 'status', expected: '200-299' }
+
+// Class — any 2xx
+{ type: 'status', expected: '2xx' }
+
+// Comma — specific success codes
+{ type: 'status', expected: '200,201,204' }
+
+// Negative test — expect 404
+{ type: 'status', expected: '404' }
+
+// Accept 4xx or 5xx (error testing)
+{ type: 'status', expected: '4xx,5xx' }</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How matchesStatusPattern Works</h2>
+  <p>The <code>matchesStatusPattern(httpStatus, pattern)</code> function handles all four pattern types:</p>
+
+<pre>function matchesStatusPattern(httpStatus: number, pattern: string): boolean {
+  // Comma-separated: split and recursively check each part
+  if (pattern.includes(',')) {
+    return pattern.split(',').some(p =&gt;
+      matchesStatusPattern(httpStatus, p.trim())
+    );
+  }
+
+  // Range: "200-299"
+  if (pattern.includes('-')) {
+    const [lo, hi] = pattern.split('-').map(Number);
+    return httpStatus &gt;= lo &amp;&amp; httpStatus &lt;= hi;
+  }
+
+  // Class wildcard: "2xx"
+  if (pattern.endsWith('xx')) {
+    const classDigit = parseInt(pattern[0], 10);
+    return Math.floor(httpStatus / 100) === classDigit;
+  }
+
+  // Exact match
+  return httpStatus === Number(pattern);
+}</pre>
+
+  <h3>Evaluation in evaluateAssertions()</h3>
+<pre>// Inside evaluateAssertions()
+case 'status':
+  statusAsserted = true;
+  if (!matchesStatusPattern(ctx.httpStatus, a.expected)) {
+    failures.push({
+      path: '(status)',
+      expected: a.expected,
+      actual: String(ctx.httpStatus),
+      message: `Status ${ctx.httpStatus} does not match pattern "${a.expected}"`,
+    });
+  }
+  break;</pre>
+
+  <div class="callout">
+    <strong>📘 Failure Detail Format</strong>
+    When a status assertion fails, it produces a <code>FailureDetail</code> with <code>path: '(status)'</code>. This special path distinguishes status failures from JSON body failures, which use JSONPath strings like <code>$.items</code>.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Configuring Status Assertions in the UI</h2>
+
+  <h3>Step 1: Open the Validation Tab</h3>
+  <ol>
+    <li>Open the test in the Test Editor.</li>
+    <li>Click the <strong>Validation</strong> tab.</li>
+    <li>In the <strong>Assertions</strong> section, click <strong>+ Add Assertion</strong>.</li>
+  </ol>
+
+  <h3>Step 2: Select Status Type</h3>
+  <ol>
+    <li>From the type dropdown, select <strong>Status Code</strong>.</li>
+    <li>Enter the expected pattern in the <strong>Expected</strong> field.</li>
+  </ol>
+
+  <h3>Step 3: Use Pattern Syntax</h3>
+  <table>
+    <tr><th>Scenario</th><th>Pattern to Enter</th></tr>
+    <tr><td>Must be exactly 200</td><td><code>200</code></td></tr>
+    <tr><td>Any success (2xx)</td><td><code>2xx</code> or <code>200-299</code></td></tr>
+    <tr><td>Created or No Content</td><td><code>201,204</code></td></tr>
+    <tr><td>Testing error handling</td><td><code>404</code> or <code>4xx</code></td></tr>
+    <tr><td>Must not be redirect</td><td><code>200</code> (rejects 301, 302)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: Gallery Sample</h2>
+  <p>Load <code>test-user-api-smoke</code> from Gallery → Tests → "User API Smoke Test".</p>
+
+  <h3>What This Test Does</h3>
+  <ul>
+    <li>Calls <code>GET https://jsonplaceholder.typicode.com/users</code></li>
+    <li>Has 4 assertions including a status assertion:</li>
+  </ul>
+
+<pre>assertions: [
+  { type: 'status', expected: '200' },
+  { type: 'arrayLength', jsonPath: '$.', operator: '>=', value: 1 },
+  { type: 'numeric', jsonPath: '$[0].id', operator: '>', value: 0 },
+  { type: 'regex', jsonPath: '$[0].email', pattern: '^[^@]+@[^@]+\\.[^@]+$' }
+]</pre>
+
+  <h3>Run and Observe</h3>
+  <ol>
+    <li>Run the test — all 4 assertions should pass.</li>
+    <li>Check the results panel — each assertion shows ✅ with its details.</li>
+    <li>The status assertion shows: <code>Status: 200 matches "200" ✅</code></li>
+  </ol>
+
+  <h3>Experiment: Change the Expected Status</h3>
+  <ol>
+    <li>Change the status assertion to <code>201</code>.</li>
+    <li>Run again — the status assertion now fails: <code>Status 200 does not match pattern "201" ❌</code></li>
+    <li>Change to <code>2xx</code> — passes again (200 is in the 2xx class).</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Common Patterns</h2>
+
+  <h3>Pattern: REST CRUD Status Checks</h3>
+  <table>
+    <tr><th>Operation</th><th>Expected Status</th><th>Pattern</th></tr>
+    <tr><td>GET (read)</td><td>200 OK</td><td><code>200</code></td></tr>
+    <tr><td>POST (create)</td><td>201 Created</td><td><code>201</code></td></tr>
+    <tr><td>PUT (update)</td><td>200 or 204</td><td><code>200,204</code></td></tr>
+    <tr><td>DELETE</td><td>200 or 204</td><td><code>200,204</code></td></tr>
+    <tr><td>GET (not found)</td><td>404</td><td><code>404</code></td></tr>
+    <tr><td>POST (bad input)</td><td>400 or 422</td><td><code>400,422</code></td></tr>
+    <tr><td>Any unauthorized</td><td>401 or 403</td><td><code>401,403</code></td></tr>
+  </table>
+
+  <h3>Pattern: Negative Testing</h3>
+  <p>Status assertions let you write tests that <em>expect</em> errors:</p>
+<pre>// Test: verify 404 for missing resource
+{ type: 'status', expected: '404' }
+
+// Test: verify 401 without auth
+{ type: 'status', expected: '401' }
+
+// Test: verify 400 with invalid payload
+{ type: 'status', expected: '400' }</pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Only One Status Assertion</strong>
+    You can add multiple assertions to a test, but only one should be of type <code>status</code>. Multiple status assertions would both set <code>statusAsserted = true</code> and potentially conflict. Use comma-separated patterns if you need to accept multiple codes.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Exact Status Match</h3>
+  <p><strong>Goal:</strong> Add a status assertion and see it pass and fail.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/posts/1</code>.</li>
+    <li>Add assertion: status = <code>200</code>.</li>
+    <li>Run — verify it passes.</li>
+    <li>Change URL to <code>/posts/99999</code> — JSONPlaceholder returns 404. Verify the assertion fails.</li>
+    <li>Change expected to <code>404</code> — verify it now passes (negative test).</li>
+  </ol>
+
+  <h3>Exercise 2: Class Wildcard</h3>
+  <p><strong>Goal:</strong> Use <code>2xx</code> to accept any success status.</p>
+  <ol>
+    <li>Create a test: POST <code>https://jsonplaceholder.typicode.com/posts</code> with a JSON body.</li>
+    <li>Add assertion: status = <code>2xx</code>.</li>
+    <li>Run — JSONPlaceholder returns 201 Created. Verify the assertion passes.</li>
+    <li>Change to <code>200</code> — it should fail (201 ≠ 200).</li>
+  </ol>
+
+  <h3>Exercise 3: Comma-Separated Pattern</h3>
+  <p><strong>Goal:</strong> Accept multiple specific status codes.</p>
+  <ol>
+    <li>Create a test: PUT <code>https://jsonplaceholder.typicode.com/posts/1</code> with a JSON body.</li>
+    <li>Add assertion: status = <code>200,204</code>.</li>
+    <li>Run and verify — either 200 or 204 should pass.</li>
+    <li>Add another test for DELETE with the same pattern.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> type — <code>{ type: 'status', expected: string }</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — status case; <code>matchesStatusPattern()</code></td></tr>
+    <tr><td><code>src/engine/validationResult.ts</code></td><td><code>buildValidationResult()</code> — <code>statusAsserted</code> flag overrides default heuristic</td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>UI: status assertion editor, expected pattern input</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Response Time Assertions</em> — Set latency thresholds and catch performance regressions.</li>
+    <li><strong>Path overview:</strong> <em>Assertion Mastery Overview</em> — All 7 types, 3 validation modes, presets.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 1 · Status Code Assertions · Easy
+  </footer>
+
+</body>
+</html>
