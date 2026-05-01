@@ -1,12 +1,12 @@
 # Workflow Feature Branch - Refactoring & Test Coverage Plan
 
 ## Current Status
-- Overall Coverage: 91.47% lines | 90.23% stmts | 87.31% funcs | 85.14% branch ✅ (>90% target met)
-- Tests: 219 test files, 4966 tests passing ✅
+- Overall Coverage: >90% lines ✅ (target met)
+- Tests: 247 test files, 5487 tests passing ✅
 - E2E Tests: 264 tests passing (2 skipped) ✅
-- Branch: `feature/response-headers-request-log` (merging to `develop`)
+- Branch: `feature/workflow-version-history` (merging to `develop`)
 - Version: 0.5.5-beta.2
-- Last updated: 2026-04-30
+- Last updated: 2026-05-01
 
 ## Completed ✅
 
@@ -14,8 +14,9 @@
 All coverage targets met after adding 192 new unit tests across 7 files.
 
 ### 2. Monolithic Components Refactored ✅
-- **WorkflowDesigner.tsx**: 1432 → 893 lines (6 hooks extracted)
-- **App.tsx**: 910 → 858 lines (useTheme hook extracted)
+- **WorkflowDesigner.tsx**: 1432 → 949 lines (6 hooks + useWorkflowResolvers extracted)
+- **App.tsx**: 913 → 884 lines (useTheme + useWorkflowImportExport hooks extracted)
+- **ScenarioBuilder.tsx**: 984 → 702 lines (useScenarioMutations hook extracted)
 - **expressionFunctions.ts**: 957 → 9 modules
 
 ## Refactoring Tasks

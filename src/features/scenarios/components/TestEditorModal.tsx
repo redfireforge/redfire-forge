@@ -15,11 +15,15 @@ import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import ExportOptionsPopover from './ExportOptionsPopover';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
+import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
+import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
+import { createSnapshot } from '../utils/testDefinitionVersioning';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
 import { proxyFetch } from '../../../engine/executor';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
 import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
+import { useToast } from '../../../shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { validate } from '../../../engine/validator';
 import CsvTemplateExportModal from './CsvTemplateExportModal';
@@ -30,7 +34,7 @@ import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowE
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
-export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract';
+export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'history';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
 
 export type TestEditingContext = { fgId: string; scenarioId: string; testId: string | 'new' };
@@ -51,6 +55,9 @@ export interface TestEditorModalProps {
   /** Parent feature group id, scenario id, and test id for auth inheritance resolution */
   editingTest: TestEditingContext;
   onExportTest: (scenario: Scenario, versionOpts?: VersionExportOptions) => void;
+  onVersionRestore: (version: import('../../../shared/types').TestDefinitionVersion) => void;
+  onVersionDelete: (versionId: string) => void;
+  onVersionRename: (versionId: string, label: string) => void;
 }
 
 export default function TestEditorModal({
@@ -68,9 +75,13 @@ export default function TestEditorModal({
   featureGroups,
   editingTest,
   onExportTest,
+  onVersionRestore,
+  onVersionDelete,
+  onVersionRename,
 }: TestEditorModalProps) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const toast = useToast();
 
   const [curlText, setCurlText] = useState('');
   const [generatedCurl, setGeneratedCurl] = useState('');
@@ -497,6 +508,10 @@ export default function TestEditorModal({
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [showExportPopover, setShowExportPopover] = useState(false);
+  const [diffVersions, setDiffVersions] = useState<{ older: import('../../../shared/types').TestDefinitionVersion; newer: import('../../../shared/types').TestDefinitionVersion } | null>(null);
+
+  const defVersions = draft.definitionVersions ?? [];
+  const defVersionCount = defVersions.length;
 
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim() && p.enabled).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
@@ -531,7 +546,7 @@ export default function TestEditorModal({
                 onClick={() => pickJsonFile((raw) => {
                   const data = unwrapImport(raw);
                   const t = data as Scenario;
-                  if (!t.name || !t.url || !t.method) { alert('Invalid file: expected a test with name, url, and method.'); return; }
+                  if (!t.name || !t.url || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name, url, and method.'); return; }
                   const cur = draftRef.current;
                   onDraftChange({ ...t, id: cur.id });
                   syncParamsFromUrl(t.url || '');
@@ -668,6 +683,11 @@ export default function TestEditorModal({
               <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
                 Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
               </button>
+              {!isNew && (
+                <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')}>
+                  History {defVersionCount > 0 && <span className="tab-badge">{defVersionCount}</span>}
+                </button>
+              )}
             </div>
 
             <div className="builder-tab-content">
@@ -759,10 +779,30 @@ export default function TestEditorModal({
                   }}
                 />
               )}
+
+              {activeTab === 'history' && (
+                <TestDefinitionVersionPanel
+                  versions={defVersions}
+                  currentSnapshot={createSnapshot(draft)}
+                  onRestore={onVersionRestore}
+                  onDelete={onVersionDelete}
+                  onRename={onVersionRename}
+                  onCompare={(older, newer) => setDiffVersions({ older, newer })}
+                />
+              )}
             </div>
           </div>
         )}
       </WorkflowEditorModalFrame>
+
+      {diffVersions && (
+        <TestDefinitionVersionDiff
+          open
+          older={diffVersions.older}
+          newer={diffVersions.newer}
+          onClose={() => setDiffVersions(null)}
+        />
+      )}
 
       {csvExportOpen && (
         <CsvTemplateExportModal

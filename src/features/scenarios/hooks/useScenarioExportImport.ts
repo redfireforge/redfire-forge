@@ -19,6 +19,8 @@ interface UseScenarioExportImportParams {
 export interface VersionImportOptions {
   importResponseVersions: boolean;
   importRulesVersions: boolean;
+  importDefinitionVersions: boolean;
+  importStructureLog: boolean;
 }
 
 export interface PendingImport {
@@ -50,6 +52,8 @@ export function useScenarioExportImport({
     return stripVersions(data, {
       includeResponseVersions: opts.importResponseVersions,
       includeRulesVersions: opts.importRulesVersions,
+      includeDefinitionVersions: opts.importDefinitionVersions,
+      includeStructureLog: opts.importStructureLog,
     });
   }, []);
 

@@ -5,6 +5,7 @@ import { saveJsonFile, openJsonFile } from '../../../shared/utils/fileSaver';
 import { isTauri } from '../../../shared/utils/platform';
 import { v4 as uuidv4 } from 'uuid';
 import SidebarContextMenu from './SidebarContextMenu';
+import { useToast } from '../../../shared/hooks/useToast';
 
 interface Props {
   collections: RequestCollection[];
@@ -94,7 +95,7 @@ async function pickImportFile(): Promise<string | null> {
       if (!file) { resolve(null); return; }
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => { alert('Failed to read file.'); resolve(null); };
+      reader.onerror = () => { resolve(null); };
       reader.readAsText(file);
     };
     input.click();
@@ -122,6 +123,7 @@ export default function RequestsSidebar({
   onImportCollection, onImportFolder,
   onAddGroup, onRenameGroup, onDeleteGroup, onMoveToGroup, onDuplicateGroup,
 }: Props) {
+  const toast = useToast();
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set(collections.map(c => c.id)));
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<CtxMenu>(null);
@@ -196,7 +198,7 @@ export default function RequestsSidebar({
         : col?.folders ?? [];
       const nameExists = siblings.some(f => f.name.toLowerCase() === newFolderName.trim().toLowerCase());
       if (nameExists) {
-        alert(`A folder or sub-collection with the name "${newFolderName.trim()}" already exists at this level.`);
+        toast.show('warning', 'Name already exists', `A folder or sub-collection with the name "${newFolderName.trim()}" already exists at this level.`);
         return;
       }
       if (newFolderTarget.isSubCollection) {
@@ -217,7 +219,7 @@ export default function RequestsSidebar({
       const siblings = findSiblingFolders(col?.folders ?? [], renamingFolder.folderId) ?? [];
       const nameExists = siblings.some(f => f.id !== renamingFolder.folderId && f.name.toLowerCase() === renameVal.trim().toLowerCase());
       if (nameExists) {
-        alert(`A folder or sub-collection with the name "${renameVal.trim()}" already exists at this level.`);
+        toast.show('warning', 'Name already exists', `A folder or sub-collection with the name "${renameVal.trim()}" already exists at this level.`);
         return;
       }
       onRenameFolder(renamingFolder.colId, renamingFolder.folderId, renameVal.trim());
@@ -289,7 +291,7 @@ export default function RequestsSidebar({
       if (json.type === 'requests-collection' && json.data) {
         const incoming = json.data as RequestCollection;
         if (!incoming.name || !incoming.requests) {
-          alert('Invalid collection format: missing required fields.'); return;
+          toast.show('error', 'Invalid collection format', 'Missing required fields.'); return;
         }
         const nameExists = collections.some(c => c.name.toLowerCase() === incoming.name.toLowerCase());
         const imported: RequestCollection = {
@@ -304,7 +306,7 @@ export default function RequestsSidebar({
       } else if (json.type === 'requests-folder' && json.data && colId) {
         const incoming = json.data as RequestFolder;
         if (!incoming.name || !incoming.requests) {
-          alert('Invalid folder format: missing required fields.'); return;
+          toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
         }
         const col = collections.find(c => c.id === colId);
         const siblings = col?.folders ?? [];
@@ -340,12 +342,12 @@ export default function RequestsSidebar({
           onImportCollection(imported);
           importedCount++;
         }
-        if (importedCount === 0) alert('No valid collections found in the file.');
+        if (importedCount === 0) toast.show('warning', 'No valid collections found in the file');
       } else {
-        alert('Unrecognized file format. Expected a Requests collection, folder, group, or all-collections export.');
+        toast.show('error', 'Unrecognized file format', 'Expected a Requests collection, folder, group, or all-collections export.');
       }
     } catch {
-      alert('Invalid JSON file. Please select a valid export file.');
+      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
     }
   };
 
@@ -385,7 +387,7 @@ export default function RequestsSidebar({
       if (json.type === 'requests-folder' && json.data) {
         const incoming = json.data as RequestFolder;
         if (!incoming.name || !incoming.requests) {
-          alert('Invalid folder format: missing required fields.'); return;
+          toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
         }
         const parent = findFolderDeep(collections.find(c => c.id === colId)?.folders ?? [], parentFolderId);
         const siblings = parent?.folders ?? [];
@@ -396,10 +398,10 @@ export default function RequestsSidebar({
         });
         onImportFolder(colId, imported, parentFolderId);
       } else {
-        alert('Expected a folder/sub-collection export file.');
+        toast.show('error', 'Unexpected file type', 'Expected a folder/sub-collection export file.');
       }
     } catch {
-      alert('Invalid JSON file. Please select a valid export file.');
+      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
     }
   };
 

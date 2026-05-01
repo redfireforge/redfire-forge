@@ -1,5 +1,9 @@
 import { useState, useCallback } from 'react';
 import type { FeatureGroup, TestScenario, Scenario } from '../../../shared/types';
+import {
+  logScenarioMovedIn, logScenarioMovedOut,
+  logTestMovedIn, logTestMovedOut,
+} from '../utils/structureChangeLog';
 
 interface UseScenarioDragDropParams {
   setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
@@ -16,10 +20,13 @@ export function useScenarioDragDrop({
     if (fromFgId === toFgId && !beforeScId) return;
     setFeatureGroups((prev) => {
       let scenario: TestScenario | undefined;
+      const fromFg = prev.find(fg => fg.id === fromFgId);
+      const toFg = prev.find(fg => fg.id === toFgId);
       const without = prev.map((fg) => {
         if (fg.id !== fromFgId) return fg;
         scenario = fg.scenarios.find((sc) => sc.id === scenarioId);
-        return { ...fg, scenarios: fg.scenarios.filter((sc) => sc.id !== scenarioId) };
+        const updated = { ...fg, scenarios: fg.scenarios.filter((sc) => sc.id !== scenarioId) };
+        return (fromFgId !== toFgId && scenario) ? logScenarioMovedOut(updated, scenario.name, toFg?.name ?? '') : updated;
       });
       if (!scenario) return prev;
       return without.map((fg) => {
@@ -27,10 +34,13 @@ export function useScenarioDragDrop({
         const scenarios = fg.scenarios.filter((sc) => sc.id !== scenarioId);
         if (beforeScId) {
           const idx = scenarios.findIndex((sc) => sc.id === beforeScId);
-          if (idx >= 0) { scenarios.splice(idx, 0, scenario!); return { ...fg, scenarios }; }
+          if (idx >= 0) { scenarios.splice(idx, 0, scenario!); }
+          else scenarios.push(scenario!);
+        } else {
+          scenarios.push(scenario!);
         }
-        scenarios.push(scenario!);
-        return { ...fg, scenarios };
+        const updated = { ...fg, scenarios };
+        return (fromFgId !== toFgId) ? logScenarioMovedIn(updated, scenario!.name, fromFg?.name ?? '') : updated;
       });
     });
   }, [setFeatureGroups]);
@@ -39,9 +49,13 @@ export function useScenarioDragDrop({
     if (fromFgId === toFgId && fromScId === toScId && !beforeTestId) return;
     setFeatureGroups((prev) => {
       let test: Scenario | undefined;
+      const fromFg = prev.find(fg => fg.id === fromFgId);
+      const toFg = prev.find(fg => fg.id === toFgId);
+      const fromSc = fromFg?.scenarios.find(sc => sc.id === fromScId);
+      const toSc = toFg?.scenarios.find(sc => sc.id === toScId);
       const without = prev.map((fg) => {
         if (fg.id !== fromFgId) return fg;
-        return {
+        const updated = {
           ...fg,
           scenarios: fg.scenarios.map((sc) => {
             if (sc.id !== fromScId) return sc;
@@ -49,23 +63,27 @@ export function useScenarioDragDrop({
             return { ...sc, tests: sc.tests.filter((t) => t.id !== testId) };
           }),
         };
+        return (fromFgId !== toFgId && test) ? logTestMovedOut(updated, test.name, fromSc?.name ?? '', toFg?.name ?? '') : updated;
       });
       if (!test) return prev;
       return without.map((fg) => {
         if (fg.id !== toFgId) return fg;
-        return {
+        const updated = {
           ...fg,
           scenarios: fg.scenarios.map((sc) => {
             if (sc.id !== toScId) return sc;
             const tests = sc.tests.filter((t) => t.id !== testId);
             if (beforeTestId) {
               const idx = tests.findIndex((t) => t.id === beforeTestId);
-              if (idx >= 0) { tests.splice(idx, 0, test!); return { ...sc, tests }; }
+              if (idx >= 0) { tests.splice(idx, 0, test!); }
+              else tests.push(test!);
+            } else {
+              tests.push(test!);
             }
-            tests.push(test!);
             return { ...sc, tests };
           }),
         };
+        return (fromFgId !== toFgId) ? logTestMovedIn(updated, test!.name, toSc?.name ?? '', fromFg?.name ?? '') : updated;
       });
     });
   }, [setFeatureGroups]);

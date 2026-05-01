@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
+  - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete
+  - `WorkflowVersionPanel` with visual diff of node/edge/variable changes
+  - `ScriptLibraryVersionPanel` with code diff
+  - `RequestDefinitionVersionPanel` for saved request snapshots
+  - `StructureChangeLogPanel` — audit trail of feature group/scenario/test CRUD operations
+  - Export options popover with version inclusion toggle
+  - Import version modal with selective version import
+  - Per-workflow environment persistence (`lastSelectedEnvId` saved/restored on switch)
+  - p50 response time metric added to `computeMetrics()`
+  - Histogram distribution tab in Run Comparison Panel
 - **Response Headers in Results** — Response Detail Modal now shows response headers in a table; captured from both harness and workflow executors
 - **Request Log** — Response Detail Modal shows the resolved request headers and body as sent; Authorization header values are masked (`••••••••`) for security
 - **Structured JSON Body Assertions**
@@ -31,6 +42,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Pagination with configurable page size (12 per page)
 
 ### Refactored
+- **Code Consolidation (Round 3)**
+  - `ScenarioBuilder.tsx` reduced from 984 → 702 lines — extracted `useScenarioMutations` hook (376 lines)
+  - `WorkflowDesigner.tsx` reduced from 978 → 949 lines — extracted `useWorkflowResolvers` hook (per-workflow env + HTTP resolver callbacks)
+  - `App.tsx` reduced from 913 → 884 lines — extracted `useWorkflowImportExport` hook
 - **Code Consolidation (Round 2 continued)**
   - `WorkflowDesigner.tsx` reduced from 1061 → 893 lines (−168 lines) — extracted `useWorkflowPersistence` and `useWorkflowExtractionSample` hooks
   - Shim removal: deleted 3 re-export shim files for `sampleWorkflows`, migrated 2 legacy YAML specs into `galleries/catalog-specs`
@@ -43,7 +58,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Tests
 - **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
-- **264 E2E tests passing** (2 skipped), **4966 unit tests passing** (219 files)
+- **264 E2E tests passing** (2 skipped), **5487 unit tests passing** (247 files)
 
 - **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
   - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.

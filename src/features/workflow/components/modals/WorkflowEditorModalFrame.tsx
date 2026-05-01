@@ -22,6 +22,10 @@ interface Props extends UseModalFrameOptions {
   headerClassName?: string;
   /** When true, automatically expand the modal (e.g. when a side panel opens). */
   forceExpanded?: boolean;
+  /** Hide the expand/shrink toggle buttons (header + footer). */
+  hideExpandButton?: boolean;
+  /** Hide the × close button in the header. */
+  hideCloseButton?: boolean;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -45,6 +49,8 @@ export default function WorkflowEditorModalFrame({
   closeAriaLabel = 'Close',
   headerClassName,
   forceExpanded,
+  hideExpandButton,
+  hideCloseButton,
   initialExpanded,
   expandMode,
   minWidth,
@@ -78,10 +84,12 @@ export default function WorkflowEditorModalFrame({
           <h3>{title}</h3>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
             {headerActions}
-            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
-            <button type="button" className="ram-modal-close" onClick={onClose} aria-label={closeAriaLabel}>
-              &times;
-            </button>
+            {!hideExpandButton && <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />}
+            {!hideCloseButton && (
+              <button type="button" className="ram-modal-close" onClick={onClose} aria-label={closeAriaLabel}>
+                &times;
+              </button>
+            )}
           </div>
         </div>
 
@@ -95,7 +103,7 @@ export default function WorkflowEditorModalFrame({
 
         {footer ? (
           <div className={footerClassName}>
-            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
+            {!hideExpandButton && <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />}
             {footer}
           </div>
         ) : null}

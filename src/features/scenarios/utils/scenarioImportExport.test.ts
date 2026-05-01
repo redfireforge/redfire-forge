@@ -184,28 +184,28 @@ describe('stripVersions', () => {
 
   it('strips response versions when includeResponseVersions is false', () => {
     const t = makeTest([{ id: '1' }], [{ id: '2' }]);
-    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: true }) as typeof t;
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: true, includeDefinitionVersions: true }) as typeof t;
     expect(result.validation.responseVersions).toBeUndefined();
     expect(result.validation.rulesVersions).toEqual([{ id: '2' }]);
   });
 
   it('strips rules versions when includeRulesVersions is false', () => {
     const t = makeTest([{ id: '1' }], [{ id: '2' }]);
-    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: false }) as typeof t;
+    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: false, includeDefinitionVersions: true }) as typeof t;
     expect(result.validation.responseVersions).toEqual([{ id: '1' }]);
     expect(result.validation.rulesVersions).toBeUndefined();
   });
 
   it('strips both when both are false', () => {
     const t = makeTest([{ id: '1' }], [{ id: '2' }]);
-    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false }) as typeof t;
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false, includeDefinitionVersions: true }) as typeof t;
     expect(result.validation.responseVersions).toBeUndefined();
     expect(result.validation.rulesVersions).toBeUndefined();
   });
 
   it('keeps both when both are true', () => {
     const t = makeTest([{ id: '1' }], [{ id: '2' }]);
-    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: true }) as typeof t;
+    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: true, includeDefinitionVersions: true }) as typeof t;
     expect(result.validation.responseVersions).toEqual([{ id: '1' }]);
     expect(result.validation.rulesVersions).toEqual([{ id: '2' }]);
   });
@@ -215,20 +215,20 @@ describe('stripVersions', () => {
       name: 'FG1',
       scenarios: [{ name: 'S1', tests: [makeTest([{ id: '1' }], [{ id: '2' }])] }],
     };
-    const result = stripVersions(fg, { includeResponseVersions: false, includeRulesVersions: false }) as typeof fg;
+    const result = stripVersions(fg, { includeResponseVersions: false, includeRulesVersions: false, includeDefinitionVersions: true }) as typeof fg;
     expect(result.scenarios[0].tests[0].validation.responseVersions).toBeUndefined();
     expect(result.scenarios[0].tests[0].validation.rulesVersions).toBeUndefined();
   });
 
   it('handles array input', () => {
     const arr = [makeTest([{ id: '1' }], undefined)];
-    const result = stripVersions(arr, { includeResponseVersions: false, includeRulesVersions: true }) as typeof arr;
+    const result = stripVersions(arr, { includeResponseVersions: false, includeRulesVersions: true, includeDefinitionVersions: true }) as typeof arr;
     expect(result[0].validation.responseVersions).toBeUndefined();
   });
 
   it('returns data unchanged when no validationConfig', () => {
     const t = { name: 'T1', url: '/a', method: 'GET' };
-    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false });
+    const result = stripVersions(t, { includeResponseVersions: false, includeRulesVersions: false, includeDefinitionVersions: true });
     expect(result).toEqual(t);
   });
 });
@@ -250,12 +250,12 @@ describe('countVersions', () => {
   });
 
   it('returns zeros for data without versions', () => {
-    expect(countVersions({ name: 'test' })).toEqual({ responseVersionCount: 0, rulesVersionCount: 0 });
+    expect(countVersions({ name: 'test' })).toEqual({ responseVersionCount: 0, rulesVersionCount: 0, definitionVersionCount: 0, structureLogCount: 0 });
   });
 
   it('counts versions in a single test', () => {
     const t = { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }], rulesVersions: [{ id: '2' }, { id: '3' }] } };
-    expect(countVersions(t)).toEqual({ responseVersionCount: 1, rulesVersionCount: 2 });
+    expect(countVersions(t)).toEqual({ responseVersionCount: 1, rulesVersionCount: 2, definitionVersionCount: 0, structureLogCount: 0 });
   });
 
   it('handles arrays', () => {
@@ -263,7 +263,7 @@ describe('countVersions', () => {
       { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } },
       { url: '/b', method: 'GET', validation: { rulesVersions: [{ id: '2' }] } },
     ];
-    expect(countVersions(arr)).toEqual({ responseVersionCount: 1, rulesVersionCount: 1 });
+    expect(countVersions(arr)).toEqual({ responseVersionCount: 1, rulesVersionCount: 1, definitionVersionCount: 0, structureLogCount: 0 });
   });
 });
 
@@ -274,7 +274,7 @@ describe('wrapExport with version options', () => {
       name: 'T', url: '/x', method: 'GET',
       validation: { responseVersions: [{ id: '1' }], rulesVersions: [{ id: '2' }] },
     };
-    const result = wrapExport(test, 'test', {}, { includeResponseVersions: false, includeRulesVersions: false });
+    const result = wrapExport(test, 'test', {}, { includeResponseVersions: false, includeRulesVersions: false, includeDefinitionVersions: true });
     const data = result.data as typeof test;
     expect(data.validation.responseVersions).toBeUndefined();
     expect(data.validation.rulesVersions).toBeUndefined();
@@ -287,7 +287,7 @@ describe('wrapExport with version options', () => {
       name: 'T', url: '/x', method: 'GET',
       validation: { responseVersions: [{ id: '1' }] },
     };
-    const result = wrapExport(test, 'test', {}, { includeResponseVersions: true, includeRulesVersions: true });
+    const result = wrapExport(test, 'test', {}, { includeResponseVersions: true, includeRulesVersions: true, includeDefinitionVersions: true });
     expect(result._exportMeta?.includesResponseVersions).toBe(true);
     expect(result._exportMeta?.includesRulesVersions).toBe(true);
   });
