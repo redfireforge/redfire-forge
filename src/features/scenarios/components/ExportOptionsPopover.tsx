@@ -51,8 +51,8 @@ export default function ExportOptionsPopover({ data, onExport, onClose }: Props)
       <div className="export-opts-title">Export Options</div>
       <VersionCheckboxGroup
         counts={counts}
-        values={{ responseVersions: opts.includeResponseVersions, rulesVersions: opts.includeRulesVersions }}
-        onChange={(v) => setOpts({ includeResponseVersions: v.responseVersions, includeRulesVersions: v.rulesVersions })}
+        values={{ responseVersions: opts.includeResponseVersions, rulesVersions: opts.includeRulesVersions, definitionVersions: opts.includeDefinitionVersions, structureLog: opts.includeStructureLog }}
+        onChange={(v) => setOpts({ includeResponseVersions: v.responseVersions, includeRulesVersions: v.rulesVersions, includeDefinitionVersions: v.definitionVersions, includeStructureLog: v.structureLog })}
       />
       <div className="export-opts-actions">
         <button className="btn btn-xs" onClick={onClose}>Cancel</button>

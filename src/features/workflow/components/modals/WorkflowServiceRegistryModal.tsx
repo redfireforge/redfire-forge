@@ -180,15 +180,17 @@ export default function WorkflowServiceRegistryModal({
       open={open}
       title={`Service Registry${workflowName ? ` — ${workflowName}` : ''}`}
       onClose={onClose}
-      overlayClassName="wf-svc-registry-overlay"
-      dialogClassName="wf-svc-registry-modal wf-svc-fullscreen"
+      dialogClassName="wf-svc-registry-modal"
+      initialExpanded
+      expandMode="fullscreen"
+      hideExpandButton
+      hideCloseButton
       bodyScrollable={false}
       headerClassName="settings-header"
-      footerClassName="import-center-footer"
       footer={(
         <>
           <button className="btn btn-sm" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={apply}>Apply</button>
+          <button className="btn btn-sm btn-primary" onClick={apply}>Apply</button>
         </>
       )}
     >

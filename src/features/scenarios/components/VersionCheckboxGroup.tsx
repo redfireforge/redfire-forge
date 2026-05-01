@@ -1,11 +1,15 @@
 interface VersionCounts {
   responseVersionCount: number;
   rulesVersionCount: number;
+  definitionVersionCount: number;
+  structureLogCount: number;
 }
 
 interface VersionToggles {
   responseVersions: boolean;
   rulesVersions: boolean;
+  definitionVersions: boolean;
+  structureLog: boolean;
 }
 
 interface Props {
@@ -35,6 +39,24 @@ export default function VersionCheckboxGroup({ counts, values, onChange }: Props
         />
         <span>Rules Versions</span>
         <span className="export-opts-count">({counts.rulesVersionCount})</span>
+      </label>
+      <label className="export-opts-check">
+        <input
+          type="checkbox"
+          checked={values.definitionVersions}
+          onChange={(e) => onChange({ ...values, definitionVersions: e.target.checked })}
+        />
+        <span>Definition Versions</span>
+        <span className="export-opts-count">({counts.definitionVersionCount})</span>
+      </label>
+      <label className="export-opts-check">
+        <input
+          type="checkbox"
+          checked={values.structureLog}
+          onChange={(e) => onChange({ ...values, structureLog: e.target.checked })}
+        />
+        <span>Structure History</span>
+        <span className="export-opts-count">({counts.structureLogCount})</span>
       </label>
     </>
   );

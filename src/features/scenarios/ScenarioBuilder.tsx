@@ -1,21 +1,22 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, AuthConfig, GlobalAuthProfile } from '../../shared/types';
 import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
 import CsvImportModal from './components/CsvImportModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { buildSearchText, evaluateQuery, parseSearchQuery } from './utils/scenarioSearch';
-import TestEditorModal, { type TestEditorInputMode, type TestEditorTab } from './components/TestEditorModal';
-import { emptyTest } from './utils/testEditorUtils';
+import TestEditorModal from './components/TestEditorModal';
 import AuthConfigPanel from '../requests/components/AuthConfigPanel';
 import CopyTestModal from './components/CopyTestModal';
 import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
+import { useScenarioMutations } from './hooks/useScenarioMutations';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
 import ExportOptionsPopover from './components/ExportOptionsPopover';
 import ImportVersionModal from './components/ImportVersionModal';
 import type { VersionExportOptions } from './utils/scenarioImportExport';
+import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
+import StructureChangeLogPanel from './components/StructureChangeLogPanel';
 
 const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },
@@ -80,29 +81,41 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     }
     return null;
   }, [allAuthProfiles]);
-  const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
-  const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
 
-  const [namingFeature, setNamingFeature] = useState(false);
-  const [namingScenario, setNamingScenario] = useState<string | null>(null);
-  const [newName, setNewName] = useState('');
+  const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
+  const [showSecret, setShowSecret] = useState(false);
 
-  const [editingFeatureName, setEditingFeatureName] = useState<string | null>(null);
-  const [editingScenarioName, setEditingScenarioName] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
+  const mutations = useScenarioMutations({
+    featureGroups, setFeatureGroups, unassociatedFeatureGroups, selectedSvcId, selectedEnvId,
+    clearAuthVerifyResult: () => setAuthVerifyResult(null),
+  });
+  const {
+    expandedFeatures, expandedScenarios,
+    namingFeature, setNamingFeature,
+    namingScenario, setNamingScenario,
+    newName, setNewName,
+    editingFeatureName, setEditingFeatureName,
+    editingScenarioName, setEditingScenarioName,
+    editName, setEditName,
+    editingFeatureAuth, setEditingFeatureAuth,
+    editingScenarioAuth, setEditingScenarioAuth,
+    editingTest, setEditingTest,
+    draft, setDraft,
+    inputMode, setInputMode,
+    activeTab, setActiveTab,
+    confirmDialog, setConfirmDialog,
+    copyingTest, setCopyingTest,
+    addFeatureGroup, assignFeatureGroup, removeFeatureGroup, renameFeatureGroup,
+    addScenario, removeScenario, renameScenario,
+    updateFeatureAuth, toggleFeatureAuth,
+    updateScenarioAuth, toggleScenarioAuth,
+    startNewTest, startEditTest, saveTest, removeTest,
+    startCopyTest, confirmCopyTest,
+    handleVersionRestore, handleVersionDelete, handleVersionRename,
+    toggleFeature, toggleScenario,
+  } = mutations;
 
-  // Feature auth editing
-  const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
-
-  // Scenario auth editing
-  const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
-
-  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new' } | null>(null);
-  const [draft, setDraft] = useState<Scenario>(emptyTest());
-
-  // Test editor modal (controlled by parent; UI lives in TestEditorModal)
-  const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
-  const [activeTab, setActiveTab] = useState<TestEditorTab>('params');
+  const [showStructureLog, setShowStructureLog] = useState<string | null>(null);
 
   // Move dialog state
   const [moveDialog, setMoveDialog] = useState<{
@@ -151,229 +164,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
   } = useScenarioDragDrop({ setFeatureGroups });
   const dragHandleActive = useRef(false);
 
-  // Confirm modal state
-  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
-
   // load/save is handled by App.tsx to avoid overwriting unfiltered groups
-
-  // Feature Group CRUD
-  const addFeatureGroup = () => {
-    if (!newName.trim() || !selectedSvcId || !selectedEnvId) return;
-    const fg: FeatureGroup = { id: uuidv4(), name: newName.trim(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: [] };
-    setFeatureGroups((prev) => [...prev, fg]);
-    setExpandedFeatures((prev) => new Set(prev).add(fg.id));
-    setNamingFeature(false);
-    setNewName('');
-  };
-
-  const assignFeatureGroup = (fgId: string, svcId: string, envId: string) => {
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === fgId ? { ...fg, microserviceId: svcId, environmentId: envId } : fg
-    ));
-  };
-
-  const removeFeatureGroup = (id: string) => {
-    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === id);
-    const testCount = fg ? fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) : 0;
-    const detail = testCount > 0 ? ` It contains ${fg!.scenarios.length} scenario(s) and ${testCount} test(s).` : '';
-    setConfirmDialog({
-      title: 'Delete Feature Group',
-      message: `Delete feature group "${fg?.name}"?${detail} This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
-        setConfirmDialog(null);
-      },
-    });
-  };
-
-  const renameFeatureGroup = (id: string) => {
-    if (!editName.trim()) return;
-    setFeatureGroups((prev) => prev.map((fg) => fg.id === id ? { ...fg, name: editName.trim() } : fg));
-    setEditingFeatureName(null);
-    setEditName('');
-  };
-
-  const addScenario = (featureId: string) => {
-    if (!newName.trim()) return;
-    const sc: TestScenario = { id: uuidv4(), name: newName.trim(), tests: [] };
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId ? { ...fg, scenarios: [...fg.scenarios, sc] } : fg
-    ));
-    setExpandedScenarios((prev) => new Set(prev).add(sc.id));
-    setNamingScenario(null);
-    setNewName('');
-  };
-
-  const removeScenario = (featureId: string, scenarioId: string) => {
-    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === featureId);
-    const sc = fg?.scenarios.find((s) => s.id === scenarioId);
-    const testCount = sc ? sc.tests.length : 0;
-    const detail = testCount > 0 ? ` It contains ${testCount} test(s).` : '';
-    setConfirmDialog({
-      title: 'Delete Scenario',
-      message: `Delete scenario "${sc?.name}"?${detail} This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.map((f) =>
-          f.id === featureId ? { ...f, scenarios: f.scenarios.filter((s) => s.id !== scenarioId) } : f
-        ));
-        setConfirmDialog(null);
-      },
-    });
-  };
-
-  const renameScenario = (featureId: string, scenarioId: string) => {
-    if (!editName.trim()) return;
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId
-        ? { ...fg, scenarios: fg.scenarios.map((sc) => sc.id === scenarioId ? { ...sc, name: editName.trim() } : sc) }
-        : fg
-    ));
-    setEditingScenarioName(null);
-    setEditName('');
-  };
-
-  // Feature auth
-  const updateFeatureAuth = (featureId: string, auth: AuthConfig, globalAuthProfileId?: string) => {
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId ? { ...fg, auth, globalAuthProfileId: globalAuthProfileId ?? (auth.type === 'inherit' ? fg.globalAuthProfileId : undefined) } : fg
-    ));
-  };
-
-  const toggleFeatureAuth = (featureId: string) => {
-    setAuthVerifyResult(null);
-    if (editingFeatureAuth === featureId) {
-      setEditingFeatureAuth(null);
-    } else {
-      setEditingFeatureAuth(featureId);
-      const fg = featureGroups.find((f) => f.id === featureId);
-      if (fg && !fg.auth) {
-        updateFeatureAuth(featureId, { type: 'none' });
-      }
-    }
-  };
-
-  // Scenario auth
-  const updateScenarioAuth = (featureId: string, scenarioId: string, auth: AuthConfig) => {
-    setFeatureGroups((prev) => prev.map((fg) =>
-      fg.id === featureId
-        ? { ...fg, scenarios: fg.scenarios.map((sc) => sc.id === scenarioId ? { ...sc, auth } : sc) }
-        : fg
-    ));
-  };
-
-  const toggleScenarioAuth = (featureId: string, scenarioId: string) => {
-    setAuthVerifyResult(null);
-    setEditingFeatureAuth(null);
-    if (editingScenarioAuth === scenarioId) {
-      setEditingScenarioAuth(null);
-    } else {
-      setEditingScenarioAuth(scenarioId);
-      const fg = featureGroups.find((f) => f.id === featureId);
-      const sc = fg?.scenarios.find((s) => s.id === scenarioId);
-      if (sc && !sc.auth) {
-        updateScenarioAuth(featureId, scenarioId, { type: 'none' });
-      }
-    }
-  };
-
-  // Test CRUD
-  const startNewTest = (featureId: string, scenarioId: string) => {
-    const t = emptyTest();
-    setDraft(t);
-    setEditingTest({ featureId, scenarioId, testId: 'new' });
-    setInputMode('builder');
-    setActiveTab('params');
-    setAuthVerifyResult(null);
-  };
-
-  const startEditTest = (featureId: string, scenarioId: string, test: Scenario) => {
-    setDraft({
-      ...test,
-      headers: [...test.headers],
-      validation: { ...test.validation, expectedFields: test.validation.expectedFields ? [...test.validation.expectedFields] : [] },
-    });
-    setEditingTest({ featureId, scenarioId, testId: test.id });
-    setInputMode('builder');
-    setActiveTab('params');
-  };
-
-  const saveTest = () => {
-    if (!editingTest || !draft.name.trim() || !draft.url.trim()) return;
-    const { featureId, scenarioId, testId } = editingTest;
-    setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== featureId) return fg;
-      return {
-        ...fg,
-        scenarios: fg.scenarios.map((sc) => {
-          if (sc.id !== scenarioId) return sc;
-          if (testId === 'new') return { ...sc, tests: [...sc.tests, draft] };
-          return { ...sc, tests: sc.tests.map((t) => t.id === draft.id ? draft : t) };
-        }),
-      };
-    }));
-    setEditingTest(null);
-  };
-
-  const removeTest = (featureId: string, scenarioId: string, testId: string) => {
-    const fg = [...featureGroups, ...unassociatedFeatureGroups].find((f) => f.id === featureId);
-    const sc = fg?.scenarios.find((s) => s.id === scenarioId);
-    const t = sc?.tests.find((test) => test.id === testId);
-    setConfirmDialog({
-      title: 'Delete Test',
-      message: `Delete test "${t?.name}"? This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.map((f) => {
-          if (f.id !== featureId) return f;
-          return {
-            ...f,
-            scenarios: f.scenarios.map((s) => {
-              if (s.id !== scenarioId) return s;
-              return { ...s, tests: s.tests.filter((test) => test.id !== testId) };
-            }),
-          };
-        }));
-        setConfirmDialog(null);
-      },
-    });
-  };
-
-  const [copyingTest, setCopyingTest] = useState<{ test: Scenario; sourceFeatureId: string; sourceScenarioId: string } | null>(null);
-
-  const startCopyTest = (featureId: string, scenarioId: string, test: Scenario) => {
-    setCopyingTest({ test, sourceFeatureId: featureId, sourceScenarioId: scenarioId });
-  };
-
-  const confirmCopyTest = (targetFeatureId: string, targetScenarioId: string) => {
-    if (!copyingTest) return;
-    const copy: Scenario = {
-      ...copyingTest.test,
-      id: uuidv4(),
-      name: `${copyingTest.test.name} (copy)`,
-      headers: copyingTest.test.headers.map((h) => ({ ...h })),
-      validation: { ...copyingTest.test.validation, expectedFields: copyingTest.test.validation.expectedFields?.map((f) => ({ ...f })) },
-    };
-    setFeatureGroups((prev) => prev.map((fg) => {
-      if (fg.id !== targetFeatureId) return fg;
-      return {
-        ...fg,
-        scenarios: fg.scenarios.map((sc) => {
-          if (sc.id !== targetScenarioId) return sc;
-          return { ...sc, tests: [...sc.tests, copy] };
-        }),
-      };
-    }));
-    setCopyingTest(null);
-  };
-
-  const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
-  const [showSecret, setShowSecret] = useState(false);
-
-  const toggleFeature = (id: string) => {
-    setExpandedFeatures((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  };
-  const toggleScenario = (id: string) => {
-    setExpandedScenarios((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  };
 
   const totalTests = featureGroups.reduce((sum, fg) => sum + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);
 
@@ -534,6 +325,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                   <button className="btn btn-sm" onClick={() => setExportPopover({ id: fg.id, data: fg, exportFn: (o) => { exportFeatureGroup(fg, o); setExportPopover(null); } })} title="Export this feature group">Export</button>
                   {exportPopover?.id === fg.id && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
                 </span>
+                <button
+                  className={`btn btn-sm ${showStructureLog === fg.id ? 'btn-active' : ''}`}
+                  onClick={() => setShowStructureLog(showStructureLog === fg.id ? null : fg.id)}
+                  title="Structure change history"
+                >
+                  History {(fg.structureLog?.length ?? 0) > 0 && <span className="count-badge">{fg.structureLog!.length}</span>}
+                </button>
                 <button className="btn btn-sm btn-danger" onClick={() => removeFeatureGroup(fg.id)}>Delete</button>
               </div>
             </div>
@@ -557,6 +355,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                 showSecret={showSecret}
                 setShowSecret={setShowSecret}
                 authTypeOptions={featureAuthTypeOptions}
+              />
+            )}
+
+            {/* Structure change log panel */}
+            {showStructureLog === fg.id && (
+              <StructureChangeLogPanel
+                entries={fg.structureLog ?? []}
+                onDelete={(entryId) => setFeatureGroups(prev => prev.map(f => f.id === fg.id ? deleteLogEntry(f, entryId) : f))}
+                onClear={() => setFeatureGroups(prev => prev.map(f => f.id === fg.id ? clearLog(f) : f))}
               />
             )}
 
@@ -847,6 +654,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           featureGroups={featureGroups}
           editingTest={{ fgId: editingTest.featureId, scenarioId: editingTest.scenarioId, testId: editingTest.testId }}
           onExportTest={(t, opts) => exportTest(t, opts)}
+          onVersionRestore={handleVersionRestore}
+          onVersionDelete={handleVersionDelete}
+          onVersionRename={handleVersionRename}
         />
       )}
 

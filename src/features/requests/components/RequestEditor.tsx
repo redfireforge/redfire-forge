@@ -26,7 +26,13 @@ import ConsoleLog from './ConsoleLog';
 import MultiEnvResultRow from './MultiEnvResultRow';
 import { ResponseHistoryDropdown } from './ResponseHistoryDropdown';
 
-type EditorTab = 'params' | 'headers' | 'body' | 'auth';
+import { createSnapshot, restoreFromVersion, deleteVersion, renameVersion } from '../utils/requestDefinitionVersioning';
+import RequestDefinitionVersionPanel from './RequestDefinitionVersionPanel';
+import { useToast } from '../../../shared/hooks/useToast';
+import RequestDefinitionVersionDiff from './RequestDefinitionVersionDiff';
+import type { RequestDefinitionVersion } from '../../../shared/types';
+
+type EditorTab = 'params' | 'headers' | 'body' | 'auth' | 'history';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
 type ResponseTab = 'preview' | 'headers' | 'console';
 
@@ -71,11 +77,13 @@ export default function RequestEditor({
   collection, request, parentSubCollection, environments, appMicroservices, appEnvironments,
   selectedEnvId, onEnvChange, onUpdateRequest, appGlobalAuthProfiles,
 }: Props) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<EditorTab>('params');
   const [inputMode, setInputMode] = useState<InputMode>('builder');
   const [sending, setSending] = useState(false);
   const [responseTab, setResponseTab] = useState<ResponseTab>('preview');
   const [reqNameEditing, setReqNameEditing] = useState(false);
+  const [diffVersions, setDiffVersions] = useState<{ older: RequestDefinitionVersion; newer: RequestDefinitionVersion } | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [showApiInfo, setShowApiInfo] = useState(false);
@@ -326,7 +334,7 @@ export default function RequestEditor({
   const handleJsonImport = useCallback(() => {
     pickJsonFile((raw) => {
       const data = unwrapImport(raw) as Record<string, unknown>;
-      if (!data.name || !data.url || !data.method) { alert('Invalid file: expected a request with name, url, and method.'); return; }
+      if (!data.name || !data.url || !data.method) { toast.show('error', 'Invalid file', 'Expected a request with name, url, and method.'); return; }
       const imported = data as unknown as RequestItem;
       onUpdateRequest({ name: imported.name, method: imported.method, url: stripToRelative(imported.url),
         headers: imported.headers || [{ key: '', value: '' }], body: imported.body || '',
@@ -460,6 +468,7 @@ export default function RequestEditor({
   const responseHeaderCount = response ? Object.keys(response.headers).length : 0;
 
   return (
+    <>
     <div className="req-editor">
       {/* ── Request name ── */}
       <div className="req-req-name-bar">
@@ -572,6 +581,9 @@ export default function RequestEditor({
             <button className={`req-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
               Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
             </button>
+            <button className={`req-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { setActiveTab('history'); setInputMode('builder'); }}>
+              History {(request.definitionVersions?.length ?? 0) > 0 && <span className="tab-badge">{request.definitionVersions!.length}</span>}
+            </button>
 
             <div className="req-action-menu-wrapper">
               <button className="req-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
@@ -651,6 +663,17 @@ export default function RequestEditor({
                   collection={collection}
                   globalAuthProfiles={appGlobalAuthProfiles}
                   onUpdate={(auth) => onUpdateRequest({ auth })}
+                />
+              )}
+
+              {activeTab === 'history' && (
+                <RequestDefinitionVersionPanel
+                  versions={request.definitionVersions ?? []}
+                  currentSnapshot={createSnapshot(request)}
+                  onRestore={(v) => onUpdateRequest(restoreFromVersion(v))}
+                  onDelete={(vId) => onUpdateRequest({ definitionVersions: deleteVersion(request.definitionVersions ?? [], vId) })}
+                  onRename={(vId, label) => onUpdateRequest({ definitionVersions: renameVersion(request.definitionVersions ?? [], vId, label) })}
+                  onCompare={(older, newer) => setDiffVersions({ older, newer })}
                 />
               )}
             </>)}
@@ -827,6 +850,16 @@ export default function RequestEditor({
       </div>
 
     </div>
+
+    {diffVersions && (
+      <RequestDefinitionVersionDiff
+        open
+        older={diffVersions.older}
+        newer={diffVersions.newer}
+        onClose={() => setDiffVersions(null)}
+      />
+    )}
+    </>
   );
 }
 

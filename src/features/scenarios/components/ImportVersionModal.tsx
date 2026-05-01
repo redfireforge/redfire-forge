@@ -14,6 +14,8 @@ export default function ImportVersionModal({ data, onConfirm, onCancel }: Props)
   const [opts, setOpts] = useState<VersionImportOptions>({
     importResponseVersions: true,
     importRulesVersions: true,
+    importDefinitionVersions: true,
+    importStructureLog: true,
   });
 
   return (
@@ -25,8 +27,8 @@ export default function ImportVersionModal({ data, onConfirm, onCancel }: Props)
         </p>
         <VersionCheckboxGroup
           counts={counts}
-          values={{ responseVersions: opts.importResponseVersions, rulesVersions: opts.importRulesVersions }}
-          onChange={(v) => setOpts({ importResponseVersions: v.responseVersions, importRulesVersions: v.rulesVersions })}
+          values={{ responseVersions: opts.importResponseVersions, rulesVersions: opts.importRulesVersions, definitionVersions: opts.importDefinitionVersions, structureLog: opts.importStructureLog }}
+          onChange={(v) => setOpts({ importResponseVersions: v.responseVersions, importRulesVersions: v.rulesVersions, importDefinitionVersions: v.definitionVersions, importStructureLog: v.structureLog })}
         />
         <div className="import-version-actions">
           <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
