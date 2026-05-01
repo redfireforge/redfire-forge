@@ -1,0 +1,344 @@
+# RedfireForge Workflow — Medium: CI/CD Build Trigger & Callback
+# Triggers a CI/CD build, waits for the build-complete callback,
+# then deploys or notifies based on the build result.
+#
+# Difficulty: ★★☆ (Medium)
+# Features demonstrated:
+#   • CorrelationWait with query-param-based correlation source
+#   • Extract variables from callback (buildStatus, artifactUrl, duration)
+#   • Condition node branching on build result (pass vs fail)
+#   • SetVariable for computing deploy metadata
+#   • LogDebug for build tracing
+#
+# Flow:
+#   Start (repoUrl, branch, commitSha)
+#     → POST /builds/trigger (start build, extract buildId)
+#       → LogDebug (log build started)
+#         → CorrelationWait (query param ?buildId=..., timeout 30min)
+#           → Condition (buildStatus == "success"?)
+#             ├─ Yes → SetVariable (deploy metadata)
+#             │         → POST /deployments/create (deploy artifact)
+#             │           → POST /notifications/deploy-success → End
+#             └─ No  → POST /notifications/build-failed → End
+#
+# How the callback works:
+#   The CI/CD system (Jenkins, GitHub Actions, GitLab CI, etc.) sends a
+#   POST to: /webhooks/callback/build-complete?buildId=<the-build-id>
+#   with a JSON body: { "status": "success", "artifactUrl": "...", ... }
+
+name: CI/CD Build Trigger & Callback
+description: >
+  Trigger a CI/CD pipeline build, wait for the build system to POST
+  a completion callback, then deploy on success or notify on failure.
+  Demonstrates query-param correlation and conditional post-resume logic.
+
+schemaVersion: 5
+
+variables:
+  ciBase: "https://ci.example.com/api"
+  apiBase: "https://api.example.com"
+  deployEnv: "staging"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 350, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        repoUrl: "https://github.com/acme/webapp"
+        branch: "main"
+        commitSha: "a1b2c3d"
+        triggeredBy: "deploy-bot"
+
+  # ── 1. Trigger the build ──
+  - id: http-trigger-build
+    type: http
+    position: { x: 350, y: 140 }
+    data:
+      label: Trigger Build
+      scenario:
+        id: sc-trigger
+        name: Trigger CI Build
+        url: "{{ciBase}}/builds/trigger"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "repository": "{{repoUrl}}",
+            "branch": "{{branch}}",
+            "commitSha": "{{commitSha}}",
+            "callbackUrl": "http://localhost:3001/webhooks/callback/build-complete",
+            "callbackMethod": "POST",
+            "callbackQueryParam": "buildId"
+          }
+        bodyForm: []
+        auth:
+          type: bearer
+          token: "{{CI_API_TOKEN}}"
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "202"
+            - type: body
+              expression: $.status
+              expected: "queued"
+        extractions:
+          - name: buildId
+            source: body
+            expression: $.buildId
+          - name: buildUrl
+            source: body
+            expression: $.buildUrl
+          - name: estimatedDuration
+            source: body
+            expression: $.estimatedDurationMs
+        # Expected CI/CD response:
+        # {
+        #   "buildId": "build_7kM9pL3wXjRs",
+        #   "status": "queued",
+        #   "buildUrl": "https://ci.example.com/builds/build_7kM9pL3wXjRs",
+        #   "estimatedDurationMs": 420000,
+        #   "queuePosition": 3,
+        #   "runner": "linux-arm64-large",
+        #   "pipeline": "main-ci",
+        #   "triggeredAt": "2024-01-15T11:00:00.000Z"
+        # }
+
+  # ── 2. Log build started ──
+  - id: log-started
+    type: logDebug
+    position: { x: 350, y: 300 }
+    data:
+      label: Log Build Started
+      message: "Build triggered: {{buildId}} for {{repoUrl}}@{{branch}} ({{commitSha}}). URL: {{buildUrl}}"
+      level: info
+
+  # ── 3. Wait for build-complete callback ──
+  - id: cw-build
+    type: correlationWait
+    position: { x: 350, y: 440 }
+    data:
+      label: Wait for Build Complete
+      correlationIdExpression: "{{buildId}}"
+      webhookPath: "/webhooks/callback/build-complete"
+      correlationSource: query
+      correlationQueryParam: "buildId"
+      extractVariables:
+        - name: buildStatus
+          jsonPath: "$.status"
+        - name: artifactUrl
+          jsonPath: "$.artifactUrl"
+        - name: buildDuration
+          jsonPath: "$.durationMs"
+        - name: testsPassed
+          jsonPath: "$.testResults.passed"
+        - name: testsFailed
+          jsonPath: "$.testResults.failed"
+      timeoutMs: 1800000   # 30 minutes
+      webhookFilter: ""
+      notes: >
+        Waits for the CI system to POST to
+        /webhooks/callback/build-complete?buildId=<id>
+        with build results in the JSON body.
+        Timeout after 30 minutes if no callback received.
+
+        Expected webhook from CI system:
+        POST /webhooks/callback/build-complete?buildId=build_7kM9pL3wXjRs
+        Content-Type: application/json
+        x-request-id: ci-callback-build_7kM9pL3wXjRs
+
+        {
+          "status": "success",
+          "artifactUrl": "https://artifacts.example.com/builds/build_7kM9pL3wXjRs/webapp-main-a1b2c3d.tar.gz",
+          "durationMs": 387420,
+          "testResults": {
+            "passed": 247,
+            "failed": 0,
+            "skipped": 3,
+            "coverage": 94.2
+          },
+          "buildLog": "https://ci.example.com/builds/build_7kM9pL3wXjRs/logs",
+          "commitSha": "a1b2c3d",
+          "branch": "main",
+          "finishedAt": "2024-01-15T11:06:27.420Z"
+        }
+
+        RedfireForge responses:
+        200 { "resumed": true, "correlationId": "build_7kM9pL3wXjRs",
+              "executionId": "exec-cicd-001" }
+        404 { "resumed": false, "error": "No matching paused workflow found" }
+
+  # ── 4. Check build result ──
+  - id: cond-build-ok
+    type: condition
+    position: { x: 350, y: 620 }
+    data:
+      label: Build Passed?
+      expression: "{{buildStatus}}"
+      operator: "=="
+      value: "success"
+
+  # ── 5a. Success path — deploy ──
+  - id: setvar-deploy
+    type: setVariable
+    position: { x: 150, y: 780 }
+    data:
+      label: Prepare Deploy Metadata
+      assignments:
+        - id: a1
+          name: deployTag
+          expression: "{{branch}}-{{commitSha}}"
+        - id: a2
+          name: deployTimestamp
+          expression: "$now()"
+
+  - id: http-deploy
+    type: http
+    position: { x: 150, y: 940 }
+    data:
+      label: Create Deployment
+      scenario:
+        id: sc-deploy
+        name: Create Deployment
+        url: "{{apiBase}}/deployments/create"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "buildId": "{{buildId}}",
+            "artifactUrl": "{{artifactUrl}}",
+            "environment": "{{deployEnv}}",
+            "tag": "{{deployTag}}",
+            "triggeredBy": "{{triggeredBy}}",
+            "testResults": {
+              "passed": {{testsPassed}},
+              "failed": {{testsFailed}}
+            }
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "201"
+            - type: body
+              expression: $.status
+              expected: "deploying"
+        extractions:
+          - name: deploymentId
+            source: body
+            expression: $.deploymentId
+          - name: deployUrl
+            source: body
+            expression: $.deployUrl
+        # Expected response:
+        # {
+        #   "deploymentId": "deploy_9nR4kL2mPqWs",
+        #   "status": "deploying",
+        #   "deployUrl": "https://staging.example.com",
+        #   "artifactUrl": "https://artifacts.example.com/builds/...",
+        #   "environment": "staging",
+        #   "startedAt": "2024-01-15T11:07:00.000Z",
+        #   "estimatedCompletionAt": "2024-01-15T11:12:00.000Z"
+        # }
+
+  - id: http-notify-success
+    type: http
+    position: { x: 150, y: 1100 }
+    data:
+      label: Notify — Deploy Success
+      scenario:
+        id: sc-notify-ok
+        name: Send Deploy Success Notification
+        url: "{{apiBase}}/notifications/send"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "channel": "#deployments",
+            "message": "✅ Deployed {{repoUrl}}@{{branch}} to {{deployEnv}}. Build: {{buildId}} ({{buildDuration}}ms). Tests: {{testsPassed}} passed / {{testsFailed}} failed. Deploy: {{deploymentId}}. URL: {{deployUrl}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions: []
+        extractions: []
+
+  # ── 5b. Failure path — notify ──
+  - id: http-notify-failure
+    type: http
+    position: { x: 550, y: 780 }
+    data:
+      label: Notify — Build Failed
+      scenario:
+        id: sc-notify-fail
+        name: Send Build Failure Notification
+        url: "{{apiBase}}/notifications/send"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "channel": "#build-failures",
+            "message": "❌ Build FAILED for {{repoUrl}}@{{branch}} ({{commitSha}}). BuildId: {{buildId}} ({{buildDuration}}ms). Tests: {{testsPassed}} passed / {{testsFailed}} failed. Logs: {{buildUrl}}",
+            "mentionUsers": ["{{triggeredBy}}"],
+            "priority": "high"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: none
+          assertions: []
+        extractions: []
+
+  # ── End ──
+  - id: end-1
+    type: end
+    position: { x: 350, y: 1260 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-trigger-build
+  - id: e2
+    source: http-trigger-build
+    target: log-started
+  - id: e3
+    source: log-started
+    target: cw-build
+  - id: e4
+    source: cw-build
+    target: cond-build-ok
+  - id: e5
+    source: cond-build-ok
+    target: setvar-deploy
+    sourceHandle: "true"
+  - id: e6
+    source: cond-build-ok
+    target: http-notify-failure
+    sourceHandle: "false"
+  - id: e7
+    source: setvar-deploy
+    target: http-deploy
+  - id: e8
+    source: http-deploy
+    target: http-notify-success
+  - id: e9
+    source: http-notify-success
+    target: end-1
+  - id: e10
+    source: http-notify-failure
+    target: end-1

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Listing Check — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🛒</div>
+    <h1>Product Listing Check</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Smoke · 2 Scenarios · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Product Listing Check</strong> is a quick smoke test for the DummyJSON Products API. It verifies that the product catalog endpoint is accessible and returns properly structured data, and that individual products can be fetched by ID.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Validating e-commerce API availability before running deeper test suites.</li>
+    <li>Learning how to assert on nested object properties like <code>title</code> and <code>price</code>.</li>
+    <li>Understanding the difference between collection endpoints and single-resource endpoints.</li>
+  </ul>
+  <p>Both scenarios target the DummyJSON API (<code>dummyjson.com</code>), a free mock API that simulates an e-commerce backend with products, users, and carts.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Smoke testing for e-commerce APIs</strong> — verifying catalog and product detail endpoints.</li>
+    <li><strong>Status code assertions</strong> — confirming <code>200 OK</code> responses.</li>
+    <li><strong>Array length assertions</strong> — verifying the products array contains items.</li>
+    <li><strong>Numeric assertions</strong> — checking that numeric fields like <code>price</code> have valid values.</li>
+    <li><strong>Field existence checks</strong> — ensuring required fields (<code>title</code>, <code>price</code>) are present.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 2 scenarios covering the products collection and a single product:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>List Products</td>
+        <td><code>GET</code></td>
+        <td><code>/products</code></td>
+        <td>Status = 200, <code>products</code> array exists and has items</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Get Single Product</td>
+        <td><code>GET</code></td>
+        <td><code>/products/1</code></td>
+        <td>Status = 200, has <code>title</code>, <code>price</code> &gt; 0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — List Products</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The products endpoint is accessible.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The products array is not empty.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Get Single Product</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>Product with ID 1 exists and is returned.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.title</code></td>
+        <td>matches</td>
+        <td><code>.+</code></td>
+        <td>The <code>title</code> field exists and is non-empty.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.price</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The product has a positive price value.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>🛒 Product Listing Check</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add both scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its URL and assertions.</li>
+    <li>Notice how Scenario 1 targets a collection (<code>/products</code>) while Scenario 2 targets a specific resource (<code>/products/1</code>).</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute both scenarios.</li>
+    <li>Both scenarios should complete quickly since they are simple <code>GET</code> requests.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>Expand each scenario to view individual assertion results.</li>
+    <li>Verify that the <code>price</code> assertion shows the actual numeric value returned by the API.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Compare the response structure between the collection endpoint (<code>/products</code>) and the single-resource endpoint (<code>/products/1</code>). The collection wraps items in a <code>products</code> array, while the single resource returns the object directly.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Extend the test with these exercises:</p>
+
+  <h4>Exercise 1 — Check Product Categories</h4>
+  <p>Add a scenario for <code>GET /products/categories</code> that asserts the response is an array with at least 5 categories.</p>
+
+  <h4>Exercise 2 — Search Products</h4>
+  <p>Add a scenario for <code>GET /products/search?q=phone</code> that asserts the response status is <code>200</code> and the <code>products</code> array contains results.</p>
+
+  <h4>Exercise 3 — Validate Price Range</h4>
+  <p>In Scenario 2, add a <code>numeric</code> assertion to verify that the <code>price</code> is less than <code>10000</code> — ensuring the value is within a reasonable range.</p>
+
+  <footer>
+    RedfireForge Training Manual — Product Listing Check · April 2026
+  </footer>
+
+</body>
+</html>

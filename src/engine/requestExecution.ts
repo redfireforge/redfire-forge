@@ -1,11 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestResult } from '../types';
-import { validate } from './validator';
-import { httpFetch, type HttpResponse } from '../utils/httpClient';
-import { serializeWithContentType } from '../utils/bodySerializer';
+import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
+import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
+import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
+import { applyThinkTime } from './thinkTime';
+import { buildValidationResult } from './validationResult';
 
 async function executeRequest(
   scenario: Scenario,
@@ -18,7 +19,9 @@ async function executeRequest(
   let httpStatus = 0;
   let responseBody = '';
   let responseObj: unknown = null;
+  let responseHeaders: Record<string, string> = {};
   let errorMessage: string | undefined;
+  let timing: TimingBreakdown | undefined;
 
   try {
     const url = buildUrl(scenario);
@@ -33,6 +36,7 @@ async function executeRequest(
     }
 
     const result = await resultPromise;
+    timing = result.timing;
 
     if (result.error) {
       httpStatus = 0;
@@ -40,6 +44,7 @@ async function executeRequest(
     } else {
       httpStatus = result.status;
       responseBody = result.body;
+      responseHeaders = result.headers;
       try {
         responseObj = JSON.parse(responseBody);
       } catch {
@@ -53,11 +58,8 @@ async function executeRequest(
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;
 
-  let failureDetails = scenario.validation.mode !== 'none' && httpStatus > 0 && httpStatus < 400
-    ? validate(scenario.validation, responseObj)
-    : [];
-
-  const httpFailed = httpStatus >= 400 || httpStatus === 0;
+  // Extract error message from response body for HTTP failures (load-test specific)
+  const httpFailed = (httpStatus >= 400 || httpStatus === 0);
   if (httpFailed && !errorMessage && responseBody) {
     try {
       const parsed = typeof responseObj === 'object' && responseObj !== null ? responseObj as Record<string, unknown> : null;
@@ -69,11 +71,12 @@ async function executeRequest(
       errorMessage = responseBody.slice(0, 300);
     }
   }
-  if (httpFailed && errorMessage) {
-    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }];
-  }
 
-  const passed = !httpFailed && failureDetails.length === 0;
+  const assertions = scenario.validation.assertions ?? [];
+  const vr = buildValidationResult({
+    httpStatus, responseTimeMs, responseHeaders, responseBody, responseObj,
+    errorMessage, validation: scenario.validation, assertions,
+  });
 
   return {
     id,
@@ -86,11 +89,14 @@ async function executeRequest(
     httpStatus,
     responseTimeMs,
     responseBody: responseBody.slice(0, 2000),
+    responseHeaders,
     timestamp: Date.now(),
-    passed,
+    passed: vr.passed,
     validationMode: scenario.validation.mode,
-    failureDetails,
-    errorMessage,
+    failureDetails: vr.failureDetails,
+    errorMessage: vr.errorMessage,
+    timing,
+    requestLog: { headers, body: reqBody },
   };
 }
 
@@ -125,10 +131,11 @@ export interface RunOpts {
   breaker: CircuitBreaker;
   onProgress: (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;
   abortSignal?: AbortSignal;
+  getThinkTimeMs: () => number;
 }
 
 export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
 
   for (const scenario of queue) {
@@ -140,13 +147,14 @@ export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<R
     allResults.push(result);
     breaker.record(result);
     onProgress(allResults.length, queue.length, allResults);
+    await applyThinkTime(getThinkTimeMs, abortSignal);
   }
 
   return allResults;
 }
 
 export async function runBatch(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
   let completed = 0;
 
@@ -165,14 +173,20 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
     allResults.push(...batchResults);
     batchResults.forEach((r) => breaker.record(r));
     completed += batchResults.length;
-    onProgress(completed, queue.length, allResults);
+    onProgress(completed, queue.length, allResults, {
+      elapsedMs: 0,
+      targetConcurrency: concurrency,
+      currentInFlight: Math.min(concurrency, queue.length - completed),
+      durationMs: 0,
+    });
+    await applyThinkTime(getThinkTimeMs, abortSignal);
   }
 
   return allResults;
 }
 
 export async function runPool(queue: Scenario[], concurrency: number, opts: RunOpts): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal } = opts;
+  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
   const allResults: RequestResult[] = [];
   let nextIdx = 0;
   let inFlight = 0;
@@ -208,16 +222,23 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
             validationMode: scenario.validation.mode,
             failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
             errorMessage: err instanceof Error ? err.message : String(err),
+            responseHeaders: {},
+            requestLog: { headers: {}, body: reqBody },
           };
           allResults.push(errorResult);
           breaker.record(errorResult);
         }).finally(() => {
           inFlight--;
-          onProgress(allResults.length, total, allResults);
+          onProgress(allResults.length, total, allResults, {
+            elapsedMs: 0,
+            targetConcurrency: concurrency,
+            currentInFlight: inFlight,
+            durationMs: 0,
+          });
           if (allResults.length >= total || abortSignal?.aborted || breaker.shouldStop) {
             resolve(allResults);
           } else {
-            launch();
+            applyThinkTime(getThinkTimeMs, abortSignal).then(launch);
           }
         });
       }

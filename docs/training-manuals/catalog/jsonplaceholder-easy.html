@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSONPlaceholder API — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>JSONPlaceholder API</h1>
+    <div class="subtitle">API Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> &nbsp; <code>rest-api</code> &nbsp; 12 endpoints &nbsp; jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.5.4 · OpenAPI 3.0.3</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>JSONPlaceholder is a free online REST API for testing and prototyping. It provides a complete set of mock resources — users, posts, comments, todos, albums, and photos — with full CRUD support. No API key or authentication is required.</p>
+  <p>This catalog spec is the ideal starting point for learning how to work with OpenAPI specifications in RedfireForge. It demonstrates standard RESTful patterns: resource collections, individual resource lookup, nested routes, and all four CRUD operations.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    JSONPlaceholder is a "fake" API — write operations (<code>POST</code>, <code>PUT</code>, <code>DELETE</code>) are simulated. The server accepts your request and returns a realistic response, but no data is actually persisted.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>OpenAPI 3.0 Structure</strong> — How paths, operations, and schemas are organized in a spec</li>
+    <li><strong>RESTful Resource Design</strong> — Nouns as URLs, HTTP methods as verbs</li>
+    <li><strong>CRUD Operations</strong> — <code>GET</code> (read), <code>POST</code> (create), <code>PUT</code> (update), <code>DELETE</code> (remove)</li>
+    <li><strong>Nested Routes</strong> — Accessing sub-resources like <code>/posts/1/comments</code></li>
+    <li><strong>Path Parameters</strong> — Dynamic segments like <code>/users/{id}</code></li>
+    <li><strong>JSON Response Schemas</strong> — Understanding typed response structures</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. API Overview</h2>
+
+  <table>
+    <tr><th style="width: 160px;">Property</th><th>Value</th></tr>
+    <tr><td>Base URL</td><td><code>https://jsonplaceholder.typicode.com</code></td></tr>
+    <tr><td>Authentication</td><td>None required</td></tr>
+    <tr><td>Rate Limits</td><td>No enforced limits (fair use)</td></tr>
+    <tr><td>Response Format</td><td>JSON</td></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+  </table>
+
+  <h3>Data Model</h3>
+  <p>JSONPlaceholder provides 6 related resources:</p>
+  <ul>
+    <li><strong>Users</strong> — 10 users with name, email, address, company</li>
+    <li><strong>Posts</strong> — 100 posts linked to users via <code>userId</code></li>
+    <li><strong>Comments</strong> — 500 comments linked to posts via <code>postId</code></li>
+    <li><strong>Todos</strong> — 200 todo items linked to users</li>
+    <li><strong>Albums</strong> — 100 albums linked to users</li>
+    <li><strong>Photos</strong> — 5000 photos linked to albums</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Endpoint Reference</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Description</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/users</code></td>
+        <td>List all users</td>
+        <td>Array of User objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/users/{id}</code></td>
+        <td>Get a single user by ID</td>
+        <td>User object</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/posts</code></td>
+        <td>List all posts</td>
+        <td>Array of Post objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/posts/{id}</code></td>
+        <td>Get a single post by ID</td>
+        <td>Post object</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/posts</code></td>
+        <td>Create a new post</td>
+        <td>Created Post with <code>id</code></td>
+      </tr>
+      <tr>
+        <td><code>PUT</code></td>
+        <td><code>/posts/{id}</code></td>
+        <td>Replace a post</td>
+        <td>Updated Post object</td>
+      </tr>
+      <tr>
+        <td><code>DELETE</code></td>
+        <td><code>/posts/{id}</code></td>
+        <td>Delete a post</td>
+        <td>Empty object <code>{}</code></td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/posts/{id}/comments</code></td>
+        <td>List comments for a post</td>
+        <td>Array of Comment objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/comments</code></td>
+        <td>List all comments</td>
+        <td>Array of Comment objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/todos</code></td>
+        <td>List all todos</td>
+        <td>Array of Todo objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/albums</code></td>
+        <td>List all albums</td>
+        <td>Array of Album objects</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/photos</code></td>
+        <td>List all photos</td>
+        <td>Array of Photo objects</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Catalog</strong> tab in RedfireForge.</li>
+    <li>Find <strong>JSONPlaceholder API</strong> and click <strong>Import Spec</strong>.</li>
+    <li>The OpenAPI spec loads into your workspace. You'll see it listed in your catalog panel.</li>
+  </ol>
+
+  <h3>Step 2 — Browse Endpoints</h3>
+  <ol>
+    <li>Click on the imported spec to open the <strong>Endpoint Explorer</strong>.</li>
+    <li>Endpoints are grouped by resource: Users, Posts, Comments, Todos, Albums, Photos.</li>
+    <li>Click any endpoint to view its method, path, parameters, and response schema.</li>
+  </ol>
+
+  <h3>Step 3 — Generate a Request</h3>
+  <ol>
+    <li>Select the <code>GET /users</code> endpoint.</li>
+    <li>Click <strong>Generate Request</strong> — RedfireForge creates a ready-to-run request with the correct URL and headers.</li>
+    <li>Click <strong>Send</strong> to execute the request and inspect the response.</li>
+  </ol>
+
+  <h3>Step 4 — Explore Nested Routes</h3>
+  <ol>
+    <li>Select <code>GET /posts/{id}/comments</code>.</li>
+    <li>Generate the request — note the path parameter <code>{id}</code> is highlighted for you to fill in.</li>
+    <li>Enter <code>1</code> for the post ID and send the request to see comments for post #1.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Generated requests inherit the base URL and any default headers from the spec. You can modify them before sending.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Full CRUD Cycle</h3>
+  <p>Perform all four CRUD operations on the <code>/posts</code> resource:</p>
+  <ol>
+    <li>Create a new post with <code>POST /posts</code> using a JSON body: <code>{"title": "Test Post", "body": "Hello World", "userId": 1}</code></li>
+    <li>Read it back with <code>GET /posts/{id}</code> using the returned ID.</li>
+    <li>Update it with <code>PUT /posts/{id}</code> — change the title.</li>
+    <li>Delete it with <code>DELETE /posts/{id}</code>.</li>
+  </ol>
+
+  <h3>Exercise 2 — Nested Resources</h3>
+  <p>Explore the relationship between users and their content:</p>
+  <ol>
+    <li>Get user #1 with <code>GET /users/1</code>.</li>
+    <li>Get their posts: filter <code>GET /posts?userId=1</code>.</li>
+    <li>Pick a post ID and get its comments via <code>GET /posts/{id}/comments</code>.</li>
+  </ol>
+
+  <h3>Exercise 3 — Schema Inspection</h3>
+  <p>Open the spec's schema definitions and compare the documented response structure against the actual API response for <code>GET /users/1</code>. Verify that all fields match the schema.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Try generating requests for every endpoint in the spec, then organize them into a test workflow that exercises the full API surface.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — JSONPlaceholder API · April 2026
+  </footer>
+
+</body>
+</html>

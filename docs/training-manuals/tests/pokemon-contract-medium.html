@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon Data Contract — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📋</div>
+    <h1>Pokémon Data Contract</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Contract · 3 Scenarios · pokeapi.co</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Pokémon Data Contract</strong> test validates that the PokéAPI conforms to its expected response schema. Contract tests ensure that the API returns all required fields with correct data types — catching breaking changes before they impact downstream consumers.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Learning <strong>contract testing</strong> — a testing discipline focused on API shape rather than specific values.</li>
+    <li>Verifying that required fields (<code>name</code>, <code>id</code>, <code>types</code>, <code>stats</code>) exist in responses.</li>
+    <li>Testing error handling — confirming the API returns <code>404</code> for non-existent resources.</li>
+    <li>Understanding how to combine multiple assertion types in a single scenario.</li>
+  </ul>
+  <p>All scenarios target the PokéAPI (<code>pokeapi.co</code>), a free and comprehensive API for Pokémon data.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Contract testing</strong> — validating API response structure matches the expected schema.</li>
+    <li><strong>Field existence via regex</strong> — using <code>regex</code> assertions to verify fields are present and non-empty.</li>
+    <li><strong>Numeric assertions</strong> — checking that numeric fields like <code>id</code> have valid values.</li>
+    <li><strong>Array length assertions</strong> — verifying that array fields like <code>types</code> and <code>stats</code> contain items.</li>
+    <li><strong>Negative testing</strong> — asserting that invalid requests return appropriate error codes (<code>404</code>).</li>
+  </ul>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Contract tests are different from functional tests. They don't care <em>what</em> values the API returns — only that the response <em>shape</em> is correct. This makes them resilient to data changes while catching structural breaks.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 3 scenarios covering valid resources, collections, and error handling:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Pikachu Shape</td>
+        <td><code>GET</code></td>
+        <td><code>/api/v2/pokemon/pikachu</code></td>
+        <td>Status = 200, <code>name</code> exists, <code>id</code> &gt; 0, <code>types</code> array, <code>stats</code> array</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Type List</td>
+        <td><code>GET</code></td>
+        <td><code>/api/v2/type</code></td>
+        <td>Status = 200, <code>results</code> array has items</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>404 Handling</td>
+        <td><code>GET</code></td>
+        <td><code>/api/v2/pokemon/notreal</code></td>
+        <td>Status = 404</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — Pikachu Shape</h3>
+  <p>This is the core contract scenario. It verifies that a Pokémon resource includes all the key fields that downstream applications depend on.</p>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>Pikachu exists and is returned successfully.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.name</code></td>
+        <td>matches</td>
+        <td><code>^pikachu$</code></td>
+        <td>The <code>name</code> field matches the requested Pokémon.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.id</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The <code>id</code> field is a positive integer.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.types</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The <code>types</code> array is present and contains at least one type.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.stats</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The <code>stats</code> array is present and contains stat entries.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Type List</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The type list endpoint is accessible.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.results</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The <code>results</code> array contains Pokémon types (fire, water, etc.).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — 404 Handling</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>404</code></td>
+        <td>The API correctly returns <code>404 Not Found</code> for a non-existent Pokémon.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Scenario 3 is a <strong>negative test</strong> — it intentionally requests something that doesn't exist. Negative tests are just as important as positive ones: they verify that the API fails gracefully instead of returning misleading data or crashing.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>📋 Pokémon Data Contract</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 3 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Examine Scenario 1 closely — it has 5 assertions on a single response, demonstrating how contract tests validate multiple fields at once.</li>
+    <li>Note how Scenario 3 expects a <code>404</code> instead of <code>200</code> — this is intentional.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 3 scenarios.</li>
+    <li>All scenarios should pass, including the 404 test.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> and verify all scenarios pass.</li>
+    <li>Expand Scenario 1 to see all 5 assertions and their actual values.</li>
+    <li>For Scenario 3, confirm that the status code assertion correctly matched <code>404</code>.</li>
+  </ol>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h4>Exercise 1 — Expand the Contract</h4>
+  <p>Add assertions to Scenario 1 to verify that <code>$.abilities</code> is an array and <code>$.base_experience</code> is a positive number.</p>
+
+  <h4>Exercise 2 — Test Another Pokémon</h4>
+  <p>Add a new scenario for <code>GET /api/v2/pokemon/charizard</code> with the same contract assertions as Scenario 1. All fields should be present regardless of which Pokémon is requested.</p>
+
+  <h4>Exercise 3 — Validate Type Count</h4>
+  <p>In Scenario 2, add a <code>numeric</code> assertion to verify that <code>$.count</code> is greater than <code>15</code> (there are 20+ Pokémon types). This ensures the type catalog is complete.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The PokéAPI is rate-limited. If you add many scenarios, consider adding small delays between them to avoid hitting rate limits during test execution.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Pokémon Data Contract · April 2026
+  </footer>
+
+</body>
+</html>

@@ -43,11 +43,34 @@ git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 git commit -m "chore: bump version to <version>"
 ```
 
+## Pre-Merge Checklist
+
+### Feature Branch → Develop (required)
+
+Before merging any feature branch into `develop`, complete ALL of the following:
+
+1. **Full unit tests above 90% code coverage** — Run `npx vitest run --coverage` and confirm all four metrics (statements, branches, functions, lines) are above 90%. Add tests for any gaps. (During development, only run tests for touched files: `npx vitest run src/path/to/file.test.ts`).
+2. **Update documentation** — Update `CHANGELOG.md`, `README.md`, `ROADMAP.md`, and `.cursor/rules/project-conventions.mdc` with the new feature content.
+3. **Thorough code evaluation** — Review all new and modified code for bugs, monolithic classes, and refactoring opportunities. Fix any issues found, along with unit tests.
+4. **Final full test suite run** — Run `npx vitest run` and `npx tsc --noEmit` to confirm zero failures and zero type errors.
+5. **STOP — ask user to verify and test** before merging.
+
+**Note:** E2E tests are NOT required for feature → develop merges to maintain development velocity.
+
+### Develop → Release or Release → Master (required)
+
+Before merging `develop` into `release/*` or `release/*` into `master`, complete:
+
+1. **All items from Feature → Develop checklist above**
+2. **E2E tests pass** — Run `npx playwright test --reporter=list` and confirm all E2E tests pass.
+3. **Version bump verification** — Confirm version matches branch type (beta on release, stable on master).
+4. **STOP — ask user to verify and test** before merging.
+
 ## Feature Branch Workflow
 
 1. Create `feature/*` from `develop`
 2. Implement and commit on the feature branch
-3. **STOP — ask user to verify and test**
+3. **Complete the Pre-Merge Checklist above**
 4. Only after user confirms → merge into `develop`
 5. **Delete the feature branch** after merge: `git branch -d feature/<name>`
 

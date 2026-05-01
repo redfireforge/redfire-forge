@@ -1,0 +1,491 @@
+# RedfireForge Workflow — Hard: Parallel Payment Processing
+# Charges a credit card AND deducts loyalty points in parallel,
+# waits for both payment callbacks, then confirms the order.
+#
+# Difficulty: ★★★ (Hard)
+# Features demonstrated:
+#   • Multiple CorrelationWait nodes in the same workflow
+#   • Fork/Join pattern with parallel async waits
+#   • Each CorrelationWait uses a different correlation ID
+#   • Aggregate node to combine payment results
+#   • Error Handler wrapping the payment fork
+#   • Condition to verify both payments succeeded
+#   • SetVariable with expression functions
+#
+# Flow:
+#   Start (orderId, amount, loyaltyPoints, cardToken)
+#     → SetVariable (split amounts: cardAmount, loyaltyAmount)
+#       → ErrorHandler
+#         └─ Fork
+#           ├─ Branch A: POST /payments/card (submit card charge)
+#           │    → CorrelationWait (cardPaymentId, /webhooks/callback/card-payment)
+#           ├─ Branch B: POST /payments/loyalty (submit loyalty deduction)
+#           │    → CorrelationWait (loyaltyPaymentId, /webhooks/callback/loyalty-payment)
+#           └─ Join (wait for both)
+#                → Aggregate (combine results)
+#                  → Condition (both succeeded?)
+#                    ├─ Yes → POST /orders/confirm → End
+#                    └─ No  → POST /orders/cancel  → POST /payments/refund → End
+
+name: Parallel Payment Processing
+description: >
+  Process a split payment: charge a credit card and deduct loyalty points
+  in parallel. Wait for both payment gateway callbacks before confirming.
+  Demonstrates multiple CorrelationWait nodes with Fork/Join.
+
+schemaVersion: 5
+
+variables:
+  apiBase: "https://api.example.com"
+  paymentBase: "https://payments.example.com"
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        orderId: "ORD-2024-9999"
+        totalAmount: "150.00"
+        loyaltyPointsToUse: "2000"
+        loyaltyValuePerPoint: "0.01"
+        cardToken: "tok_visa_4242"
+
+  # ── 1. Calculate split amounts ──
+  - id: setvar-split
+    type: setVariable
+    position: { x: 400, y: 140 }
+    data:
+      label: Split Payment Amounts
+      assignments:
+        - id: a1
+          name: loyaltyAmount
+          expression: "20.00"
+        - id: a2
+          name: cardAmount
+          expression: "130.00"
+        - id: a3
+          name: cardStatus
+          expression: "pending"
+        - id: a4
+          name: loyaltyStatus
+          expression: "pending"
+
+  # ── 2. Error handler wrapping parallel payments ──
+  - id: err-handler
+    type: errorHandler
+    position: { x: 400, y: 280 }
+    data:
+      label: Payment Error Handler
+      errorAction: log
+      retryCount: 0
+
+  # ── 3. Fork into two parallel payment branches ──
+  - id: fork-payments
+    type: fork
+    position: { x: 400, y: 380 }
+    data:
+      label: Fork Payments
+
+  # ── Branch A: Credit card payment ──
+  - id: http-card-charge
+    type: http
+    position: { x: 150, y: 520 }
+    data:
+      label: Submit Card Charge
+      scenario:
+        id: sc-card
+        name: Charge Credit Card
+        url: "{{paymentBase}}/payments/card"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "amount": {{cardAmount}},
+            "currency": "USD",
+            "cardToken": "{{cardToken}}",
+            "callbackUrl": "http://localhost:3001/webhooks/callback/card-payment"
+          }
+        bodyForm: []
+        auth:
+          type: bearer
+          token: "{{PAYMENT_API_KEY}}"
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "202"
+            - type: body
+              expression: $.status
+              expected: "processing"
+        extractions:
+          - name: cardPaymentId
+            source: body
+            expression: $.paymentId
+        # Expected card gateway response:
+        # {
+        #   "paymentId": "cpay_4kF9xR2mNqLp",
+        #   "status": "processing",
+        #   "amount": 130.00,
+        #   "currency": "USD",
+        #   "processor": "stripe",
+        #   "estimatedCompletionMs": 5000,
+        #   "createdAt": "2024-01-15T10:25:00.000Z"
+        # }
+
+  - id: cw-card
+    type: correlationWait
+    position: { x: 150, y: 700 }
+    data:
+      label: Wait for Card Payment
+      correlationIdExpression: "{{cardPaymentId}}"
+      webhookPath: "/webhooks/callback/card-payment"
+      correlationSource: body
+      correlationJsonPath: "$.paymentId"
+      extractVariables:
+        - name: cardStatus
+          jsonPath: "$.status"
+        - name: cardTransactionId
+          jsonPath: "$.transactionId"
+        - name: cardAuthCode
+          jsonPath: "$.authorizationCode"
+      timeoutMs: 120000   # 2 minutes
+      webhookFilter: ""
+      notes: >
+        Wait for card payment gateway callback.
+
+        Expected webhook payload:
+        POST /webhooks/callback/card-payment
+        Content-Type: application/json
+        x-idempotency-key: cpay_4kF9xR2mNqLp-result
+
+        {
+          "paymentId": "cpay_4kF9xR2mNqLp",
+          "status": "approved",
+          "transactionId": "txn_card_8mK3vP7w",
+          "authorizationCode": "AUTH-442918",
+          "amount": 130.00,
+          "currency": "USD",
+          "cardBrand": "visa",
+          "last4": "4242",
+          "processedAt": "2024-01-15T10:25:04.217Z",
+          "receiptUrl": "https://pay.example.com/receipts/txn_card_8mK3vP7w"
+        }
+
+        RedfireForge response:
+        200 { "resumed": true, "correlationId": "cpay_4kF9xR2mNqLp" }
+
+  # ── Branch B: Loyalty points deduction ──
+  - id: http-loyalty-deduct
+    type: http
+    position: { x: 650, y: 520 }
+    data:
+      label: Submit Loyalty Deduction
+      scenario:
+        id: sc-loyalty
+        name: Deduct Loyalty Points
+        url: "{{paymentBase}}/payments/loyalty"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "points": {{loyaltyPointsToUse}},
+            "monetaryValue": {{loyaltyAmount}},
+            "callbackUrl": "http://localhost:3001/webhooks/callback/loyalty-payment"
+          }
+        bodyForm: []
+        auth:
+          type: bearer
+          token: "{{PAYMENT_API_KEY}}"
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "202"
+            - type: body
+              expression: $.status
+              expected: "processing"
+        extractions:
+          - name: loyaltyPaymentId
+            source: body
+            expression: $.paymentId
+        # Expected loyalty system response:
+        # {
+        #   "paymentId": "lpay_9nR4kL2mPqWs",
+        #   "status": "processing",
+        #   "pointsToDeduct": 2000,
+        #   "monetaryValue": 20.00,
+        #   "currentBalance": 15000,
+        #   "createdAt": "2024-01-15T10:25:00.500Z"
+        # }
+
+  - id: cw-loyalty
+    type: correlationWait
+    position: { x: 650, y: 700 }
+    data:
+      label: Wait for Loyalty Deduction
+      correlationIdExpression: "{{loyaltyPaymentId}}"
+      webhookPath: "/webhooks/callback/loyalty-payment"
+      correlationSource: body
+      correlationJsonPath: "$.paymentId"
+      extractVariables:
+        - name: loyaltyStatus
+          jsonPath: "$.status"
+        - name: loyaltyDeductionId
+          jsonPath: "$.deductionId"
+        - name: remainingPoints
+          jsonPath: "$.remainingPoints"
+      timeoutMs: 120000   # 2 minutes
+      webhookFilter: ""
+      notes: >
+        Wait for loyalty payment system callback.
+
+        Expected webhook payload:
+        POST /webhooks/callback/loyalty-payment
+        Content-Type: application/json
+        x-idempotency-key: lpay_9nR4kL2mPqWs-result
+
+        {
+          "paymentId": "lpay_9nR4kL2mPqWs",
+          "status": "approved",
+          "deductionId": "ded_5xT2rK8nMjQp",
+          "pointsDeducted": 2000,
+          "remainingPoints": 13000,
+          "monetaryValue": 20.00,
+          "processedAt": "2024-01-15T10:25:03.891Z"
+        }
+
+        RedfireForge response:
+        200 { "resumed": true, "correlationId": "lpay_9nR4kL2mPqWs" }
+
+  # ── 4. Join — wait for both branches ──
+  - id: join-payments
+    type: join
+    position: { x: 400, y: 880 }
+    data:
+      label: Join Payments
+
+  # ── 5. Aggregate payment results ──
+  - id: agg-results
+    type: aggregate
+    position: { x: 400, y: 1000 }
+    data:
+      label: Aggregate Payment Results
+      mode: custom
+      expression: >
+        Card: {{cardStatus}} ({{cardTransactionId}}),
+        Loyalty: {{loyaltyStatus}} ({{loyaltyDeductionId}}),
+        Remaining points: {{remainingPoints}}
+      targetVariable: paymentSummary
+
+  # ── 6. Check if both succeeded ──
+  - id: cond-both-ok
+    type: condition
+    position: { x: 400, y: 1140 }
+    data:
+      label: Both Payments OK?
+      expression: "{{cardStatus}}"
+      operator: "=="
+      value: "approved"
+
+  # ── 7a. Both OK → confirm order ──
+  - id: http-confirm
+    type: http
+    position: { x: 200, y: 1300 }
+    data:
+      label: Confirm Order
+      scenario:
+        id: sc-confirm
+        name: Confirm Order
+        url: "{{apiBase}}/orders/{{orderId}}/confirm"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "cardPaymentId": "{{cardPaymentId}}",
+            "loyaltyPaymentId": "{{loyaltyPaymentId}}",
+            "totalCharged": {{totalAmount}},
+            "cardAmount": {{cardAmount}},
+            "loyaltyAmount": {{loyaltyAmount}},
+            "cardTransactionId": "{{cardTransactionId}}",
+            "loyaltyDeductionId": "{{loyaltyDeductionId}}",
+            "paymentSummary": "{{paymentSummary}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+            - type: body
+              expression: $.confirmed
+              expected: "true"
+        extractions:
+          - name: confirmationNumber
+            source: body
+            expression: $.confirmationNumber
+        # Expected response:
+        # {
+        #   "confirmed": true,
+        #   "confirmationNumber": "CONF-2024-01-15-9999",
+        #   "orderId": "ORD-2024-9999",
+        #   "totalCharged": 150.00,
+        #   "paymentBreakdown": {
+        #     "card": { "amount": 130.00, "transactionId": "txn_card_8mK3vP7w" },
+        #     "loyalty": { "amount": 20.00, "deductionId": "ded_5xT2rK8nMjQp" }
+        #   },
+        #   "receiptSentTo": "customer@example.com",
+        #   "estimatedDelivery": "2024-01-18T12:00:00Z"
+        # }
+
+  # ── 7b. Failure → cancel and refund ──
+  - id: http-cancel
+    type: http
+    position: { x: 600, y: 1300 }
+    data:
+      label: Cancel Order
+      scenario:
+        id: sc-cancel
+        name: Cancel Order
+        url: "{{apiBase}}/orders/{{orderId}}/cancel"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "reason": "Payment failed: {{paymentSummary}}",
+            "cardStatus": "{{cardStatus}}",
+            "loyaltyStatus": "{{loyaltyStatus}}",
+            "cardPaymentId": "{{cardPaymentId}}",
+            "loyaltyPaymentId": "{{loyaltyPaymentId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+        extractions: []
+        # Expected response:
+        # {
+        #   "cancelled": true,
+        #   "orderId": "ORD-2024-9999",
+        #   "refundsInitiated": [
+        #     { "paymentId": "cpay_4kF9xR2mNqLp", "type": "card", "status": "refund_pending" }
+        #   ]
+        # }
+
+  - id: http-refund
+    type: http
+    position: { x: 600, y: 1460 }
+    data:
+      label: Refund Payments
+      scenario:
+        id: sc-refund
+        name: Refund
+        url: "{{paymentBase}}/payments/refund"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "orderId": "{{orderId}}",
+            "cardPaymentId": "{{cardPaymentId}}",
+            "loyaltyPaymentId": "{{loyaltyPaymentId}}",
+            "cardTransactionId": "{{cardTransactionId}}",
+            "loyaltyDeductionId": "{{loyaltyDeductionId}}"
+          }
+        bodyForm: []
+        auth: { type: none }
+        validation:
+          mode: advanced
+          assertions:
+            - type: status
+              expected: "200"
+        extractions: []
+        # Expected response:
+        # {
+        #   "refundId": "ref_2mK8pL4wXjRs",
+        #   "status": "processing",
+        #   "refunds": [
+        #     { "paymentId": "cpay_4kF9xR2mNqLp", "amount": 130.00, "status": "refund_initiated" },
+        #     { "paymentId": "lpay_9nR4kL2mPqWs", "points": 2000, "status": "points_restored" }
+        #   ]
+        # }
+
+  # ── End ──
+  - id: end-1
+    type: end
+    position: { x: 400, y: 1620 }
+    data:
+      label: Done
+
+edges:
+  - id: e1
+    source: start-1
+    target: setvar-split
+  - id: e2
+    source: setvar-split
+    target: err-handler
+  - id: e3
+    source: err-handler
+    target: fork-payments
+  # Fork → Branch A
+  - id: e4
+    source: fork-payments
+    target: http-card-charge
+  - id: e5
+    source: http-card-charge
+    target: cw-card
+  - id: e6
+    source: cw-card
+    target: join-payments
+  # Fork → Branch B
+  - id: e7
+    source: fork-payments
+    target: http-loyalty-deduct
+  - id: e8
+    source: http-loyalty-deduct
+    target: cw-loyalty
+  - id: e9
+    source: cw-loyalty
+    target: join-payments
+  # After Join
+  - id: e10
+    source: join-payments
+    target: agg-results
+  - id: e11
+    source: agg-results
+    target: cond-both-ok
+  - id: e12
+    source: cond-both-ok
+    target: http-confirm
+    sourceHandle: "true"
+  - id: e13
+    source: cond-both-ok
+    target: http-cancel
+    sourceHandle: "false"
+  - id: e14
+    source: http-cancel
+    target: http-refund
+  - id: e15
+    source: http-confirm
+    target: end-1
+  - id: e16
+    source: http-refund
+    target: end-1

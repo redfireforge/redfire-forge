@@ -1,0 +1,259 @@
+# RedfireForge Workflow — Advanced: Script Data Pipeline & Report
+# Loops over paginated API results, uses Script nodes to transform each
+# page, aggregates results, generates a summary report with a second
+# Script node, and conditionally publishes the report.
+#
+# Difficulty: ★★★ (Advanced)
+# Features demonstrated:
+#   • Script node in "transform" mode (data extraction per page)
+#   • Script node in "generate" mode (report creation)
+#   • Loop (count mode) for pagination
+#   • Aggregate node (concat + sum strategies)
+#   • SetVariable for counter initialization
+#   • Condition for publish threshold
+#   • LogDebug for skip notification
+#   • console.log for pipeline tracing
+#
+# Flow:
+#   Start (pageSize=3, totalPages=3)
+#     → SetVariable (init counters)
+#       → Loop (count=3)
+#         ├─ Body: GET /posts?_start=N&_limit=3
+#         │   → Script (transform: extract titles, count words)
+#         │     → Aggregate (concat titles, sum wordCount)
+#         └─ Done:
+#            → Script (generate: build summary report)
+#              → Condition (wordCount > 100?)
+#                ├─ Yes → POST /posts (publish report)
+#                └─ No  → LogDebug (skip)
+#                  → End
+
+name: "Script: Data Pipeline & Report"
+description: >
+  Loop over paginated API, Script transforms each page, Aggregate
+  collects results, Script generates a summary report, conditionally
+  publishes based on word count threshold.
+
+schemaVersion: 5
+
+nodes:
+  - id: sa-start
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        pageSize: "3"
+        totalPages: "3"
+
+  - id: sa-init
+    type: setVariable
+    position: { x: 300, y: 120 }
+    data:
+      label: 1. Init Counters
+      assignments:
+        - id: a1
+          name: pageIndex
+          expression: "0"
+        - id: a2
+          name: allTitles
+          expression: "[]"
+        - id: a3
+          name: totalWordCount
+          expression: "0"
+
+  - id: sa-loop
+    type: loop
+    position: { x: 300, y: 260 }
+    data:
+      label: 2. Page Loop
+      mode: count
+      count: 3
+      maxIterations: 10
+
+  - id: sa-get-page
+    type: http
+    position: { x: 100, y: 400 }
+    data:
+      label: 2a. Fetch Page
+      scenario:
+        id: sa-s1
+        name: Get Posts Page
+        url: "https://jsonplaceholder.typicode.com/posts?_start={{pageIndex}}&_limit={{pageSize}}"
+        method: GET
+        headers:
+          - key: Accept
+            value: application/json
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: pageJson
+            source: body
+            expression: "$"
+
+  - id: sa-script-transform
+    type: script
+    position: { x: 100, y: 560 }
+    data:
+      label: 2b. Transform Page
+      mode: transform
+      inputVariables: [pageJson, pageIndex, pageSize]
+      outputVariables: [pageTitles, pageWordCount, pageIndex]
+      timeoutMs: 5000
+      captureConsole: true
+      code: |
+        // Parse the page of posts and extract titles + word counts
+        const posts = JSON.parse(input.pageJson);
+        const currentPage = parseInt(input.pageIndex) || 0;
+        const pageSize = parseInt(input.pageSize) || 3;
+
+        const titles = posts.map(function(p) { return p.title; });
+        let wordCount = 0;
+        for (const p of posts) {
+          wordCount += p.body.split(/\s+/).length;
+        }
+
+        output.pageTitles = JSON.stringify(titles);
+        output.pageWordCount = String(wordCount);
+        output.pageIndex = String(currentPage + pageSize);
+
+        console.log("Page " + (currentPage / pageSize + 1) + ": " + posts.length + " posts, " + wordCount + " words");
+
+  - id: sa-aggregate
+    type: aggregate
+    position: { x: 100, y: 720 }
+    data:
+      label: 2c. Collect Results
+      mappings:
+        - id: ag1
+          sourceExpression: "{{pageTitles}}"
+          targetVariable: allTitles
+          strategy: concat
+        - id: ag2
+          sourceExpression: "{{pageWordCount}}"
+          targetVariable: totalWordCount
+          strategy: sum
+
+  - id: sa-script-report
+    type: script
+    position: { x: 500, y: 400 }
+    data:
+      label: 3. Generate Report
+      mode: generate
+      inputVariables: [allTitles, totalWordCount]
+      outputVariables: [reportJson, postCount, wordCount]
+      timeoutMs: 5000
+      captureConsole: true
+      code: |
+        // Build a summary report from aggregated data
+        let titles;
+        try { titles = JSON.parse(input.allTitles); } catch(e) { titles = []; }
+        const wordCount = parseInt(input.totalWordCount) || 0;
+
+        const report = {
+          generatedAt: new Date().toISOString(),
+          totalPosts: titles.length,
+          totalWordCount: wordCount,
+          avgWordsPerPost: titles.length > 0 ? Math.round(wordCount / titles.length) : 0,
+          topTitles: titles.slice(0, 5),
+        };
+
+        output.reportJson = JSON.stringify(report, null, 2);
+        output.postCount = String(report.totalPosts);
+        output.wordCount = String(report.totalWordCount);
+
+        console.log("Report: " + report.totalPosts + " posts, " + report.totalWordCount + " words");
+        console.log("Avg: " + report.avgWordsPerPost + " words/post");
+
+  - id: sa-check-threshold
+    type: condition
+    position: { x: 500, y: 570 }
+    data:
+      label: 4. Worth Publishing?
+      left: "{{wordCount}}"
+      operator: ">"
+      right: "100"
+
+  - id: sa-publish
+    type: http
+    position: { x: 350, y: 720 }
+    data:
+      label: 5a. Publish Report
+      scenario:
+        id: sa-s2
+        name: Publish Report
+        url: "https://jsonplaceholder.typicode.com/posts"
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: "{{reportJson}}"
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: sa-skip-log
+    type: logDebug
+    position: { x: 650, y: 720 }
+    data:
+      label: 5b. Skip — Too Short
+      message: "Report has only {{wordCount}} words (threshold: 100). Skipping publish."
+      logLevel: warn
+      snapshotVariables: false
+
+  - id: sa-end
+    type: end
+    position: { x: 500, y: 870 }
+    data:
+      label: Done
+
+edges:
+  - id: sa-e1
+    source: sa-start
+    target: sa-init
+
+  - id: sa-e2
+    source: sa-init
+    target: sa-loop
+
+  - id: sa-e3
+    source: sa-loop
+    target: sa-get-page
+    sourceHandle: body
+
+  - id: sa-e4
+    source: sa-get-page
+    target: sa-script-transform
+
+  - id: sa-e5
+    source: sa-script-transform
+    target: sa-aggregate
+
+  - id: sa-e6
+    source: sa-loop
+    target: sa-script-report
+    sourceHandle: done
+
+  - id: sa-e7
+    source: sa-script-report
+    target: sa-check-threshold
+
+  - id: sa-e8
+    source: sa-check-threshold
+    target: sa-publish
+    sourceHandle: "true"
+
+  - id: sa-e9
+    source: sa-check-threshold
+    target: sa-skip-log
+    sourceHandle: "false"
+
+  - id: sa-e10
+    source: sa-publish
+    target: sa-end
+
+  - id: sa-e11
+    source: sa-skip-log
+    target: sa-end

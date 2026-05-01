@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Expiry Guard — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔐</div>
+    <h1>Token Expiry Guard</h1>
+    <div class="subtitle">Assertion Preset — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> &nbsp; <code>security</code> &nbsp; 3 assertions &nbsp; httpbin.org</p>
+    <div class="meta">RedfireForge · April 2026</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Token Expiry Guard preset validates authentication tokens before they're used in subsequent API requests. It checks three properties: the token matches a JWT format, the token hasn't expired, and the token is long enough to be cryptographically meaningful.</p>
+  <p>Use this preset in workflows that authenticate against an API and then reuse the token for subsequent requests. By validating the token immediately after receiving it, you catch auth issues early instead of getting mysterious 401 errors later in the workflow.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    This preset validates token format and metadata, not token signature or permissions. Full cryptographic verification requires server-side validation.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Regex Assertions</strong> — Using regular expressions to validate token formats like JWT</li>
+    <li><strong>Date Assertions</strong> — Comparing timestamps to check token expiry</li>
+    <li><strong>Numeric Assertions</strong> — Verifying string lengths and numeric thresholds</li>
+    <li><strong>Security Testing Patterns</strong> — Validating auth tokens as part of API test workflows</li>
+    <li><strong>JWT Structure</strong> — Understanding the three-part structure of JSON Web Tokens</li>
+  </ul>
+
+  <!-- Section 3 -->
+  <h2>3. Assertion Rules</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Field / Path</th>
+        <th>Operator</th>
+        <th>Expected Value</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>regex</code></td>
+        <td>response.body.token</td>
+        <td><code>matches</code></td>
+        <td><code>^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$</code></td>
+        <td>Token matches the JWT three-part format (header.payload.signature)</td>
+      </tr>
+      <tr>
+        <td><code>date</code></td>
+        <td>response.body.expires_at</td>
+        <td><code>&gt;</code></td>
+        <td><code>now</code></td>
+        <td>Token expiry date is in the future (not expired)</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td>response.body.token.length</td>
+        <td><code>&gt;</code></td>
+        <td><code>20</code></td>
+        <td>Token is at least 20 characters long</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. How It Works</h2>
+
+  <h3>Assertion 1 — JWT Regex Pattern</h3>
+  <p>The <code>regex</code> assertion applies a regular expression pattern to the <code>token</code> field in the response body. The pattern <code>^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$</code> matches the standard JWT format: three Base64url-encoded segments separated by dots.</p>
+  <p>A valid JWT has three parts: the <strong>header</strong> (algorithm and type), the <strong>payload</strong> (claims like user ID and expiry), and the <strong>signature</strong> (cryptographic proof). If the token doesn't match this pattern, it's either malformed or not a JWT at all.</p>
+
+  <h3>Assertion 2 — Token Not Expired</h3>
+  <p>The <code>date</code> assertion compares the <code>expires_at</code> field against the current time (<code>now</code>). If <code>expires_at</code> is in the past, the assertion fails — the token has expired and would be rejected by any properly configured API. This catches issues like clock skew, tokens with very short TTLs, or auth servers returning pre-expired tokens.</p>
+
+  <h3>Assertion 3 — Minimum Token Length</h3>
+  <p>The <code>numeric</code> assertion checks that the token string is at least 20 characters long. While JWTs are typically much longer (hundreds of characters), this is a sanity check. A token shorter than 20 characters is almost certainly invalid — it might be a truncated token, an error message, or an empty string that slipped through.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    In real-world workflows, extract the token from the auth response and pass it as a variable to subsequent request headers: <code>Authorization: Bearer &#123;&#123;token&#125;&#125;</code>.
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Preset</h3>
+  <ol>
+    <li>Open the <strong>Gallery → Assertions</strong> tab in RedfireForge.</li>
+    <li>Find <strong>🔐 Token Expiry Guard</strong> and click <strong>Import Preset</strong>.</li>
+    <li>The preset is added to your workspace's assertion library.</li>
+  </ol>
+
+  <h3>Step 2 — Attach to an Auth Request</h3>
+  <ol>
+    <li>Create a request node that authenticates against your API (e.g., <code>POST https://httpbin.org/post</code> with credentials in the body).</li>
+    <li>In the request's <strong>Assertions</strong> panel, click <strong>Add Preset</strong>.</li>
+    <li>Select <strong>Token Expiry Guard</strong> — all 3 assertions appear.</li>
+  </ol>
+
+  <h3>Step 3 — Run and Review</h3>
+  <ol>
+    <li>Click <strong>Run</strong> to execute the auth request.</li>
+    <li>Check the assertion results: regex format, expiry date, and token length.</li>
+    <li>If all pass, the token is safe to use in subsequent requests.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Inspect a JWT</h3>
+  <p>Decode a JWT token to understand its structure:</p>
+  <ol>
+    <li>Take a JWT token and split it by the <code>.</code> character into three parts.</li>
+    <li>Base64-decode the header and payload segments to see the claims.</li>
+    <li>Find the <code>exp</code> claim in the payload — this is the Unix timestamp of when the token expires.</li>
+  </ol>
+
+  <h3>Exercise 2 — Test with Expired Token</h3>
+  <p>Simulate a token expiry scenario:</p>
+  <ol>
+    <li>Modify the assertion's expected value for the date check to use a future date instead of <code>now</code>.</li>
+    <li>Observe how the assertion result changes based on the comparison target.</li>
+    <li>Reset it back to <code>now</code> when done.</li>
+  </ol>
+
+  <h3>Exercise 3 — Build an Auth Workflow</h3>
+  <p>Create a two-step workflow:</p>
+  <ol>
+    <li>Step 1: Auth request with Token Expiry Guard assertions.</li>
+    <li>Step 2: A protected API call using the token from step 1.</li>
+    <li>If step 1 assertions fail, the workflow should stop before step 2.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Next, try the <strong>💰 E-commerce Price Guard</strong> preset to learn data quality validation.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Token Expiry Guard · April 2026
+  </footer>
+
+</body>
+</html>

@@ -94,6 +94,48 @@
 .metric-value { font-size: 1.5rem; font-weight: 700; }
 .metric-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
+/* Info tooltip on metric labels */
+.metric-info {
+  display: inline-block;
+  cursor: help;
+  position: relative;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  vertical-align: middle;
+  margin-left: 2px;
+  transition: opacity 0.15s;
+}
+.metric-info:hover { opacity: 1; }
+.metric-info::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface, #1e1e2e);
+  color: var(--text, #cdd6f4);
+  border: 1px solid var(--border, #45475a);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.45;
+  white-space: normal;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 100;
+}
+.metric-info:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
 .metrics-row {
   display: flex;
   gap: 12px;
@@ -234,6 +276,8 @@ th { background: var(--surface); color: var(--text-muted); font-weight: 600; fon
 tr:nth-child(even) td { background: var(--shadow-subtle); }
 tr:hover td { background: var(--surface-hover); }
 .row-failed td { background: #ef444410; }
+.clickable-row { cursor: pointer; }
+.clickable-row:active td { background: var(--surface-hover) !important; }
 .url-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .failure-cell { font-size: 0.8rem; max-width: 350px; }
 .failure-detail { color: var(--warning); margin: 2px 0; }
@@ -357,6 +401,13 @@ tr:hover td { background: var(--surface-hover); }
   border-radius: 0;
   margin-bottom: 0;
 }
+.execution-group .think-time-section {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+}
+.execution-group .think-time-section .exec-mode-hint {
+  margin-top: 4px;
+}
 .execution-group .load-profile-section {
   border-top: 1px solid var(--border);
   padding: 10px 14px;
@@ -470,6 +521,33 @@ tr:hover td { background: var(--surface-hover); }
 .selection-actions { display: flex; align-items: center; gap: 8px; line-height: 32px; }
 
 .selection-tree { display: flex; flex-direction: column; gap: 8px; }
+
+.selection-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 6px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.selection-section-header:first-of-type { margin-top: 0; }
+.selection-section-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+.selection-section-gallery .selection-section-label {
+  color: var(--primary, #818cf8);
+}
+.selection-section-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-style: italic;
+  margin-left: auto;
+}
 
 .selection-feature {
   border: 1px solid var(--border);
@@ -688,12 +766,24 @@ tr:hover td { background: var(--surface-hover); }
    Response Detail Modal
    --------------------------------------------------------------------------- */
 
-.response-detail-modal {
-  max-width: 720px;
-  width: 90vw;
-  max-height: 85vh;
+/* Centered overlay for Response Detail modal — uses WorkflowEditorModalFrame */
+.response-detail-overlay.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10080;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
+}
+.response-detail-modal.wf-config-modal.modal.ram-modal {
+  max-width: 720px;
+}
+/* Hide redundant expand buttons and close button */
+.response-detail-modal .modal-expand-btn,
+.response-detail-modal .ram-modal-close {
+  display: none;
 }
 .response-detail-body {
   overflow-y: auto;
@@ -708,24 +798,43 @@ tr:hover td { background: var(--surface-hover); }
 .response-detail-body::-webkit-scrollbar-track { background: transparent; }
 .response-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .response-detail-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* In fullscreen mode, let the body fill available space and scroll */
+.modal-fullscreen.response-detail-modal {
+  max-width: 100%;
+  max-height: 100%;
+}
+.modal-fullscreen .response-detail-body {
+  flex: 1;
+  min-height: 0;
+}
+.modal-fullscreen .response-body-pre {
+  max-height: none;
+}
 .response-detail-meta {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
 }
 .response-meta-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.response-meta-row::-webkit-scrollbar { height: 4px; }
+.response-meta-row::-webkit-scrollbar-track { background: transparent; }
+.response-meta-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .response-meta-name {
   font-weight: 600;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 .response-meta-url {
   font-size: 0.8rem;
@@ -782,6 +891,32 @@ tr:hover td { background: var(--surface-hover); }
 .failure-path { font-weight: 600; color: var(--text); max-width: 200px; word-break: break-all; }
 .failure-expected { color: #22c55e; }
 .failure-actual { color: var(--danger); }
+
+/* ── Response/Request Headers Table ── */
+.response-headers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.response-headers-table th {
+  background: var(--surface);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.response-headers-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.header-name { font-weight: 600; color: var(--text); min-width: 140px; }
+.header-value { color: var(--text-muted); word-break: break-all; }
+
 .response-detail-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border);

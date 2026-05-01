@@ -8,6 +8,28 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Runs before Vite client + app so dev overlay does not treat benign ResizeObserver noise as fatal. -->
+    <script>
+      (function () {
+        function roMsg(e) {
+          if (e.type === 'unhandledrejection') {
+            var r = e.reason;
+            var m = r && r.message ? r.message : String(r || '');
+            return String(m).indexOf('ResizeObserver') !== -1;
+          }
+          var ev = e;
+          var m = ev.message || (ev.error && ev.error.message) || (ev.error != null ? String(ev.error) : '');
+          return String(m).indexOf('ResizeObserver') !== -1;
+        }
+        function swallow(e) {
+          if (!roMsg(e)) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        window.addEventListener('error', swallow, true);
+        window.addEventListener('unhandledrejection', swallow, true);
+      })();
+    </script>
+    <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>

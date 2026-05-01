@@ -1,0 +1,248 @@
+# RedfireForge Workflow — Loop + Aggregate Example
+# Paginated API fetcher: loops through pages, aggregates results.
+# Demonstrates: Loop (while), SetVariable, HTTP, Aggregate, Condition
+#
+# Flow:
+#   Start (page=1, hasMore=true)
+#     → SetVariable (initialise accumulators)
+#       → Loop (while {{hasMore}} == true)
+#         ├─ Body:
+#         │    GET /products?page={{page}}
+#         │    → Aggregate (concat items, sum totalValue, count pages)
+#         │    → SetVariable (page = page + 1, hasMore from response)
+#         └─ Done:
+#              → Condition (totalValue > 1000?)
+#                ├─ Yes → POST /alerts/high-value
+#                └─ No  → End (summary)
+
+name: Paginated Product Fetcher
+description: Loop through paginated API, aggregate results, alert on high-value inventory
+
+schemaVersion: 4
+
+variables:
+  maxPages: "50"
+  valueThreshold: "1000"
+
+services:
+  - id: svc-catalog
+    name: Product Catalog
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/catalog
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: bearer
+      token: "{{CATALOG_TOKEN}}"
+
+  - id: svc-alerts
+    name: Alert Service
+    endpoints:
+      - envId: env-prod
+        url: https://api.example.com/alerts
+        enabled: true
+        authMode: inherit
+        source: manual
+    defaultAuth:
+      type: apikey
+      apiKeyName: X-API-Key
+      apiKeyValue: "{{ALERT_KEY}}"
+      apiKeyIn: header
+
+nodes:
+  - id: start-1
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        page: "1"
+        hasMore: "true"
+
+  # Initialise accumulator variables before the loop
+  - id: setvar-init
+    type: setVariable
+    position: { x: 300, y: 120 }
+    data:
+      label: Init Accumulators
+      assignments:
+        - id: a1
+          name: allItems
+          expression: "[]"
+        - id: a2
+          name: totalValue
+          expression: "0"
+        - id: a3
+          name: pagesFetched
+          expression: "0"
+
+  # While loop — keep fetching until hasMore is false or maxPages reached
+  - id: loop-pages
+    type: loop
+    position: { x: 300, y: 260 }
+    data:
+      label: Fetch Pages
+      mode: while
+      whileLeft: "{{hasMore}}"
+      whileOperator: "=="
+      whileRight: "true"
+      indexVariable: loopIndex
+      maxIterations: 50
+
+  # ── Loop body ──
+
+  - id: http-fetch-page
+    type: http
+    position: { x: 300, y: 420 }
+    data:
+      label: "GET Products Page"
+      serviceId: svc-catalog
+      scenario:
+        id: sc-page
+        name: Fetch Product Page
+        url: "/products?page={{page}}&limit=20"
+        method: GET
+        headers: []
+        body: ""
+        auth: { type: none }
+        validation:
+          mode: none
+        extractions:
+          - name: pageItems
+            source: body
+            expression: $.items
+          - name: hasMore
+            source: body
+            expression: $.hasMore
+          - name: pageTotal
+            source: body
+            expression: $.pageTotalValue
+
+  # Aggregate the page results into running totals
+  - id: agg-results
+    type: aggregate
+    position: { x: 300, y: 560 }
+    data:
+      label: Accumulate Results
+      mappings:
+        - id: m1
+          sourceExpression: "{{pageItems}}"
+          targetVariable: allItems
+          strategy: concat
+        - id: m2
+          sourceExpression: "{{pageTotal}}"
+          targetVariable: totalValue
+          strategy: sum
+        - id: m3
+          sourceExpression: "{{page}}"
+          targetVariable: pagesFetched
+          strategy: count
+
+  # Increment the page counter for the next iteration
+  - id: setvar-next
+    type: setVariable
+    position: { x: 300, y: 700 }
+    data:
+      label: Next Page
+      assignments:
+        - id: a1
+          name: page
+          expression: "{{page}}"
+
+  # ── After loop ──
+
+  # Check if total inventory value exceeds threshold
+  - id: cond-high-value
+    type: condition
+    position: { x: 300, y: 880 }
+    data:
+      label: High Value?
+      left: "{{totalValue}}"
+      operator: ">"
+      right: "{{valueThreshold}}"
+
+  # Alert on high-value inventory
+  - id: http-alert
+    type: http
+    position: { x: 100, y: 1040 }
+    data:
+      label: High Value Alert
+      serviceId: svc-alerts
+      scenario:
+        id: sc-alert
+        name: High Value Alert
+        url: /high-value-inventory
+        method: POST
+        headers:
+          - key: Content-Type
+            value: application/json
+        body: |
+          {
+            "totalValue": {{totalValue}},
+            "pagesFetched": {{pagesFetched}},
+            "threshold": {{valueThreshold}},
+            "message": "Inventory value ${{totalValue}} exceeds threshold"
+          }
+        auth: { type: none }
+        validation:
+          mode: none
+
+  - id: end-ok
+    type: end
+    position: { x: 100, y: 1200 }
+    data:
+      label: Alert Sent
+
+  - id: end-normal
+    type: end
+    position: { x: 500, y: 1040 }
+    data:
+      label: "Normal — {{pagesFetched}} pages, ${{totalValue}}"
+
+edges:
+  - id: e1
+    source: start-1
+    target: setvar-init
+
+  - id: e2
+    source: setvar-init
+    target: loop-pages
+
+  # Loop body chain
+  - id: e3
+    source: loop-pages
+    target: http-fetch-page
+    sourceHandle: body
+
+  - id: e4
+    source: http-fetch-page
+    target: agg-results
+
+  - id: e5
+    source: agg-results
+    target: setvar-next
+
+  # Loop done → condition
+  - id: e6
+    source: loop-pages
+    target: cond-high-value
+    sourceHandle: done
+
+  # Condition branches
+  - id: e7
+    source: cond-high-value
+    target: http-alert
+    sourceHandle: "true"
+    label: Yes
+
+  - id: e8
+    source: cond-high-value
+    target: end-normal
+    sourceHandle: "false"
+    label: No
+
+  - id: e9
+    source: http-alert
+    target: end-ok

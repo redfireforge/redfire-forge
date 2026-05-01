@@ -1,0 +1,243 @@
+# RedfireForge Workflow — Expression Functions Showcase
+# Demonstrates complex expression usage: array aggregation, counting,
+# JSON path extraction, string manipulation, conditional logic, and math.
+#
+# Flow:
+#   Start
+#     → GET /users (fetch user list)
+#       → SetVariable: count users, extract emails, build summary
+#         → GET /posts (fetch all posts)
+#           → SetVariable: count posts per user, compute averages
+#             → Condition: enough data?
+#               ├─ Yes → Log: Success with aggregated stats
+#               └─ No  → Log: Insufficient data
+#                   → End
+#
+# Expression functions used:
+#   $count, $length, $jsonpath, $parse, $stringify, $flatten
+#   $concat, $upper, $substring, $replace, $split, $join
+#   $add, $subtract, $multiply, $divide, $round, $max, $min
+#   $if, $default, $isEmpty, $contains, $coalesce, $equals
+#   $keys, $values, $merge
+
+name: Expression Functions — Array & Aggregation Demo
+description: >
+  Complex workflow showcasing expression functions for dynamic array
+  processing, JSON aggregation, conditional branching, and string formatting.
+
+schemaVersion: 4
+
+variables:
+  baseUrl: "https://jsonplaceholder.typicode.com"
+  minPostThreshold: "5"
+
+nodes:
+  # ── Start ──
+  - id: start-1
+    type: start
+    position: { x: 400, y: 0 }
+    data:
+      label: Start
+      inputVariables:
+        reportTitle: "User Activity Report"
+
+  # ── Step 1: Fetch users ──
+  - id: http-users
+    type: httpWorkflow
+    position: { x: 400, y: 120 }
+    data:
+      label: Fetch Users
+      scenario:
+        id: sc-users
+        name: Fetch Users
+        url: "{{baseUrl}}/users"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation: { mode: none, assertions: [] }
+      extractions:
+        - name: usersJson
+          source: body
+          expression: ""
+          fallback: "[]"
+        - name: firstUserName
+          source: body
+          expression: "0.name"
+          fallback: "Unknown"
+        - name: firstUserEmail
+          source: body
+          expression: "0.email"
+          fallback: "n/a"
+        - name: firstUserCity
+          source: body
+          expression: "0.address.city"
+          fallback: "Unknown"
+
+  # ── Step 2: Compute user stats with expressions ──
+  - id: set-user-stats
+    type: setVariable
+    position: { x: 400, y: 280 }
+    data:
+      label: "Compute User Stats"
+      assignments:
+        # Count total users — $count parses the JSON array and returns its length
+        - name: totalUsers
+          value: "{{$count({{usersJson}})}}"
+
+        # Build a formatted header: "REPORT: User Activity Report (10 users)"
+        - name: reportHeader
+          value: "{{$concat($upper(\"REPORT\"), \": \", {{reportTitle}}, \" (\", {{$count({{usersJson}})}}, \" users)\")}}"
+
+        # Extract the domain from the first user's email: "Sincere@april.biz" → "april.biz"
+        - name: firstUserDomain
+          value: "{{$substring({{firstUserEmail}}, $add($indexOf({{firstUserEmail}}, \"@\"), 1))}}"
+
+        # Format city name: trim, uppercase first letter
+        - name: formattedCity
+          value: "{{$concat($upper($substring({{firstUserCity}}, 0, 1)), $lower($substring({{firstUserCity}}, 1)))}}"
+
+        # Default: if city is empty, show "N/A"
+        - name: displayCity
+          value: "{{$default({{formattedCity}}, \"N/A\")}}"
+
+  # ── Step 3: Fetch posts ──
+  - id: http-posts
+    type: httpWorkflow
+    position: { x: 400, y: 420 }
+    data:
+      label: Fetch Posts
+      scenario:
+        id: sc-posts
+        name: Fetch Posts
+        url: "{{baseUrl}}/posts"
+        method: GET
+        headers: []
+        body: ""
+        bodyForm: []
+        auth: { type: none }
+        validation: { mode: none, assertions: [] }
+      extractions:
+        - name: postsJson
+          source: body
+          expression: ""
+          fallback: "[]"
+        - name: firstPostTitle
+          source: body
+          expression: "0.title"
+          fallback: "No posts"
+
+  # ── Step 4: Compute post aggregation stats ──
+  - id: set-post-stats
+    type: setVariable
+    position: { x: 400, y: 560 }
+    data:
+      label: "Aggregate Post Stats"
+      assignments:
+        # Count total posts
+        - name: totalPosts
+          value: "{{$count({{postsJson}})}}"
+
+        # Average posts per user: totalPosts / totalUsers, rounded to 1 decimal
+        - name: avgPostsPerUser
+          value: "{{$round($divide({{$count({{postsJson}})}}, {{$count({{usersJson}})}}), 1)}}"
+
+        # Check if first post title contains a specific word
+        - name: titleHasProvident
+          value: "{{$contains({{firstPostTitle}}, \"provident\")}}"
+
+        # Conditional message based on average
+        - name: activityLevel
+          value: "{{$if($equals({{$round($divide({{$count({{postsJson}})}}, {{$count({{usersJson}})}}), 0)}}, \"10\"), \"High\", \"Normal\")}}"
+
+        # Truncated preview of first post title (max 30 chars + ellipsis)
+        - name: titlePreview
+          value: "{{$if($equals($length({{firstPostTitle}}), \"0\"), \"(no title)\", $concat($substring({{firstPostTitle}}, 0, 30), \"...\"))}}"
+
+        # Pad the user count for fixed-width display
+        - name: paddedUserCount
+          value: "{{$padStart({{totalUsers}}, 5, \"0\")}}"
+
+        # Min/Max of two computed values
+        - name: minMetric
+          value: "{{$min({{$count({{postsJson}})}}, {{$multiply({{$count({{usersJson}})}}, 20)}})}}"
+        - name: maxMetric
+          value: "{{$max({{$count({{postsJson}})}}, {{$multiply({{$count({{usersJson}})}}, 20)}})}}"
+
+  # ── Condition: enough posts? ──
+  - id: cond-enough
+    type: condition
+    position: { x: 400, y: 700 }
+    data:
+      label: "Enough Data?"
+      left: "{{totalPosts}}"
+      operator: ">="
+      right: "{{minPostThreshold}}"
+
+  # ── Log: Success ──
+  - id: log-success
+    type: logDebug
+    position: { x: 200, y: 850 }
+    data:
+      label: "Log: Success"
+      logLevel: info
+      message: >
+        {{reportHeader}} |
+        Users: {{totalUsers}}, Posts: {{totalPosts}},
+        Avg: {{avgPostsPerUser}} posts/user ({{activityLevel}}),
+        First user: {{firstUserName}} ({{displayCity}}), Domain: {{firstUserDomain}},
+        Preview: {{titlePreview}},
+        Range: {{minMetric}}–{{maxMetric}}
+      snapshotVariables: true
+
+  # ── Log: Insufficient ──
+  - id: log-insufficient
+    type: logDebug
+    position: { x: 600, y: 850 }
+    data:
+      label: "Log: Insufficient"
+      logLevel: warn
+      message: >
+        {{$upper("warning")}}: Only {{totalPosts}} posts found
+        (threshold: {{minPostThreshold}}).
+        Status: {{$if({{$isEmpty({{postsJson}})}}, "NO DATA", "BELOW THRESHOLD")}}
+      snapshotVariables: true
+
+  # ── End ──
+  - id: end-1
+    type: end
+    position: { x: 400, y: 1000 }
+    data:
+      label: End
+
+edges:
+  - id: e1
+    source: start-1
+    target: http-users
+  - id: e2
+    source: http-users
+    target: set-user-stats
+  - id: e3
+    source: set-user-stats
+    target: http-posts
+  - id: e4
+    source: http-posts
+    target: set-post-stats
+  - id: e5
+    source: set-post-stats
+    target: cond-enough
+  - id: e6
+    source: cond-enough
+    target: log-success
+    sourceHandle: "yes"
+  - id: e7
+    source: cond-enough
+    target: log-insufficient
+    sourceHandle: "no"
+  - id: e8
+    source: log-success
+    target: end-1
+  - id: e9
+    source: log-insufficient
+    target: end-1

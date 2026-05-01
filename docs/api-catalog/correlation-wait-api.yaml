@@ -1,0 +1,684 @@
+openapi: "3.0.3"
+info:
+  title: RedfireForge Correlation Wait API
+  version: "1.0.0"
+  description: >
+    Server-side API for managing paused workflow correlations and processing
+    webhook callbacks. Supports correlation matching by body JSONPath, HTTP
+    header, or query parameter. Optional HMAC-SHA256 security, idempotency,
+    and webhook filter expressions.
+
+servers:
+  - url: http://localhost:3001
+    description: Local Development
+
+tags:
+  - name: correlations
+    description: Manage paused workflow correlations
+  - name: webhooks
+    description: Webhook callback endpoints for external systems
+  - name: diagnostics
+    description: Idempotency stats and unmatched webhook logs
+
+paths:
+  /api/correlations/pause:
+    post:
+      operationId: pauseCorrelation
+      summary: Register a paused correlation
+      description: >
+        Register a workflow as paused and waiting for a webhook callback.
+        The correlation ID is used to match incoming webhooks to the paused
+        workflow. When WEBHOOK_SECURITY_ENABLED=true, the response includes
+        a signed webhook token.
+      tags: [correlations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PauseRequest"
+            example:
+              correlationId: "pay_4kF9xR2mNqLp"
+              webhookPath: "/webhooks/callback/payment"
+              executionId: "exec-abc-001"
+              workflowId: "wf-payment-flow"
+              pausedNodeId: "cw-1"
+              timeoutMs: 300000
+              correlationSource: "body"
+              correlationJsonPath: "$.paymentId"
+              webhookFilter: "{{webhook.type}} == payment"
+      responses:
+        "201":
+          description: Correlation registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PauseResponse"
+              example:
+                paused: true
+                correlationId: "pay_4kF9xR2mNqLp"
+                timeoutAt: 1706097600000
+        "409":
+          description: Correlation ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: 'Correlation ID "pay_4kF9xR2mNqLp" is already paused'
+
+  /api/correlations/resume:
+    post:
+      operationId: resumeCorrelation
+      summary: Resume a paused correlation directly
+      description: >
+        Directly resume a paused workflow by its correlation ID. Used by the
+        "Resume Manually" button and the Test Webhook feature in the UI.
+      tags: [correlations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeRequest"
+            example:
+              correlationId: "pay_4kF9xR2mNqLp"
+              webhookData:
+                paymentId: "pay_4kF9xR2mNqLp"
+                status: "approved"
+                transactionId: "txn_8mK3vP7wXjRs"
+                amount: 99.99
+                currency: "USD"
+                cardBrand: "visa"
+                last4: "4242"
+                authorizationCode: "AUTH-779231"
+                riskScore: 12
+                processedAt: "2024-01-15T10:26:14.392Z"
+                receiptUrl: "https://pay.example.com/receipts/txn_8mK3vP7wXjRs"
+      responses:
+        "200":
+          description: Resume result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeResponse"
+              examples:
+                matched:
+                  summary: Workflow resumed
+                  value:
+                    resumed: true
+                    correlationId: "pay_4kF9xR2mNqLp"
+                    executionId: "exec-abc-001"
+                    workflowId: "wf-payment-flow"
+                    webhookData:
+                      paymentId: "pay_4kF9xR2mNqLp"
+                      status: "approved"
+                      transactionId: "txn_8mK3vP7wXjRs"
+                      amount: 99.99
+                      currency: "USD"
+                      cardBrand: "visa"
+                      last4: "4242"
+                      authorizationCode: "AUTH-779231"
+                      riskScore: 12
+                      processedAt: "2024-01-15T10:26:14.392Z"
+                      receiptUrl: "https://pay.example.com/receipts/txn_8mK3vP7wXjRs"
+                notMatched:
+                  summary: No matching paused workflow
+                  value:
+                    resumed: false
+                    correlationId: "pay_4kF9xR2mNqLp"
+
+  /api/correlations:
+    get:
+      operationId: listCorrelations
+      summary: List all paused correlations
+      description: Returns all currently paused workflow correlations.
+      tags: [correlations]
+      responses:
+        "200":
+          description: List of paused correlations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CorrelationListResponse"
+              example:
+                correlations:
+                  - correlationId: "pay_4kF9xR2mNqLp"
+                    webhookPath: "/webhooks/callback/payment"
+                    executionId: "exec-abc-001"
+                    workflowId: "wf-payment-flow"
+                    pausedNodeId: "cw-1"
+                    pausedAt: 1706097300000
+                    timeoutAt: 1706097600000
+                    correlationSource: "body"
+                    correlationJsonPath: "$.paymentId"
+                  - correlationId: "REQ-2024-0042"
+                    webhookPath: "/webhooks/callback/approval"
+                    executionId: "exec-def-002"
+                    workflowId: "wf-approval-flow"
+                    pausedNodeId: "cw-2"
+                    pausedAt: 1706097310000
+                    timeoutAt: 1706356510000
+                    correlationSource: "header"
+                    correlationHeader: "x-request-id"
+                count: 2
+
+  /api/correlations/{correlationId}:
+    delete:
+      operationId: cancelCorrelation
+      summary: Cancel a paused correlation
+      description: Cancel a paused workflow, removing it from the waiting list.
+      tags: [correlations]
+      parameters:
+        - name: correlationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The correlation ID to cancel
+          example: "pay_4kF9xR2mNqLp"
+      responses:
+        "200":
+          description: Correlation cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  correlationId:
+                    type: string
+              example:
+                cancelled: true
+                correlationId: "pay_4kF9xR2mNqLp"
+        "404":
+          description: Correlation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: 'Correlation "pay_4kF9xR2mNqLp" not found'
+
+  /api/correlations/cleanup:
+    post:
+      operationId: cleanupCorrelations
+      summary: Cleanup expired correlations
+      description: Remove expired paused entries and idempotency records.
+      tags: [correlations]
+      responses:
+        "200":
+          description: Cleanup result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cleaned:
+                    type: integer
+                    description: Number of expired correlations removed
+                  idempotencyCleared:
+                    type: integer
+                    description: Number of idempotency records cleared
+                  remaining:
+                    type: integer
+                    description: Number of active correlations remaining
+              example:
+                cleaned: 2
+                idempotencyCleared: 5
+                remaining: 3
+
+  /api/correlations/unmatched:
+    get:
+      operationId: getUnmatchedWebhooks
+      summary: Get unmatched webhook log
+      description: >
+        Returns a log of webhook callbacks that did not match any paused
+        workflow. Useful for debugging webhook integration issues.
+      tags: [diagnostics]
+      responses:
+        "200":
+          description: Unmatched webhook list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnmatchedListResponse"
+              example:
+                unmatched:
+                  - path: "/webhooks/callback/payment"
+                    correlationId: "pay_EXPIRED_9xK2"
+                    payload:
+                      paymentId: "pay_EXPIRED_9xK2"
+                      status: "approved"
+                      transactionId: "txn_late_arrival"
+                      amount: 49.99
+                    receivedAt: 1706097400000
+                  - path: "/webhooks/callback/approval"
+                    correlationId: "REQ-UNKNOWN-999"
+                    payload:
+                      requestId: "REQ-UNKNOWN-999"
+                      decision: "approved"
+                    receivedAt: 1706097450000
+                count: 2
+
+  /api/correlations/idempotency:
+    get:
+      operationId: getIdempotencyStats
+      summary: Get idempotency cache stats
+      description: Returns the current size of the idempotency cache.
+      tags: [diagnostics]
+      responses:
+        "200":
+          description: Idempotency stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  size:
+                    type: integer
+                    description: Number of entries in the idempotency cache
+              example:
+                size: 42
+
+  /webhooks/callback/{path}:
+    post:
+      operationId: webhookCallbackPost
+      summary: Webhook callback (POST)
+      description: >
+        Primary endpoint that external systems call to resume paused workflows.
+        The server extracts the correlation ID from the request body, header,
+        or query parameter (based on the paused workflow's configuration) and
+        matches it against waiting correlations.
+      tags: [webhooks]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: >
+            Webhook path suffix configured in the CorrelationWait node
+            (e.g., "payment" for /webhooks/callback/payment)
+          example: "payment"
+        - name: x-webhook-signature
+          in: header
+          required: false
+          schema:
+            type: string
+          description: HMAC-SHA256 hex digest of the request body (when security enabled)
+        - name: x-hub-signature-256
+          in: header
+          required: false
+          schema:
+            type: string
+          description: 'GitHub-style signature: sha256=<hex> (when security enabled)'
+        - name: x-idempotency-key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Explicit idempotency key for deduplication
+        - name: x-request-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Request ID used as fallback idempotency key
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: >
+                The webhook payload from the external system. Must contain the
+                correlation ID field when using body-based correlation matching.
+            examples:
+              bodyCorrelation:
+                summary: Payment callback (body JSONPath $.paymentId)
+                value:
+                  paymentId: "pay_4kF9xR2mNqLp"
+                  status: "approved"
+                  transactionId: "txn_8mK3vP7wXjRs"
+                  amount: 99.99
+                  currency: "USD"
+                  cardBrand: "visa"
+                  last4: "4242"
+                  authorizationCode: "AUTH-779231"
+                  riskScore: 12
+                  processedAt: "2024-01-15T10:26:14.392Z"
+                  receiptUrl: "https://pay.example.com/receipts/txn_8mK3vP7wXjRs"
+              buildCallback:
+                summary: CI/CD build completion callback
+                value:
+                  buildId: "build_7nM4kR2xPqLs"
+                  status: "success"
+                  duration: 245
+                  pipeline: "deploy-prod"
+                  runner: "runner-us-east-1a"
+                  testResults:
+                    passed: 142
+                    failed: 0
+                    coverage: 91.4
+                  artifactUrl: "https://artifacts.example.com/build_7nM4kR2xPqLs.tar.gz"
+                  buildLog: "https://ci.example.com/builds/7nM4kR2xPqLs/logs"
+                  finishedAt: "2024-01-15T10:29:18.004Z"
+              approvalCallback:
+                summary: Manager approval decision callback
+                value:
+                  requestId: "REQ-2024-0042"
+                  decision: "approved"
+                  decidedBy:
+                    email: "jane.manager@example.com"
+                    name: "Jane Chen"
+                    role: "Engineering Manager"
+                  comment: "Looks good, approved."
+                  metadata:
+                    reviewDurationMs: 14520
+                    reviewUrl: "https://internal.example.com/reviews/REQ-2024-0042"
+                    ipAddress: "10.0.12.45"
+                  decidedAt: "2024-01-15T16:42:33.891Z"
+      responses:
+        "200":
+          description: Webhook processed — workflow resumed or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+              examples:
+                resumed:
+                  summary: Workflow resumed successfully
+                  value:
+                    resumed: true
+                    correlationId: "pay_4kF9xR2mNqLp"
+                    executionId: "exec-abc-001"
+                    workflowId: "wf-payment-flow"
+                    webhookData:
+                      paymentId: "pay_4kF9xR2mNqLp"
+                      status: "approved"
+                      transactionId: "txn_8mK3vP7wXjRs"
+                      amount: 99.99
+                      currency: "USD"
+                      cardBrand: "visa"
+                      last4: "4242"
+                      authorizationCode: "AUTH-779231"
+                      riskScore: 12
+                      processedAt: "2024-01-15T10:26:14.392Z"
+                      receiptUrl: "https://pay.example.com/receipts/txn_8mK3vP7wXjRs"
+                idempotent:
+                  summary: Duplicate webhook — cached response returned
+                  value:
+                    resumed: true
+                    correlationId: "pay_4kF9xR2mNqLp"
+                    idempotent: true
+                    cachedResponse:
+                      resumed: true
+                      correlationId: "pay_4kF9xR2mNqLp"
+                      executionId: "exec-abc-001"
+        "401":
+          description: Signature verification failed (when security enabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Invalid HMAC signature"
+        "403":
+          description: IP not allowed (when security enabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "IP not allowed"
+                ip: "203.0.113.42"
+        "404":
+          description: No matching paused workflow found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                resumed: false
+                error: "No matching paused workflow found"
+                webhookPath: "/webhooks/callback/payment"
+        "422":
+          description: Webhook filter rejected the payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                resumed: false
+                error: 'Webhook filter rejected: {{webhook.type}} == approval evaluated to false'
+                correlationId: "REQ-2024-0042"
+
+    get:
+      operationId: webhookCallbackGet
+      summary: Webhook callback (GET)
+      description: >
+        Alternative GET endpoint for systems that use query-parameter-based
+        callbacks. Behavior is identical to the POST endpoint.
+      tags: [webhooks]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Webhook path suffix
+          example: "build-complete"
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResponse"
+        "404":
+          description: No matching paused workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    PauseRequest:
+      type: object
+      required:
+        - correlationId
+        - webhookPath
+        - executionId
+      properties:
+        correlationId:
+          type: string
+          description: Unique ID to match against incoming webhooks
+        webhookPath:
+          type: string
+          description: Webhook path to match (e.g., /webhooks/callback/payment)
+        executionId:
+          type: string
+          description: Workflow execution ID
+        workflowId:
+          type: string
+          description: Workflow definition ID
+        pausedNodeId:
+          type: string
+          description: ID of the CorrelationWait node
+        timeoutMs:
+          type: integer
+          description: Timeout in milliseconds. 0 = no timeout
+          default: 0
+        correlationSource:
+          type: string
+          enum: [body, header, query]
+          default: body
+          description: Where to find correlation ID in incoming webhooks
+        correlationJsonPath:
+          type: string
+          description: JSONPath for body-based correlation (e.g., $.paymentId)
+        correlationHeader:
+          type: string
+          description: Header name for header-based correlation
+        correlationQueryParam:
+          type: string
+          description: Query parameter for query-based correlation
+        webhookFilter:
+          type: string
+          description: >
+            Filter expression to validate incoming webhooks
+            (e.g., {{webhook.type}} == payment)
+
+    PauseResponse:
+      type: object
+      properties:
+        paused:
+          type: boolean
+        correlationId:
+          type: string
+        timeoutAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the correlation expires
+        webhookToken:
+          $ref: "#/components/schemas/WebhookToken"
+
+    WebhookToken:
+      type: object
+      description: Signed webhook token (only when WEBHOOK_SECURITY_ENABLED=true)
+      properties:
+        correlationId:
+          type: string
+        webhookPath:
+          type: string
+        issuedAt:
+          type: integer
+          format: int64
+        expiresAt:
+          type: integer
+          format: int64
+        signature:
+          type: string
+          description: HMAC-SHA256 hex signature
+
+    ResumeRequest:
+      type: object
+      required:
+        - correlationId
+      properties:
+        correlationId:
+          type: string
+          description: Correlation ID to resume
+        webhookData:
+          type: object
+          description: Simulated webhook payload data
+
+    ResumeResponse:
+      type: object
+      properties:
+        resumed:
+          type: boolean
+        correlationId:
+          type: string
+        executionId:
+          type: string
+        workflowId:
+          type: string
+        webhookData:
+          type: object
+
+    CorrelationListResponse:
+      type: object
+      properties:
+        correlations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PausedCorrelation"
+        count:
+          type: integer
+
+    PausedCorrelation:
+      type: object
+      properties:
+        correlationId:
+          type: string
+        webhookPath:
+          type: string
+        executionId:
+          type: string
+        workflowId:
+          type: string
+        pausedNodeId:
+          type: string
+        pausedAt:
+          type: integer
+          format: int64
+        timeoutAt:
+          type: integer
+          format: int64
+        correlationSource:
+          type: string
+          enum: [body, header, query]
+        correlationJsonPath:
+          type: string
+        correlationHeader:
+          type: string
+        correlationQueryParam:
+          type: string
+
+    WebhookResponse:
+      type: object
+      properties:
+        resumed:
+          type: boolean
+        correlationId:
+          type: string
+        executionId:
+          type: string
+        workflowId:
+          type: string
+        webhookData:
+          type: object
+        idempotent:
+          type: boolean
+          description: True if this was a duplicate webhook (cached response)
+        cachedResponse:
+          type: object
+          description: The original response from the first webhook
+
+    UnmatchedListResponse:
+      type: object
+      properties:
+        unmatched:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              correlationId:
+                type: string
+              payload:
+                type: object
+              receivedAt:
+                type: integer
+                format: int64
+        count:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        correlationId:
+          type: string
+        webhookPath:
+          type: string
+        ip:
+          type: string
+        resumed:
+          type: boolean

@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "version": 1,
+    "method": "GET",
+    "urlPattern": "https://dummyjson.com/products/{{productId}}",
+    "headers": [
+      { "key": "Accept", "value": "application/json" }
+    ],
+    "body": "",
+    "auth": { "type": "none" },
+    "validationMode": "selective",
+    "selectiveMode": "include",
+    "pathVariables": ["productId"]
+  },
+  "data": [
+    {
+      "name": "iPhone — verify title and price",
+      "path:productId": "1",
+      "validate:$.title": "Essence Mascara Lash Princess",
+      "validate:$.category": "beauty"
+    },
+    {
+      "name": "Calvin Klein CK One — verify category",
+      "path:productId": "6",
+      "validate:$.category": "fragrances"
+    },
+    {
+      "name": "Product 10 — basic check",
+      "path:productId": "10",
+      "validate:$.category": "fragrances"
+    },
+    {
+      "name": "Product 15 — exists",
+      "path:productId": "15"
+    },
+    {
+      "name": "Product 20 — exists",
+      "path:productId": "20"
+    }
+  ]
+}

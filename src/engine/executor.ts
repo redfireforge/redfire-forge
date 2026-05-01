@@ -1,10 +1,13 @@
-import type { TestConfig, Scenario, RequestResult } from '../types';
-import { httpFetch, type HttpResponse } from '../utils/httpClient';
-import { getEffectiveBodyType } from '../utils/bodySerializer';
+import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
+import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
+import { resolveAuthHeaders } from '../shared/utils/authHeaders';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
+import { createThinkTimeDelay } from './thinkTime';
+import { runWorkflow, runWorkflowLoad, VariableContext } from '../features/workflow/engine';
 
 export interface ProgressMeta {
   elapsedMs: number;
@@ -34,27 +37,7 @@ export function buildHeaders(scenario: Scenario, token?: string, contentType?: s
       headers[h.key.trim()] = h.value;
     }
   }
-  const auth = scenario.auth;
-  if (auth.type === 'basic' && auth.username) {
-    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
-    headers['Authorization'] = `Basic ${encoded}`;
-  }
-  if (auth.type === 'bearer' && auth.token) {
-    const prefix = auth.prefix?.trim() || 'Bearer';
-    headers['Authorization'] = `${prefix} ${auth.token}`;
-  }
-  if (auth.type === 'apikey' && auth.apiKeyName && auth.apiKeyValue) {
-    if (auth.apiKeyIn === 'header') {
-      headers[auth.apiKeyName] = auth.apiKeyValue;
-    }
-  }
-  if (auth.type === 'digest' && auth.username) {
-    const encoded = btoa(`${auth.username}:${auth.password ?? ''}`);
-    headers['Authorization'] = `Basic ${encoded}`;
-  }
-  if (auth.type === 'oauth2' && token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  Object.assign(headers, resolveAuthHeaders(scenario.auth, token));
   const bt = getEffectiveBodyType(scenario);
   if (contentType) {
     if (bt === 'form-data') {
@@ -75,7 +58,6 @@ export function buildUrl(scenario: Scenario): string {
   }
   return scenario.url;
 }
-export { TokenManager, acquireOAuth2Token } from './tokenManager';
 export { CircuitBreaker } from './circuitBreaker';
 export { getTargetConcurrency } from './loadProfileRunner';
 
@@ -135,8 +117,17 @@ export async function runTest(
   }
 
   const mode = config.executionMode ?? 'batch';
-  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal };
+  const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
+  const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
 
+  if (mode === 'workflow') {
+    const ctx = new VariableContext(config.workflowVariables);
+    const iterations = config.totalTransactions || 1;
+    if (iterations <= 1) {
+      return runWorkflow(scenarios, opts, ctx);
+    }
+    return runWorkflowLoad(scenarios, iterations, config.concurrency, opts, ctx);
+  }
   if (mode === 'load-profile' && config.loadProfile) {
     return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts);
   }

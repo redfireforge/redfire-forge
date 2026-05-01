@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getTargetConcurrency } from './loadProfileRunner';
-import type { LoadProfileConfig } from '../types';
+import type { LoadProfileConfig } from '../shared/types';
 
 function makeProfile(overrides: Partial<LoadProfileConfig> = {}): LoadProfileConfig {
   return {
@@ -87,7 +87,7 @@ describe('getTargetConcurrency', () => {
 
   describe('unknown type', () => {
     it('falls back to maxConcurrency', () => {
-      const profile = makeProfile({ type: 'unknown' as any });
+      const profile = makeProfile({ type: 'unknown' as LoadProfileConfig['type'] });
       expect(getTargetConcurrency(profile, 10_000)).toBe(10);
     });
   });

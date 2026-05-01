@@ -8,6 +8,379 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
+  - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete
+  - `WorkflowVersionPanel` with visual diff of node/edge/variable changes
+  - `ScriptLibraryVersionPanel` with code diff
+  - `RequestDefinitionVersionPanel` for saved request snapshots
+  - `StructureChangeLogPanel` — audit trail of feature group/scenario/test CRUD operations
+  - Export options popover with version inclusion toggle
+  - Import version modal with selective version import
+  - Per-workflow environment persistence (`lastSelectedEnvId` saved/restored on switch)
+  - p50 response time metric added to `computeMetrics()`
+  - Histogram distribution tab in Run Comparison Panel
+- **Response Headers in Results** — Response Detail Modal now shows response headers in a table; captured from both harness and workflow executors
+- **Request Log** — Response Detail Modal shows the resolved request headers and body as sent; Authorization header values are masked (`••••••••`) for security
+- **Structured JSON Body Assertions**
+  - Three new assertion types: **arrayLength** (assert array length at JSONPath, e.g. `$.items` length ≥ 4), **numeric** (compare numeric values, e.g. `$.price > 0`), **date** (compare dates vs `today` or fixed ISO date)
+  - Six comparison operators (`=`, `!=`, `>`, `>=`, `<`, `<=`) shared across all three types
+  - Date comparison supports `today` (UTC or local timezone) and fixed ISO date references
+  - Implemented in `evaluateAssertions()` in `validator.ts` using existing `getByPath()`
+  - Validation tab UI with path picker, operator dropdown, and plain-language controls
+  - Assertion gallery: 5 sample assertion presets in unified gallery system
+  - Applies to both Harness tests and workflow HTTP steps (same `Scenario.validation`)
+  - 57 new unit tests in `validator.test.ts` (169 total); 7 new E2E tests in `structured-assertions.spec.ts`
+
+### Changed
+- **Gallery Redesign** — Replaced Template Gallery modal (`.tg-modal`) with unified Gallery page
+  - Domain filter buttons (All/Requests/API Catalog/Tests/Workflows/Assertions) replace category tabs
+  - Cards show name, description, difficulty dots, domain icon
+  - Detail panel with action buttons (Load Workflow, Send Request, etc.)
+  - "From Template" button now navigates to Gallery page instead of opening a modal
+  - Gallery import creates a preview; user clicks "Use as Template" to save to sidebar
+  - Pagination with configurable page size (12 per page)
+
+### Refactored
+- **Code Consolidation (Round 3)**
+  - `ScenarioBuilder.tsx` reduced from 984 → 702 lines — extracted `useScenarioMutations` hook (376 lines)
+  - `WorkflowDesigner.tsx` reduced from 978 → 949 lines — extracted `useWorkflowResolvers` hook (per-workflow env + HTTP resolver callbacks)
+  - `App.tsx` reduced from 913 → 884 lines — extracted `useWorkflowImportExport` hook
+- **Code Consolidation (Round 2 continued)**
+  - `WorkflowDesigner.tsx` reduced from 1061 → 893 lines (−168 lines) — extracted `useWorkflowPersistence` and `useWorkflowExtractionSample` hooks
+  - Shim removal: deleted 3 re-export shim files for `sampleWorkflows`, migrated 2 legacy YAML specs into `galleries/catalog-specs`
+  - Import unification: all 6 `acquireOAuth2Token` consumers now import from canonical `tokenManager.ts`
+  - Auth header deduplication: created shared `resolveAuthHeaders()` utility, refactored 6 files
+  - Corrected 3 inaccurate `endpointCount` values in catalog specs
+- **Template parser deduplication**: Extracted `csvTemplateShared.ts` with `buildTemplateMetaAndSample()` and `buildScenarioFromRow()` — eliminates ~120 lines of identical code duplicated between `csvTemplateCsv.ts` (214→65 lines) and `csvTemplateJson.ts` (321→155 lines)
+- **Validation result extraction**: Extracted `validationResult.ts` with `buildValidationResult()` — centralises assertion evaluation + failure assembly previously duplicated in `requestExecution.ts` and `graphRunnerHelpers.ts`
+- **Bug fix**: Added missing `responseHeaders` and `requestLog` fields to `runPool` error fallback `RequestResult` (type inconsistency)
+
+### Tests
+- **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
+- **264 E2E tests passing** (2 skipped), **5487 unit tests passing** (247 files)
+
+- **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
+  - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
+  - Server: new `GET /api/correlations/:id/wait` long-poll endpoint (1–120s clamp) with parked-waiter pattern + queued-resume reconciliation for race conditions where a webhook arrives before the pause is registered.
+  - Server: idempotency cache no longer short-circuits replay when an active waiter exists — duplicate-key webhooks now correctly notify the waiting workflow.
+  - Client: 409 (stale-pause) auto-recovery — if a paused entry already exists from an abandoned run, `RemoteCorrelationStore` deletes and retries once.
+  - Pause registration now propagates full `CorrelationWaitConfig` (source/jsonPath/header/queryParam) to the server.
+  - Sample `Parallel Payment Processing` (16 nodes): added per-branch `Tag Card Payment ID` / `Tag Loyalty Payment ID` setVariable nodes that prefix the gateway-returned id with `card-` / `loyalty-` so two parallel CorrelationWaits never collide on identical sandbox ids (e.g. jsonplaceholder echoing `101`).
+  - Sample `Async Approval Workflow`: switch case ids changed from `case-approved`/`case-rejected` to `approved`/`rejected` (handler builds the `case-` prefix automatically; previous double-prefix made the routed branch never match).
+  - Sample simulator HTTP requests now append `-{{$timestamp}}` to `x-idempotency-key` headers so replays across runs are not deduplicated.
+  - Tests: 10 new `RemoteCorrelationStore` unit tests, 4 new wait-endpoint server tests, total 45/45 correlation-handler tests passing.
+
+### Changed
+- **WorkflowToolbar** hides the environment selector when previewing a sample workflow (previously showed an irrelevant `t01`/`prod`/`stage` dropdown that did nothing in preview mode).
+
+### Tests
+- New hook unit tests: `useWorkflowNavigation` (7), `useWorkflowConsole` (7), `useWorkflowEdgeOps` (8), `useWorkflowRunCache` (13), `useWorkflowPersistence` (13), `useWorkflowExtractionSample` (5) — **53 new tests** for hooks extracted from `WorkflowDesigner.tsx`.
+
+### Refactored
+- **Modal standardization**: Migrated all modals to use `FullPanelModal` or `PopupModal` template components.
+  - Created `PopupModal` — centered popup with transparent overlay, no resize/drag/expand.
+  - Created `FullPanelModal` — full-panel modal with opaque background, no chrome.
+  - Consolidated "hide modal chrome" CSS into reusable `.modal-no-chrome` utility class (was duplicated 3×).
+  - Renamed `MoveDialog` → `MoveModal` for consistent `*Modal` naming.
+  - Replaced feature-specific CSS classes (`copy-test-name`, `move-dialog-step`, etc.) with generic `popup-modal-*` classes.
+  - Extracted `mergeById()` utility from `App.tsx` to `helpers.ts` (was duplicated 3× in import handler).
+- **Dead code removal**:
+  - Deleted `ImportCenter.tsx`, `ExportCenter.tsx` (never imported).
+  - Deleted `VariablePanel.tsx`, `WorkflowHarnessContextBar.tsx` (never imported).
+  - Deleted `workflowBundleExport.ts`, `workflowSubWorkflowValidation.ts` and their tests (orphan modules).
+  - Deleted `import-export.css` (~70 unused classes for deleted components), `move-dialog.css` (empty).
+  - Deleted `MoveDialog.tsx` (duplicate left from rename).
+  - Removed debug artifacts: `crash-analysis.md`, `debug-modal.js`, `verify-scrollbar.js`, `scrollbar-diag.spec.ts`, `scrollbar-verify.spec.ts`.
+  - Removed unused imports: `TestRun`, `loadTestRuns` from App.tsx, `useCallback` from TestEditorValidationTab.tsx.
+
+### Tests
+- New unit tests: `PopupModal` (6), `FullPanelModal` (8), `CopyTestModal` (8), `MoveModal` (15), `mergeById` (6) — **43 new tests**.
+- New E2E test: `popup-modals.spec.ts` — CopyTestModal and MoveModal open/close/overlay behavior.
+- Fixed `ExtractionMapperModal` and `RegexAssertionModal` tests to match FullPanelModal migration (overlay click, expand controls, button text).
+
+### Refactored (Round 2 — Code Consolidation)
+- **Shim removal — sampleWorkflows**: Deleted 3 re-export shim files (`sampleWorkflows.ts`, `sampleWorkflows/index.ts`, `sampleWorkflows/types.ts`); updated 4 consumers to import from canonical `galleries/workflows/` path.
+- **Shim removal — sampleCatalogSpecs**: Migrated 2 legacy YAML specs into `galleries/catalog-specs/specs.ts`, inlined entries + `CATALOG_SPEC_CATEGORIES` into `galleries/catalog-specs/index.ts`; updated `CatalogImportModal` to import from `galleries/catalog-specs`; deleted `sampleCatalogSpecs.ts` + test.
+- **Import unification — acquireOAuth2Token**: All 6 consumers now import from canonical `tokenManager.ts`; removed stale re-export from `executor.ts`.
+- **Auth header deduplication**: Created shared `resolveAuthHeaders()` utility (`src/shared/utils/authHeaders.ts`); refactored 6 files (executor, RequestEditor, CatalogEndpointCard, curlGenerator, catalogCurlGenerator, TestEditorModal) to use it — eliminated 5 copies of the same auth-to-header logic.
+- **Data fixes**: Corrected 3 inaccurate `endpointCount` values in catalog specs (FakeStore: 7→6, DummyJSON: 15→14, HTTPBin: 21→20).
+
+### Tests (Round 2)
+- New unit tests: `authHeaders` (14 tests, 100% coverage), `catalogSpecs` OpenAPI parsing + category tests (3 new tests).
+- Fixed stale tests: `ExtractionMapperModal` (3 tests referencing removed expand buttons), `RegexAssertionModal` (6 tests for removed expand/shrink + close button), `workflows.test.ts` (removed backward-compat shim test).
+
+- **WorkflowDesigner.tsx monolith reduction**: 1062 → 893 lines (−169 lines, −16%). Now under the 900-line monolith threshold.
+  - Extracted `useWorkflowPersistence` hook: owns `serializeRFNodes`/`serializeRFEdges` (pure helpers), `persistWorkflow` (incl. webhook PUT registration), `insertNodeAndPersist`, paste/duplicate/copy/undo/redo handlers, `handleSave` + `saveAcknowledged` lifecycle, and `handleUpdateWorkflowVariables`.
+  - Extracted `useWorkflowExtractionSample` hook: encapsulates the design-time "Fetch sample response" flow used by the Extract tab — host/auth resolution, entry-point variable seeding (start/schedule), JSON pretty-print of error bodies, and reset-on-selection-change.
+  - `useWorkflowNodeActions` now receives `nextNodeY` from parent so paste (in persistence hook) and add (in node-actions hook) advance the same Y-cursor.
+  - Removed dead imports (`Edge`, `StartNodeData`, `ScheduleTriggerNodeData`, `cloneWorkflowNodeDataForStorage`, `fetchScenarioSample`, `isHttpWorkflowNode` in node-actions, broken `UseToastReturn` type alias).
+
+### Added (prior)
+- **Async Correlation Wait Node — Phase 7E (Documentation & Examples)**
+  - User Guide: `docs/workflow/CORRELATION_WAIT_GUIDE.md` — full tutorial with configuration, patterns, troubleshooting
+  - API Reference: `docs/workflow/CORRELATION_WAIT_API.md` — all endpoints, request/response examples, security config
+  - Example: `easy-payment-callback-workflow.yaml` — basic payment gateway callback (body correlation)
+  - Example: `medium-approval-workflow.yaml` — manager approval with header correlation, webhook filter, 72h timeout
+  - Example: `medium-cicd-build-callback-workflow.yaml` — CI/CD build trigger with query param correlation
+  - Example: `hard-parallel-payment-workflow.yaml` — parallel payments with Fork/Join and 2 CorrelationWaits
+- **Async Correlation Wait Node — Phase 7D.1–7D.4 (Advanced Features)**
+  - Webhook security: HMAC-SHA256 signed URLs/tokens, token expiration, IP whitelist (CIDR), request signature validation
+  - Idempotency: deduplication via `x-idempotency-key`/`x-request-id`/implicit correlationId, cached response replay, configurable TTL
+  - Webhook filter expressions: `==`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `exists`, `&&`, `||`, nested field paths
+  - Payload structure validation: required fields, type checking
+  - Multi-correlation verified: parallel waits with independent resolution, failure isolation
+  - Security configurable via `WEBHOOK_SECURITY_ENABLED`, `WEBHOOK_HMAC_SECRET`, `WEBHOOK_TOKEN_EXPIRY_MS`
+  - 136 tests passing across security, idempotency, validation, handler, and correlation modules
+- **Async Correlation Wait Node — Phase 7C (Database Persistence)**
+  - `IServerCorrelationStore` interface for pluggable correlation storage
+  - `InMemoryServerStore` — extracted from correlation-handler for clean DI
+  - `SqliteServerStore` — write-through cache with `better-sqlite3`, WAL mode, auto-rehydration on restart
+  - `PostgresServerStore` — event-driven with `pg` Pool, async writes, `DATABASE_URL` config
+  - Shared SQL schema (`correlation-schema.ts`) for both SQLite and PostgreSQL
+  - Store factory (`correlation-store-factory.ts`) with `CORRELATION_STORE_TYPE` env var (memory/sqlite/postgres)
+  - Background cleanup job (60s interval) removes expired correlations
+  - Graceful shutdown closes store connections
+  - Refactored `correlation-handler.ts` to delegate to injectable store
+  - 22 new unit tests (memory store, SQLite persistence/rehydration, factory)
+- **Async Correlation Wait Node — Phase 7B (Execution History Integration)**
+  - Paused node state with amber visual styling (border, dot indicator, pulse animation)
+  - "Paused" filter tab in Execution History panel with live elapsed timer
+  - Paused correlation cards showing correlation ID, webhook path, workflow/execution ID, timeout countdown
+  - "Resume Manually" button to resume paused workflows from execution history
+  - "Test Webhook" section in CorrelationWait config modal with auto-generated payload
+  - 8 execution history unit tests, 4 config test webhook tests, E2E tests for Test Webhook section and paused tab
+- **Async Correlation Wait Node — Phase 7A (In-Memory MVP)**
+  - `CorrelationWait` node type: pause workflow execution and wait for an external webhook callback
+  - Correlation ID expression with variable interpolation for matching incoming webhooks
+  - Configurable correlation source: body (JSONPath), header, or query parameter
+  - Extract variables from webhook payload into workflow context
+  - Timeout support (ms/s/m) with automatic expiration
+  - Optional webhook filter expression
+  - State serialization/deserialization for paused workflow state
+  - In-memory correlation store with `ICorrelationStore` interface
+  - Backend webhook callback handler (`/webhooks/callback/*`, `/api/correlations/*`)
+  - Unmatched webhook logging and cleanup endpoints
+  - Canvas node with correlation ID preview, webhook path, and timeout display
+  - Full config panel with InsertVarField, AvailableVariables, extract variables table
+  - Node palette entry under Actions category
+  - 41 backend integration tests, 15 handler tests, 52 UI component tests, E2E tests
+- **Phase 7A Refactoring & Test Coverage**
+  - Refactored `expressionFunctions.ts` (957 lines → 9 modular files: types, helpers, string/math/json/dateTime/conditional/encoding functions, index)
+  - Refactored `App.tsx` (910 → 858 lines) — extracted `useTheme` hook
+  - Refactored `WorkflowDesigner.tsx` (1432 → 1061 lines) — extracted 4 hooks: `useWorkflowNodeActions`, `useWorkflowCanvasSync`, `useWorkflowEdgeOps`, `useWorkflowDetailModal`
+  - Extracted common utilities: `prettyJson()` (consolidated 7 duplicates), `formatBytes()`, `saveFile()`
+  - Fixed async/await in 5 file download functions
+  - Fixed 3 initialization order bugs in WorkflowDesigner hook ordering
+  - Added 192 new unit tests across 7 files (executionMode, useSidebarResize, expressionFunctions helpers/index, csvTemplateTypes, httpMethodColors, regexAssertionUtils)
+  - Added 14 E2E tests for refactored features (theme customization, sidebar resize, workflow navigation)
+  - Total: 4546 unit tests passing (193 files), 91.47% line coverage
+- **Script Transform Node — Phase D: Code Templates & Script Libraries**
+  - Code template gallery with 12 templates across 4 categories (transform, validate, generate, utility)
+  - Category filter tabs and search functionality for templates
+  - Script libraries: reusable function modules shared across script nodes
+  - Library manager UI with create, edit, delete, and checkbox selection
+  - Library preamble injection into script execution sandbox
+  - localStorage persistence for script libraries
+
+---
+
+## [0.5.4] — 2026-04-24
+
+### Added
+- **Activity Bar Layout**: Redesigned app shell with VS Code/Postman-inspired Activity Bar + contextual sub-navigation
+  - 4-domain Activity Bar: API (🔌), Workflow (🔧), Testing (🏋), Settings (⚙️)
+  - Contextual sub-nav tabs per domain: API (Requests, Catalog), Workflow (Designer, Executions, Webhooks), Testing (Scenarios, Runner, Results), Settings (Environments, Preferences)
+  - Environment and service selectors moved to header for global access
+  - Tab IDs and `?tab=` URL system unchanged for backward compatibility
+- **Clear Run Status**: New Clear button in workflow toolbar to reset all node execution status (checkmarks, response times, edge highlights) back to original state
+- **Workflow Node SVG Configure Icon**: Replaced small Unicode ⚙ character with a 14×14px SVG pencil/edit icon for better visibility; full "Configure..." text shown on hover tooltip
+- **Workflow Node Label Overflow Fix**: Node labels now properly truncate with ellipsis instead of overflowing the node boundary
+  - Added `overflow: hidden` and `min-width: 0` to all node body flex containers
+  - CSS selector targets only label wrapper divs via `:has(.wf-node-label)` to avoid affecting icon badges
+  - Increased node `max-width` from 280px to 320px for more label space
+  - Added `flex-shrink: 0` to configure badge to prevent it from being squeezed
+
+### Changed
+- **Test Coverage**: 2143 unit/integration tests across 100 test files + 180 E2E tests (97.19% statements, 90.2% branches, 98.03% functions, 98.11% lines)
+- **E2E Test Selectors**: Updated all E2E tests for new navigation structure (`.main-nav-tab` → `.sub-nav-tab`, `text=Workflow` → `.ab-btn[title="Workflow"]`, Gallery button → `+ New` → "From Template" dropdown path)
+
+### Added
+- **Switch, Loop, SetVariable & Aggregate Workflow Nodes**: Advanced control flow and data manipulation nodes for workflows
+  - **Switch Node**: Multi-way branching based on expression evaluation — define cases with values and labels; unmatched values follow the Default path; visual badge showing expression and case count
+  - **Loop Node**: Iterative execution with three modes — Count (fixed iterations with optional expression override), ForEach (iterate over JSON array with item/index variables), While (condition-based with operators ==, !=, >, <, contains, regex); configurable max iterations safety limit
+  - **SetVariable Node**: Assign variables during workflow execution — define variable name/value pairs with template expression support; variables available to all downstream nodes
+  - **Aggregate Node**: Collect and combine values across iterations — map source expressions to target variables with strategies (concat, sum, count, first, last, array); useful for accumulating results from loops
+  - **GraphRunner Integration**: Switch evaluates expressions against case values for branch selection; Loop supports count/forEach/while iteration with VariableContext; SetVariable assigns to context; Aggregate collects across iterations
+  - **Configuration Panels**: Dedicated config UIs for each node type with add/remove/reorder controls
+  - **Workflow Palette**: All four nodes available in the drag-and-drop palette under Control Flow category
+
+- **Extraction Mapper Modal Improvements**: Enhanced change detection and tree navigation
+  - Color-coded row indicators: untouched (gray), changed (amber), new (green) with footer legend
+  - Change detection via `originalExtractionsRef` comparing against initial state
+  - Requests-style tree controls with Expand All / Collapse All buttons
+
+- **Webhook & Schedule Trigger Nodes**: Event-driven and time-based workflow initiation (Phases 3 & 4)
+  - **Webhook Trigger Node**: HTTP endpoint trigger for workflows
+    - Configure HTTP method (GET, POST, PUT, DELETE, PATCH)
+    - Define endpoint path for webhook registration
+    - Sample payload JSON for variable extraction via JSONPath
+    - Extract variables from payload for downstream nodes
+    - Visual badge showing method, path, and extraction count
+  - **Schedule Trigger Node**: Cron-based workflow scheduling
+    - Cron expression configuration (standard 5-field format)
+    - Timezone support for accurate scheduling across regions
+    - Human-readable schedule description
+    - Input variables for parameterized scheduled runs
+    - Automatic trigger time variables: `{{triggerTime}}` (ISO date string), `{{triggerTimestamp}}` (Unix epoch)
+  - **GraphRunner Integration**: Trigger nodes recognized as workflow entry points
+    - `findStartNodes()` prioritizes webhook/schedule triggers over root HTTP nodes
+    - Webhook variable extraction from samplePayload using JSONPath
+    - Schedule time variable seeding on execution
+  - **Test Coverage**: 31 new tests (11 unit + 20 E2E)
+    - graphRunner.webhookSchedule.test.ts: 11 unit tests for trigger recognition, variable extraction, downstream flow
+    - workflow-triggers.spec.ts: 20 E2E tests for node rendering, configuration modals, palette integration
+  - All tests passing with >90% coverage maintained
+
+- **Workflow Trigger Nodes & Parallel Execution**: Complete workflow control flow with Start, Fork, Join, and End nodes
+  - **Start Node**: Define workflow entry point with input variable declarations for parameterized execution
+  - **Fork Node**: Split execution into parallel branches - all branches execute concurrently
+  - **Join Node**: Barrier synchronization - waits for all incoming branches before continuing
+  - **End Node**: Terminal workflow node - marks successful completion or failure propagation
+  - **Auto-Layout**: Intelligent graph positioning using Dagre hierarchical layout algorithm
+    - Automatic node positioning with proper spacing and hierarchy
+    - Centers condition branches and fork/join parallel paths
+    - Aligns linear chains and resolves node overlaps
+    - Persists layout state across sessions
+    - Support for both TB (top-bottom) and LR (left-right) orientations
+  - **Enhanced Workflow Execution Engine**:
+    - Parallel execution for Fork/Join nodes - branches run concurrently via Promise.all
+    - Join barrier coordination - tracks incoming branch counts and waits for all arrivals
+    - End node state management - propagates success/failure states to all End nodes
+    - Improved error handling - collects errors from all branches and marks affected End nodes
+    - Skip subtree logic for failed condition branches
+  - **Test Coverage**: 74 new comprehensive tests (65 unit + 9 E2E)
+    - workflowAutoLayout: 23 tests, 80.97% branch coverage
+    - graphRunner: 27 tests, 88.7% branch coverage
+    - debugController: 14 tests, 92.85% branch coverage
+    - fetchScenarioSample: 10 tests, 94.44% branch coverage
+  - **E2E Tests**: workflow-auto-layout.spec.ts (4 tests), workflow-end-node.spec.ts (7 tests)
+  - Workflow directory coverage: 98.12% statements, 91.68% branches, 100% functions, 99.1% lines
+
+- **Variables & Chaining Engine (Phase A)**: Multi-step workflow execution with variable extraction and template resolution
+  - New `VariableContext` class: layered variable store (environment → manual → extracted) with built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt(1,100)}}`, `{{$isoDate}}`, `{{$randomEmail}}`, `{{$randomString(16)}}`)
+  - `resolveScenario()`: Pure preprocessor that substitutes `{{varName}}` placeholders in URL, headers, body, form fields, and auth credentials
+  - `Extraction` type + `extractVariables()`: Extract values from response body (JSONPath), headers, or status code into the variable context for downstream steps
+  - `runWorkflow()` execution mode: Sequential chaining where each step can extract and pass values to the next; `runWorkflowLoad()` for repeated iterations with isolated per-run contexts
+  - New `'workflow'` execution mode added to `ExecutionMode` type, integrated into executor routing and Web Worker
+  - **UI: Extract tab** in TestEditorModal — configure per-request extractions with variable name, source, expression, and fallback
+  - **UI: Workflow radio button** in Runner execution config with mode hint
+  - **UI: Initial Variables editor** — shown when Workflow mode is selected, define key-value pairs for `{{var}}` templates
+  - **CLI support**: `extract` array on test steps and `variables` object in test files for YAML/JSON workflow definitions
+- **Request Timing Breakdown**: DNS/TCP/TLS/TTFB/Download waterfall for every request — diagnose *why* something is slow, not just *how* slow
+  - New `TimingBreakdown` type with six phases: `dnsLookup`, `tcpConnect`, `tlsHandshake`, `ttfb`, `download`, `total`
+  - `timing?` field added to `RequestResult` — backward-compatible, absent for older saved runs
+  - **Vite proxy** (`/__proxy`): Server-side `performance.now()` timestamps capture TTFB and download time from the actual upstream request
+  - **Node CLI**: Same TTFB/download split via `performance.now()` around `fetch()` and `.text()`
+  - **Tauri desktop**: TTFB/download split via `performance.now()` (DNS/TCP/TLS granularity not yet available from `reqwest`)
+  - **WaterfallBar** UI component: Color-coded horizontal bar chart with per-phase labels and totals
+  - **Response Detail Modal**: Shows timing breakdown waterfall for each individual request
+  - **Results Dashboard**: Aggregated average timing table across all requests in a test run
+  - **CLI reporters**: Console summary and Markdown report include average timing breakdown table
+- **Rich Assertions**: Four new assertion types that run on every request regardless of JSON validation mode
+  - **Status Code** — Assert specific codes (`200`), classes (`2xx`), ranges (`200-299`), or comma-separated lists (`200,201,204`)
+  - **Response Time SLA** — Assert response completes within a threshold (`≤ 500ms`)
+  - **Response Header** — Assert header values with operators: `equals`, `contains`, `regex`, `exists` (case-insensitive header name lookup)
+  - **Regex Match** — Assert JSONPath-extracted values match a regular expression pattern
+  - Status code assertions override default HTTP error handling — asserting `404` makes a 404 response pass instead of failing
+  - Assertions combine with existing JSON validation: status OK (by assertion or default) → JSON validation runs → all failures merged
+  - New `Assertion` discriminated union type and `evaluateAssertions()` engine function
+  - UI: "Assertions" section in the Validation tab with type-specific input fields and color-coded badges
+  - CLI: YAML/JSON test files support `assertions` array in the `validation` block
+  - **Regex Assertion Builder modal** — interactive popup for building regex assertions: paste/fetch JSON → click fields in tree to pick JSONPath → choose from 17 pre-built patterns across 5 categories (Text, Identifiers, Formats, Numbers, Arrays) or write custom → live preview shows match/no-match result
+  - Assertion type badges shown on test cards in Scenario Builder (Status, SLA, Header, Regex) for at-a-glance identification
+  - 63 new tests (31 unit + 10 integration + 22 modal logic) covering all assertion types, combinations, and edge cases
+- **Connection Pooling**: HTTP connections are now reused via `keep-alive` instead of creating a new TCP/TLS connection per request
+  - **Before**: Every outbound request opened a fresh TCP connection → DNS lookup + TCP handshake + TLS handshake overhead repeated thousands of times during a run
+  - **After**: A shared `undici.Agent` pool keeps connections alive (30s idle timeout, up to 128 concurrent connections, pipelining) — subsequent requests to the same origin skip handshake overhead entirely
+  - Vite dev proxy (`/__proxy`): Shared `undici.Agent` created at server startup, reused across all proxied requests, cleaned up on server shutdown
+  - Node CLI mode (`nodeFetch`): Shared `undici.Agent` with identical pool settings; `closeNodePool()` exported for explicit cleanup
+  - Tauri desktop mode: Already pooled via `reqwest` — no changes needed
+  - `Connection: keep-alive` header injected on all outbound requests (Vite proxy + Node CLI)
+  - Proxy environment support preserved — `EnvHttpProxyAgent` / `ProxyAgent` used when `HTTP_PROXY` / `HTTPS_PROXY` is set
+  - Estimated 2–3x latency reduction for HTTPS APIs in browser dev mode (eliminates repeated TLS handshakes)
+- **Worker Thread Execution**: Test execution offloaded to a Web Worker so the UI stays responsive during high-concurrency runs
+  - **Before**: UI rendering, progress updates, charts, AND the engine (HTTP, validation, metrics) all shared one JS thread — causing stutters, frozen progress bars, and "page unresponsive" warnings during heavy runs
+  - **After**: Engine runs in a dedicated Web Worker thread; main thread is free for 60fps rendering, smooth interactions, and accurate live metrics
+  - Responsive UI: no stuttering or freezing during high-concurrency runs
+  - Accurate metrics: engine timing is no longer skewed by React reconciliation or DOM repaints
+  - Parallel execution: on multi-core machines, engine and UI truly run simultaneously (10–30% throughput improvement on CPU-bound validation-heavy tests)
+  - Incremental result transfer: only new results are sent per progress update (avoids serializing the full array repeatedly)
+  - Tauri HTTP proxy: in desktop mode, HTTP requests are forwarded from worker to main thread via `postMessage` so the Tauri HTTP plugin (main-thread only) is still used
+  - Browser mode: worker uses `fetch(/__proxy)` directly — no main-thread round-trip for HTTP
+  - Automatic fallback: if Web Workers are unavailable (e.g., test environments), falls back to direct main-thread execution transparently
+  - New files: `executionWorker.ts` (worker entry), `workerBridge.ts` (main-thread bridge), `workerProtocol.ts` (typed messages)
+  - `setHttpTransport()` API in `httpClient.ts` for injectable HTTP transport
+  - `supportsWorkers()` detection in `platform.ts`
+- **Think Time & Pacing**: Configurable delays between requests for realistic virtual user simulation
+  - Four modes: None, Constant (fixed delay), Uniform (random min–max range), Gaussian (normal distribution with mean/stdDev)
+  - New `src/engine/thinkTime.ts` module with `createThinkTimeDelay()` factory and `applyThinkTime()` with abort-signal awareness
+  - Integrated into all four execution strategies: Sequential, Batch, Continuous Pool, and Load Profile
+  - Think Time UI controls in Test Runner execution config with mode-specific input fields and descriptive hints
+  - Think time config displayed in Progress header and Results dashboard context tags (orange "Think:" badge)
+  - Think time persisted in runner config and progress storage for session continuity
+  - New types: `ThinkTimeMode`, `ThinkTimeConfig`; `TestConfig` extended with optional `thinkTime` field
+- **Workflow Node Config Modal**: Full-screen modal for editing HTTP, condition, and delay node configurations with draft/save/cancel pattern
+  - Configure badge on every node type (HTTP, Condition, Delay) for one-click access
+  - Double-click on any node opens config modal
+  - Save/Cancel/Delete actions with unsaved-changes guard
+- **Workflow Defaults Modal**: Modal for managing workflow-level default variables with draft/save/cancel
+- **Auto-Layout Button**: One-click dagre-based hierarchical layout for workflow graphs (top-to-bottom)
+  - New `workflowAutoLayout.ts` utility using `@dagrejs/dagre` with configurable direction, node spacing, and rank separation
+- **Workflow MiniMap**: React Flow minimap overlay for large workflow navigation
+- **Shared Variable Source Map**: Extracted `workflowSourceMap.ts` utility for resolving variable sources across workflow nodes
+- **Variable Insert Modal Hook**: Shared `useVariableInsertModal` hook for consistent variable picker behavior across modals
+- **Snapshot Utility**: `snapshot<T>()` deep-clone helper in `helpers.ts` for draft/save/cancel patterns
+- **Inline Expression Autocomplete**: `ExpressionInput` and `ExpressionTextarea` components provide inline autocomplete across all expression-capable fields
+  - Type `{{` to trigger variable hints dropdown (filtered by what you type)
+  - Type `$` to trigger expression function hints (`$upper`, `$concat`, `$jsonpath`, etc.)
+  - Arrow keys navigate, Enter/Tab accepts, Escape dismisses
+  - Portal-rendered dropdown with proper z-index layering (10100) above config modal overlays
+  - `requestAnimationFrame`-based blur handling prevents dropdown from closing during React re-renders
+  - Applied to: HTTP node URL input, header value inputs, body textarea, extraction expression/fallback fields, Condition left operand expression textarea, Condition right operand input
+- **Searchable Variable Select**: Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode
+  - Type-to-filter search across variable names, labels, and source nodes
+  - Variables grouped by source node with section headers (e.g., "GET USERS", "WORKFLOW", "START")
+  - Alphabetically sorted items within each group
+  - Type badges (string, number) on each item
+  - Keyboard navigable (Arrow keys, Enter to select, Escape to close)
+  - "Custom name…" option for manual variable references
+  - Checkmark indicator on currently selected variable
+  - Click-outside-to-close and viewport-aware positioning
+
+### Fixed
+- **Results Dashboard**: Request Details groups now fully expanded by default at all nesting levels (previously only top-level groups expanded)
+- **WorkflowDefaultsModal**: Fixed duplicate declarations of `requestVariableInsert` and `handleVariableInsertPicked` that caused build errors
+
+### Changed
+- **Test Coverage**: 1997 unit/integration tests across 87 test files + 109 E2E tests (97.05% statements, 90.10% branches, 97.74% functions, 98.04% lines)
+- **Shared Hook Refactoring**: Extracted common patterns into reusable hooks
+  - `useListCrud<T>` hook: generic ordered-list CRUD (update, remove, move) shared by AggregateConfig, SetVariableConfig, SwitchConfig
+  - `useNodeBase` hook enhanced: now returns `{ rs, stateClass, debugStep, handleConfigure }` — used by SwitchNode, LoopNode, AggregateNode, SetVariableNode, ForkNode, JoinNode
+  - ForkNode/JoinNode refactored from raw hook calls to `useNodeBase`
+- **Shared Utilities Refactoring**: Extracted duplicate code into single canonical sources
+  - Extracted `serverFormatters.ts` with shared formatting utilities for server-related components
+  - Extracted `server-api.ts` shared types for webhook delivery logs, execution history, and server status
+  - `useDebounce` hook: consolidated from 3 inline copies into `src/hooks/useDebounce.ts`
+  - `escapeRegExp()`: consolidated from 2 copies into `src/utils/helpers.ts`
+  - `formatBytes()`: consolidated from 4 copies into `src/utils/helpers.ts`
+  - `toErrorMessage()`: new utility replacing 20+ inline `err instanceof Error ? err.message : String(err)` patterns
+  - `typeColor()` / `getValuePreview()` / `ChevronIcon`: consolidated from 3 tree viewers into `src/components/shared/jsonTreeShared.tsx`
+  - `saveJsonKey()` / `loadJsonKey()`: generic helpers replacing 4 duplicate load/save pairs in `storage.ts`
+  - `applyFetchUrlOverrides()`: extracted from 2 duplicate URL-override blocks in `TestEditorModal.tsx`
+  - Unified `.jt-*` CSS classes across all JSON tree viewers (removed duplicate `.json-tree-*` classes)
+- **E2E Test Fix**: Fixed flaky `workflow-variable-insert.spec.ts` where delete button intercepted pointer events on `Insert…` button
+
 ---
 
 ## [0.5.2] — 2026-04-19

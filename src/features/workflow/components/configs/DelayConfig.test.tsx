@@ -1,0 +1,95 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import DelayConfig from './DelayConfig';
+import type { DelayNodeData } from '../../types/workflow';
+
+function makeData(overrides: Partial<DelayNodeData> = {}): DelayNodeData {
+  return { label: 'Wait', delayMs: 500, mode: 'fixed', ...overrides };
+}
+
+describe('DelayConfig', () => {
+  it('renders label input with current value', () => {
+    render(<DelayConfig data={makeData({ label: 'My Delay' })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('My Delay')).toBeTruthy();
+  });
+
+  it('calls onChange when label changes', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData()} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('Wait'), { target: { value: 'Pause' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'Pause' }));
+  });
+
+  it('renders mode select with fixed selected', () => {
+    render(<DelayConfig data={makeData({ mode: 'fixed' })} onChange={vi.fn()} />);
+    const select = screen.getByDisplayValue('Fixed');
+    expect(select).toBeTruthy();
+  });
+
+  it('switches mode to random', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData()} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('Fixed'), { target: { value: 'random' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'random' }));
+  });
+
+  it('shows delay input for fixed mode', () => {
+    render(<DelayConfig data={makeData({ mode: 'fixed', delayMs: 1234 })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('1234')).toBeTruthy();
+    expect(screen.getByText('Delay (ms)')).toBeTruthy();
+  });
+
+  it('calls onChange when delay changes in fixed mode', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'fixed', delayMs: 500 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('500'), { target: { value: '2000' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ delayMs: 2000 }));
+  });
+
+  it('defaults delayMs to 0 on invalid input', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'fixed', delayMs: 500 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('500'), { target: { value: 'abc' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ delayMs: 0 }));
+  });
+
+  it('shows min/max inputs for random mode', () => {
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 100, maxMs: 2000 })} onChange={vi.fn()} />);
+    expect(screen.getByText('Min (ms)')).toBeTruthy();
+    expect(screen.getByText('Max (ms)')).toBeTruthy();
+    expect(screen.getByDisplayValue('100')).toBeTruthy();
+    expect(screen.getByDisplayValue('2000')).toBeTruthy();
+  });
+
+  it('hides delay input in random mode', () => {
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 0, maxMs: 1000 })} onChange={vi.fn()} />);
+    expect(screen.queryByText('Delay (ms)')).toBeNull();
+  });
+
+  it('calls onChange when minMs changes', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 100, maxMs: 2000 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('100'), { target: { value: '250' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minMs: 250 }));
+  });
+
+  it('calls onChange when maxMs changes', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 100, maxMs: 2000 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('2000'), { target: { value: '5000' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxMs: 5000 }));
+  });
+
+  it('defaults minMs to 0 when undefined', () => {
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: undefined, maxMs: 1000 })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('0')).toBeTruthy();
+  });
+
+  it('defaults maxMs to delayMs when undefined', () => {
+    render(<DelayConfig data={makeData({ mode: 'random', delayMs: 3000, maxMs: undefined })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('3000')).toBeTruthy();
+  });
+});

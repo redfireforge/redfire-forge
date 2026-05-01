@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Commerce Full Suite — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏪</div>
+    <h1>E-Commerce Full Suite</h1>
+    <div class="subtitle">Test Sample — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · Regression · 6 Scenarios · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.4</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>E-Commerce Full Suite</strong> is a comprehensive regression test covering multiple domains of a typical e-commerce API: products, search, categories, carts, and users. This advanced test demonstrates how to build a broad coverage suite that validates an entire API surface.</p>
+  <p>This test is ideal for:</p>
+  <ul>
+    <li>Validating multiple resource types across an e-commerce platform in a single test run.</li>
+    <li>Practising a mix of assertion types: status codes, array lengths, numeric checks, and regex patterns.</li>
+    <li>Learning how to structure large test suites with 6+ scenarios covering different API domains.</li>
+    <li>Testing both read (<code>GET</code>) and write (<code>POST</code>) operations in one suite.</li>
+  </ul>
+  <p>All six scenarios target the DummyJSON API (<code>dummyjson.com</code>), which simulates a realistic e-commerce backend with products, carts, and user data.</p>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Full-coverage regression testing</strong> — building a suite that spans multiple API domains.</li>
+    <li><strong>Status code assertions</strong> — confirming <code>200</code> responses across diverse endpoints.</li>
+    <li><strong>Array length assertions</strong> — verifying product lists, search results, and category counts.</li>
+    <li><strong>Numeric assertions</strong> — checking that numeric fields like <code>total</code> and <code>id</code> contain valid values.</li>
+    <li><strong>Regex assertions</strong> — validating string fields like <code>username</code> and <code>title</code> match expected patterns.</li>
+    <li><strong>POST requests with JSON body</strong> — sending structured payloads to create resources.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Test Scenarios</h2>
+  <p>This test contains 6 scenarios spanning products, search, categories, carts, and users:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Assertions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>List Products</td>
+        <td><code>GET</code></td>
+        <td><code>/products</code></td>
+        <td>Status = 200, Products array &gt; 0</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Search Products</td>
+        <td><code>GET</code></td>
+        <td><code>/products/search?q=phone</code></td>
+        <td>Status = 200, Results array &gt; 0</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Get Categories</td>
+        <td><code>GET</code></td>
+        <td><code>/products/categories</code></td>
+        <td>Status = 200, Array length &gt; 0</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Get Cart</td>
+        <td><code>GET</code></td>
+        <td><code>/carts/1</code></td>
+        <td>Status = 200, Total &gt; 0</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Get User</td>
+        <td><code>GET</code></td>
+        <td><code>/users/1</code></td>
+        <td>Status = 200, Username matches pattern</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Add to Cart</td>
+        <td><code>POST</code></td>
+        <td><code>/carts/add</code></td>
+        <td>Status = 200, Cart ID &gt; 0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 4 -->
+  <h2>4. Assertion Details</h2>
+
+  <h3>Scenario 1 — List Products</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The products endpoint responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The product list contains at least one item.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 2 — Search Products</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The search endpoint responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td><code>$.products</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>Searching "phone" returns at least one matching product.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 3 — Get Categories</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The categories endpoint responded successfully.</td>
+      </tr>
+      <tr>
+        <td><code>arrayLength</code></td>
+        <td>Response body (root)</td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The API returns at least one product category.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 4 — Get Cart</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>Cart with ID 1 exists and is returned.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.total</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The cart total is a positive number (cart is not empty).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h3>Scenario 5 — Get User</h3>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>User with ID 1 exists and is returned.</td>
+      </tr>
+      <tr>
+        <td><code>regex</code></td>
+        <td><code>$.username</code></td>
+        <td>matches</td>
+        <td><code>^[a-zA-Z0-9_]+$</code></td>
+        <td>The username contains only valid characters (alphanumeric and underscores).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scenario 6 — Add to Cart</h3>
+  <p>Sends a POST request to add a product to a new cart.</p>
+  <pre>{
+  "userId": 1,
+  "products": [
+    { "id": 1, "quantity": 1 }
+  ]
+}</pre>
+  <table>
+    <thead>
+      <tr><th>Assertion Type</th><th>Target</th><th>Operator</th><th>Expected</th><th>What It Checks</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Response status code</td>
+        <td>equals</td>
+        <td><code>200</code></td>
+        <td>The add-to-cart endpoint accepted the request.</td>
+      </tr>
+      <tr>
+        <td><code>numeric</code></td>
+        <td><code>$.id</code></td>
+        <td>greaterThan</td>
+        <td><code>0</code></td>
+        <td>The newly created cart has a valid positive ID.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 — Import the Test</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel and navigate to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>🏪 E-Commerce Full Suite</strong> in the list.</li>
+    <li>Click <strong>Import Test</strong> to add all 6 scenarios to your workspace.</li>
+  </ol>
+
+  <h3>Step 2 — Review Scenarios</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario to inspect its method, URL, and assertions.</li>
+    <li>Note the variety of endpoints: products, search, categories, carts, and users.</li>
+    <li>Pay attention to Scenario 6 — it uses a <code>POST</code> method with a JSON body to create a cart.</li>
+  </ol>
+
+  <h3>Step 3 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run All</strong> to execute all 6 scenarios sequentially.</li>
+    <li>Watch the progress indicator — with 6 scenarios, this will take slightly longer than simpler tests.</li>
+  </ol>
+
+  <h3>Step 4 — Check Results</h3>
+  <ol>
+    <li>Open the <strong>Results Panel</strong> to see the pass/fail summary.</li>
+    <li>Click on any scenario to expand its assertion results.</li>
+    <li>Green checkmarks (✅) indicate passed assertions; red crosses (❌) indicate failures.</li>
+    <li>Review the mix of assertion types across all 6 scenarios.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    This suite uses four different assertion types (<code>status</code>, <code>arrayLength</code>, <code>numeric</code>, <code>regex</code>). Pay attention to when each type is most appropriate — status for availability, arrayLength for collections, numeric for quantities, and regex for string validation.
+  </div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've run the full e-commerce suite, try these exercises to deepen your understanding:</p>
+
+  <h4>Exercise 1 — Add Product Detail</h4>
+  <p>Add a scenario that fetches <code>GET /products/1</code> and asserts that the response contains a <code>title</code> field matching a non-empty string and a <code>price</code> field greater than <code>0</code>.</p>
+
+  <h4>Exercise 2 — Search Edge Case</h4>
+  <p>Create a scenario for <code>GET /products/search?q=xyznonexistent</code>. Assert that the response status is <code>200</code> and the <code>products</code> array has a length of <code>0</code>.</p>
+
+  <h4>Exercise 3 — Update Cart</h4>
+  <p>Add a scenario that sends <code>PUT /carts/1</code> with an updated product list. Assert that the merge was successful and the response contains the updated products array.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported test — you can modify it freely without affecting the original gallery sample.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — E-Commerce Full Suite · April 2026
+  </footer>
+
+</body>
+</html>

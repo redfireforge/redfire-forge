@@ -45,20 +45,21 @@ test.describe('View Results flow', () => {
       localStorage.setItem('perf-test-runs', JSON.stringify([testRun]));
       localStorage.setItem('perf-test-theme', 'dark');
     });
-    await page.goto('/');
-    await page.waitForSelector('.app-header');
+    await page.goto('/?tab=results');
+    await page.waitForSelector('.app-header', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('navigate to Results tab and see metrics', async ({ page }) => {
-    await page.click('.tab:has-text("Results")');
-    await expect(page.locator('.tab.active')).toHaveText('Results');
+    // Already on Results tab from beforeEach
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Results');
 
     await expect(page.locator('.metric-label:has-text("TPS")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.metric-label:has-text("Avg Response")')).toBeVisible();
   });
 
   test('results show run history dropdown', async ({ page }) => {
-    await page.click('.tab:has-text("Results")');
+    // Already on Results tab from beforeEach
 
     const dropdown = page.locator('select').first();
     await expect(dropdown).toBeVisible();
@@ -68,13 +69,13 @@ test.describe('View Results flow', () => {
   });
 
   test('results show request count in metrics', async ({ page }) => {
-    await page.click('.tab:has-text("Results")');
+    // Already on Results tab from beforeEach
 
     await expect(page.locator('.metric-label:has-text("Total Requests")')).toBeVisible({ timeout: 5000 });
   });
 
   test('group by controls are present', async ({ page }) => {
-    await page.click('.tab:has-text("Results")');
+    // Already on Results tab from beforeEach
 
     await expect(page.getByText('Group by')).toBeVisible({ timeout: 5000 });
   });

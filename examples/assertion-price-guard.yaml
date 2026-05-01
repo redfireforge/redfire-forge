@@ -1,0 +1,48 @@
+# RedfireForge CLI — E-commerce Price Guard Assertions (Medium)
+# Preset: Price Guard
+# Validates product prices are within a reasonable range with at least one variant.
+#
+# Run: npx redfireforge run examples/assertion-price-guard.yaml --base-url https://fakestoreapi.com
+
+name: E-commerce Price Guard
+baseUrl: https://fakestoreapi.com
+
+defaults:
+  headers:
+    Accept: application/json
+  timeout: 10
+
+config:
+  concurrency: 1
+  transactions: 3
+
+tests:
+  - name: Product Price in Valid Range
+    url: /products/1
+    method: GET
+    validation:
+      mode: none
+      assertions:
+        # Assert price is greater than 0 (no free/negative products)
+        - type: numeric
+          jsonPath: "$.price"
+          operator: ">"
+          value: 0
+
+        # Assert price doesn't exceed a safety cap
+        - type: numeric
+          jsonPath: "$.price"
+          operator: "<"
+          value: 10000
+
+  - name: Product Category Has Items
+    url: /products/category/electronics
+    method: GET
+    validation:
+      mode: none
+      assertions:
+        # Assert at least one product exists in the category
+        - type: arrayLength
+          jsonPath: "$"
+          operator: ">="
+          value: 1

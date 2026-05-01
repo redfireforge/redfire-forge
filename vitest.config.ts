@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}'],
     exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
   },
   resolve: {

@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-cli
+dist-server
 dist-ssr
 *.local
 
@@ -29,3 +30,7 @@ dist-ssr
 
 # Test coverage
 coverage/
+
+# Playwright test results
+test-results/
+test-script-paste.cjs
