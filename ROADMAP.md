@@ -44,11 +44,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 5615 unit/integration tests (Vitest, 254 files) + 372 E2E tests (Playwright) = 5987 total
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 5,717 unit/integration tests (Vitest, 257 files) + 372 E2E tests (Playwright) = 6,089 total
 - ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
 - ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 27 focused modules; largest file now ~895 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 27 focused modules + 2 shared utilities (`toggleSetItem`, `versionFactory`); largest file now ~895 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ### Load Testing Maturity Levels
@@ -173,8 +173,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (4914 tests, <25s) + Playwright E2E (270+ tests)
-- [x] **Refactor Large Components** — 8 monoliths broken into 25+ focused modules + shared useAuthVerify hook + AuthConfigPanel
+- [x] **`npm test` Script** — Vitest (5,717 tests, <16s) + Playwright E2E (372 tests)
+- [x] **Refactor Large Components** — 8 monoliths broken into 27+ focused modules + 2 shared utilities + shared useAuthVerify hook + AuthConfigPanel
 
 ---
 
@@ -290,20 +290,41 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **SVG Configure Icon** — Replaced tiny Unicode ⚙ with a 14×14px SVG pencil/edit icon; hover tooltip preserved
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
-- [x] **E2E Test Selectors Updated** — All 270+ E2E tests updated for new nav structure
-- [x] **4914 Unit Tests, 270+ E2E Tests** — comprehensive coverage across all features
+- [x] **E2E Test Selectors Updated** — All 372 E2E tests updated for new nav structure
+- [x] **5,717 Unit Tests, 372 E2E Tests** — comprehensive coverage across all features
 
 ### Phase 0.5.4a — Gallery Redesign & Training Manuals ✅
 
 > Unified gallery system across all 5 domains with type-safe data layer, shared UI components, and comprehensive training manuals.
 
-- [x] **Gallery Type Unification** — `GalleryEntry<T>` base type with domain-specific extensions; 5 domains: requests (12), tests (8), catalog (6), workflows (30), assertions (5); total 65 gallery entries
+- [x] **Gallery Type Unification** — `GalleryEntry<T>` base type with domain-specific extensions; 5 domains: requests (12), tests (8), catalog (8), workflows (30), assertions (5); total 63 gallery entries
 - [x] **Request & Test Gallery Data** — 12 request samples + 8 test scenario samples with factory functions, live API endpoints, difficulty levels, and category tags
-- [x] **Catalog Spec Gallery** — 6 OpenAPI 3.0.3 specs for public APIs (JSONPlaceholder, FakeStore, PokéAPI, DummyJSON, REST Countries, HTTPBin)
+- [x] **Catalog Spec Gallery** — 8 OpenAPI specs for public APIs (JSONPlaceholder, FakeStore, PokéAPI, DummyJSON, REST Countries, HTTPBin, PetStore, CorrelationWait)
 - [x] **Workflow Gallery Migration** — 30 workflow samples across 5 categories (api-patterns, flow-control, event-driven, orchestration); includes script nodes, async correlation, and diverse API patterns
 - [x] **Shared Gallery UI** — `GalleryPage` with domain tabs, `GalleryDetailPanel` with import/action buttons, `FullPanelModal` for gallery display
 - [x] **Diverse API Workflow Samples** — 5 new workflow samples using real public APIs: PokéAPI Evolution Chain, Country Currency Lookup, Product Search & Cart, Book Search & Enrichment, Multi-API Dashboard
-- [x] **Training Manuals (73 files)** — Complete training manual coverage across all 5 gallery domains: requests (13), tests (9), catalog (7), assertions (6), workflows (36 across 8 subdirectories); each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
+- [x] **Training Manuals (123 files)** — Complete training manual coverage across all gallery domains and training paths: requests, tests, catalog, assertions, workflows, workflow patterns; each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
+
+### Phase 0.5.6 — Version History, Training Paths & Code Quality ✅
+
+> Cross-entity version history, structured training curriculum, and code consolidation.
+
+- [x] **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
+  - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete
+  - `WorkflowVersionPanel` with visual diff of node/edge/variable changes
+  - `ScriptLibraryVersionPanel` with code diff
+  - `RequestDefinitionVersionPanel` for saved request snapshots
+  - Response & Validation version panels with `createResponseVersion` / `createRulesVersion` factory functions
+  - Export options popover with version inclusion toggle
+  - Import version modal with selective version import
+- [x] **Structure Change Log** — `StructureChangeLogPanel` audit trail of feature group/scenario/test CRUD operations
+- [x] **Training Paths** — Structured learning curriculum with `TrainingPathsView`: 9 training paths across 3 categories (core, workflow patterns, content), each with multiple phases and progressive difficulty; sidebar hero cards with expand/collapse, search filtering, phase sections, and gallery sample import integration
+- [x] **Validation Tab UX** — 5 improvements to reduce confusion between assertions and body validation: renamed "No Validation" → "No Body Validation", added section heading, warning banner for empty Full JSON Match, clickable mode-switch link, smart validation tab dot
+- [x] **Per-Workflow Environment Persistence** — `lastSelectedEnvId` saved/restored on workflow switch
+- [x] **Histogram Distribution** — Response time histogram tab in Run Comparison Panel
+- [x] **p50 Metric** — p50 response time added to `computeMetrics()`
+- [x] **Code Consolidation (Round 5)** — Extracted `toggleSetItem()` shared utility (9 inline patterns → 1 function), `createResponseVersion()` / `createRulesVersion()` factory functions (8 inline constructions → 2 factories); `resolveAuthHeaders()` deduplication (6 files); import unification for `acquireOAuth2Token`
+- [x] **5,717 Unit Tests, 372 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
 
 ---
 
@@ -313,8 +334,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 4914 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 270+ tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 5,717 tests) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 372 tests) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
@@ -457,12 +478,13 @@ Post-launch features driven by community feedback. Completing the engine items b
 | **0.5.4** | **UI/UX Visual Foundation** | **—** | **9** | **9** |
 | 0.9.0 | Variables & Chaining | → Good | 16 | 15 |
 | **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
-| **0.5.4a** | **Gallery Redesign & Training Manuals** | **—** | **9** | **9** |
+| **0.5.4a** | **Gallery Redesign & Training Manuals** | **—** | **7** | **7** |
+| **0.5.6** | **Version History, Training Paths & Code Quality** | **—** | **10** | **10** |
 | 0.10.0 | Assertions & Observability | → Good | 9 | 9 |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **178** | **136** |
+| **Total** | | | **186** | **144** |
 
 ### Load Testing Level Milestones
 
@@ -473,7 +495,8 @@ CURRENT: Good (~500-2,000 RPS)
   ├── Phase 0.6.5 ✅  Excel templates, live charts
   ├── Phase 0.9.0 ✅  Variables, chaining, workflow mode
   ├── Phase 0.9.1 ✅  Worker threads, connection pooling, think time
-  └── Phase 0.10.0 ✅ Rich assertions, assertion presets, response headers, request log, timing breakdown
+  ├── Phase 0.10.0 ✅ Rich assertions, assertion presets, response headers, request log, timing breakdown
+  └── Phase 0.5.6 ✅  Version history, training paths, validation UX, p50 metric, code consolidation
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
@@ -483,9 +506,9 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (no CLI, no CI pipeline, no demo) | 50–200 | Not recommended |
-| Launch with CLI + CI pipeline + live demo | 500–2,000 | Phases 0.7.0 + 0.7.5 complete |
-| Launch with "Good" load testing + demo | 2,000–5,000 | Phases 0.9.0 + 0.9.1 + 0.10.0 + 1.0.0 |
+| Launch now (no CI pipeline, no demo) | 200–500 | CLI done, tests done, but no automation |
+| Launch with CI pipeline + live demo | 500–2,000 | Phase 0.7.5 complete |
+| Launch with "Good" load testing + demo | 2,000–5,000 | Phases 0.9.0 + 0.9.1 + 0.10.0 ✅ + 1.0.0 |
 | Viral launch (HN front page, YouTube) | 5,000–10,000+ | All of above + great branding + luck |
 
 ### Critical Path to Open-Source (minimum viable launch)
@@ -494,7 +517,7 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 4914 unit/integration + 270+ E2E = 5184+ tests
+Phase 0.8.0 (Tests) ✅ DONE — 5,717 unit/integration + 372 E2E = 6,089 tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
 ```
@@ -510,4 +533,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-04-29 (v0.5.5 — Response Headers & Request Log in Results, Assertion Presets, Gallery Redesign complete, 73 training manuals; load testing at Good; 136/178 items done)_
+_Last updated: 2026-05-01 (v0.5.6 — Version History, Training Paths, Validation UX, Code Consolidation Round 5; load testing at Good; 144/186 items done; 5,717 unit + 372 E2E = 6,089 total tests)_
