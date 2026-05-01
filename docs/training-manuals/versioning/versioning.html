@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Versioning — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🕰️</div>
+    <h1>Versioning</h1>
+    <div class="subtitle">Master Overview — Training Manual</div>
+    <p>The Versioning subsystem tracks the full change history of every entity in RedfireForge — workflows, tests, requests, scripts, environments, and run baselines. This overview introduces the architecture, core concepts, and links to all 16 feature-specific manuals.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      7 Phases · 6 Entity Types · 375+ Unit Tests
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Gets Versioned?</h2>
+  <p>RedfireForge automatically tracks change history for <strong>6 entity types</strong> across 7 implementation phases. Every time you save a workflow, modify a test, or change an environment setting, the system captures a snapshot so you can browse history, compare changes, and restore previous states.</p>
+
+  <table>
+    <tr>
+      <th>Entity Type</th>
+      <th>Phase</th>
+      <th>Max Versions</th>
+      <th>Fingerprint</th>
+      <th>Auto-Save</th>
+      <th>Diff Tabs</th>
+      <th>Restore</th>
+    </tr>
+    <tr>
+      <td>Workflow</td>
+      <td>V-Phase 1</td>
+      <td>30</td>
+      <td>cyrb53 hash</td>
+      <td>On save</td>
+      <td>Nodes, Edges, Variables, Services</td>
+      <td>Full</td>
+    </tr>
+    <tr>
+      <td>Test Definition</td>
+      <td>V-Phase 2</td>
+      <td>20</td>
+      <td>Canonical JSON</td>
+      <td>On change</td>
+      <td>Overview, Headers, Body, Auth, Extractions</td>
+      <td>Full</td>
+    </tr>
+    <tr>
+      <td>Audit Log</td>
+      <td>V-Phase 3</td>
+      <td>500</td>
+      <td>—</td>
+      <td>Automatic</td>
+      <td>Inline old→new</td>
+      <td>N/A</td>
+    </tr>
+    <tr>
+      <td>Run Baselines</td>
+      <td>V-Phase 4</td>
+      <td>10</td>
+      <td>—</td>
+      <td>Manual mark</td>
+      <td>Metric + Scenario deltas</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Request Definition</td>
+      <td>V-Phase 5</td>
+      <td>15</td>
+      <td>Canonical JSON</td>
+      <td>On change</td>
+      <td>Overview, Headers, Body, Auth</td>
+      <td>Partial patch</td>
+    </tr>
+    <tr>
+      <td>Feature Group Structure</td>
+      <td>V-Phase 6</td>
+      <td>50 per FG</td>
+      <td>—</td>
+      <td>Automatic</td>
+      <td>—</td>
+      <td>No (log only)</td>
+    </tr>
+    <tr>
+      <td>Script Library</td>
+      <td>V-Phase 7</td>
+      <td>15</td>
+      <td>Canonical JSON</td>
+      <td>On edit</td>
+      <td>Overview, Code</td>
+      <td>Full</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Export/Import operations include version data. When exporting a scenario, use the <code>VersionExportOptions</code> checkboxes to choose which version types to include: Response Versions, Rules Versions, Definition Versions, and Structure Log.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. How Versioning Works</h2>
+
+  <h3>2.1 Fingerprinting &amp; Deduplication</h3>
+  <p>Before creating a new version snapshot, the system computes a <strong>fingerprint</strong> of the current state. If the fingerprint matches the most recent version, no new snapshot is created — this prevents duplicate entries from "save without changes" operations.</p>
+  <ul>
+    <li><strong>Workflows</strong> use the <code>cyrb53</code> hash function applied to a normalized representation of nodes, edges, variables, and services.</li>
+    <li><strong>Tests, Requests, and Scripts</strong> use <strong>canonical JSON</strong> — keys are sorted alphabetically, then the JSON string is hashed. This ensures that <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> produce the same fingerprint.</li>
+  </ul>
+
+<pre>// Workflow fingerprinting (cyrb53)
+export function computeWorkflowFingerprint(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  variables: Record&lt;string, string&gt;,
+  services: WorkflowService[]
+): string {
+  const normalized = {
+    nodes: nodes.map(n =&gt; ({ id: n.id, type: n.type, position: n.position, data: n.data })),
+    edges: edges.map(e =&gt; ({ id: e.id, source: e.source, target: e.target, ... })),
+    variables,
+    services,
+  };
+  return cyrb53(JSON.stringify(normalized));
+}</pre>
+
+  <h3>2.2 Auto-Save vs Manual Save</h3>
+  <ul>
+    <li><strong>Workflows:</strong> A version snapshot is taken when you click <strong>Save</strong>. The fingerprint is checked first — if nothing changed, no snapshot is created.</li>
+    <li><strong>Tests &amp; Requests:</strong> Snapshots are created automatically when you modify and save a scenario definition (URL, headers, body, auth, extractions).</li>
+    <li><strong>Audit Log:</strong> Entries are created automatically whenever an environment, microservice, or auth profile is created, updated, deleted, or renamed.</li>
+    <li><strong>Baselines:</strong> You manually mark a test run as a baseline — no auto-save.</li>
+    <li><strong>Scripts:</strong> Snapshots are created when you save a script library entry.</li>
+  </ul>
+
+  <h3>2.3 FIFO Eviction</h3>
+  <p>Each entity type has a maximum number of versions (shown in the table above). When the cap is reached, the <strong>oldest</strong> version is automatically removed to make room for the new one — this is <strong>First-In, First-Out (FIFO)</strong> eviction. Named/renamed versions are NOT exempt from eviction.</p>
+
+<pre>// Adding a version with FIFO cap
+export function addVersionToList(
+  versions: WorkflowVersion[],
+  newVersion: WorkflowVersion,
+  max = MAX_WORKFLOW_VERSIONS  // 30
+): WorkflowVersion[] {
+  const updated = [newVersion, ...versions];
+  return updated.slice(0, max); // FIFO: drop oldest if over cap
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. The Version Lifecycle</h2>
+  <p>Every versioned entity follows the same high-level workflow:</p>
+
+  <div class="flow-diagram">
+    <strong>User Action</strong>
+    <span class="arrow">→</span>
+    <strong>Fingerprint Check</strong>
+    <span class="arrow">→</span>
+    <strong>Snapshot Created</strong>
+    <span class="arrow">→</span>
+    <strong>Version List Updated</strong>
+    <span class="arrow">→</span>
+    <strong>FIFO Eviction (if needed)</strong>
+    <br /><br />
+    <strong>Browse History</strong>
+    <span class="arrow">→</span>
+    <strong>Select &amp; Compare</strong>
+    <span class="arrow">→</span>
+    <strong>Diff Modal (tab-based)</strong>
+    <span class="arrow">→</span>
+    <strong>Restore / Export</strong>
+  </div>
+
+  <h3>3.1 Version Panel</h3>
+  <p>Each entity has a <strong>Version Panel</strong> accessible from the editor toolbar (clock/history icon). The panel shows all versions newest-first, with:</p>
+  <ul>
+    <li><strong>Timestamp</strong> — when the snapshot was taken.</li>
+    <li><strong>Label</strong> — optional, user-editable via double-click (inline rename).</li>
+    <li><strong>Change Summary</strong> — auto-generated description of what changed (e.g., "2 nodes added, 1 variable changed").</li>
+    <li><strong>Checkbox</strong> — select up to 2 versions for comparison.</li>
+    <li><strong>Restore button</strong> — revert to this version (with undo snapshot taken first).</li>
+  </ul>
+
+  <h3>3.2 Diff Modal</h3>
+  <p>When two versions are selected and compared, a <strong>tab-based diff modal</strong> opens. Each tab shows changes for a specific aspect of the entity:</p>
+  <ul>
+    <li><strong>Green</strong> = added items</li>
+    <li><strong>Red</strong> = removed items</li>
+    <li><strong>Yellow</strong> = modified items (with property-level detail via <code>json-diff-kit</code>)</li>
+    <li><strong>Gray</strong> = unchanged items</li>
+  </ul>
+
+  <h3>3.3 Restore</h3>
+  <p>Restoring a version replaces the current state with the snapshot's data. Before restoring, the system automatically takes an <strong>undo snapshot</strong> so you can press Ctrl+Z to revert the restore if needed.</p>
+
+  <h3>3.4 Data Persistence</h3>
+  <p>Version data is stored in <strong>localStorage</strong> (web mode) or the <strong>Tauri store</strong> (desktop mode). This means versions persist across browser tab closes and app restarts. Undo history is also persisted (debounced at 500ms to prevent excessive writes).</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Export &amp; Import with Versions</h2>
+  <p>When exporting scenarios, requests, or workflows, you can optionally include version history. The export dialog provides 4 checkboxes via <code>VersionExportOptions</code>:</p>
+
+  <table>
+    <tr>
+      <th>Checkbox</th>
+      <th>What It Includes</th>
+      <th>Applicable To</th>
+    </tr>
+    <tr>
+      <td>Include Response Versions</td>
+      <td>Saved response body snapshots</td>
+      <td>Requests</td>
+    </tr>
+    <tr>
+      <td>Include Rules Versions</td>
+      <td>Validation rule snapshots</td>
+      <td>Requests</td>
+    </tr>
+    <tr>
+      <td>Include Definition Versions</td>
+      <td>Entity configuration snapshots (URL, headers, body, auth, etc.)</td>
+      <td>Tests, Requests</td>
+    </tr>
+    <tr>
+      <td>Include Structure Log</td>
+      <td>Feature group structural change history</td>
+      <td>Feature Groups</td>
+    </tr>
+  </table>
+
+  <p>Helper functions for managing version data during export/import:</p>
+<pre>stripWorkflowVersions(workflow)   // Remove version data for clean export
+countWorkflowVersions(workflow)   // Count versions before export
+stripDefinitionVersions(scenario) // Remove test/request definition versions
+stripStructureLog(featureGroup)   // Remove FG structure changelog
+countVersions(scenario)           // Count all version types</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    When importing, toggle "Include Version History" to bring version data along. Without it, the imported entity starts with zero versions — a clean slate.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Training Manual Index</h2>
+  <p>The versioning manual suite comprises 16 feature-specific manuals organized by phase. Each manual imports a Gallery sample as its starting point to ensure reproducibility.</p>
+
+  <h3>V-Phase 1 — Workflow Versioning</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="workflow/workflow-version-history-easy.html">workflow/workflow-version-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td><code>sample-workflow-001</code></td>
+      <td>Snapshots, restore, rename, 30-version cap, FIFO, undo safety</td>
+    </tr>
+    <tr>
+      <td><a href="workflow/workflow-version-diff-medium.html">workflow/workflow-version-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td><code>sample-workflow-webhook</code></td>
+      <td>4-tab diff (Nodes/Edges/Variables/Services), change indicators</td>
+    </tr>
+    <tr>
+      <td><a href="workflow/workflow-version-advanced.html">workflow/workflow-version-advanced</a></td>
+      <td><span class="badge badge-advanced">Advanced</span></td>
+      <td><code>sample-workflow-sub-workflow</code></td>
+      <td>Bulk ops, export/import, 30-version cap rotation, undo persistence</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 2 — Test Definition Versioning</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="test/test-definition-history-easy.html">test/test-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td><code>test-user-api-smoke</code></td>
+      <td>Test snapshots, 20-version cap, change summaries, canonical JSON</td>
+    </tr>
+    <tr>
+      <td><a href="test/test-definition-diff-medium.html">test/test-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td><code>test-ecommerce-full</code></td>
+      <td>5-tab diff (Overview/Headers/Body/Auth/Extractions), tab badges</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 3 — Environment Audit Log</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="catalog/environment-audit-log-easy.html">catalog/environment-audit-log-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>—</td>
+      <td>Audit entries, filtering, search, field-level change detection</td>
+    </tr>
+    <tr>
+      <td><a href="catalog/environment-audit-export-medium.html">catalog/environment-audit-export-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>—</td>
+      <td>JSON/CSV export, 500-entry rotation, log management</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 4 — Run Baselines</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="test/run-baselines-easy.html">test/run-baselines-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td><code>test-product-listing</code></td>
+      <td>Mark/unmark baseline, 10-baseline cap, labeling</td>
+    </tr>
+    <tr>
+      <td><a href="test/run-baselines-comparison-medium.html">test/run-baselines-comparison-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td><code>test-auth-flow</code></td>
+      <td>MetricDelta, RegressionAlert, trend charts, thresholds</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 5 — Request Definition Versioning</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="request/request-definition-history-easy.html">request/request-definition-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td><code>req-get-all-users</code></td>
+      <td>Request snapshots, 15-version cap, partial restore, 3 version panels</td>
+    </tr>
+    <tr>
+      <td><a href="request/request-definition-diff-medium.html">request/request-definition-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td><code>req-create-post</code></td>
+      <td>4-tab diff (Overview/Headers/Body/Auth), SnapshotDiffResult</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 6 — Feature Group Structure</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="catalog/feature-group-history-easy.html">catalog/feature-group-history-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td><code>test-user-api-smoke</code></td>
+      <td>Structure changelog, per-FG scoping, 50-entry cap, action types</td>
+    </tr>
+    <tr>
+      <td><a href="catalog/feature-group-history-medium.html">catalog/feature-group-history-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td><code>test-country-search</code></td>
+      <td>Cross-FG tracking, export with stripStructureLog, clearLog</td>
+    </tr>
+  </table>
+
+  <h3>V-Phase 7 — Script Library Versioning</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="advanced/script-library-versioning-easy.html">advanced/script-library-versioning-easy</a></td>
+      <td><span class="badge badge-easy">Easy</span></td>
+      <td>—</td>
+      <td>Script snapshots, 15-version cap, code-level diff</td>
+    </tr>
+    <tr>
+      <td><a href="advanced/script-library-impact-medium.html">advanced/script-library-impact-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>—</td>
+      <td>findLibraryUsages(), LibraryUsage, cross-workflow impact analysis</td>
+    </tr>
+  </table>
+
+  <h3>Cross-Cutting</h3>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>Gallery Sample</th><th>Key Topics</th></tr>
+    <tr>
+      <td><a href="cross-entity/cross-feature-versioning-advanced.html">cross-entity/cross-feature-versioning-advanced</a></td>
+      <td><span class="badge badge-advanced">Advanced</span></td>
+      <td>Multiple</td>
+      <td>Full lifecycle, cross-entity traceability, version hygiene, team patterns</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Source Code Reference</h2>
+  <p>Each versioning phase has a dedicated utility module, UI components, and test suite:</p>
+
+  <table>
+    <tr>
+      <th>Phase</th>
+      <th>Utility</th>
+      <th>Components</th>
+      <th>Tests</th>
+    </tr>
+    <tr>
+      <td>V1 — Workflow</td>
+      <td><code>workflowVersioning.ts</code></td>
+      <td><code>WorkflowVersionPanel</code>, <code>WorkflowVersionDiff</code></td>
+      <td>108</td>
+    </tr>
+    <tr>
+      <td>V2 — Test Def</td>
+      <td><code>testDefinitionVersioning.ts</code></td>
+      <td><code>TestDefinitionVersionPanel</code>, <code>TestDefinitionVersionDiff</code></td>
+      <td>62</td>
+    </tr>
+    <tr>
+      <td>V3 — Audit</td>
+      <td><code>auditLog.ts</code></td>
+      <td><code>AuditLogPanel</code></td>
+      <td>42</td>
+    </tr>
+    <tr>
+      <td>V4 — Baselines</td>
+      <td><code>runBaselines.ts</code></td>
+      <td>Comparison view</td>
+      <td>27</td>
+    </tr>
+    <tr>
+      <td>V5 — Request Def</td>
+      <td><code>requestDefinitionVersioning.ts</code></td>
+      <td><code>RequestDefinitionVersionPanel</code>, <code>RequestDefinitionVersionDiff</code></td>
+      <td>32</td>
+    </tr>
+    <tr>
+      <td>V6 — FG Structure</td>
+      <td><code>structureChangeLog.ts</code></td>
+      <td>FG history panel</td>
+      <td>36</td>
+    </tr>
+    <tr>
+      <td>V7 — Script Lib</td>
+      <td><code>scriptLibraryVersioning.ts</code></td>
+      <td><code>ScriptLibraryVersionPanel</code>, <code>ScriptLibraryVersionDiff</code></td>
+      <td>60</td>
+    </tr>
+    <tr>
+      <td>Export</td>
+      <td><code>scenarioImportExport.ts</code></td>
+      <td><code>VersionCheckboxGroup</code>, <code>ExportOptionsPopover</code></td>
+      <td>—</td>
+    </tr>
+  </table>
+
+  <h3>Key Shared Functions</h3>
+<pre>// Workflow versioning
+computeWorkflowFingerprint(nodes, edges, variables, services)
+createWorkflowVersion(label, nodes, edges, variables, services)
+addVersionToList(versions, newVersion, max?)
+generateChangeSummary(older, newer)
+computeVersionDiff(older, newer)
+
+// Test/Request versioning
+createSnapshot(scenario)
+computeSnapshotFingerprint(snapshot)
+hasChanged(current, lastSnapshot)
+autoSaveVersion(scenario, versions)
+computeSnapshotDiff(older, newer)
+
+// Audit log
+loadAuditLog() / addAuditEntry(entry)
+computeChanges(oldObj, newObj, fields?)
+auditLogToCsv(entries)
+
+// Baselines
+markAsBaseline(runId, label?) / unmarkBaseline(runId)
+compareRuns(baseline, current) / detectRegressions(comparison)
+
+// Script library
+findLibraryUsages(workflows, libraryId)
+computeDiff(older, newer)</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Getting Started</h2>
+  <p>New to versioning? Follow this recommended learning path:</p>
+  <ol>
+    <li><strong>Start with workflows</strong> — Read <a href="workflow/workflow-version-history-easy.html">workflow-version-history-easy</a>. Import the Gallery sample <code>sample-workflow-001</code> and follow the 10-step walkthrough to create, browse, and restore versions.</li>
+    <li><strong>Learn diffing</strong> — Read <a href="workflow/workflow-version-diff-medium.html">workflow-version-diff-medium</a>. Import <code>sample-workflow-webhook</code> and explore the 4-tab diff modal to understand change visualization.</li>
+    <li><strong>Apply to tests</strong> — Read <a href="test/test-definition-history-easy.html">test-definition-history-easy</a>. Import <code>test-user-api-smoke</code> and see how test versioning mirrors workflow versioning with a 5-tab diff.</li>
+    <li><strong>Explore audit &amp; baselines</strong> — Read the audit log and baselines manuals for infrastructure-level tracking.</li>
+    <li><strong>Capstone</strong> — When comfortable with all features, read <a href="cross-entity/cross-feature-versioning-advanced.html">cross-feature-versioning-advanced</a> for holistic release-management strategies.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Every training manual imports a Gallery sample as its starting point. This ensures you always start from a known-good state with working public APIs — no manual configuration needed.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — Versioning Overview · May 2026
+  </footer>
+
+</body>
+</html>

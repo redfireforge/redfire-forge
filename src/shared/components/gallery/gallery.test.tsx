@@ -10,9 +10,17 @@ import { GalleryCard } from './GalleryCard';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { GalleryFilters, defaultFilterState, apiHostname } from './GalleryFilters';
 import { GalleryGrid } from './GalleryGrid';
+import { TrainingPathsView } from './TrainingPathsView';
+import { trainingPaths } from '../../../data/galleries/trainingPaths';
 import type { GalleryEntry } from '../../../data/galleries/types';
 
 /* ── Helpers ── */
+
+const defaultFilterProps = {
+  mode: 'samples' as const,
+  onModeChange: vi.fn(),
+  trainingPaths: [],
+};
 
 function makeEntry(overrides: Partial<GalleryEntry<string>> = {}): GalleryEntry<string> {
   return {
@@ -202,8 +210,10 @@ describe('GalleryFilters', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={vi.fn()}
+        {...defaultFilterProps}
       />,
     );
     const domainBtns = document.querySelectorAll('.gallery-domain-btn');
@@ -219,8 +229,10 @@ describe('GalleryFilters', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={onChange}
+        {...defaultFilterProps}
       />,
     );
     fireEvent.click(screen.getByText(/Requests/));
@@ -233,8 +245,10 @@ describe('GalleryFilters', () => {
         domains={baseDomains}
         categories={['crud', 'search']}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={vi.fn()}
+        {...defaultFilterProps}
       />,
     );
     expect(screen.getByLabelText('Filter by category')).toBeTruthy();
@@ -547,8 +561,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={onChange}
+        {...defaultFilterProps}
       />,
     );
     const select = screen.getByLabelText('Filter by difficulty');
@@ -563,8 +579,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={['crud', 'search']}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={onChange}
+        {...defaultFilterProps}
       />,
     );
     const select = screen.getByLabelText('Filter by category');
@@ -578,8 +596,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={['jsonplaceholder.typicode.com']}
+        tags={[]}
         value={defaultFilterState()}
         onChange={vi.fn()}
+        {...defaultFilterProps}
       />,
     );
     expect(screen.getByLabelText('Filter by live API')).toBeTruthy();
@@ -591,8 +611,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={defaultFilterState()}
         onChange={vi.fn()}
+        {...defaultFilterProps}
       />,
     );
     expect(screen.queryByLabelText('Filter by live API')).toBeNull();
@@ -605,8 +627,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={['api.example.com']}
+        tags={[]}
         value={defaultFilterState()}
         onChange={onChange}
+        {...defaultFilterProps}
       />,
     );
     const select = screen.getByLabelText('Filter by live API');
@@ -620,8 +644,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={{ ...defaultFilterState(), domain: 'requests' }}
         onChange={vi.fn()}
+        {...defaultFilterProps}
       />,
     );
     const activeBtn = container.querySelector('.gallery-domain-btn.active');
@@ -635,8 +661,10 @@ describe('GalleryFilters — expanded coverage', () => {
         domains={baseDomains}
         categories={[]}
         liveApis={[]}
+        tags={[]}
         value={{ ...defaultFilterState(), domain: 'requests' }}
         onChange={onChange}
+        {...defaultFilterProps}
       />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
@@ -656,5 +684,80 @@ describe('defaultFilterState', () => {
     expect(state.difficulty).toBe('all');
     expect(state.liveApi).toBe('');
     expect(state.search).toBe('');
+  });
+});
+
+/* ── TrainingPathsView ── */
+
+describe('TrainingPathsView', () => {
+  it('renders path cards', () => {
+    render(<TrainingPathsView paths={trainingPaths} />);
+    expect(screen.getByText('Versioning')).toBeTruthy();
+    expect(screen.getByText('Workflow Patterns')).toBeTruthy();
+  });
+
+  it('shows coming soon for future paths', () => {
+    render(<TrainingPathsView paths={trainingPaths} />);
+    expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('highlights active path', () => {
+    const { container } = render(<TrainingPathsView paths={trainingPaths} activePathId="versioning" />);
+    expect(container.querySelector('.training-path-card-highlighted')).toBeTruthy();
+  });
+
+  it('shows phases when versioning path is highlighted', () => {
+    render(<TrainingPathsView paths={trainingPaths} activePathId="versioning" />);
+    expect(screen.getByText('Workflow Versioning')).toBeTruthy();
+    expect(screen.getByText('Test Definition Versioning')).toBeTruthy();
+  });
+
+  it('shows manual rows with import buttons', () => {
+    render(<TrainingPathsView paths={trainingPaths} activePathId="versioning" />);
+    expect(screen.getByText('Workflow Version History')).toBeTruthy();
+    const importBtns = screen.getAllByText('Import');
+    expect(importBtns.length).toBeGreaterThan(0);
+  });
+
+  it('calls onImportSample when import is clicked', () => {
+    const onImport = vi.fn();
+    render(<TrainingPathsView paths={trainingPaths} activePathId="versioning" onImportSample={onImport} />);
+    const importBtns = screen.getAllByText('Import');
+    fireEvent.click(importBtns[0]);
+    expect(onImport).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ── GalleryGrid mode toggle ── */
+
+describe('GalleryGrid — mode toggle', () => {
+  const entries: GalleryEntry<string>[] = [
+    makeEntry({ id: 'm1', name: 'ModeEntry' }),
+  ];
+
+  it('renders mode toggle buttons', () => {
+    render(<GalleryGrid entries={entries} />);
+    expect(screen.getByText('📦 Samples')).toBeTruthy();
+    expect(screen.getByText('📖 Training Paths')).toBeTruthy();
+  });
+
+  it('defaults to samples mode', () => {
+    render(<GalleryGrid entries={entries} />);
+    expect(screen.getByText('ModeEntry')).toBeTruthy();
+  });
+
+  it('switches to training paths view', () => {
+    const { container } = render(<GalleryGrid entries={entries} />);
+    fireEvent.click(screen.getByText('📖 Training Paths'));
+    expect(container.querySelector('.training-paths-view')).toBeTruthy();
+    expect(screen.queryByText('ModeEntry')).toBeNull();
+  });
+
+  it('switches back to samples mode', () => {
+    render(<GalleryGrid entries={entries} />);
+    fireEvent.click(screen.getByText('📖 Training Paths'));
+    expect(screen.queryByText('ModeEntry')).toBeNull();
+    fireEvent.click(screen.getByText('📦 Samples'));
+    expect(screen.getByText('ModeEntry')).toBeTruthy();
   });
 });

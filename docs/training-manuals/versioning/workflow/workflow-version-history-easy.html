@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Version History — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🕰️</div>
+    <h1>Workflow Version History</h1>
+    <div class="subtitle">Easy — Training Manual</div>
+    <p>Learn to create, browse, rename, and restore workflow version snapshots. Every time you save a workflow, RedfireForge captures a fingerprinted snapshot you can revisit at any time.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Gallery Sample: <code>sample-workflow-001</code> · jsonplaceholder.typicode.com
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>When developing and refining workflows, changes accumulate quickly — adding nodes, rewiring edges, tuning variables. Without version history, a bad change can mean starting over. Workflow versioning solves this by automatically capturing a snapshot every time you save.</p>
+  <p><strong>Real-world scenario:</strong> <em>"Evolving an Order Processing Workflow"</em></p>
+  <p>You've imported a "Create → Extract → Verify" workflow from the Gallery. It works perfectly — creates a post on JSONPlaceholder, checks the response, waits, fetches the post, and verifies the user. Now you want to add a notification step. With versioning, you can evolve the workflow confidently, knowing every milestone is saved and restorable.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    This manual uses the Gallery sample <code>sample-workflow-001</code> ("Create → Extract → Verify") as its starting point. Import it from the Gallery before beginning the walkthrough.
+  </div>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Automatic snapshots</strong> — how saving a workflow triggers a version snapshot (if the fingerprint changed).</li>
+    <li><strong>Fingerprint deduplication</strong> — the <code>cyrb53</code> hash prevents duplicate snapshots when nothing changed.</li>
+    <li><strong>Version panel</strong> — browsing the version list (newest-first) with timestamps, labels, and node/edge counts.</li>
+    <li><strong>Inline rename</strong> — double-click a version label to give it a meaningful name.</li>
+    <li><strong>Restore with undo safety</strong> — reverting to an older version with an automatic undo snapshot.</li>
+    <li><strong>30-version FIFO cap</strong> — the oldest version is evicted when the cap is reached.</li>
+    <li><strong>Persistence</strong> — versions survive browser tab closes and app restarts via localStorage / Tauri store.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Key Data Model</h2>
+  <p>Understanding the underlying data helps you reason about what's captured in each snapshot:</p>
+
+<pre>interface WorkflowVersion {
+  id: string;             // Unique version ID (UUID)
+  timestamp: number;      // When the snapshot was taken (epoch ms)
+  label?: string;         // Optional user-assigned label
+  fingerprint: string;    // cyrb53 hash of nodes + edges + variables + services
+  nodes: WorkflowNode[];  // Full snapshot of all nodes
+  edges: WorkflowEdge[];  // Full snapshot of all edges
+  variables: Record&lt;string, string&gt;;  // Workflow variables
+  services: WorkflowService[];        // Service configurations
+}
+
+const MAX_WORKFLOW_VERSIONS = 30;</pre>
+
+  <p>The fingerprint is computed from a normalized representation of nodes, edges, variables, and services. Node positions are included, so moving a node counts as a change. Node data (configuration) is included, so changing a URL or body also counts.</p>
+
+<pre>// Fingerprint computation
+computeWorkflowFingerprint(nodes, edges, variables, services): string
+// → normalizes all arrays → JSON.stringify → cyrb53 hash → hex string</pre>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The fingerprint includes node <code>position</code>, <code>type</code>, <code>id</code>, and <code>data</code> — but excludes transient UI state like selection or animation. Edge fingerprints include <code>source</code>, <code>target</code>, and <code>sourceHandle</code>/<code>targetHandle</code>.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. The Gallery Sample</h2>
+  <p>This walkthrough uses <strong>"Create → Extract → Verify"</strong> (<code>sample-workflow-001</code>) from the Workflows Gallery.</p>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Sample ID</td><td><code>sample-workflow-001</code></td></tr>
+    <tr><td>Name</td><td>Create → Extract → Verify</td></tr>
+    <tr><td>Nodes</td><td>6 (HTTP Request × 2, Condition, Delay, Extract, End)</td></tr>
+    <tr><td>API</td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+    <tr><td>Flow</td><td>Create Post → Check Status (201?) → Delay 1s → Get Post → Verify User → End</td></tr>
+  </table>
+
+  <p>The workflow is already fully configured and runnable — no setup needed. It demonstrates a realistic API integration pattern: create a resource, verify creation, wait, then fetch and validate the result.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Sample</h3>
+  <p>Open the <strong>Gallery</strong> from the sidebar. Navigate to the <strong>Workflows</strong> tab. Find <strong>"Create → Extract → Verify"</strong> (<code>sample-workflow-001</code>). Click <strong>Import</strong>.</p>
+  <p>The workflow loads into the editor with 6 nodes connected by edges. You should see the full flow laid out on the canvas.</p>
+
+  <h3>Step 2 — Verify It Works</h3>
+  <p>Click <strong>Run</strong> in the toolbar. The workflow executes:</p>
+  <ol>
+    <li>Creates a post on JSONPlaceholder (POST <code>/posts</code>) — returns <code>201 Created</code>.</li>
+    <li>Checks the status code equals 201 (Condition node).</li>
+    <li>Waits 1 second (Delay node).</li>
+    <li>Fetches the created post (GET <code>/posts/1</code>).</li>
+    <li>Verifies the <code>userId</code> field is correct.</li>
+  </ol>
+  <p>All nodes should show green checkmarks when complete.</p>
+
+  <h3>Step 3 — Save the Workflow</h3>
+  <p>Click <strong>Save</strong> in the toolbar. This triggers the versioning system:</p>
+  <ol>
+    <li>The current state (nodes, edges, variables, services) is normalized.</li>
+    <li><code>computeWorkflowFingerprint()</code> produces a cyrb53 hash.</li>
+    <li>Since there are no existing versions, the fingerprint is unique.</li>
+    <li><code>createWorkflowVersion()</code> creates a snapshot with all node/edge/variable/service data.</li>
+    <li><code>addVersionToList()</code> prepends it to the <code>versions[]</code> array.</li>
+    <li>The toolbar badge updates to show <strong>"1"</strong>.</li>
+  </ol>
+
+  <h3>Step 4 — Make Changes</h3>
+  <p>Add a 7th node to the workflow — an <strong>HTTP Request</strong> node for sending a notification:</p>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Label</td><td>Send Notification</td></tr>
+    <tr><td>Method</td><td>POST</td></tr>
+    <tr><td>URL</td><td><code>https://jsonplaceholder.typicode.com/posts</code></td></tr>
+    <tr><td>Body</td><td><code>{"title": "Order Complete", "body": "Post verified", "userId": 1}</code></td></tr>
+  </table>
+  <p>Connect it after the Verify node. The workflow now has 7 nodes and one additional edge.</p>
+
+  <h3>Step 5 — Save Again</h3>
+  <p>Click <strong>Save</strong>. The fingerprint differs from Version 1 (new node + new edge), so a new snapshot is created. The toolbar badge updates to <strong>"2"</strong>.</p>
+
+  <h3>Step 6 — Open Version History</h3>
+  <p>Click the <strong>clock/history icon</strong> (🕰️) in the toolbar. The <code>WorkflowVersionPanel</code> slides open, showing 2 entries:</p>
+  <ul>
+    <li><strong>Version 2</strong> (newest) — timestamp, "7 nodes, N edges"</li>
+    <li><strong>Version 1</strong> — timestamp, "6 nodes, N edges"</li>
+  </ul>
+  <p>Versions are always listed newest-first.</p>
+
+  <h3>Step 7 — Browse Versions</h3>
+  <p>Each version entry displays:</p>
+  <ul>
+    <li><strong>Timestamp</strong> — formatted date and time (e.g., "May 1, 2026, 2:30 PM").</li>
+    <li><strong>Label</strong> — initially empty (auto-generated placeholder). Editable via double-click.</li>
+    <li><strong>Change summary</strong> — auto-generated by <code>generateChangeSummary()</code>. Example: "1 node added, 1 edge added".</li>
+    <li><strong>Fingerprint</strong> — hover to see the full hash string.</li>
+  </ul>
+
+  <h3>Step 8 — Restore Version 1</h3>
+  <p>Click <strong>Restore</strong> on Version 1. The workflow reverts to the original 6-node state:</p>
+  <ol>
+    <li>The system first takes an <strong>undo snapshot</strong> of the current state (safety net).</li>
+    <li>The canvas updates — the "Send Notification" node and its edge disappear.</li>
+    <li>The workflow is now identical to the imported Gallery sample.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    Restoring does NOT delete Version 2. Both versions remain in the history. A restore simply replaces the current editor state with the snapshot's data.
+  </div>
+
+  <h3>Step 9 — Verify Undo Safety</h3>
+  <p>Press <strong>Ctrl+Z</strong> (or <strong>⌘Z</strong> on macOS). The workflow reverts to the 7-node state (before the restore). This works because the system took an automatic undo snapshot before restoring.</p>
+  <p>The undo stack persists in localStorage (debounced at 500ms), so it survives page refreshes.</p>
+
+  <h3>Step 10 — Rename a Version</h3>
+  <p>In the Version Panel, double-click the label area of Version 1. A text input appears. Type <strong>"Original Gallery Sample"</strong> and press Enter. The version is now labeled for easy identification.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use descriptive labels for milestone versions: "Before refactor", "Sprint 42 release", "Pre-deploy v2.1". This makes it easier to find the right version when you need to restore.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. How the 30-Version Cap Works</h2>
+  <p>Workflows can hold up to <strong>30 versions</strong>. When a 31st version is created, the oldest (first) version is automatically evicted — this is FIFO (First-In, First-Out).</p>
+
+<pre>export function addVersionToList(
+  versions: WorkflowVersion[],
+  newVersion: WorkflowVersion,
+  max = MAX_WORKFLOW_VERSIONS  // 30
+): WorkflowVersion[] {
+  const updated = [newVersion, ...versions];
+  return updated.slice(0, max);
+  // If versions.length was 30, the 30th (oldest) entry is dropped
+}</pre>
+
+  <p>Key points about FIFO eviction:</p>
+  <ul>
+    <li>Named/renamed versions are <strong>NOT exempt</strong> from eviction. If the oldest version has a label, it's still removed.</li>
+    <li>Eviction is silent — no confirmation dialog. The version simply disappears from the list.</li>
+    <li>To preserve important versions beyond the cap, <strong>export the workflow</strong> with "Include Version History" before the version is evicted.</li>
+  </ul>
+
+  <!-- Section 7 -->
+  <h2>7. Fingerprint Deduplication in Action</h2>
+  <p>Try this experiment: open a workflow, make NO changes, and click Save. Does a new version appear?</p>
+  <p><strong>No.</strong> The fingerprint of the current state matches the latest version's fingerprint, so <code>createWorkflowVersion()</code> detects the duplicate and skips creating a new snapshot. This prevents the version list from filling up with identical entries.</p>
+
+  <p>What counts as a "change" for fingerprinting?</p>
+  <table>
+    <tr><th>Change Type</th><th>Creates New Version?</th></tr>
+    <tr><td>Add or remove a node</td><td>Yes</td></tr>
+    <tr><td>Move a node to a different position</td><td>Yes</td></tr>
+    <tr><td>Change a node's configuration (URL, method, body, etc.)</td><td>Yes</td></tr>
+    <tr><td>Add or remove an edge</td><td>Yes</td></tr>
+    <tr><td>Change a variable value</td><td>Yes</td></tr>
+    <tr><td>Change a service configuration</td><td>Yes</td></tr>
+    <tr><td>Select/deselect a node (UI-only)</td><td>No</td></tr>
+    <tr><td>Pan or zoom the canvas (UI-only)</td><td>No</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Persistence Across Sessions</h2>
+  <p>Version data is stored in <strong>localStorage</strong> (web mode) or the <strong>Tauri store</strong> (desktop mode). This means:</p>
+  <ul>
+    <li>Close the browser tab → reopen → versions are still there.</li>
+    <li>Restart the app → versions survive.</li>
+    <li>The undo stack also persists (key: <code>perf-test-wf-undo-{workflowId}</code>, debounced 500ms).</li>
+  </ul>
+  <p>You can verify persistence by closing the browser, reopening RedfireForge, navigating to the workflow, and opening the Version Panel — all versions and labels should be intact.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build Version History</h3>
+  <p>Starting from the imported Gallery sample, make 5 distinct changes and save after each one. Verify the version list grows to 6 entries (1 initial + 5 changes). Check that each entry shows the correct node/edge count.</p>
+
+  <h3>Exercise 2 — Test Fingerprint Dedup</h3>
+  <p>Make a change to the workflow and save (creating a new version). Then press Ctrl+Z to undo the change, restoring the previous state. Save again. Does a new version appear? (It should not — the fingerprint matches the version before your change.)</p>
+
+  <h3>Exercise 3 — Persistence Check</h3>
+  <p>Create several labeled versions. Close the browser tab entirely. Reopen RedfireForge and navigate to the same workflow. Open the Version Panel. Verify all versions — including labels — are intact.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    These exercises build on each other. Complete them in order to develop a full understanding of how workflow versioning behaves in different scenarios.
+  </div>
+
+  <!-- Section 10 -->
+  <h2>10. Related Manuals</h2>
+  <table>
+    <tr><th>Manual</th><th>Difficulty</th><th>What You'll Learn Next</th></tr>
+    <tr>
+      <td><a href="workflow-version-diff-medium.html">workflow-version-diff-medium</a></td>
+      <td><span class="badge badge-medium">Medium</span></td>
+      <td>Compare two versions side-by-side with the 4-tab diff modal (Nodes, Edges, Variables, Services)</td>
+    </tr>
+    <tr>
+      <td><a href="workflow-version-advanced.html">workflow-version-advanced</a></td>
+      <td><span class="badge badge-advanced">Advanced</span></td>
+      <td>Bulk delete, export/import with versions, 30-cap rotation, undo persistence</td>
+    </tr>
+    <tr>
+      <td><a href="../versioning.html">versioning (overview)</a></td>
+      <td>Overview</td>
+      <td>Master overview of all 7 versioning phases and 6 entity types</td>
+    </tr>
+  </table>
+
+  <footer>
+    RedfireForge Training Manual — Workflow Version History (Easy) · May 2026
+  </footer>
+
+</body>
+</html>
