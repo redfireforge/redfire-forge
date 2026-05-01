@@ -1,6 +1,6 @@
 # Source Code Restructuring Plan
 
-> **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to 949 lines via 7 extracted hooks. ScenarioBuilder.tsx reduced from 984 to 702 lines via useScenarioMutations. The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
+> **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to 895 lines via 8 extracted hooks + 2 utility modules. ScenarioBuilder.tsx reduced from 984 to 702 lines via useScenarioMutations. The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
 >
 > _Last updated: 2026-05-01_
 
@@ -26,7 +26,7 @@ Reorganize the codebase from flat dumping-ground directories into **functional d
 | `src/components/workflow/` bloat | 62 production files flat — configs, nodes, panels, modals all mixed |
 | Monolithic pages | ~~WorkflowDesigner (2059 LOC)~~, ~~ScenarioBuilder (1045)~~, App (884) |
 
-> **Note**: WorkflowDesigner.tsx already refactored to 949 LOC (Phase 10 completed ahead of schedule). ScenarioBuilder.tsx refactored to 702 LOC (useScenarioMutations extracted). App.tsx now at 884 LOC with useTheme + useWorkflowImportExport extracted.
+> **Note**: WorkflowDesigner.tsx already refactored to 895 LOC (Phase 10 completed ahead of schedule, with Round 4 extracting `workflowDesignerUtils.ts` and `workflowEdgeGeometry.ts`). ScenarioBuilder.tsx refactored to 702 LOC (useScenarioMutations extracted). App.tsx now at 884 LOC with useTheme + useWorkflowImportExport extracted.
 
 ---
 
