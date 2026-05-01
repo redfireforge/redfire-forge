@@ -240,6 +240,16 @@ function WorkflowDesignerInner({
     deselectNode: useCallback(() => setSelectedNodeId(null), []),
   });
 
+  /** Shared auto-layout callback used by the canvas controls, command palette, and keyboard shortcuts. */
+  const handleAutoLayout = useCallback(() => {
+    const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
+    setNodes(laid);
+    setLayoutVersion((v) => v + 1);
+    if (!previewWorkflow) {
+      setTimeout(() => persistWorkflow({ rfNodes: laid }), 100);
+    }
+  }, [nodesRef, edgesRef, setNodes, setLayoutVersion, previewWorkflow, persistWorkflow]);
+
   // Keyboard shortcuts (extracted hook)
   useWorkflowKeyboardShortcuts({
     selected, previewWorkflow,
@@ -466,16 +476,6 @@ function WorkflowDesignerInner({
     setNodes(syncedNodes);
     persistWorkflow({ services: svcs, rfNodes: syncedNodes });
   }, [nodes, setNodes, setWorkflowServices, persistWorkflow]);
-
-  /** Shared auto-layout callback used by the canvas controls, command palette, and keyboard shortcuts. */
-  const handleAutoLayout = useCallback(() => {
-    const laid = getAutoLayoutNodes(nodesRef.current as WorkflowRFNode[], edgesRef.current as WorkflowRFEdge[]);
-    setNodes(laid);
-    setLayoutVersion((v) => v + 1);
-    if (!previewWorkflow) {
-      setTimeout(() => persistWorkflow({ rfNodes: laid }), 100);
-    }
-  }, [nodesRef, edgesRef, setNodes, setLayoutVersion, previewWorkflow, persistWorkflow]);
 
   /** onInit handler for ReactFlow: auto-layout preview workflows after node measurement. */
   const handleReactFlowInit = useCallback((instance: ReturnType<typeof useReactFlow>) => {
