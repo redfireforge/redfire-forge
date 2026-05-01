@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auth Strategies — Training Path Overview</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔐</div>
+    <h1>Auth Strategies</h1>
+    <div class="subtitle">Training Path Overview</div>
+    <p>Master every authentication method in RedfireForge — from simple Bearer tokens and API keys to OAuth2 client-credentials flows, inheritance chains, global profiles, and catalog security scheme bindings.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      8 Manuals · 3 Phases · Easy → Advanced
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1: Auth Architecture -->
+  <h2>1. Auth Architecture Overview</h2>
+  <p>RedfireForge supports <strong>7 auth types</strong> defined by the <code>AuthType</code> union:</p>
+
+<pre>type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2';</pre>
+
+  <p>All auth configuration is stored in a single, unified <code>AuthConfig</code> interface:</p>
+
+<pre>interface AuthConfig {
+  type: AuthType;
+  // Basic &amp; Digest
+  username?: string;
+  password?: string;
+  // Bearer
+  token?: string;
+  prefix?: string;              // defaults to "Bearer"
+  // API Key
+  apiKeyName?: string;
+  apiKeyValue?: string;
+  apiKeyIn?: 'header' | 'query';
+  // OAuth2 Client Credentials
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  // Global Profile link
+  globalProfileId?: string;
+}</pre>
+
+  <h3>How Auth Becomes HTTP Headers</h3>
+  <p>The <code>resolveAuthHeaders()</code> function converts an <code>AuthConfig</code> into HTTP headers:</p>
+
+  <table>
+    <tr><th>Auth Type</th><th>Header Generated</th><th>Example</th></tr>
+    <tr><td>Bearer</td><td><code>Authorization: &lt;prefix&gt; &lt;token&gt;</code></td><td><code>Authorization: Bearer eyJhb...</code></td></tr>
+    <tr><td>Basic</td><td><code>Authorization: Basic &lt;base64&gt;</code></td><td><code>Authorization: Basic dXNlcjpwYXNz</code></td></tr>
+    <tr><td>API Key (header)</td><td><code>&lt;name&gt;: &lt;value&gt;</code></td><td><code>X-API-Key: abc123</code></td></tr>
+    <tr><td>API Key (query)</td><td>URL param: <code>?name=value</code></td><td><code>?api_key=abc123</code></td></tr>
+    <tr><td>OAuth2</td><td><code>Authorization: Bearer &lt;token&gt;</code></td><td><code>Authorization: Bearer eyJ...</code></td></tr>
+    <tr><td>Digest</td><td><code>Authorization: Basic &lt;base64&gt;</code></td><td>Fallback to basic encoding</td></tr>
+    <tr><td>None</td><td><em>(no auth header)</em></td><td>—</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2: Inheritance Chain -->
+  <h2>2. The 5-Level Auth Inheritance Chain</h2>
+  <p>When a test has <code>type: 'inherit'</code>, RedfireForge walks up through 5 levels to find the effective auth:</p>
+
+  <div class="flow-diagram">
+    <strong>Test</strong>
+    <span class="arrow">→</span>
+    <strong>Scenario</strong>
+    <span class="arrow">→</span>
+    <strong>Feature Group</strong>
+    <span class="arrow">→</span>
+    <strong>Global Auth Profile</strong>
+    <span class="arrow">→</span>
+    <strong>Environment Fallback</strong>
+    <span class="arrow">→</span>
+    <code>{ type: 'none' }</code>
+  </div>
+
+<pre>function resolveAuth(test, scenario, featureGroup, globalProfiles, envFallback): AuthConfig {
+  // 1. Test-level auth (if not 'inherit' or 'none')
+  if (test.auth.type !== 'inherit' &amp;&amp; test.auth.type !== 'none') return test.auth;
+  // 2. Scenario-level auth
+  if (scAuth &amp;&amp; scAuth.type !== 'none' &amp;&amp; scAuth.type !== 'inherit') return scAuth;
+  // 3. Feature-group-level auth
+  if (fgAuth &amp;&amp; fgAuth.type !== 'none' &amp;&amp; fgAuth.type !== 'inherit') return fgAuth;
+  // 4. Global auth profile linked to feature group
+  if (featureGroup.globalAuthProfileId) { /* find profile, return auth */ }
+  // 5. Environment fallback (microservice → authProfileIds → profile)
+  if (envFallbackAuth &amp;&amp; envFallbackAuth.type !== 'none') return envFallbackAuth;
+  // 6. No auth
+  return { type: 'none' };
+}</pre>
+
+  <p>This means you can set auth <strong>once</strong> at the feature-group or profile level and have it automatically apply to every test below — no copy-paste needed.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3: Phases -->
+  <h2>3. Training Phases</h2>
+
+  <h3>Phase 1 — Auth Basics <span class="badge badge-easy">Easy</span></h3>
+  <p>Learn each auth type independently. Configure, verify, and observe the generated headers.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>1</td><td>Bearer Token Authentication</td><td>Token field, custom prefix, Authorization header, login-then-extract pattern</td></tr>
+    <tr><td>2</td><td>Basic Authentication</td><td>Username/password, Base64 encoding, Authorization header, credential validation</td></tr>
+    <tr><td>3</td><td>API Key Authentication</td><td>Key name/value, header vs query placement, custom header names</td></tr>
+    <tr><td>4</td><td>OAuth2 Client Credentials</td><td>Token URL, client ID/secret, TokenManager caching, JWT expiry, auto-refresh</td></tr>
+  </table>
+
+  <h3>Phase 2 — Auth Inheritance <span class="badge badge-medium">Medium</span></h3>
+  <p>Understand how auth flows through the hierarchy and how to use Global Auth Profiles.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>5</td><td>Auth Inheritance Chain</td><td>5-level resolution, <code>type: 'inherit'</code>, resolveAuth() walkthrough</td></tr>
+    <tr><td>6</td><td>Global Auth Profiles</td><td>Create/edit profiles, link to feature groups, environment-level binding</td></tr>
+    <tr><td>7</td><td>Catalog Security Schemes</td><td>OpenAPI security scheme import, CatalogSecurityScheme, strategy modes</td></tr>
+  </table>
+
+  <h3>Phase 3 — Advanced Auth <span class="badge badge-advanced">Advanced</span></h3>
+  <p>Auth in workflow nodes, chained token flows, and multi-environment auth strategies.</p>
+  <table>
+    <tr><th>#</th><th>Manual</th><th>Topics</th></tr>
+    <tr><td>8</td><td>Workflow Auth &amp; Service Endpoints</td><td>ServiceEndpoint authMode, inherit vs custom, WorkflowAuthProfile, per-node auth</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4: Key Components -->
+  <h2>4. Key Source Files</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>AuthType</code>, <code>AuthConfig</code>, <code>GlobalAuthProfile</code> type definitions</td></tr>
+    <tr><td><code>src/shared/utils/authHeaders.ts</code></td><td><code>resolveAuthHeaders()</code> — converts AuthConfig to HTTP headers</td></tr>
+    <tr><td><code>src/features/requests/utils/authResolver.ts</code></td><td><code>resolveAuth()</code> — 5-level inheritance chain</td></tr>
+    <tr><td><code>src/features/requests/utils/requestAuthState.ts</code></td><td><code>authToState()</code> / <code>stateToAuth()</code> — UI form conversion</td></tr>
+    <tr><td><code>src/engine/tokenManager.ts</code></td><td><code>TokenManager</code> — OAuth2 token acquisition, caching, JWT expiry</td></tr>
+    <tr><td><code>src/engine/executor.ts</code></td><td><code>buildHeaders()</code> / <code>buildUrl()</code> — merges auth into HTTP requests</td></tr>
+    <tr><td><code>src/features/requests/components/AuthConfigPanel.tsx</code></td><td>Shared auth configuration UI component</td></tr>
+    <tr><td><code>src/features/requests/hooks/useAuthVerify.ts</code></td><td>Live credential verification hook</td></tr>
+    <tr><td><code>src/features/catalog/components/CatalogAuthPanel.tsx</code></td><td>Catalog-specific auth with security scheme binding</td></tr>
+  </table>
+
+  <!-- Section 5: Gallery Samples -->
+  <h2>5. Gallery Samples Used</h2>
+  <table>
+    <tr><th>Sample ID</th><th>Name</th><th>Auth Type</th><th>Used In</th></tr>
+    <tr><td><code>req-auth-login</code></td><td>Auth Login (Token)</td><td>Bearer (login flow)</td><td>Phase 1 — Bearer manual</td></tr>
+    <tr><td><code>test-auth-flow</code></td><td>Auth Flow Validation</td><td>Bearer (DummyJSON)</td><td>Phase 1 — Bearer manual</td></tr>
+    <tr><td><code>req-echo-headers</code></td><td>Echo Headers &amp; Body</td><td>Custom headers</td><td>Phase 1 — API Key manual</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6: UI Quick Reference -->
+  <h2>6. Auth Config UI Quick Reference</h2>
+  <p>The <strong>AuthConfigPanel</strong> component provides a consistent auth configuration experience across tests, scenarios, feature groups, and catalog entries:</p>
+  <ul>
+    <li><strong>Type selector</strong> — Dropdown: None, Bearer, Basic, API Key, OAuth2, Global Profile</li>
+    <li><strong>Per-type fields</strong> — Dynamic form fields that change based on selected type</li>
+    <li><strong>Verify button</strong> — Live credential check (OAuth2: acquires token; others: field validation)</li>
+    <li><strong>Inherited badge</strong> — Shows when auth is inherited from a parent level</li>
+  </ul>
+
+  <h3>Console Log Prefixes</h3>
+  <table>
+    <tr><th>Prefix</th><th>Meaning</th></tr>
+    <tr><td><code>&gt;</code></td><td>Outgoing request (shows auth header)</td></tr>
+    <tr><td><code>&lt;</code></td><td>Incoming response</td></tr>
+    <tr><td><code>*</code></td><td>Engine info (token acquisition, auth resolution)</td></tr>
+    <tr><td><code>!</code></td><td>Auth error (invalid credentials, token expired)</td></tr>
+  </table>
+
+  <!-- Section 7: Recommended Learning Path -->
+  <h2>7. Recommended Learning Path</h2>
+  <ol>
+    <li><strong>Phase 1</strong> — Start with <em>Bearer Token</em> (most common), then <em>Basic</em>, <em>API Key</em>, and <em>OAuth2</em>.</li>
+    <li><strong>Phase 2</strong> — Learn inheritance to avoid duplicating auth across tests. Set it once at the feature-group level.</li>
+    <li><strong>Phase 3</strong> — Apply auth knowledge to workflow nodes and multi-environment configurations.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Default Auth is "Inherit"</strong>
+    Every new test and request starts with <code>type: 'inherit'</code>. This means you only need to configure auth at the feature-group or profile level — all tests below will automatically pick it up.
+  </div>
+
+  <footer>
+    RedfireForge v0.5.6 · Auth Strategies · Training Path Overview
+  </footer>
+
+</body>
+</html>

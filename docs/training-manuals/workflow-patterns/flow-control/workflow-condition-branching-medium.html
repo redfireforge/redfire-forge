@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>If/Else Conditions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">❓</div>
+    <h1>If/Else Conditions</h1>
+    <div class="subtitle">Medium — Workflow Patterns Training Manual</div>
+    <p>Branch your workflow with Condition nodes — evaluate expressions, route to Yes/No paths, skip untaken branches, and build multi-level decision trees.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★★☆<br />
+      Phase 2 — Workflow Patterns<br />
+      Gallery Sample: <code>sample-workflow-order-pipeline</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. What Is a Condition Node?</h2>
+  <p>A <strong>Condition</strong> node evaluates a boolean expression and routes execution to one of two branches: <strong>Yes</strong> (true) or <strong>No</strong> (false). It's the workflow equivalent of an <code>if/else</code> statement.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Order Processing — Express vs Standard Shipping"</em></p>
+  <p>After fetching an order, you check if the customer selected express shipping. If yes, route to a fast-track fulfillment workflow. If no, route to the standard shipping path.</p>
+
+  <div class="flow-diagram">
+    <strong>GET /order</strong>
+    <span class="arrow">→</span>
+    <strong>Condition: Express?</strong>
+    <br /><br />
+    Yes <span class="arrow">→</span> <strong>Express Fulfillment</strong>
+    <br />
+    No &nbsp;<span class="arrow">→</span> <strong>Standard Shipping</strong>
+  </div>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Completed: Phase 1 manuals (HTTP Chaining, Delays, Variables)</li>
+    <li>Understand <code>{{variable}}</code> interpolation and HTTP response extraction</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Condition Node Data Model</h2>
+
+<pre>interface ConditionNodeData {
+  label: string;
+  left: string;      // Left operand — supports {{var}}
+  operator: string;  // Comparison operator
+  right: string;     // Right operand — supports {{var}}
+}</pre>
+
+  <h3>Supported Operators</h3>
+  <table>
+    <tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>==</code></td><td>Equals (string comparison)</td><td><code>"200" == "200"</code> → true</td></tr>
+    <tr><td><code>!=</code></td><td>Not equals</td><td><code>"404" != "200"</code> → true</td></tr>
+    <tr><td><code>&gt;</code></td><td>Greater than (numeric)</td><td><code>"10" &gt; "5"</code> → true</td></tr>
+    <tr><td><code>&gt;=</code></td><td>Greater than or equal</td><td><code>"10" &gt;= "10"</code> → true</td></tr>
+    <tr><td><code>&lt;</code></td><td>Less than (numeric)</td><td><code>"3" &lt; "5"</code> → true</td></tr>
+    <tr><td><code>&lt;=</code></td><td>Less than or equal</td><td><code>"3" &lt;= "3"</code> → true</td></tr>
+    <tr><td><code>contains</code></td><td>String contains substring</td><td><code>"hello world" contains "world"</code> → true</td></tr>
+    <tr><td><code>not-contains</code></td><td>String does not contain</td><td><code>"hello" not-contains "xyz"</code> → true</td></tr>
+    <tr><td><code>regex</code></td><td>Matches regex pattern</td><td><code>"user@test.com" regex "^[\\w@.]+"</code> → true</td></tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠ String Comparison</strong>
+    All values are strings in the variable system. For numeric comparisons (<code>&gt;</code>, <code>&lt;</code>, etc.), the engine parses both sides as numbers. If parsing fails, it falls back to string comparison.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How Conditions Are Evaluated</h2>
+  <p>The <code>handleConditionNode</code> handler follows this process:</p>
+
+  <ol>
+    <li><strong>Resolve operands</strong> — Both <code>left</code> and <code>right</code> are passed through <code>ctx.resolve()</code> to replace <code>{{var}}</code> placeholders.</li>
+    <li><strong>Evaluate</strong> — Call <code>evaluateCondition(data, ctx)</code> which calls <code>compareValues(left, right, operator)</code>.</li>
+    <li><strong>Route</strong> — Follow outgoing edges with <code>sourceHandle: 'true'</code> (Yes branch) or <code>sourceHandle: 'false'</code> (No branch).</li>
+    <li><strong>Skip untaken branch</strong> — Call <code>markSubtreeSkipped()</code> on all nodes reachable from the untaken branch. These nodes transition to the <code>skipped</code> state (gray, dashed border).</li>
+  </ol>
+
+<pre>// evaluateCondition internals
+function evaluateCondition(data: ConditionNodeData, ctx: VariableContext): boolean {
+  const left = ctx.resolve(data.left);    // e.g., "{{httpStatus}}" → "201"
+  const right = ctx.resolve(data.right);  // e.g., "201"
+  return compareValues(left, right, data.operator);  // "201" == "201" → true
+}</pre>
+
+  <h3>Console Log Output</h3>
+<pre>* [Express Shipping?] condition: "express" == "express" → true (Yes branch)
+
+// Or when false:
+* [Express Shipping?] condition: "standard" == "express" → false (No branch)</pre>
+
+  <h3>Subtree Skipping</h3>
+  <p>When a branch is not taken, <code>markSubtreeSkipped()</code> recursively marks all downstream nodes as <code>skipped</code>. This is important because:</p>
+  <ul>
+    <li>Skipped nodes are <strong>never executed</strong> — no HTTP requests are sent, no variables are set.</li>
+    <li>Skipped nodes show a <strong>gray, dashed border</strong> on the canvas.</li>
+    <li>If the untaken branch leads to a <strong>Join</strong> node, the Join's expected count is decremented (so it doesn't wait forever for the skipped branch).</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Edge Configuration: Yes/No Branches</h2>
+  <p>A Condition node has two output handles:</p>
+
+  <table>
+    <tr><th>Handle</th><th><code>sourceHandle</code></th><th>Label</th><th>Taken When</th></tr>
+    <tr><td>Top/Right</td><td><code>"true"</code></td><td>Yes</td><td>Condition evaluates to <code>true</code></td></tr>
+    <tr><td>Bottom/Right</td><td><code>"false"</code></td><td>No</td><td>Condition evaluates to <code>false</code></td></tr>
+  </table>
+
+  <p>When connecting edges on the canvas, drag from the appropriate handle to route each branch to different nodes.</p>
+
+  <h3>Multiple Edges per Branch</h3>
+  <p>Each branch can have <strong>multiple outgoing edges</strong>. When a branch is taken, all edges from that handle are followed — effectively creating parallel execution within a branch.</p>
+
+<pre>// Example: Yes branch leads to both "Send Email" AND "Update DB"
+edges: [
+  { source: "condition-1", target: "send-email",  sourceHandle: "true" },
+  { source: "condition-1", target: "update-db",   sourceHandle: "true" },
+  { source: "condition-1", target: "log-skipped", sourceHandle: "false" }
+]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: The Gallery Sample</h2>
+  <p>The <code>sample-workflow-order-pipeline</code> demonstrates condition branching in a real-world order processing scenario.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>Fetch Order</strong>
+    <span class="arrow">→</span>
+    <strong>Express Shipping?</strong>
+    <br /><br />
+    Yes <span class="arrow">→</span> <strong>Sub-Workflow (Express)</strong> <span class="arrow">→</span> <strong>SetVariable</strong> <span class="arrow">→</span> <strong>Log</strong> <span class="arrow">→</span> <strong>End</strong>
+    <br />
+    No &nbsp;<span class="arrow">→</span> <strong>Sub-Workflow (Standard)</strong> <span class="arrow">→</span> <strong>SetVariable</strong> <span class="arrow">→</span> <strong>Log</strong> <span class="arrow">→</span> <strong>End</strong>
+  </div>
+
+  <h3>Step-by-Step</h3>
+  <ol>
+    <li><strong>Start</strong> — Seeds variables like <code>orderId</code>.</li>
+    <li><strong>Fetch Order</strong> — HTTP GET to retrieve order details. Extracts <code>shippingType</code> from the response.</li>
+    <li><strong>Express Shipping?</strong> — Condition: <code>{{shippingType}} == express</code>.</li>
+    <li><strong>Yes branch</strong> — Runs the express shipping sub-workflow.</li>
+    <li><strong>No branch</strong> — Runs the standard shipping sub-workflow.</li>
+    <li>Both branches converge through SetVariable → Log → End.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Load the Sample</strong>
+    Gallery sidebar → Workflow Samples → "Order Pipeline" → Load Preview. Examine the condition node's configuration and trace both branches.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Building a Condition Workflow</h2>
+  <p>Let's build a workflow that checks the HTTP status code and takes different actions for success vs. failure.</p>
+
+  <h3>Step 1: Create the Workflow</h3>
+  <ol>
+    <li>New workflow: <strong>"Status Code Router"</strong>.</li>
+    <li>Add Start → HTTP node → Condition → two branches → End.</li>
+  </ol>
+
+  <h3>Step 2: Configure the HTTP Node</h3>
+  <ul>
+    <li>Label: <code>Get Post</code></li>
+    <li>Method: <code>GET</code></li>
+    <li>URL: <code>https://jsonplaceholder.typicode.com/posts/1</code></li>
+  </ul>
+
+  <h3>Step 3: Configure the Condition</h3>
+  <ul>
+    <li>Label: <code>Status OK?</code></li>
+    <li>Left: <code>{{httpStatus}}</code></li>
+    <li>Operator: <code>==</code></li>
+    <li>Right: <code>200</code></li>
+  </ul>
+
+  <h3>Step 4: Add Branch Nodes</h3>
+  <ul>
+    <li><strong>Yes branch</strong>: LogDebug → <code>"Success! Post retrieved."</code></li>
+    <li><strong>No branch</strong>: LogDebug → <code>"Error! Status: {{httpStatus}}"</code></li>
+  </ul>
+
+  <h3>Step 5: Run and Observe</h3>
+  <p>The Yes branch executes and turns green; the No branch is skipped (gray, dashed). Change the URL to <code>/posts/99999</code> to trigger a 404 and see the No branch execute instead.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Advanced: Multi-Level Conditions</h2>
+  <p>You can chain conditions to create multi-way branching (before learning the Switch node).</p>
+
+  <div class="flow-diagram">
+    <strong>HTTP Request</strong>
+    <span class="arrow">→</span>
+    <strong>Status 2xx?</strong>
+    <br /><br />
+    Yes <span class="arrow">→</span> <strong>Process Response</strong>
+    <br />
+    No &nbsp;<span class="arrow">→</span> <strong>Status 404?</strong>
+    <br /><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Yes <span class="arrow">→</span> <strong>Create Resource</strong>
+    <br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No &nbsp;<span class="arrow">→</span> <strong>Error Handler</strong>
+  </div>
+
+  <p>This creates a 3-way branch: success → process, 404 → create, other → error. The No branch of the first condition leads to a second condition node.</p>
+
+  <div class="callout">
+    <strong>📘 When to Use Switch Instead</strong>
+    If you need 3+ branches, consider using a <strong>Switch</strong> node instead of nesting conditions. Switch nodes are cleaner for multi-way routing. See the next manual: <em>Switch Multi-Way Routing</em>.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Using Variables in Conditions</h2>
+  <p>Both <code>left</code> and <code>right</code> operands support <code>{{variable}}</code> interpolation:</p>
+
+<pre>// Compare two extracted variables
+left:     "{{actualCount}}"
+operator: ">="
+right:    "{{expectedCount}}"
+
+// Use contains to check response body
+left:     "{{responseBody}}"
+operator: "contains"
+right:    "error"
+
+// Regex match on an extracted field
+left:     "{{userEmail}}"
+operator: "regex"
+right:    "^[\\w.]+@company\\.com$"</pre>
+
+  <h3>Common Condition Patterns</h3>
+  <table>
+    <tr><th>Pattern</th><th>Left</th><th>Op</th><th>Right</th></tr>
+    <tr><td>Status check</td><td><code>{{httpStatus}}</code></td><td><code>==</code></td><td><code>200</code></td></tr>
+    <tr><td>Error detection</td><td><code>{{httpStatus}}</code></td><td><code>>=</code></td><td><code>400</code></td></tr>
+    <tr><td>Body contains error</td><td><code>{{responseBody}}</code></td><td><code>contains</code></td><td><code>"error"</code></td></tr>
+    <tr><td>Array not empty</td><td><code>{{itemCount}}</code></td><td><code>></code></td><td><code>0</code></td></tr>
+    <tr><td>Email format</td><td><code>{{email}}</code></td><td><code>regex</code></td><td><code>^[\w@.]+$</code></td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Status Code Routing</h3>
+  <p><strong>Goal:</strong> Create a condition that routes based on HTTP status code.</p>
+  <ol>
+    <li>Create a workflow: Start → HTTP GET → Condition → Yes: LogDebug "Success" / No: LogDebug "Failure" → End.</li>
+    <li>Condition: <code>{{httpStatus}} == 200</code>.</li>
+    <li>Run with a valid URL — verify Yes branch executes.</li>
+    <li>Change to an invalid URL (e.g., <code>/posts/99999</code>) — verify No branch executes.</li>
+  </ol>
+
+  <h3>Exercise 2: Three-Way Branching</h3>
+  <p><strong>Goal:</strong> Build a 3-way branch: success → process, 404 → create, 5xx → error handler.</p>
+  <ol>
+    <li>After the first HTTP call, add a Condition: <code>{{httpStatus}} == 200</code>.</li>
+    <li>Yes → LogDebug "Processing response".</li>
+    <li>No → second Condition: <code>{{httpStatus}} == 404</code>.</li>
+    <li>Yes → LogDebug "Resource not found — creating".</li>
+    <li>No → LogDebug "Server error: {{httpStatus}}".</li>
+  </ol>
+
+  <h3>Exercise 3: Body Content Check</h3>
+  <p><strong>Goal:</strong> Use <code>contains</code> operator to check response body content.</p>
+  <ol>
+    <li>Create a workflow that GETs a post from JSONPlaceholder.</li>
+    <li>Add a Condition: <code>{{responseBody}} contains "userId"</code>.</li>
+    <li>Yes → LogDebug "Valid post response".</li>
+    <li>No → LogDebug "Unexpected response format".</li>
+    <li>Run and verify the Yes branch is taken (all posts have <code>userId</code>).</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>ConditionNodeData</code> — <code>left</code>, <code>operator</code>, <code>right</code></td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td><code>handleConditionNode</code> — evaluation, branch routing, subtree skipping</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerHelpers.ts</code></td><td><code>evaluateCondition</code>, <code>compareValues</code>, <code>markSubtreeSkipped</code></td></tr>
+    <tr><td><code>src/data/galleries/workflows/orchestration.ts</code></td><td>Gallery sample: <code>sample-workflow-order-pipeline</code></td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Switch Multi-Way Routing</em> — Route to N branches based on a single expression (cleaner than nested conditions).</li>
+    <li><strong>Previous:</strong> <em>Variables and Context</em> — SetVariable, LogDebug, environment layers, generators.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 2 · If/Else Conditions · Medium
+  </footer>
+
+</body>
+</html>

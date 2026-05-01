@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Response Time Assertions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⏱️</div>
+    <h1>Response Time Assertions</h1>
+    <div class="subtitle">Easy — Assertion Mastery Training Manual</div>
+    <p>Set latency thresholds for your API calls and automatically catch performance regressions. Learn how response time is measured, how to choose appropriate thresholds, and how to combine timing checks with status assertions for complete coverage.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Assertion Basics<br />
+      Gallery Sample: <code>test-multi-api-load</code>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Why Response Time Assertions?</h2>
+  <p>A 200 OK means the API works — but what if it takes 15 seconds? A response time assertion catches <strong>performance regressions</strong> that status checks alone cannot detect.</p>
+
+  <h3>Real-World Scenarios</h3>
+  <ul>
+    <li><strong>SLA enforcement</strong> — "All user-facing APIs must respond within 500ms"</li>
+    <li><strong>Performance baselines</strong> — "This endpoint was 120ms last week, now it's 2.3s — something changed"</li>
+    <li><strong>Load testing gates</strong> — "Under 100 concurrent users, p95 latency must stay below 1s"</li>
+    <li><strong>Timeout detection</strong> — "If the API takes longer than 5s, we have a database issue"</li>
+  </ul>
+
+  <h3>Without vs. With Response Time Assertions</h3>
+  <table>
+    <tr><th>Scenario</th><th>Without</th><th>With <code>maxMs: 500</code></th></tr>
+    <tr><td>200 OK in 120ms</td><td>Pass ✅</td><td>Pass ✅</td></tr>
+    <tr><td>200 OK in 3200ms</td><td>Pass ✅ (silently slow)</td><td>Fail ❌ <code>expected ≤ 500ms, actual 3200ms</code></td></tr>
+    <tr><td>200 OK in 499ms</td><td>Pass ✅</td><td>Pass ✅</td></tr>
+    <tr><td>200 OK in 501ms</td><td>Pass ✅</td><td>Fail ❌</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Response Time Assertion Data Model</h2>
+<pre>// Assertion type for response time
+{ type: 'responseTime', maxMs: number }</pre>
+
+  <p>Simple threshold check: <strong>pass if <code>responseTimeMs &lt;= maxMs</code></strong>, fail otherwise.</p>
+
+  <h3>How It's Evaluated</h3>
+<pre>// Inside evaluateAssertions()
+case 'responseTime':
+  if (ctx.responseTimeMs &gt; a.maxMs) {
+    failures.push({
+      path: '(responseTime)',
+      expected: `≤ ${a.maxMs}ms`,
+      actual: `${ctx.responseTimeMs}ms`,
+      message: `expected ≤ ${a.maxMs}ms, actual ${ctx.responseTimeMs}ms`,
+    });
+  }
+  break;</pre>
+
+  <h3>Where responseTimeMs Comes From</h3>
+  <p>The <code>responseTimeMs</code> is populated by the request execution engine. It measures the time from <strong>request sent</strong> to <strong>full response received</strong> (includes network latency, server processing, and response body transfer).</p>
+
+<pre>// In AssertionContext — passed to evaluateAssertions()
+interface AssertionContext {
+  httpStatus: number;
+  responseTimeMs: number;     // ← measured by the engine
+  responseHeaders: Record&lt;string, string&gt;;
+  responseBody: unknown;
+}</pre>
+
+  <div class="callout">
+    <strong>📘 What's Included in Response Time</strong>
+    The measurement includes: DNS resolution, TCP connection, TLS handshake, request send, server processing, and response download. It does <em>not</em> include RedfireForge's own JSON parsing or assertion evaluation time.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Choosing Appropriate Thresholds</h2>
+  <p>Setting the right <code>maxMs</code> value depends on the API type and your performance requirements:</p>
+
+  <table>
+    <tr><th>API Type</th><th>Typical Range</th><th>Suggested <code>maxMs</code></th></tr>
+    <tr><td>Health check / ping</td><td>10–50ms</td><td>200</td></tr>
+    <tr><td>Simple CRUD (read)</td><td>50–200ms</td><td>500</td></tr>
+    <tr><td>Search / filter</td><td>100–500ms</td><td>1000</td></tr>
+    <tr><td>Report generation</td><td>500–3000ms</td><td>5000</td></tr>
+    <tr><td>File upload / export</td><td>1000–10000ms</td><td>15000</td></tr>
+    <tr><td>Third-party API</td><td>Varies</td><td>3000 (generous)</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Start Generous, Then Tighten</strong>
+    Begin with a generous threshold (e.g., 2000ms) that you know the API should meet. Once you have baseline data, tighten the threshold to catch real regressions. A threshold that's too tight causes flaky tests from normal network variance.
+  </div>
+
+  <h3>Accounting for Network Variance</h3>
+  <p>Response times vary due to network conditions, cold starts, and server load. Best practices:</p>
+  <ul>
+    <li>Set <code>maxMs</code> at <strong>2–3× your expected p50 latency</strong></li>
+    <li>For CI/CD pipelines, use more generous thresholds than local development</li>
+    <li>For load tests, use the p95 target from your SLA, not the average</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Configuring in the UI</h2>
+
+  <h3>Step 1: Add a Response Time Assertion</h3>
+  <ol>
+    <li>Open the test → <strong>Validation</strong> tab → <strong>Assertions</strong> section.</li>
+    <li>Click <strong>+ Add Assertion</strong>.</li>
+    <li>Select <strong>Response Time</strong> from the type dropdown.</li>
+  </ol>
+
+  <h3>Step 2: Set the Threshold</h3>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>Max Ms</strong></td><td>Maximum allowed response time in milliseconds</td><td><code>500</code></td></tr>
+  </table>
+
+  <h3>Results Display</h3>
+  <p>After running, the assertion result shows:</p>
+  <ul>
+    <li><strong>Pass:</strong> <code>Response time: 142ms ≤ 500ms ✅</code></li>
+    <li><strong>Fail:</strong> <code>Response time: 723ms — expected ≤ 500ms ❌</code></li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Combining with Status Assertions</h2>
+  <p>The most common assertion pair is <strong>status + response time</strong>:</p>
+
+<pre>assertions: [
+  { type: 'status', expected: '200' },
+  { type: 'responseTime', maxMs: 500 }
+]</pre>
+
+  <p>This ensures the API returns the right status code <em>and</em> does it fast enough. If either fails, the test fails.</p>
+
+  <h3>Gallery Sample: <code>test-multi-api-load</code></h3>
+  <p>This advanced sample shows status + response time assertions used together across multiple endpoints in a load test profile:</p>
+
+<pre>// From test-multi-api-load
+scenarios: [
+  {
+    name: "Users API",
+    tests: [{
+      url: "/users",
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'responseTime', maxMs: 1000 }
+      ]
+    }]
+  },
+  {
+    name: "Posts API",
+    tests: [{
+      url: "/posts",
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'responseTime', maxMs: 800 }
+      ]
+    }]
+  }
+]</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Response Time in Load Testing</h2>
+  <p>Response time assertions are especially valuable in <strong>load test profiles</strong> where you run the same test under increasing concurrency:</p>
+
+  <table>
+    <tr><th>Concurrency</th><th>Avg Response Time</th><th>maxMs: 1000</th></tr>
+    <tr><td>1 user</td><td>120ms</td><td>Pass ✅</td></tr>
+    <tr><td>10 users</td><td>340ms</td><td>Pass ✅</td></tr>
+    <tr><td>50 users</td><td>780ms</td><td>Pass ✅</td></tr>
+    <tr><td>100 users</td><td>1450ms</td><td>Fail ❌</td></tr>
+  </table>
+
+  <p>The assertion catches the exact point where the API degrades under load — telling you the capacity limit.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Individual vs. Average</strong>
+    The response time assertion checks <strong>each individual request</strong>, not the average. In a load test, even if the average is 300ms, a single request at 1200ms will fail the 1000ms threshold. This is intentional — it catches tail latency issues that averages hide.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Exercises</h2>
+
+  <h3>Exercise 1: Basic Threshold</h3>
+  <p><strong>Goal:</strong> Add a response time assertion and observe pass/fail behavior.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/posts</code>.</li>
+    <li>Add assertion: response time ≤ <code>2000</code>ms.</li>
+    <li>Run — should pass easily (JSONPlaceholder is typically &lt; 500ms).</li>
+    <li>Tighten to <code>50</code>ms — likely fails due to network latency.</li>
+    <li>Find a threshold that reliably passes for your connection.</li>
+  </ol>
+
+  <h3>Exercise 2: Status + Response Time</h3>
+  <p><strong>Goal:</strong> Combine the two most common assertion types.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/users/1</code>.</li>
+    <li>Add two assertions: status = <code>200</code>, response time ≤ <code>1000</code>ms.</li>
+    <li>Run and verify both pass.</li>
+    <li>Change URL to <code>/users/99999</code> — status fails (404), response time likely still passes.</li>
+  </ol>
+
+  <h3>Exercise 3: Find the Baseline</h3>
+  <p><strong>Goal:</strong> Establish a performance baseline for an endpoint.</p>
+  <ol>
+    <li>Create a test: GET <code>https://jsonplaceholder.typicode.com/posts</code>.</li>
+    <li>Run 5 times without any response time assertion. Note the latency each time.</li>
+    <li>Calculate: average × 2.5 = your threshold.</li>
+    <li>Add a response time assertion with that threshold.</li>
+    <li>Run 5 more times — should pass reliably without being too generous.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/shared/types/index.ts</code></td><td><code>Assertion</code> type — <code>{ type: 'responseTime', maxMs: number }</code></td></tr>
+    <tr><td><code>src/engine/validator.ts</code></td><td><code>evaluateAssertions()</code> — responseTime threshold check</td></tr>
+    <tr><td><code>src/engine/validationResult.ts</code></td><td><code>buildValidationResult()</code> — merges assertion failures</td></tr>
+    <tr><td><code>src/features/scenarios/components/TestEditorValidationTab.tsx</code></td><td>UI: maxMs input field</td></tr>
+  </table>
+
+  <h2>9. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Validation Modes</em> — None, Full, and Selective JSON body validation.</li>
+    <li><strong>Previous:</strong> <em>Status Code Assertions</em> — Pattern matching for HTTP status codes.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Assertion Mastery Phase 1 · Response Time Assertions · Easy
+  </footer>
+
+</body>
+</html>

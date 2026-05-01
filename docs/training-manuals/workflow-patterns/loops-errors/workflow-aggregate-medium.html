@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aggregation Patterns — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-yellow { background: #fff8e1; color: #f57f17; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Aggregation Patterns</h1>
+    <div class="subtitle">Medium — Workflow Patterns Training Manual</div>
+    <p>Collect and combine results from parallel branches and loop iterations. Learn the six aggregation strategies — concat, first, last, count, sum, and custom — to build arrays, running totals, and merged datasets.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-yellow">★★☆ Medium</span><br />
+      Phase 3 — Loops and Error Handling<br />
+      Scenario: <em>Collecting Results from Parallel Branches</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Aggregate Node Overview</h2>
+  <p>The Aggregate node collects values from multiple executions (loop iterations or parallel branches) into target variables. Each execution adds to or updates the target using a chosen strategy.</p>
+
+  <h3>AggregateNodeData Type</h3>
+<pre>export type AggregateStrategy =
+  | 'concat'    // append to array
+  | 'first'     // keep first value
+  | 'last'      // always overwrite
+  | 'count'     // increment counter
+  | 'sum'       // add numbers
+  | 'custom';   // custom expression
+
+export interface AggregateMapping {
+  id: string;
+  sourceExpression: string;   // what to collect: "{{pageItems}}"
+  targetVariable: string;     // where to store: "allItems"
+  strategy: AggregateStrategy;
+  customExpression?: string;  // used when strategy is 'custom'
+}
+
+export interface AggregateNodeData {
+  label: string;
+  mappings: AggregateMapping[];
+}</pre>
+
+  <h3>Factory Defaults</h3>
+<pre>// New aggregate node starts with an empty mappings array
+{
+  label: 'Aggregate',
+  mappings: [],
+}</pre>
+
+  <h3>Node Display</h3>
+  <div class="flow-diagram">
+    ┌──────────────────────────┐<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📊 Aggregate&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2 mappings&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br />
+    │&nbsp;{{pageItems}} → allItems&nbsp;&nbsp;│<br />
+    │&nbsp;{{itemCount}} → totalCount│<br />
+    └──────────────────────────┘
+  </div>
+
+  <p>The badge shows the mapping count (<code>2 mappings</code> or <code>1 mapping</code>). Below the badge, the first two mappings are previewed as <code>source → target</code>. If more than two mappings exist, a <code>+N more</code> label appears.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Aggregation Strategies</h2>
+  <p>Each mapping independently chooses how to combine the source value with the existing target value.</p>
+
+  <h3>concat — Build an Array</h3>
+  <p>Appends each value to a JSON array. The most common strategy for collecting results.</p>
+<pre>// Before: allItems = '["a","b"]'  (or undefined on first run)
+// Source:  {{pageItems}} = '["c","d"]'
+// After:   allItems = '["a","b","c","d"]'
+
+// Engine logic:
+const arr = JSON.parse(existing || '[]');
+const val = JSON.parse(source);  // or raw string if not JSON
+arr.push(val);
+target = JSON.stringify(arr);</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Array Flattening</strong>
+    If the source value is itself an array (like <code>["c","d"]</code>), it's pushed as a single element — resulting in a nested array. To flatten, use the <code>custom</code> strategy with an expression that spreads the values.
+  </div>
+
+  <h3>first — Keep the Earliest Value</h3>
+<pre>// Iteration 0: target is undefined → set to source value
+// Iteration 1: target already set → skip (keep first)
+// Iteration 2: target already set → skip
+
+// Engine logic:
+if (existing !== undefined &amp;&amp; existing !== '') return;  // keep first
+target = source;</pre>
+
+  <h3>last — Always Overwrite</h3>
+<pre>// Each iteration overwrites the target
+// After all iterations: target = last source value
+
+// Engine logic:
+target = source;  // simple overwrite</pre>
+
+  <h3>count — Increment Counter</h3>
+<pre>// Before: processedCount = '3'
+// After:  processedCount = '4'
+
+// Engine logic:
+const n = parseInt(existing || '0', 10);
+target = String(n + 1);</pre>
+
+  <h3>sum — Running Total</h3>
+<pre>// Before: totalPrice = '150.50'
+// Source: {{price}} = '29.99'
+// After:  totalPrice = '180.49'
+
+// Engine logic:
+const total = parseFloat(existing || '0');
+const add = parseFloat(source);
+target = String(total + add);</pre>
+
+  <h3>custom — Expression-Based</h3>
+<pre>// Uses customExpression resolved via ctx.resolve()
+{
+  strategy: 'custom',
+  customExpression: '{{someComplexExpression}}',
+}
+// Engine: target = ctx.resolve(customExpression)</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Strategy Comparison</h2>
+
+  <table>
+    <tr><th>Strategy</th><th>Result Type</th><th>Use Case</th></tr>
+    <tr><td><code>concat</code></td><td>JSON array (string)</td><td>Collect all API responses into one list</td></tr>
+    <tr><td><code>first</code></td><td>Any (string)</td><td>Capture initial value, ignore subsequent</td></tr>
+    <tr><td><code>last</code></td><td>Any (string)</td><td>Keep only the final result</td></tr>
+    <tr><td><code>count</code></td><td>Integer (string)</td><td>Count iterations, track processed items</td></tr>
+    <tr><td><code>sum</code></td><td>Float (string)</td><td>Running totals — prices, scores, durations</td></tr>
+    <tr><td><code>custom</code></td><td>Any (string)</td><td>Complex transformations via expressions</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 All Values Are Strings</strong>
+    Workflow variables are always strings. The aggregate strategies parse and stringify as needed — <code>count</code> uses <code>parseInt</code>, <code>sum</code> uses <code>parseFloat</code>, <code>concat</code> uses <code>JSON.parse/stringify</code>. The target variable always stores a string representation.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Combining with Loops</h2>
+  <p>The most common pattern: place an Aggregate node inside a loop body to accumulate results across iterations.</p>
+
+  <div class="flow-diagram">
+    Loop (forEach over {{users}})<br />
+    ├── <strong>Body:</strong><br />
+    │&nbsp;&nbsp;&nbsp;HTTP GET /users/{{user.id}}<br />
+    │&nbsp;&nbsp;&nbsp;<span class="arrow">→</span> Aggregate<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{response.body}} → allProfiles (concat)<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{price}} → totalCost (sum)<br />
+    │&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— → requestCount (count)<br />
+    └── <strong>Done:</strong> End ({{allProfiles}}, {{totalCost}}, {{requestCount}} available)
+  </div>
+
+  <h3>Example: Paginated API Fetcher</h3>
+<pre>// Aggregate node inside a while-loop body
+mappings: [
+  {
+    id: 'm1',
+    sourceExpression: '{{pageItems}}',
+    targetVariable: 'allItems',
+    strategy: 'concat',
+  },
+  {
+    id: 'm2',
+    sourceExpression: '{{itemCount}}',
+    targetVariable: 'totalCount',
+    strategy: 'sum',
+  },
+]
+// After 3 iterations:
+//   allItems = '["item1","item2",...,"item30"]'
+//   totalCount = '30'</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Combining with Fork/Join</h2>
+  <p>Use Aggregate after a Join node to merge results from parallel branches.</p>
+
+  <div class="flow-diagram">
+    Fork<br />
+    ├── Branch A: GET /api/users → SetVariable (usersResult)<br />
+    ├── Branch B: GET /api/posts → SetVariable (postsResult)<br />
+    └── Branch C: GET /api/comments → SetVariable (commentsResult)<br />
+    <span class="arrow">→</span> Join<br />
+    <span class="arrow">→</span> <strong>Aggregate</strong><br />
+    &nbsp;&nbsp;&nbsp;{{usersResult}} → allData (concat)<br />
+    &nbsp;&nbsp;&nbsp;{{postsResult}} → allData (concat)<br />
+    &nbsp;&nbsp;&nbsp;{{commentsResult}} → allData (concat)<br />
+    <span class="arrow">→</span> End
+  </div>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Order in Parallel Branches</strong>
+    When aggregating from parallel branches (Fork/Join), the execution order depends on response timing. Use <code>first</code> or <code>last</code> strategies carefully — the "first" branch to complete may vary between runs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Variable Hints</h2>
+  <p>Each mapping's <code>targetVariable</code> is automatically exposed as a variable hint for downstream nodes. The hint includes the strategy description:</p>
+
+<pre>// Mapping: sourceExpression: '{{pageItems}}', targetVariable: 'allItems', strategy: 'concat'
+// Variable hint for downstream nodes:
+//   Name: allItems
+//   Source: ← "Aggregate" node
+//   Description: Aggregated by "Aggregate". Strategy: Concatenate into array
+//   Type: array</pre>
+
+  <h3>Strategy Type Mapping</h3>
+  <table>
+    <tr><th>Strategy</th><th>Hint Type</th><th>Description</th></tr>
+    <tr><td><code>concat</code></td><td><code>array</code></td><td>Concatenate into array</td></tr>
+    <tr><td><code>first</code></td><td><code>any</code></td><td>Keep first value</td></tr>
+    <tr><td><code>last</code></td><td><code>any</code></td><td>Keep last value</td></tr>
+    <tr><td><code>count</code></td><td><code>number</code></td><td>Count occurrences</td></tr>
+    <tr><td><code>sum</code></td><td><code>number</code></td><td>Sum values</td></tr>
+    <tr><td><code>custom</code></td><td><code>any</code></td><td>Custom expression</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Gallery Sample: Paginated API Fetcher</h2>
+  <p>The <strong>Paginated API Fetcher</strong> (<code>sample-workflow-loop-agg</code>) combines a while-loop with aggregation:</p>
+
+<pre>// Aggregate node "Accumulate" configuration
+{
+  label: 'Accumulate',
+  mappings: [
+    {
+      id: 'm1',
+      sourceExpression: '{{pageItems}}',
+      targetVariable: 'allItems',
+      strategy: 'concat',
+    },
+    {
+      id: 'm2',
+      sourceExpression: '{{itemCount}}',
+      targetVariable: 'totalCount',
+      strategy: 'sum',
+    },
+  ],
+}</pre>
+
+  <p>The loop fetches pages until <code>{{hasMore}}</code> becomes false. Each iteration's page items are concatenated into <code>{{allItems}}</code> and the count is summed into <code>{{totalCount}}</code>. After the loop exits, the Done path can use both accumulated variables.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Exercises</h2>
+
+  <h3>Exercise 1: Collect Loop Results</h3>
+  <p><strong>Goal:</strong> Aggregate responses from a forEach loop into an array.</p>
+  <ol>
+    <li>Create a workflow with an HTTP node: GET <code>https://jsonplaceholder.typicode.com/users</code>.</li>
+    <li>Set <code>{{users}}</code> from the response body.</li>
+    <li>Add a Loop (forEach over <code>{{users}}</code>, itemVariable <code>user</code>).</li>
+    <li>In the body: HTTP GET <code>https://jsonplaceholder.typicode.com/posts?userId={{i}}</code>.</li>
+    <li>Add an Aggregate node: <code>{{response.body}}</code> → <code>allPosts</code> (concat).</li>
+    <li>After the loop: inspect <code>{{allPosts}}</code> — it should contain posts from all users.</li>
+  </ol>
+
+  <h3>Exercise 2: Count and Sum</h3>
+  <p><strong>Goal:</strong> Track iteration count and accumulate numeric values.</p>
+  <ol>
+    <li>Create a count loop (5 iterations).</li>
+    <li>In the body: add an Aggregate with two mappings:
+      <ul>
+        <li><code>—</code> → <code>processedCount</code> (count)</li>
+        <li><code>{{i}}</code> → <code>indexSum</code> (sum)</li>
+      </ul>
+    </li>
+    <li>After the loop: <code>{{processedCount}}</code> should be <code>"5"</code>, <code>{{indexSum}}</code> should be <code>"10"</code> (0+1+2+3+4).</li>
+  </ol>
+
+  <h3>Exercise 3: First vs Last</h3>
+  <p><strong>Goal:</strong> Compare first and last strategies.</p>
+  <ol>
+    <li>Create a count loop (3 iterations).</li>
+    <li>In the body: SetVariable <code>{{value}}</code> to <code>"iter-{{i}}"</code>.</li>
+    <li>Add an Aggregate with two mappings on the same source:
+      <ul>
+        <li><code>{{value}}</code> → <code>firstValue</code> (first)</li>
+        <li><code>{{value}}</code> → <code>lastValue</code> (last)</li>
+      </ul>
+    </li>
+    <li>After the loop: <code>{{firstValue}}</code> = <code>"iter-0"</code>, <code>{{lastValue}}</code> = <code>"iter-2"</code>.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>AggregateStrategy</code>, <code>AggregateMapping</code>, <code>AggregateNodeData</code></td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowNodeFactory.ts</code></td><td>Aggregate node factory defaults</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td>Aggregation execution — per-strategy logic</td></tr>
+    <tr><td><code>src/features/workflow/components/nodes/AggregateNode.tsx</code></td><td>Node UI — badge, mapping preview</td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowVariableHints.ts</code></td><td>Variable hints from targetVariable</td></tr>
+    <tr><td><code>src/data/galleries/workflows/flowControl.ts</code></td><td>Gallery sample: Paginated API Fetcher</td></tr>
+  </table>
+
+  <h2>10. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Error Handling Strategies</em> — Node-level retry, catch paths, and workflow-level error handlers.</li>
+    <li><strong>Previous:</strong> <em>Loop Patterns</em> — Count, ForEach, and While loop modes.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 3 · Aggregation Patterns · Medium
+  </footer>
+
+</body>
+</html>

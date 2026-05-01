@@ -274,7 +274,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                 <div><strong>Headers:</strong> {parseResult.meta.headers.length} included</div>
                 <div><strong>Auth:</strong> {parseResult.meta.auth.type}</div>
                 <div><strong>Validation:</strong> {
-                  parseResult.meta.validationMode === 'none' ? 'No Validation' :
+                  parseResult.meta.validationMode === 'none' ? 'No Body Validation' :
                   parseResult.meta.validationMode === 'full' ? 'Full JSON Match' :
                   'Selective Fields'
                 }{parseResult.meta.unorderedArrays ? ' · unordered arrays' : ''}</div>

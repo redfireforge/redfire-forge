@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delays and Timing — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⏱</div>
+    <h1>Delays and Timing</h1>
+    <div class="subtitle">Easy — Workflow Patterns Training Manual</div>
+    <p>Control execution timing with fixed and random delays — simulate rate limiting, polling intervals, and realistic user think time between API calls.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: ★☆☆<br />
+      Phase 1 — Workflow Patterns<br />
+      Build from scratch
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Why Delays Matter</h2>
+  <p>Real-world API interactions rarely happen back-to-back. Clients pause between requests for rate limiting, polling intervals, or natural user think time. The <strong>Delay</strong> node lets you model these pauses in your workflow.</p>
+
+  <p><strong>Real-world scenario:</strong> <em>"Rate-Limited API — Spacing Requests"</em></p>
+  <p>You're testing an API that enforces a rate limit of 2 requests per second. Without delays, your workflow sends requests as fast as possible and gets <code>429 Too Many Requests</code> errors. Adding a 500ms delay between each call keeps you under the limit.</p>
+
+  <h3>Common Use Cases</h3>
+  <table>
+    <tr><th>Use Case</th><th>Delay Type</th><th>Typical Duration</th></tr>
+    <tr><td>Rate limiting</td><td>Fixed</td><td>500ms – 2000ms</td></tr>
+    <tr><td>Polling interval</td><td>Fixed</td><td>1000ms – 5000ms</td></tr>
+    <tr><td>Think time simulation</td><td>Random</td><td>200ms – 2000ms</td></tr>
+    <tr><td>Retry backoff</td><td>Fixed (increasing)</td><td>1000ms → 2000ms → 4000ms</td></tr>
+    <tr><td>Resource creation wait</td><td>Fixed</td><td>1000ms – 3000ms</td></tr>
+  </table>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Completed: <em>HTTP Request Chaining</em> manual</li>
+    <li>Know how to create a workflow and add HTTP nodes</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. The Delay Node Data Model</h2>
+  <p>The Delay node supports two modes: <strong>fixed</strong> (exact duration) and <strong>random</strong> (range).</p>
+
+<pre>interface DelayNodeData {
+  label: string;
+  delayMs: number;          // Fixed delay in milliseconds
+  mode: 'fixed' | 'random'; // Delay mode
+  minMs?: number;           // Random mode: minimum delay
+  maxMs?: number;           // Random mode: maximum delay
+}</pre>
+
+  <h3>Fixed Mode</h3>
+  <p>Pauses for exactly <code>delayMs</code> milliseconds. The node badge displays the duration, e.g., <strong>500ms</strong> or <strong>2s</strong>.</p>
+<pre>// Fixed delay: wait exactly 1 second
+{
+  label: "Wait 1s",
+  delayMs: 1000,
+  mode: "fixed"
+}</pre>
+
+  <h3>Random Mode</h3>
+  <p>Pauses for a random duration between <code>minMs</code> and <code>maxMs</code>. Each execution picks a different value. The node badge displays the range, e.g., <strong>200–800ms</strong>.</p>
+<pre>// Random delay: wait between 200ms and 800ms
+{
+  label: "Think Time",
+  delayMs: 500,    // fallback if mode not set
+  mode: "random",
+  minMs: 200,
+  maxMs: 800
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Random delays make your workflows more realistic. Real users don't click at machine speed — adding randomized think time makes your API tests better simulate production traffic patterns.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. How the Engine Handles Delays</h2>
+  <p>The <code>handleDelayNode</code> function in <code>graphRunnerNodeHandlers.ts</code> is straightforward:</p>
+
+  <ol>
+    <li>Read the delay configuration from the node data.</li>
+    <li>If <code>mode === 'random'</code>, compute a random value: <code>Math.random() * (maxMs - minMs) + minMs</code>.</li>
+    <li>Log the delay: <code>* [Wait 1s] waiting 1000ms...</code></li>
+    <li>Wait using a <code>setTimeout</code> promise (respecting the abort signal for cancellation).</li>
+    <li>Mark the node as <code>pass</code> and proceed to outgoing edges.</li>
+  </ol>
+
+  <h3>Console Log Output</h3>
+<pre>// Fixed delay
+* [Wait 1s] waiting 1000ms...
+* [Wait 1s] → pass
+
+// Random delay
+* [Think Time] waiting 547ms (random: 200–800ms)...
+* [Think Time] → pass</pre>
+
+  <h3>Abort Handling</h3>
+  <p>If the user clicks <strong>Stop</strong> during a delay, the abort signal cancels the pending timeout immediately. The node transitions to <code>fail</code> with an abort message.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Configuring a Delay Node</h2>
+  <ol>
+    <li>Click the <strong>+</strong> button on the canvas or drag from the node palette.</li>
+    <li>Select <strong>Delay</strong>.</li>
+    <li>Connect it between two nodes where you want a pause.</li>
+    <li>Double-click to open the config modal.</li>
+  </ol>
+
+  <h3>Config Modal Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Default</th></tr>
+    <tr><td>Label</td><td>Display name on the canvas</td><td><code>"Delay"</code></td></tr>
+    <tr><td>Mode</td><td>Fixed or Random</td><td>Fixed</td></tr>
+    <tr><td>Delay (ms)</td><td>Duration for fixed mode</td><td><code>1000</code></td></tr>
+    <tr><td>Min (ms)</td><td>Minimum for random mode</td><td><code>100</code></td></tr>
+    <tr><td>Max (ms)</td><td>Maximum for random mode</td><td><code>500</code></td></tr>
+  </table>
+
+  <h3>Canvas Badge Display</h3>
+  <p>The Delay node shows a badge on the canvas indicating its configuration:</p>
+  <ul>
+    <li>Fixed mode: <strong>500ms</strong>, <strong>1s</strong>, <strong>2s</strong></li>
+    <li>Random mode: <strong>100–500ms</strong>, <strong>1–3s</strong></li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Walkthrough: Rate-Limited API Testing</h2>
+  <p>Build a workflow that spaces out 3 API calls with 1-second delays to stay under a rate limit.</p>
+
+  <div class="flow-diagram">
+    <strong>Start</strong>
+    <span class="arrow">→</span>
+    <strong>GET /posts/1</strong>
+    <span class="arrow">→</span>
+    <strong>Delay 1s</strong>
+    <span class="arrow">→</span>
+    <strong>GET /posts/2</strong>
+    <span class="arrow">→</span>
+    <strong>Delay 1s</strong>
+    <span class="arrow">→</span>
+    <strong>GET /posts/3</strong>
+    <span class="arrow">→</span>
+    <strong>End</strong>
+  </div>
+
+  <h3>Step-by-Step</h3>
+  <ol>
+    <li>Create a new workflow named <strong>"Rate-Limited Fetch"</strong>.</li>
+    <li>Add HTTP node: <code>GET https://jsonplaceholder.typicode.com/posts/1</code>, label <strong>"Get Post 1"</strong>.</li>
+    <li>Add Delay node: <strong>Fixed, 1000ms</strong>, label <strong>"Wait 1s"</strong>.</li>
+    <li>Add HTTP node: <code>GET https://jsonplaceholder.typicode.com/posts/2</code>, label <strong>"Get Post 2"</strong>.</li>
+    <li>Add another Delay node: <strong>Fixed, 1000ms</strong>, label <strong>"Wait 1s"</strong>.</li>
+    <li>Add HTTP node: <code>GET https://jsonplaceholder.typicode.com/posts/3</code>, label <strong>"Get Post 3"</strong>.</li>
+    <li>Add End node and connect all nodes in sequence.</li>
+    <li>Run — observe that total execution time is ~2 seconds longer than without delays.</li>
+  </ol>
+
+  <h3>Expected Console Output</h3>
+<pre>&gt; GET https://jsonplaceholder.typicode.com/posts/1
+&lt; 200 OK (95ms)
+* [Get Post 1] → pass
+
+* [Wait 1s] waiting 1000ms...
+* [Wait 1s] → pass
+
+&gt; GET https://jsonplaceholder.typicode.com/posts/2
+&lt; 200 OK (87ms)
+* [Get Post 2] → pass
+
+* [Wait 1s] waiting 1000ms...
+* [Wait 1s] → pass
+
+&gt; GET https://jsonplaceholder.typicode.com/posts/3
+&lt; 200 OK (91ms)
+* [Get Post 3] → pass</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Exercises</h2>
+
+  <h3>Exercise 1: Fixed Delays Between API Calls</h3>
+  <p><strong>Goal:</strong> Space out 3 HTTP calls with 1000ms delays.</p>
+  <ol>
+    <li>Create a workflow with 3 HTTP GET nodes hitting different endpoints.</li>
+    <li>Add a Delay node (Fixed, 1000ms) between each HTTP node.</li>
+    <li>Run and verify total execution time is at least 2 seconds.</li>
+    <li>Check the console log for the <code>* [Delay] waiting 1000ms...</code> lines.</li>
+  </ol>
+
+  <h3>Exercise 2: Random Think Time</h3>
+  <p><strong>Goal:</strong> Simulate realistic user behavior with random delays.</p>
+  <ol>
+    <li>Modify the workflow from Exercise 1 — change both Delay nodes to <strong>Random</strong> mode.</li>
+    <li>Set <code>minMs: 200</code>, <code>maxMs: 800</code>.</li>
+    <li>Run the workflow 3 times — observe that total execution time varies each run.</li>
+    <li>Check the console for the actual delay values, e.g., <code>waiting 547ms (random: 200–800ms)</code>.</li>
+  </ol>
+
+  <h3>Exercise 3: Compare With and Without Delays</h3>
+  <p><strong>Goal:</strong> Understand the timing impact of delays.</p>
+  <ol>
+    <li>Create two copies of a 3-HTTP-node workflow: one with delays, one without.</li>
+    <li>Run both and compare the total execution time in the console output.</li>
+    <li>The version without delays should complete in under 500ms; the version with 1s delays should take ~2.5s.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>DelayNodeData</code> interface — <code>delayMs</code>, <code>mode</code>, <code>minMs</code>, <code>maxMs</code></td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td><code>handleDelayNode</code> — timeout, abort handling, random calculation</td></tr>
+  </table>
+
+  <h2>8. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Variables and Context</em> — Deep dive into the variable system, SetVariable, LogDebug, environment layers, and built-in generators.</li>
+    <li><strong>Previous:</strong> <em>HTTP Request Chaining</em> — Chaining HTTP nodes and extracting variables.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 1 · Delays and Timing · Easy
+  </footer>
+
+</body>
+</html>

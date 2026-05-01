@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webhooks and Correlation Wait — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout-danger { background: #fce4ec; border-left-color: #e63946; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 20px; margin: 16px 0; text-align: center; font-size: 13px;
+  }
+  .flow-diagram .arrow { color: #e63946; font-weight: bold; margin: 0 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔗</div>
+    <h1>Webhooks and Correlation Wait</h1>
+    <div class="subtitle">Advanced — Workflow Patterns Training Manual</div>
+    <p>Trigger workflows from external events, schedule time-based runs, and pause execution until a matching webhook callback arrives. Master correlation matching, variable extraction, and timeout handling.</p>
+    <div class="meta">
+      RedfireForge v0.5.6<br />
+      Difficulty: <span class="badge badge-red">★★★ Advanced</span><br />
+      Phase 4 — Sub-Workflows and Advanced Patterns<br />
+      Scenario: <em>Payment Callback — Start Payment, Wait for Webhook Confirmation</em>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Three Trigger and Wait Node Types</h2>
+  <p>RedfireForge provides three nodes for event-driven workflows:</p>
+
+  <table>
+    <tr><th>Node</th><th>Purpose</th><th>Category</th></tr>
+    <tr><td><strong>Webhook Trigger</strong></td><td>Start a workflow when an external webhook arrives</td><td>Triggers</td></tr>
+    <tr><td><strong>Schedule Trigger</strong></td><td>Start a workflow on a cron schedule</td><td>Triggers</td></tr>
+    <tr><td><strong>Correlation Wait</strong></td><td>Pause mid-workflow until a matching callback arrives</td><td>Integrations</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 2 -->
+  <h2>2. Webhook Trigger Node</h2>
+  <p>The Webhook Trigger starts a workflow when an external system sends an HTTP request to a defined path.</p>
+
+  <h3>WebhookTriggerNodeData Type</h3>
+<pre>export interface WebhookTriggerNodeData {
+  label: string;
+  method: 'POST' | 'PUT' | 'PATCH';     // accepted HTTP method
+  path: string;                           // webhook endpoint path
+  samplePayload: string;                  // JSON for design-time testing
+  extractVariables?: Array&lt;{
+    name: string;                         // variable name to create
+    jsonPath: string;                     // path into the payload
+  }>;
+  notes?: string;
+}</pre>
+
+  <h3>Factory Defaults</h3>
+<pre>{
+  label: 'Webhook Trigger',
+  method: 'POST',
+  path: '/api/webhook',
+  samplePayload: '{\n  "event": "example",\n  "data": {}\n}',
+  extractVariables: [],
+}</pre>
+
+  <h3>Variable Extraction</h3>
+  <p>During design-time testing, the engine parses the <code>samplePayload</code> and extracts variables using JSONPath:</p>
+<pre>// Engine execution:
+const payload = JSON.parse(data.samplePayload || '{}');
+for (const { name, jsonPath } of data.extractVariables) {
+  const keys = jsonPath.replace(/^\$\./, '').split('.');
+  let value = payload;
+  for (const key of keys) {
+    value = value?.[key];
+  }
+  if (value !== undefined) hCtx.ctx.set(name, String(value));
+}</pre>
+
+  <h3>Example Configuration</h3>
+<pre>// Webhook receives a payment event
+{
+  method: 'POST',
+  path: '/webhooks/payment',
+  samplePayload: '{\n  "paymentId": "pay_123",\n  "amount": 99.99,\n  "status": "completed"\n}',
+  extractVariables: [
+    { name: 'paymentId', jsonPath: '$.paymentId' },
+    { name: 'amount',    jsonPath: '$.amount' },
+    { name: 'status',    jsonPath: '$.status' },
+  ],
+}
+// After trigger: {{paymentId}} = "pay_123", {{amount}} = "99.99", {{status}} = "completed"</pre>
+
+  <h3>Node Display</h3>
+  <p>Shows <code>POST /webhooks/payment</code> badge and <code>Extracts 3 variables</code> count.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Schedule Trigger Node</h2>
+  <p>The Schedule Trigger starts a workflow at specified times using cron expressions.</p>
+
+  <h3>ScheduleTriggerNodeData Type</h3>
+<pre>export interface ScheduleTriggerNodeData {
+  label: string;
+  cronExpression: string;            // e.g. '0 9 * * MON-FRI'
+  timezone: string;                   // e.g. 'America/New_York'
+  scheduleDescription?: string;       // human-readable label
+  inputVariables?: Record&lt;string, string>;
+  notes?: string;
+}</pre>
+
+  <h3>Factory Defaults</h3>
+<pre>{
+  label: 'Schedule Trigger',
+  cronExpression: '0 9 * * MON-FRI',
+  timezone: 'America/New_York',
+  scheduleDescription: 'Every weekday at 9:00 AM EST',
+  inputVariables: {},
+}</pre>
+
+  <h3>Auto-Seeded Variables</h3>
+  <p>The engine automatically injects timing variables when the schedule fires:</p>
+
+  <table>
+    <tr><th>Variable</th><th>Value</th><th>Example</th></tr>
+    <tr><td><code>{{triggerTime}}</code></td><td>ISO timestamp</td><td><code>2025-06-15T09:00:00.000Z</code></td></tr>
+    <tr><td><code>{{triggerTimestamp}}</code></td><td>Unix timestamp (seconds)</td><td><code>1750064400</code></td></tr>
+    <tr><td><code>{{triggerDate}}</code></td><td>Date only (YYYY-MM-DD)</td><td><code>2025-06-15</code></td></tr>
+    <tr><td><code>{{triggerHour}}</code></td><td>Hour (0–23)</td><td><code>9</code></td></tr>
+    <tr><td><code>{{triggerMinute}}</code></td><td>Minute (0–59)</td><td><code>0</code></td></tr>
+  </table>
+
+  <p>Plus any custom <code>inputVariables</code> defined on the node.</p>
+
+  <h3>Node Display</h3>
+  <p>Shows the <code>scheduleDescription</code> text, the <code>cronExpression</code> in a code block, and a variable count badge.</p>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Correlation Wait Node</h2>
+  <p>The Correlation Wait node is the most powerful event-driven node. It <strong>pauses the workflow mid-execution</strong> and waits for an external webhook callback that matches a correlation ID.</p>
+
+  <div class="flow-diagram">
+    <strong>Payment Callback Flow</strong><br /><br />
+    Start<br />
+    <span class="arrow">→</span> HTTP POST /api/payments (initiate payment)<br />
+    <span class="arrow">→</span> <strong>Correlation Wait</strong> (pause — wait for callback)<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⏸ Paused: correlationId = "pay_123"<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📡 Listening on /webhooks/payment-callback<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⏱ Timeout: 60 seconds<br />
+    <span class="arrow">→</span> (webhook arrives, matches "pay_123")<br />
+    <span class="arrow">→</span> HTTP GET /api/payments/{{paymentId}} (confirm)<br />
+    <span class="arrow">→</span> End
+  </div>
+
+  <h3>CorrelationWaitNodeData Type</h3>
+<pre>export interface CorrelationWaitNodeData {
+  label: string;
+  correlationIdExpression: string;   // expression resolving to correlation ID
+  webhookPath: string;               // endpoint to listen on
+  correlationSource: 'body' | 'header' | 'query';  // where to find ID in callback
+  correlationJsonPath?: string;      // JSONPath (when source is 'body')
+  correlationHeader?: string;        // header name (when source is 'header')
+  correlationQueryParam?: string;    // query param (when source is 'query')
+  extractVariables?: Array&lt;{
+    name: string;
+    jsonPath: string;
+  }>;
+  timeoutMs: number;                 // fail after N ms (default: 60000)
+  webhookFilter?: string;            // optional payload validation expression
+  notes?: string;
+}</pre>
+
+  <h3>Factory Defaults</h3>
+<pre>{
+  label: 'Correlation Wait',
+  correlationIdExpression: '',
+  webhookPath: '/webhooks/callback',
+  correlationSource: 'body',
+  correlationJsonPath: '$.correlationId',
+  extractVariables: [],
+  timeoutMs: 60000,   // 60 seconds
+}</pre>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. How Correlation Matching Works</h2>
+
+  <h3>Step-by-Step Flow</h3>
+  <ol>
+    <li><strong>Resolve correlation ID:</strong> The engine resolves <code>correlationIdExpression</code> (e.g., <code>{{paymentId}}</code> → <code>"pay_123"</code>).</li>
+    <li><strong>Pause:</strong> Node state changes to <code>'paused'</code>. The workflow is suspended.</li>
+    <li><strong>Register in store:</strong> The correlation ID, webhook path, and timeout are registered in the <code>ICorrelationStore</code>.</li>
+    <li><strong>Wait:</strong> The engine awaits a promise that will resolve when a matching callback arrives (or timeout).</li>
+    <li><strong>Callback arrives:</strong> An external system sends a webhook to the registered path.</li>
+    <li><strong>Match:</strong> The store extracts the correlation ID from the callback (by body JSONPath, header, or query param) and matches it.</li>
+    <li><strong>Resume:</strong> The workflow resumes. Webhook data is injected as variables.</li>
+  </ol>
+
+  <h3>Correlation Source Options</h3>
+  <table>
+    <tr><th>Source</th><th>Config Field</th><th>Example</th></tr>
+    <tr>
+      <td><code>body</code></td>
+      <td><code>correlationJsonPath</code></td>
+      <td>Extract <code>$.correlationId</code> from JSON body</td>
+    </tr>
+    <tr>
+      <td><code>header</code></td>
+      <td><code>correlationHeader</code></td>
+      <td>Read <code>X-Correlation-Id</code> header</td>
+    </tr>
+    <tr>
+      <td><code>query</code></td>
+      <td><code>correlationQueryParam</code></td>
+      <td>Read <code>?correlationId=pay_123</code> query param</td>
+    </tr>
+  </table>
+
+  <h3>Variables Set on Resume</h3>
+  <table>
+    <tr><th>Variable</th><th>Source</th></tr>
+    <tr><td><code>{{webhook.body}}</code></td><td>Full webhook payload (JSON string)</td></tr>
+    <tr><td><code>{{webhook.correlationId}}</code></td><td>The matched correlation ID</td></tr>
+    <tr><td>Custom <code>extractVariables</code></td><td>JSONPath extractions from webhook body</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. The Correlation Store</h2>
+  <p>The <code>ICorrelationStore</code> manages paused correlations:</p>
+
+<pre>export interface ICorrelationStore {
+  pause(correlationId, webhookPath, state,
+        timeoutMs, webhookFilter?, config?): Promise&lt;Record&lt;string, unknown>>;
+  resume(correlationId, webhookData): boolean;
+  isPaused(correlationId): boolean;
+  cancel(correlationId): boolean;
+  get(correlationId): PausedEntry | undefined;
+  cleanup(): number;
+  listPaused(): PausedEntry[];
+  readonly size: number;
+}</pre>
+
+  <h3>Two Implementations</h3>
+  <table>
+    <tr><th>Implementation</th><th>Use</th></tr>
+    <tr><td><code>InMemoryCorrelationStore</code></td><td>In-process; used for local testing and design-time runs</td></tr>
+    <tr><td><code>RemoteCorrelationStore</code></td><td>Server-backed; used in production via <code>useWorkflowExecution</code></td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Timeout Behavior</strong>
+    When <code>timeoutMs</code> elapses without a matching callback, the correlation is cancelled and the node fails. Set <code>timeoutMs: 0</code> for unlimited wait (not recommended in production — use a generous timeout like 300000ms / 5 minutes instead).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Webhook Filter</h2>
+  <p>The optional <code>webhookFilter</code> field lets you validate the callback payload before accepting it. If the filter expression doesn't match, the callback is ignored (the node keeps waiting).</p>
+
+<pre>// Only accept callbacks with status "completed"
+{
+  webhookFilter: '$.status == "completed"',
+  // Callbacks with status "pending" are ignored
+  // Only "completed" callbacks resume the workflow
+}</pre>
+
+  <h3>Node Display</h3>
+  <p>The Correlation Wait node shows three key badges:</p>
+  <table>
+    <tr><th>Badge</th><th>Shows</th></tr>
+    <tr><td><code>🔗 {{paymentId}}</code></td><td>Correlation ID expression (truncated at 25 chars)</td></tr>
+    <tr><td><code>📡 /webhooks/callback</code></td><td>Webhook path</td></tr>
+    <tr><td><code>⏱ 60s</code></td><td>Timeout (formatted: ms → s → m)</td></tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 8 -->
+  <h2>8. Gallery Samples</h2>
+
+  <table>
+    <tr><th>Sample</th><th>Demonstrates</th></tr>
+    <tr>
+      <td><strong>Webhook Trigger</strong><br /><code>sample-workflow-webhook</code></td>
+      <td>Basic webhook trigger with variable extraction from payload</td>
+    </tr>
+    <tr>
+      <td><strong>Schedule Trigger</strong><br /><code>sample-workflow-schedule</code></td>
+      <td>Cron-based trigger with auto-seeded time variables</td>
+    </tr>
+    <tr>
+      <td><strong>Payment Gateway Callback</strong><br /><code>sample-workflow-payment-callback-easy</code></td>
+      <td>Start payment → Correlation Wait → Confirm payment</td>
+    </tr>
+    <tr>
+      <td><strong>Payment Callback Simulator</strong><br /><code>sample-workflow-payment-callback-simulator</code></td>
+      <td>Companion workflow that simulates sending the callback</td>
+    </tr>
+    <tr>
+      <td><strong>Manager Approval</strong><br /><code>sample-workflow-approval-medium</code></td>
+      <td>Submit request → Wait for manager approval webhook → Process</td>
+    </tr>
+  </table>
+
+  <div class="callout">
+    <strong>📘 Companion Workflows</strong>
+    Some gallery samples include companion "simulator" workflows linked via <code>companionFactories</code> and <code>simulatorOf</code>. These let you test the full callback flow locally — the main workflow waits, and the simulator workflow sends the matching callback.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 9 -->
+  <h2>9. Exercises</h2>
+
+  <h3>Exercise 1: Webhook Trigger with Extraction</h3>
+  <p><strong>Goal:</strong> Create a workflow triggered by an external webhook.</p>
+  <ol>
+    <li>Add a Webhook Trigger node: method <strong>POST</strong>, path <code>/webhooks/order</code>.</li>
+    <li>Set sample payload: <code>{"orderId": "ord_456", "total": 150}</code>.</li>
+    <li>Add extract variables: <code>orderId</code> → <code>$.orderId</code>, <code>total</code> → <code>$.total</code>.</li>
+    <li>Connect to an HTTP node that uses <code>{{orderId}}</code> in the URL.</li>
+    <li>Run — variables are seeded from the sample payload.</li>
+  </ol>
+
+  <h3>Exercise 2: Payment Callback Flow</h3>
+  <p><strong>Goal:</strong> Build a start-and-wait payment flow with correlation matching.</p>
+  <ol>
+    <li>Add an HTTP POST node: <code>/api/payments</code> (initiate payment). Save <code>{{paymentId}}</code> from response.</li>
+    <li>Add a Correlation Wait node:
+      <ul>
+        <li>correlationIdExpression: <code>{{paymentId}}</code></li>
+        <li>webhookPath: <code>/webhooks/payment-callback</code></li>
+        <li>correlationSource: <code>body</code></li>
+        <li>correlationJsonPath: <code>$.paymentId</code></li>
+        <li>timeoutMs: <code>30000</code></li>
+      </ul>
+    </li>
+    <li>After the wait: HTTP GET to confirm payment using <code>{{webhook.body}}</code> data.</li>
+    <li>Load the Payment Callback Simulator sample and run both workflows.</li>
+  </ol>
+
+  <h3>Exercise 3: Timeout Handling</h3>
+  <p><strong>Goal:</strong> Observe timeout behavior when no callback arrives.</p>
+  <ol>
+    <li>Set up a Correlation Wait with <code>timeoutMs: 5000</code> (5 seconds).</li>
+    <li>Run the workflow — do <strong>not</strong> send a callback.</li>
+    <li>After 5 seconds, the node fails with a timeout error.</li>
+    <li>Add an Error Handler around the Correlation Wait to handle timeouts gracefully.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 10 -->
+  <h2>10. Source Code Reference</h2>
+  <table>
+    <tr><th>File</th><th>Purpose</th></tr>
+    <tr><td><code>src/features/workflow/types/workflow.ts</code></td><td><code>WebhookTriggerNodeData</code>, <code>ScheduleTriggerNodeData</code>, <code>CorrelationWaitNodeData</code></td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowNodeFactory.ts</code></td><td>Factory defaults for all three node types</td></tr>
+    <tr><td><code>src/features/workflow/engine/graphRunnerNodeHandlers.ts</code></td><td>Webhook, Schedule, and CorrelationWait execution logic</td></tr>
+    <tr><td><code>src/features/workflow/engine/correlationStore.ts</code></td><td><code>ICorrelationStore</code>, <code>InMemoryCorrelationStore</code></td></tr>
+    <tr><td><code>src/features/workflow/utils/workflowVariableHints.ts</code></td><td>Variable hints for trigger and wait nodes</td></tr>
+  </table>
+
+  <h2>11. What's Next?</h2>
+  <ul>
+    <li><strong>Next manual:</strong> <em>Debugging Workflows</em> — Step-through execution, breakpoints, and variable inspection.</li>
+    <li><strong>Previous:</strong> <em>Sub-Workflow Composition</em> — Parent-child workflows with input/output mappings.</li>
+  </ul>
+
+  <footer>
+    RedfireForge v0.5.6 · Workflow Patterns Phase 4 · Webhooks and Correlation Wait · Advanced
+  </footer>
+
+</body>
+</html>

@@ -689,6 +689,57 @@ describe('defaultFilterState', () => {
 
 /* ── TrainingPathsView ── */
 
+const minimalPaths: import('../../../data/galleries/trainingPaths').TrainingPath[] = [
+  {
+    id: 'tp-a',
+    name: 'Test Path A',
+    icon: '🅰️',
+    description: 'First test path for search filtering',
+    phases: [
+      {
+        id: 1,
+        name: 'Phase Alpha',
+        manuals: [
+          { title: 'Manual Alpha', description: 'Alpha desc', difficulty: 'easy', sampleId: 'sample-alpha', manualPath: 'alpha.html' },
+          { title: 'Manual Beta', description: 'Beta desc', difficulty: 'medium', manualPath: 'beta.html' },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Phase Bravo',
+        manuals: [
+          { title: 'Manual Gamma', description: 'Gamma desc', difficulty: 'advanced', sampleId: 'sample-gamma', manualPath: 'gamma.html' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'tp-b',
+    name: 'Test Path B',
+    icon: '🅱️',
+    description: 'Second test path about orchestration',
+    phases: [
+      {
+        id: 1,
+        name: 'Phase One',
+        manuals: [
+          { title: 'Manual Delta', description: 'Delta desc', difficulty: 'easy', sampleId: 'sample-delta', manualPath: 'delta.html' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'tp-soon',
+    name: 'Coming Soon Path',
+    icon: '⏳',
+    description: 'This path is not yet available',
+    comingSoon: true,
+    phases: [
+      { id: 1, name: 'Future Phase', manuals: [{ title: 'Future Manual', description: 'TBD', difficulty: 'easy' }] },
+    ],
+  },
+];
+
 describe('TrainingPathsView', () => {
   it('renders path cards', () => {
     render(<TrainingPathsView paths={trainingPaths} />);
@@ -696,9 +747,10 @@ describe('TrainingPathsView', () => {
     expect(screen.getByText('Workflow Patterns')).toBeTruthy();
   });
 
-  it('shows coming soon for future paths', () => {
+  it('shows all paths without coming soon', () => {
     render(<TrainingPathsView paths={trainingPaths} />);
-    expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(1);
+    // All paths are now fully populated — none should show "Coming soon"
+    expect(screen.queryAllByText('Coming soon').length).toBe(0);
   });
 
   it('highlights active path', () => {
@@ -725,6 +777,165 @@ describe('TrainingPathsView', () => {
     const importBtns = screen.getAllByText('Import');
     fireEvent.click(importBtns[0]);
     expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  /* ── Search Filtering ── */
+
+  it('filters paths by search query matching path name', () => {
+    render(<TrainingPathsView paths={minimalPaths} search="Path A" />);
+    expect(screen.getByText('Test Path A')).toBeTruthy();
+    // "Path B" still visible because its description also renders; but comingSoon path is filtered out
+    expect(screen.queryByText('Coming Soon Path')).toBeNull();
+  });
+
+  it('filters paths by search query matching description', () => {
+    render(<TrainingPathsView paths={minimalPaths} search="orchestration" />);
+    expect(screen.getByText('Test Path B')).toBeTruthy();
+    expect(screen.queryByText('Test Path A')).toBeNull();
+  });
+
+  it('filters paths by search query matching manual title', () => {
+    render(<TrainingPathsView paths={minimalPaths} search="Manual Gamma" />);
+    expect(screen.getByText('Test Path A')).toBeTruthy();
+    expect(screen.getByText('Manual Gamma')).toBeTruthy();
+  });
+
+  it('shows empty message when search has no results', () => {
+    render(<TrainingPathsView paths={minimalPaths} search="zzz-no-match-zzz" />);
+    expect(screen.getByText(/No training paths match/)).toBeTruthy();
+  });
+
+  /* ── Back Button ── */
+
+  it('shows back button when activePathId is set with onClearActivePath', () => {
+    const onClear = vi.fn();
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" onClearActivePath={onClear} />);
+    const backBtn = screen.getByText('← All Training Paths');
+    expect(backBtn).toBeTruthy();
+    fireEvent.click(backBtn);
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show back button when no activePathId', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    expect(screen.queryByText('← All Training Paths')).toBeNull();
+  });
+
+  it('hides subtitle when activePathId is set', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    expect(screen.queryByText(/Structured learning journeys/)).toBeNull();
+  });
+
+  /* ── Coming Soon Path ── */
+
+  it('shows Coming soon badge on comingSoon paths', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    expect(screen.getByText('Coming soon')).toBeTruthy();
+  });
+
+  it('does not expand comingSoon path on click', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    const card = screen.getByText('Coming Soon Path').closest('.training-path-card');
+    expect(card?.classList.contains('training-path-card-soon')).toBe(true);
+    fireEvent.click(screen.getByText('Coming Soon Path'));
+    expect(screen.queryByText('Future Phase')).toBeNull();
+  });
+
+  /* ── Phase Expand/Collapse ── */
+
+  it('expands path on hero click and shows phases', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    fireEvent.click(screen.getByText('Test Path A'));
+    expect(screen.getByText('Phase Alpha')).toBeTruthy();
+    expect(screen.getByText('Phase Bravo')).toBeTruthy();
+  });
+
+  it('collapses path on second hero click', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    fireEvent.click(screen.getByText('Test Path A'));
+    expect(screen.getByText('Phase Alpha')).toBeTruthy();
+    fireEvent.click(screen.getByText('Test Path A'));
+    expect(screen.queryByText('Phase Alpha')).toBeNull();
+  });
+
+  it('toggles individual phase sections', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    // Phases start expanded — manual should be visible
+    expect(screen.getByText('Manual Alpha')).toBeTruthy();
+    // Click phase header to collapse
+    fireEvent.click(screen.getByText('Phase Alpha'));
+    expect(screen.queryByText('Manual Alpha')).toBeNull();
+    // Click again to re-expand
+    fireEvent.click(screen.getByText('Phase Alpha'));
+    expect(screen.getByText('Manual Alpha')).toBeTruthy();
+  });
+
+  it('Collapse All / Expand All button works', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    // Initially all expanded
+    expect(screen.getByText('Manual Alpha')).toBeTruthy();
+    // Click "Collapse All"
+    fireEvent.click(screen.getByText('▼ Collapse All'));
+    expect(screen.queryByText('Manual Alpha')).toBeNull();
+    // Click "Expand All"
+    fireEvent.click(screen.getByText('▶ Expand All'));
+    expect(screen.getByText('Manual Alpha')).toBeTruthy();
+  });
+
+  /* ── Manual Row Details ── */
+
+  it('renders manual without sampleId (no import button)', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    expect(screen.getByText('Manual Beta')).toBeTruthy();
+    // Manual Beta has no sampleId, so its row should not have an import button
+    const betaRow = screen.getByText('Manual Beta').closest('.training-manual-row');
+    expect(betaRow?.querySelector('.training-manual-import-btn')).toBeNull();
+  });
+
+  it('renders sample chip with sampleId', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    expect(screen.getByText('sample-alpha')).toBeTruthy();
+  });
+
+  it('shows imported badge when sampleStatus is imported', () => {
+    const { container } = render(
+      <TrainingPathsView
+        paths={minimalPaths}
+        activePathId="tp-a"
+        sampleStatus={{ 'sample-alpha': 'imported' }}
+      />,
+    );
+    expect(container.querySelector('.gallery-status-imported')).toBeTruthy();
+  });
+
+  it('shows updated badge when sampleStatus is updated', () => {
+    const { container } = render(
+      <TrainingPathsView
+        paths={minimalPaths}
+        activePathId="tp-a"
+        sampleStatus={{ 'sample-alpha': 'updated' }}
+      />,
+    );
+    expect(container.querySelector('.gallery-status-updated')).toBeTruthy();
+  });
+
+  /* ── Stats Display ── */
+
+  it('shows manual and phase counts in path stats', () => {
+    render(<TrainingPathsView paths={minimalPaths} />);
+    // tp-a has 3 manuals, 2 phases, 2 samples
+    expect(screen.getByText((_, el) => el?.textContent === '3 manuals')).toBeTruthy();
+    expect(screen.getByText((_, el) => el?.textContent === '2 phases')).toBeTruthy();
+    expect(screen.getByText((_, el) => el?.textContent === '2 samples')).toBeTruthy();
+  });
+
+  /* ── Filtering only active path ── */
+
+  it('only shows the active path when activePathId is set', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-b" />);
+    expect(screen.getByText('Test Path B')).toBeTruthy();
+    expect(screen.queryByText('Test Path A')).toBeNull();
+    expect(screen.queryByText('Coming Soon Path')).toBeNull();
   });
 });
 
