@@ -339,6 +339,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
+- [ ] **Harness.io Pipeline Example** — Sample Harness pipeline YAML: run stage with `npx redfireforge run --reporter junit`, consume JUnit XML for Test Intelligence, publish JSON report as artifact, gate deployments on test pass/fail
 - [ ] **Automated Version Tagging** — GitHub Action to create version tags on `master` merge
 - [ ] **Live Demo Deployment** — Auto-deploy web build to Vercel/Netlify on `master` push
 
@@ -469,7 +470,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.6.0 | Data-Driven & Resilience | Moderate | 8 | 8 |
 | 0.6.5 | Excel Templates & Error Visibility | Moderate | 8 | 8 |
 | 0.7.0 | CLI Runner | — | 6 | 5 |
-| 0.7.5 | CI/CD Pipeline | — | 7 | 0 |
+| 0.7.5 | CI/CD Pipeline | — | 8 | 0 |
 | 0.8.0 | Test Suite & Code Quality | — | 10 | 10 |
 | 0.8.5 | Requests (Ad-Hoc API Testing) | — | 13 | 13 |
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
@@ -484,7 +485,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **186** | **144** |
+| **Total** | | | **187** | **144** |
 
 ### Load Testing Level Milestones
 
@@ -533,4 +534,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-05-01 (v0.5.6 — Version History, Training Paths, Validation UX, Code Consolidation Round 5; load testing at Good; 144/186 items done; 5,717 unit + 372 E2E = 6,089 total tests)_
+_Last updated: 2026-05-01 (v0.5.6 — Version History, Training Paths, Validation UX, Code Consolidation Round 5; load testing at Good; 144/187 items done; 5,717 unit + 372 E2E = 6,089 total tests)_
