@@ -672,7 +672,60 @@ Phase 7d: WaitForCondition poll throttle (prevent poll storms)
 
 ---
 
-## 7. Non-Goals (Out of Scope)
+## 7. Post-Integration Market Position
+
+### Where RedfireForge Becomes Unique
+
+No competitor currently offers **visual graph-based workflow design + full-topology performance testing** in one tool:
+
+| Capability | k6 | JMeter | Locust | Postman | RedfireForge (Post-Integration) |
+|---|---|---|---|---|---|
+| Visual workflow designer | ❌ | Partial (XML tree) | ❌ | ❌ | ✅ Canvas with drag/drop |
+| Branching under load | Code only | XML config | Code only | Limited | ✅ Visual + executed |
+| Fork/Join parallelism in perf tests | Manual | XML Parallel Controller | Manual greenlets | ❌ | ✅ Native |
+| Loop/retry under load | Code only | Loop Controller | Code only | ❌ | ✅ Visual loop nodes |
+| Event-driven load testing (webhooks, correlation) | ❌ | ❌ | ❌ | ❌ | ✅ (Phase 7) |
+| Desktop-native (no infra) | ❌ (CLI) | ✅ (Java GUI) | ❌ (CLI) | ✅ (Electron) | ✅ (Tauri) |
+| Per-iteration + per-step metrics | Tags/groups | Transaction Controller | Per-user | Per-VU | ✅ Native |
+
+### Competitive Advantages
+
+1. **Visual-first, code-optional** — k6/Locust require code. JMeter requires XML tree manipulation. RedfireForge lets users visually build complex workflows (conditions, forks, loops, sub-workflows) and run them under load with zero code.
+
+2. **Event-driven node load testing (Phase 7)** — This is a gap across ALL competitors. No tool today handles webhook-triggered nodes, correlation waits, or poll-based conditions under load. RedfireForge would be first to market with synthetic event injection and auto-resume strategies.
+
+3. **Unified design ↔ test experience** — Competitors treat workflow=test as the same concept because they have no designer. RedfireForge keeps the visual designer for authoring but makes the bridge seamless ("Run in Harness" button, workflow picker). Best of both worlds.
+
+4. **Desktop-native with no infrastructure** — k6/Locust need CLI + cloud dashboards. JMeter is Java-heavy. Postman moved SaaS-first. RedfireForge via Tauri is lightweight, offline-capable, and owns the data locally.
+
+### Where Competitors Still Win
+
+| Area | Who Wins | Why |
+|---|---|---|
+| Distributed load generation | k6 Cloud, JMeter Remote | RedfireForge is single-machine |
+| Ecosystem & plugins | JMeter (300+ plugins) | Mature community |
+| CI/CD integration | k6, Locust | First-class CLI + cloud APIs |
+| Enterprise scale (10K+ VUs) | k6 Cloud, Gatling | Cloud infrastructure |
+| Protocol diversity (gRPC, WebSocket, JDBC) | k6, JMeter | RedfireForge is HTTP-only |
+
+### Target Segment
+
+Teams that need **complex multi-step API performance testing** without writing code or managing infrastructure:
+
+- **QA engineers who aren't developers** — visual > code
+- **Small-to-mid teams (1–50 devs)** — don't need distributed 10K+ VU tests
+- **API-first applications** with complex orchestration flows (conditions, retries, event-driven patterns)
+- **Privacy-conscious teams** wanting local-first tooling
+
+### Differentiation Statement
+
+> RedfireForge is the only tool that lets you **visually design** complex API workflows with branching, parallelism, and event-driven patterns, then **run them under load** with full graph topology — all from a lightweight desktop app with no infrastructure.
+
+After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud on scale or JMeter on protocol breadth, but it would own the **visual workflow-based performance testing** niche that no one else occupies.
+
+---
+
+## 8. Non-Goals (Out of Scope)
 
 - **Distributed execution** — Multi-machine load generation is Phase 1.x territory
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
@@ -681,7 +734,7 @@ Phase 7d: WaitForCondition poll throttle (prevent poll storms)
 
 ---
 
-## 8. Success Criteria
+## 9. Success Criteria
 
 - [ ] User can select a saved workflow in the Harness and run it as a performance test
 - [ ] Full graph topology (conditions, forks, joins, loops) is respected during load runs
