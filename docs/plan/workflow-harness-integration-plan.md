@@ -725,7 +725,95 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 ---
 
-## 8. Non-Goals (Out of Scope)
+## Phase 7: Documentation
+
+**Priority: High | Effort: Medium**
+
+### 7.1 Runner Comparison Documentation
+
+Create comprehensive documentation comparing Test Runner vs Workflow Runner:
+
+**File:** `docs/runners-comparison.md`
+
+| Aspect | Test Runner | Workflow Runner |
+|--------|-------------|-----------------|
+| **Purpose** | Run scenario-based tests with data-driven parameterization | Run workflow graphs under load with full topology |
+| **Input** | Feature Groups → Scenarios → Tests | Workflow definitions (visual graph) |
+| **Data Source** | CSV/JSON data sources, shared data sources | Workflow variables (initial context) |
+| **Execution** | Weighted random selection from test pool | Full graph traversal (conditions, forks, joins, loops) |
+| **Host/Auth** | Configurable per environment/microservice | Defined in workflow HTTP nodes |
+| **Validation** | Per-test assertions, selective/full modes | Per-step assertions in workflow |
+| **Results Grouping** | Feature → Scenario → Test → Data Row | Iteration → Workflow Step |
+| **Use Case** | API contract testing, regression suites | End-to-end flow performance, orchestration testing |
+
+### 7.2 User Guide Sections
+
+Add sections to the user guide:
+
+1. **Choosing Between Runners**
+   - When to use Test Runner
+   - When to use Workflow Runner
+   - Migration path from scenarios to workflows
+
+2. **Workflow Runner Guide**
+   - Selecting a workflow
+   - Configuring variables
+   - Understanding iteration results
+   - Per-step metrics interpretation
+
+3. **Results Interpretation**
+   - Test Runs vs Workflow Runs filter
+   - Workflow-specific metrics (per-step, per-iteration)
+   - Comparing runs across both types
+
+---
+
+## Phase 8: Training Manuals & Samples
+
+**Priority: High | Effort: Medium**
+
+### 8.1 Training Manuals
+
+Create training manuals for the workflow integration feature:
+
+| Manual | Difficulty | Path | Description |
+|--------|------------|------|-------------|
+| `workflow-runner-basics-easy.html` | Easy | workflow | Introduction to Workflow Runner, selecting a workflow, running with defaults |
+| `workflow-runner-variables-medium.html` | Medium | workflow | Configuring initial variables, using variable history |
+| `workflow-runner-iterations-medium.html` | Medium | workflow | Understanding iterations, concurrency, and load profiles |
+| `workflow-runner-results-medium.html` | Medium | workflow | Interpreting workflow results, per-step metrics, iteration drill-down |
+| `runner-comparison-easy.html` | Easy | tests | Choosing between Test Runner and Workflow Runner |
+
+### 8.2 Gallery Samples
+
+Add workflow samples that demonstrate performance testing:
+
+| Sample | Category | Description |
+|--------|----------|-------------|
+| `workflow-perf-simple.json` | workflow | Simple 2-step workflow (GET → POST) for basic load testing |
+| `workflow-perf-branching.json` | workflow | Workflow with conditional branching under load |
+| `workflow-perf-parallel.json` | workflow | Fork/join workflow demonstrating parallel path execution |
+
+### 8.3 Sample Workflow Presets
+
+Add to test presets for workflow-based testing:
+
+```typescript
+{
+  id: 'workflow-load-basic',
+  name: 'Workflow Load Test - Basic',
+  description: 'Run a workflow with 10 iterations at concurrency 2',
+  config: {
+    executionMode: 'workflow',
+    totalTransactions: 10,
+    concurrency: 2,
+  }
+}
+```
+
+---
+
+## 10. Non-Goals (Out of Scope)
 
 - **Distributed execution** — Multi-machine load generation is Phase 1.x territory
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
@@ -734,18 +822,21 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 ---
 
-## 9. Success Criteria
+## 11. Success Criteria
 
-- [ ] User can select a saved workflow in the Harness and run it as a performance test
-- [ ] Full graph topology (conditions, forks, joins, loops) is respected during load runs
-- [ ] Results show per-step aggregate metrics (avg, p50, p95, p99 per workflow node)
-- [ ] Results show per-iteration pass/fail with total duration
+- [x] User can select a saved workflow in the Harness and run it as a performance test
+- [x] Full graph topology (conditions, forks, joins, loops) is respected during load runs
+- [x] Results show per-step aggregate metrics (avg, p50, p95, p99 per workflow node)
+- [x] Results show per-iteration pass/fail with total duration
 - [ ] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Harness
 - [ ] CLI supports `--workflow` flag for graph-based load testing
-- [ ] Existing flat-chain workflow mode continues to work (backward compatible)
+- [x] Existing flat-chain workflow mode continues to work (backward compatible)
 - [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
 - [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
 - [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
+- [ ] Documentation comparing Test Runner vs Workflow Runner
+- [ ] Training manuals covering Workflow Runner usage
+- [ ] Gallery samples demonstrating workflow performance testing
 
 ---
 
