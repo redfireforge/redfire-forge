@@ -3,7 +3,7 @@
  * Extracted from DataSourceSetupModal to reduce file size.
  */
 import type { Dispatch, SetStateAction } from 'react';
-import type { Scenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, FeatureGroup, TestScenario } from '../../../shared/types';
 import type { ColumnDef } from '../utils/csvTemplate';
 import { formatAuthLabel } from '../utils/dataSourceSetupUtils';
 
@@ -16,7 +16,7 @@ export interface SetupStepReviewProps {
   targetScenarioId: string;
   setTargetScenarioId: Dispatch<SetStateAction<string>>;
   targetFg: FeatureGroup | undefined;
-  targetScenario: Scenario | undefined;
+  targetScenario: TestScenario | undefined;
   workingAuth: Scenario['auth'];
   validationModeLabel: string;
   validateFieldCount: number;

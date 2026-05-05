@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
-import type { DataSource, DataSourceColumn, DataSourceRow, Scenario } from '../../../shared/types';
+import type { DataSource, Scenario } from '../../../shared/types';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
-import { resolveScenarioFromDataRow } from '../../../engine/dataTableExpander';
+import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { validate as validateResponse } from '../../../engine/validator';
 import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceImport';

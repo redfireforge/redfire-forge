@@ -13,7 +13,6 @@ export interface OrderableItem {
   mapping: string;
   name: string;
   type?: string;
-  [key: string]: unknown;
 }
 
 interface Props<T extends OrderableItem> {

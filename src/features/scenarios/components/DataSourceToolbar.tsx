@@ -17,7 +17,7 @@ interface DataSourceToolbarProps {
   setShowColumnOrder: (v: boolean) => void;
   showContract: boolean;
   setShowContract: (v: boolean | ((v: boolean) => boolean)) => void;
-  detachDropdownRef: React.RefObject<HTMLDivElement>;
+  detachDropdownRef: React.RefObject<HTMLDivElement | null>;
   onDetachWithCopy: () => void;
   onDetachUnlinkOnly: () => void;
   onLinkSharedDs: (sharedId: string) => void;

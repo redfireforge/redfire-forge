@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DataSource, DataSourceRow, DataSourceColumn } from '../../../shared/types';
+import type { DataSource, DataSourceRow } from '../../../shared/types';
 import { createEmptyRow } from '../utils/dataSourceUtils';
 
 export interface UseDataSourceRowsOptions {
@@ -43,6 +43,7 @@ export interface UseDataSourceRowsReturn {
   sortDir: 'asc' | 'desc';
   handleSortColumn: (colId: string) => void;
   dragRowId: string | null;
+  setDragRowId: (id: string | null) => void;
   handleDragStart: (rowId: string, e: React.DragEvent) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (targetRowId: string, e: React.DragEvent) => void;
@@ -339,7 +340,7 @@ export function useDataSourceRows({ dataSource: dt, onChange }: UseDataSourceRow
     // Sort / search / drag
     searchQuery, setSearchQuery,
     sortCol, sortDir, handleSortColumn,
-    dragRowId, handleDragStart, handleDragOver, handleDrop,
+    dragRowId, setDragRowId, handleDragStart, handleDragOver, handleDrop,
     // Derived
     filteredSortedRows, enabledCount,
     // Tag filter

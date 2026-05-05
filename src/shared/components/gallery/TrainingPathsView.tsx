@@ -154,7 +154,7 @@ function TrainingPathCard({
     () => Object.fromEntries(path.phases.map(p => [p.id, true])),
     [path.phases],
   );
-  const [phaseExpanded, setPhaseExpanded] = useState<Record<number, boolean>>(defaultPhaseState);
+  const [phaseExpanded, setPhaseExpanded] = useState<Record<number | string, boolean>>(defaultPhaseState);
   const allCollapsed = Object.values(phaseExpanded).every(v => !v);
 
   const toggleAllPhases = useCallback((e: React.MouseEvent) => {
@@ -163,7 +163,7 @@ function TrainingPathCard({
     setPhaseExpanded(Object.fromEntries(path.phases.map(p => [p.id, newState])));
   }, [allCollapsed, path.phases]);
 
-  const togglePhase = useCallback((phaseId: number) => {
+  const togglePhase = useCallback((phaseId: number | string) => {
     setPhaseExpanded(prev => ({ ...prev, [phaseId]: !prev[phaseId] }));
   }, []);
 

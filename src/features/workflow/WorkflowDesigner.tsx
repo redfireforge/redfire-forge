@@ -478,7 +478,8 @@ function WorkflowDesignerInner({
   }, [nodes, setNodes, setWorkflowServices, persistWorkflow]);
 
   /** onInit handler for ReactFlow: auto-layout preview workflows after node measurement. */
-  const handleReactFlowInit = useCallback((instance: ReturnType<typeof useReactFlow>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleReactFlowInit = useCallback((instance: any) => {
     if (previewWorkflow) {
       const currentPreviewId = previewWorkflow.id;
       setTimeout(() => {

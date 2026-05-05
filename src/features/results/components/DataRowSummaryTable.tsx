@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState } from 'react';
 import type { RequestResult } from '../../../shared/types';
 
 interface Props {

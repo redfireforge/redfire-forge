@@ -177,7 +177,7 @@ export default function PopulateFromApiModal({ draft, dataTable, onApply, onClos
       });
 
       const doFetch = onFetchRow ?? proxyFetch;
-      const result = await doFetch(
+      const result: Partial<ExtendedHttpResponse> & HttpResponse = await doFetch(
         resolved.url,
         resolved.method,
         baseHeaders,
