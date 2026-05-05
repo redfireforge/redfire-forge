@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TrainingPhase, ManualProgress, ManualStatus } from '../../../data/galleries/trainingPaths/types';
+import type { TrainingPhase, TrainingManual, ManualProgress, ManualStatus } from '../../../data/galleries/trainingPaths/types';
 import type { WhatsNewType } from '../hooks/useWhatsNew';
 import { ManualRow } from './ManualRow';
 
@@ -11,6 +11,8 @@ interface Props {
   onOpenManual?: (manualPath: string) => void;
   onNavigateToSample?: (sampleId: string) => void;
   defaultExpanded?: boolean;
+  /** When provided, only these filtered manuals are shown */
+  filteredManuals?: TrainingManual[];
 }
 
 export function TrainingPhaseSection({
@@ -21,9 +23,12 @@ export function TrainingPhaseSection({
   onOpenManual,
   onNavigateToSample,
   defaultExpanded = true,
+  filteredManuals,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const manualsWithPath = phase.manuals.filter(m => m.manualPath);
+  
+  // Use filtered manuals if provided, otherwise filter by manualPath
+  const manualsToShow = filteredManuals ?? phase.manuals.filter(m => m.manualPath);
 
   return (
     <div className="training-phase">
@@ -38,11 +43,11 @@ export function TrainingPhaseSection({
         <span className={`training-phase-chevron ${isExpanded ? 'expanded' : ''}`}>▸</span>
         <span className="training-phase-number">P{phase.id}</span>
         <span className="training-phase-name">{phase.name}</span>
-        <span className="training-phase-count">{manualsWithPath.length} manuals</span>
+        <span className="training-phase-count">{manualsToShow.length} manuals</span>
       </div>
       {isExpanded && (
         <div className="training-manuals-list">
-          {manualsWithPath.map((manual, idx) => (
+          {manualsToShow.map((manual, idx) => (
             <ManualRow
               key={idx}
               manual={manual}
