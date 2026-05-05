@@ -54,8 +54,33 @@ test.describe('Gallery Page', () => {
     const panel = page.locator('.gallery-detail-panel');
     await expect(panel).toBeVisible({ timeout: 5000 });
     // Should show difficulty dots and action button inside the detail panel
-    await expect(panel.locator('.gallery-difficulty-dots')).toBeVisible({ timeout: 5000 });
+    // Use .first() since training manuals section also has difficulty dots
+    await expect(panel.locator('.gallery-difficulty-dots').first()).toBeVisible({ timeout: 5000 });
     await expect(panel.locator('.gallery-detail-actions')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('detail panel shows related training manuals for request samples', async ({ page }) => {
+    // Click on "Get All Users" which should have related training manuals
+    await page.locator('.gallery-card', { hasText: 'Get All Users' }).click();
+    const panel = page.locator('.gallery-detail-panel');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+
+    // Should show Training Manuals section
+    const manualsSection = panel.locator('.gallery-detail-manuals');
+    await expect(manualsSection).toBeVisible({ timeout: 5000 });
+
+    // Should show the book icon header
+    await expect(manualsSection.locator('.gallery-detail-manuals-title')).toContainText('Training Manuals');
+
+    // Should have at least one manual link (Get All Users has 2 manuals)
+    const manualLinks = manualsSection.locator('.gallery-detail-manual-link');
+    const count = await manualLinks.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    // Each link should have a title and difficulty dots
+    const firstLink = manualLinks.first();
+    await expect(firstLink.locator('.gallery-detail-manual-title')).toBeVisible();
+    await expect(firstLink.locator('.gallery-difficulty-dots')).toBeVisible();
   });
 
   test('closing detail panel works', async ({ page }) => {
