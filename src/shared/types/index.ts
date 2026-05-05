@@ -455,6 +455,8 @@ export interface TestRun {
   envName?: string;
   svcName?: string;
   baseUrl?: string;
+  /** Name of the workflow (when executionMode is 'workflow') */
+  workflowName?: string;
 }
 
 // ─── Requests types ──────────────────────────────────────────
