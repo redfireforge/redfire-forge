@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 import { useTrainingProgress } from './hooks/useTrainingProgress';
 import { useWhatsNew } from './hooks/useWhatsNew';
+import { useManualSearch } from './hooks/useManualSearch';
 import { TrainingProgressDashboard } from './components/TrainingProgressDashboard';
 import { ContinueLearningCard } from './components/ContinueLearningCard';
 import { TrainingPathCard } from './components/TrainingPathCard';
 import { WhatsNewBanner } from './components/WhatsNewBanner';
+import { TrainingSearchBar } from './components/TrainingSearchBar';
 import { trainingPaths } from '../../data/galleries/trainingPaths';
 import type { ManualStatus } from '../../data/galleries/trainingPaths/types';
 import './training.css';
@@ -16,6 +18,7 @@ interface Props {
 export default function TrainingTracksView({ onNavigateToSample }: Props) {
   const {
     isLoading,
+    progress,
     overallStats,
     lastViewedInProgress,
     getManualProgress,
@@ -24,6 +27,8 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
   } = useTrainingProgress();
 
   const whatsNew = useWhatsNew();
+  
+  const search = useManualSearch(progress);
 
   // Handle status change from ManualRow
   const handleStatusChange = useCallback((manualPath: string, status: ManualStatus) => {
@@ -82,7 +87,7 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
 
       <TrainingProgressDashboard stats={overallStats} />
 
-      {continueManual && (
+      {continueManual && !search.hasActiveFilters && (
         <ContinueLearningCard
           manualTitle={continueManual.manual.title}
           pathName={continueManual.pathName}
@@ -93,17 +98,19 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
         />
       )}
 
-      <WhatsNewBanner
-        items={whatsNew.allItems}
-        displayedItems={whatsNew.displayedItems}
-        counts={whatsNew.counts}
-        isExpanded={whatsNew.isExpanded}
-        showAll={whatsNew.showAll}
-        hasMore={whatsNew.hasMore}
-        onToggleExpanded={whatsNew.toggleExpanded}
-        onToggleShowAll={whatsNew.toggleShowAll}
-        onItemClick={markViewed}
-      />
+      {!search.hasActiveFilters && (
+        <WhatsNewBanner
+          items={whatsNew.allItems}
+          displayedItems={whatsNew.displayedItems}
+          counts={whatsNew.counts}
+          isExpanded={whatsNew.isExpanded}
+          showAll={whatsNew.showAll}
+          hasMore={whatsNew.hasMore}
+          onToggleExpanded={whatsNew.toggleExpanded}
+          onToggleShowAll={whatsNew.toggleShowAll}
+          onItemClick={markViewed}
+        />
+      )}
 
       <section className="training-paths-section">
         <h2 className="training-section-title">Learning Paths</h2>
@@ -111,20 +118,63 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
           {activePaths.length} paths available • {overallStats.totalManuals} manuals total
         </p>
 
-        <div className="training-paths-list">
-          {activePaths.map(path => (
-            <TrainingPathCard
-              key={path.id}
-              path={path}
-              getManualProgress={getManualProgress}
-              getBadge={whatsNew.getBadge}
-              onStatusChange={handleStatusChange}
-              onOpenManual={handleOpenManual}
-              onNavigateToSample={onNavigateToSample}
-              defaultExpanded={false}
-            />
-          ))}
-        </div>
+        <TrainingSearchBar
+          searchTerm={search.searchTerm}
+          difficulty={search.difficulty}
+          status={search.status}
+          matchCount={search.matchCount}
+          totalCount={overallStats.totalManuals}
+          hasActiveFilters={search.hasActiveFilters}
+          onSearchChange={search.setSearchTerm}
+          onDifficultyChange={search.setDifficulty}
+          onStatusChange={search.setStatus}
+          onClearFilters={search.clearFilters}
+        />
+
+        {search.hasActiveFilters ? (
+          // Show filtered results
+          search.filteredPaths.length > 0 ? (
+            <div className="training-paths-list">
+              {search.filteredPaths.map(fp => (
+                <TrainingPathCard
+                  key={fp.path.id}
+                  path={fp.path}
+                  getManualProgress={getManualProgress}
+                  getBadge={whatsNew.getBadge}
+                  onStatusChange={handleStatusChange}
+                  onOpenManual={handleOpenManual}
+                  onNavigateToSample={onNavigateToSample}
+                  defaultExpanded={true}
+                  filteredPhases={fp.phases}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="training-no-results">
+              <div className="training-no-results-icon">🔍</div>
+              <div className="training-no-results-title">No manuals found</div>
+              <div className="training-no-results-text">
+                Try adjusting your search or filters
+              </div>
+            </div>
+          )
+        ) : (
+          // Show all paths
+          <div className="training-paths-list">
+            {activePaths.map(path => (
+              <TrainingPathCard
+                key={path.id}
+                path={path}
+                getManualProgress={getManualProgress}
+                getBadge={whatsNew.getBadge}
+                onStatusChange={handleStatusChange}
+                onOpenManual={handleOpenManual}
+                onNavigateToSample={onNavigateToSample}
+                defaultExpanded={false}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
