@@ -28,7 +28,7 @@ export function WhatsNewBanner({
   onItemClick,
 }: Props) {
   const [isDismissed, setIsDismissed] = useState(false);
-  const [dismissedTimestamp, setDismissedTimestamp] = useState<number | null>(null);
+  const [, setDismissedTimestamp] = useState<number | null>(null);
 
   // Load dismissed state on mount
   useEffect(() => {

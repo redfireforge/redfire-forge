@@ -62,11 +62,12 @@ function shortNameFromJsonPath(jsonPath: string): string {
   return `${parent}_${leaf}`;
 }
 
-/** Extract the first array index from a mapping like "offers[2].code" → 2. Returns 0 if no index. */
+/** Extract the first array index from a mapping like "offers[2].code" → 2. Returns 0 if no index.
 function extractArrayIndex(mapping: string): number {
   const match = mapping.match(/\[(\d+)\]/);
   return match ? parseInt(match[1], 10) : 0;
 }
+*/
 
 /**
  * Build ColumnDef array from export options. Each entry has an auto-generated

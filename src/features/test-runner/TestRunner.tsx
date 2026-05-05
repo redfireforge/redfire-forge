@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource } from '../../shared/types';
 import { useTestExecution } from './hooks/useTestExecution';
-import { useRunnerConfig, defaultLoadProfile } from './hooks/useRunnerConfig';
+import { useRunnerConfig } from './hooks/useRunnerConfig';
 import type { RunnerConfig } from './hooks/useRunnerConfig';
+import type { LoadProfileConfig } from '../../shared/types';
 import { resolveAuth } from '../requests/utils/authResolver';
 import { replaceHost } from '../../shared/utils/urlUtils';
 import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
@@ -59,7 +60,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     maxErrorRate, setMaxErrorRate,
     autoReport, setAutoReport,
     autoReportFormat, setAutoReportFormat,
-    configLoaded,
+    configLoaded: _configLoaded,
   } = useRunnerConfig(configContextKey);
 
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});

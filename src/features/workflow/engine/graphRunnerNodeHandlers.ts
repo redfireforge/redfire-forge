@@ -13,7 +13,7 @@ import type {
 import type { ICorrelationStore } from './correlationStore';
 import { serializeWorkflowState } from './workflowStateSerializer';
 import type { RequestResult, Scenario } from '../../../shared/types';
-import { expandDataSource, resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { expandDataSource } from '../../../engine/dataSourceExpander';
 import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
 import type { DebugController } from './debugController';

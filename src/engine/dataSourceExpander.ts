@@ -3,7 +3,7 @@
  * into N concrete Scenarios, one per enabled data row, with variables substituted
  * into URL path, query params, headers, body, and validation fields.
  */
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource } from '../shared/types';
+import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource } from '../shared/types';
 
 // ─── Shared Data Source Resolution ────────────────────────────
 
