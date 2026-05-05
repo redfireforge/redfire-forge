@@ -681,6 +681,7 @@ Phase 2 (Workflow Runner)  Phase 3 (Refactor Test Runner)
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | Phase 4 complete: Added workflow-runner tab to App navigation under Workflow domain |
 | 2026-05-05 | Phase 3 complete: Refactored TestRunner (853 → 370 lines), removed workflow logic, uses extracted components |
 | 2026-05-05 | Phase 2 complete: Created WorkflowRunner with useWorkflowRunnerConfig hook, reusing existing components |
 | 2026-05-05 | Phase 1 complete: Extracted ScenarioSelector, LiveProgressPanel, and HostSelector components with unit tests |
