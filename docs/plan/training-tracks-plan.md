@@ -192,18 +192,30 @@ export interface ManualMetadata {
 
 ---
 
-### Phase 5: What's New Banner
+### Phase 5: What's New Banner ✅ COMPLETED (2026-05-05)
 
 **Scope**: Highlight new/updated content
 
-| Task | Files | Estimate |
-|------|-------|----------|
-| Create `WhatsNewBanner` | `src/features/training/components/WhatsNewBanner.tsx` | M |
-| Add NEW/UPDATED badges to `ManualRow` | `ManualRow.tsx` | S |
-| Add collapse/expand toggle | `WhatsNewBanner.tsx` | S |
-| Persist "dismissed" state | Hook or localStorage | S |
+| Task | Files | Status |
+|------|-------|--------|
+| Create `WhatsNewBanner` component | `src/features/training/components/WhatsNewBanner.tsx` | ✅ |
+| Add NEW/UPDATED badges to `ManualRow` | `ManualRow.tsx` | ✅ (Phase 3) |
+| Add collapse/expand toggle | `WhatsNewBanner.tsx` | ✅ |
+| Persist "dismissed" state | `WhatsNewBanner.tsx` + storage | ✅ |
+| Unit tests for WhatsNewBanner | `WhatsNewBanner.test.tsx` | ✅ (20 tests) |
 
-**Deliverable**: Users see what's new, badges appear on recent items
+**Deliverable**: Users see what's new, can dismiss until new content arrives
+
+**Changes Made**:
+- `src/features/training/components/WhatsNewBanner.tsx` — Extracted component with dismiss functionality
+- `src/features/training/components/WhatsNewBanner.test.tsx` — 20 unit tests covering render, dismiss, persistence
+- `src/features/training/TrainingTracksView.tsx` — Now uses WhatsNewBanner component
+- `src/features/training/training.css` — Added dismiss button styling
+
+**Dismiss Logic**:
+- Clicking ✕ dismisses the banner and stores timestamp
+- Banner reappears automatically when new content arrives (item.timestamp > dismissedTimestamp)
+- Users don't miss new content even after dismissing
 
 ---
 
@@ -439,3 +451,4 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 | 2026-05-05 | Phase 2 completed: main view, dashboard, continue card, CSS, tests (61 total passing) |
 | 2026-05-05 | Phase 3 completed: extracted components (TrainingPathCard, TrainingPhaseSection, ManualRow), expand/collapse, tests (98 total passing) |
 | 2026-05-05 | Phase 4 completed: status toggle, open manual, view sample, continue learning wiring, tests (106 total passing) |
+| 2026-05-05 | Phase 5 completed: WhatsNewBanner component with dismiss persistence, tests (126 total passing) |

@@ -167,6 +167,12 @@
   font-weight: 500;
 }
 
+.training-whats-new-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .training-whats-new-toggle {
   background: none;
   border: none;
@@ -178,6 +184,22 @@
 
 .training-whats-new-toggle:hover {
   color: var(--text-primary);
+}
+
+.training-whats-new-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.training-whats-new-dismiss:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .training-whats-new-list {

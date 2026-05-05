@@ -4,6 +4,7 @@ import { useWhatsNew } from './hooks/useWhatsNew';
 import { TrainingProgressDashboard } from './components/TrainingProgressDashboard';
 import { ContinueLearningCard } from './components/ContinueLearningCard';
 import { TrainingPathCard } from './components/TrainingPathCard';
+import { WhatsNewBanner } from './components/WhatsNewBanner';
 import { trainingPaths } from '../../data/galleries/trainingPaths';
 import type { ManualStatus } from '../../data/galleries/trainingPaths/types';
 import './training.css';
@@ -92,56 +93,17 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
         />
       )}
 
-      {whatsNew.counts.total > 0 && (
-        <section className="training-whats-new">
-          <div className="training-whats-new-header">
-            <div className="training-whats-new-title">
-              <span className="training-whats-new-icon">🆕</span>
-              <span>What's New</span>
-              <span className="training-whats-new-badge">{whatsNew.counts.total} items</span>
-            </div>
-            <button
-              className="training-whats-new-toggle"
-              onClick={whatsNew.toggleExpanded}
-            >
-              {whatsNew.isExpanded ? 'Hide ▲' : 'Show ▼'}
-            </button>
-          </div>
-          {whatsNew.isExpanded && (
-            <div className="training-whats-new-list">
-              {whatsNew.displayedItems.map((item, idx) => (
-                <a
-                  key={idx}
-                  className="training-whats-new-item"
-                  href={`/docs/training-manuals/${item.metadata.manualPath}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => markViewed(item.metadata.manualPath)}
-                >
-                  <div className="training-whats-new-item-icon">{item.pathIcon}</div>
-                  <div className="training-whats-new-item-info">
-                    <div className="training-whats-new-item-title">{item.manual.title}</div>
-                    <div className="training-whats-new-item-meta">
-                      <span className={`training-badge training-badge-${item.type}`}>
-                        {item.type === 'new' ? 'NEW' : 'UPDATED'}
-                      </span>
-                      <span>{item.pathName} • {item.manual.difficulty}</span>
-                    </div>
-                  </div>
-                </a>
-              ))}
-              {whatsNew.hasMore && (
-                <button
-                  className="training-whats-new-show-all"
-                  onClick={whatsNew.toggleShowAll}
-                >
-                  {whatsNew.showAll ? 'Show less' : `Show all ${whatsNew.counts.total} items`}
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-      )}
+      <WhatsNewBanner
+        items={whatsNew.allItems}
+        displayedItems={whatsNew.displayedItems}
+        counts={whatsNew.counts}
+        isExpanded={whatsNew.isExpanded}
+        showAll={whatsNew.showAll}
+        hasMore={whatsNew.hasMore}
+        onToggleExpanded={whatsNew.toggleExpanded}
+        onToggleShowAll={whatsNew.toggleShowAll}
+        onItemClick={markViewed}
+      />
 
       <section className="training-paths-section">
         <h2 className="training-section-title">Learning Paths</h2>
