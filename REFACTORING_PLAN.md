@@ -2,11 +2,11 @@
 
 ## Current Status
 - Overall Coverage: >90% lines ✅ (target met)
-- Tests: 254 test files, 5615 tests passing ✅
+- Tests: 257 test files, 5717 tests passing ✅
 - E2E Tests: 372 tests passing (0 skipped) ✅
 - Branch: `feature/versioning-training-manual` → merged to `develop` and `release/0.5.6`
 - Version: 0.5.6-beta.1
-- Last updated: 2026-05-01
+- Last updated: 2026-05-02
 
 ## Completed ✅
 
