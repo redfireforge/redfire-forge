@@ -29,15 +29,24 @@ export default function WorkflowRunner({ workflows, onComplete }: Props) {
     errorPolicy, setErrorPolicy,
     maxErrors, setMaxErrors,
     maxErrorRate, setMaxErrorRate,
+    selectedWorkflowId, setSelectedWorkflowId,
   } = useWorkflowRunnerConfig();
 
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
+  const [variablesInitialized, setVariablesInitialized] = useState(false);
 
   const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
+
+  // Initialize variables when workflow selection is restored from storage
+  useEffect(() => {
+    if (selectedWorkflow && !variablesInitialized) {
+      setWorkflowVariables({ ...selectedWorkflow.variables });
+      setVariablesInitialized(true);
+    }
+  }, [selectedWorkflow, variablesInitialized]);
   const isLoadProfile = executionMode === 'load-profile';
 
   // Load saved progress on mount

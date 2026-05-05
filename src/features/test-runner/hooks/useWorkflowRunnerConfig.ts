@@ -19,6 +19,8 @@ export interface WorkflowRunnerConfig {
   errorPolicy?: ErrorPolicy;
   maxErrors?: number;
   maxErrorRate?: number;
+  /** Last selected workflow ID */
+  selectedWorkflowId?: string;
 }
 
 const defaultConfig: WorkflowRunnerConfig = {
@@ -50,6 +52,8 @@ export interface UseWorkflowRunnerConfigResult {
   setMaxErrors: React.Dispatch<React.SetStateAction<number>>;
   maxErrorRate: number;
   setMaxErrorRate: React.Dispatch<React.SetStateAction<number>>;
+  selectedWorkflowId: string | null;
+  setSelectedWorkflowId: React.Dispatch<React.SetStateAction<string | null>>;
   configLoaded: boolean;
 }
 
@@ -71,6 +75,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
   const [errorPolicy, setErrorPolicy] = useState<ErrorPolicy>('continue');
   const [maxErrors, setMaxErrors] = useState(10);
   const [maxErrorRate, setMaxErrorRate] = useState(50);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
 
   // Load config from storage on mount
@@ -90,6 +95,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
         setErrorPolicy(saved.errorPolicy ?? 'continue');
         setMaxErrors(saved.maxErrors ?? 10);
         setMaxErrorRate(saved.maxErrorRate ?? 50);
+        setSelectedWorkflowId(saved.selectedWorkflowId ?? null);
       }
       setConfigLoaded(true);
     });
@@ -117,8 +123,9 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       errorPolicy,
       maxErrors,
       maxErrorRate,
-    }, storageKey);
-  }, [configLoaded, concurrency, totalTransactions, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
+      selectedWorkflowId: selectedWorkflowId ?? undefined,
+    } as any, storageKey);
+  }, [configLoaded, concurrency, totalTransactions, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId]);
 
   return {
     concurrency, setConcurrency,
@@ -132,6 +139,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
     errorPolicy, setErrorPolicy,
     maxErrors, setMaxErrors,
     maxErrorRate, setMaxErrorRate,
+    selectedWorkflowId, setSelectedWorkflowId,
     configLoaded,
   };
 }
