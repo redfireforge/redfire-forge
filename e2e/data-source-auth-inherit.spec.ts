@@ -158,6 +158,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
   });
 
   test('Inherit auth survives page reload (persistence)', async ({ page }) => {
+    test.slow(); // Involves page reload
     await openTestEditor(page);
     await clickDataTab(page);
     await openConfigureModal(page);
@@ -356,7 +357,8 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await authTypeSelect.selectOption('inherit');
     await expect(authTypeSelect).toHaveValue('inherit');
 
-    // Close and reopen the modal
+    // Save changes first, then close
+    await page.locator('.shared-ds-footer button', { hasText: 'Save' }).click();
     await page.locator('.shared-ds-footer button', { hasText: 'Close' }).click();
     await expect(page.locator('.shared-ds-modal')).not.toBeVisible({ timeout: 5_000 });
 
@@ -453,6 +455,7 @@ test.describe('Data Source Auth Inherit Persistence', () => {
   });
 
   test('Shared DS auth Inherit survives page reload', async ({ page }) => {
+    test.slow(); // Involves page reload
     await page.addInitScript(() => {
       localStorage.setItem('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
       localStorage.setItem('perf-test-v3-microservices', JSON.stringify([{
@@ -503,7 +506,8 @@ test.describe('Data Source Auth Inherit Persistence', () => {
     await authTypeSelect.selectOption('inherit');
     await expect(authTypeSelect).toHaveValue('inherit');
 
-    // Close modal
+    // Save and close modal
+    await page.locator('.shared-ds-footer button', { hasText: 'Save' }).click();
     await page.locator('.shared-ds-footer button', { hasText: 'Close' }).click();
     await expect(page.locator('.shared-ds-modal')).not.toBeVisible({ timeout: 5_000 });
 

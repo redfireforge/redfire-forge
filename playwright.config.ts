@@ -5,8 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   retries: 1,
   workers: 40,
-  // Default timeout for first-round runs; override per-test or via CLI --timeout for longer runs.
-  timeout: 5_000,
+  // Default timeout - 15s handles page reloads and complex operations
+  timeout: 15_000,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],

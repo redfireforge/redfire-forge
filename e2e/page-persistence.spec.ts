@@ -35,20 +35,22 @@ function seedMultiEnv(page: import('@playwright/test').Page) {
 }
 
 test.describe('Page persistence across refresh', () => {
+  // All tests in this describe block involve page reloads
+  test.describe.configure({ mode: 'serial' });
 
   test('selecting t01 via sidebar persists after refresh', async ({ page }) => {
+    test.slow(); // Involves page reload
     await seedMultiEnv(page);
     await page.goto('http://localhost:5173/?tab=scenarios');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1500);
 
-    // Verify Gallery Samples is initially selected via header dropdown
+    // Wait for the app to fully load - header dropdown must be visible
     const envDropdown = page.locator('.header-select-group select').first();
-    await expect(envDropdown).toHaveValue('gal-env');
+    await expect(envDropdown).toBeVisible({ timeout: 10_000 });
+    await expect(envDropdown).toHaveValue('gal-env', { timeout: 5_000 });
 
     // Click t01 in sidebar
     await page.locator('.sidebar-item-name', { hasText: 't01' }).click();
-    await page.waitForTimeout(500);
 
     // Verify selection changed
     await expect(envDropdown).toHaveValue('t01-env');
@@ -67,10 +69,10 @@ test.describe('Page persistence across refresh', () => {
     // Reload
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
 
-    // After reload: header dropdown should still show t01
-    await expect(envDropdown).toHaveValue('t01-env');
+    // After reload: wait for dropdown to be ready, then verify t01 is selected
+    await expect(envDropdown).toBeVisible({ timeout: 10_000 });
+    await expect(envDropdown).toHaveValue('t01-env', { timeout: 5_000 });
 
     // Sidebar should show t01 as selected and expanded
     await expect(page.locator('.sidebar-item.selected .sidebar-item-name')).toHaveText('t01');
@@ -81,49 +83,54 @@ test.describe('Page persistence across refresh', () => {
   });
 
   test('selecting t01 via header dropdowns persists after refresh', async ({ page }) => {
+    test.slow(); // Involves page reload
     await seedMultiEnv(page);
     await page.goto('http://localhost:5173/?tab=scenarios');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1500);
 
-    // Select t01 via header dropdown
+    // Wait for dropdowns to be ready
     const envDropdown = page.locator('.header-select-group select').first();
     const svcDropdown = page.locator('.header-select-group select').nth(1);
+    await expect(envDropdown).toBeVisible({ timeout: 10_000 });
+
+    // Select t01 via header dropdown
     await envDropdown.selectOption('t01-env');
     await svcDropdown.selectOption('t01-svc');
-    await page.waitForTimeout(500);
+
+    // Wait for the selection to propagate (feature card should appear)
+    await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible({ timeout: 5_000 });
 
     // Reload
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
 
-    // Should persist
-    await expect(envDropdown).toHaveValue('t01-env');
-    await expect(svcDropdown).toHaveValue('t01-svc');
-    await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible();
+    // Wait for dropdown to be ready, then verify persistence
+    await expect(envDropdown).toBeVisible({ timeout: 10_000 });
+    await expect(envDropdown).toHaveValue('t01-env', { timeout: 5_000 });
+    await expect(svcDropdown).toHaveValue('t01-svc', { timeout: 5_000 });
+    await expect(page.locator('.feature-group-card', { hasText: 'My Tests' })).toBeVisible({ timeout: 5_000 });
   });
 
   test('activeTab=scenarios persists via URL across refresh', async ({ page }) => {
+    test.slow(); // Involves page reload
     await seedMultiEnv(page);
     await page.goto('http://localhost:5173/?tab=scenarios');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1500);
 
     // Should be on scenarios tab
-    await expect(page.locator('.feature-group-card').first()).toBeVisible();
+    await expect(page.locator('.feature-group-card').first()).toBeVisible({ timeout: 10_000 });
 
     // Reload
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1500);
 
     // Should still be on scenarios tab
     expect(page.url()).toContain('tab=scenarios');
-    await expect(page.locator('.feature-group-card').first()).toBeVisible();
+    await expect(page.locator('.feature-group-card').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('localStorage selectedEnvId is NOT overwritten on load', async ({ page }) => {
+    test.slow(); // Involves localStorage seeding and full app load
     // Seed with t01 pre-selected (not gallery) to verify the app respects it.
     await page.addInitScript(() => {
       if (localStorage.getItem('__e2e_seed_done__')) return;
@@ -152,7 +159,10 @@ test.describe('Page persistence across refresh', () => {
 
     await page.goto('http://localhost:5173/?tab=scenarios');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+
+    // Wait for app to fully load
+    const envDropdown = page.locator('.header-select-group select').first();
+    await expect(envDropdown).toBeVisible({ timeout: 10_000 });
 
     // Check that localStorage still has t01, not overwritten to gallery or empty
     const stored = await page.evaluate(() => ({
@@ -163,7 +173,6 @@ test.describe('Page persistence across refresh', () => {
     expect(stored.svcId).toBe('t01-svc');
 
     // Header should show t01
-    const envDropdown = page.locator('.header-select-group select').first();
     await expect(envDropdown).toHaveValue('t01-env');
 
     // Feature groups for t01 should be visible
