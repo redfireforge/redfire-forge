@@ -427,3 +427,4 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 | 2026-05-05 | Initial plan created |
 | 2026-05-05 | Phase 1 completed: types, hooks, metadata, tests (45 passing) |
 | 2026-05-05 | Phase 2 completed: main view, dashboard, continue card, CSS, tests (61 total passing) |
+| 2026-05-05 | Phase 3 completed: extracted components (TrainingPathCard, TrainingPhaseSection, ManualRow), expand/collapse, tests (98 total passing) |
