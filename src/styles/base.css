@@ -600,6 +600,33 @@
 .results-top-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .results-top-row h2 { font-size: 1.5rem; margin: 0; white-space: nowrap; }
 .results-top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* Run Type Filter Tabs */
+.results-run-filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.run-filter-tab {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.run-filter-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.run-filter-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .results-run-select { width: 100%; }
 .context-tag {
   display: inline-flex;

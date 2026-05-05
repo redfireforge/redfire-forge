@@ -20,11 +20,14 @@ interface Props {
   isRerunning?: boolean;
 }
 
+type RunTypeFilter = 'all' | 'test' | 'workflow';
+
 export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
+  const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>('all');
 
   const prevRerunning = useRef(false);
 
@@ -45,8 +48,24 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     return allRuns.filter((r) => {
       if (envName && r.envName !== envName) return false;
       if (svcName && r.svcName !== svcName) return false;
+      // Filter by run type
+      if (runTypeFilter === 'workflow' && r.config.executionMode !== 'workflow') return false;
+      if (runTypeFilter === 'test' && r.config.executionMode === 'workflow') return false;
       return true;
     });
+  }, [allRuns, envName, svcName, runTypeFilter]);
+
+  const runCounts = useMemo(() => {
+    const base = allRuns.filter((r) => {
+      if (envName && r.envName !== envName) return false;
+      if (svcName && r.svcName !== svcName) return false;
+      return true;
+    });
+    return {
+      all: base.length,
+      test: base.filter(r => r.config.executionMode !== 'workflow').length,
+      workflow: base.filter(r => r.config.executionMode === 'workflow').length,
+    };
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
@@ -374,11 +393,35 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             )}
           </div>
         </div>
+        {/* Run Type Filter Tabs */}
+        <div className="results-run-filter-tabs">
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('all')}
+          >
+            All Runs ({runCounts.all})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'test' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('test')}
+          >
+            🧪 Test Runs ({runCounts.test})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'workflow' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('workflow')}
+          >
+            ⚡ Workflow Runs ({runCounts.workflow})
+          </button>
+        </div>
+
         <select className="results-run-select" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
           {runs.map((r) => {
             const bl = isBaseline(baselines, r.id);
+            const isWf = r.config.executionMode === 'workflow';
             const label = [
               bl ? '★' : '',
+              isWf ? '⚡' : '🧪',
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
