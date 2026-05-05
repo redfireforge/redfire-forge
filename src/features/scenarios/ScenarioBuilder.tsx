@@ -170,7 +170,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
       headers: sharedDs.fetchConfig?.headers || [],
       body: '',
       auth: sharedDs.fetchConfig?.auth || { type: 'none' },
-      validation: { statusCode: 200 },
+      validation: { mode: 'none' },
       sharedDataSourceId: sharedDs.id,
     };
     // Add the new test to the target scenario

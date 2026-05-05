@@ -4,7 +4,7 @@
  * hitting real public APIs so they work out-of-the-box.
  */
 
-import type { FeatureGroup, DataSource, DataSourceColumn, DataSourceRow, Assertion } from '../../../shared/types';
+import type { FeatureGroup, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 
 const noAuth = { type: 'none' as const };
 

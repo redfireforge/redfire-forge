@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useMemo, useRef } from 'react';
 import type { SharedDataSource, DataSource, Scenario, SharedDataSourceFetchConfig, GlobalAuthProfile, FeatureGroup } from '../../../shared/types';
+import type { HttpResponse } from '../../../shared/utils/httpClient';
 import { buildMappingSummary, extractTemplateVariables } from '../utils/dataSourceContract';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
@@ -28,13 +29,13 @@ export interface UseSharedDsEditorPanelOptions {
 
 export interface UseSharedDsEditorPanelReturn {
   fetchExpanded: boolean;
-  setFetchExpanded: (v: boolean) => void;
+  setFetchExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   fetchTab: FetchTabId;
   setFetchTab: (tab: FetchTabId) => void;
-  fetchUrlRowRef: React.RefObject<HTMLDivElement>;
-  fetchHeadersRef: React.RefObject<HTMLDivElement>;
-  fetchAuthRef: React.RefObject<HTMLDivElement>;
-  fetchBodyRef: React.RefObject<HTMLDivElement>;
+  fetchUrlRowRef: React.RefObject<HTMLDivElement | null>;
+  fetchHeadersRef: React.RefObject<HTMLDivElement | null>;
+  fetchAuthRef: React.RefObject<HTMLDivElement | null>;
+  fetchBodyRef: React.RefObject<HTMLDivElement | null>;
   fetchDraftScenario: Scenario | null;
   editorDraft: Scenario | null;
   mappingSummary: ReturnType<typeof buildMappingSummary>;
@@ -48,7 +49,7 @@ export interface UseSharedDsEditorPanelReturn {
     headers: Record<string, string>,
     body?: string,
     authOverride?: Scenario['auth'],
-  ) => Promise<{ status: number; body: string; headers?: Record<string, string>; sentHeaders?: Record<string, string>; sentUrl?: string; sentMethod?: string; sentBody?: string; error?: string }>;
+  ) => Promise<HttpResponse & { sentHeaders?: Record<string, string>; sentUrl?: string; sentMethod?: string; sentBody?: string }>;
   usedByExpanded: boolean;
   setUsedByExpanded: (v: boolean) => void;
 }
