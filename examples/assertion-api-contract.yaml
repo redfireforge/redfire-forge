@@ -2,24 +2,27 @@
 # Preset: API Contract
 # Complete contract validation — exact values, numeric ranges, and format checks.
 #
-# Run: npx redfireforge run examples/assertion-api-contract.yaml --base-url https://jsonplaceholder.typicode.com
+# Run: npx redfireforge run examples/assertion-api-contract.yaml --base-url https://httpbin.org
 
 name: Full API Contract
-baseUrl: https://jsonplaceholder.typicode.com
+baseUrl: https://httpbin.org
 
 defaults:
   headers:
     Accept: application/json
-  timeout: 10
+  timeout: 30
 
 config:
-  concurrency: 2
-  transactions: 5
+  concurrency: 1
+  transactions: 3
 
 tests:
-  - name: Post #1 Matches Full Contract
-    url: /posts/1
-    method: GET
+  - name: Post Data Matches Contract
+    url: /post
+    method: POST
+    headers:
+      Content-Type: application/json
+    body: '{"userId": 5, "id": 1, "title": "Contract Test Post", "email": "user@example.com", "phone": "1-234-567-8901"}'
     validation:
       mode: none
       assertions:
@@ -29,40 +32,43 @@ tests:
 
         # Assert userId is within range 1–10
         - type: numeric
-          jsonPath: "$.userId"
+          jsonPath: "$.json.userId"
           operator: ">="
           value: 1
         - type: numeric
-          jsonPath: "$.userId"
+          jsonPath: "$.json.userId"
           operator: "<="
           value: 10
 
-        # Assert post id = 1
+        # Assert id = 1
         - type: numeric
-          jsonPath: "$.id"
+          jsonPath: "$.json.id"
           operator: "="
           value: 1
 
         # Assert title has at least 3 characters
         - type: regex
-          jsonPath: "$.title"
+          jsonPath: "$.json.title"
           pattern: ".{3,}"
 
-  - name: User #1 Contract
-    url: /users/1
-    method: GET
+  - name: User Data Contract
+    url: /post
+    method: POST
+    headers:
+      Content-Type: application/json
+    body: '{"id": 1, "email": "user@example.com", "phone": "1-234-567-8901"}'
     validation:
       mode: none
       assertions:
         - type: status
           expected: "200"
         - type: numeric
-          jsonPath: "$.id"
+          jsonPath: "$.json.id"
           operator: "="
           value: 1
         - type: regex
-          jsonPath: "$.email"
+          jsonPath: "$.json.email"
           pattern: "^[^@]+@[^@]+\\.[^@]+$"
         - type: regex
-          jsonPath: "$.phone"
+          jsonPath: "$.json.phone"
           pattern: "^[0-9\\-\\.x ]+$"

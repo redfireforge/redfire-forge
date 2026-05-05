@@ -1,0 +1,16 @@
+path:name,validate:$.types[0].type.name,validate:$.id,tags
+pikachu,electric,25,gen1
+charizard,fire,6,gen1
+bulbasaur,grass,1,gen1
+squirtle,water,7,gen1
+gengar,ghost,94,gen1
+snorlax,normal,143,gen1
+machamp,fighting,68,gen1
+alakazam,psychic,65,gen1
+jigglypuff,normal,39,gen1
+eevee,normal,133,gen1
+dragonite,dragon,149,gen1
+mewtwo,psychic,150,gen1:legendary
+gyarados,water,130,gen1
+arcanine,fire,59,gen1
+lapras,water,131,gen1

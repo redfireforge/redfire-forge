@@ -1,4 +1,4 @@
-import type { AuthConfig, Scenario, RequestResult } from '../../../shared/types';
+import type { AuthConfig, Scenario, RequestResult, DataSource } from '../../../shared/types';
 
 export interface WorkflowHostProfile {
   id: string;
@@ -87,8 +87,11 @@ export interface HttpNodeData {
    * `{{name}}` values for this HTTP step only. Merged with workflow-level defaults and upstream
    * extractions when the step runs; highest priority for this step’s request resolution.
    */
-  initialVariables?: Record<string, string>;
-}
+  initialVariables?: Record<string, string>;  /**
+   * Optional data source for parameterized execution of this HTTP node.
+   * When set, the node executes once per enabled data row.
+   */
+  dataSource?: DataSource;}
 
 export interface ConditionNodeData {
   [key: string]: unknown;
@@ -204,6 +207,8 @@ export interface LoopNodeData {
   whileRight?: string;
   /** Safety cap to prevent infinite loops. Default 100. */
   maxIterations?: number;
+  /** Inline data source for forEach mode. When set, the loop iterates over its enabled rows. */
+  dataSource?: DataSource;
 }
 
 // ── Set Variable node ────────────────────────────────

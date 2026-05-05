@@ -66,9 +66,11 @@ test('diagnose value panel scrollbar', async ({ page }) => {
   await expect(editorModal).toBeVisible();
 
   // Click the pageJson test value
+  // Note: dispatchEvent is needed because the underlying config modal's
+  // .wf-config-button-row (inside .wf-designer) can intercept pointer events
   const pageJsonRow = page.locator('.wf-script-test-value-header').filter({ hasText: 'pageJson' });
   await expect(pageJsonRow).toBeVisible();
-  await pageJsonRow.click();
+  await pageJsonRow.dispatchEvent('click');
 
   // Wait for value panel
   const valuePanel = page.locator('.wf-script-value-panel');
@@ -78,7 +80,7 @@ test('diagnose value panel scrollbar', async ({ page }) => {
   const switchBtn = page.locator('.wf-script-value-popup-actions button').first();
   if (await switchBtn.isVisible()) {
     const txt = await switchBtn.getAttribute('title') ?? '';
-    if (txt.includes('text editor')) await switchBtn.click();
+    if (txt.includes('text editor')) await switchBtn.dispatchEvent('click');
   }
 
   const textarea = page.locator('.wf-script-value-panel-editor');
@@ -92,12 +94,12 @@ test('diagnose value panel scrollbar', async ({ page }) => {
   // Now switch back to tree mode
   const switchBtn2 = page.locator('.wf-script-value-popup-actions button').first();
   const t2 = await switchBtn2.getAttribute('title') ?? '';
-  if (t2.includes('tree view')) await switchBtn2.click();
+  if (t2.includes('tree view')) await switchBtn2.dispatchEvent('click');
   await page.waitForTimeout(300);
 
   // Click "Expand All" to expand the tree
   const expandAllBtn = page.getByRole('button', { name: 'Expand All' });
-  if (await expandAllBtn.isVisible()) await expandAllBtn.click();
+  if (await expandAllBtn.isVisible()) await expandAllBtn.dispatchEvent('click');
   await page.waitForTimeout(300);
 
   // === DIAGNOSTICS ===

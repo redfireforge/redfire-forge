@@ -2,7 +2,7 @@
 # Run: npx redfireforge run examples/sample-api-test.yaml -c 5 -t 20
 
 name: Sample API Smoke Test
-baseUrl: https://jsonplaceholder.typicode.com
+baseUrl: https://httpbin.org
 
 defaults:
   headers:
@@ -17,32 +17,30 @@ config:
 
 tests:
   - name: List Users
-    url: /users
+    url: /get?type=users
     method: GET
     validation:
       mode: selective
       expectedFields:
-        - jsonPath: "$[0].name"
-          expectedValue: "Leanne Graham"
+        - jsonPath: "$.args.type"
+          expectedValue: "users"
 
   - name: Get Single User
-    url: /users/1
+    url: /get?userId=1&name=Alice
     method: GET
     validation:
       mode: selective
       expectedFields:
-        - jsonPath: "$.name"
-          expectedValue: "Leanne Graham"
-        - jsonPath: "$.email"
-          expectedValue: "Sincere@april.biz"
+        - jsonPath: "$.args.name"
+          expectedValue: "Alice"
 
   - name: List Posts
-    url: /posts
+    url: /get?type=posts
     method: GET
     weight: 2
 
   - name: Create Post
-    url: /posts
+    url: /post
     method: POST
     headers:
       Content-Type: application/json
@@ -55,5 +53,5 @@ tests:
     validation:
       mode: selective
       expectedFields:
-        - jsonPath: "$.title"
+        - jsonPath: "$.json.title"
           expectedValue: "Performance Test"

@@ -87,6 +87,83 @@ Demonstrates:
 
 ---
 
+## Parameterized / Data Source Examples
+
+### `parameterized-users.yaml`
+Parameterized test example with inline data source. Demonstrates:
+- Data-driven testing with `dataSource` configuration
+- Column types: `param` (query parameter), `validate` (response assertion)
+- Row tags: Categorize rows (e.g., `smoke`, `regression`, `edge-case`)
+- Row labels and notes: Human-readable identifiers and annotations
+- Distribution mode: `sequential`, `random`, or `roundRobin`
+
+### `users-data.csv`
+CSV data file for import as a data source. Demonstrates:
+- Standard columns: `userId`, `name`, `validate:$.args.name`
+- Special columns: `_tags` (semicolon-separated), `_label`, `_note`
+- Row tagging patterns for filtering during test execution
+
+**CSV Column Prefixes:**
+| Prefix | Purpose |
+|--------|---------|
+| `path:` | Replace URL path variables (e.g., `path:id` → `/users/{{id}}`) |
+| `param:` | Add query parameters (e.g., `param:q` → `?q=value`) |
+| `header:` | Set request headers |
+| `body:` | Replace body placeholders (e.g., `body:username`) |
+| `validate:` | Assert response JSON path (e.g., `validate:$.name`) |
+| `_tags` | Row tags (semicolon-separated, e.g., `smoke;critical`) |
+| `_label` | Human-readable row label |
+| `_note` | Row annotation/comment |
+| `_enabled` | Enable/disable row (`true`/`false`) |
+
+### `json-data-simple.json`
+Simple JSON data file for import as a data source — flat array of objects.
+
+### `json-data-structured.json`
+Structured JSON data file for import — nested objects demonstrating how the importer handles complex JSON shapes.
+
+---
+
+## Workflow Examples (Additional)
+
+Beyond the trigger examples above, these cover various workflow patterns:
+
+### Easy Workflows
+| File | Description |
+|------|-------------|
+| `easy-user-lookup-workflow.yaml` | Simple user lookup with HTTP node + variable extraction |
+| `easy-payment-callback-workflow.yaml` | Payment callback with webhook and conditional paths |
+| `easy-script-formatter-workflow.yaml` | Script node formatting JSON data |
+
+### Medium Workflows
+| File | Description |
+|------|-------------|
+| `medium-approval-workflow.yaml` | Multi-step approval with conditional branching |
+| `medium-order-processing-workflow.yaml` | E-commerce order processing pipeline |
+| `medium-cicd-build-callback-workflow.yaml` | CI/CD build trigger with webhook callback |
+| `medium-script-validator-workflow.yaml` | Data validation using script nodes |
+
+### Hard / Advanced Workflows
+| File | Description |
+|------|-------------|
+| `hard-multi-region-deploy-workflow.yaml` | Multi-region deployment with parallel fork/join |
+| `hard-parallel-payment-workflow.yaml` | Parallel payment processing across providers |
+| `hard-script-data-pipeline-workflow.yaml` | ETL data pipeline using script nodes |
+
+### Pattern-Specific Workflows
+| File | Description |
+|------|-------------|
+| `conditional-retry-polling-workflow.yaml` | Retry loops with conditional exit |
+| `deployment-pipeline-workflow.yaml` | Full deployment pipeline with rollback |
+| `expression-functions-workflow.yaml` | Expression evaluation with built-in functions |
+| `loop-aggregate-workflow.yaml` | Loop over items and aggregate results |
+| `multi-api-aggregation-workflow.yaml` | Aggregate data from multiple API endpoints |
+| `multi-region-healthcheck-workflow.yaml` | Health checks across multiple regions |
+| `switch-routing-workflow.yaml` | Switch node for multi-path routing |
+| `batch-user-provisioning-workflow.yaml` | Batch user creation with loop + error handling |
+
+---
+
 ## Assertion Examples
 
 Assertion preset examples demonstrating structured JSON body assertions (array length, numeric compare, date compare). Each corresponds to an in-app gallery preset and training manual.

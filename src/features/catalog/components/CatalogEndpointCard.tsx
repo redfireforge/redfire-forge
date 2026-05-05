@@ -5,8 +5,7 @@ import { generateStubJson } from '../utils/schemaStubGenerator';
 import { prettyJson } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
 import { httpFetch } from '../../../shared/utils/httpClient';
-import { acquireOAuth2Token } from '../../../engine/tokenManager';
-import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
+import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
 import { highlightJson } from '../../../shared/utils/jsonHighlighter';
 
 interface Props {
@@ -98,23 +97,13 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
       if (k.trim() && v.trim()) hdrs[k.trim()] = v.trim();
     }
 
-    if (auth.type === 'oauth2' && auth.tokenUrl) {
-      try {
-        const token = await acquireOAuth2Token(auth);
-        Object.assign(hdrs, resolveAuthHeaders(auth, token));
-      } catch (err) {
-        setLiveResponse({ status: 0, statusText: '', headers: {}, body: '', timeMs: 0,
-          error: `OAuth2 token acquisition failed: ${err instanceof Error ? err.message : String(err)}` });
-        setLoading(false);
-        return;
-      }
-    } else if (auth.type !== 'none') {
-      const authHdrs = resolveAuthHeaders(auth);
-      // Auto-prefix Bearer for apikey named "Authorization" without a scheme
-      if (auth.type === 'apikey' && auth.apiKeyName?.toLowerCase() === 'authorization' && authHdrs['Authorization'] && !authHdrs['Authorization'].match(/^(Bearer|Basic|Token)\s/i)) {
-        authHdrs['Authorization'] = `Bearer ${authHdrs['Authorization']}`;
-      }
-      Object.assign(hdrs, authHdrs);
+    try {
+      await applyAuthHeaders(auth, hdrs);
+    } catch (err) {
+      setLiveResponse({ status: 0, statusText: '', headers: {}, body: '', timeMs: 0,
+        error: `Auth failed: ${err instanceof Error ? err.message : String(err)}` });
+      setLoading(false);
+      return;
     }
     if (bodyText.trim() && endpoint.method !== 'GET')
       hdrs['Content-Type'] = hdrs['Content-Type'] || 'application/json';

@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadTestFile, buildScenarios, buildTestConfig } from './loader';
+import { loadDataFile } from './dataLoader';
 import { runTest } from '../src/engine/executor';
 import { computeMetrics } from '../src/engine/metrics';
 import {
@@ -12,6 +13,7 @@ import {
   buildJunitXml,
   buildMarkdownReport,
   printConsoleSummary,
+  buildDataRowSummary,
 } from './reporters';
 import type { RequestResult } from '../src/types';
 
@@ -37,6 +39,8 @@ program
   .option('--retry-delay <ms>', 'Delay between retries in milliseconds', parseInt)
   .option('--duration <sec>', 'Duration in seconds (load-profile mode)', parseInt)
   .option('--base-url <url>', 'Override the base URL for all tests')
+  .option('--data <file>', 'External data file (CSV or JSON) for parameterized testing')
+  .option('--scenario <name>', 'Run only the test matching this name (used with --data)')
   .option('--env <name>', 'Environment name (metadata only)')
   .option('--error-policy <policy>', 'Error policy: continue, stop-first, stop-threshold')
   .option('--max-errors <n>', 'Stop after N errors (threshold mode)', parseInt)
@@ -46,11 +50,32 @@ program
   .option('-o, --output <path>', 'Write JSON report to file')
   .option('--junit <path>', 'Write JUnit XML report to file')
   .option('--markdown <path>', 'Write Markdown report to file')
+  .option('--data-rows-summary <path>', 'Write data row summary JSON (CI/CD format)')
+  .option('--tags <tags>', 'Run only data rows with these tags (comma-separated)')
+  .option('--tag-mode <mode>', 'Tag matching mode: any (default) or all', 'any')
   .option('-q, --quiet', 'Suppress progress output')
   .action(async (filePath: string, opts) => {
     try {
       const absPath = resolve(filePath);
       const file = loadTestFile(absPath);
+
+      // Load external data file if specified
+      let externalDataSource;
+      if (opts.data) {
+        const dataPath = resolve(opts.data);
+        externalDataSource = loadDataFile(dataPath);
+        if (!opts.quiet) {
+          console.log(`  Data:    ${basename(dataPath)} (${externalDataSource.rows.length} rows)`);
+        }
+      }
+
+      // Filter to specific scenario if requested
+      if (opts.scenario) {
+        file.tests = file.tests.filter(t => t.name === opts.scenario);
+        if (file.tests.length === 0) {
+          throw new Error(`No test found matching --scenario "${opts.scenario}"`);
+        }
+      }
 
       if (!opts.quiet) {
         console.log(`\n  Loading: ${basename(absPath)}`);
@@ -58,7 +83,29 @@ program
         if (file.name) console.log(`  Suite:   ${file.name}`);
       }
 
-      const scenarios = buildScenarios(file, opts.baseUrl);
+      const scenarios = buildScenarios(file, opts.baseUrl, externalDataSource);
+
+      // ─── Phase 12: Tag filtering ──────────────────────
+      if (opts.tags) {
+        const filterTags = (opts.tags as string).split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+        const tagMode = (opts.tagMode === 'all' ? 'all' : 'any') as 'any' | 'all';
+        for (const sc of scenarios) {
+          if (sc.dataSource && sc.dataSource.rows.length > 0) {
+            sc.dataSource.rows = sc.dataSource.rows.filter(row => {
+              const rowTags = row.tags ?? [];
+              if (rowTags.length === 0) return false;
+              return tagMode === 'any'
+                ? filterTags.some(t => rowTags.includes(t))
+                : filterTags.every(t => rowTags.includes(t));
+            });
+          }
+        }
+        if (!opts.quiet) {
+          const totalRows = scenarios.reduce((n, s) => n + (s.dataSource?.rows.length ?? 0), 0);
+          console.log(`  Tags:    ${filterTags.join(', ')} (mode: ${tagMode}, ${totalRows} matching rows)`);
+        }
+      }
+
       const config = buildTestConfig(file, scenarios, {
         concurrency: opts.concurrency,
         transactions: opts.transactions,
@@ -74,6 +121,11 @@ program
 
       if (!opts.quiet) {
         console.log(`  Mode:    ${config.executionMode} (C:${config.concurrency} T:${config.totalTransactions})`);
+        const paramTests = scenarios.filter(s => s.dataSource && s.dataSource.rows.length > 0);
+        if (paramTests.length > 0) {
+          const totalRows = paramTests.reduce((n, s) => n + (s.dataSource?.rows.length ?? 0), 0);
+          console.log(`  Data:    ${totalRows} row${totalRows !== 1 ? 's' : ''} across ${paramTests.length} test${paramTests.length !== 1 ? 's' : ''}`);
+        }
         console.log('');
       }
 
@@ -125,6 +177,12 @@ program
         console.log(`  Markdown:    ${opts.markdown}`);
       }
 
+      if (opts.dataRowsSummary) {
+        const rowSummary = buildDataRowSummary(results);
+        writeFileSync(resolve(opts.dataRowsSummary), JSON.stringify(rowSummary, null, 2));
+        console.log(`  Data Rows:   ${opts.dataRowsSummary}`);
+      }
+
       // Exit code logic
       const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
       if (opts.failOnError && !passed) {
@@ -156,7 +214,10 @@ program
       console.log(`\n  ✅ Valid test file: ${basename(absPath)}`);
       console.log(`  Tests: ${scenarios.length}`);
       for (const s of scenarios) {
-        console.log(`    - ${s.method} ${s.url}  (${s.name})`);
+        const dataSuffix = s.dataSource
+          ? ` [${s.dataSource.rows.length} data rows]`
+          : '';
+        console.log(`    - ${s.method} ${s.url}  (${s.name})${dataSuffix}`);
       }
       console.log('');
       process.exit(0);

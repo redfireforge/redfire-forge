@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pre-Validation (Dry Run) — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔍</div>
+    <h1>Pre-Validation (Dry Run)</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Pre-Validate · Bulk Data Check · Before Full Run</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Before running a full 100-row parameterized test suite, you want confidence your data and validation rules are correct. Pre-validation sends a <strong>quick probe request</strong> for each data row and reports pass/fail <em>without</em> saving results or updating baselines.</p>
+  <p>Use cases:</p>
+  <ul>
+    <li><strong>Data QA</strong> — verify imported CSV/Excel data matches real API responses before committing.</li>
+    <li><strong>Rule tuning</strong> — adjust JSON paths and expected values iteratively without creating test history.</li>
+    <li><strong>New API version</strong> — check which rows will break before upgrading your baseline.</li>
+  </ul>
+
+  <h2>2. Prerequisite</h2>
+  <p>Complete <a href="parameterized-validation-medium.html">Parameterized Validation</a> first. You should understand validate columns and baselines.</p>
+
+  <h2>3. Tutorial: Pre-Validate Country Data</h2>
+
+  <h3>Step 1: Load the Sample</h3>
+  <ol>
+    <li>Load the <strong>"Country Validation Suite"</strong> from the Gallery.</li>
+    <li>Open the test editor and go to the <strong>Data Source</strong> tab.</li>
+  </ol>
+
+  <h3>Step 2: Run Pre-Validation</h3>
+  <ol>
+    <li>In the Test Editor toolbar, click <strong>Pre-Validate</strong> (🔍 icon).</li>
+    <li>RedfireForge sends 8 requests (one per row) against the REST Countries API.</li>
+    <li>Results appear inline — each row shows ✅ or ❌ next to the validate columns.</li>
+  </ol>
+
+  <h3>Step 3: Interpret Results</h3>
+  <table>
+    <tr><th>Row Status</th><th>Meaning</th><th>Action</th></tr>
+    <tr><td>✅ All green</td><td>All validate columns match the API response</td><td>Ready for full run</td></tr>
+    <tr><td>❌ Red cell</td><td>Expected value doesn't match actual</td><td>Fix data or update the expected value</td></tr>
+    <tr><td>⚠️ Yellow cell</td><td>JSON path not found in response</td><td>Check your JSON path mapping</td></tr>
+  </table>
+
+  <h3>Step 4: Fix and Re-Validate</h3>
+  <ol>
+    <li>If any rows failed, edit the expected values directly in the table.</li>
+    <li>Click <strong>Pre-Validate</strong> again to re-check just those rows.</li>
+    <li>Once all rows are green, proceed to a full run from the Runner tab.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key difference from "Run"</strong>
+    Pre-validate does <strong>not</strong> save results to history, does <strong>not</strong> update baselines, and does <strong>not</strong> count toward test statistics. It's purely for data verification.
+  </div>
+
+  <h2>4. Practical Example: Pokémon Data QA</h2>
+  <ol>
+    <li>Load the <strong>Pokémon Contract Sweep</strong> sample.</li>
+    <li>Change Pikachu's expected type from "electric" to "fire" (intentional error).</li>
+    <li>Run Pre-Validate — Pikachu's row shows ❌ with diff: expected "fire", actual "electric".</li>
+    <li>Fix it back to "electric" and re-validate — all green.</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Rate Limiting</strong>
+    Some public APIs have rate limits. Pre-validation sends requests quickly — if you have 100+ rows, consider enabling only a subset for the initial check.
+  </div>
+
+  <h2>5. Try It Yourself</h2>
+  <ol>
+    <li>Import <code>test-data/sample_pokemon_15.csv</code> into a new test targeting <code>https://pokeapi.co/api/v2/pokemon/{{name}}</code>.</li>
+    <li>Run Pre-Validate to check all 15 rows.</li>
+    <li>Intentionally break 2–3 expected values and observe the inline error indicators.</li>
+    <li>Fix them and confirm all rows pass before doing a full run.</li>
+  </ol>
+
+  <h2>6. Verify Modal: The Full-Featured Alternative</h2>
+  <p>Pre-validation gives quick inline pass/fail indicators. For deeper analysis, use the <strong>Verify &amp; Inspect modal</strong> (click <strong>▶ Verify All</strong> in the Data Source toolbar):</p>
+  <ul>
+    <li>Side-by-side comparison of expected vs. actual values per cell</li>
+    <li>Failure pattern grouping — see how many rows share the same mismatch</li>
+    <li><strong>Run &amp; Capture</strong> to auto-populate expected values from live API</li>
+    <li><strong>Accept Changes</strong> to update your expected values to match new API behavior</li>
+    <li><strong>Re-fetch Failed</strong> to retry only the rows that errored</li>
+  </ul>
+  <p>See <a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> for a full walkthrough.</p>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — set up validate columns and baselines</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — deep dive into the Verify modal</li>
+    <li><a href="parameterized-multi-endpoint-advanced.html">Multi-Endpoint Regression</a> — advanced multi-scenario data-driven testing</li>
+    <li><a href="parameterized-auth-rotation-advanced.html">Auth Token Rotation</a> — POST body parameterization with authentication</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Pre-Validation (Dry Run) · Medium
+  </footer>
+</body>
+</html>

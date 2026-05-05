@@ -242,6 +242,8 @@ export async function executeHttpNode(
     failureDetails,
     errorMessage: finalErrorMessage,
     requestLog: { headers, body: reqBody },
+    dataRowId: data.scenario.dataRowId,
+    dataRowLabel: data.scenario.dataRowLabel,
   };
 
   return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };
@@ -305,4 +307,101 @@ export function evaluateWaitCondition(expression: string, ctx: VariableContext):
   // Fallback: treat as truthy check
   const val = resolved.trim().toLowerCase();
   return val !== '' && val !== 'false' && val !== '0' && val !== 'null' && val !== 'undefined';
+}
+
+// ────────────────────────────────────────────────────────
+// Shared: extract variables from a JSON payload via JSON path
+// ────────────────────────────────────────────────────────
+
+export interface ExtractVariableMapping {
+  name: string;
+  jsonPath: string;
+}
+
+/**
+ * Walk a JSON payload using simple dot-separated JSON paths (e.g. "$.user.id")
+ * and set each resolved value into the variable context.
+ *
+ * Returns a map of extracted name→value pairs (for logging/testing).
+ */
+export function extractPayloadVariables(
+  payload: unknown,
+  mappings: ExtractVariableMapping[],
+  ctx: VariableContext,
+): Record<string, string> {
+  const extracted: Record<string, string> = {};
+  for (const { name, jsonPath } of mappings) {
+    const keys = jsonPath.replace(/^\$\./, '').split('.');
+    let value: unknown = payload;
+    for (const key of keys) {
+      value = (value as Record<string, unknown>)?.[key];
+      if (value === undefined) break;
+    }
+    if (value !== undefined) {
+      const strVal = typeof value === 'string' ? value : JSON.stringify(value);
+      ctx.set(name, strVal);
+      extracted[name] = strVal;
+    }
+  }
+  return extracted;
+}
+
+// ────────────────────────────────────────────────────────
+// Shared: Log HTTP request/response details
+// ────────────────────────────────────────────────────────
+
+type LogFn = (line: { prefix: string; text: string }) => void;
+
+export function logHttpResult(
+  label: string,
+  log: LogFn,
+  result: {
+    requestResult: RequestResult;
+    requestHeaders: Record<string, string>;
+    requestBody?: string;
+    fullResponseBody?: string;
+    responseHeaders: Record<string, string>;
+    extracted?: Record<string, string>;
+  },
+): void {
+  const rr = result.requestResult;
+
+  log({ prefix: '>', text: `[${label}] ${rr.method} ${rr.url}` });
+  const reqHdrEntries = Object.entries(result.requestHeaders);
+  if (reqHdrEntries.length > 0) {
+    for (const [k, v] of reqHdrEntries) {
+      const display = /auth|token|key|secret|cookie/i.test(k) ? v.slice(0, 8) + '••••' : v;
+      log({ prefix: '>', text: `[${label}]   ${k}: ${display}` });
+    }
+  }
+  if (result.requestBody) {
+    const bodyPreview = result.requestBody.length > 200 ? result.requestBody.slice(0, 200) + '…' : result.requestBody;
+    log({ prefix: '>', text: `[${label}]   Body: ${bodyPreview}` });
+  }
+
+  const bodyLen = result.fullResponseBody?.length ?? 0;
+  const bodySize = bodyLen < 1024 ? `${bodyLen}B` : `${(bodyLen / 1024).toFixed(1)}KB`;
+  log({ prefix: '<', text: `[${label}] ${rr.httpStatus} — ${rr.responseTimeMs.toFixed(0)}ms — ${bodySize}` });
+  const resHdrEntries = Object.entries(result.responseHeaders);
+  if (resHdrEntries.length > 0) {
+    for (const [k, v] of resHdrEntries) {
+      log({ prefix: '<', text: `[${label}]   ${k}: ${v}` });
+    }
+  }
+  if (result.fullResponseBody) {
+    const respPreview = result.fullResponseBody.length > 300 ? result.fullResponseBody.slice(0, 300) + '…' : result.fullResponseBody;
+    log({ prefix: '<', text: `[${label}]   Body: ${respPreview}` });
+  }
+
+  if (rr.failureDetails && rr.failureDetails.length > 0 && !rr.passed) {
+    for (const f of rr.failureDetails) {
+      log({ prefix: '!', text: `[${label}] assertion ${f.path}: expected ${f.expected}, got ${f.actual}` });
+    }
+  }
+  if (result.extracted && Object.keys(result.extracted).length > 0) {
+    for (const [k, v] of Object.entries(result.extracted)) {
+      const display = v.length > 80 ? v.slice(0, 80) + '…' : v;
+      log({ prefix: '#', text: `[${label}] ${k} = ${display}` });
+    }
+  }
 }

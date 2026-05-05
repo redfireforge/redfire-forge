@@ -1,13 +1,16 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot, KeyValue } from '../../../shared/types';
+import { canonicalize } from '../../../shared/utils/canonicalize';
 
 const MAX_VERSIONS = 20;
 
 /** Extract a snapshot from a Scenario (excludes id, validation, runtime fields). */
 export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
+  // Prefer the data source's urlTemplate (which has {{vin}} etc.) over draft.url
+  const url = scenario.dataSource?.urlTemplate || scenario.url;
   return {
     name: scenario.name,
-    url: scenario.url,
+    url,
     method: scenario.method,
     headers: scenario.headers.filter(h => h.key.trim()),
     body: scenario.body,
@@ -16,17 +19,6 @@ export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
     auth: scenario.auth,
     extractions: scenario.extractions,
   };
-}
-
-/** Canonical JSON string for deep equality comparison. */
-function canonicalize(val: unknown): unknown {
-  if (val === null || val === undefined || typeof val !== 'object') return val;
-  if (Array.isArray(val)) return val.map(canonicalize);
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(val as Record<string, unknown>).sort()) {
-    out[k] = canonicalize((val as Record<string, unknown>)[k]);
-  }
-  return out;
 }
 
 /** Compute a fingerprint string from a snapshot. */
