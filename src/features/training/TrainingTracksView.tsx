@@ -2,6 +2,7 @@ import { useTrainingProgress } from './hooks/useTrainingProgress';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import { TrainingProgressDashboard } from './components/TrainingProgressDashboard';
 import { ContinueLearningCard } from './components/ContinueLearningCard';
+import { TrainingPathCard } from './components/TrainingPathCard';
 import { trainingPaths } from '../../data/galleries/trainingPaths';
 import './training.css';
 
@@ -41,6 +42,8 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
         return null;
       })()
     : null;
+
+  const activePaths = trainingPaths.filter(p => !p.comingSoon);
 
   return (
     <div className="training-tracks-view">
@@ -119,105 +122,20 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
       <section className="training-paths-section">
         <h2 className="training-section-title">Learning Paths</h2>
         <p className="training-section-subtitle">
-          {trainingPaths.filter(p => !p.comingSoon).length} paths available • {overallStats.totalManuals} manuals total
+          {activePaths.length} paths available • {overallStats.totalManuals} manuals total
         </p>
 
         <div className="training-paths-list">
-          {trainingPaths.filter(p => !p.comingSoon).map(path => {
-            const pathManuals = path.phases.flatMap(p => p.manuals).filter(m => m.manualPath);
-            const completed = pathManuals.filter(m => getManualProgress(m.manualPath!)?.status === 'completed').length;
-            const inProgress = pathManuals.filter(m => getManualProgress(m.manualPath!)?.status === 'in_progress').length;
-            const total = pathManuals.length;
-            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-            return (
-              <div key={path.id} className="training-path-card">
-                <div className="training-path-header">
-                  <div className="training-path-icon">{path.icon}</div>
-                  <div className="training-path-info">
-                    <div className="training-path-name">{path.name}</div>
-                    <div className="training-path-desc">{path.description}</div>
-                    <div className="training-path-progress">
-                      <div className="training-progress-bar">
-                        <div
-                          className="training-progress-fill"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                      <span className="training-progress-text">
-                        {completed}/{total} manuals ({percentage}%)
-                      </span>
-                    </div>
-                    {inProgress > 0 && (
-                      <div className="training-path-in-progress">
-                        {inProgress} in progress
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="training-path-phases">
-                  {path.phases.map(phase => (
-                    <div key={phase.id} className="training-phase">
-                      <div className="training-phase-header">
-                        <span className="training-phase-number">P{phase.id}</span>
-                        <span className="training-phase-name">{phase.name}</span>
-                        <span className="training-phase-count">{phase.manuals.filter(m => m.manualPath).length} manuals</span>
-                      </div>
-                      <div className="training-manuals-list">
-                        {phase.manuals.filter(m => m.manualPath).map((manual, idx) => {
-                          const progress = getManualProgress(manual.manualPath!);
-                          const badge = whatsNew.getBadge(manual.manualPath!);
-                          return (
-                            <div key={idx} className="training-manual-row">
-                              <div className={`training-manual-status training-manual-status-${progress?.status ?? 'not_started'}`}>
-                                {progress?.status === 'completed' ? '✓' : progress?.status === 'in_progress' ? '◐' : ''}
-                              </div>
-                              <div className="training-manual-info">
-                                <div className="training-manual-title">
-                                  <a
-                                    href={`/docs/training-manuals/${manual.manualPath}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {manual.title}
-                                  </a>
-                                  {badge && (
-                                    <span className={`training-badge training-badge-${badge}`}>
-                                      {badge === 'new' ? 'NEW' : 'UPDATED'}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="training-manual-desc">{manual.description}</div>
-                              </div>
-                              <div className={`training-difficulty training-difficulty-${manual.difficulty}`}>
-                                <span className="training-difficulty-dot" />
-                                {manual.difficulty === 'medium' && <span className="training-difficulty-dot" />}
-                                {manual.difficulty === 'advanced' && (
-                                  <>
-                                    <span className="training-difficulty-dot" />
-                                    <span className="training-difficulty-dot" />
-                                  </>
-                                )}
-                              </div>
-                              {manual.sampleId && (
-                                <button
-                                  className="training-manual-sample-btn"
-                                  onClick={onNavigateToSample}
-                                  title="View sample in Gallery"
-                                >
-                                  🧪
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+          {activePaths.map(path => (
+            <TrainingPathCard
+              key={path.id}
+              path={path}
+              getManualProgress={getManualProgress}
+              getBadge={whatsNew.getBadge}
+              onNavigateToSample={onNavigateToSample}
+              defaultExpanded={false}
+            />
+          ))}
         </div>
       </section>
     </div>
