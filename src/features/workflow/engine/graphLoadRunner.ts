@@ -41,6 +41,13 @@ export async function runGraphLoad(
   let iterationCounter = 0;
   const startTime = performance.now();
 
+  // Build a map of node ID → label for tagging results
+  const nodeLabels = new Map<string, string>();
+  for (const node of workflow.nodes) {
+    const label = (node.data as { label?: string })?.label || node.type;
+    nodeLabels.set(node.id, label);
+  }
+
   const runOneIteration = async (): Promise<void> => {
     const myIterationIndex = iterationCounter++;
     
@@ -54,10 +61,15 @@ export async function runGraphLoad(
       onVariablesChange: () => {},
       onComplete: (results, _passed, _durationMs) => {
         for (const r of results) {
+          const stepLabel = nodeLabels.get(r.scenarioId) || r.scenarioName;
           const tagged: RequestResult = {
             ...r,
             iterationIndex: myIterationIndex,
             workflowNodeId: r.scenarioId,
+            // Tag with workflow name as "feature" and step label as "scenario/group"
+            featureGroupName: `Workflow: ${workflow.name}`,
+            groupName: stepLabel,
+            scenarioName: stepLabel,
           };
           iterationResults.push(tagged);
         }
@@ -80,6 +92,13 @@ export async function runGraphLoad(
         if (!r.workflowNodeId) {
           (r as RequestResult).workflowNodeId = r.scenarioId;
         }
+        // Also tag results that came directly from runGraph (if onComplete wasn't called)
+        if (!r.featureGroupName) {
+          const stepLabel = nodeLabels.get(r.scenarioId) || r.scenarioName;
+          (r as RequestResult).featureGroupName = `Workflow: ${workflow.name}`;
+          (r as RequestResult).groupName = stepLabel;
+          (r as RequestResult).scenarioName = stepLabel;
+        }
       }
 
       allResults.push(...(iterationResults.length > 0 ? iterationResults : results));
@@ -88,6 +107,8 @@ export async function runGraphLoad(
         id: crypto.randomUUID(),
         scenarioId: 'workflow-error',
         scenarioName: workflow.name,
+        featureGroupName: `Workflow: ${workflow.name}`,
+        groupName: 'Error',
         url: '',
         method: 'GET',
         httpStatus: 0,

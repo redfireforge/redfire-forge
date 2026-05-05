@@ -323,10 +323,13 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             <div className="context-tags">
               {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
-              {selectedRun.baseUrl
-                ? <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
-                : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
-              }
+              {selectedRun.config.executionMode === 'workflow' && selectedRun.workflowName ? (
+                <span className="context-tag workflow-name-tag" title={selectedRun.workflowName}>⚡ {selectedRun.workflowName}</span>
+              ) : selectedRun.baseUrl ? (
+                <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
+              ) : (
+                <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
+              )}
               <span className="context-tag exec-mode-tag">
                 {selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
                   <>
