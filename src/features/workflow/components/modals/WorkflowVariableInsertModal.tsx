@@ -4,8 +4,8 @@ import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { NODE_TYPE_DISPLAY } from '../../utils/workflowVariableHints';
 import type { VariableSourceCategory } from '../../utils/workflowVariableHints';
 import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
-import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
 import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
+import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
 import ComposeStrip from '../ComposeStrip';
 import type { ComposeToken } from '../ComposeStrip';
 import ExpressionBuilderView from '../expression/ExpressionBuilderView';
@@ -282,8 +282,8 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
             />
             <span className="wf-var-insert-compose-toggle-label">Compose</span>
           </label>
-          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
-          <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
+          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="header" />
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Close</button>
         </div>
         {/* View toggle tabs */}
         <div className="wf-var-insert-view-tabs">

@@ -2,6 +2,48 @@ import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown }
 
 // ── JSON report ─────────────────────────────────────────────
 
+export interface DataRowSummaryReport {
+  pattern: string;
+  totalRows: number;
+  passedRows: number;
+  failedRows: number;
+  failedRowDetails: { row: string; label: string; status: number; error: string }[];
+}
+
+export function buildDataRowSummary(results: RequestResult[]): DataRowSummaryReport[] {
+  const dataRowResults = results.filter(r => r.dataRowId);
+  if (dataRowResults.length === 0) return [];
+
+  // Group by scenarioName
+  const byScenario = new Map<string, RequestResult[]>();
+  for (const r of dataRowResults) {
+    const key = r.scenarioName;
+    if (!byScenario.has(key)) byScenario.set(key, []);
+    byScenario.get(key)!.push(r);
+  }
+
+  const summaries: DataRowSummaryReport[] = [];
+  for (const [name, scResults] of byScenario) {
+    const failed = scResults.filter(r => !r.passed);
+    summaries.push({
+      pattern: name,
+      totalRows: scResults.length,
+      passedRows: scResults.length - failed.length,
+      failedRows: failed.length,
+      failedRowDetails: failed.map(r => ({
+        row: r.dataRowId ?? '?',
+        label: r.dataRowLabel ?? '?',
+        status: r.httpStatus,
+        error: r.errorMessage
+          || (r.failureDetails.length > 0
+            ? r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ')
+            : `HTTP ${r.httpStatus}`),
+      })),
+    });
+  }
+  return summaries;
+}
+
 export function buildJsonReport(
   results: RequestResult[],
   summary: TestSummary,
@@ -39,7 +81,8 @@ export function buildJunitXml(
   for (const r of results) {
     const className = r.featureGroupName || r.groupName || 'RedfireForge';
     const time = (r.responseTimeMs / 1000).toFixed(3);
-    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]" time="${time}">`);
+    const rowSuffix = r.dataRowLabel ? ` [${escapeXml(r.dataRowLabel)}]` : '';
+    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]${rowSuffix}" time="${time}">`);
     if (!r.passed) {
       const msg = r.errorMessage ?? r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ');
       lines.push(`      <failure message="${escapeXml(msg)}" type="${r.httpStatus >= 400 || r.httpStatus === 0 ? 'HttpError' : 'ValidationFailure'}">`);
@@ -138,6 +181,32 @@ export function buildMarkdownReport(
   lines.push(`## Result: ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
   lines.push('');
 
+  // Data row breakdown
+  if (results) {
+    const dataRowResults = results.filter(r => r.dataRowId);
+    if (dataRowResults.length > 0) {
+      const failedRows = dataRowResults.filter(r => !r.passed);
+      const passedCount = dataRowResults.length - failedRows.length;
+      lines.push('## Data Row Summary');
+      lines.push('');
+      lines.push(`**${dataRowResults.length}** total rows — **${passedCount}** passed, **${failedRows.length}** failed`);
+      lines.push('');
+      if (failedRows.length > 0) {
+        lines.push('### Failed Rows');
+        lines.push('');
+        lines.push('| Row | Status | Error |');
+        lines.push('|---|---|---|');
+        for (const r of failedRows) {
+          const label = r.dataRowLabel || r.dataRowId || '?';
+          const err = r.errorMessage
+            || (r.failureDetails.length > 0 ? `${r.failureDetails.length} validation failure(s)` : `HTTP ${r.httpStatus}`);
+          lines.push(`| ${label} | ${r.httpStatus} | ${err} |`);
+        }
+        lines.push('');
+      }
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -181,5 +250,27 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(bar);
   console.log(`  Result:       ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
   console.log(bar);
+
+  // Data row breakdown (if parameterized results exist)
+  if (results) {
+    const dataRowResults = results.filter(r => r.dataRowId);
+    if (dataRowResults.length > 0) {
+      const failedRows = dataRowResults.filter(r => !r.passed);
+      const passedRows = dataRowResults.filter(r => r.passed);
+      console.log(`  Data Rows:    ${dataRowResults.length} total, ${passedRows.length} passed, ${failedRows.length} failed`);
+      if (failedRows.length > 0) {
+        console.log('');
+        console.log('  Failed Data Rows:');
+        for (const r of failedRows) {
+          const label = r.dataRowLabel || r.dataRowId || '?';
+          const err = r.errorMessage
+            || (r.failureDetails.length > 0 ? `${r.failureDetails.length} validation failure(s)` : `HTTP ${r.httpStatus}`);
+          console.log(`    ✗ ${label} — ${err}`);
+        }
+      }
+      console.log(bar);
+    }
+  }
+
   console.log('');
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById, deepClone } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -336,5 +336,36 @@ describe('mergeById', () => {
     const existing = [{ id: '3' }, { id: '1' }];
     const incoming = [{ id: '2' }, { id: '1' }, { id: '4' }];
     expect(mergeById(existing, incoming).map(x => x.id)).toEqual(['3', '1', '2', '4']);
+  });
+});
+
+describe('deepClone', () => {
+  it('creates a deep copy of an object', () => {
+    const original = { a: 1, b: { c: 2 } };
+    const cloned = deepClone(original);
+    expect(cloned).toEqual(original);
+    expect(cloned).not.toBe(original);
+    expect(cloned.b).not.toBe(original.b);
+  });
+
+  it('handles arrays', () => {
+    const original = [{ id: 1 }, { id: 2 }];
+    const cloned = deepClone(original);
+    expect(cloned).toEqual(original);
+    cloned[0].id = 99;
+    expect(original[0].id).toBe(1);
+  });
+
+  it('handles primitives', () => {
+    expect(deepClone(42)).toBe(42);
+    expect(deepClone('hello')).toBe('hello');
+    expect(deepClone(null)).toBe(null);
+  });
+
+  it('snapshot delegates to deepClone', () => {
+    const obj = { x: [1, 2, 3] };
+    const result = snapshot(obj);
+    expect(result).toEqual(obj);
+    expect(result).not.toBe(obj);
   });
 });

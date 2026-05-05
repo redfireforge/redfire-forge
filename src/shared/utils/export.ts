@@ -10,6 +10,8 @@ export function exportJson(run: TestRun): void {
 export function exportCsv(results: RequestResult[], envName?: string, svcName?: string): void {
   const headers = [
     'Scenario',
+    'Data Row ID',
+    'Data Row Label',
     'URL',
     'Method',
     'HTTP Status',
@@ -27,6 +29,8 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
     if (r.failureDetails.length === 0) {
       return [[
         r.scenarioName,
+        r.dataRowId ?? '',
+        r.dataRowLabel ?? '',
         r.url,
         r.method,
         String(r.httpStatus),
@@ -42,6 +46,8 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
     }
     return r.failureDetails.map((f) => [
       r.scenarioName,
+      r.dataRowId ?? '',
+      r.dataRowLabel ?? '',
       r.url,
       r.method,
       String(r.httpStatus),

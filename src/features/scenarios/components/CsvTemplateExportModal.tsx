@@ -104,7 +104,27 @@ export default function CsvTemplateExportModal({ test, onClose }: Props) {
   }, [test.url]);
 
   const handleExport = async () => {
-    const wb = generateExcelTemplate({ test, pathVariables: pathVars, columnDefs });
+    // Build dataRows from existing data source rows if available
+    let dataRows: { values: Record<string, string> }[] | undefined;
+    const existingDt = test.dataSource;
+    if (existingDt && existingDt.rows.length > 0) {
+      dataRows = existingDt.rows.map(row => {
+        const values: Record<string, string> = {};
+        for (const def of columnDefs) {
+          if (def.type === 'name') {
+            values[def.mapping] = test.name;
+            values[def.customName] = test.name;
+            continue;
+          }
+          const existingCol = existingDt.columns.find(c => c.type === def.type && c.mapping === def.mapping);
+          const val = existingCol ? (row.values[existingCol.id] ?? '') : '';
+          values[def.mapping] = val;
+          values[def.customName] = val;
+        }
+        return { values };
+      });
+    }
+    const wb = generateExcelTemplate({ test, pathVariables: pathVars, columnDefs, dataRows });
     const safeName = test.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || 'template';
     await downloadExcel(wb, `${safeName}_template.xlsx`);
     onClose();
