@@ -59,6 +59,7 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
             postMsg({ type: 'progress', completed, total, newResults, meta });
           },
           abortController.signal,
+          msg.workflow,
         );
         const finalNew = results.slice(lastSentCount);
         lastSentCount = results.length;
