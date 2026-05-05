@@ -332,6 +332,19 @@
   background: var(--bg-hover);
 }
 
+.training-path-header:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.training-path-header:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.training-path-header:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 /* Path Chevron */
 .training-path-chevron {
   color: var(--text-muted);
@@ -422,6 +435,18 @@
 .training-path-phases {
   border-top: 1px solid var(--border);
   padding: 0 20px 20px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .training-phase {
@@ -455,6 +480,19 @@
   background: var(--bg-hover);
 }
 
+.training-phase-header:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.training-phase-header:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.training-phase-header:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .training-phase-number {
   background: var(--bg-hover);
   color: var(--text-secondary);
@@ -477,6 +515,7 @@
 
 /* Manuals List */
 .training-manuals-list {
+  animation: slideDown 0.15s ease-out;
   margin-left: 40px;
   border-left: 2px solid var(--border);
   padding-left: 16px;
@@ -517,6 +556,19 @@
 
 .training-manual-status:active {
   transform: scale(0.95);
+}
+
+.training-manual-status:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.training-manual-status:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.training-manual-status:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .training-manual-status-not_started {
@@ -785,9 +837,29 @@
   font-size: 14px;
 }
 
+@media (max-width: 768px) {
+  .training-filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .training-filter-group {
+    flex-wrap: wrap;
+  }
+
+  .training-filter-buttons {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 600px) {
   .training-tracks-view {
     padding: 16px;
+  }
+
+  .training-title {
+    font-size: 22px;
   }
 
   .training-dashboard {
@@ -819,8 +891,45 @@
     align-items: flex-start;
   }
 
+  .training-path-chevron {
+    position: absolute;
+    right: 16px;
+    top: 20px;
+  }
+
+  .training-path-card {
+    position: relative;
+  }
+
   .training-manuals-list {
     margin-left: 20px;
     padding-left: 12px;
+  }
+
+  .training-manual-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .training-manual-info {
+    flex-basis: calc(100% - 40px);
+  }
+
+  .training-whats-new-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .training-whats-new-item {
+    flex-wrap: wrap;
+  }
+
+  .training-search-bar {
+    padding: 12px;
+  }
+
+  .training-filter-label {
+    width: 100%;
+    margin-bottom: 4px;
   }
 }
