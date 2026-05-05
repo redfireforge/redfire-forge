@@ -12,7 +12,6 @@ import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
 import { useScenarioMutations } from './hooks/useScenarioMutations';
 import ConfirmModal from '../../shared/components/ConfirmModal';
-import PopupModal from '../../shared/components/PopupModal';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
 import ExportOptionsPopover from './components/ExportOptionsPopover';
 import ImportVersionModal from './components/ImportVersionModal';
@@ -20,16 +19,8 @@ import type { VersionExportOptions } from './utils/scenarioImportExport';
 import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
 import StructureChangeLogPanel from './components/StructureChangeLogPanel';
 import SharedDataSourceModal from './components/SharedDataSourceModal';
-
-const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'inherit', label: 'Inherit from Feature' },
-  { value: 'none', label: 'No Auth' },
-  { value: 'basic', label: 'Basic Auth' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'apikey', label: 'API Key' },
-  { value: 'digest', label: 'Digest Auth' },
-  { value: 'oauth2', label: 'OAuth2 Client Credentials' },
-];
+import FromSharedDsPickerModal from './components/FromSharedDsPickerModal';
+import { SCENARIO_AUTH_TYPE_OPTIONS, buildFeatureAuthTypeOptions, resolveEffectiveAuth } from './utils/scenarioBuilderUtils';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -52,40 +43,15 @@ interface Props {
 export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest }: Props) {
   const allAuthProfiles = globalAuthProfiles;
 
-  const featureAuthTypeOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = [];
-    if (allAuthProfiles.length > 0) {
-      opts.push({ value: 'inherit', label: 'Inherit from Auth Profile' });
-    }
-    opts.push(
-      { value: 'none', label: 'No Auth' },
-      { value: 'basic', label: 'Basic Auth' },
-      { value: 'bearer', label: 'Bearer Token' },
-      { value: 'apikey', label: 'API Key' },
-      { value: 'digest', label: 'Digest Auth' },
-      { value: 'oauth2', label: 'OAuth2 Client Credentials' },
-    );
-    return opts;
-  }, [allAuthProfiles]);
+  const featureAuthTypeOptions = useMemo(
+    () => buildFeatureAuthTypeOptions(allAuthProfiles),
+    [allAuthProfiles]
+  );
 
-  const resolveEffectiveAuth = useCallback((t: Scenario, sc: TestScenario, fg: FeatureGroup): { label: string; source: string } | null => {
-    if (t.auth.type !== 'none' && t.auth.type !== 'inherit') {
-      return { label: t.auth.type, source: 'own' };
-    }
-    const scAuth = sc.auth || { type: 'none' as AuthType };
-    if (scAuth.type !== 'none' && scAuth.type !== 'inherit') {
-      return { label: scAuth.type, source: 'scenario' };
-    }
-    const fgAuth = fg.auth;
-    if (fgAuth && fgAuth.type !== 'none' && fgAuth.type !== 'inherit') {
-      return { label: fgAuth.type, source: 'feature' };
-    }
-    if (fgAuth?.type === 'inherit' && fg.globalAuthProfileId) {
-      const p = allAuthProfiles.find((gp) => gp.id === fg.globalAuthProfileId);
-      return p ? { label: `${p.auth.type} (${p.name})`, source: 'global' } : { label: 'global (missing)', source: 'global' };
-    }
-    return null;
-  }, [allAuthProfiles]);
+  const getEffectiveAuth = useCallback(
+    (t: Scenario, sc: TestScenario, fg: FeatureGroup) => resolveEffectiveAuth(t, sc, fg, allAuthProfiles),
+    [allAuthProfiles]
+  );
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
@@ -124,8 +90,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   const [showSharedDsModal, setShowSharedDsModal] = useState(false);
   const [sharedDsModalSelectedId, setSharedDsModalSelectedId] = useState<string | undefined>(undefined);
   const [showFromSharedDsPicker, setShowFromSharedDsPicker] = useState<{ fgId: string; scId: string } | null>(null);
-  const [fromSharedDsSelected, setFromSharedDsSelected] = useState<string | null>(null);
-  const [fromSharedDsTestName, setFromSharedDsTestName] = useState('');
 
   // Current editing draft context for SharedDataSourceModal "Used by" lookup
   const currentEditingDraft = useMemo(() => {
@@ -638,7 +602,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                               {t.dataSource && <span className="tag parameterized-tag">Parameterized</span>}
                               {t.sourceTestId && <span className="tag" title="Parameterized copy">🔗 from source</span>}
                               {(() => {
-                                const resolved = resolveEffectiveAuth(t, sc, fg);
+                                const resolved = getEffectiveAuth(t, sc, fg);
                                 if (!resolved) return <span className="tag auth-badge auth-badge-test-none">Auth: none</span>;
                                 const cls = resolved.source === 'own' ? 'auth-badge-test-own'
                                   : resolved.source === 'scenario' ? 'auth-badge-test-scenario'
@@ -849,79 +813,20 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
         />
       )}
 
-      {/* From Shared Data Source Picker Modal */}
-      {showFromSharedDsPicker && sharedDataSources && sharedDataSources.length > 0 && (() => {
-        const selectedDs = sharedDataSources.find(ds => ds.id === fromSharedDsSelected);
-        const handleClose = () => { setShowFromSharedDsPicker(null); setFromSharedDsSelected(null); setFromSharedDsTestName(''); };
-        return (
-          <PopupModal
-            title="Create Test from Shared Data Source"
-            onClose={handleClose}
-            dialogClassName="from-shared-ds-picker"
-            footer={(
-              <>
-                <div style={{ flex: 1 }} />
-                <button className="btn" onClick={handleClose}>Cancel</button>
-                <button
-                  className="btn btn-primary"
-                  disabled={!fromSharedDsSelected || !fromSharedDsTestName.trim()}
-                  onClick={() => {
-                    if (selectedDs) {
-                      handleCreateTestFromSharedDs(
-                        selectedDs,
-                        showFromSharedDsPicker.fgId,
-                        showFromSharedDsPicker.scId,
-                        fromSharedDsTestName.trim()
-                      );
-                    }
-                    handleClose();
-                  }}
-                >
-                  Create Test
-                </button>
-              </>
-            )}
-          >
-            <div className="popup-modal-field">
-              <label>Test Name</label>
-              <input
-                type="text"
-                value={fromSharedDsTestName}
-                onChange={e => setFromSharedDsTestName(e.target.value)}
-                placeholder="Enter test name"
-                autoFocus
-              />
-            </div>
-            <div className="popup-modal-field">
-              <label>Select Data Source</label>
-              <div className="shared-ds-picker-list">
-                {sharedDataSources.map(ds => (
-                  <label
-                    key={ds.id}
-                    className={`shared-ds-picker-item ${fromSharedDsSelected === ds.id ? 'selected' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name="sharedDsSelection"
-                      checked={fromSharedDsSelected === ds.id}
-                      onChange={() => {
-                        setFromSharedDsSelected(ds.id);
-                        if (!fromSharedDsTestName.trim()) {
-                          setFromSharedDsTestName(`Test from ${ds.name}`);
-                        }
-                      }}
-                    />
-                    <span className="shared-ds-picker-info">
-                      <strong>{ds.name}</strong>
-                      <small>{ds.dataSource.rows.length} rows · {ds.dataSource.columns.length} columns</small>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </PopupModal>
-        );
-      })()}
+      {showFromSharedDsPicker && sharedDataSources && sharedDataSources.length > 0 && (
+        <FromSharedDsPickerModal
+          sharedDataSources={sharedDataSources}
+          onConfirm={(sharedDs, testName) => {
+            handleCreateTestFromSharedDs(
+              sharedDs,
+              showFromSharedDsPicker.fgId,
+              showFromSharedDsPicker.scId,
+              testName
+            );
+          }}
+          onClose={() => setShowFromSharedDsPicker(null)}
+        />
+      )}
     </div>
   );
 }
