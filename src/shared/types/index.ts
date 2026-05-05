@@ -244,6 +244,8 @@ export interface SharedDataSource {
   dataSource: DataSource;
   /** Timestamp of last edit */
   updatedAt: number;
+  /** Timestamp of creation */
+  createdAt?: number;
   /** Optional fetch configuration for API-driven population / verification */
   fetchConfig?: SharedDataSourceFetchConfig;
 }

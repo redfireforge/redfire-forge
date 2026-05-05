@@ -1,16 +1,17 @@
-import type { Scenario, DataSource, FeatureGroup } from '../../../shared/types';
+import type { Scenario, DataSource, FeatureGroup, AuthConfig } from '../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { createDataSourceWithTemplatizedUrl } from '../utils/dataSourceUtils';
 import DataSourceSetupModal from './DataSourceSetupModal';
+import type { TestEditingContext } from './TestEditorModal';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
 
 interface DataSourceEmptyStateProps {
   draft: Scenario;
   onDraftChange: (s: Scenario) => void;
-  onFetchRow?: (scenario: Scenario, rowId: string) => Promise<HttpResponse>;
+  onFetchRow?: (url: string, method: string, headers: Record<string, string>, body?: string, authOverride?: AuthConfig) => Promise<HttpResponse>;
   onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
   featureGroups?: FeatureGroup[];
-  editingTest?: { fgId: string; scenarioId: string };
+  editingTest?: TestEditingContext;
   showSetupModal: boolean;
   setShowSetupModal: (v: boolean) => void;
   handleSetupApply: (dataTable: DataSource, urlTemplate: string, options?: { auth?: Scenario['auth'] }) => void;

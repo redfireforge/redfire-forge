@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { SharedDataSource, SharedDataSourceFetchConfig, DataSource, Scenario } from '../../../shared/types';
+import type { SharedDataSource, SharedDataSourceFetchConfig, Scenario } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
 

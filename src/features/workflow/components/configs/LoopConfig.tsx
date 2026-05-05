@@ -47,7 +47,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
     headers: [],
     body: '',
     auth: { type: 'none' },
-    validation: { type: 'none' },
+    validation: { mode: 'none' },
     dataSource: data.dataSource,
   });
 
