@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource } from '../../shared/types';
+import type { Workflow } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useRunnerConfig } from './hooks/useRunnerConfig';
 import type { RunnerConfig } from './hooks/useRunnerConfig';
@@ -9,6 +10,7 @@ import { replaceHost } from '../../shared/utils/urlUtils';
 import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
 import { LiveCharts } from './components/LiveCharts';
 import RunnerExecutionConfig, { profileLabel } from './components/RunnerExecutionConfig';
+import WorkflowPicker, { saveWorkflowRunConfig } from './components/WorkflowPicker';
 import WorkflowVariablesInput from '../workflow/components/expression/WorkflowVariablesInput';
 import { getExecutionModeMeta } from '../../shared/utils/executionMode';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from './utils/runnerProgressStorage';
@@ -27,13 +29,15 @@ interface Props {
   envFallbackAuth?: import('../../shared/types').AuthConfig;
   /** Top-level shared data sources for resolving sharedDataSourceId references */
   sharedDataSources?: SharedDataSource[];
+  /** Workflows available for workflow-mode execution */
+  workflows?: Workflow[];
 }
 
 // ---------------------------------------------------------------------------
 // TestRunner Component
 // ---------------------------------------------------------------------------
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [] }: Props) {
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [], workflows = [] }: Props) {
   const configContextKey = [envId, svcId].filter(Boolean).join(':') || undefined;
   const progressKey = configContextKey || '_default';
 
@@ -64,11 +68,15 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   } = useRunnerConfig(configContextKey);
 
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [weightsExpanded, setWeightsExpanded] = useState(true);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [runnerTagFilter, setRunnerTagFilter] = useState('');
   const autoReportFiredRef = useRef<string | null>(null);
+
+  const isWorkflowMode = executionMode === 'workflow';
+  const hasSelectedWorkflow = isWorkflowMode && selectedWorkflowId !== null;
 
   const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
@@ -315,7 +323,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
-    const isWorkflow = executionMode === 'workflow';
     const config: TestConfig = {
       concurrency: isLoadProfile ? loadProfile.maxConcurrency : concurrency,
       totalTransactions: isLoadProfile ? 0 : totalTransactions,
@@ -329,12 +336,19 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       errorPolicy,
       maxErrors,
       maxErrorRate,
-      ...(isWorkflow && Object.keys(workflowVariables).length > 0 ? { workflowVariables } : {}),
+      ...(isWorkflowMode && Object.keys(workflowVariables).length > 0 ? { workflowVariables } : {}),
+      ...(hasSelectedWorkflow ? { workflowId: selectedWorkflowId } : {}),
     };
+
+    if (hasSelectedWorkflow) {
+      saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
+    }
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     // Resolve shared data sources before execution (use top-level sharedDataSources)
     const resolvedTests = resolveSharedDataSources(testsToRun, sharedDataSources);
-    execute(config, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl });
+    // Pass workflow for graph-based execution when workflowId is set
+    const selectedWorkflow = hasSelectedWorkflow ? workflows.find(w => w.id === selectedWorkflowId) : undefined;
+    execute(config, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl }, selectedWorkflow);
   };
 
   const isTimeBased = isLoadProfile || (isRunning && total === -1);
@@ -436,19 +450,23 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         isRunning={isRunning}
       />
 
-      {executionMode === 'workflow' && (
-        <WorkflowVariablesInput
+      {isWorkflowMode && (
+        <WorkflowPicker
+          workflows={workflows}
+          selectedWorkflowId={selectedWorkflowId}
+          onWorkflowChange={setSelectedWorkflowId}
           variables={workflowVariables}
-          onChange={setWorkflowVariables}
+          onVariablesChange={setWorkflowVariables}
           disabled={isRunning}
         />
       )}
 
-      {!hasAnyTests ? (
+      {!hasAnyTests && !hasSelectedWorkflow ? (
         <div className="empty-state">No tests defined. Go to Feature Groups tab to add some first.</div>
       ) : (
         <>
-          {/* Scenario selection */}
+          {/* Scenario selection - hidden when workflow is selected */}
+          {!hasSelectedWorkflow && (
           <div className="config-form">
             <div className="selection-header">
               <h3>Select Scenarios to Test</h3>
@@ -540,11 +558,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               </>
             )}
           </div>
+          )}
 
           {/* Config */}
-          {selectedTests.length > 0 && (
+          {(selectedTests.length > 0 || hasSelectedWorkflow) && (
             <div className="config-form" style={{ marginTop: 16 }}>
 
+              {/* Weights section - hidden when workflow is selected (workflows don't use scenario weights) */}
+              {!hasSelectedWorkflow && selectedTests.length > 0 && (
               <fieldset>
                 <legend
                   className="collapsible-legend"
@@ -584,9 +605,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   </>
                 )}
               </fieldset>
+              )}
 
-              {/* 4.2: Execution summary — show expanded request count for parameterized tests */}
-              {(() => {
+              {/* 4.2: Execution summary — show expanded request count for parameterized tests (not shown for workflow mode) */}
+              {!hasSelectedWorkflow && (() => {
                 const hasParam = selectedTests.some(t => t.dataSource && t.dataSource.rows.filter(r => r.enabled).length > 0);
                 if (!hasParam) return null;
                 const activeTests = selectedTests.filter(t => (weights[t.id] ?? 1) > 0);
