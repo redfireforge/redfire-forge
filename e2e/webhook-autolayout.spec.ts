@@ -2,17 +2,18 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Webhook Sample Auto-Layout', () => {
   test('loads webhook sample and verifies sibling node positions after auto-layout', async ({ page }) => {
+    test.slow(); // Complex gallery + workflow loading
+
     // Navigate to the app
     await page.goto('http://localhost:5173/');
     
-    // Wait for app to load
-    await page.waitForTimeout(1000);
+    // Wait for app header to be ready
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
     
     // Go to Workflow tab if not already there
     const workflowTab = page.locator('button:has-text("Workflow")');
     if (await workflowTab.isVisible()) {
       await workflowTab.click();
-      await page.waitForTimeout(500);
     }
     
     console.log('✓ App loaded');
@@ -22,20 +23,22 @@ test.describe('Webhook Sample Auto-Layout', () => {
     await newBtn.waitFor({ state: 'visible', timeout: 5000 });
     await newBtn.click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
-    await page.waitForTimeout(500);
+    
+    // Wait for gallery to be visible
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible({ timeout: 5_000 });
     
     console.log('✓ Gallery opened');
     
     // Gallery page shows — filter to Workflows domain and select webhook sample
     await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
-    await page.waitForTimeout(300);
     const webhookCard = page.locator('.gallery-card', { hasText: 'Webhook Trigger' });
     await webhookCard.waitFor({ state: 'visible', timeout: 5000 });
     await webhookCard.click();
-    await page.waitForTimeout(300);
+    
     // Click "Load Workflow" action button in detail panel
-    await page.locator('button:has-text("Load Workflow")').click();
-    await page.waitForTimeout(1000);
+    const loadBtn = page.locator('button:has-text("Load Workflow")');
+    await loadBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await loadBtn.click();
     
     console.log('✓ Webhook sample selected');
     
@@ -89,7 +92,12 @@ test.describe('Webhook Sample Auto-Layout', () => {
     const autoLayoutButton = page.locator('.wf-pill-btn[title="Auto-layout"]');
     await autoLayoutButton.waitFor({ state: 'visible', timeout: 5000 });
     await autoLayoutButton.click();
-    await page.waitForTimeout(1500);
+    
+    // Wait for layout animation to complete by checking node positions stabilize
+    await page.waitForFunction(() => {
+      const node = document.querySelector('[data-id="wh-process"]') as HTMLElement;
+      return node && node.style.transform.includes('translate');
+    }, { timeout: 5000 });
     
     console.log('\n✓ Auto-layout button clicked');
     

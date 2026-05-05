@@ -30,6 +30,7 @@ test.describe('IDB loading', () => {
   });
 
   test('app loads even when IDB is blocked (timeout fallback)', async ({ page }) => {
+    test.slow(); // This test deliberately waits for IDB timeout (~3s)
     // Sabotage IDB: intercept open() for 'redfireforge' so no events ever fire
     await page.addInitScript(() => {
       const origOpen = indexedDB.open.bind(indexedDB);

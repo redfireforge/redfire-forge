@@ -63,6 +63,8 @@ test.describe('Workflow Console Panel', () => {
   });
 
   test('console persists open state across page refresh', async ({ page }) => {
+    test.slow(); // Involves page reload
+
     // Open console
     const consoleToggle = page.locator('[title*="console" i], [title*="Console" i]').first();
     if (await consoleToggle.isVisible()) {
@@ -71,8 +73,7 @@ test.describe('Workflow Console Panel', () => {
 
       // Reload
       await page.reload();
-      await page.waitForSelector('.app-header', { timeout: 10000 });
-      await page.waitForLoadState('networkidle');
+      await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
 
       // Console should still be open
       await expect(page.locator('.wf-console-panel')).toBeVisible({ timeout: 5000 });
