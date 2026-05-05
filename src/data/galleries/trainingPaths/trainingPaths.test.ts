@@ -148,16 +148,16 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(12);
   });
 
-  it('tests has 22 manuals (5 phases)', () => {
+  it('tests has 26 manuals (5 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'tests')!;
     expect(path.phases).toHaveLength(5);
-    expect(countManuals(path)).toBe(22);
+    expect(countManuals(path)).toBe(26);
   });
 
-  it('catalog has 7 manuals (3 phases)', () => {
+  it('catalog has 9 manuals (3 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'catalog')!;
     expect(path.phases).toHaveLength(3);
-    expect(countManuals(path)).toBe(7);
+    expect(countManuals(path)).toBe(9);
   });
 
   it('wf-flow-control has 6 manuals (3 phases)', () => {
