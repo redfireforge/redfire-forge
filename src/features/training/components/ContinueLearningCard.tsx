@@ -4,6 +4,7 @@ interface Props {
   phaseName: string;
   difficulty: 'easy' | 'medium' | 'advanced';
   manualPath: string;
+  onContinue?: () => void;
 }
 
 export function ContinueLearningCard({
@@ -12,9 +13,14 @@ export function ContinueLearningCard({
   phaseName,
   difficulty,
   manualPath,
+  onContinue,
 }: Props) {
   const handleContinue = () => {
-    window.open(`/docs/training-manuals/${manualPath}`, '_blank', 'noopener,noreferrer');
+    if (onContinue) {
+      onContinue();
+    } else {
+      window.open(`/docs/training-manuals/${manualPath}`, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (

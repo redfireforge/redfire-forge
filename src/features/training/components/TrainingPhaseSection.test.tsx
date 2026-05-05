@@ -230,4 +230,42 @@ describe('TrainingPhaseSection', () => {
     expect(screen.getByText('With Path')).toBeInTheDocument();
     expect(screen.queryByText('Without Path')).not.toBeInTheDocument();
   });
+
+  it('passes onStatusChange to ManualRow', () => {
+    const mockOnStatusChange = vi.fn();
+    render(
+      <TrainingPhaseSection
+        phase={defaultPhase}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        onStatusChange={mockOnStatusChange}
+        defaultExpanded={true}
+      />
+    );
+
+    // Click the first status button
+    const statusBtns = screen.getAllByRole('button', { name: /not started/i });
+    fireEvent.click(statusBtns[0]);
+
+    expect(mockOnStatusChange).toHaveBeenCalledWith('tests/manual1.html', 'in_progress');
+  });
+
+  it('passes onOpenManual to ManualRow', () => {
+    const mockOnOpenManual = vi.fn();
+    render(
+      <TrainingPhaseSection
+        phase={defaultPhase}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        onOpenManual={mockOnOpenManual}
+        defaultExpanded={true}
+      />
+    );
+
+    // Click the first manual link
+    const link = screen.getByRole('link', { name: 'Manual 1' });
+    fireEvent.click(link);
+
+    expect(mockOnOpenManual).toHaveBeenCalledWith('tests/manual1.html');
+  });
 });

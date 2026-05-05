@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TrainingPath, ManualProgress } from '../../../data/galleries/trainingPaths/types';
+import type { TrainingPath, ManualProgress, ManualStatus } from '../../../data/galleries/trainingPaths/types';
 import type { WhatsNewType } from '../hooks/useWhatsNew';
 import { TrainingPhaseSection } from './TrainingPhaseSection';
 
@@ -7,7 +7,9 @@ interface Props {
   path: TrainingPath;
   getManualProgress: (manualPath: string) => ManualProgress | undefined;
   getBadge: (manualPath: string) => WhatsNewType | null;
-  onNavigateToSample?: () => void;
+  onStatusChange?: (manualPath: string, status: ManualStatus) => void;
+  onOpenManual?: (manualPath: string) => void;
+  onNavigateToSample?: (sampleId: string) => void;
   defaultExpanded?: boolean;
 }
 
@@ -15,6 +17,8 @@ export function TrainingPathCard({
   path,
   getManualProgress,
   getBadge,
+  onStatusChange,
+  onOpenManual,
   onNavigateToSample,
   defaultExpanded = false,
 }: Props) {
@@ -67,6 +71,8 @@ export function TrainingPathCard({
               phase={phase}
               getManualProgress={getManualProgress}
               getBadge={getBadge}
+              onStatusChange={onStatusChange}
+              onOpenManual={onOpenManual}
               onNavigateToSample={onNavigateToSample}
               defaultExpanded={true}
             />

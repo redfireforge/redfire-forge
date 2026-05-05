@@ -471,10 +471,28 @@
   justify-content: center;
   font-size: 12px;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+  background: none;
+  padding: 0;
+}
+
+.training-manual-status:hover {
+  transform: scale(1.15);
+}
+
+.training-manual-status:active {
+  transform: scale(0.95);
 }
 
 .training-manual-status-not_started {
   border: 2px solid var(--border);
+  color: var(--text-muted);
+}
+
+.training-manual-status-not_started:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .training-manual-status-in_progress {
@@ -483,9 +501,20 @@
   color: var(--accent);
 }
 
+.training-manual-status-in_progress:hover {
+  background: rgba(63, 185, 80, 0.2);
+  border-color: var(--accent-green, #3fb950);
+  color: var(--accent-green, #3fb950);
+}
+
 .training-manual-status-completed {
   background: var(--accent-green, #3fb950);
+  border: 2px solid var(--accent-green, #3fb950);
   color: #fff;
+}
+
+.training-manual-status-completed:hover {
+  background: rgba(63, 185, 80, 0.6);
 }
 
 .training-manual-info {

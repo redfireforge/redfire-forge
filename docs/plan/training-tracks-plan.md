@@ -166,19 +166,29 @@ export interface ManualMetadata {
 
 ---
 
-### Phase 4: Progress Interaction
+### Phase 4: Progress Interaction ✅ COMPLETED (2026-05-05)
 
 **Scope**: Status toggling, progress updates, sample navigation
 
-| Task | Files | Estimate |
-|------|-------|----------|
-| Implement status toggle in `ManualRow` | `ManualRow.tsx` | S |
-| Connect toggle to `useTrainingProgress` | `ManualRow.tsx`, hook | S |
-| Add "Open Manual" button (new tab) | `ManualRow.tsx` | S |
-| Add "View Sample" button (navigate to gallery) | `ManualRow.tsx` | M |
-| Update `ContinueLearningCard` with last-viewed | Hook integration | S |
+| Task | Files | Status |
+|------|-------|--------|
+| Implement status toggle in `ManualRow` | `ManualRow.tsx` | ✅ |
+| Connect toggle to `useTrainingProgress` | `TrainingTracksView.tsx`, `ManualRow.tsx` | ✅ |
+| Add "Open Manual" click handler | `ManualRow.tsx`, `TrainingTracksView.tsx` | ✅ |
+| Add "View Sample" navigation | All components chain | ✅ |
+| Wire `ContinueLearningCard` to `markViewed` | `TrainingTracksView.tsx`, `ContinueLearningCard.tsx` | ✅ |
+| Update unit tests | `ManualRow.test.tsx`, `TrainingPhaseSection.test.tsx` | ✅ (8 new tests) |
 
 **Deliverable**: Users can track progress, open manuals, jump to samples
+
+**Changes Made**:
+- `ManualRow.tsx` — Status button is now clickable, cycles through not_started → in_progress → completed. Shows ○/◐/✓ icons with hover effects. Added `onStatusChange`, `onOpenManual` callbacks.
+- `TrainingPhaseSection.tsx` — Pass-through for new callbacks
+- `TrainingPathCard.tsx` — Pass-through for new callbacks
+- `TrainingTracksView.tsx` — Wires `useTrainingProgress.updateManualStatus` and `markViewed` to component tree
+- `ContinueLearningCard.tsx` — Added `onContinue` prop for parent-controlled behavior
+- `training.css` — Interactive status button styling with hover/active states
+- Updated tests with 8 new test cases for interaction behavior
 
 ---
 
@@ -428,3 +438,4 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 | 2026-05-05 | Phase 1 completed: types, hooks, metadata, tests (45 passing) |
 | 2026-05-05 | Phase 2 completed: main view, dashboard, continue card, CSS, tests (61 total passing) |
 | 2026-05-05 | Phase 3 completed: extracted components (TrainingPathCard, TrainingPhaseSection, ManualRow), expand/collapse, tests (98 total passing) |
+| 2026-05-05 | Phase 4 completed: status toggle, open manual, view sample, continue learning wiring, tests (106 total passing) |
