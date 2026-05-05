@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Correlation Wait API — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔗</div>
+    <h1>Correlation Wait API</h1>
+    <div class="subtitle">OpenAPI Catalog Spec — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Webhooks · localhost:3001</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Correlation Wait API</strong> spec defines the webhook endpoints used by RedfireForge's async correlation features. It documents 9 endpoints for pausing workflows, receiving callbacks, and managing async operations.</p>
+  <p>Import this spec to:</p>
+  <ul>
+    <li>Explore available webhook endpoints interactively</li>
+    <li>Generate test requests for correlation testing</li>
+    <li>Understand the callback payload schemas</li>
+  </ul>
+
+  <h2>2. Spec Overview</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.3</td></tr>
+    <tr><td>Base URL</td><td><code>http://localhost:3001</code></td></tr>
+    <tr><td>Total Endpoints</td><td>9</td></tr>
+    <tr><td>Tags</td><td>correlation, webhook, async, callback</td></tr>
+  </table>
+
+  <h2>3. Available Endpoints</h2>
+
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr><td>POST</td><td><code>/webhooks/register</code></td><td>Register a new correlation wait</td></tr>
+    <tr><td>POST</td><td><code>/webhooks/callback/:type</code></td><td>Receive a callback by type (payment, approval, etc.)</td></tr>
+    <tr><td>GET</td><td><code>/webhooks/status/:correlationId</code></td><td>Check wait status</td></tr>
+    <tr><td>DELETE</td><td><code>/webhooks/cancel/:correlationId</code></td><td>Cancel a pending wait</td></tr>
+    <tr><td>GET</td><td><code>/webhooks/pending</code></td><td>List all pending waits</td></tr>
+    <tr><td>POST</td><td><code>/webhooks/timeout/:correlationId</code></td><td>Force timeout a wait</td></tr>
+    <tr><td>GET</td><td><code>/webhooks/history</code></td><td>View callback history</td></tr>
+    <tr><td>POST</td><td><code>/webhooks/replay/:correlationId</code></td><td>Replay a historical callback</td></tr>
+    <tr><td>GET</td><td><code>/health</code></td><td>Server health check</td></tr>
+  </table>
+
+  <h2>4. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel.</li>
+    <li>Filter by <strong>API Catalog</strong> domain.</li>
+    <li>Find <strong>"Correlation Wait API"</strong>.</li>
+    <li>Click <strong>Import to Catalog</strong>.</li>
+  </ol>
+
+  <h3>Step 2: Explore Endpoints</h3>
+  <ol>
+    <li>Go to the <strong>API Catalog</strong> tab.</li>
+    <li>Expand the imported spec.</li>
+    <li>Click any endpoint to see its schema, parameters, and example payloads.</li>
+  </ol>
+
+  <h3>Step 3: Test an Endpoint</h3>
+  <ol>
+    <li>Click the <strong>/health</strong> endpoint.</li>
+    <li>Click <strong>Try It</strong> (requires local server running).</li>
+    <li>View the response.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Generate Test Requests</strong>
+    Right-click any endpoint and select "Export to Requests" to create a request definition you can customize and save.
+  </div>
+
+  <h2>5. Schema Reference</h2>
+
+  <h3>RegisterWait Request</h3>
+  <pre>{
+  "correlationId": "string",
+  "type": "payment | approval | custom",
+  "timeoutMs": 30000,
+  "metadata": { ... }
+}</pre>
+
+  <h3>Callback Payload</h3>
+  <pre>{
+  "correlationId": "string",
+  "status": "success | failed | pending",
+  "data": { ... },
+  "timestamp": "ISO-8601"
+}</pre>
+
+  <h2>6. Related Manuals</h2>
+  <ul>
+    <li><a href="../workflow/async-correlation/payment-callback-simulator-easy.html">Payment Callback Simulator</a></li>
+    <li><a href="../workflow/async-correlation/approval-workflow-medium.html">Manager Approval Workflow</a></li>
+    <li><a href="../workflow/event-driven/webhook-trigger-easy.html">Webhook Trigger Setup</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Correlation Wait API · Medium
+  </footer>
+</body>
+</html>
