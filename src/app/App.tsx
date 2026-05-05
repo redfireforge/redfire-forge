@@ -649,7 +649,7 @@ export default function App() {
             </div>
           )}
           {activeTab === 'workflow-runner' && (
-            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
               <WorkflowRunner
                 workflows={wfHook.workflows}
                 onComplete={handleCompleteToResults}
