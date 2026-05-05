@@ -2,10 +2,10 @@ export type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'wor
 
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
-const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
+const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'workflow-runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
 
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner']);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
 export const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
 
 const GALLERY_TABS = new Set<Tab>(['gallery', 'training']);
