@@ -49,7 +49,7 @@ export function useScenarioMutations({
   const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
   const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
 
-  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new' } | null>(null);
+  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean } | null>(null);
   const [draft, setDraft] = useState<Scenario>(emptyTest());
   const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
   const [activeTab, setActiveTab] = useState<TestEditorTab>('params');
@@ -201,13 +201,22 @@ export function useScenarioMutations({
     clearAuthVerifyResult?.();
   };
 
+  const startNewParameterizedTest = (featureId: string, scenarioId: string) => {
+    const t = emptyTest();
+    setDraft(t);
+    setEditingTest({ featureId, scenarioId, testId: 'new', parameterized: true });
+    setInputMode('builder');
+    setActiveTab('data');
+    clearAuthVerifyResult?.();
+  };
+
   const startEditTest = (featureId: string, scenarioId: string, test: Scenario) => {
     setDraft({
       ...test,
       headers: [...test.headers],
       validation: { ...test.validation, expectedFields: test.validation.expectedFields ? [...test.validation.expectedFields] : [] },
     });
-    setEditingTest({ featureId, scenarioId, testId: test.id });
+    setEditingTest({ featureId, scenarioId, testId: test.id, parameterized: !!test.dataSource });
     setInputMode('builder');
     setActiveTab('params');
   };
@@ -340,6 +349,22 @@ export function useScenarioMutations({
     setCopyingTest(null);
   };
 
+  const createParameterizedCopy = (featureId: string, scenarioId: string, source: Scenario) => {
+    const copy: Scenario = {
+      ...source,
+      id: uuidv4(),
+      name: `${source.name} (Parameterized)`,
+      headers: source.headers.map((h) => ({ ...h })),
+      validation: { ...source.validation, expectedFields: source.validation.expectedFields?.map((f) => ({ ...f })) },
+      sourceTestId: source.id,
+    };
+    setDraft(copy);
+    setEditingTest({ featureId, scenarioId, testId: 'new', parameterized: true });
+    setInputMode('builder');
+    setActiveTab('data');
+    clearAuthVerifyResult?.();
+  };
+
   // ── Toggle helpers ──
 
   const toggleFeature = (id: string) => {
@@ -375,8 +400,8 @@ export function useScenarioMutations({
     updateFeatureAuth, toggleFeatureAuth,
     updateScenarioAuth, toggleScenarioAuth,
     // Test
-    startNewTest, startEditTest, saveTest, removeTest,
-    startCopyTest, confirmCopyTest,
+    startNewTest, startNewParameterizedTest, startEditTest, saveTest, removeTest,
+    startCopyTest, confirmCopyTest, createParameterizedCopy,
     // Version
     handleVersionRestore, handleVersionDelete, handleVersionRename,
     // Toggle

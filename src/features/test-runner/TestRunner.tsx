@@ -1,52 +1,18 @@
-import { useState, useMemo, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, LoadProfileConfig, ThinkTimeConfig } from '../../shared/types';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource } from '../../shared/types';
 import { useTestExecution } from './hooks/useTestExecution';
-import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../shared/utils/storage';
+import { useRunnerConfig, defaultLoadProfile } from './hooks/useRunnerConfig';
+import type { RunnerConfig } from './hooks/useRunnerConfig';
 import { resolveAuth } from '../requests/utils/authResolver';
+import { replaceHost } from '../../shared/utils/urlUtils';
+import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
 import { LiveCharts } from './components/LiveCharts';
 import RunnerExecutionConfig, { profileLabel } from './components/RunnerExecutionConfig';
 import WorkflowVariablesInput from '../workflow/components/expression/WorkflowVariablesInput';
 import { getExecutionModeMeta } from '../../shared/utils/executionMode';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from './utils/runnerProgressStorage';
-
-type HostMode = 'hardcoded' | 'settings' | 'custom';
-
-const defaultLoadProfile: LoadProfileConfig = {
-  type: 'sustained',
-  durationSec: 60,
-  maxConcurrency: 5,
-  rampUpSec: 30,
-  spikeConcurrency: 10,
-  spikeStartSec: 20,
-  spikeDurationSec: 10,
-};
-
-const defaultThinkTime: ThinkTimeConfig = { mode: 'none' };
-
-interface RunnerConfig {
-  concurrency: number;
-  totalTransactions: number;
-  selectedScenarios: string[];
-  weights: Record<string, number>;
-  skipValidation: boolean;
-  forceUnordered: boolean;
-  hostMode: HostMode;
-  customBaseUrl: string;
-  executionMode: ExecutionMode;
-  loadProfile?: LoadProfileConfig;
-  thinkTime?: ThinkTimeConfig;
-  timeoutSec?: number;
-  retryCount?: number;
-  retryDelayMs?: number;
-  errorPolicy?: ErrorPolicy;
-  maxErrors?: number;
-  maxErrorRate?: number;
-}
-
-const defaultConfig: RunnerConfig = {
-  concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {},
-  skipValidation: false, forceUnordered: false, hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
-};
+import { generateReport, downloadReport } from '../results/utils/reportGenerator';
+import type { ReportOptions } from '../results/utils/reportGenerator';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -58,59 +24,52 @@ interface Props {
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../shared/types').AuthConfig;
-}
-
-function replaceHost(testUrl: string, baseUrl: string): string {
-  if (!baseUrl) return testUrl;
-  try {
-    const original = new URL(testUrl);
-    const base = new URL(baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
-    original.protocol = base.protocol;
-    original.host = base.host;
-    const basePath = base.pathname.replace(/\/+$/, '');
-    if (basePath && !original.pathname.startsWith(basePath)) {
-      original.pathname = basePath + original.pathname;
-    }
-    return original.toString();
-  } catch {
-    return testUrl;
-  }
+  /** Top-level shared data sources for resolving sharedDataSourceId references */
+  sharedDataSources?: SharedDataSource[];
 }
 
 // ---------------------------------------------------------------------------
 // TestRunner Component
 // ---------------------------------------------------------------------------
 
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth }: Props) {
+export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [] }: Props) {
   const configContextKey = [envId, svcId].filter(Boolean).join(':') || undefined;
   const progressKey = configContextKey || '_default';
 
   const isGalleryEnv = svcName === 'Gallery Samples';
 
-  const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
-  const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
-  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
-  const [weights, setWeights] = useState<Record<string, number>>({});
-  const [skipValidation, setSkipValidation] = useState(false);
-  const [forceUnordered, setForceUnordered] = useState(false);
-  const [hostMode, setHostMode] = useState<HostMode>('settings');
-  const [customBaseUrl, setCustomBaseUrl] = useState('');
-  const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
-  const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
-  const [thinkTime, setThinkTime] = useState<ThinkTimeConfig>({ ...defaultThinkTime });
-  const [timeoutSec, setTimeoutSec] = useState(10);
-  const [retryCount, setRetryCount] = useState(0);
-  const [retryDelayMs, setRetryDelayMs] = useState(1000);
-  const [errorPolicy, setErrorPolicy] = useState<ErrorPolicy>('continue');
-  const [maxErrors, setMaxErrors] = useState(10);
-  const [maxErrorRate, setMaxErrorRate] = useState(50);
+  const {
+    concurrency, setConcurrency,
+    totalTransactions, setTotalTransactions,
+    selectedScenarios, setSelectedScenarios,
+    weights, setWeights,
+    skipValidation, setSkipValidation,
+    validationOverride, setValidationOverride,
+    forceUnordered, setForceUnordered,
+    hostMode, setHostMode,
+    customBaseUrl, setCustomBaseUrl,
+    executionMode, setExecutionMode,
+    loadProfile, setLoadProfile,
+    thinkTime, setThinkTime,
+    timeoutSec, setTimeoutSec,
+    retryCount, setRetryCount,
+    retryDelayMs, setRetryDelayMs,
+    errorPolicy, setErrorPolicy,
+    maxErrors, setMaxErrors,
+    maxErrorRate, setMaxErrorRate,
+    autoReport, setAutoReport,
+    autoReportFormat, setAutoReportFormat,
+    configLoaded,
+  } = useRunnerConfig(configContextKey);
+
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
-  const [configLoaded, setConfigLoaded] = useState(false);
   const [weightsExpanded, setWeightsExpanded] = useState(true);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
+  const [runnerTagFilter, setRunnerTagFilter] = useState('');
+  const autoReportFiredRef = useRef<string | null>(null);
 
-  const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
+  const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   useEffect(() => {
     setSavedProgress(loadProgress(progressKey));
@@ -138,81 +97,32 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finalRun, isRunning]);
 
+  // Auto-report: download report when test finishes
+  useEffect(() => {
+    if (!autoReport || !finalRun || isRunning) return;
+    // Prevent duplicate downloads for the same run
+    if (autoReportFiredRef.current === finalRun.id) return;
+    autoReportFiredRef.current = finalRun.id;
+    const content = generateReport(finalRun, { format: autoReportFormat });
+    const date = new Date(finalRun.timestamp).toISOString().slice(0, 10);
+    const base = [finalRun.svcName, finalRun.envName, date].filter(Boolean).join('_');
+    const ext = autoReportFormat === 'markdown' ? 'md' : autoReportFormat;
+    const mime = autoReportFormat === 'html' ? 'text/html' : autoReportFormat === 'json' ? 'application/json' : 'text/markdown';
+    downloadReport(content, `${base}_report.${ext}`, mime);
+  }, [finalRun, isRunning, autoReport, autoReportFormat]);
+
   const handleClearProgress = () => {
     clearProgress(progressKey);
     setSavedProgress(null);
   };
 
-  useEffect(() => {
-    setConfigLoaded(false);
-    loadRunnerConfigAsync(configContextKey).then((raw) => {
-      if (raw) {
-        const saved = raw as RunnerConfig;
-        setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
-        setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
-        setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
-        setWeights(saved.weights ?? {});
-        setSkipValidation(saved.skipValidation ?? false);
-        setForceUnordered(saved.forceUnordered ?? false);
-        setHostMode(saved.hostMode ?? 'settings');
-        setCustomBaseUrl(saved.customBaseUrl ?? '');
-        setExecutionMode(saved.executionMode ?? 'batch');
-        if (saved.loadProfile) setLoadProfile(saved.loadProfile);
-        if (saved.thinkTime) setThinkTime(saved.thinkTime);
-        setTimeoutSec(saved.timeoutSec ?? 10);
-        setRetryCount(saved.retryCount ?? 0);
-        setRetryDelayMs(saved.retryDelayMs ?? 1000);
-        setErrorPolicy(saved.errorPolicy ?? 'continue');
-        setMaxErrors(saved.maxErrors ?? 10);
-        setMaxErrorRate(saved.maxErrorRate ?? 50);
-      } else {
-        setConcurrency(defaultConfig.concurrency);
-        setTotalTransactions(defaultConfig.totalTransactions);
-        setSelectedScenarios(new Set());
-        setWeights({});
-        setSkipValidation(defaultConfig.skipValidation);
-        setForceUnordered(defaultConfig.forceUnordered);
-        setHostMode(defaultConfig.hostMode);
-        setCustomBaseUrl(defaultConfig.customBaseUrl);
-        setExecutionMode(defaultConfig.executionMode);
-        setLoadProfile({ ...defaultLoadProfile });
-        setThinkTime({ ...defaultThinkTime });
-        setTimeoutSec(10);
-        setRetryCount(0);
-        setRetryDelayMs(1000);
-        setErrorPolicy('continue');
-        setMaxErrors(10);
-        setMaxErrorRate(50);
-      }
-      setConfigLoaded(true);
-    });
-  }, [configContextKey]);
-
-  useEffect(() => {
-    if (!configLoaded) return;
-    void saveRunnerConfig({
-      concurrency,
-      totalTransactions,
-      selectedScenarios: Array.from(selectedScenarios),
-      weights,
-      skipValidation,
-      forceUnordered,
-      hostMode,
-      customBaseUrl,
-      executionMode,
-      loadProfile,
-      thinkTime,
-      timeoutSec,
-      retryCount,
-      retryDelayMs,
-      errorPolicy,
-      maxErrors,
-      maxErrorRate,
-    }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights, skipValidation, forceUnordered, hostMode, customBaseUrl, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate]);
-
   const selectedTests: Scenario[] = useMemo(() => {
     const tests: Scenario[] = [];
+    // Resolve effective validation mode: runner override > legacy skipValidation > data-source default
+    const runtimeMode = validationOverride !== 'default'
+      ? validationOverride
+      : (skipValidation ? 'none' as const : null);
+
     for (const fg of featureGroups) {
       for (const sc of fg.scenarios) {
         if (selectedScenarios.has(sc.id)) {
@@ -223,18 +133,31 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               ? ''
               : (hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '');
             const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
-            let validation = skipValidation ? { mode: 'none' as const } : test.validation;
-            if (forceUnordered && !skipValidation && validation.mode === 'selective') {
+
+            // For parameterized tests: stamp validationMode on the DataSource
+            // so the expander enforces it per-row (isSample filtering)
+            let dataSource = test.dataSource;
+            if (dataSource && runtimeMode) {
+              dataSource = { ...dataSource, validationMode: runtimeMode };
+            }
+
+            // For non-parameterized tests: apply override to validation config directly
+            let validation = test.validation;
+            if (!dataSource && runtimeMode === 'none') {
+              validation = { mode: 'none' as const };
+            }
+
+            if (forceUnordered && validation.mode === 'selective') {
               validation = { ...validation, unorderedArrays: true };
             }
             const auth = resolveAuth(test, sc, fg, globalAuthProfiles, envFallbackAuth);
-            tests.push({ ...test, url, auth, validation, featureGroupName: fg.name, groupName: sc.name });
+            tests.push({ ...test, url, auth, validation, dataSource, featureGroupName: fg.name, groupName: sc.name });
           }
         }
       }
     }
     return tests;
-  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
+  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
 
    
   useEffect(() => {
@@ -354,6 +277,10 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                     />
                     <span>{sc.name}</span>
                     <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
+                    {(() => {
+                      const totalRows = sc.tests.reduce((sum, t) => sum + (t.dataSource?.rows.filter(r => r.enabled).length ?? 0), 0);
+                      return totalRows > 0 ? <span className="count-badge count-badge-data">📊 {totalRows} rows</span> : null;
+                    })()}
                   </label>
                 </div>
               );
@@ -365,7 +292,25 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   };
 
   const handleRun = () => {
-    const scenarioWeights: ScenarioWeight[] = selectedTests.map((t) => ({
+    // Phase 12: Apply tag filter to data rows
+    let testsToRun = selectedTests;
+    if (runnerTagFilter) {
+      const tags = runnerTagFilter.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+      testsToRun = selectedTests.map(t => {
+        if (!t.dataSource || t.dataSource.rows.length === 0) return t;
+        const filteredRows = t.dataSource.rows.filter(row => {
+          const rowTags = row.tags ?? [];
+          return rowTags.length > 0 && tags.some(ft => rowTags.includes(ft));
+        });
+        return { ...t, dataSource: { ...t.dataSource, rows: filteredRows } };
+      }).filter(t => {
+        // Exclude parameterized tests with 0 matching rows — they'd run with unresolved {{placeholders}}
+        if (t.dataSource && t.dataSource.columns.length > 0 && t.dataSource.rows.length === 0) return false;
+        return true;
+      });
+    }
+
+    const scenarioWeights: ScenarioWeight[] = testsToRun.map((t) => ({
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
@@ -386,7 +331,9 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       ...(isWorkflow && Object.keys(workflowVariables).length > 0 ? { workflowVariables } : {}),
     };
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
-    execute(config, selectedTests, { envName, svcName, baseUrl: usedBaseUrl });
+    // Resolve shared data sources before execution (use top-level sharedDataSources)
+    const resolvedTests = resolveSharedDataSources(testsToRun, sharedDataSources);
+    execute(config, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl });
   };
 
   const isTimeBased = isLoadProfile || (isRunning && total === -1);
@@ -515,14 +462,48 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   />
                   Skip validation
                 </label>
+                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Runtime validation override — Default uses each test's configured mode">
+                  <select
+                    value={validationOverride}
+                    onChange={(e) => setValidationOverride(e.target.value as RunnerConfig['validationOverride'])}
+                    disabled={isRunning}
+                    style={{ fontSize: '0.78rem', marginLeft: 4 }}
+                  >
+                    <option value="default">Validation: Default</option>
+                    <option value="none">Validate: No Rows</option>
+                    <option value="selective">Validate: Sample Rows Only</option>
+                    <option value="full">Validate: All Rows</option>
+                  </select>
+                </label>
                 <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Match array items by content regardless of order — useful when APIs return arrays in non-deterministic order">
                   <input
                     type="checkbox"
                     checked={forceUnordered}
                     onChange={(e) => setForceUnordered(e.target.checked)}
-                    disabled={isRunning || skipValidation}
+                    disabled={isRunning || validationOverride === 'none' || skipValidation}
                   />
                   Unordered arrays
+                </label>
+                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Automatically download a report when the test finishes">
+                  <input
+                    type="checkbox"
+                    checked={autoReport}
+                    onChange={(e) => setAutoReport(e.target.checked)}
+                    disabled={isRunning}
+                  />
+                  Auto-report
+                  {autoReport && (
+                    <select
+                      value={autoReportFormat}
+                      onChange={(e) => setAutoReportFormat(e.target.value as ReportOptions['format'])}
+                      disabled={isRunning}
+                      style={{ fontSize: '0.78rem', marginLeft: 4 }}
+                    >
+                      <option value="html">HTML</option>
+                      <option value="json">JSON</option>
+                      <option value="markdown">Markdown</option>
+                    </select>
+                  )}
                 </label>
                 <span className="filter-count">
                   {selectedScenarios.size} scenario{selectedScenarios.size !== 1 ? 's' : ''} selected
@@ -584,6 +565,9 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                           <span className="test-number">{idx + 1}</span>
                           <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
                           {t.name}
+                          {t.dataSource && t.dataSource.rows.filter(r => r.enabled).length > 0 && (
+                            <span className="count-badge count-badge-data">📊 {t.dataSource.rows.filter(r => r.enabled).length} rows</span>
+                          )}
                         </div>
                         <input
                           type="number"
@@ -599,6 +583,92 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   </>
                 )}
               </fieldset>
+
+              {/* 4.2: Execution summary — show expanded request count for parameterized tests */}
+              {(() => {
+                const hasParam = selectedTests.some(t => t.dataSource && t.dataSource.rows.filter(r => r.enabled).length > 0);
+                if (!hasParam) return null;
+                const activeTests = selectedTests.filter(t => (weights[t.id] ?? 1) > 0);
+                const totalWeight = activeTests.reduce((s, t) => s + (weights[t.id] ?? 1), 0);
+
+                // Phase 12: Parse tag filter for row counting
+                const filterTags = runnerTagFilter ? runnerTagFilter.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+
+                const breakdown: { name: string; slots: number; rows: number; filteredRows: number; expanded: number; hasMatchingTags: boolean }[] = [];
+                let uncappedTotal = 0;
+                for (const t of activeTests) {
+                  const w = weights[t.id] ?? 1;
+                  const slots = totalWeight > 0 ? Math.round((w / totalWeight) * totalTransactions) : 0;
+                  const enabledRows = t.dataSource?.rows.filter(r => r.enabled) ?? [];
+                  const rows = enabledRows.length;
+                  // Count rows that match the tag filter
+                  const matchingRows = filterTags.length > 0
+                    ? enabledRows.filter(r => {
+                        const rowTags = r.tags ?? [];
+                        return rowTags.length > 0 && filterTags.some(ft => rowTags.includes(ft));
+                      })
+                    : enabledRows;
+                  const effectiveRows = matchingRows.length;
+                  const hasMatchingTags = filterTags.length > 0 && enabledRows.some(r => (r.tags ?? []).some(rt => filterTags.includes(rt)));
+                  const expanded = slots * (effectiveRows > 0 ? effectiveRows : 1);
+                  uncappedTotal += expanded;
+                  breakdown.push({ name: t.name, slots, rows, filteredRows: effectiveRows, expanded, hasMatchingTags });
+                }
+                const capped = Math.min(uncappedTotal, totalTransactions);
+                return (
+                  <div className="runner-expansion-summary">
+                    <div className="runner-expansion-title">Expansion Summary</div>
+                    {breakdown.map((b, i) => (
+                      <div key={i} className={`runner-expansion-row ${filterTags.length > 0 && !b.hasMatchingTags && b.rows > 0 ? 'runner-expansion-row-skipped' : ''}`}>
+                        <span>
+                          {b.name}
+                          {filterTags.length > 0 && b.rows > 0 && (
+                            b.hasMatchingTags
+                              ? <span className="runner-tag-match-badge" title="Has rows matching tag filter"> 🏷</span>
+                              : <span className="runner-tag-miss-badge" title="No rows match — will be skipped"> ⊘ skipped</span>
+                          )}
+                        </span>
+                        <span className="runner-expansion-calc">
+                          {filterTags.length > 0 && b.rows > 0 && !b.hasMatchingTags
+                            ? '—'
+                            : filterTags.length > 0 && b.rows > 0
+                              ? `${b.slots} × ${b.filteredRows}/${b.rows} rows = ${b.expanded}`
+                              : b.rows > 0
+                                ? `${b.slots} × ${b.rows} rows = ${b.expanded}`
+                                : `${b.slots} × 1 = ${b.expanded}`
+                          }
+                        </span>
+                      </div>
+                    ))}
+                    <div className="runner-expansion-total">
+                      {uncappedTotal > totalTransactions
+                        ? `Expanded ${uncappedTotal} → capped to ${capped} requests`
+                        : `Total: ${capped} requests`
+                      }
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Phase 12: Runner tag filter */}
+              {selectedTests.some(t => t.dataSource && t.dataSource.rows.some(r => r.tags && r.tags.length > 0)) && (
+                <fieldset className="runner-fieldset">
+                  <legend>Tag Filter (comma-separated)</legend>
+                  <input
+                    type="text"
+                    className="runner-tag-filter-input"
+                    placeholder="e.g. happy-path, smoke"
+                    value={runnerTagFilter}
+                    onChange={(e) => setRunnerTagFilter(e.target.value)}
+                    disabled={isRunning}
+                  />
+                  {runnerTagFilter && (
+                    <span className="runner-tag-filter-hint">
+                      Only rows matching these tags will run
+                    </span>
+                  )}
+                </fieldset>
+              )}
 
               <div className="form-actions">
                 {!isRunning ? (
@@ -660,6 +730,28 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   )}
                 </span>
               </div>
+
+              {/* 4.3: Per-test progress breakdown */}
+              {isRunning && liveResults.length > 0 && selectedTests.some(t => t.dataSource) && (
+                <div className="runner-per-test-progress">
+                  {selectedTests.filter(t => (weights[t.id] ?? 1) > 0).map(t => {
+                    const results = liveResults.filter(r => r.scenarioId === t.id);
+                    const passed = results.filter(r => r.passed).length;
+                    const failed = results.length - passed;
+                    const expectedRows = t.dataSource?.rows.filter(r => r.enabled).length ?? 1;
+                    return (
+                      <div key={t.id} className="runner-per-test-row">
+                        <span className="runner-per-test-name">{t.name}:</span>
+                        <span className="runner-per-test-counts">
+                          {results.length}/{expectedRows}
+                          {passed > 0 && <span className="runner-per-test-pass"> ✓{passed}</span>}
+                          {failed > 0 && <span className="runner-per-test-fail"> ✗{failed}</span>}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {displaySummary && (
                 <div className="live-metrics">

@@ -137,6 +137,119 @@ export interface TestDefinitionVersion {
   snapshot: TestDefinitionSnapshot;
 }
 
+// ─── Data Table types (parameterized testing) ────────────────
+
+export interface DataSourceColumn {
+  /** Stable column identifier — used as key in DataSourceRow.values */
+  id: string;
+  /** Human-readable display name: e.g. "VIN", "Channel" */
+  name: string;
+  /** Where this column binds in the request */
+  type: 'path' | 'param' | 'body' | 'header' | 'validate';
+  /** For 'path': variable name in URL. For 'param': query param name. For 'validate': JSONPath. */
+  mapping: string;
+  /** Optional human-readable description */
+  description?: string;
+}
+
+export interface DataSourceRow {
+  /** Unique row ID for stable identity across edits */
+  id: string;
+  /** Optional user-provided row label for identification */
+  label?: string;
+  /** Column id → value */
+  values: Record<string, string>;
+  /** Whether this row is enabled (unchecked rows are skipped) */
+  enabled: boolean;
+  /** User-assigned tags for categorization and filtered execution */
+  tags?: string[];
+  /** Optional note/annotation for this row */
+  note?: string;
+  /** Whether this row is a sample row (dev-curated example with expected values) */
+  isSample?: boolean;
+}
+
+export type DataSourceType = 'inline' | 'file';
+
+export interface DataSourceOrigin {
+  type: DataSourceType;
+  /** For 'file': relative or absolute path to CSV/Excel/JSON file */
+  filePath?: string;
+  /** For 'file': last-read timestamp for staleness detection */
+  fileLastRead?: number;
+  /** For 'file': row count at last read (for quick display without parsing) */
+  fileRowCount?: number;
+}
+
+export interface DataSource {
+  /** Unique ID */
+  id: string;
+  /** Optional human-readable name for this data source */
+  label?: string;
+  /** Column definitions — order matters for display */
+  columns: DataSourceColumn[];
+  /** Data rows (inline source only; file source reads at execution time) */
+  rows: DataSourceRow[];
+  /** Where the data lives */
+  source: DataSourceOrigin;
+  /** Row distribution strategy during execution. Defaults to 'sequential' when omitted. */
+  distribution?: 'sequential' | 'random' | 'round-robin';
+  /** URL template with {{variable}} placeholders — separate from the main URL */
+  urlTemplate?: string;
+  /** Validation contract: wildcard field patterns (e.g. "offers[*].offerName") that define
+   *  which response fields should generate validate columns. Array length is determined
+   *  dynamically from each API response — columns expand automatically. */
+  validationContract?: string[];
+  /** Per-array validation mode: 'ordered' validates by index position, 'unordered' checks
+   *  that expected values exist anywhere in the array. Key is the array prefix (e.g. "offers[*]"). */
+  arrayValidationMode?: Record<string, 'ordered' | 'unordered'>;
+  /** Named subsets for filtered execution */
+  subsets?: DataSubset[];
+  /** Validation mode: none (skip), selective (sample rows only), full (all rows) */
+  validationMode?: 'none' | 'selective' | 'full';
+}
+
+/** A named subset of data rows for filtered execution. */
+export interface DataSubset {
+  /** Unique name: e.g. "US Region Only", "Edge Cases" */
+  name: string;
+  /** Filter rule — either tag-based or explicit row IDs */
+  filter: { type: 'tags'; tags: string[]; mode: 'any' | 'all' }
+        | { type: 'rows'; rowIds: string[] };
+}
+
+/** Fetch configuration for API-driven population / verification of shared data sources. */
+export interface SharedDataSourceFetchConfig {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers: KeyValue[];
+  body?: string;
+  bodyType?: BodyType;
+  auth?: AuthConfig;
+  /** Raw cURL command last provided by user (for edit/reuse). */
+  rawCurl?: string;
+  /** Optional variable mappings for URL path segments (customized in Shared DS fetch panel). */
+  pathVariables?: Array<{ segmentIndex: number; variableName: string }>;
+}
+
+/** A shared data source that can be referenced by multiple tests. */
+export interface SharedDataSource {
+  /** Unique ID */
+  id: string;
+  /** Human-readable name: e.g. "Production VINs" */
+  name: string;
+  /** Tags for categorization (e.g., "prod", "qa", "vins") */
+  tags?: string[];
+  /** The actual data source definition */
+  dataSource: DataSource;
+  /** Timestamp of last edit */
+  updatedAt: number;
+  /** Optional fetch configuration for API-driven population / verification */
+  fetchConfig?: SharedDataSourceFetchConfig;
+}
+
+// ─────────────────────────────────────────────────────────────
+
 export interface Scenario {
   id: string;
   name: string;
@@ -154,6 +267,16 @@ export interface Scenario {
   featureGroupName?: string;
   groupName?: string;
   definitionVersions?: TestDefinitionVersion[];
+  /** Attached data source for parameterized execution */
+  dataSource?: DataSource;
+  /** Reference to a shared data source (by ID) — mutually exclusive with inline dataSource */
+  sharedDataSourceId?: string;
+  /** Transient: set by data source expansion — row ID for result tagging */
+  dataRowId?: string;
+  /** Transient: set by data source expansion — display label for result tagging */
+  dataRowLabel?: string;
+  /** ID of the test this was created from via "Create Parameterized Copy" */
+  sourceTestId?: string;
 }
 
 export interface TestScenario {
@@ -290,6 +413,10 @@ export interface RequestResult {
     headers: Record<string, string>;
     body?: string;
   };
+  /** Data table row ID that produced this result (for parameterized tests) */
+  dataRowId?: string;
+  /** Human-readable row label (e.g., "Row 3: VIN=1GY...") for display */
+  dataRowLabel?: string;
 }
 
 export interface TestSummary {

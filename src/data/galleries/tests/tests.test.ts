@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { testSampleCatalog } from './index';
 
 describe('testSampleCatalog', () => {
-  it('has 8 entries', () => {
-    expect(testSampleCatalog).toHaveLength(8);
+  it('has 19 entries', () => {
+    expect(testSampleCatalog).toHaveLength(19);
   });
 
   it('every entry has a unique id', () => {
@@ -63,6 +63,62 @@ describe('testSampleCatalog', () => {
     for (const entry of testSampleCatalog) {
       const fg = entry.factory();
       expect(fg.scenarios.length).toBe(entry.scenarioCount);
+    }
+  });
+
+  it('parameterized entries have dataRowCount matching actual rows', () => {
+    const paramEntries = testSampleCatalog.filter(e => e.dataRowCount);
+    expect(paramEntries.length).toBe(11);
+    
+    // Split into inline data source samples vs shared data source samples
+    const inlineEntries = paramEntries.filter(e => !e.sharedDataSourceFactory);
+    const sharedDsEntries = paramEntries.filter(e => e.sharedDataSourceFactory);
+    
+    expect(inlineEntries.length).toBe(7);
+    expect(sharedDsEntries.length).toBe(4);
+    
+    // Check inline data source samples
+    for (const entry of inlineEntries) {
+      const fg = entry.factory();
+      let totalRows = 0;
+      for (const sc of fg.scenarios) {
+        for (const test of sc.tests) {
+          totalRows += test.dataSource?.rows.length ?? 0;
+        }
+      }
+      expect(totalRows).toBe(entry.dataRowCount);
+    }
+    
+    // Check shared data source samples
+    for (const entry of sharedDsEntries) {
+      const sharedDsList = entry.sharedDataSourceFactory!();
+      let totalRows = 0;
+      for (const sharedDs of sharedDsList) {
+        totalRows += sharedDs.dataSource.rows.length;
+      }
+      expect(totalRows).toBe(entry.dataRowCount);
+    }
+  });
+
+  it('parameterized entries have valid data source columns', () => {
+    const paramEntries = testSampleCatalog.filter(e => e.dataRowCount);
+    for (const entry of paramEntries) {
+      const fg = entry.factory();
+      for (const sc of fg.scenarios) {
+        for (const test of sc.tests) {
+          if (!test.dataSource) continue;
+          expect(test.dataSource.columns.length).toBeGreaterThanOrEqual(1);
+          for (const col of test.dataSource.columns) {
+            expect(col.id).toBeTruthy();
+            expect(col.name).toBeTruthy();
+            expect(['path', 'param', 'body', 'header', 'validate']).toContain(col.type);
+          }
+          for (const row of test.dataSource.rows) {
+            expect(row.id).toBeTruthy();
+            expect(row.enabled).toBe(true);
+          }
+        }
+      }
     }
   });
 });

@@ -1,4 +1,4 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource } from '../types';
 import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
@@ -7,6 +7,12 @@ import {
   idbSaveTestRunsBulk, idbPruneToMax, idbMigrateFromLocalStorage,
   idbGetRunsInfo, idbDeleteRunsOlderThan, idbClearAllRuns,
 } from './idbTestRuns';
+import {
+  idbLoadFeatureGroups, idbSaveFeatureGroups, idbMigrateFeatureGroups,
+} from './idbFeatureGroups';
+import {
+  idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
+} from './idbSharedDataSources';
 
 const STORAGE_KEY = 'perf-test-runs';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
@@ -23,6 +29,7 @@ const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
 const FLAT_ENVS_KEY = 'perf-test-v3-environments';
 const FLAT_SVCS_KEY = 'perf-test-v3-microservices';
 const FLAT_FGS_KEY = 'perf-test-v3-feature-groups';
+const FLAT_SHARED_DS_KEY = 'perf-test-v3-shared-data-sources';
 const FLAT_SEL_ENV_KEY = 'perf-test-v3-selected-env';
 const FLAT_SEL_SVC_KEY = 'perf-test-v3-selected-svc';
 const FLAT_MIGRATED_KEY = 'perf-test-v3-migrated';
@@ -223,6 +230,33 @@ export async function forceSaveTestRun(run: TestRun): Promise<{ ok: boolean }> {
   }
 }
 
+/**
+ * Update an existing TestRun in-place (by id). Used for result merging after re-runs.
+ */
+export async function updateTestRun(run: TestRun): Promise<{ ok: boolean }> {
+  const truncated = capAndTruncateResults(run);
+  if (isTauri()) {
+    try {
+      const runs = await loadTestRuns();
+      const idx = runs.findIndex(r => r.id === truncated.id);
+      if (idx === -1) return { ok: false };
+      runs[idx] = truncated;
+      await writeKey(STORAGE_KEY, JSON.stringify(runs));
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
+  }
+  // Browser: IndexedDB — put upserts by key
+  try {
+    await ensureIdbMigration();
+    await idbSaveTestRun(truncated);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function loadTestRuns(): Promise<TestRun[]> {
   if (isTauri()) {
     try {
@@ -304,8 +338,54 @@ export async function loadEnvironments(): Promise<Environment[]> { return loadJs
 export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await saveJsonKey(FLAT_SVCS_KEY, svcs); }
 export async function loadMicroservices(): Promise<Microservice[]> { return loadJsonKey<Microservice>(FLAT_SVCS_KEY); }
 
-export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> { await saveJsonKey(FLAT_FGS_KEY, fgs); }
-export async function loadFeatureGroups(): Promise<FeatureGroup[]> { return loadJsonKey<FeatureGroup>(FLAT_FGS_KEY); }
+export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {
+  if (isTauri()) {
+    await saveJsonKey(FLAT_FGS_KEY, fgs);
+    return;
+  }
+  // Use IndexedDB (much higher quota than localStorage's ~5MB)
+  try {
+    await idbSaveFeatureGroups(fgs);
+    // Clear localStorage copy if migration hasn't happened yet
+    if (localStorage.getItem(FLAT_FGS_KEY)) localStorage.removeItem(FLAT_FGS_KEY);
+    return;
+  } catch { /* IDB unavailable or failed — fall back to localStorage */ }
+  await saveJsonKey(FLAT_FGS_KEY, fgs);
+}
+export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
+  let fgs: FeatureGroup[];
+  if (isTauri()) {
+    fgs = await loadJsonKey<FeatureGroup>(FLAT_FGS_KEY);
+  } else {
+    // Try IDB first; fall back to localStorage for pre-migration or test environments
+    const fromIdb = await idbLoadFeatureGroups();
+    if (fromIdb) {
+      fgs = fromIdb;
+    } else {
+      fgs = await loadJsonKey<FeatureGroup>(FLAT_FGS_KEY);
+      // Migrate to IDB if data exists in localStorage
+      if (fgs.length > 0) {
+        await idbMigrateFeatureGroups(FLAT_FGS_KEY);
+      }
+    }
+  }
+  // Migrate: rename legacy "dataTable" property to "dataSource" on Scenario objects
+  let migrated = false;
+  for (const fg of fgs) {
+    for (const sc of fg.scenarios ?? []) {
+      for (const t of sc.tests ?? []) {
+        const legacy = t as Record<string, unknown>;
+        if (legacy['dataTable'] && !t.dataSource) {
+          t.dataSource = legacy['dataTable'] as typeof t.dataSource;
+          delete legacy['dataTable'];
+          migrated = true;
+        }
+      }
+    }
+  }
+  if (migrated) await saveFeatureGroups(fgs);
+  return fgs;
+}
 
 export async function saveSelectedEnvId(id: string): Promise<void> { await writeKey(FLAT_SEL_ENV_KEY, id); }
 export async function loadSelectedEnvId(): Promise<string> { return (await readKey(FLAT_SEL_ENV_KEY)) ?? ''; }
@@ -317,6 +397,39 @@ export async function loadSelectedSvcId(): Promise<string> { return (await readK
 
 export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> { await saveJsonKey(GLOBAL_AUTH_KEY, profiles); }
 export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> { return loadJsonKey<GlobalAuthProfile>(GLOBAL_AUTH_KEY); }
+
+// ---------- Shared Data Sources ----------
+
+export async function saveSharedDataSources(sources: SharedDataSource[]): Promise<void> {
+  if (isTauri()) {
+    await saveJsonKey(FLAT_SHARED_DS_KEY, sources);
+    return;
+  }
+  try {
+    await idbSaveSharedDataSources(sources);
+  } catch {
+    await saveJsonKey(FLAT_SHARED_DS_KEY, sources);
+  }
+}
+
+export async function loadSharedDataSources(): Promise<SharedDataSource[]> {
+  if (isTauri()) {
+    return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
+  }
+  try {
+    const fromIdb = await idbLoadSharedDataSources();
+    if (fromIdb !== null) return fromIdb;
+    // Attempt one-time migration from localStorage
+    const migrated = await idbMigrateSharedDataSources(FLAT_SHARED_DS_KEY);
+    if (migrated) {
+      const after = await idbLoadSharedDataSources();
+      if (after !== null) return after;
+    }
+    return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
+  } catch {
+    return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
+  }
+}
 
 // ---------- Migration (v1 legacy + v2 projects → v3 flat) ----------
 
@@ -442,6 +555,61 @@ export async function migrateToFlat(): Promise<AppData | null> {
   ]);
 
   return data;
+}
+
+/**
+ * Migrate per-FeatureGroup sharedDataSources to top-level.
+ * This is a one-time migration that:
+ * 1. Collects all sharedDataSources from each FeatureGroup
+ * 2. Merges them into the top-level sharedDataSources array (deduping by ID)
+ * 3. Removes the sharedDataSources field from each FeatureGroup
+ * 4. Saves both
+ * 
+ * Idempotent: safe to run multiple times.
+ */
+export async function migratePerFgSharedDataSourcesToTopLevel(): Promise<{ migrated: number; removed: number }> {
+  const featureGroups = await loadFeatureGroups();
+  const topLevelSharedDs = await loadSharedDataSources();
+  
+  const existingIds = new Set(topLevelSharedDs.map(ds => ds.id));
+  const toMigrate: SharedDataSource[] = [];
+  let removedCount = 0;
+  
+  // Collect sharedDataSources from each FG
+  for (const fg of featureGroups) {
+    const fgShared = (fg as { sharedDataSources?: SharedDataSource[] }).sharedDataSources;
+    if (fgShared && fgShared.length > 0) {
+      for (const ds of fgShared) {
+        if (!existingIds.has(ds.id)) {
+          toMigrate.push(ds);
+          existingIds.add(ds.id);
+        }
+      }
+      removedCount += fgShared.length;
+    }
+  }
+  
+  if (toMigrate.length === 0 && removedCount === 0) {
+    return { migrated: 0, removed: 0 };
+  }
+  
+  // Merge into top-level
+  const mergedTopLevel = [...topLevelSharedDs, ...toMigrate];
+  
+  // Remove sharedDataSources from each FG
+  const cleanedFgs = featureGroups.map(fg => {
+    const copy = { ...fg };
+    delete (copy as { sharedDataSources?: SharedDataSource[] }).sharedDataSources;
+    return copy;
+  });
+  
+  // Save both
+  await Promise.all([
+    saveSharedDataSources(mergedTopLevel),
+    saveFeatureGroups(cleanedFgs),
+  ]);
+  
+  return { migrated: toMigrate.length, removed: removedCount };
 }
 
 // ---------- Runner config ----------

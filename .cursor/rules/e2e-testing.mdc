@@ -1,0 +1,43 @@
+---
+description: E2E testing standards and run conventions
+alwaysApply: true
+---
+
+# E2E Testing Rules
+
+## Always Run With HTML Report
+
+ALWAYS add `--reporter=html` when running E2E tests so the report can be shared:
+
+```bash
+npx playwright test --reporter=html
+```
+
+## Parallelism & Timeout
+
+- Default: **40 workers** (`--workers=40`)
+- First round of any new E2E run: **5s timeout** (`--timeout=5000`)
+- Subsequent rounds if failures remain: increase timeout incrementally (10s, 30s)
+- Run multiple rounds until **all tests pass**
+
+```bash
+# Standard command
+npx playwright test --reporter=html --workers=40 --timeout=5000
+
+# With specific file
+npx playwright test e2e/some.spec.ts --reporter=html --workers=40 --timeout=5000
+```
+
+## Fix ALL Errors — No Ignoring
+
+- If any error is found during testing (including pre-existing, unrelated, or not directly touched), **fix it immediately** before moving on.
+- Never skip, suppress, or defer errors. Own the entire codebase quality.
+- After fixing, re-run affected tests to confirm the fix.
+
+## Monolithic File Threshold
+
+A file is considered **monolithic** when it has **≥ 900 lines**. When found:
+1. Split into focused modules/hooks/utils
+2. Remove redundant code
+3. Ensure unit tests cover all extracted modules at > 90%
+4. Add E2E tests for any new user-facing behaviour

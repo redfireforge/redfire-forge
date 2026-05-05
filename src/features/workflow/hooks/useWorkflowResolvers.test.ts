@@ -67,9 +67,13 @@ describe('useWorkflowResolvers', () => {
 
   it('restores lastSelectedEnvId on workflow switch', () => {
     const opts = baseOpts();
-    opts.selected = makeWorkflow('wf-1', 'env-saved');
+    // First render with wf-initial to set prevWfIdForEnv
+    opts.selected = makeWorkflow('wf-initial');
     opts.environments = [{ id: 'env-saved', name: 'Saved', variables: {} }];
-    renderHook(() => useWorkflowResolvers(opts));
+    const { rerender } = renderHook(() => useWorkflowResolvers(opts));
+    // Switch to a different workflow that has lastSelectedEnvId
+    opts.selected = makeWorkflow('wf-1', 'env-saved');
+    rerender();
     expect(opts.onEnvSelect).toHaveBeenCalledWith('env-saved');
   });
 

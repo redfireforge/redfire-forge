@@ -42,6 +42,16 @@ export default function ExportOptionsPopover({ data, onExport, onClose }: Props)
     }
   }, [hasVersions]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Flip popover upward if it would overflow the viewport bottom
+  useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      ref.current.style.top = 'auto';
+      ref.current.style.bottom = '100%';
+    }
+  }, [hasVersions]);
+
   if (!hasVersions) {
     return null;
   }

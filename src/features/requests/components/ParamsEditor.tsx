@@ -13,7 +13,10 @@ interface ParamsEditorProps {
   onChange: (params: ParamEntry[]) => void;
   /** Per row: open variable picker; parent appends `{{…}}` to this row’s value. */
   onInsertVariable?: (rowIndex: number, paramKey: string) => void;  /** Variable hints used to display the source of each param value. */
-  variableHints?: WorkflowVariableHint[];}
+  variableHints?: WorkflowVariableHint[];
+  /** Re-import params from the current URL. If not provided, Import from URL button is hidden. */
+  onImportFromUrl?: () => void;
+}
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
 
@@ -28,7 +31,7 @@ export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
   return entries.filter((e) => e.enabled && e.key.trim()).map(({ key, value }) => ({ key, value }));
 }
 
-export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [] }: ParamsEditorProps) {
+export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [], onImportFromUrl }: ParamsEditorProps) {
   const [bulkEdit, setBulkEdit] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
 
@@ -62,11 +65,10 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
   }, [onChange]);
 
   const importFromUrl = useCallback(() => {
-    // Placeholder — parent handles this via the URL field already.
-    // This fires onChange with params re-parsed from the URL, but the parent already syncs.
-    // Kept as a UX action that clears manual additions and re-imports from URL.
-    onChange([{ ...EMPTY_ROW }]);
-  }, [onChange]);
+    if (onImportFromUrl) {
+      onImportFromUrl();
+    }
+  }, [onImportFromUrl]);
 
   const bulkText = useMemo(() => {
     return params
@@ -97,9 +99,11 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
           {activeCount > 0 && <span className="tab-badge">{activeCount}</span>}
         </div>
         <div className="params-toolbar-right">
-          <button type="button" className="btn-link-sm" onClick={importFromUrl}>
-            Import from URL
-          </button>
+          {onImportFromUrl && (
+            <button type="button" className="btn-link-sm" onClick={importFromUrl}>
+              Import from URL
+            </button>
+          )}
           <button
             type="button"
             className={`btn-link-sm ${bulkEdit ? 'active' : ''}`}

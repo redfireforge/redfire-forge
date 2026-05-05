@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Environment, Microservice, FeatureGroup } from '../shared/types';
 
 interface Props {
@@ -17,6 +17,26 @@ export default function Sidebar({
 }: Props) {
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  // Auto-expand the selected environment/microservice on initial load
+  useEffect(() => {
+    if (selectedEnvId && sidebarView === 'env') {
+      setExpandedNodes(prev => {
+        if (prev.has(selectedEnvId)) return prev;
+        const next = new Set(prev);
+        next.add(selectedEnvId);
+        return next;
+      });
+    }
+    if (selectedSvcId && sidebarView === 'svc') {
+      setExpandedNodes(prev => {
+        if (prev.has(selectedSvcId)) return prev;
+        const next = new Set(prev);
+        next.add(selectedSvcId);
+        return next;
+      });
+    }
+  }, [selectedEnvId, selectedSvcId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleExpanded = (id: string) => {
     setExpandedNodes((prev) => {
@@ -61,6 +81,9 @@ export default function Sidebar({
                   <span className={`sidebar-expand-icon ${isExpanded ? 'expanded' : ''}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(env.id); }}>▸</span>
                   <span className="sidebar-item-name" onClick={() => {
                     toggleExpanded(env.id);
+                    // Also select this env + first microservice in it
+                    onEnvSelect(env.id);
+                    if (svcsInEnv.length > 0) onSvcSelect(svcsInEnv[0].id);
                   }}>{env.name}</span>
                   <span className="sidebar-item-count">{svcsInEnv.length}</span>
                 </div>
