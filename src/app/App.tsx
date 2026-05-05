@@ -569,7 +569,6 @@ export default function App() {
             {domainOf(activeTab) === 'workflow' && (
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
-                <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Runner</button>
                 <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
                 <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
                 <div className="sub-nav-spacer" />
@@ -580,6 +579,7 @@ export default function App() {
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Scenarios</button>
                 <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Runner</button>
+                <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
                 <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
               </div>
             )}
