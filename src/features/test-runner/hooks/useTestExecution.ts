@@ -277,6 +277,7 @@ export function useTestExecution() {
         envName: meta?.envName,
         svcName: meta?.svcName,
         baseUrl: meta?.baseUrl,
+        workflowName: workflow?.name,
       };
 
       const saveResult = await saveTestRun(testRun);

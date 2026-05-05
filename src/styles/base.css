@@ -639,6 +639,15 @@
   color: #f6ad55;
   border: 1px solid rgba(246, 173, 85, 0.3);
 }
+.workflow-name-tag {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .exec-mode-tag {
   background: rgba(66, 153, 225, 0.15);
   color: #4299e1;
