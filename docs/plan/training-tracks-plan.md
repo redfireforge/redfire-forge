@@ -139,19 +139,30 @@ export interface ManualMetadata {
 
 ---
 
-### Phase 3: Path & Manual Display
+### Phase 3: Path & Manual Display ✅ COMPLETED (2026-05-05)
 
 **Scope**: Expandable paths, phases, manual rows
 
-| Task | Files | Estimate |
-|------|-------|----------|
-| Create `TrainingPathCard` | `src/features/training/components/TrainingPathCard.tsx` | M |
-| Create `TrainingPhaseSection` | `src/features/training/components/TrainingPhaseSection.tsx` | M |
-| Create `ManualRow` | `src/features/training/components/ManualRow.tsx` | M |
-| Wire up expand/collapse state | `TrainingTracksView.tsx` | S |
-| Add CSS styles | `src/features/training/training.css` | M |
+| Task | Files | Status |
+|------|-------|--------|
+| Create `TrainingPathCard` | `src/features/training/components/TrainingPathCard.tsx` | ✅ |
+| Create `TrainingPhaseSection` | `src/features/training/components/TrainingPhaseSection.tsx` | ✅ |
+| Create `ManualRow` | `src/features/training/components/ManualRow.tsx` | ✅ |
+| Wire up expand/collapse state | Components + TrainingTracksView.tsx | ✅ |
+| Add CSS styles for chevrons | `src/features/training/training.css` | ✅ |
+| Unit tests for components | `*.test.tsx` | ✅ (37 new tests) |
 
 **Deliverable**: Full hierarchy visible, paths expand to show phases and manuals
+
+**Files Created**:
+- `src/features/training/components/ManualRow.tsx` — Individual manual row with status, title, badges, difficulty, sample button
+- `src/features/training/components/ManualRow.test.tsx` — 13 unit tests
+- `src/features/training/components/TrainingPhaseSection.tsx` — Collapsible phase with keyboard a11y
+- `src/features/training/components/TrainingPhaseSection.test.tsx` — 11 unit tests
+- `src/features/training/components/TrainingPathCard.tsx` — Collapsible path card with progress bar
+- `src/features/training/components/TrainingPathCard.test.tsx` — 13 unit tests
+- Updated `src/features/training/training.css` — Chevron styling for expand/collapse
+- Updated `src/features/training/TrainingTracksView.tsx` — Now uses extracted components
 
 ---
 
