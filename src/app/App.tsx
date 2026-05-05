@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile, Scenario } from '../shared/types';
+import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { useGalleryImport } from './hooks/useGalleryImport';
@@ -41,7 +41,6 @@ import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSide
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 import TrainingTracksView from '../features/training/TrainingTracksView';
-// WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayout';
@@ -49,64 +48,18 @@ import type { Workflow } from '../features/workflow/types/workflow';
 import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import { useToast } from '../shared/hooks/useToast';
+import {
+  type Tab,
+  domainOf,
+  isApiTab,
+  isWorkflowTab,
+  isHarnessTab,
+  isGalleryTab,
+  isSettingsTab,
+  readTabFromUrl,
+  writeTabToUrl,
+} from './utils/appTabUtils';
 import '../styles/index.css';
-
-type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'results';
-
-type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
-
-const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
-const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
-const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
-const GALLERY_TABS = new Set<Tab>(['gallery', 'training']);
-const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
-const API_TABS = new Set<Tab>(['requests', 'catalog']);
-const isApiTab = (t: Tab) => API_TABS.has(t);
-const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences']);
-const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
-
-/** Derive the active domain from the current tab. */
-function domainOf(tab: Tab): Domain {
-  if (isApiTab(tab)) return 'api';
-  if (isWorkflowTab(tab)) return 'workflow';
-  if (isGalleryTab(tab)) return 'gallery';
-  if (isHarnessTab(tab)) return 'testing';
-  return 'settings'; // environments
-}
-
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'training', 'scenarios', 'runner', 'results']);
-const TAB_QUERY = 'tab';
-const DEFAULT_TAB: Tab = 'requests';
-
-/** Read active tab from ?tab= so refresh keeps Environments / Workflow / Harness / etc. */
-function readTabFromUrl(): Tab {
-  try {
-    const q = new URLSearchParams(window.location.search).get(TAB_QUERY);
-    if (q && ALL_TABS.has(q as Tab)) return q as Tab;
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_TAB;
-}
-
-function writeTabToUrl(tab: Tab): void {
-  try {
-    const url = new URL(window.location.href);
-    if (tab === DEFAULT_TAB) {
-      url.searchParams.delete(TAB_QUERY);
-    } else {
-      url.searchParams.set(TAB_QUERY, tab);
-    }
-    const serialized = url.pathname + (url.search ? url.search : '') + url.hash;
-    const current = window.location.pathname + window.location.search + window.location.hash;
-    if (serialized !== current) {
-      window.history.replaceState(window.history.state, '', serialized);
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 declare const __APP_VERSION__: string;
 
