@@ -67,7 +67,7 @@ export default function StructureChangeLogPanel({ entries, onDelete, onClear }: 
               <div className="structure-log-item-body">
                 <div className="structure-log-item-top">
                   <span className="structure-log-item-action">{actionLabel(entry.action)}</span>
-                  <span className="structure-log-item-time">{formatRelativeTime(entry.timestamp)}</span>
+                  <span className="structure-log-item-time">{formatRelativeTime(entry.timestamp, formatTimestamp)}</span>
                 </div>
                 <div className="structure-log-item-detail">
                   <span className="structure-log-item-entity">{entry.entityName}</span>
@@ -100,15 +100,4 @@ export default function StructureChangeLogPanel({ entries, onDelete, onClear }: 
   );
 }
 
-function formatRelativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  const d = new Date(ts);
-  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';

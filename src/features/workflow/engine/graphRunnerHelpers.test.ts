@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   applyTemplateLiteralsFromMap,
   coerceStringMap,
@@ -11,6 +11,8 @@ import {
   classifyErrorType,
   matchesErrorFilter,
   evaluateWaitCondition,
+  extractPayloadVariables,
+  logHttpResult,
 } from './graphRunnerHelpers';
 import type { WorkflowNode, WorkflowEdge, ConditionNodeData } from '../types/workflow';
 import type { RequestResult, Scenario } from '../../../shared/types';
@@ -392,5 +394,138 @@ describe('evaluateWaitCondition', () => {
     expect(evaluateWaitCondition('{{a}}', ctx)).toBe(false);
     ctx.set('a', '');
     expect(evaluateWaitCondition('{{a}}', ctx)).toBe(false);
+  });
+});
+
+// ── extractPayloadVariables ──
+
+describe('extractPayloadVariables', () => {
+  it('extracts simple dot-path values', () => {
+    const ctx = new VariableContext();
+    const payload = { user: { id: 42, name: 'Alice' } };
+    const mappings = [
+      { name: 'userId', jsonPath: '$.user.id' },
+      { name: 'userName', jsonPath: '$.user.name' },
+    ];
+    const result = extractPayloadVariables(payload, mappings, ctx);
+    expect(result).toEqual({ userId: '42', userName: 'Alice' });
+    expect(ctx.get('userId')).toBe('42');
+    expect(ctx.get('userName')).toBe('Alice');
+  });
+
+  it('handles missing paths gracefully', () => {
+    const ctx = new VariableContext();
+    const payload = { a: { b: 1 } };
+    const mappings = [{ name: 'missing', jsonPath: '$.a.c.d' }];
+    const result = extractPayloadVariables(payload, mappings, ctx);
+    expect(result).toEqual({});
+    expect(ctx.get('missing')).toBeUndefined();
+  });
+
+  it('stringifies non-string values with JSON.stringify', () => {
+    const ctx = new VariableContext();
+    const payload = { arr: [1, 2, 3], nested: { x: true } };
+    const mappings = [
+      { name: 'arr', jsonPath: '$.arr' },
+      { name: 'nested', jsonPath: '$.nested' },
+    ];
+    const result = extractPayloadVariables(payload, mappings, ctx);
+    expect(result.arr).toBe('[1,2,3]');
+    expect(result.nested).toBe('{"x":true}');
+  });
+
+  it('handles paths without leading $. prefix', () => {
+    const ctx = new VariableContext();
+    const payload = { data: { value: 'hello' } };
+    const mappings = [{ name: 'val', jsonPath: 'data.value' }];
+    const result = extractPayloadVariables(payload, mappings, ctx);
+    expect(result).toEqual({ val: 'hello' });
+  });
+
+  it('returns empty for empty mappings', () => {
+    const ctx = new VariableContext();
+    const result = extractPayloadVariables({ a: 1 }, [], ctx);
+    expect(result).toEqual({});
+  });
+
+  it('keeps string values as-is', () => {
+    const ctx = new VariableContext();
+    const payload = { msg: 'hello world' };
+    const mappings = [{ name: 'message', jsonPath: '$.msg' }];
+    const result = extractPayloadVariables(payload, mappings, ctx);
+    expect(result.message).toBe('hello world');
+  });
+});
+
+// ── logHttpResult ──
+
+describe('logHttpResult', () => {
+  const makeResult = (overrides: Partial<Parameters<typeof logHttpResult>[2]> = {}) => ({
+    requestResult: {
+      id: '1', scenarioId: 's1', scenarioName: 'test', method: 'GET',
+      url: 'http://example.com', passed: true, httpStatus: 200,
+      responseTimeMs: 123.456, ...(overrides.requestResult ?? {}),
+    } as any,
+    requestHeaders: overrides.requestHeaders ?? {},
+    responseHeaders: overrides.responseHeaders ?? {},
+    requestBody: overrides.requestBody,
+    fullResponseBody: overrides.fullResponseBody,
+    extracted: overrides.extracted,
+  });
+
+  it('logs request line and response summary', () => {
+    const lines: { prefix: string; text: string }[] = [];
+    const log = (line: { prefix: string; text: string }) => lines.push(line);
+    logHttpResult('Node1', log, makeResult());
+    expect(lines[0]).toEqual({ prefix: '>', text: '[Node1] GET http://example.com' });
+    expect(lines[1].prefix).toBe('<');
+    expect(lines[1].text).toContain('200');
+    expect(lines[1].text).toContain('123ms');
+  });
+
+  it('masks sensitive headers', () => {
+    const lines: { prefix: string; text: string }[] = [];
+    const log = (line: { prefix: string; text: string }) => lines.push(line);
+    logHttpResult('N', log, makeResult({
+      requestHeaders: { Authorization: 'Bearer secret-token-12345' },
+    }));
+    const authLine = lines.find(l => l.text.includes('Authorization'));
+    expect(authLine).toBeDefined();
+    expect(authLine!.text).toContain('••••');
+    expect(authLine!.text).not.toContain('secret-token-12345');
+  });
+
+  it('logs extracted variables', () => {
+    const lines: { prefix: string; text: string }[] = [];
+    const log = (line: { prefix: string; text: string }) => lines.push(line);
+    logHttpResult('N', log, makeResult({ extracted: { token: 'abc123' } }));
+    const extractedLine = lines.find(l => l.prefix === '#');
+    expect(extractedLine).toBeDefined();
+    expect(extractedLine!.text).toContain('token = abc123');
+  });
+
+  it('logs assertion failures', () => {
+    const lines: { prefix: string; text: string }[] = [];
+    const log = (line: { prefix: string; text: string }) => lines.push(line);
+    logHttpResult('N', log, makeResult({
+      requestResult: {
+        passed: false,
+        failureDetails: [{ path: '$.status', expected: '200', actual: '500' }],
+      } as any,
+    }));
+    const failLine = lines.find(l => l.prefix === '!');
+    expect(failLine).toBeDefined();
+    expect(failLine!.text).toContain('expected 200, got 500');
+  });
+
+  it('truncates long response bodies', () => {
+    const lines: { prefix: string; text: string }[] = [];
+    const log = (line: { prefix: string; text: string }) => lines.push(line);
+    const longBody = 'x'.repeat(500);
+    logHttpResult('N', log, makeResult({ fullResponseBody: longBody }));
+    const bodyLine = lines.find(l => l.prefix === '<' && l.text.includes('Body:'));
+    expect(bodyLine).toBeDefined();
+    expect(bodyLine!.text.length).toBeLessThan(500);
+    expect(bodyLine!.text).toContain('…');
   });
 });

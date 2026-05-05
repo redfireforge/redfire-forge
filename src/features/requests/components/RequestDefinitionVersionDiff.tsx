@@ -95,7 +95,7 @@ function OverviewDiffView({ older, newer, diff }: { older: RequestDefinitionSnap
         <div className="test-def-diff-row modified">
           <span className="test-def-diff-badge modified">~</span>
           <span className="test-def-diff-field">URL</span>
-          <span className="test-def-diff-val">
+          <span className="test-def-diff-val test-def-diff-val-block">
             <span className="test-def-diff-old">{older.url}</span>
             <span className="test-def-diff-arrow">→</span>
             <span className="test-def-diff-new">{newer.url}</span>
@@ -210,10 +210,4 @@ function tryParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return s; }
 }
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';

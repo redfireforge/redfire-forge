@@ -1,0 +1,57 @@
+name: Parameterized User Lookup
+baseUrl: https://httpbin.org
+
+tests:
+  - name: Get User by ID
+    url: /get
+    method: GET
+    dataSource:
+      columns:
+        - id: c-userId
+          name: userId
+          type: param
+          mapping: userId
+        - id: c-name
+          name: name
+          type: param
+          mapping: name
+        - id: c-validate
+          name: expectedName
+          type: validate
+          mapping: $.args.name
+      rows:
+        - id: r1
+          values:
+            c-userId: "1"
+            c-name: "Alice"
+            c-validate: "Alice"
+          tags: [smoke, critical]
+          label: happy-path
+        - id: r2
+          values:
+            c-userId: "2"
+            c-name: "Bob"
+            c-validate: "Bob"
+          tags: [smoke]
+        - id: r3
+          values:
+            c-userId: "3"
+            c-name: "Charlie"
+            c-validate: "Charlie"
+          tags: [regression]
+          note: Edge case - special characters
+        - id: r4
+          values:
+            c-userId: "4"
+            c-name: "Diana"
+            c-validate: "Diana"
+          tags: [regression, edge-case]
+        - id: r5
+          values:
+            c-userId: "5"
+            c-name: "Eve"
+            c-validate: "Eve"
+          tags: [boundary]
+          label: boundary-check
+          note: Last user in range
+      distribution: sequential

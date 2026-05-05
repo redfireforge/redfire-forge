@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cross-FG Shared Data Sources — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px;
+    padding: 16px; margin: 14px 0; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; line-height: 1.8;
+  }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔗</div>
+    <h1>Cross-FG Shared Data Sources</h1>
+    <div class="subtitle">Test Data Across Feature Groups — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Cross-FG · pokeapi.co</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>In real projects, you often organize tests into multiple <strong>Feature Groups</strong> — one per team, microservice, or test domain. But the same test data (user accounts, product IDs, etc.) may be needed across all of them.</p>
+
+  <p><strong>Cross-FG Shared Data Sources</strong> solve this by providing test data that any feature group can reference. This is the highest level of data sharing in RedfireForge.</p>
+
+  <p>This manual uses the <strong>Cross-FG Pokémon Roster</strong> gallery sample — 6 Pokémon shared between 2 independent feature groups testing different aspects of the PokéAPI.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    This tutorial builds on <a href="shared-data-sources-easy.html">Shared DS Basics</a>. You should understand how to create shared data sources and link tests before continuing.
+  </div>
+
+  <h2>2. The Cross-FG Architecture</h2>
+
+  <div class="diagram">
+┌────────────────────────────────────────────────────────────────┐
+│                    SHARED DATA SOURCE                          │
+│              "Pokémon Roster (6 Pokémon)"                      │
+│   ┌─────────────────────────────────────────────────────────┐  │
+│   │ pikachu | charizard | bulbasaur | squirtle | gengar | eevee│
+│   └─────────────────────────────────────────────────────────┘  │
+└──────────────────────┬───────────────────┬─────────────────────┘
+                       │                   │
+        ┌──────────────┴───────┐   ┌───────┴────────────┐
+        ▼                      ▼   ▼                    ▼
+┌───────────────────┐   ┌──────────────────────────────────┐
+│  FEATURE GROUP 1  │   │       FEATURE GROUP 2            │
+│  "Pokémon Stats"  │   │     "Pokémon Abilities"          │
+│ ┌───────────────┐ │   │ ┌─────────────┐ ┌─────────────┐ │
+│ │ Type Verify   │ │   │ │ Ability Chk │ │ Move Count  │ │
+│ │ GET /pokemon/ │ │   │ │ GET /pokemon│ │ GET /pokemon│ │
+│ │    {{name}}   │ │   │ │   {{name}}  │ │   {{name}}  │ │
+│ └───────────────┘ │   │ └─────────────┘ └─────────────┘ │
+└───────────────────┘   └──────────────────────────────────┘
+  </div>
+
+  <p>Key points:</p>
+  <ul>
+    <li>One shared data source exists at the <strong>top level</strong> (not inside any feature group)</li>
+    <li>Multiple feature groups reference it via <code>sharedDataSourceId</code></li>
+    <li>Each feature group can have different tests using the same data</li>
+    <li>Updating the roster updates all linked tests across all feature groups</li>
+  </ul>
+
+  <h2>3. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Load the Gallery Sample</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel.</li>
+    <li>Find <strong>"Cross-FG Pokémon Roster"</strong> in the Tests tab.</li>
+    <li>Click <strong>Load Test</strong>.</li>
+  </ol>
+  <p>This creates:</p>
+  <ul>
+    <li>A shared data source "Pokémon Roster (6 Pokémon)"</li>
+    <li><strong>Two</strong> feature groups: "Pokémon Stats" and "Pokémon Abilities"</li>
+    <li>3 total scenarios spread across the 2 feature groups</li>
+  </ul>
+
+  <h3>Step 2: Verify the Shared Data Source</h3>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
+    <li>Select "Pokémon Roster (6 Pokémon)".</li>
+    <li>Verify the data:</li>
+  </ol>
+
+  <table>
+    <tr><th>name (path)</th><th>expectedType (validate)</th><th>expectedId (validate)</th><th>tags</th></tr>
+    <tr><td>pikachu</td><td>electric</td><td>25</td><td>starter, electric</td></tr>
+    <tr><td>charizard</td><td>fire</td><td>6</td><td>fire, flying</td></tr>
+    <tr><td>bulbasaur</td><td>grass</td><td>1</td><td>starter, grass</td></tr>
+    <tr><td>squirtle</td><td>water</td><td>7</td><td>starter, water</td></tr>
+    <tr><td>gengar</td><td>ghost</td><td>94</td><td>ghost, poison</td></tr>
+    <tr><td>eevee</td><td>normal</td><td>133</td><td>evolution</td></tr>
+  </table>
+
+  <h3>Step 3: Check the "Used by" Section</h3>
+  <ol>
+    <li>In the Shared DS modal, look at the <strong>Used by</strong> section.</li>
+    <li>You should see 3 tests across 2 feature groups:
+      <ul>
+        <li><code>Pokémon Stats › Type Verify › Primary Type</code></li>
+        <li><code>Pokémon Abilities › Ability Check › Abilities</code></li>
+        <li><code>Pokémon Abilities › Move Count › Moves Count</code></li>
+      </ul>
+    </li>
+    <li>Click any badge to navigate to that test.</li>
+  </ol>
+
+  <h3>Step 4: Explore Both Feature Groups</h3>
+  <ol>
+    <li>Go to the <strong>Scenarios</strong> tab.</li>
+    <li>You'll see two feature groups prefixed with "Gallery:"</li>
+    <li>Expand <strong>Gallery: Pokémon Stats</strong>:
+      <ul>
+        <li>"Type Verification" scenario with 1 test (checks primary type)</li>
+      </ul>
+    </li>
+    <li>Expand <strong>Gallery: Pokémon Abilities</strong>:
+      <ul>
+        <li>"Ability Check" scenario with 1 test (verifies abilities array)</li>
+        <li>"Move Count" scenario with 1 test (verifies moves array size)</li>
+      </ul>
+    </li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Independent Feature Groups</strong>
+    These feature groups are completely independent — different teams could own them. The shared data source is the only connection between them.
+  </div>
+
+  <h3>Step 5: Run Tests Across Feature Groups</h3>
+  <ol>
+    <li>Go to the <strong>Runner</strong> tab.</li>
+    <li>Check <strong>both</strong> feature groups.</li>
+    <li>Notice: <strong>"3 tests × 6 data rows = 18 requests"</strong>.</li>
+    <li>Click <strong>Run</strong>.</li>
+  </ol>
+  <p>All 3 tests execute against the same 6 Pokémon. Results are grouped by feature group, then test, then data row.</p>
+
+  <h3>Step 6: Update the Shared Data</h3>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong>.</li>
+    <li>Add a new row: <code>mewtwo | psychic | 150</code> with tag <code>legendary</code>.</li>
+    <li>Save.</li>
+    <li>Return to Runner and run both feature groups again.</li>
+    <li>All 3 tests now run with 7 Pokémon — <strong>21 requests total</strong>.</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Impact Awareness</strong>
+    When you save changes, a confirmation modal shows which tests will be affected. With cross-FG data, this list may include tests from multiple feature groups owned by different teams.
+  </div>
+
+  <h2>4. When to Use Cross-FG Sharing</h2>
+
+  <table>
+    <tr><th>Use Case</th><th>Example</th></tr>
+    <tr><td>Shared test accounts</td><td>5 user credentials used by Login, Profile, and Permissions tests</td></tr>
+    <tr><td>Product catalog</td><td>100 SKUs used by Inventory, Pricing, and Cart tests</td></tr>
+    <tr><td>Config data</td><td>Environment URLs, API keys, feature flags used everywhere</td></tr>
+    <tr><td>Golden dataset</td><td>Known-good reference data for validation across teams</td></tr>
+  </table>
+
+  <h2>5. Practical Patterns</h2>
+
+  <h3>Pattern A: Team Ownership Model</h3>
+  <p>One team owns the shared data source (e.g., QA Platform team), other teams reference it:</p>
+  <ul>
+    <li><strong>Owner team</strong> maintains data accuracy and adds new rows</li>
+    <li><strong>Consumer teams</strong> link their tests to the shared DS</li>
+    <li>Owner runs verification periodically to ensure data is current</li>
+  </ul>
+
+  <h3>Pattern B: Test Pyramid Layers</h3>
+  <p>Same data used across different test types:</p>
+  <ul>
+    <li><strong>Smoke tests FG</strong> — quick checks with subset of rows</li>
+    <li><strong>Regression tests FG</strong> — full coverage with all rows</li>
+    <li><strong>Contract tests FG</strong> — validate response shapes</li>
+  </ul>
+  <p>Use row tags (e.g., <code>smoke</code>, <code>full</code>) to filter which rows each FG uses.</p>
+
+  <h3>Pattern C: Multi-Environment Testing</h3>
+  <p>Data that's valid across environments:</p>
+  <ul>
+    <li>Product IDs that exist in dev, staging, and prod</li>
+    <li>User accounts created in all environments</li>
+    <li>Tests in different FGs target different environments but share the data</li>
+  </ul>
+
+  <h2>6. Try It Yourself</h2>
+  <p>Create your own cross-FG shared data setup:</p>
+  <ol>
+    <li>Create a shared DS named "Country Codes" with 5 country codes</li>
+    <li>Create Feature Group A: "Country Names" with a test for <code>restcountries.com/v3.1/alpha/{{code}}</code></li>
+    <li>Create Feature Group B: "Country Flags" with a test checking <code>$.flags.png</code> exists</li>
+    <li>Link both tests to the same "Country Codes" shared DS</li>
+    <li>Run both FGs and verify they share the data</li>
+    <li>Add a new country code and confirm both FGs pick it up</li>
+  </ol>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="shared-data-sources-easy.html">Shared DS Basics</a> — introduction to shared data sources</li>
+    <li><a href="shared-data-sources-fetch-medium.html">Shared DS with Fetch Config</a> — API-driven population</li>
+    <li><a href="shared-data-sources-advanced.html">Shared DS Advanced</a> — tags, CSV import, promotion/demotion</li>
+    <li><a href="parameterized-multi-endpoint-advanced.html">Multi-Endpoint Regression</a> — similar multi-scenario patterns with inline data</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Cross-FG Shared Data Sources · Medium
+  </footer>
+</body>
+</html>

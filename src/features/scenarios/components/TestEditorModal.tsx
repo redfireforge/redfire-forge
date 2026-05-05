@@ -1,41 +1,38 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, AuthConfig, KeyValue, GlobalAuthProfile, FailureDetail, ResponseVersion, RulesVersion } from '../../../shared/types';
+import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import {
   getBaseUrl,
-  jsonEqual,
   parseQueryParams,
   pickJsonFile,
   rebuildUrl,
   unwrapImport,
 } from '../utils/testEditorUtils';
-import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
 import { toErrorMessage } from '../../../shared/utils/helpers';
-import ExportOptionsPopover from './ExportOptionsPopover';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
 import { createSnapshot } from '../utils/testDefinitionVersioning';
-import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
-import { proxyFetch } from '../../../engine/executor';
-import { acquireOAuth2Token } from '../../../engine/tokenManager';
-import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
-import { validate } from '../../../engine/validator';
-import CsvTemplateExportModal from './CsvTemplateExportModal';
+import { useTestFetch } from '../hooks/useTestFetch';
+import { saveFile } from '../../../shared/utils/fileSaver';
+import Papa from 'papaparse';
+import DataSourceSetupModal from './DataSourceSetupModal';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import ExtractionEditor from '../../requests/components/ExtractionEditor';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
+import DataSourceEditor from './DataSourceEditor';
+import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
-export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'history';
+export type TestEditorTab = 'params' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'data' | 'history';
 export type TestEditorInputMode = 'builder' | 'curlImport' | 'curlExport';
 
 export type TestEditingContext = { fgId: string; scenarioId: string; testId: string | 'new' };
@@ -46,6 +43,7 @@ export interface TestEditorModalProps {
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
+  isParameterized?: boolean;
   inputMode: TestEditorInputMode;
   onInputModeChange: (mode: TestEditorInputMode) => void;
   activeTab: TestEditorTab;
@@ -59,6 +57,19 @@ export interface TestEditorModalProps {
   onVersionRestore: (version: import('../../../shared/types').TestDefinitionVersion) => void;
   onVersionDelete: (versionId: string) => void;
   onVersionRename: (versionId: string, label: string) => void;
+  /** Called when user wants to create a parameterized copy from the Parameterize tab */
+  onCreateParameterizedCopy?: (copy: Scenario, targetFgId?: string, targetScenarioId?: string) => void;
+  /** Top-level shared data sources (for linking) */
+  sharedDataSources?: SharedDataSource[];
+  /** Called when user promotes inline data to a shared data source; returns new shared DS id */
+  onPromoteToShared?: (
+    dataSource: DataSource,
+    name: string,
+    tags?: string[],
+    fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }
+  ) => string;
+  /** Called when user clicks the shared DS badge to open the modal */
+  onOpenSharedDsModal?: () => void;
 }
 
 export default function TestEditorModal({
@@ -67,6 +78,7 @@ export default function TestEditorModal({
   onSave,
   onCancel,
   isNew,
+  isParameterized,
   inputMode,
   onInputModeChange,
   activeTab,
@@ -79,26 +91,56 @@ export default function TestEditorModal({
   onVersionRestore,
   onVersionDelete,
   onVersionRename,
+  onCreateParameterizedCopy,
+  sharedDataSources,
+  onPromoteToShared,
+  onOpenSharedDsModal,
 }: TestEditorModalProps) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const toast = useToast();
+
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const importDropdownRef = useRef<HTMLDivElement>(null);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (importDropdownRef.current && !importDropdownRef.current.contains(e.target as Node)) setImportDropdownOpen(false);
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) setExportDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const [curlText, setCurlText] = useState('');
   const [generatedCurl, setGeneratedCurl] = useState('');
   const [curlGenerating, setCurlGenerating] = useState(false);
   const [queryParams, setQueryParams] = useState<ParamEntry[]>(() => toParamEntries(parseQueryParams(draft.url)));
 
-  const [fetchingResponse, setFetchingResponse] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [fetchHostOverride, setFetchHostOverride] = useState(draft.fetchHostOverride || '');
-  const [fetchHostEnabled, setFetchHostEnabled] = useState(!!draft.fetchHostEnabled);
-
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{ passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null>(null);
-
-  /** Holds fetched response JSON when existing rules exist; user must choose keep/replace/cancel */
-  const [pendingFetchResponse, setPendingFetchResponse] = useState<string | null>(null);
+  const {
+    fetchingResponse, fetchError,
+    fetchHostOverride, setFetchHostOverride,
+    fetchHostEnabled, setFetchHostEnabled,
+    validating, validationResult, setValidationResult,
+    pendingFetchResponse,
+    resolveEffectiveAuth,
+    handleFetchRow,
+    handleFetchSampleResponse,
+    handleFetchKeepRules, handleFetchReplaceAll, handleFetchCancel,
+    handleValidateResponse,
+  } = useTestFetch({
+    draftRef,
+    onDraftChange,
+    featureGroups,
+    editingFgId: editingTest.fgId,
+    editingScenarioId: editingTest.scenarioId,
+    editingTestId: editingTest.testId,
+    allAuthProfiles,
+    draftId: draft.id,
+  });
 
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
@@ -107,19 +149,18 @@ export default function TestEditorModal({
     setQueryParams(toParamEntries(parseQueryParams(draft.url)));
     setCurlText('');
     setGeneratedCurl('');
-    setFetchError(null);
-    setFetchHostOverride(draft.fetchHostOverride || '');
-    setFetchHostEnabled(!!draft.fetchHostEnabled);
     setAuthVerifyResult(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync local state only on test switch; adding draft.fetchHostOverride/fetchHostEnabled would loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync local state only on test switch
   }, [editingTest.fgId, editingTest.scenarioId, editingTest.testId, draft.id]);
 
+  // Sync queryParams when draft.url changes externally (e.g. version restore)
+  const prevUrlRef = useRef(draft.url);
   useEffect(() => {
-    const prev = draftRef.current;
-    if (prev.fetchHostOverride !== fetchHostOverride || !!prev.fetchHostEnabled !== fetchHostEnabled) {
-      onDraftChange({ ...prev, fetchHostOverride, fetchHostEnabled });
+    if (draft.url !== prevUrlRef.current) {
+      prevUrlRef.current = draft.url;
+      setQueryParams(toParamEntries(parseQueryParams(draft.url)));
     }
-  }, [fetchHostOverride, fetchHostEnabled, onDraftChange]);
+  }, [draft.url]);
 
   const syncParamsFromUrl = useCallback((url: string) => {
     setQueryParams(toParamEntries(parseQueryParams(url)));
@@ -132,6 +173,11 @@ export default function TestEditorModal({
       onDraftChange({ ...cur, url: rebuildUrl(cur.url, fromParamEntries(entries)) });
     }
   }, [onDraftChange]);
+
+  const handleImportFromUrl = useCallback(() => {
+    const cur = draftRef.current;
+    setQueryParams(toParamEntries(parseQueryParams(cur.url)));
+  }, []);
 
   const updateHeader = (index: number, field: 'key' | 'value', val: string) => {
     const cur = draftRef.current;
@@ -150,298 +196,16 @@ export default function TestEditorModal({
     onDraftChange({ ...cur, headers: cur.headers.filter((_, i) => i !== index) });
   };
 
-  const resolveEffectiveAuth = useCallback((): { auth: AuthConfig; source: string } => {
-    const cur = draftRef.current;
-    if (cur.auth.type !== 'inherit' && cur.auth.type !== 'none') {
-      return { auth: cur.auth, source: 'test' };
-    }
-    const fg = featureGroups.find((f) => f.id === editingTest.fgId);
-    const sc = fg?.scenarios.find((s) => s.id === editingTest.scenarioId);
-    if (cur.auth.type === 'inherit' || cur.auth.type === 'none') {
-      if (sc?.auth && sc.auth.type !== 'none' && sc.auth.type !== 'inherit') {
-        return { auth: sc.auth, source: 'scenario' };
-      }
-      if (fg?.auth && fg.auth.type !== 'none' && fg.auth.type !== 'inherit') {
-        return { auth: fg.auth, source: 'feature' };
-      }
-      if (fg?.auth?.type === 'inherit' && fg.globalAuthProfileId) {
-        const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-        if (profile && profile.auth.type !== 'none') {
-          return { auth: profile.auth, source: `global:${profile.name}` };
-        }
-      }
-      if ((!fg?.auth || fg.auth.type === 'none') && fg?.globalAuthProfileId) {
-        const profile = allAuthProfiles.find((p) => p.id === fg.globalAuthProfileId);
-        if (profile && profile.auth.type !== 'none') {
-          return { auth: profile.auth, source: `global:${profile.name}` };
-        }
-      }
-    }
-    return { auth: { type: 'none' }, source: 'none' };
-  }, [editingTest.fgId, editingTest.scenarioId, featureGroups, allAuthProfiles]);
-
-  /** Apply host override and API-key query param to a URL before fetching. */
-  const applyFetchUrlOverrides = useCallback((url: string, auth: AuthConfig): string => {
-    let fetchUrl = url;
-    if (fetchHostEnabled && fetchHostOverride.trim()) {
-      try {
-        const orig = new URL(fetchUrl);
-        const base = new URL(fetchHostOverride.trim().endsWith('/') ? fetchHostOverride.trim() : `${fetchHostOverride.trim()}/`);
-        orig.protocol = base.protocol;
-        orig.host = base.host;
-        fetchUrl = orig.toString();
-      } catch { /* keep original */ }
-    }
-    if (auth.type === 'apikey' && auth.apiKeyIn === 'query' && auth.apiKeyName && auth.apiKeyValue) {
-      try {
-        const u = new URL(fetchUrl);
-        u.searchParams.set(auth.apiKeyName, auth.apiKeyValue);
-        fetchUrl = u.toString();
-      } catch { /* keep original */ }
-    }
-    return fetchUrl;
-  }, [fetchHostEnabled, fetchHostOverride]);
-
-  const handleFetchSampleResponse = useCallback(async () => {
-    const cur = draftRef.current;
-    if (!cur.url.trim()) {
-      setFetchError('URL is required');
-      return;
-    }
-    setFetchingResponse(true);
-    setFetchError(null);
-    try {
-      const { auth: effectiveAuth, source: authSource } = resolveEffectiveAuth();
-
-      const reqHeaders: Record<string, string> = {};
-      for (const h of cur.headers) {
-        if (!h.key.trim()) continue;
-        if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
-        reqHeaders[h.key.trim()] = h.value;
-      }
-      const { body: reqBody, contentType: autoContentType } = serializeWithContentType(cur);
-      const bt = getEffectiveBodyType(cur);
-      if (bt === 'form-data' && autoContentType) {
-        reqHeaders['Content-Type'] = autoContentType;
-      } else if (!reqHeaders['Content-Type'] && autoContentType) {
-        reqHeaders['Content-Type'] = autoContentType;
-      }
-
-      if (effectiveAuth.type === 'oauth2') {
-        if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
-          const missing = [
-            !effectiveAuth.tokenUrl && 'tokenUrl',
-            !effectiveAuth.clientId && 'clientId',
-            !effectiveAuth.clientSecret && 'clientSecret',
-          ].filter(Boolean).join(', ');
-          setFetchError(`OAuth2 missing: ${missing} (auth source: ${authSource}). Configure OAuth2 credentials in the scenario auth panel.`);
-          setFetchingResponse(false);
-          return;
-        }
-        const token = await acquireOAuth2Token(effectiveAuth);
-        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth, token));
-      } else if (effectiveAuth.type !== 'none') {
-        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth));
-      }
-
-      const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
-
-      const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
-      const latest = draftRef.current;
-      if (result.error) {
-        setFetchError(result.error);
-      } else if (result.status >= 400) {
-        setFetchError(`HTTP ${result.status}: ${result.statusText}`);
-        if (result.body) {
-          let pretty: string;
-          try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
-          onDraftChange({ ...latest, validation: { ...latest.validation, sampleJson: pretty } });
-        }
-      } else {
-        let pretty: string;
-        try {
-          pretty = JSON.stringify(JSON.parse(result.body), null, 2);
-        } catch {
-          pretty = result.body;
-        }
-        const v = latest.validation;
-        const hasExistingRules = (v.expectedFields || []).length > 0;
-
-        if (hasExistingRules) {
-          // Don't auto-clear rules — ask user what to do
-          setPendingFetchResponse(pretty);
-        } else {
-          // No rules to lose — apply directly and auto-version
-          const prevVersions = v.responseVersions || [];
-          const latestVersion = prevVersions.length > 0 ? prevVersions[prevVersions.length - 1] : null;
-          const isDup = latestVersion ? jsonEqual(latestVersion.json, pretty, v.excludedPaths) : false;
-          const updatedVersions = isDup
-            ? prevVersions
-            : [...prevVersions, createResponseVersion(v, pretty)];
-          onDraftChange({
-            ...latest,
-            validation: {
-              ...latest.validation,
-              sampleJson: pretty,
-              expectedFields: [],
-              responseVersions: updatedVersions,
-            },
-          });
-        }
-        setFetchError(null);
-      }
-    } catch (err) {
-      setFetchError(toErrorMessage(err));
-    } finally {
-      setFetchingResponse(false);
-    }
-  }, [applyFetchUrlOverrides, onDraftChange, resolveEffectiveAuth]);
-
-  /** Apply pending fetch response: keep existing rules but update response JSON */
-  const handleFetchKeepRules = useCallback(() => {
-    if (!pendingFetchResponse) return;
-    const latest = draftRef.current;
-    const v = latest.validation;
-    const prevVersions = v.responseVersions || [];
-    // Auto-save current state as a version before replacing
-    const autoSaveVer = createResponseVersion(v, v.sampleJson || '');
-    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVer] : prevVersions;
-    onDraftChange({
-      ...latest,
-      validation: {
-        ...latest.validation,
-        sampleJson: pendingFetchResponse,
-        responseVersions: updatedVersions,
-      },
-    });
-    setPendingFetchResponse(null);
-  }, [pendingFetchResponse, onDraftChange]);
-
-  /** Apply pending fetch response: replace response AND clear rules */
-  const handleFetchReplaceAll = useCallback(() => {
-    if (!pendingFetchResponse) return;
-    const latest = draftRef.current;
-    const v = latest.validation;
-    const prevVersions = v.responseVersions || [];
-    // Auto-save current state as a response version before replacing
-    const autoSaveVer = createResponseVersion(v, v.sampleJson || '');
-    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave ? [...prevVersions, autoSaveVer] : prevVersions;
-    // Auto-save current rules as a rules version before clearing
-    const prevRulesVersions = v.rulesVersions || [];
-    const hasRules = (v.expectedFields || []).length > 0;
-    const autoRulesVer = createRulesVersion(v);
-    const updatedRulesVersions = hasRules ? [...prevRulesVersions, autoRulesVer] : prevRulesVersions;
-    onDraftChange({
-      ...latest,
-      validation: {
-        ...latest.validation,
-        sampleJson: pendingFetchResponse,
-        expectedFields: [],
-        responseVersions: updatedVersions,
-        rulesVersions: updatedRulesVersions,
-      },
-    });
-    setPendingFetchResponse(null);
-  }, [pendingFetchResponse, onDraftChange]);
-
-  /** Cancel pending fetch — discard the new response */
-  const handleFetchCancel = useCallback(() => {
-    setPendingFetchResponse(null);
-  }, []);
-
-  const handleValidateResponse = useCallback(async () => {
-    const cur = draftRef.current;
-    if (!cur.url.trim()) {
-      setValidationResult({ passed: false, failures: [{ path: '(url)', expected: 'a URL', actual: 'empty' }] });
-      return;
-    }
-    const v = cur.validation;
-    if (v.mode === 'none' || ((v.expectedFields || []).length === 0 && v.mode === 'selective')) {
-      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
-      return;
-    }
-
-    setValidating(true);
-    setValidationResult(null);
-    try {
-      const { auth: effectiveAuth } = resolveEffectiveAuth();
-      const reqHeaders: Record<string, string> = {};
-      for (const h of cur.headers) {
-        if (!h.key.trim()) continue;
-        if (h.key.trim().toLowerCase() === 'authorization' && effectiveAuth.type !== 'none') continue;
-        reqHeaders[h.key.trim()] = h.value;
-      }
-      const { body: reqBody, contentType: autoContentType } = serializeWithContentType(cur);
-      const bt = getEffectiveBodyType(cur);
-      if (bt === 'form-data' && autoContentType) {
-        reqHeaders['Content-Type'] = autoContentType;
-      } else if (!reqHeaders['Content-Type'] && autoContentType) {
-        reqHeaders['Content-Type'] = autoContentType;
-      }
-
-      if (effectiveAuth.type === 'oauth2') {
-        if (!effectiveAuth.tokenUrl || !effectiveAuth.clientId || !effectiveAuth.clientSecret) {
-          setValidationResult({ passed: false, failures: [{ path: '(auth)', expected: 'OAuth2 credentials', actual: 'missing tokenUrl/clientId/clientSecret' }] });
-          setValidating(false);
-          return;
-        }
-        const token = await acquireOAuth2Token(effectiveAuth);
-        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth, token));
-      } else if (effectiveAuth.type !== 'none') {
-        Object.assign(reqHeaders, resolveAuthHeaders(effectiveAuth));
-      }
-
-      const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
-
-      const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
-
-      if (result.error) {
-        setValidationResult({ passed: false, failures: [{ path: '(network)', expected: 'response', actual: result.error }] });
-        return;
-      }
-      if (result.status >= 400) {
-        setValidationResult({
-          passed: false,
-          httpStatus: result.status,
-          failures: [{ path: '(http)', expected: '2xx', actual: `${result.status} ${result.statusText}` }],
-          responseJson: result.body,
-        });
-        return;
-      }
-
-      let responseObj: unknown;
-      try { responseObj = JSON.parse(result.body); } catch { responseObj = result.body; }
-
-      const failures = validate(v, responseObj);
-      setValidationResult({
-        passed: failures.length === 0,
-        failures,
-        httpStatus: result.status,
-        responseJson: result.body,
-      });
-    } catch (err) {
-      setValidationResult({ passed: false, failures: [{ path: '(error)', expected: 'success', actual: toErrorMessage(err) }] });
-    } finally {
-      setValidating(false);
-    }
-  }, [applyFetchUrlOverrides, resolveEffectiveAuth]);
-
   const handleBaseUrlChange = (newBaseUrl: string) => {
     const cur = draftRef.current;
     const enabledParams = fromParamEntries(queryParams);
-    if (enabledParams.length > 0) {
-      try {
-        const u = new URL(newBaseUrl);
-        enabledParams.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
-        onDraftChange({ ...cur, url: u.toString() });
-      } catch {
-        onDraftChange({ ...cur, url: newBaseUrl });
-      }
-    } else {
-      onDraftChange({ ...cur, url: newBaseUrl });
+    const newUrl = enabledParams.length > 0 ? rebuildUrl(newBaseUrl, enabledParams) : newBaseUrl;
+    const patch: Partial<Scenario> = { url: newUrl };
+    // Keep urlTemplate in sync when data source exists
+    if (cur.dataSource?.urlTemplate) {
+      patch.dataSource = { ...cur.dataSource, urlTemplate: newUrl };
     }
+    onDraftChange({ ...cur, ...patch });
   };
 
   const handleCurlImport = () => {
@@ -483,7 +247,6 @@ export default function TestEditorModal({
   }, [generateCurl]);
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
-  const [showExportPopover, setShowExportPopover] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ older: import('../../../shared/types').TestDefinitionVersion; newer: import('../../../shared/types').TestDefinitionVersion } | null>(null);
 
   const defVersions = draft.definitionVersions ?? [];
@@ -491,12 +254,141 @@ export default function TestEditorModal({
 
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim() && p.enabled).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
-  const baseUrl = useMemo(() => (draft.url ? getBaseUrl(draft.url) : ''), [draft.url]);
+
+  // For parameterized tests, build a preview URL with {{variable}} placeholders for param columns
+  const displayUrl = useMemo(() => {
+    const dt = draft.dataSource;
+    if (dt?.urlTemplate) {
+      // Start with the template (already has path {{variables}})
+      const paramCols = dt.columns.filter(c => c.type === 'param');
+      if (paramCols.length > 0) {
+        const base = dt.urlTemplate.split('?')[0];
+        const params = paramCols.map(c => `${c.mapping}={{${c.mapping}}}`).join('&');
+        return `${base}?${params}`;
+      }
+      return dt.urlTemplate;
+    }
+    return draft.url;
+  }, [draft.dataSource, draft.url]);
+
+  const baseUrl = useMemo(() => (displayUrl ? getBaseUrl(displayUrl) : ''), [displayUrl]);
+
+  // ─── Import/Export choice handlers ──────────────────────────
+  const handleImportChoice = useCallback((choice: ImportChoice) => {
+    setImportDropdownOpen(false);
+    if (choice === 'test-definition') {
+      pickJsonFile((raw) => {
+        const data = unwrapImport(raw);
+        const t = data as Scenario;
+        if (!t.name || !t.url || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name, url, and method.'); return; }
+        const cur = draftRef.current;
+        onDraftChange({ ...t, id: cur.id });
+        syncParamsFromUrl(t.url || '');
+        if (inputMode !== 'builder') onInputModeChange('builder');
+      });
+    } else if (choice === 'data-rows') {
+      // Trigger file picker for CSV/JSON data rows
+      const dt = draftRef.current.dataSource;
+      if (!dt) return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv,.json';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const cur = draftRef.current;
+        const currentDt = cur.dataSource;
+        if (!currentDt) return;
+
+        if (file.name.endsWith('.json')) {
+          try {
+            const json = JSON.parse(text);
+            // Minimal JSON import — map values by column name
+            if (json.rows && Array.isArray(json.rows)) {
+              const newRows = json.rows.map((r: { values?: Record<string, string>; enabled?: boolean }) => {
+                const values: Record<string, string> = {};
+                for (const col of currentDt.columns) {
+                  values[col.id] = r.values?.[col.name] ?? '';
+                }
+                return { id: uuidv4(), values, enabled: r.enabled !== false };
+              });
+              onDraftChange({ ...cur, dataSource: { ...currentDt, rows: newRows } });
+            }
+          } catch (err) { console.error('JSON import failed:', err); }
+          return;
+        }
+
+        // CSV import
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length === 0) return;
+        const rawHeaders = Papa.parse(lines[0]).data[0] as string[];
+        const colIdMap = rawHeaders.map(h => {
+          const trimmed = h.trim();
+          // Strip type prefix (path:, param:, expect:, header:, body:, validate:)
+          const stripped = trimmed.replace(/^(?:path|param|expect|header|body|validate):/, '');
+          const col = currentDt.columns.find(c => c.name.toLowerCase() === stripped.toLowerCase() || c.mapping.toLowerCase() === stripped.toLowerCase())
+            || currentDt.columns.find(c => c.name.toLowerCase() === trimmed.toLowerCase() || c.mapping.toLowerCase() === trimmed.toLowerCase());
+          return col?.id ?? null;
+        });
+        const parsed = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true });
+        const dataRows = parsed.data.slice(1); // skip header row
+        const newRows = [];
+        for (const cells of dataRows) {
+          const values: Record<string, string> = {};
+          for (const col of currentDt.columns) values[col.id] = '';
+          for (let j = 0; j < colIdMap.length; j++) {
+            if (colIdMap[j]) values[colIdMap[j]!] = cells[j] ?? '';
+          }
+          newRows.push({ id: uuidv4(), values, enabled: true });
+        }
+        if (newRows.length > 0) {
+          onDraftChange({ ...cur, dataSource: { ...currentDt, rows: newRows } });
+        }
+      };
+      input.click();
+    }
+  }, [onDraftChange, onInputModeChange, inputMode, syncParamsFromUrl, toast]);
+
+  const handleExportChoice = useCallback((choice: ExportChoice) => {
+    setExportDropdownOpen(false);
+    if (choice === 'test-definition') {
+      // Export directly with default options (include all versions)
+      onExportTest(draftRef.current);
+    } else if (choice === 'excel-template') {
+      setCsvExportOpen(true);
+    } else if (choice === 'data-csv') {
+      const dt = draftRef.current.dataSource;
+      if (!dt) return;
+      const headers = dt.columns.map(col => {
+        const prefix = col.type === 'path' ? 'path:' : col.type === 'param' ? 'param:' : col.type === 'validate' ? 'expect:' : col.type === 'header' ? 'header:' : col.type === 'body' ? 'body:' : '';
+        return prefix + col.name;
+      });
+      const data = dt.rows.map(row =>
+        dt.columns.map(col => row.values[col.id] ?? ''),
+      );
+      const csv = Papa.unparse({ fields: headers, data });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      void saveFile(blob, { filename: `${draftRef.current.name || 'data-source'}.csv`, mimeType: 'text/csv', description: 'CSV file' });
+    } else if (choice === 'data-json') {
+      const cur = draftRef.current;
+      const dt = cur.dataSource;
+      if (!dt) return;
+      const json = {
+        version: '1.0',
+        metadata: { name: cur.name, method: cur.method, urlTemplate: dt.urlTemplate || cur.url, createdAt: new Date().toISOString(), exportedFrom: 'RedfireForge' },
+        columns: dt.columns.map(col => ({ id: col.id, name: col.name, type: col.type, mapping: col.mapping })),
+        rows: dt.rows.map(row => ({ id: row.id, enabled: row.enabled, tags: row.tags, note: row.note, values: Object.fromEntries(dt.columns.map(col => [col.name, row.values[col.id] ?? ''])) })),
+      };
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+      void saveFile(blob, { filename: `${cur.name || 'data-source'}.json`, mimeType: 'application/json', description: 'JSON file' });
+    }
+  }, []);
 
   return (
     <>
       <WorkflowEditorModalFrame
-        title={isNew ? 'New Test' : 'Edit Test'}
+        title={isNew ? (isParameterized ? 'New Parameterized Test' : 'New Test') : (isParameterized ? 'Edit Parameterized Test' : 'Edit Test')}
         onClose={onCancel}
         overlayClassName="insomnia-modal-overlay"
         dialogClassName="insomnia-modal"
@@ -516,26 +408,56 @@ export default function TestEditorModal({
               >
                 cURL Export
               </button>
-              <button
-                type="button"
-                className="mode-btn"
-                onClick={() => pickJsonFile((raw) => {
-                  const data = unwrapImport(raw);
-                  const t = data as Scenario;
-                  if (!t.name || !t.url || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name, url, and method.'); return; }
-                  const cur = draftRef.current;
-                  onDraftChange({ ...t, id: cur.id });
-                  syncParamsFromUrl(t.url || '');
-                  onInputModeChange('builder');
-                })}
-              >
-                Import
-              </button>
-              <span className="export-opts-anchor">
-                <button type="button" className="mode-btn" onClick={() => setShowExportPopover(true)}>Export</button>
-                {showExportPopover && <ExportOptionsPopover data={draft} onExport={(o) => { onExportTest(draft, o); setShowExportPopover(false); }} onClose={() => setShowExportPopover(false)} />}
-              </span>
-              <button type="button" className="mode-btn" onClick={() => setCsvExportOpen(true)}>Export Template</button>
+              <div className="mode-btn-dropdown-wrapper" ref={importDropdownRef}>
+                <button
+                  type="button"
+                  className={`mode-btn ${importDropdownOpen ? 'active' : ''}`}
+                  onClick={() => { setImportDropdownOpen(v => !v); setExportDropdownOpen(false); }}
+                >
+                  Import ▾
+                </button>
+                {importDropdownOpen && (
+                  <div className="mode-btn-dropdown">
+                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleImportChoice('test-definition')}>
+                      <span className="mode-btn-dropdown-label">Test Definition</span>
+                      <span className="mode-btn-dropdown-desc">Load a saved test configuration (.json)</span>
+                    </button>
+                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleImportChoice('data-rows')}>
+                      <span className="mode-btn-dropdown-label">Data Rows</span>
+                      <span className="mode-btn-dropdown-desc">Import CSV or JSON data into the Data Source</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="mode-btn-dropdown-wrapper" ref={exportDropdownRef}>
+                <button
+                  type="button"
+                  className={`mode-btn ${exportDropdownOpen ? 'active' : ''}`}
+                  onClick={() => { setExportDropdownOpen(v => !v); setImportDropdownOpen(false); }}
+                >
+                  Export ▾
+                </button>
+                {exportDropdownOpen && (
+                  <div className="mode-btn-dropdown">
+                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('test-definition')}>
+                      <span className="mode-btn-dropdown-label">Test Definition</span>
+                      <span className="mode-btn-dropdown-desc">Save test configuration as .json</span>
+                    </button>
+                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('excel-template')}>
+                      <span className="mode-btn-dropdown-label">Excel Template</span>
+                      <span className="mode-btn-dropdown-desc">Structured .xlsx with metadata and data rows</span>
+                    </button>
+                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-csv')}>
+                      <span className="mode-btn-dropdown-label">Data as CSV</span>
+                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .csv</span>
+                    </button>
+                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-json')}>
+                      <span className="mode-btn-dropdown-label">Data as JSON</span>
+                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .json</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
             <button type="button" className="btn btn-primary" onClick={onSave} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
@@ -631,10 +553,10 @@ export default function TestEditorModal({
               )}
             </div>
 
-            {paramCount > 0 && draft.url && (
+            {draft.url && (
               <div className="url-preview">
                 <span className="url-preview-label">URL PREVIEW</span>
-                <code>{draft.url}</code>
+                <code>{displayUrl}</code>
               </div>
             )}
 
@@ -653,12 +575,26 @@ export default function TestEditorModal({
               <button type="button" className={`builder-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => onActiveTabChange('headers')}>
                 Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
               </button>
-              <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
-                Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
-              </button>
-              <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
-                Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
-              </button>
+              {!(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
+                <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
+                  Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
+                </button>
+              )}
+              {!(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
+                <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
+                  Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
+                </button>
+              )}
+              {!draft.dataSource && (
+                <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
+                  Parameterize
+                </button>
+              )}
+              {draft.dataSource && (
+                <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
+                  Data Source {(draft.dataSource.rows.filter(r => r.enabled).length ?? 0) > 0 && <span className="tab-badge">{draft.dataSource.rows.filter(r => r.enabled).length}</span>}
+                </button>
+              )}
               {!isNew && (
                 <button type="button" className={`builder-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => onActiveTabChange('history')}>
                   History {defVersionCount > 0 && <span className="tab-badge">{defVersionCount}</span>}
@@ -668,7 +604,7 @@ export default function TestEditorModal({
 
             <div className="builder-tab-content">
               {activeTab === 'params' && (
-                <ParamsEditor params={queryParams} onChange={handleParamsChange} />
+                <ParamsEditor params={queryParams} onChange={handleParamsChange} onImportFromUrl={handleImportFromUrl} />
               )}
 
               {activeTab === 'body' && draft.method !== 'GET' && (
@@ -756,6 +692,20 @@ export default function TestEditorModal({
                 />
               )}
 
+              {activeTab === 'data' && (
+                <DataSourceEditor
+                  draft={draft}
+                  onDraftChange={onDraftChange}
+                  onFetchRow={handleFetchRow}
+                  onCreateParameterizedCopy={onCreateParameterizedCopy}
+                  featureGroups={featureGroups}
+                  editingTest={editingTest}
+                  sharedDataSources={sharedDataSources}
+                  onPromoteToShared={onPromoteToShared}
+                  onOpenSharedDsModal={onOpenSharedDsModal}
+                />
+              )}
+
               {activeTab === 'history' && (
                 <TestDefinitionVersionPanel
                   versions={defVersions}
@@ -781,8 +731,12 @@ export default function TestEditorModal({
       )}
 
       {csvExportOpen && (
-        <CsvTemplateExportModal
+        <DataSourceSetupModal
           test={draft}
+          mode="export"
+          onApply={(dataTable, _urlTemplate) => {
+            onDraftChange({ ...draftRef.current, dataSource: dataTable });
+          }}
           onClose={() => setCsvExportOpen(false)}
         />
       )}

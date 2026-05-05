@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AuditEntry, AuditEntityType, AuditAction } from '../utils/auditLog';
 import { loadAuditLog, clearAuditLog, formatAction, formatEntityType, auditLogToCsv } from '../utils/auditLog';
 import { saveFile } from '../../../shared/utils/fileSaver';
+import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
 
 const ENTITY_TYPES: AuditEntityType[] = ['environment', 'microservice', 'authProfile'];
 const ACTION_TYPES: AuditAction[] = ['created', 'updated', 'deleted', 'renamed'];
@@ -69,12 +70,6 @@ export default function AuditLogPanel() {
     const csv = auditLogToCsv(entries);
     const blob = new Blob([csv], { type: 'text/csv' });
     await saveFile(blob, { filename: `audit-log-${new Date().toISOString().slice(0, 10)}.csv`, mimeType: 'text/csv' });
-  };
-
-  const formatTimestamp = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatChangeValue = (val: unknown): string => {
