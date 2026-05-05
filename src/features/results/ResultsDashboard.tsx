@@ -321,7 +321,10 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           <h2>Results</h2>
           {selectedRun && (
             <div className="context-tags">
-              {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
+              {/* Hide svcName for workflow runs — microservice context doesn't apply */}
+              {selectedRun.svcName && selectedRun.config.executionMode !== 'workflow' && (
+                <span className="context-tag svc-tag">{selectedRun.svcName}</span>
+              )}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
               {selectedRun.config.executionMode === 'workflow' && selectedRun.workflowName ? (
                 <span className="context-tag workflow-name-tag" title={selectedRun.workflowName}>⚡ {selectedRun.workflowName}</span>
