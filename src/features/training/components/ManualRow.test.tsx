@@ -36,7 +36,7 @@ describe('ManualRow', () => {
 
     const statusEl = document.querySelector('.training-manual-status-not_started');
     expect(statusEl).toBeInTheDocument();
-    expect(statusEl).toHaveTextContent('');
+    expect(statusEl).toHaveTextContent('○');
   });
 
   it('shows in_progress status with half-filled circle', () => {
@@ -146,5 +146,108 @@ describe('ManualRow', () => {
     render(<ManualRow manual={defaultManual} progress={undefined} badge={null} />);
 
     expect(screen.queryByRole('button', { name: '🧪' })).not.toBeInTheDocument();
+  });
+
+  it('calls onStatusChange with next status when status button clicked', () => {
+    const onStatusChange = vi.fn();
+    render(
+      <ManualRow
+        manual={defaultManual}
+        progress={undefined}
+        badge={null}
+        onStatusChange={onStatusChange}
+      />
+    );
+
+    const statusBtn = screen.getByRole('button', { name: /not started/i });
+    fireEvent.click(statusBtn);
+
+    expect(onStatusChange).toHaveBeenCalledWith(defaultManual.manualPath, 'in_progress');
+  });
+
+  it('cycles status from in_progress to completed', () => {
+    const onStatusChange = vi.fn();
+    const progress = {
+      manualPath: defaultManual.manualPath!,
+      status: 'in_progress' as const,
+      lastViewedAt: Date.now(),
+    };
+    render(
+      <ManualRow
+        manual={defaultManual}
+        progress={progress}
+        badge={null}
+        onStatusChange={onStatusChange}
+      />
+    );
+
+    const statusBtn = screen.getByRole('button', { name: /in progress/i });
+    fireEvent.click(statusBtn);
+
+    expect(onStatusChange).toHaveBeenCalledWith(defaultManual.manualPath, 'completed');
+  });
+
+  it('cycles status from completed to not_started', () => {
+    const onStatusChange = vi.fn();
+    const progress = {
+      manualPath: defaultManual.manualPath!,
+      status: 'completed' as const,
+      lastViewedAt: Date.now(),
+      completedAt: Date.now(),
+    };
+    render(
+      <ManualRow
+        manual={defaultManual}
+        progress={progress}
+        badge={null}
+        onStatusChange={onStatusChange}
+      />
+    );
+
+    const statusBtn = screen.getByRole('button', { name: /completed/i });
+    fireEvent.click(statusBtn);
+
+    expect(onStatusChange).toHaveBeenCalledWith(defaultManual.manualPath, 'not_started');
+  });
+
+  it('calls onOpenManual when manual link clicked', () => {
+    const onOpenManual = vi.fn();
+    render(
+      <ManualRow
+        manual={defaultManual}
+        progress={undefined}
+        badge={null}
+        onOpenManual={onOpenManual}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: defaultManual.title });
+    fireEvent.click(link);
+
+    expect(onOpenManual).toHaveBeenCalledWith(defaultManual.manualPath);
+  });
+
+  it('passes sampleId to onNavigateToSample', () => {
+    const onNavigateToSample = vi.fn();
+    render(
+      <ManualRow
+        manual={defaultManual}
+        progress={undefined}
+        badge={null}
+        onNavigateToSample={onNavigateToSample}
+      />
+    );
+
+    const sampleBtn = screen.getByRole('button', { name: '🧪' });
+    fireEvent.click(sampleBtn);
+
+    expect(onNavigateToSample).toHaveBeenCalledWith(defaultManual.sampleId);
+  });
+
+  it('has accessible label on status button', () => {
+    render(<ManualRow manual={defaultManual} progress={undefined} badge={null} />);
+
+    const statusBtn = screen.getByRole('button', { name: /not started/i });
+    expect(statusBtn).toHaveAttribute('aria-label', 'Not started. Click to mark as in progress.');
   });
 });
