@@ -302,6 +302,25 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.training-path-header:hover {
+  background: var(--bg-hover);
+}
+
+/* Path Chevron */
+.training-path-chevron {
+  color: var(--text-muted);
+  font-size: 14px;
+  transition: transform 0.2s ease;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.training-path-chevron.expanded {
+  transform: rotate(90deg);
 }
 
 .training-path-icon {
@@ -375,11 +394,31 @@
   margin-top: 16px;
 }
 
+/* Phase Chevron */
+.training-phase-chevron {
+  color: var(--text-muted);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.training-phase-chevron.expanded {
+  transform: rotate(90deg);
+}
+
 .training-phase-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 6px;
+  margin: 0 -8px;
+  padding: 8px;
+}
+
+.training-phase-header:hover {
+  background: var(--bg-hover);
 }
 
 .training-phase-number {
