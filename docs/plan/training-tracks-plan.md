@@ -219,19 +219,40 @@ export interface ManualMetadata {
 
 ---
 
-### Phase 6: Search & Filtering
+### Phase 6: Search & Filtering ✅ COMPLETED (2026-05-05)
 
 **Scope**: Search box, difficulty filter, status tabs
 
-| Task | Files | Estimate |
-|------|-------|----------|
-| Create `useManualSearch` hook | `src/features/training/hooks/useManualSearch.ts` | M |
-| Add search input UI | `TrainingTracksView.tsx` | S |
-| Add difficulty filter buttons | `TrainingTracksView.tsx` | S |
-| Add status tabs (All / In Progress / Completed) | `TrainingTracksView.tsx` | S |
-| Filter path/phase display based on filters | Integration | M |
+| Task | Files | Status |
+|------|-------|--------|
+| Create `useManualSearch` hook | `src/features/training/hooks/useManualSearch.ts` | ✅ |
+| Create `TrainingSearchBar` component | `src/features/training/components/TrainingSearchBar.tsx` | ✅ |
+| Add difficulty filter buttons | `TrainingSearchBar.tsx` | ✅ |
+| Add status filter buttons | `TrainingSearchBar.tsx` | ✅ |
+| Filter path/phase display | `TrainingPathCard.tsx`, `TrainingPhaseSection.tsx` | ✅ |
+| Unit tests for hook and component | `*.test.ts`, `*.test.tsx` | ✅ (38 tests) |
 
 **Deliverable**: Full search and filter functionality
+
+**Files Created/Modified**:
+- `src/features/training/hooks/useManualSearch.ts` — Hook for filtering by search term, difficulty, status
+- `src/features/training/hooks/useManualSearch.test.ts` — 21 unit tests
+- `src/features/training/components/TrainingSearchBar.tsx` — Search input + filter buttons UI
+- `src/features/training/components/TrainingSearchBar.test.tsx` — 17 unit tests
+- `src/features/training/components/TrainingPathCard.tsx` — Added `filteredPhases` prop support
+- `src/features/training/components/TrainingPhaseSection.tsx` — Added `filteredManuals` prop support
+- `src/features/training/TrainingTracksView.tsx` — Integrated search bar and filtered display
+- `src/features/training/training.css` — Search bar and filter styling
+
+**Features**:
+- Text search across manual titles, descriptions, path names, phase names
+- Difficulty filter: All / Easy / Medium / Advanced
+- Status filter: All / Not Started / In Progress / Completed
+- Combined filters work together (AND logic)
+- "Clear filters" button to reset all
+- Match count display ("Showing X of Y manuals")
+- Empty state with helpful message
+- Filtered paths auto-expand to show matches
 
 ---
 
@@ -452,3 +473,4 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 | 2026-05-05 | Phase 3 completed: extracted components (TrainingPathCard, TrainingPhaseSection, ManualRow), expand/collapse, tests (98 total passing) |
 | 2026-05-05 | Phase 4 completed: status toggle, open manual, view sample, continue learning wiring, tests (106 total passing) |
 | 2026-05-05 | Phase 5 completed: WhatsNewBanner component with dismiss persistence, tests (126 total passing) |
+| 2026-05-05 | Phase 6 completed: search hook, TrainingSearchBar, difficulty/status filters, tests (164 total passing) |
