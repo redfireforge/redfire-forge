@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Re-Run Failed Rows — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .workflow-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 16px 0; text-align: center;
+  }
+  .workflow-box .arrow { font-size: 24px; color: #457b9d; margin: 8px 0; }
+  .workflow-box .step { background: #fff; border: 2px solid #1d3557; border-radius: 6px; padding: 10px 16px; margin: 6px auto; display: inline-block; }
+  .workflow-box .step.failed { border-color: #e63946; background: #fff5f5; }
+  .workflow-box .step.passed { border-color: #2e7d32; background: #e8f5e9; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔁</div>
+    <h1>Re-Run Failed Rows</h1>
+    <div class="subtitle">Selective Retry for Data-Driven Tests — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Workflow · All APIs</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>After running a parameterized test with 100 data rows, 3 rows failed. Instead of re-running all 100 rows (wasting time and API quota), you want to <strong>re-run only the 3 failed rows</strong> to confirm they now pass after a fix.</p>
+
+  <div class="workflow-box">
+    <div class="step">Run Test (100 rows)</div>
+    <div class="arrow">↓</div>
+    <div class="step failed">3 rows failed, 97 passed</div>
+    <div class="arrow">↓ Fix the issue</div>
+    <div class="step">Re-Run Failed Only (3 rows)</div>
+    <div class="arrow">↓</div>
+    <div class="step passed">All 3 now pass ✓</div>
+  </div>
+
+  <p>RedfireForge tracks which data rows failed and lets you selectively re-run just those rows, saving time and reducing unnecessary API calls.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    Complete <a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> first. You should be familiar with running tests with data sources.
+  </div>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Failed row tracking</strong> — how results are linked back to specific data rows.</li>
+    <li><strong>Results filtering</strong> — viewing only failed rows in the Results Dashboard.</li>
+    <li><strong>Selective re-run</strong> — re-running only the rows that failed.</li>
+    <li><strong>Result merging</strong> — how re-run results combine with original results.</li>
+  </ul>
+
+  <h2>3. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Run a Parameterized Test</h3>
+  <p>First, run a test with multiple data rows. For this tutorial, we'll use a test that intentionally has some failing rows.</p>
+  <ol>
+    <li>Load any parameterized test gallery sample (e.g., "User Lookup Sweep").</li>
+    <li>Go to the <strong>Runner</strong> tab.</li>
+    <li>Select the test and click <strong>Run</strong>.</li>
+    <li>Wait for execution to complete.</li>
+  </ol>
+
+  <h3>Step 2: Identify Failed Rows</h3>
+  <p>After the run completes:</p>
+  <ol>
+    <li>Switch to the <strong>Results</strong> tab.</li>
+    <li>The summary shows total requests, passed, and failed counts.</li>
+    <li>In the results table, failed rows are highlighted in red.</li>
+    <li>Click the <strong>Failed Only</strong> filter to show only failed rows.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Understanding Failures</strong>
+    Each failed row shows the data row ID and label. Click the row to see the full error details: status code, response body, and validation failures.
+  </div>
+
+  <h3>Step 3: View Failed Row Details</h3>
+  <p>For each failed row, you can see:</p>
+  <ul>
+    <li><strong>Data Row ID</strong> — the unique identifier for the row in your data source</li>
+    <li><strong>Data Row Label</strong> — the human-readable label (if set)</li>
+    <li><strong>Error Message</strong> — why the request failed</li>
+    <li><strong>Response Body</strong> — the actual API response</li>
+    <li><strong>Validation Failures</strong> — which assertions failed and why</li>
+  </ul>
+
+  <h3>Step 4: Fix the Issue</h3>
+  <p>Before re-running, identify and fix the root cause:</p>
+  <ul>
+    <li><strong>Data issue</strong> — incorrect expected values in your data source</li>
+    <li><strong>API issue</strong> — the API returned unexpected data (report as bug)</li>
+    <li><strong>Test issue</strong> — your validation rules need adjustment</li>
+    <li><strong>Environment issue</strong> — wrong environment, expired auth, etc.</li>
+  </ul>
+
+  <h3>Step 5: Re-Run Failed Rows Only</h3>
+  <p>Once you've addressed the issue:</p>
+  <ol>
+    <li>In the <strong>Results</strong> tab, look for the <strong>Re-Run Failed</strong> button.</li>
+    <li>Click it to open the re-run dialog.</li>
+    <li>The dialog shows which rows will be re-run (only the failed ones).</li>
+    <li>Confirm to start the re-run.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>What Gets Re-Run?</strong>
+    Only the specific data rows that failed in the original run are executed. Passed rows are not re-run, saving time and API calls.
+  </div>
+
+  <h3>Step 6: Review Merged Results</h3>
+  <p>After the re-run completes:</p>
+  <ol>
+    <li>The Results view updates with the combined results.</li>
+    <li>Originally passed rows keep their original results.</li>
+    <li>Re-run rows show their new results (hopefully passing now).</li>
+    <li>The summary recalculates based on the merged data.</li>
+  </ol>
+
+  <h2>4. How Re-Run Works Internally</h2>
+
+  <table>
+    <tr><th>Aspect</th><th>Description</th></tr>
+    <tr><td>Row Selection</td><td>Only rows with <code>status: 'failed'</code> or validation failures are selected</td></tr>
+    <tr><td>Data Source</td><td>The test's current data source is used (not a snapshot from the original run)</td></tr>
+    <tr><td>Configuration</td><td>Uses the same runner config (concurrency, timeout, etc.) as the original run</td></tr>
+    <tr><td>Result Merging</td><td>New results replace the failed row results; passed rows are unchanged</td></tr>
+    <tr><td>Run History</td><td>A new run entry is created, linked to the original run</td></tr>
+  </table>
+
+  <h2>5. Alternative: Manual Row Filtering</h2>
+  <p>Instead of using "Re-Run Failed", you can manually disable rows:</p>
+  <ol>
+    <li>Open the test in the <strong>Test Editor</strong>.</li>
+    <li>Go to the <strong>Data Source</strong> tab.</li>
+    <li>Uncheck the rows you don't want to run (disable them).</li>
+    <li>Run the test — only enabled rows execute.</li>
+    <li>Re-enable rows after you're done.</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Caution</strong>
+    Manual disabling is more work and doesn't merge results. Use "Re-Run Failed" for the best experience.
+  </div>
+
+  <h2>6. Using Row Tags for Selective Runs</h2>
+  <p>For more control, use row tags to group rows:</p>
+  <ol>
+    <li>Tag certain rows as <code>flaky</code>, <code>slow</code>, or <code>edge-case</code>.</li>
+    <li>In the Runner, filter by tag to run specific subsets.</li>
+    <li>Re-run only rows with a specific tag if they tend to fail intermittently.</li>
+  </ol>
+
+  <table>
+    <tr><th>Tag Pattern</th><th>Use Case</th></tr>
+    <tr><td><code>flaky</code></td><td>Mark rows that sometimes fail due to timing or external factors</td></tr>
+    <tr><td><code>slow</code></td><td>Mark rows that take longer than average to execute</td></tr>
+    <tr><td><code>critical</code></td><td>Mark rows that must always pass (regression candidates)</td></tr>
+    <tr><td><code>edge-case</code></td><td>Mark rows testing boundary conditions</td></tr>
+  </table>
+
+  <h2>7. Best Practices</h2>
+
+  <h3>When to Use Re-Run Failed</h3>
+  <ul>
+    <li>After fixing a bug that caused specific rows to fail</li>
+    <li>After updating expected values in your data source</li>
+    <li>After environment issues are resolved (auth, connectivity)</li>
+    <li>When investigating flaky tests (run failed rows multiple times)</li>
+  </ul>
+
+  <h3>When NOT to Use Re-Run Failed</h3>
+  <ul>
+    <li>If the failure is in the test logic itself (fix and re-run all)</li>
+    <li>If you changed the test URL, method, or headers (re-run all)</li>
+    <li>If you need a fresh baseline (run all rows from scratch)</li>
+  </ul>
+
+  <h2>8. Try It Yourself</h2>
+  <p>Practice the re-run workflow:</p>
+  <ol>
+    <li>Load the "User Lookup Sweep" gallery sample.</li>
+    <li>Intentionally break one row: change an expected value to something wrong.</li>
+    <li>Run the test — one row should fail.</li>
+    <li>Fix the expected value.</li>
+    <li>Use "Re-Run Failed" to verify just that row.</li>
+    <li>Confirm the merged results show all rows passing.</li>
+  </ol>
+
+  <h2>9. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> — fundamentals of data-driven testing</li>
+    <li><a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a> — row tags, filtering, bulk operations</li>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — setting up validation columns</li>
+    <li><a href="parameterized-pre-validate-medium.html">Pre-Validation (Dry Run)</a> — discover expected values before full runs</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Re-Run Failed Rows · Easy
+  </footer>
+</body>
+</html>

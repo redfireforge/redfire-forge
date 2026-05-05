@@ -211,8 +211,8 @@ describe('rebuildUrl', () => {
     expect(result).toBe('http://example.com/api');
   });
 
-  it('returns original URL for invalid input', () => {
-    expect(rebuildUrl('not a url', [{ key: 'a', value: '1' }])).toBe('not a url');
+  it('appends params even for non-URL input', () => {
+    expect(rebuildUrl('not a url', [{ key: 'a', value: '1' }])).toBe('not a url?a=1');
   });
 });
 

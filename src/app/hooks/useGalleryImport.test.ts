@@ -138,7 +138,7 @@ describe('useGalleryImport', () => {
   });
 
   describe('onImportTest', () => {
-    it('creates gallery environment and microservice if not exist', () => {
+    it('creates gallery environment and microservice if not exist', async () => {
       const deps = makeDeps();
       const entry = makeEntry('tests', {
         factory: () => ({
@@ -146,7 +146,9 @@ describe('useGalleryImport', () => {
         }),
       });
       const { result } = renderHook(() => useGalleryImport(deps));
-      act(() => result.current.onImportTest(entry));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
       expect(deps.setEnvironments).toHaveBeenCalled();
       expect(deps.setMicroservices).toHaveBeenCalled();
       expect(deps.setFeatureGroups).toHaveBeenCalled();
@@ -154,7 +156,7 @@ describe('useGalleryImport', () => {
       expect(deps.setSelectedSvcId).toHaveBeenCalled();
     });
 
-    it('reuses existing gallery environment', () => {
+    it('reuses existing gallery environment', async () => {
       const deps = makeDeps({
         environments: [{ id: 'env-1', name: 'Gallery Samples' }],
         microservices: [{ id: 'svc-1', name: 'Gallery Samples', baseUrls: { 'env-1': '' } }],
@@ -163,7 +165,9 @@ describe('useGalleryImport', () => {
         factory: () => ({ id: 'fg', name: 'Test FG', scenarios: [] }),
       });
       const { result } = renderHook(() => useGalleryImport(deps));
-      act(() => result.current.onImportTest(entry));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
       // Should not create new env/svc
       expect(deps.setEnvironments).not.toHaveBeenCalled();
       expect(deps.setMicroservices).not.toHaveBeenCalled();

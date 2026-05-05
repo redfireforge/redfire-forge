@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>File Import as Data Source — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📁</div>
+    <h1>Import Files as Data Source</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · CSV · JSON · Excel Import</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>When your test data lives in external files — spreadsheets from QA teams, CSVs exported from databases, or JSON fixtures from CI pipelines — you can import them directly into a test's data source instead of typing rows manually.</p>
+  <p>RedfireForge supports three import formats:</p>
+  <table>
+    <tr><th>Format</th><th>Best For</th><th>File Extension</th></tr>
+    <tr><td>CSV</td><td>Simple tabular data, version control friendly</td><td><code>.csv</code></td></tr>
+    <tr><td>JSON</td><td>Structured data with metadata, nested values</td><td><code>.json</code></td></tr>
+    <tr><td>Excel</td><td>Data from QA teams, complex spreadsheets</td><td><code>.xlsx</code></td></tr>
+  </table>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>CSV import</strong> — column type detection from header prefixes (<code>path:</code>, <code>param:</code>, <code>validate:</code>).</li>
+    <li><strong>JSON import</strong> — structured format with metadata, column definitions, and row data.</li>
+    <li><strong>Excel import</strong> — first-sheet extraction with automatic column mapping.</li>
+    <li><strong>Column auto-detection</strong> — how RedfireForge infers column types from header names.</li>
+  </ul>
+
+  <h2>3. CSV Import Tutorial</h2>
+
+  <h3>Step 1: Prepare Your CSV</h3>
+  <p>Use column header prefixes to tell RedfireForge how each column should be used:</p>
+  <pre>path:id,validate:$.name,validate:$.email
+1,Leanne Graham,Sincere@april.biz
+2,Ervin Howell,Shanna@melissa.tv
+3,Clementine Bauch,Nathan@yesenia.net</pre>
+
+  <div class="callout">
+    <strong>Column Prefixes</strong>
+    <code>path:</code> — URL path variable · <code>param:</code> — query parameter · <code>header:</code> — request header · <code>body:</code> — body variable · <code>validate:</code> — response validation (value is a JSON path)
+  </div>
+
+  <h3>Step 2: Import into a Test</h3>
+  <ol>
+    <li>Open a test in the <strong>Test Editor</strong>.</li>
+    <li>Switch to the <strong>Data Source</strong> tab.</li>
+    <li>Click the <strong>Import</strong> button (or use the ⋮ menu → Import).</li>
+    <li>Select <strong>CSV</strong> and choose your file.</li>
+    <li>RedfireForge parses the headers, creates columns with the correct types, and populates all rows.</li>
+  </ol>
+
+  <h3>Step 3: Verify and Run</h3>
+  <ol>
+    <li>Review the imported columns and rows in the Data Source tab.</li>
+    <li>Ensure your test URL uses matching <code>{{variable}}</code> placeholders.</li>
+    <li>Go to Runner and execute — each CSV row becomes one request.</li>
+  </ol>
+
+  <h2>4. JSON Import Tutorial</h2>
+
+  <h3>JSON Data File Format</h3>
+  <pre>{
+  "version": "1.0",
+  "metadata": {
+    "name": "Country Validation Suite",
+    "api": "https://restcountries.com/v3.1/name/{{name}}"
+  },
+  "columns": [
+    { "name": "name", "type": "path", "mapping": "name" },
+    { "name": "expectedCapital", "type": "validate", "mapping": "$[0].capital[0]" }
+  ],
+  "rows": [
+    { "name": "japan", "expectedCapital": "Tokyo" },
+    { "name": "france", "expectedCapital": "Paris" }
+  ]
+}</pre>
+
+  <p>Import steps are the same as CSV — select <strong>JSON</strong> format and choose your <code>.json</code> file. The structured format preserves column types and mappings exactly.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip: JSON vs CSV</strong>
+    Use JSON when you need to preserve column type metadata (e.g., sharing between team members). Use CSV when simplicity and spreadsheet editing matter more.
+  </div>
+
+  <h2>5. Excel Import</h2>
+  <p>Excel import reads the <strong>first sheet</strong> of an <code>.xlsx</code> file. The first row is treated as column headers. Column type prefixes work the same as CSV.</p>
+  <ol>
+    <li>Click <strong>Import → Excel</strong>.</li>
+    <li>Select your <code>.xlsx</code> file.</li>
+    <li>RedfireForge reads the first sheet, parses headers, and creates the data source.</li>
+  </ol>
+
+  <h2>6. Sample Data Files</h2>
+  <p>RedfireForge ships with sample data files in the <code>test-data/</code> directory:</p>
+  <table>
+    <tr><th>File</th><th>Rows</th><th>API</th></tr>
+    <tr><td><code>sample_users_10.csv</code></td><td>10</td><td>JSONPlaceholder /users</td></tr>
+    <tr><td><code>sample_countries_8.json</code></td><td>8</td><td>REST Countries</td></tr>
+    <tr><td><code>sample_pokemon_15.csv</code></td><td>15</td><td>PokéAPI</td></tr>
+    <tr><td><code>sample_products_20.csv</code></td><td>20</td><td>DummyJSON /products</td></tr>
+  </table>
+
+  <h2>7. Try It Yourself</h2>
+  <ol>
+    <li>Download <code>test-data/sample_countries_8.json</code>.</li>
+    <li>Create a test with URL: <code>https://restcountries.com/v3.1/name/{{name}}</code></li>
+    <li>Import the JSON file into the Data Source tab.</li>
+    <li>Run and verify all 8 countries return the expected capitals.</li>
+  </ol>
+
+  <h2>8. Import Tips</h2>
+  <ul>
+    <li><strong>Excel support</strong> — <code>.xlsx</code> and <code>.xls</code> files are fully supported. The first sheet is imported by default. Column headers become column names.</li>
+    <li><strong>Tags in import</strong> — If your file has a <code>tags</code> column, values are imported as row tags (comma-separated within the cell).</li>
+    <li><strong>Notes in import</strong> — A <code>note</code> column is imported as row annotations visible in the row detail modal.</li>
+    <li><strong>Merge behavior</strong> — When importing into a test that already has columns, matching column names are reused. New columns are added. Existing rows are preserved (new rows are appended).</li>
+  </ul>
+
+  <h2>9. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> — create inline data sources from scratch</li>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — add validate columns and capture baselines</li>
+    <li><a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a> — tags, subsets, bulk ops, distribution modes</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-populate data from API responses instead of files</li>
+    <li><a href="json-data-files-easy.html">JSON Data Files (CLI)</a> — using JSON data files with the CLI runner</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · File Import as Data Source · Easy
+  </footer>
+</body>
+</html>

@@ -18,6 +18,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Auto-switch to "No Body Validation" on save when Full JSON Match has no expected JSON
 
 ### Added
+- **Parameterized Testing (Data-Driven)** — Define one test pattern with an attached data source, run it against N data rows
+  - `DataSource` type: columns (path, param, header, body, validate) + rows with values, tags, labels, notes
+  - `DataSourceEditor`: Inline spreadsheet-style table editor with add/remove/reorder columns and rows
+  - `dataSourceExpander`: Execution engine expansion — one Scenario + N rows → N concrete requests
+  - Validation columns: `validate:$.jsonPath` columns assert response values per row
+  - Row tags: Categorize rows (e.g., `smoke`, `regression`); filter by tag when running
+  - Row enable/disable, bulk operations (Ctrl/Shift-click), drag-to-reorder, sample rows
+  - Distribution modes: Sequential, Random, Round Robin
+  - CSV/Excel/JSON import: Load data from external files with column detection
+  - Pre-validation (Verify All): Test rows against live API before full run
+  - Populate from API: Extract array from response, map fields to columns, auto-generate rows
+  - Create Parameterized Copy: Convert normal test to parameterized with auto-detected variables
+  - Re-run failed rows: After execution, re-run only failed rows; results merge with original
+  - Grouped results: Results dashboard groups by data row with pass/fail status
+  - 10 gallery samples + 8 training manuals for parameterized testing
+  - CLI support: `dataSource` in YAML/JSON test files for headless data-driven runs
+- **Shared Data Sources** — Top-level data sources shared across multiple tests
+  - `SharedDataSource` type with `fetchConfig` (URL, method, headers, body, auth) and `tags`
+  - Top-level storage: `loadSharedDataSources()` / `saveSharedDataSources()` in IndexedDB
+  - `SharedDataSourceModal`: Dedicated modal with list panel, editor, fetch config
+  - Cross-test linking via `sharedDataSourceId` on tests
+  - "Used by" section: Shows all tests linked to each shared data source
+  - Promote/demote: Inline → shared (with copy or link); shared → inline (detach)
+  - Create Test from Shared DS: Picker modal with new test creation
+  - Impact warning modal: Shows affected tests when modifying shared data
+  - Auth inheritance from linked tests for API verification
+  - API-driven population and verification via `fetchConfig`
+  - Resizable/collapsible list panel, row tags, CSV/Excel import/export
+  - Migration from per-FeatureGroup to top-level structure
+  - 4 gallery samples + 4 training manuals for shared data sources
+- **IndexedDB Persistence** — Large data stored in IndexedDB instead of localStorage
+  - `featureGroups`, `testRuns`, `sharedDataSources` stores in `redfireforge` DB (v3)
+  - Auto-migration from localStorage on first load
+  - 3-second timeout with localStorage fallback for blocked IDB
+  - Fixes quota issues with large data sources and many test runs
 - **Version History** — Auto-saved definition snapshots for tests, workflows, script libraries, and requests
   - `TestDefinitionVersionPanel` with diff view, restore, rename, and delete
   - `WorkflowVersionPanel` with visual diff of node/edge/variable changes

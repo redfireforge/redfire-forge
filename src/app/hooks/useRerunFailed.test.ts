@@ -1,0 +1,196 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useRerunFailed } from './useRerunFailed';
+import type { FeatureGroup, TestRun } from '../../shared/types';
+
+// ── Mocks ──
+
+vi.mock('../../engine/dataSourceExpander', () => ({
+  expandDataSourceForRows: vi.fn((_scenario, rowIds: string[]) =>
+    rowIds.map(id => ({ id: `expanded-${id}`, url: 'http://example.com/api', method: 'GET' })),
+  ),
+}));
+
+vi.mock('../../engine/executor', () => ({
+  runTest: vi.fn(async () => ({
+    results: [{ id: 'r1', scenarioId: 's1', passed: true, httpStatus: 200, responseTimeMs: 50 }],
+  })),
+}));
+
+vi.mock('../../engine/rerunMerge', () => ({
+  mergeRerunResults: vi.fn((run: TestRun, rerunResults: any) => ({
+    ...run,
+    results: [...run.results, ...rerunResults.results],
+  })),
+}));
+
+vi.mock('../../features/requests/utils/authResolver', () => ({
+  resolveAuth: vi.fn(() => undefined),
+}));
+
+vi.mock('../../shared/utils/urlUtils', () => ({
+  replaceHost: vi.fn((url: string, _base: string) => url),
+}));
+
+vi.mock('../../shared/utils/storage', () => ({
+  updateTestRun: vi.fn(async () => {}),
+}));
+
+const { expandDataSourceForRows } = await import('../../engine/dataSourceExpander');
+const { runTest } = await import('../../engine/executor');
+const { mergeRerunResults } = await import('../../engine/rerunMerge');
+const { updateTestRun } = await import('../../shared/utils/storage');
+
+// ── Helpers ──
+
+function makeFeatureGroups(): FeatureGroup[] {
+  return [{
+    id: 'fg1',
+    name: 'Feature 1',
+    scenarios: [{
+      id: 'sc1',
+      name: 'Scenario 1',
+      tests: [{
+        id: 's1',
+        name: 'Test 1',
+        url: 'http://example.com/api',
+        method: 'GET',
+        dataSource: {
+          columns: [{ name: 'id' }],
+          rows: [
+            { id: 'row1', enabled: true, values: { id: '1' } },
+            { id: 'row2', enabled: true, values: { id: '2' } },
+          ],
+        },
+      }],
+    } as any],
+  } as any];
+}
+
+function makeTestRun(): TestRun {
+  return {
+    id: 'run1',
+    timestamp: Date.now(),
+    baseUrl: 'http://example.com',
+    config: {
+      concurrency: 1,
+      totalTransactions: 2,
+      executionMode: 'sequential' as const,
+      scenarioWeights: [],
+      timeoutSec: 30,
+      retryCount: 0,
+      retryDelayMs: 0,
+    },
+    results: [
+      { id: 'r1', scenarioId: 's1', passed: false, dataRowId: 'row1', httpStatus: 500, responseTimeMs: 100, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
+      { id: 'r2', scenarioId: 's1', passed: true, dataRowId: 'row2', httpStatus: 200, responseTimeMs: 50, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
+    ],
+  } as any;
+}
+
+// ── Tests ──
+
+describe('useRerunFailed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns isRerunning=false initially', () => {
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    expect(result.current.isRerunning).toBe(false);
+    expect(typeof result.current.handleRerunFailed).toBe('function');
+  });
+
+  it('calls runTest and updateTestRun for failed rows', async () => {
+    const onComplete = vi.fn();
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+        onComplete,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+
+    expect(expandDataSourceForRows).toHaveBeenCalled();
+    expect(runTest).toHaveBeenCalled();
+    expect(mergeRerunResults).toHaveBeenCalled();
+    expect(updateTestRun).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalled();
+    expect(result.current.isRerunning).toBe(false);
+  });
+
+  it('does nothing when no failed rows match scenarios', async () => {
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    const run = makeTestRun();
+    // Use a row ID that doesn't exist in any result
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['nonexistent-row']);
+    });
+
+    expect(runTest).not.toHaveBeenCalled();
+  });
+
+  it('handles errors gracefully', async () => {
+    vi.mocked(runTest).mockRejectedValueOnce(new Error('network error'));
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith('Re-run failed:', expect.any(Error));
+    expect(result.current.isRerunning).toBe(false);
+    consoleSpy.mockRestore();
+  });
+
+  it('does not call onComplete on error', async () => {
+    vi.mocked(runTest).mockRejectedValueOnce(new Error('fail'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const onComplete = vi.fn();
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+        onComplete,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+
+    expect(onComplete).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+});

@@ -27,6 +27,8 @@ export interface HttpResponse {
   body: string;
   error?: string;
   timing?: TimingBreakdown;
+  /** The actual request headers sent (including auth). Populated by auth-aware callers. */
+  sentHeaders?: Record<string, string>;
 }
 
 export type HttpTransportFn = (
@@ -217,6 +219,7 @@ async function getNodeDispatcher(): Promise<unknown> {
       _nodeDispatcher = new undici.Agent({
         keepAliveTimeout: 30_000,
         keepAliveMaxTimeout: 60_000,
+        connect: { timeout: 30_000 },
         connections: 128,
         pipelining: 1,
       });
