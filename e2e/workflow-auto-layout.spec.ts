@@ -178,7 +178,11 @@ test.describe('Workflow Auto-Layout', () => {
     const autoLayoutBtn = page.locator('button:has-text("Auto Layout"), button[title*="Auto"], button[aria-label*="layout"]').first();
     if (await autoLayoutBtn.isVisible()) {
       await autoLayoutBtn.click();
-      await page.waitForTimeout(500);
+      // Wait for layout to apply
+      await page.waitForFunction(() => {
+        const node = document.querySelector('[data-id="start"]') as HTMLElement;
+        return node && node.style.transform.includes('translate');
+      }, { timeout: 5000 });
 
       // Verify nodes are positioned in a linear layout
       const nodes = await page.locator('[data-id]').all();
@@ -203,7 +207,11 @@ test.describe('Workflow Auto-Layout', () => {
     const autoLayoutBtn = page.locator('button:has-text("Auto Layout"), button[title*="Auto"], button[aria-label*="layout"]').first();
     if (await autoLayoutBtn.isVisible()) {
       await autoLayoutBtn.click();
-      await page.waitForTimeout(500);
+      // Wait for layout to apply
+      await page.waitForFunction(() => {
+        const node = document.querySelector('[data-id="fork"]') as HTMLElement;
+        return node && node.style.transform.includes('translate');
+      }, { timeout: 5000 });
 
       // Verify fork and join nodes exist
       const forkNode = page.locator('[data-id="fork"]');
@@ -214,6 +222,8 @@ test.describe('Workflow Auto-Layout', () => {
   });
 
   test('restores saved auto-layout positions on reload', async ({ page }) => {
+    test.slow(); // Involves page reload
+
     const workflow = makeWorkflowForAutoLayout();
     await seedWorkflowForAutoLayout(page, workflow);
     await page.goto('/');
@@ -226,7 +236,11 @@ test.describe('Workflow Auto-Layout', () => {
     const autoLayoutBtn = page.locator('button:has-text("Auto Layout"), button[title*="Auto"], button[aria-label*="layout"]').first();
     if (await autoLayoutBtn.isVisible()) {
       await autoLayoutBtn.click();
-      await page.waitForTimeout(500);
+      // Wait for layout to apply
+      await page.waitForFunction(() => {
+        const node = document.querySelector('[data-id="start"]') as HTMLElement;
+        return node && node.style.transform.includes('translate');
+      }, { timeout: 5000 });
 
       // Get initial positions
       const startNode = page.locator('[data-id="start"]');

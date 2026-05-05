@@ -580,7 +580,7 @@ test.describe('Workflow Version — Auto-Save on Save', () => {
     await expect(page.locator('.wf-toolbar-saved-msg')).toBeVisible({ timeout: 5000 });
 
     // Wait for saved msg to disappear
-    await page.waitForTimeout(3000);
+    await expect(page.locator('.wf-toolbar-saved-msg')).not.toBeVisible({ timeout: 5000 });
 
     // Second save with same content — should NOT create a new version (fingerprint dedup)
     await saveBtn.click();
