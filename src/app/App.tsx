@@ -705,6 +705,7 @@ export default function App() {
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
+              workflows={wfHook.workflows}
             />
           </div>
           {activeTab === 'results' && (

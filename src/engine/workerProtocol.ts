@@ -1,10 +1,11 @@
 import type { TestConfig, Scenario, RequestResult } from '../shared/types';
 import type { HttpResponse } from '../shared/utils/httpClient';
 import type { ProgressMeta } from './executor';
+import type { Workflow } from '../features/workflow/types/workflow';
 
 /** Messages sent from the main thread to the execution worker. */
 export type MainToWorkerMessage =
-  | { type: 'start'; config: TestConfig; scenarios: Scenario[]; useTauriProxy: boolean }
+  | { type: 'start'; config: TestConfig; scenarios: Scenario[]; useTauriProxy: boolean; workflow?: Workflow }
   | { type: 'abort' }
   | { type: 'http-response'; id: string; response: HttpResponse };
 

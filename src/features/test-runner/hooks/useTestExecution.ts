@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
+import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
 import type { ProgressMeta } from '../../../engine/executor';
 import { runTestInWorker } from '../../../engine/workerBridge';
@@ -198,7 +199,7 @@ export function useTestExecution() {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -228,38 +229,36 @@ export function useTestExecution() {
 
     let lastTrackedCount = 0;
     const useWorker = supportsWorkers();
-    const executeFn = useWorker ? runTestInWorker : runTest;
+
+    const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
+      for (let i = lastTrackedCount; i < allResults.length; i++) {
+        trackResult(allResults[i]);
+      }
+      lastTrackedCount = allResults.length;
+
+      pendingUpdateRef.current = { completed, total, allResults, profileMeta };
+
+      const now = performance.now();
+      const sinceLast = now - lastFlushRef.current;
+
+      if (sinceLast >= PROGRESS_THROTTLE_MS) {
+        if (flushTimerRef.current) {
+          clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+        flushToState();
+      } else if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          flushTimerRef.current = null;
+          flushToState();
+        }, PROGRESS_THROTTLE_MS - sinceLast);
+      }
+    };
 
     try {
-      const results = await executeFn(
-        config,
-        scenarios,
-        (completed, total, allResults, profileMeta) => {
-          for (let i = lastTrackedCount; i < allResults.length; i++) {
-            trackResult(allResults[i]);
-          }
-          lastTrackedCount = allResults.length;
-
-          pendingUpdateRef.current = { completed, total, allResults, profileMeta };
-
-          const now = performance.now();
-          const sinceLast = now - lastFlushRef.current;
-
-          if (sinceLast >= PROGRESS_THROTTLE_MS) {
-            if (flushTimerRef.current) {
-              clearTimeout(flushTimerRef.current);
-              flushTimerRef.current = null;
-            }
-            flushToState();
-          } else if (!flushTimerRef.current) {
-            flushTimerRef.current = setTimeout(() => {
-              flushTimerRef.current = null;
-              flushToState();
-            }, PROGRESS_THROTTLE_MS - sinceLast);
-          }
-        },
-        abortRef.current.signal
-      );
+      const results = useWorker
+        ? await runTestInWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
+        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow);
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);

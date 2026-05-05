@@ -101,7 +101,7 @@ The critical architectural gap is that Harness "workflow mode" currently uses `w
 
 ### Phase 1: Data Model & Type Changes (Foundation)
 
-**Priority: Critical | Effort: Small**
+**Priority: Critical | Effort: Small | Status: ✅ COMPLETE**
 
 #### 1.1 Add `workflowId` to `TestConfig`
 
@@ -133,7 +133,7 @@ No type change needed — `'workflow'` already exists. Update JSDoc comments to 
 
 ### Phase 2: Workflow Picker in Harness UI
 
-**Priority: Critical | Effort: Medium**
+**Priority: Critical | Effort: Medium | Status: ✅ COMPLETE**
 
 #### 2.1 Workflow Selector Component
 
@@ -181,7 +181,7 @@ When `executionMode === 'workflow'` AND a workflow is selected:
 
 ### Phase 3: Graph-Based Execution in Harness
 
-**Priority: Critical | Effort: Medium**
+**Priority: Critical | Effort: Medium | Status: ✅ COMPLETE**
 
 #### 3.1 Route Harness Workflow Mode Through `graphRunner`
 
@@ -254,7 +254,7 @@ When running a workflow in Harness mode, resolve environments and services the s
 
 ### Phase 4: Workflow-Aware Results Display
 
-**Priority: High | Effort: Medium**
+**Priority: High | Effort: Medium | Status: ✅ COMPLETE**
 
 #### 4.1 Execution Mode Label
 
@@ -749,4 +749,15 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 ---
 
-_Created: 2026-05-01 | Status: Proposed | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md) Phase 0.7.5_
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-05-05 | Phase 4 complete: Fixed "Workflow" execution mode label in results. Created `WorkflowResultsSummary` component with per-step metrics table and per-iteration drill-down. Extended `resultsGrouping.ts` with `workflowStep` and `iteration` grouping levels plus percentile stats. Added workflow-specific grouping options to the results table. |
+| 2026-05-05 | Phase 3 complete: Created `graphLoadRunner.ts` for load testing with full graph topology. Updated executor, worker bridge, and protocol to pass workflow data. Results tagged with `iterationIndex` and `workflowNodeId`. |
+| 2026-05-05 | Phase 2 complete: Created `WorkflowPicker` component with variable history tracking. Added workflow selection to TestRunner UI. Hides scenario selection when workflow is selected. |
+| 2026-05-05 | Phase 1 complete: Added `workflowId` to `TestConfig`, `iterationIndex` and `workflowNodeId` to `RequestResult` in `src/shared/types/index.ts` |
+
+---
+
+_Created: 2026-05-01 | Status: In Progress | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md) Phase 0.7.5_
