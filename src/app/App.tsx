@@ -89,8 +89,14 @@ export default function App() {
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+  const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
+
+  const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
+    setResultsRunTypeFilter(runType);
+    setActiveTab('results');
+  };
 
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
@@ -210,7 +216,7 @@ export default function App() {
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
-    onComplete: () => setActiveTab('results'),
+    onComplete: () => handleCompleteToResults('test'),
   });
 
   const gallery = useGalleryImport({
@@ -646,7 +652,7 @@ export default function App() {
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
               <WorkflowRunner
                 workflows={wfHook.workflows}
-                onComplete={() => setActiveTab('results')}
+                onComplete={handleCompleteToResults}
               />
             </div>
           )}
@@ -706,7 +712,7 @@ export default function App() {
           <div hidden={activeTab !== 'runner'}>
             <TestRunner
               featureGroups={filteredFeatureGroups}
-              onComplete={() => setActiveTab('results')}
+              onComplete={handleCompleteToResults}
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               envId={selectedEnvId}
@@ -723,6 +729,7 @@ export default function App() {
               svcName={selectedSvc?.name}
               onRerunFailed={handleRerunFailed}
               isRerunning={isRerunning}
+              initialRunTypeFilter={resultsRunTypeFilter}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
