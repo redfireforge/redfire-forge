@@ -7,8 +7,7 @@ import { httpFetch } from '../../../shared/utils/httpClient';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import { acquireOAuth2Token } from '../../../engine/tokenManager';
-import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
+import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
 import { pickJsonFile, unwrapImport } from '../../scenarios/utils/testEditorUtils';
 import { useResponseCache } from '../hooks/useResponseCache';
 import type { ConsoleLine } from '../hooks/useResponseCache';
@@ -291,11 +290,8 @@ export default function RequestEditor({
       else if (!h['Content-Type']) h['Content-Type'] = contentType;
     }
     const auth = resolveEffectiveAuth(envId);
-    if (auth?.type === 'oauth2' && auth.tokenUrl) {
-      const token = await acquireOAuth2Token(auth);
-      Object.assign(h, resolveAuthHeaders(auth, token));
-    } else if (auth && auth.type !== 'none') {
-      Object.assign(h, resolveAuthHeaders(auth));
+    if (auth && auth.type !== 'none') {
+      await applyAuthHeaders(auth, h);
     }
     return h;
   }, [resolveEffectiveAuth]);

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile } from '../../shared/types';
+import { v4 as uuidv4 } from 'uuid';
+import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
 import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
 import CsvImportModal from './components/CsvImportModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
@@ -11,12 +12,14 @@ import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
 import { useScenarioMutations } from './hooks/useScenarioMutations';
 import ConfirmModal from '../../shared/components/ConfirmModal';
+import PopupModal from '../../shared/components/PopupModal';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
 import ExportOptionsPopover from './components/ExportOptionsPopover';
 import ImportVersionModal from './components/ImportVersionModal';
 import type { VersionExportOptions } from './utils/scenarioImportExport';
 import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
 import StructureChangeLogPanel from './components/StructureChangeLogPanel';
+import SharedDataSourceModal from './components/SharedDataSourceModal';
 
 const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },
@@ -31,6 +34,8 @@ const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
 interface Props {
   featureGroups: FeatureGroup[];
   setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
+  sharedDataSources?: SharedDataSource[];
+  setSharedDataSources?: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
   resolvedBaseUrl?: string;
   selectedSvcId?: string;
   selectedSvcName?: string;
@@ -44,7 +49,7 @@ interface Props {
   onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, targetScenarioId: string, targetFgId: string) => void;
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest }: Props) {
   const allAuthProfiles = globalAuthProfiles;
 
   const featureAuthTypeOptions = useMemo(() => {
@@ -109,13 +114,118 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     addScenario, removeScenario, renameScenario,
     updateFeatureAuth, toggleFeatureAuth,
     updateScenarioAuth, toggleScenarioAuth,
-    startNewTest, startEditTest, saveTest, removeTest,
-    startCopyTest, confirmCopyTest,
+    startNewTest, startNewParameterizedTest, startEditTest, saveTest, removeTest,
+    startCopyTest, confirmCopyTest, createParameterizedCopy,
     handleVersionRestore, handleVersionDelete, handleVersionRename,
     toggleFeature, toggleScenario,
   } = mutations;
 
   const [showStructureLog, setShowStructureLog] = useState<string | null>(null);
+  const [showSharedDsModal, setShowSharedDsModal] = useState(false);
+  const [sharedDsModalSelectedId, setSharedDsModalSelectedId] = useState<string | undefined>(undefined);
+  const [showFromSharedDsPicker, setShowFromSharedDsPicker] = useState<{ fgId: string; scId: string } | null>(null);
+  const [fromSharedDsSelected, setFromSharedDsSelected] = useState<string | null>(null);
+  const [fromSharedDsTestName, setFromSharedDsTestName] = useState('');
+
+  // Current editing draft context for SharedDataSourceModal "Used by" lookup
+  const currentEditingDraft = useMemo(() => {
+    if (!editingTest || !draft) return undefined;
+    const fg = featureGroups.find(f => f.id === editingTest.featureId);
+    const sc = fg?.scenarios.find(s => s.id === editingTest.scenarioId);
+    if (!fg || !sc) return undefined;
+    return { fgName: fg.name, scenarioName: sc.name, test: draft };
+  }, [editingTest, draft, featureGroups]);
+
+  // Handler for creating a parameterized copy from the wizard
+  const handleCreateParameterizedCopy = useCallback((copy: Scenario, targetFgId?: string, targetScenarioId?: string) => {
+    const fgId = targetFgId || editingTest?.featureId;
+    const scId = targetScenarioId || editingTest?.scenarioId;
+    if (!fgId || !scId) return;
+
+    // Add the copy to the target scenario's tests
+    setFeatureGroups(prev => prev.map(fg => {
+      if (fg.id !== fgId) return fg;
+      return {
+        ...fg,
+        scenarios: fg.scenarios.map(sc => {
+          if (sc.id !== scId) return sc;
+          return { ...sc, tests: [...sc.tests, copy] };
+        }),
+      };
+    }));
+
+    // Close current editor, then open the new test
+    setEditingTest(null);
+    setTimeout(() => {
+      setDraft(copy);
+      setEditingTest({ featureId: fgId, scenarioId: scId, testId: copy.id, parameterized: true });
+      setActiveTab('data');
+    }, 0);
+  }, [editingTest, setFeatureGroups, setEditingTest, setDraft, setActiveTab]);
+
+  // Handler for promoting inline data to a shared data source
+  const handlePromoteToShared = useCallback((
+    dataSource: DataSource,
+    name: string,
+    tags?: string[],
+    fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }
+  ): string => {
+    if (!setSharedDataSources) {
+      console.warn('handlePromoteToShared: setSharedDataSources not available');
+      return '';
+    }
+    const newSharedDs: SharedDataSource = {
+      id: uuidv4(),
+      name,
+      tags,
+      dataSource,
+      updatedAt: Date.now(),
+      fetchConfig: fetchConfig ? {
+        url: fetchConfig.url,
+        method: (fetchConfig.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE') || 'GET',
+        headers: fetchConfig.headers || [],
+        auth: fetchConfig.auth,
+      } : undefined,
+    };
+    setSharedDataSources(prev => [...prev, newSharedDs]);
+    return newSharedDs.id;
+  }, [setSharedDataSources]);
+
+  // Handler for creating a test from a shared data source
+  const handleCreateTestFromSharedDs = useCallback((
+    sharedDs: SharedDataSource,
+    targetFgId: string,
+    targetScenarioId: string,
+    testName: string
+  ) => {
+    const newTest: Scenario = {
+      id: uuidv4(),
+      name: testName,
+      url: sharedDs.fetchConfig?.url || '',
+      method: sharedDs.fetchConfig?.method || 'GET',
+      headers: sharedDs.fetchConfig?.headers || [],
+      body: '',
+      auth: sharedDs.fetchConfig?.auth || { type: 'none' },
+      validation: { statusCode: 200 },
+      sharedDataSourceId: sharedDs.id,
+    };
+    // Add the new test to the target scenario
+    setFeatureGroups(prev => prev.map(fg => {
+      if (fg.id !== targetFgId) return fg;
+      return {
+        ...fg,
+        scenarios: fg.scenarios.map(sc => {
+          if (sc.id !== targetScenarioId) return sc;
+          return { ...sc, tests: [...sc.tests, newTest] };
+        }),
+      };
+    }));
+    // Open the test editor
+    setDraft(newTest);
+    setEditingTest({ featureId: targetFgId, scenarioId: targetScenarioId, testId: newTest.id, parameterized: true });
+    setInputMode('builder');
+    setActiveTab('data');
+  }, [setFeatureGroups, setDraft, setEditingTest, setInputMode, setActiveTab]);
 
   // Move dialog state
   const [moveDialog, setMoveDialog] = useState<{
@@ -146,6 +256,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
     pendingImport, cancelPendingImport,
   } = useScenarioExportImport({
     featureGroups, setFeatureGroups,
+    sharedDataSources, setSharedDataSources,
     selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName,
     setCsvImportOpen,
     confirm: showConfirm,
@@ -231,6 +342,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
             {exportPopover?.id === '__all__' && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
           </span>
           <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
+          <button className="btn" onClick={() => setShowSharedDsModal(true)} disabled={!selectedSvcId || !selectedEnvId} style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
+            📦 Shared Data Sources
+            {sharedDataSources && sharedDataSources.length > 0 && <span className="count-badge" style={{ background: 'var(--accent)' }}>{sharedDataSources.length}</span>}
+          </button>
           <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
         </div>
       </div>
@@ -436,6 +551,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           onClick={() => toggleScenarioAuth(fg.id, sc.id)}
                         >Auth</button>
                         <button className="btn btn-sm" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
+                        <button className="btn btn-sm" onClick={() => startNewParameterizedTest(fg.id, sc.id)} title="Create a new parameterized test with inline data">+ Param Test</button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => setShowFromSharedDsPicker({ fgId: fg.id, scId: sc.id })}
+                          disabled={!sharedDataSources || sharedDataSources.length === 0}
+                          title={!sharedDataSources || sharedDataSources.length === 0 ? 'No shared data sources available' : 'Create test linked to a shared data source'}
+                        >
+                          + From Shared DS
+                        </button>
                         <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'scenario', itemName: sc.name, fgId: fg.id, scenarioId: sc.id })} title="Move to another feature group">Move</button>
                         <button className="btn btn-sm" onClick={() => importTestsInto(fg.id, sc.id)} title="Import tests into this scenario">Import</button>
                         <span className="export-opts-anchor">
@@ -487,7 +611,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                           return (
                           <div
                             key={`${fg.id}-${sc.id}-${t.id}`}
-                            className={`test-card ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''} ${isSearching && testMatches(t) ? 'search-match' : ''}`}
+                            className={`test-card ${t.dataSource ? 'test-card-parameterized' : ''} ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''} ${isSearching && testMatches(t) ? 'search-match' : ''}`}
                             draggable
                             onDragStart={(e) => {
                               if (!dragHandleActive.current) { e.preventDefault(); return; }
@@ -507,9 +631,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                               <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
                               <span className="test-number">{tIdx + 1}</span>
                               <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
+                              {t.dataSource && <span className="tag data-source-badge" title="Has data source">📋</span>}
                               <strong>{t.name}</strong>
                             </div>
                             <div className="test-card-meta">
+                              {t.dataSource && <span className="tag parameterized-tag">Parameterized</span>}
+                              {t.sourceTestId && <span className="tag" title="Parameterized copy">🔗 from source</span>}
                               {(() => {
                                 const resolved = resolveEffectiveAuth(t, sc, fg);
                                 if (!resolved) return <span className="tag auth-badge auth-badge-test-none">Auth: none</span>;
@@ -535,6 +662,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
                             <div className="test-card-actions">
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
                               <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
+                              {!t.dataSource && (
+                                <button className="btn btn-sm" onClick={() => createParameterizedCopy(fg.id, sc.id, t)} title="Create a parameterized copy with data source">Parameterize</button>
+                              )}
                               <button className="btn btn-sm" onClick={() => setMoveDialog({ type: 'test', itemName: t.name || t.url, fgId: fg.id, scenarioId: sc.id, testId: t.id })} title="Move to another scenario">Move</button>
                               <span className="export-opts-anchor">
                                 <button className="btn btn-sm" onClick={() => setExportPopover({ id: t.id, data: t, exportFn: (o) => { exportTest(t, o); setExportPopover(null); } })} title="Export this test">Export</button>
@@ -645,6 +775,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           onSave={saveTest}
           onCancel={() => setEditingTest(null)}
           isNew={editingTest.testId === 'new'}
+          isParameterized={editingTest.parameterized ?? false}
           inputMode={inputMode}
           onInputModeChange={setInputMode}
           activeTab={activeTab}
@@ -657,6 +788,15 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           onVersionRestore={handleVersionRestore}
           onVersionDelete={handleVersionDelete}
           onVersionRename={handleVersionRename}
+          onCreateParameterizedCopy={handleCreateParameterizedCopy}
+          sharedDataSources={sharedDataSources}
+          onPromoteToShared={handlePromoteToShared}
+          onOpenSharedDsModal={() => { 
+            const linkedId = draft.sharedDataSourceId;
+            setEditingTest(null); 
+            setSharedDsModalSelectedId(linkedId ?? undefined);
+            setShowSharedDsModal(true); 
+          }}
         />
       )}
 
@@ -696,6 +836,92 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, resol
           onCancel={cancelPendingImport}
         />
       )}
+      {showSharedDsModal && sharedDataSources && setSharedDataSources && (
+        <SharedDataSourceModal
+          sharedDataSources={sharedDataSources}
+          onUpdate={setSharedDataSources}
+          featureGroups={featureGroups}
+          globalAuthProfiles={globalAuthProfiles}
+          initialSelectedId={sharedDsModalSelectedId}
+          currentEditingDraft={currentEditingDraft}
+          onCreateTestFromSharedDs={handleCreateTestFromSharedDs}
+          onClose={() => { setShowSharedDsModal(false); setSharedDsModalSelectedId(undefined); }}
+        />
+      )}
+
+      {/* From Shared Data Source Picker Modal */}
+      {showFromSharedDsPicker && sharedDataSources && sharedDataSources.length > 0 && (() => {
+        const selectedDs = sharedDataSources.find(ds => ds.id === fromSharedDsSelected);
+        const handleClose = () => { setShowFromSharedDsPicker(null); setFromSharedDsSelected(null); setFromSharedDsTestName(''); };
+        return (
+          <PopupModal
+            title="Create Test from Shared Data Source"
+            onClose={handleClose}
+            dialogClassName="from-shared-ds-picker"
+            footer={(
+              <>
+                <div style={{ flex: 1 }} />
+                <button className="btn" onClick={handleClose}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={!fromSharedDsSelected || !fromSharedDsTestName.trim()}
+                  onClick={() => {
+                    if (selectedDs) {
+                      handleCreateTestFromSharedDs(
+                        selectedDs,
+                        showFromSharedDsPicker.fgId,
+                        showFromSharedDsPicker.scId,
+                        fromSharedDsTestName.trim()
+                      );
+                    }
+                    handleClose();
+                  }}
+                >
+                  Create Test
+                </button>
+              </>
+            )}
+          >
+            <div className="popup-modal-field">
+              <label>Test Name</label>
+              <input
+                type="text"
+                value={fromSharedDsTestName}
+                onChange={e => setFromSharedDsTestName(e.target.value)}
+                placeholder="Enter test name"
+                autoFocus
+              />
+            </div>
+            <div className="popup-modal-field">
+              <label>Select Data Source</label>
+              <div className="shared-ds-picker-list">
+                {sharedDataSources.map(ds => (
+                  <label
+                    key={ds.id}
+                    className={`shared-ds-picker-item ${fromSharedDsSelected === ds.id ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="sharedDsSelection"
+                      checked={fromSharedDsSelected === ds.id}
+                      onChange={() => {
+                        setFromSharedDsSelected(ds.id);
+                        if (!fromSharedDsTestName.trim()) {
+                          setFromSharedDsTestName(`Test from ${ds.name}`);
+                        }
+                      }}
+                    />
+                    <span className="shared-ds-picker-info">
+                      <strong>{ds.name}</strong>
+                      <small>{ds.dataSource.rows.length} rows · {ds.dataSource.columns.length} columns</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </PopupModal>
+        );
+      })()}
     </div>
   );
 }

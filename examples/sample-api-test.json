@@ -1,6 +1,6 @@
 {
   "name": "JSON Format Example",
-  "baseUrl": "https://jsonplaceholder.typicode.com",
+  "baseUrl": "https://httpbin.org",
   "defaults": {
     "headers": {
       "Accept": "application/json"
@@ -15,23 +15,23 @@
   "tests": [
     {
       "name": "List Users",
-      "url": "/users",
+      "url": "/get?type=users",
       "method": "GET"
     },
     {
       "name": "Get User by ID",
-      "url": "/users/1",
+      "url": "/get?userId=1",
       "method": "GET",
       "validation": {
         "mode": "selective",
         "expectedFields": [
-          { "jsonPath": "$.name", "expectedValue": "Leanne Graham" }
+          { "jsonPath": "$.args.userId", "expectedValue": "1" }
         ]
       }
     },
     {
       "name": "Create Post",
-      "url": "/posts",
+      "url": "/post",
       "method": "POST",
       "headers": {
         "Content-Type": "application/json"

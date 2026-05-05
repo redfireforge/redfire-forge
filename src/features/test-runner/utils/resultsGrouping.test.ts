@@ -157,4 +157,43 @@ describe('buildGroups', () => {
     const groups = buildGroups(results, ['group']);
     expect(groups[0].key).toBe('(unknown group)');
   });
+
+  it('groups by dataRow using dataRowLabel', () => {
+    const results = [
+      makeResult({ dataRowId: 'r1', dataRowLabel: 'Row 1: VIN=ABC' }),
+      makeResult({ dataRowId: 'r1', dataRowLabel: 'Row 1: VIN=ABC' }),
+      makeResult({ dataRowId: 'r2', dataRowLabel: 'Row 2: VIN=DEF' }),
+    ];
+    const groups = buildGroups(results, ['dataRow']);
+    expect(groups.length).toBe(2);
+    expect(groups.find(g => g.key === 'Row 1: VIN=ABC')?.total).toBe(2);
+    expect(groups.find(g => g.key === 'Row 2: VIN=DEF')?.total).toBe(1);
+  });
+
+  it('falls back to dataRowId when dataRowLabel is missing', () => {
+    const results = [
+      makeResult({ dataRowId: 'r1' }),
+    ];
+    const groups = buildGroups(results, ['dataRow']);
+    expect(groups[0].key).toBe('r1');
+  });
+
+  it('uses "(no data row)" when both dataRowLabel and dataRowId are missing', () => {
+    const results = [makeResult()];
+    const groups = buildGroups(results, ['dataRow']);
+    expect(groups[0].key).toBe('(no data row)');
+  });
+
+  it('handles test → dataRow multi-level grouping', () => {
+    const results = [
+      makeResult({ scenarioName: 'Test A', dataRowId: 'r1', dataRowLabel: 'Row 1' }),
+      makeResult({ scenarioName: 'Test A', dataRowId: 'r2', dataRowLabel: 'Row 2' }),
+      makeResult({ scenarioName: 'Test B' }),
+    ];
+    const groups = buildGroups(results, ['test', 'dataRow']);
+    expect(groups.length).toBe(2);
+    const testA = groups.find(g => g.key === 'Test A')!;
+    expect(testA.children.length).toBe(2);
+    expect(testA.children[0].key).toBe('Row 1');
+  });
 });

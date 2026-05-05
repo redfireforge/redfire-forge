@@ -13,6 +13,7 @@ import type {
 import type { ICorrelationStore } from './correlationStore';
 import { serializeWorkflowState } from './workflowStateSerializer';
 import type { RequestResult, Scenario } from '../../../shared/types';
+import { expandDataSource, resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
 import type { DebugController } from './debugController';
@@ -25,6 +26,8 @@ import {
   collectReachableFromEdges,
   markSubtreeSkipped,
   evaluateWaitCondition,
+  extractPayloadVariables,
+  logHttpResult,
 } from './graphRunnerHelpers';
 import { executeScript } from './scriptSandbox';
 import { loadScriptLibraries, buildLibraryPreamble } from './scriptLibraries';
@@ -104,6 +107,48 @@ export async function handleHttpNode(
   passed: PassedFlag,
 ): Promise<void> {
   const httpData = node.data as HttpNodeData;
+  const dataSource = httpData.dataSource ?? httpData.scenario?.dataSource;
+  const enabledRows = dataSource?.rows?.filter(r => r.enabled) ?? [];
+
+  // ── Data-source expansion: execute once per enabled row ──
+  if (dataSource && dataSource.columns.length > 0 && enabledRows.length > 0) {
+    hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] Expanding data source → ${enabledRows.length} row(s)` });
+    const baseScenario: Scenario = { ...httpData.scenario, dataSource };
+    const expandedScenarios = expandDataSource(baseScenario);
+
+    let anyFailed = false;
+    for (const expanded of expandedScenarios) {
+      hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] ${expanded.dataRowLabel ?? 'row'}: ${expanded.method} request...` });
+      const expandedData: HttpNodeData = { ...httpData, scenario: expanded };
+      const result = await executeHttpNode(
+        expandedData,
+        hCtx.ctx,
+        hCtx.tokenManager,
+        nodeId,
+        hCtx.initialVariables,
+        hCtx.resolveHttpBaseUrl,
+        hCtx.resolveHttpAuth,
+      );
+      hCtx.results.push(result.requestResult);
+      if (!result.requestResult.passed) {
+        anyFailed = true;
+        passed.value = false;
+      }
+      logHttpResult(hCtx.nodeLabel(nodeId), hCtx.log, result);
+    }
+
+    const state = anyFailed ? 'fail' : 'pass';
+    hCtx.callbacks.onNodeStateChange(nodeId, {
+      state,
+      statusCode: undefined,
+      responseTimeMs: undefined,
+    });
+    hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
+    await hCtx.visitOutgoing(nodeId, hCtx.threadId);
+    return;
+  }
+
+  // ── Single request (no data source) ──
   hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] ${httpData.scenario?.method ?? 'GET'} request...` });
   const result = await executeHttpNode(
     httpData,
@@ -125,53 +170,11 @@ export async function handleHttpNode(
     responseDetail: formatHttpNodeRunDetail(result.requestResult, { fullResponseBody: result.fullResponseBody }),
   };
   if (!result.requestResult.passed) passed.value = false;
-  const rr = result.requestResult;
-  const label = hCtx.nodeLabel(nodeId);
 
-  // ── Request details ──
-  hCtx.log({ prefix: '>', text: `[${label}] ${rr.method} ${rr.url}` });
-  const reqHdrEntries = Object.entries(result.requestHeaders);
-  if (reqHdrEntries.length > 0) {
-    for (const [k, v] of reqHdrEntries) {
-      const display = /auth|token|key|secret|cookie/i.test(k) ? v.slice(0, 8) + '••••' : v;
-      hCtx.log({ prefix: '>', text: `[${label}]   ${k}: ${display}` });
-    }
-  }
-  if (result.requestBody) {
-    const bodyPreview = result.requestBody.length > 200 ? result.requestBody.slice(0, 200) + '…' : result.requestBody;
-    hCtx.log({ prefix: '>', text: `[${label}]   Body: ${bodyPreview}` });
-  }
+  logHttpResult(hCtx.nodeLabel(nodeId), hCtx.log, result);
 
-  // ── Response details ──
-  const bodyLen = result.fullResponseBody?.length ?? 0;
-  const bodySize = bodyLen < 1024 ? `${bodyLen}B` : `${(bodyLen / 1024).toFixed(1)}KB`;
-  hCtx.log({ prefix: '<', text: `[${label}] ${rr.httpStatus} — ${rr.responseTimeMs.toFixed(0)}ms — ${bodySize}` });
-  const resHdrEntries = Object.entries(result.responseHeaders);
-  if (resHdrEntries.length > 0) {
-    for (const [k, v] of resHdrEntries) {
-      hCtx.log({ prefix: '<', text: `[${label}]   ${k}: ${v}` });
-    }
-  }
-  if (result.fullResponseBody) {
-    const respPreview = result.fullResponseBody.length > 300 ? result.fullResponseBody.slice(0, 300) + '…' : result.fullResponseBody;
-    hCtx.log({ prefix: '<', text: `[${label}]   Body: ${respPreview}` });
-  }
-
-  // ── Assertions ──
-  if (rr.failureDetails && rr.failureDetails.length > 0 && !rr.passed) {
-    for (const f of rr.failureDetails) {
-      hCtx.log({ prefix: '!', text: `[${label}] assertion ${f.path}: expected ${f.expected}, got ${f.actual}` });
-    }
-  }
-  // ── Extracted variables ──
-  if (result.extracted && Object.keys(result.extracted).length > 0) {
-    for (const [k, v] of Object.entries(result.extracted)) {
-      const display = v.length > 80 ? v.slice(0, 80) + '…' : v;
-      hCtx.log({ prefix: '#', text: `[${label}] ${k} = ${display}` });
-    }
-  }
-  if (!rr.passed && !rr.failureDetails?.length) {
-    hCtx.log({ prefix: '!', text: `[${label}] ${humanizeError(status.error ?? 'request failed')}` });
+  if (!result.requestResult.passed && !result.requestResult.failureDetails?.length) {
+    hCtx.log({ prefix: '!', text: `[${hCtx.nodeLabel(nodeId)}] ${humanizeError(status.error ?? 'request failed')}` });
   }
   hCtx.callbacks.onNodeStateChange(nodeId, status);
   hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
@@ -280,17 +283,7 @@ export async function handleWebhookNode(
   if (data.extractVariables && data.extractVariables.length > 0) {
     try {
       const payload = JSON.parse(data.samplePayload || '{}');
-      for (const { name, jsonPath } of data.extractVariables) {
-        const keys = jsonPath.replace(/^\$\./, '').split('.');
-        let value: unknown = payload;
-        for (const key of keys) {
-          value = (value as Record<string, unknown>)?.[key];
-          if (value === undefined) break;
-        }
-        if (value !== undefined) {
-          hCtx.ctx.set(name, String(value));
-        }
-      }
+      extractPayloadVariables(payload, data.extractVariables, hCtx.ctx);
     } catch {
       // Invalid JSON in samplePayload - skip extraction
     }
@@ -412,9 +405,22 @@ export async function handleLoopNode(
   let items: unknown[] = [];
 
   if (data.mode === 'forEach') {
-    const raw = hCtx.ctx.resolve(data.sourceExpression ?? '');
-    try { items = JSON.parse(raw); } catch { items = []; }
-    if (!Array.isArray(items)) items = [];
+    // Check for inline data source first
+    if (data.dataSource) {
+      const enabledRows = data.dataSource.rows.filter(r => r.enabled);
+      items = enabledRows.map(row => {
+        const obj: Record<string, string> = {};
+        for (const col of data.dataSource!.columns) {
+          obj[col.name] = row.values[col.id] ?? '';
+        }
+        return obj;
+      });
+    }
+    if (items.length === 0) {
+      const raw = hCtx.ctx.resolve(data.sourceExpression ?? '');
+      try { items = JSON.parse(raw); } catch { items = []; }
+      if (!Array.isArray(items)) items = [];
+    }
   }
 
   const idxVar = data.indexVariable || 'i';
@@ -816,18 +822,9 @@ export async function handleCorrelationWaitNode(
 
     // Extract variables from webhook payload
     if (data.extractVariables && data.extractVariables.length > 0) {
-      for (const { name, jsonPath } of data.extractVariables) {
-        const keys = jsonPath.replace(/^\$\./, '').split('.');
-        let value: unknown = webhookData;
-        for (const key of keys) {
-          value = (value as Record<string, unknown>)?.[key];
-          if (value === undefined) break;
-        }
-        if (value !== undefined) {
-          const strVal = typeof value === 'string' ? value : JSON.stringify(value);
-          hCtx.ctx.set(name, strVal);
-          hCtx.log({ prefix: '#', text: `[${label}] ${name} = ${strVal.length > 80 ? strVal.slice(0, 80) + '…' : strVal}` });
-        }
+      const extracted = extractPayloadVariables(webhookData, data.extractVariables, hCtx.ctx);
+      for (const [name, strVal] of Object.entries(extracted)) {
+        hCtx.log({ prefix: '#', text: `[${label}] ${name} = ${strVal.length > 80 ? strVal.slice(0, 80) + '…' : strVal}` });
       }
     }
 

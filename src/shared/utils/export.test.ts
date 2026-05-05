@@ -54,7 +54,7 @@ describe('exportCsv', () => {
   it('generates CSV with headers for empty results', () => {
     exportCsv([], 'dev', 'svc');
     expect(fileSaver.saveCsvFile).toHaveBeenCalledWith(
-      expect.stringContaining('Scenario,URL,Method'),
+      expect.stringContaining('Scenario,Data Row ID,Data Row Label,URL,Method'),
       expect.any(String),
     );
   });
@@ -126,7 +126,7 @@ describe('exportCsv', () => {
     exportCsv([result as RequestResult]);
     const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
     const cols = (csv.split('\n')[1] ?? '').split(',');
-    const validationCol = cols[5];
+    const validationCol = cols[7]; // shifted by 2: Data Row ID + Data Row Label
     expect(validationCol).toBe('none');
   });
 });

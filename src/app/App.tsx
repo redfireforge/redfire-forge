@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
+import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile, Scenario } from '../shared/types';
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { useGalleryImport } from './hooks/useGalleryImport';
@@ -9,7 +9,9 @@ import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomi
 import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
 import { saveFile } from '../shared/utils/fileSaver';
 import { mergeById } from '../shared/utils/helpers';
+
 import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
+import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
@@ -114,6 +116,7 @@ export default function App() {
     microservices, setMicroservices,
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
+    sharedDataSources, setSharedDataSources,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,
@@ -249,6 +252,11 @@ export default function App() {
     ...fullyUnassociated,
     ...orphanedFGs.filter((fg) => !seenIds.has(fg.id)),
   ];
+
+  const { isRerunning, handleRerunFailed } = useRerunFailed({
+    featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
+    onComplete: () => setActiveTab('results'),
+  });
 
   const gallery = useGalleryImport({
     wb, featureGroups, environments, microservices,
@@ -704,6 +712,8 @@ export default function App() {
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}
               setFeatureGroups={setFeatureGroups}
+              sharedDataSources={sharedDataSources}
+              setSharedDataSources={setSharedDataSources}
               resolvedBaseUrl={resolvedBaseUrl}
               selectedSvcId={selectedSvcId}
               selectedSvcName={selectedSvc?.name}
@@ -729,12 +739,15 @@ export default function App() {
               resolvedBaseUrl={resolvedBaseUrl}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
+              sharedDataSources={sharedDataSources}
             />
           </div>
           {activeTab === 'results' && (
             <ResultsDashboard
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
+              onRerunFailed={handleRerunFailed}
+              isRerunning={isRerunning}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
