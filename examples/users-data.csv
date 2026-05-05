@@ -1,0 +1,6 @@
+userId,name,validate:$.args.name,_tags,_label,_note
+1,Alice,Alice,smoke;critical,happy-path,Standard user lookup
+2,Bob,Bob,smoke,happy-path,
+3,Charlie,Charlie,regression,,Edge case - special characters
+4,Diana,Diana,regression;edge-case,,
+5,Eve,Eve,boundary,boundary-check,Last user in range

@@ -1,6 +1,6 @@
 import type { RequestResult } from '../../../shared/types';
 
-export type GroupByLevel = 'feature' | 'group' | 'test';
+export type GroupByLevel = 'feature' | 'group' | 'test' | 'dataRow';
 
 export interface GroupNode {
   key: string;
@@ -38,6 +38,7 @@ export function buildGroups(results: RequestResult[], levels: GroupByLevel[]): G
     let key: string;
     if (level === 'feature') key = r.featureGroupName || '(unknown feature)';
     else if (level === 'group') key = r.groupName || '(unknown group)';
+    else if (level === 'dataRow') key = r.dataRowLabel || r.dataRowId || '(no data row)';
     else key = r.scenarioName;
     const arr = map.get(key);
     if (arr) arr.push(r);

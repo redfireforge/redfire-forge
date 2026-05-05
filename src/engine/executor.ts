@@ -8,6 +8,7 @@ import { runSequential, runBatch, runPool, type RunOpts } from './requestExecuti
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, VariableContext } from '../features/workflow/engine';
+import { expandQueue } from './dataSourceExpander';
 
 export interface ProgressMeta {
   elapsedMs: number;
@@ -116,6 +117,14 @@ export async function runTest(
     [queue[i], queue[j]] = [queue[j], queue[i]];
   }
 
+  // Expand data sources — replace parameterized scenarios with per-row resolved copies
+  const expandedQueue = expandQueue(queue);
+
+  // Cap expanded queue at the configured total — "transactions" means total HTTP requests
+  if (total > 0 && expandedQueue.length > total) {
+    expandedQueue.length = total;
+  }
+
   const mode = config.executionMode ?? 'batch';
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
   const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
@@ -132,10 +141,10 @@ export async function runTest(
     return runLoadProfile(config.loadProfile, scenarios, config.scenarioWeights, opts);
   }
   if (mode === 'sequential') {
-    return runSequential(queue, opts);
+    return runSequential(expandedQueue, opts);
   }
   if (mode === 'pool') {
-    return runPool(queue, config.concurrency, opts);
+    return runPool(expandedQueue, config.concurrency, opts);
   }
-  return runBatch(queue, config.concurrency, opts);
+  return runBatch(expandedQueue, config.concurrency, opts);
 }

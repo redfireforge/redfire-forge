@@ -13,8 +13,9 @@ import { ParamsEditor } from '../../../requests/components/ParamsEditor';
 import type { ParamEntry } from '../../../requests/components/ParamsEditor';
 import ExpressionInput from '../expression/ExpressionInput';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
+import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
 
-export type HttpTab = 'url' | 'headers' | 'body' | 'extract';
+export type HttpTab = 'url' | 'headers' | 'body' | 'extract' | 'data';
 
 // ── Query-param utilities ─────────────────────────────
 
@@ -130,6 +131,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   }, [s.url, extraEmptyRows]);
 
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
+  const dataSourceRowCount = useMemo(() => s.dataSource?.rows?.filter(r => r.enabled).length ?? 0, [s.dataSource]);
 
   const handleParamsChange = useCallback((entries: ParamEntry[]) => {
     // Count trailing empty rows to preserve them as local state
@@ -245,12 +247,13 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       </div>
 
       <div className="wf-config-tabs">
-        {(['url', 'headers', 'body', 'extract'] as HttpTab[]).map(tab => (
+        {(['url', 'headers', 'body', 'extract', 'data'] as HttpTab[]).map(tab => (
           <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
-            {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab === 'data' ? 'Data Source' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
             {tab === 'extract' && (s.extractions?.length ?? 0) > 0 && <span className="tab-badge">{s.extractions!.length}</span>}
             {tab === 'headers' && s.headers.filter(h => h.key.trim()).length > 0 && <span className="tab-badge">{s.headers.filter(h => h.key.trim()).length}</span>}
+            {tab === 'data' && dataSourceRowCount > 0 && <span className="tab-badge">{dataSourceRowCount}</span>}
           </button>
         ))}
       </div>
@@ -361,6 +364,13 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                   }
                 : undefined
             }
+          />
+        )}
+
+        {activeTab === 'data' && (
+          <DataSourceEditor
+            draft={s}
+            onDraftChange={(updated) => update(updated)}
           />
         )}
       </div>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify &amp; Validation Contract — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✅</div>
+    <h1>Verify &amp; Validation Contract</h1>
+    <div class="subtitle">Automated Data Verification &amp; Expected-Value Contracts — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · Data-Driven · Regression</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Verify</strong> feature lets you validate all data source rows against the live API in a single pass — without running a full test. It catches stale expected values, broken endpoints, and regressions before they reach your test results.</p>
+  <p>The <strong>Validation Contract</strong> takes this further: define which JSON paths in the response you care about, and RedfireForge automatically tracks changes to those paths across runs.</p>
+
+  <div class="callout">
+    <strong>Prerequisite</strong>
+    You need a data source with <code>validate</code>-type columns (expected values). See <a href="parameterized-validation-medium.html">Parameterized Validation</a>.
+  </div>
+
+  <h2>2. The Verify Modal</h2>
+
+  <h3>Opening the Verify Modal</h3>
+  <ol>
+    <li>Open a test in the Test Editor.</li>
+    <li>Switch to the <strong>Data Source</strong> tab.</li>
+    <li>Click <strong>✅ Verify</strong> in the toolbar.</li>
+    <li>The Verify modal opens, showing all enabled data source rows.</li>
+  </ol>
+
+  <h3>Understanding the Verify UI</h3>
+  <p>The modal displays each row with its status:</p>
+  <table>
+    <tr><th>Status</th><th>Icon</th><th>Meaning</th></tr>
+    <tr><td>Pending</td><td>⏳</td><td>Not yet verified</td></tr>
+    <tr><td>Pass</td><td>✅</td><td>Expected values match API response</td></tr>
+    <tr><td>Fail</td><td>❌</td><td>Mismatch between expected and actual values</td></tr>
+    <tr><td>Error</td><td>⚠️</td><td>Request failed (network error, 5xx, etc.)</td></tr>
+  </table>
+
+  <h2>3. Verify All</h2>
+  <ol>
+    <li>Click <strong>▶ Verify All</strong> in the modal toolbar.</li>
+    <li>Each row is executed against the live API (sequentially).</li>
+    <li>For each row, the actual response is compared to the expected values in <code>validate</code> columns.</li>
+    <li>Results update in real time — green checks for passing rows, red X for failures.</li>
+    <li>Click any failed row to see the diff: expected vs actual value, with the JSON path highlighted.</li>
+  </ol>
+
+  <h2>4. Run &amp; Capture</h2>
+  <p><strong>Run &amp; Capture</strong> executes all rows and captures the actual API response values into your <code>validate</code> columns — overwriting existing expected values with what the API actually returns.</p>
+  <ol>
+    <li>Click <strong>▶ Run &amp; Capture</strong> in the modal toolbar.</li>
+    <li>All rows execute against the live API.</li>
+    <li>Each row's validate columns are populated with actual response values.</li>
+    <li>After capture, all rows show as ✅ (since expected now equals actual).</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ When to Use Run &amp; Capture</strong>
+    Use this when setting up a new data source for the first time, or after a <em>known, intentional</em> API change. It overwrites expected values — do not use it blindly on an established regression suite.
+  </div>
+
+  <h2>5. Re-Fetch Failed &amp; Accept Changes</h2>
+
+  <h3>Re-Fetch Failed</h3>
+  <p>After a verify pass, click <strong>🔄 Re-fetch Failed</strong> to retry only the rows that failed or errored. This is useful when failures were caused by transient issues (network timeouts, server restarts).</p>
+
+  <h3>Accept All Changes</h3>
+  <p>When the API has legitimately changed, click <strong>Accept All Changes</strong> to update all failed rows' expected values to the actual values returned by the API.</p>
+
+  <h3>Per-Row Accept</h3>
+  <p>Click the ✅ accept button on an individual failed row to accept just that row's actual value as the new expected value. Use this when only some failures represent intentional changes.</p>
+
+  <h2>6. Failure Pattern Grouping</h2>
+  <p>When many rows fail for the same reason, the Verify modal groups them by failure pattern:</p>
+  <ul>
+    <li><strong>Same JSON path mismatch</strong> — e.g., all rows fail on <code>$.status</code> (expected "active", got "inactive")</li>
+    <li><strong>Same error type</strong> — e.g., 10 rows got 503 Service Unavailable</li>
+  </ul>
+  <p>This helps you quickly identify whether failures are a systemic API change (fix once) or scattered data issues (fix individually).</p>
+
+  <h2>7. Validation Contract</h2>
+  <p>A <strong>validation contract</strong> is a set of JSON response paths that you "care about" for a data source. When you define a contract, RedfireForge monitors those paths and flags any structural changes — even if you haven't written explicit expected values for every row.</p>
+
+  <h3>How It Works</h3>
+  <ol>
+    <li>In the Data Source tab toolbar, click <strong>📋 Contract</strong>.</li>
+    <li>Add JSON path patterns you want to monitor, for example:
+      <ul>
+        <li><code>$.id</code> — the root ID field</li>
+        <li><code>$.name</code> — the name field</li>
+        <li><code>$.items[*].price</code> — price field in every item of an array</li>
+      </ul>
+    </li>
+    <li>During verification, each response is checked against the contract paths.</li>
+    <li>If a path is missing or its type has changed, it's flagged as a contract violation — distinct from a value mismatch.</li>
+  </ol>
+
+  <h3>Contract Path Patterns</h3>
+  <table>
+    <tr><th>Pattern</th><th>Matches</th><th>Example</th></tr>
+    <tr><td><code>$.field</code></td><td>Top-level field</td><td><code>$.id</code>, <code>$.name</code></td></tr>
+    <tr><td><code>$.parent.child</code></td><td>Nested field</td><td><code>$.address.city</code></td></tr>
+    <tr><td><code>$.items[*].field</code></td><td>Field in every array item</td><td><code>$.items[*].price</code></td></tr>
+    <tr><td><code>$.data[*].tags[*]</code></td><td>Nested arrays</td><td>Every tag in every data item</td></tr>
+  </table>
+
+  <h3>Managing Contract Patterns</h3>
+  <ul>
+    <li><strong>Add</strong> — type a JSON path pattern and press Enter</li>
+    <li><strong>Toggle</strong> — disable a pattern without deleting it (useful for temporary exclusions)</li>
+    <li><strong>Remove</strong> — delete a pattern permanently</li>
+    <li><strong>Array mode toggle</strong> — switch between <code>[*]</code> (check all items) and <code>[0]</code> (check first item only)</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Contract vs. Validate Columns</strong>
+    Validate columns check <em>specific values</em> per row (e.g., "user 42's name must be Alice"). Contracts check <em>structure</em> across all rows (e.g., "every response must have a <code>name</code> field of type string"). Use both together for comprehensive coverage.
+  </div>
+
+  <h2>8. Step-by-Step Walkthrough</h2>
+  <ol>
+    <li>Load the <strong>User Lookup Sweep</strong> gallery sample.</li>
+    <li>Open the Data Source tab — notice validate columns with expected values.</li>
+    <li>Click <strong>✅ Verify</strong> → <strong>▶ Verify All</strong>.</li>
+    <li>Watch rows turn green (✅) or red (❌).</li>
+    <li>Click a failed row to see the expected vs actual diff.</li>
+    <li>Click <strong>Accept</strong> on one failed row to update its expected value.</li>
+    <li>Click <strong>🔄 Re-fetch Failed</strong> to retry remaining failures.</li>
+    <li>Now set up a contract: click <strong>📋 Contract</strong>.</li>
+    <li>Add: <code>$.id</code>, <code>$.name</code>, <code>$.email</code>.</li>
+    <li>Run Verify All again — contract violations (if any) appear separately from value mismatches.</li>
+  </ol>
+
+  <h2>9. Try It Yourself</h2>
+  <ol>
+    <li>Create a test pointing to <code>https://dummyjson.com/products</code>.</li>
+    <li>Use <strong>⬇ From API</strong> to populate 30 product rows.</li>
+    <li>Add a validate column for <code>$.title</code>.</li>
+    <li>Use <strong>▶ Run &amp; Capture</strong> to auto-fill expected titles.</li>
+    <li>Manually change one row's expected title to "WRONG VALUE".</li>
+    <li>Run <strong>▶ Verify All</strong> — the modified row should fail, all others pass.</li>
+    <li>Click Accept on the failed row.</li>
+    <li>Set up a contract with <code>$.id</code>, <code>$.title</code>, <code>$.price</code>, <code>$.images[*]</code>.</li>
+    <li>Verify again — all rows should pass with no contract violations.</li>
+  </ol>
+
+  <h2>10. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — set up validate columns and assertion rules</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-generate rows from API responses</li>
+    <li><a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a> — tags, subsets, distribution modes</li>
+    <li><a href="parameterized-pre-validate-medium.html">Pre-Validate</a> — quick validation without the full Verify modal</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Verify &amp; Validation Contract · Advanced
+  </footer>
+</body>
+</html>

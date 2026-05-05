@@ -7,32 +7,9 @@
  */
 
 import type { TestRun } from '../types';
+import { openDB } from './idbOpen';
 
-const DB_NAME = 'redfireforge';
-const DB_VERSION = 1;
 const STORE_NAME = 'testRuns';
-
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-function openDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => {
-      dbPromise = null;
-      reject(req.error);
-    };
-  });
-  return dbPromise;
-}
 
 function tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {
   return openDB().then(db => db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));

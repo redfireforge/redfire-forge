@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verify Modal Redesign Mockup</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --surface: #22262e;
+    --border: #333a44;
+    --text: #e0e4ea;
+    --text-muted: #8a919c;
+    --primary: #5b9cf6;
+    --success: #4caf80;
+    --danger: #e85d5d;
+    --warning: #f0ad4e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #111318; color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+  /* Overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  /* Modal */
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 960px;
+    max-width: 92vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  /* Header */
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-title { font-size: 1.1rem; font-weight: 700; }
+  .modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+  .modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .modal-close:hover { background: var(--surface); color: var(--text); }
+
+  /* Body */
+  .modal-body {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    padding: 20px 24px;
+    scrollbar-width: thin;
+  }
+
+  /* Summary Bar (appears after verify) */
+  .summary-bar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid;
+  }
+  .summary-bar.pass { background: color-mix(in srgb, var(--success) 8%, var(--bg)); border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
+  .summary-bar.fail { background: color-mix(in srgb, var(--danger) 6%, var(--bg)); border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); }
+  .summary-bar.neutral { background: var(--surface); border-color: var(--border); }
+  .stat { font-size: 0.78rem; font-weight: 600; }
+  .stat-pass { color: var(--success); }
+  .stat-fail { color: var(--danger); }
+  .stat-error { color: var(--warning); }
+  .stat-total { color: var(--text-muted); margin-left: auto; }
+
+  /* Data Table */
+  .data-table-wrapper {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    table-layout: auto;
+  }
+  .data-table thead {
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 1;
+  }
+  .data-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    vertical-align: middle;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, var(--bg)); }
+
+  /* Row status indicator */
+  .row-status {
+    width: 28px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .row-status.pass { color: var(--success); }
+  .row-status.fail { color: var(--danger); }
+  .row-status.error { color: var(--warning); }
+  .row-status.pending { color: var(--text-muted); }
+
+  /* Column type badges */
+  .col-type { 
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+  }
+  .col-type.path { background: color-mix(in srgb, #a855f7 15%, transparent); color: #a855f7; }
+  .col-type.param { background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+  .col-type.validate { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+
+  /* HTTP status badge */
+  .http-badge {
+    font-size: 0.7rem; font-weight: 600;
+    padding: 2px 7px; border-radius: 4px;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+  }
+
+  /* Cell value styles */
+  .cell-pass { color: var(--success); }
+  .cell-fail { 
+    color: var(--danger); 
+    position: relative;
+  }
+  .cell-fail-detail {
+    font-size: 0.65rem;
+    color: var(--danger);
+    opacity: 0.7;
+  }
+  .cell-value { color: var(--text); }
+  .cell-muted { color: var(--text-muted); font-style: italic; }
+
+  /* Row name */
+  .row-name { font-weight: 600; color: var(--text); white-space: nowrap; }
+
+  /* Footer */
+  .modal-footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 24px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .btn {
+    padding: 7px 16px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-primary:hover { background: color-mix(in srgb, var(--primary) 85%, #fff); }
+  .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
+  .btn-success:hover { background: color-mix(in srgb, var(--success) 85%, #fff); }
+  .btn-ghost { border: none; background: none; color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text); }
+  .footer-spacer { flex: 1; }
+  .footer-info { font-size: 0.72rem; color: var(--text-muted); }
+
+  /* Tabs for switching views */
+  .view-tabs {
+    display: flex; gap: 0; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .view-tab {
+    padding: 8px 16px; font-size: 0.78rem; font-weight: 600;
+    color: var(--text-muted); border: none; background: none; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* Failure tooltip */
+  .failure-indicator {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .failure-indicator .expected {
+    font-size: 0.65rem; color: var(--text-muted);
+    text-decoration: line-through;
+  }
+
+  /* Section labels */
+  .section-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px;
+  }
+
+  /* Demo states container */
+  .demo-container { display: flex; flex-direction: column; gap: 40px; padding: 40px; }
+  .demo-label { font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; text-align: center; }
+
+  /* Scrollable table container */
+  .table-scroll {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STATE 1: Initial (before verification) -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="demo-label">State 1: Modal Opens — Data Table View (Before Verify)</div>
+  <div class="overlay" style="position: relative; min-height: 600px;">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Data Table — Verify & Inspect</div>
+          <div class="modal-subtitle">3 enabled rows • 12 columns (6 request, 6 validate)</div>
+        </div>
+        <button class="modal-close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Summary: neutral before verify -->
+        <div class="summary-bar neutral">
+          <span class="stat" style="color: var(--text-muted);">Click "▶ Verify All" to validate rows against the API</span>
+        </div>
+
+        <div class="data-table-wrapper">
+          <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 28px;"></th>
+                <th>Row</th>
+                <th>vin <span class="col-type path">Path</span></th>
+                <th>channel <span class="col-type param">Param</span></th>
+                <th>enrollmentType <span class="col-type param">Param</span></th>
+                <th>country <span class="col-type param">Param</span></th>
+                <th>offer0_code <span class="col-type validate">Validate</span></th>
+                <th>offer1_code <span class="col-type validate">Validate</span></th>
+                <th>offer0_name <span class="col-type validate">Validate</span></th>
+                <th>HTTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-status pending">○</td>
+                <td class="row-name">ONBOARD_MX_1</td>
+                <td class="cell-value">1GTPU91D6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-value">DT3G3MMXINV</td>
+                <td class="cell-value">EBZFC...</td>
+                <td class="cell-value">OnStar Protect...</td>
+                <td><span class="cell-muted">—</span></td>
+              </tr>
+              <tr>
+                <td class="row-status pending">○</td>
+                <td class="row-name">ONBOARD_MX_2</td>
+                <td class="cell-value">1G1Y92149S1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-value">DA3PNCP01YMXUI</td>
+                <td class="cell-value">CAZFC...</td>
+                <td class="cell-value">Connected Plan...</td>
+                <td><span class="cell-muted">—</span></td>
+              </tr>
+              <tr>
+                <td class="row-status pending">○</td>
+                <td class="row-name">Row 3</td>
+                <td class="cell-value">1GN1D91M6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-value">DA3PNCP01YMXUI</td>
+                <td class="cell-value">EVZFC...</td>
+                <td class="cell-value">EV Charging...</td>
+                <td><span class="cell-muted">—</span></td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary">▶ Verify All</button>
+        <button class="btn">↻ Re-fetch All</button>
+        <span class="footer-spacer"></span>
+        <span class="footer-info">3 enabled rows → 3 requests</span>
+        <button class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STATE 2: All Passed -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="demo-label">State 2: After Verify — All Passed ✓</div>
+  <div class="overlay" style="position: relative; min-height: 600px;">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Data Table — Verify & Inspect</div>
+          <div class="modal-subtitle">3 enabled rows • 12 columns (6 request, 6 validate)</div>
+        </div>
+        <button class="modal-close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="summary-bar pass">
+          <span class="stat stat-pass">✓ 3 passed</span>
+          <span class="stat stat-fail">✗ 0 failed</span>
+          <span class="stat stat-error">⚠ 0 errors</span>
+          <span class="stat stat-total">3 rows</span>
+        </div>
+
+        <div class="data-table-wrapper">
+          <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 28px;"></th>
+                <th>Row</th>
+                <th>vin <span class="col-type path">Path</span></th>
+                <th>channel <span class="col-type param">Param</span></th>
+                <th>enrollmentType <span class="col-type param">Param</span></th>
+                <th>country <span class="col-type param">Param</span></th>
+                <th>offer0_code <span class="col-type validate">Validate</span></th>
+                <th>offer1_code <span class="col-type validate">Validate</span></th>
+                <th>offer0_name <span class="col-type validate">Validate</span></th>
+                <th>HTTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-status pass">✓</td>
+                <td class="row-name">ONBOARD_MX_1</td>
+                <td class="cell-value">1GTPU91D6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-pass">DT3G3MMXINV</td>
+                <td class="cell-pass">EBZFC...</td>
+                <td class="cell-pass">OnStar Protect...</td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+              <tr>
+                <td class="row-status pass">✓</td>
+                <td class="row-name">ONBOARD_MX_2</td>
+                <td class="cell-value">1G1Y92149S1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-pass">DA3PNCP01YMXUI</td>
+                <td class="cell-pass">CAZFC...</td>
+                <td class="cell-pass">Connected Plan...</td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+              <tr>
+                <td class="row-status pass">✓</td>
+                <td class="row-name">Row 3</td>
+                <td class="cell-value">1GN1D91M6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-pass">DA3PNCP01YMXUI</td>
+                <td class="cell-pass">EVZFC...</td>
+                <td class="cell-pass">EV Charging...</td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary">▶ Re-verify</button>
+        <button class="btn">↻ Re-fetch All</button>
+        <span class="footer-spacer"></span>
+        <span class="footer-info">All 3 rows passed</span>
+        <button class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STATE 3: Some Failures -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="demo-label">State 3: After Verify — Some Failures ✗</div>
+  <div class="overlay" style="position: relative; min-height: 650px;">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Data Table — Verify & Inspect</div>
+          <div class="modal-subtitle">3 enabled rows • 12 columns (6 request, 6 validate)</div>
+        </div>
+        <button class="modal-close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="summary-bar fail">
+          <span class="stat stat-pass">✓ 1 passed</span>
+          <span class="stat stat-fail">✗ 1 failed</span>
+          <span class="stat stat-error">⚠ 1 error</span>
+          <span class="stat stat-total">3 rows</span>
+        </div>
+
+        <div class="data-table-wrapper">
+          <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 28px;"></th>
+                <th>Row</th>
+                <th>vin <span class="col-type path">Path</span></th>
+                <th>channel <span class="col-type param">Param</span></th>
+                <th>enrollmentType <span class="col-type param">Param</span></th>
+                <th>country <span class="col-type param">Param</span></th>
+                <th>offer0_code <span class="col-type validate">Validate</span></th>
+                <th>offer1_code <span class="col-type validate">Validate</span></th>
+                <th>offer0_name <span class="col-type validate">Validate</span></th>
+                <th>HTTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1: PASS -->
+              <tr>
+                <td class="row-status pass">✓</td>
+                <td class="row-name">ONBOARD_MX_1</td>
+                <td class="cell-value">1GTPU91D6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-pass">DT3G3MMXINV</td>
+                <td class="cell-pass">EBZFC...</td>
+                <td class="cell-pass">OnStar Protect...</td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+              <!-- Row 2: FAIL — mismatched values highlighted in red -->
+              <tr style="background: color-mix(in srgb, var(--danger) 4%, var(--bg));">
+                <td class="row-status fail">✗</td>
+                <td class="row-name">ONBOARD_MX_2</td>
+                <td class="cell-value">1G1Y92149S1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-fail">
+                  <div class="failure-indicator">
+                    <span>XX3WRONG01CODE</span>
+                  </div>
+                  <div class="cell-fail-detail">expected: DA3PNCP01YMXUI</div>
+                </td>
+                <td class="cell-pass">CAZFC...</td>
+                <td class="cell-fail">
+                  <div class="failure-indicator">
+                    <span>Wrong Plan Name</span>
+                  </div>
+                  <div class="cell-fail-detail">expected: Connected Plan...</div>
+                </td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+              <!-- Row 3: ERROR -->
+              <tr style="background: color-mix(in srgb, var(--warning) 4%, var(--bg));">
+                <td class="row-status error">⚠</td>
+                <td class="row-name">Row 3</td>
+                <td class="cell-value">1GN1D91M6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td colspan="3" style="color: var(--warning); font-size: 0.75rem;">⚠ HTTP 500: Internal Server Error</td>
+                <td><span class="http-badge" style="background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger);">500</span></td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary">▶ Re-verify</button>
+        <button class="btn btn-success">↻ Re-fetch Failed</button>
+        <button class="btn">↻ Re-fetch All</button>
+        <span class="footer-spacer"></span>
+        <span class="footer-info">1 passed, 1 failed, 1 error</span>
+        <button class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- STATE 4: Verifying in progress -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="demo-label">State 4: Verification In Progress</div>
+  <div class="overlay" style="position: relative; min-height: 600px;">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Data Table — Verify & Inspect</div>
+          <div class="modal-subtitle">3 enabled rows • 12 columns (6 request, 6 validate)</div>
+        </div>
+        <button class="modal-close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="summary-bar neutral">
+          <span class="stat" style="color: var(--primary); animation: pulse 1.2s ease-in-out infinite;">Verifying row 2 of 3...</span>
+          <span class="stat stat-total">
+            <!-- Progress bar -->
+            <span style="display: inline-block; width: 80px; height: 4px; background: var(--surface); border-radius: 2px; overflow: hidden;">
+              <span style="display: block; width: 66%; height: 100%; background: var(--primary); border-radius: 2px;"></span>
+            </span>
+          </span>
+        </div>
+
+        <div class="data-table-wrapper">
+          <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 28px;"></th>
+                <th>Row</th>
+                <th>vin <span class="col-type path">Path</span></th>
+                <th>channel <span class="col-type param">Param</span></th>
+                <th>enrollmentType <span class="col-type param">Param</span></th>
+                <th>country <span class="col-type param">Param</span></th>
+                <th>offer0_code <span class="col-type validate">Validate</span></th>
+                <th>offer1_code <span class="col-type validate">Validate</span></th>
+                <th>offer0_name <span class="col-type validate">Validate</span></th>
+                <th>HTTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1: Already verified (pass) -->
+              <tr>
+                <td class="row-status pass">✓</td>
+                <td class="row-name">ONBOARD_MX_1</td>
+                <td class="cell-value">1GTPU91D6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-pass">DT3G3MMXINV</td>
+                <td class="cell-pass">EBZFC...</td>
+                <td class="cell-pass">OnStar Protect...</td>
+                <td><span class="http-badge">200</span></td>
+              </tr>
+              <!-- Row 2: Currently verifying -->
+              <tr style="background: color-mix(in srgb, var(--primary) 4%, var(--bg));">
+                <td class="row-status" style="color: var(--primary);">⟳</td>
+                <td class="row-name">ONBOARD_MX_2</td>
+                <td class="cell-value">1G1Y92149S1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-value" style="opacity: 0.5;">DA3PNCP01YMXUI</td>
+                <td class="cell-value" style="opacity: 0.5;">CAZFC...</td>
+                <td class="cell-value" style="opacity: 0.5;">Connected Plan...</td>
+                <td><span class="cell-muted">...</span></td>
+              </tr>
+              <!-- Row 3: Pending -->
+              <tr>
+                <td class="row-status pending">○</td>
+                <td class="row-name">Row 3</td>
+                <td class="cell-value">1GN1D91M6R1079...</td>
+                <td class="cell-value">MC_WEBRNW</td>
+                <td class="cell-value">ONBOARD_AS_NEW</td>
+                <td class="cell-value">MX</td>
+                <td class="cell-value" style="opacity: 0.5;">DA3PNCP01YMXUI</td>
+                <td class="cell-value" style="opacity: 0.5;">EVZFC...</td>
+                <td class="cell-value" style="opacity: 0.5;">EV Charging...</td>
+                <td><span class="cell-muted">—</span></td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;">⏳ Verifying...</button>
+        <span class="footer-spacer"></span>
+        <span class="footer-info">2 of 3 completed</span>
+        <button class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<style>
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+</style>
+</body>
+</html>

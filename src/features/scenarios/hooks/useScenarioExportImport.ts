@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, TestScenario, Scenario } from '../../../shared/types';
+import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
 import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData } from '../utils/scenarioImportExport';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
@@ -8,6 +8,8 @@ import type { VersionExportOptions } from '../utils/scenarioImportExport';
 interface UseScenarioExportImportParams {
   featureGroups: FeatureGroup[];
   setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
+  sharedDataSources?: SharedDataSource[];
+  setSharedDataSources?: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
   selectedSvcId?: string;
   selectedSvcName?: string;
   selectedEnvId?: string;
@@ -31,6 +33,8 @@ export interface PendingImport {
 export function useScenarioExportImport({
   featureGroups,
   setFeatureGroups,
+  sharedDataSources,
+  setSharedDataSources,
   selectedSvcId,
   selectedSvcName,
   selectedEnvId,
@@ -84,15 +88,28 @@ export function useScenarioExportImport({
   }, [applyImportVersionOpts, confirm]);
 
   const exportAll = useCallback((versionOpts?: VersionExportOptions) => {
-    downloadJson(wrapExport(featureGroups, 'feature-groups', exportMeta, versionOpts), fname('feature-groups'));
-  }, [featureGroups, exportMeta]);
+    const payload = wrapExport(featureGroups, 'feature-groups', exportMeta, versionOpts);
+    if (sharedDataSources && sharedDataSources.length > 0) {
+      (payload as Record<string, unknown>).sharedDataSources = sharedDataSources;
+    }
+    downloadJson(payload, fname('feature-groups'));
+  }, [featureGroups, sharedDataSources, exportMeta]);
 
   const importAll = useCallback(() => {
     if (!selectedSvcId || !selectedEnvId) { confirm('Import Error', 'Select a microservice and environment first.', () => {}); return; }
-    importWithVersionPrompt<FeatureGroup>(
-      (items) => items.every((fg) => fg.name && Array.isArray(fg.scenarios)),
-      'Invalid file: expected feature group(s).',
-      (finalItems) => {
+    pickJsonFile((raw) => {
+      // Extract sharedDataSources from the wrapper before unwrapping
+      let importedSharedDs: SharedDataSource[] | undefined;
+      if (raw && typeof raw === 'object' && 'sharedDataSources' in raw) {
+        const ds = (raw as Record<string, unknown>).sharedDataSources;
+        if (Array.isArray(ds) && ds.length > 0) importedSharedDs = ds as SharedDataSource[];
+      }
+
+      const data = unwrapImport(raw);
+      const items = Array.isArray(data) ? data as FeatureGroup[] : [data as FeatureGroup];
+      if (!items.every((fg) => fg.name && Array.isArray(fg.scenarios))) { confirm('Import Error', 'Invalid file: expected feature group(s).', () => {}); return; }
+
+      const doFeatureGroupImport = (finalItems: FeatureGroup[]) => {
         const existingNames = new Set(featureGroups.map((fg) => fg.name.toLowerCase()));
         const existingIds = new Set(featureGroups.map((fg) => fg.id));
         const conflicts = finalItems.filter((fg) => existingNames.has(fg.name.toLowerCase()) || existingIds.has(fg.id));
@@ -102,13 +119,34 @@ export function useScenarioExportImport({
             const imported = finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
             setFeatureGroups((prev) => [...prev, ...imported]);
           });
-          return;
+        } else {
+          const imported = finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
+          setFeatureGroups((prev) => [...prev, ...imported]);
         }
-        const imported = finalItems.map((fg) => ({ ...fg, id: uuidv4(), microserviceId: selectedSvcId, environmentId: selectedEnvId, scenarios: reIdScenarios(fg.scenarios) }));
-        setFeatureGroups((prev) => [...prev, ...imported]);
-      },
-    );
-  }, [featureGroups, selectedSvcId, selectedEnvId, setFeatureGroups, importWithVersionPrompt]);
+        // Merge shared data sources (deduplicate by id)
+        if (importedSharedDs && setSharedDataSources) {
+          setSharedDataSources((prev) => {
+            const existingDsIds = new Set(prev.map((ds) => ds.id));
+            const newDs = importedSharedDs!.filter((ds) => !existingDsIds.has(ds.id));
+            return newDs.length > 0 ? [...prev, ...newDs] : prev;
+          });
+        }
+      };
+
+      if (hasVersionData(items)) {
+        setPendingImport({
+          data: items,
+          finalize: (opts) => {
+            const stripped = applyImportVersionOpts(items, opts) as FeatureGroup[];
+            doFeatureGroupImport(stripped);
+            setPendingImport(null);
+          },
+        });
+      } else {
+        doFeatureGroupImport(items);
+      }
+    }, (msg) => confirm('Import Error', msg, () => {}));
+  }, [featureGroups, sharedDataSources, selectedSvcId, selectedEnvId, setFeatureGroups, setSharedDataSources, applyImportVersionOpts, confirm]);
 
   const handleCsvImport = useCallback((fgId: string, scenarioId: string, tests: Scenario[]) => {
     const scenName = scenarioId.startsWith('__new__:') ? scenarioId.slice('__new__:'.length) : '';
