@@ -1,4 +1,4 @@
-import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource } from '../types';
+import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
 import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
@@ -374,9 +374,9 @@ export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
   for (const fg of fgs) {
     for (const sc of fg.scenarios ?? []) {
       for (const t of sc.tests ?? []) {
-        const legacy = t as Record<string, unknown>;
+        const legacy = t as unknown as Record<string, unknown>;
         if (legacy['dataTable'] && !t.dataSource) {
-          t.dataSource = legacy['dataTable'] as typeof t.dataSource;
+          t.dataSource = legacy['dataTable'] as DataSource;
           delete legacy['dataTable'];
           migrated = true;
         }

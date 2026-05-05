@@ -8,7 +8,7 @@
  */
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, ExpectedField } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, ExpectedField, AuthConfig } from '../../../shared/types';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
 import type { TestEditingContext } from './TestEditorModal';
 import {
@@ -33,7 +33,7 @@ import {
   buildConfiguredColumnDefs,
   buildUrlTemplate,
 } from '../utils/dataSourceSetupUtils';
-import { decodeTemplateBraces, isTemplateToken } from '../../../shared/utils/templateHelpers';
+import { isTemplateToken } from '../../../shared/utils/templateHelpers';
 import type { SetupMode } from '../utils/dataSourceSetupUtils';
 
 export type { SetupMode };
@@ -266,7 +266,7 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
     setWorkingAuth({ type } as Scenario['auth']);
   }, []);
 
-  const patchWorkingAuth = useCallback((patch: Record<string, string>) => {
+  const patchWorkingAuth = useCallback((patch: Partial<AuthConfig>) => {
     setWorkingAuth(prev => ({ ...prev, ...patch } as Scenario['auth']));
   }, []);
 
@@ -371,6 +371,8 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
       .map(f => ({
         type: 'validate' as const,
         mapping: f.jsonPath,
+        fullKey: `validate:${f.jsonPath}`,
+        autoName: f.jsonPath.replace(/\./g, '_').replace(/\[(\d+)\]/g, '$1').replace(/[^a-zA-Z0-9_]/g, ''),
         customName: f.jsonPath.replace(/\./g, '_').replace(/\[(\d+)\]/g, '$1').replace(/[^a-zA-Z0-9_]/g, ''),
         sampleValue: f.expectedValue ?? '',
       }));

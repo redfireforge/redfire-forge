@@ -156,7 +156,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
     bulkEnable, bulkDelete, bulkDuplicate,
     searchQuery, setSearchQuery,
     sortCol, sortDir, handleSortColumn,
-    dragRowId, handleDragStart, handleDragOver, handleDrop,
+    dragRowId, setDragRowId, handleDragStart, handleDragOver, handleDrop,
     filteredSortedRows: filteredRows,
     enabledCount,
     filterTag, setFilterTag,

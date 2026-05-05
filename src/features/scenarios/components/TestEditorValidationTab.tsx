@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, ResponseVersion, RulesVersion, Scenario, ValidationMode } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';

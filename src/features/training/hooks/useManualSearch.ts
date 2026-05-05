@@ -4,7 +4,6 @@ import type {
   TrainingPath, 
   TrainingPhase, 
   TrainingManual, 
-  ManualStatus,
   TrainingProgress,
 } from '../../../data/galleries/trainingPaths/types';
 
