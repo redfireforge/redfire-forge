@@ -55,25 +55,32 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
   const runs = useMemo(() => {
     return allRuns.filter((r) => {
-      if (envName && r.envName !== envName) return false;
-      if (svcName && r.svcName !== svcName) return false;
+      // For workflow runs, don't filter by env/svc since workflows aren't microservice-specific
+      const isWorkflowRun = r.config.executionMode === 'workflow';
+      if (!isWorkflowRun) {
+        if (envName && r.envName !== envName) return false;
+        if (svcName && r.svcName !== svcName) return false;
+      }
       // Filter by run type
-      if (runTypeFilter === 'workflow' && r.config.executionMode !== 'workflow') return false;
-      if (runTypeFilter === 'test' && r.config.executionMode === 'workflow') return false;
+      if (runTypeFilter === 'workflow' && !isWorkflowRun) return false;
+      if (runTypeFilter === 'test' && isWorkflowRun) return false;
       return true;
     });
   }, [allRuns, envName, svcName, runTypeFilter]);
 
   const runCounts = useMemo(() => {
-    const base = allRuns.filter((r) => {
+    // Test runs are filtered by env/svc, workflow runs are not
+    const testRuns = allRuns.filter((r) => {
+      if (r.config.executionMode === 'workflow') return false;
       if (envName && r.envName !== envName) return false;
       if (svcName && r.svcName !== svcName) return false;
       return true;
     });
+    const workflowRuns = allRuns.filter(r => r.config.executionMode === 'workflow');
     return {
-      all: base.length,
-      test: base.filter(r => r.config.executionMode !== 'workflow').length,
-      workflow: base.filter(r => r.config.executionMode === 'workflow').length,
+      all: testRuns.length + workflowRuns.length,
+      test: testRuns.length,
+      workflow: workflowRuns.length,
     };
   }, [allRuns, envName, svcName]);
 
