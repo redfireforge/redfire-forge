@@ -119,7 +119,7 @@ export default function RequestDefinitionVersionPanel({
                     </span>
                   )}
                   <span className="test-def-version-item-time">
-                    {formatRelativeTime(v.timestamp)}
+                    {formatRelativeTime(v.timestamp, formatTimestamp)}
                   </span>
                 </div>
                 <div className="test-def-version-item-meta">
@@ -166,22 +166,4 @@ export default function RequestDefinitionVersionPanel({
   );
 }
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function formatRelativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return formatTimestamp(ts);
-}
+import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';

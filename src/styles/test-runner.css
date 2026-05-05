@@ -166,6 +166,36 @@
 .weight-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; flex: 1; min-width: 0; }
 .weight-input { width: 70px; flex-shrink: 0; text-align: center; }
 
+/* Phase 12: Tag filter */
+.runner-tag-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.runner-tag-filter-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.runner-tag-match-badge {
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+.runner-tag-miss-badge {
+  font-size: 0.75rem;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+.runner-expansion-row-skipped {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
 /* Collapsible legend */
 .collapsible-legend {
   cursor: pointer;
@@ -318,6 +348,132 @@ tr:hover td { background: var(--surface-hover); }
 .group-detail-row:hover td { background: var(--surface-hover) !important; }
 .group-detail-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 350px; }
 .group-detail-name .method-badge { vertical-align: middle; margin-right: 4px; }
+
+/* Data row label tag */
+.data-row-label {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Data Row Summary Table */
+.data-row-summary-cell { padding: 0 !important; }
+.data-row-summary {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 4px 8px 8px;
+  overflow: hidden;
+}
+.data-row-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.data-row-summary-title { font-weight: 600; font-size: 0.85rem; }
+.data-row-summary-modes { display: flex; gap: 4px; }
+.data-row-batch { margin: 4px 0; }
+.data-row-batch-header {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+.data-row-batch-failed .data-row-batch-header { color: var(--error, #f87171); background: rgba(248,113,113,0.08); }
+.data-row-batch-passed .data-row-batch-header { color: var(--success, #4ade80); background: rgba(74,222,128,0.08); }
+.data-row-batch-collapsible { cursor: pointer; }
+.data-row-batch-collapsible:hover { opacity: 0.85; }
+.data-row-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.data-row-table th {
+  text-align: left;
+  padding: 4px 12px;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.data-row-table td { padding: 5px 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.data-row-summary-row:hover td { background: var(--surface-hover); }
+.data-row-label-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-row-no-failures { padding: 12px; text-align: center; color: var(--success, #4ade80); font-size: 0.85rem; }
+.data-row-summary-stats {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Re-run Failed Rows bar */
+.rerun-failed-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 8px 0;
+  background: var(--surface);
+  border: 1px solid var(--warning, #e2a308);
+  border-radius: 6px;
+}
+.rerun-failed-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  flex: 1;
+}
+.btn-warning {
+  background: var(--warning, #e2a308);
+  color: #fff;
+  border: none;
+}
+.btn-warning:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning, #e2a308) 85%, #000);
+}
+.btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Report Menu Dropdown */
+.report-menu-wrapper { position: relative; display: inline-block; }
+.report-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+}
+.report-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.report-menu-item:hover { background: var(--surface-hover); }
 
 /* Pagination */
 .pagination {
@@ -943,4 +1099,79 @@ tr:hover td { background: var(--surface-hover); }
 .response-body-pre::-webkit-scrollbar-track { background: transparent; }
 .response-body-pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .response-body-pre::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── Phase 4: Parameterized test indicators ──────────────── */
+.count-badge-data {
+  background: color-mix(in srgb, #5b9cf6 15%, transparent);
+  color: #5b9cf6;
+}
+
+/* 4.2: Expansion summary */
+.runner-expansion-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 0.82rem;
+}
+.runner-expansion-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.runner-expansion-hint {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.runner-expansion-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--text-muted);
+}
+.runner-expansion-calc {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.runner-expansion-total {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* 4.3: Per-test progress */
+.runner-per-test-progress {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 0.78rem;
+}
+.runner-per-test-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.runner-per-test-name {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+.runner-per-test-counts {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.runner-per-test-pass {
+  color: #7ee787;
+}
+.runner-per-test-fail {
+  color: #f85149;
+}
 

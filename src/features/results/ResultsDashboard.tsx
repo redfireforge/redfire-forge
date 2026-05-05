@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'react';
 import type { TestRun, RequestResult } from '../../shared/types';
 import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
@@ -8,23 +8,37 @@ import { buildGroups, type GroupByLevel, type GroupNode } from '../test-runner/u
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
+import { DataRowSummaryTable } from './components/DataRowSummaryTable';
+import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
 
 interface Props {
   envName?: string;
   svcName?: string;
+  onRerunFailed?: (run: TestRun, failedRowIds: string[]) => void;
+  isRerunning?: boolean;
 }
 
-export default function ResultsDashboard({ envName, svcName }: Props) {
+export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
 
+  const prevRerunning = useRef(false);
+
   useEffect(() => {
     loadTestRuns().then(setAllRuns);
     loadBaselines().then(setBaselines);
   }, []);
+
+  // Auto-refresh when a re-run completes
+  useEffect(() => {
+    if (prevRerunning.current && !isRerunning) {
+      loadTestRuns().then(setAllRuns);
+    }
+    prevRerunning.current = !!isRerunning;
+  }, [isRerunning]);
 
   const runs = useMemo(() => {
     return allRuns.filter((r) => {
@@ -96,12 +110,14 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     return selectedRun.results.filter((r) => {
       if (filterPassed === 'passed' && !r.passed) return false;
       if (filterPassed === 'failed' && r.passed) return false;
+      if (filterPassed === 'failed-data-rows' && (r.passed || !r.dataRowId)) return false;
       if (q && !(
         r.scenarioName.toLowerCase().includes(q) ||
         r.url.toLowerCase().includes(q) ||
         (r.featureGroupName?.toLowerCase().includes(q)) ||
         (r.groupName?.toLowerCase().includes(q)) ||
-        (r.errorMessage?.toLowerCase().includes(q))
+        (r.errorMessage?.toLowerCase().includes(q)) ||
+        (r.dataRowLabel?.toLowerCase().includes(q))
       )) return false;
       return true;
     });
@@ -109,6 +125,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
 
 
   const groupLevels: GroupByLevel[] = useMemo(() => {
+    if (groupBy === 'test' && subGroupBy === 'dataRow') return ['test', 'dataRow'];
     if (groupBy === 'test') return ['test'];
     if (groupBy === 'group') return subGroupBy === 'test' ? ['group', 'test'] : ['group'];
     // feature
@@ -116,7 +133,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     return ['feature', 'test'];
   }, [groupBy, subGroupBy]);
 
-  const isFlat = groupBy === 'test';
+  const isFlat = groupBy === 'test' && subGroupBy !== 'dataRow';
 
   const groupTree = useMemo(() => {
     if (isFlat) return [];
@@ -155,17 +172,34 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
     if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Scenario' }, { value: 'test', label: 'Then by Test Name' }];
     if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
+    if (groupBy === 'test') {
+      const hasDataRows = filteredResults.some(r => r.dataRowId);
+      if (hasDataRows) return [{ value: 'dataRow', label: 'Then by Data Row' }];
+    }
     return [];
-  }, [groupBy]);
+  }, [groupBy, filteredResults]);
 
   const handleGroupByChange = (val: GroupByLevel) => {
     setGroupBy(val);
     setExpanded(new Set());
     if (val === 'feature') setSubGroupBy('group');
     else if (val === 'group') setSubGroupBy('test');
+    else if (val === 'test') setSubGroupBy('test'); // reset; user can pick dataRow from sub-group
   };
 
   const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
+  const [reportMenuOpen, setReportMenuOpen] = useState(false);
+
+  const handleGenerateReport = (format: 'html' | 'json' | 'markdown') => {
+    if (!selectedRun) return;
+    const content = generateReport(selectedRun, { format });
+    const date = new Date(selectedRun.timestamp).toISOString().slice(0, 10);
+    const base = [selectedRun.svcName, selectedRun.envName, date].filter(Boolean).join('_');
+    const ext = format === 'markdown' ? 'md' : format;
+    const mime = format === 'html' ? 'text/html' : format === 'json' ? 'application/json' : 'text/markdown';
+    downloadReport(content, `${base}_report.${ext}`, mime);
+    setReportMenuOpen(false);
+  };
 
   const renderErrorSnippet = (r: RequestResult) => {
     const hasError = !r.passed && (r.errorMessage || r.responseBody);
@@ -188,6 +222,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       <td className="group-detail-name">
         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
         {' '}{r.scenarioName}
+        {r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}
       </td>
       <td colSpan={2} className="url-cell">{r.url}</td>
       <td>{r.httpStatus || 'ERR'}</td>
@@ -231,17 +266,26 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
         {isOpen && hasChildren && g.children.map((child) => renderGroupRow(child, depth + 1, nodeKey))}
         {isOpen && !hasChildren && (
           <>
-            <tr className="detail-header-row">
-              <th></th>
-              <th>Test Name</th>
-              <th colSpan={2}>URL</th>
-              <th>Status</th>
-              <th>Validation</th>
-              <th>Time (ms)</th>
-              <th>Passed</th>
-              <th>Error / Details</th>
-            </tr>
-            {g.results.map(renderDetailRow)}
+            {g.results.some(r => r.dataRowId) && (
+              <tr><td colSpan={9} className="data-row-summary-cell">
+                <DataRowSummaryTable results={g.results} scenarioName={g.key} onResultClick={setResponseModal} />
+              </td></tr>
+            )}
+            {!g.results.some(r => r.dataRowId) && (
+              <>
+                <tr className="detail-header-row">
+                  <th></th>
+                  <th>Test Name</th>
+                  <th colSpan={2}>URL</th>
+                  <th>Status</th>
+                  <th>Validation</th>
+                  <th>Time (ms)</th>
+                  <th>Passed</th>
+                  <th>Error / Details</th>
+                </tr>
+                {g.results.map(renderDetailRow)}
+              </>
+            )}
           </>
         )}
       </Fragment>
@@ -299,6 +343,16 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               <>
                 <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
                 <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
+                <div className="report-menu-wrapper">
+                  <button className="btn" onClick={() => setReportMenuOpen(!reportMenuOpen)}>Generate Report ▾</button>
+                  {reportMenuOpen && (
+                    <div className="report-menu-dropdown">
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('html')}>HTML Report</button>
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('json')}>JSON Report</button>
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('markdown')}>Markdown Report</button>
+                    </div>
+                  )}
+                </div>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selectedRun.id)}>Delete</button>
               </>
             )}
@@ -434,6 +488,27 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
         </>
       )}
 
+      {/* Re-run Failed Rows action bar */}
+      {selectedRun && onRerunFailed && (() => {
+        const failedDataRowResults = selectedRun.results.filter(r => !r.passed && r.dataRowId);
+        const failedRowIds = [...new Set(failedDataRowResults.map(r => r.dataRowId!))];
+        if (failedRowIds.length === 0) return null;
+        return (
+          <div className="rerun-failed-bar">
+            <span className="rerun-failed-info">
+              {failedRowIds.length} data row{failedRowIds.length > 1 ? 's' : ''} failed
+            </span>
+            <button
+              className="btn btn-sm btn-warning"
+              disabled={isRerunning}
+              onClick={() => onRerunFailed(selectedRun, failedRowIds)}
+            >
+              {isRerunning ? 'Re-running…' : `Re-run Failed (${failedRowIds.length})`}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Error breakdown */}
       {summary && Object.keys(summary.errorsByStatus).length > 0 && (
         <div className="section">
@@ -464,6 +539,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             <option value="all">All Results</option>
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
+            {selectedRun?.results.some(r => r.dataRowId) && (
+              <option value="failed-data-rows">Failed Data Rows</option>
+            )}
           </select>
 
           <div className="group-by-controls">
@@ -537,7 +615,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               <tbody>
                 {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
                   <tr key={r.id} className={`${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
-                    <td>{r.scenarioName}</td>
+                    <td>{r.scenarioName}{r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}</td>
                     <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
                     <td className="url-cell">{r.url}</td>
                     <td>{r.httpStatus || 'ERR'}</td>
