@@ -15,7 +15,8 @@ import type { ReportOptions } from '../results/utils/reportGenerator';
 
 interface Props {
   featureGroups: FeatureGroup[];
-  onComplete: () => void;
+  /** Called when run completes. Pass 'test' to pre-filter results to test runs. */
+  onComplete: (runType?: 'test' | 'workflow') => void;
   envName?: string;
   svcName?: string;
   envId?: string;
@@ -447,7 +448,7 @@ export default function TestRunner({
               <div className="completion-banner">
                 Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={onComplete}>
+              <button className="btn btn-primary" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>
@@ -457,7 +458,7 @@ export default function TestRunner({
               <div className="completion-banner">
                 Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={onComplete}>
+              <button className="btn btn-primary" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>

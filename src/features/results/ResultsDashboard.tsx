@@ -18,16 +18,25 @@ interface Props {
   svcName?: string;
   onRerunFailed?: (run: TestRun, failedRowIds: string[]) => void;
   isRerunning?: boolean;
+  /** Initial run type filter (can be set from post-run navigation) */
+  initialRunTypeFilter?: 'all' | 'test' | 'workflow';
 }
 
 type RunTypeFilter = 'all' | 'test' | 'workflow';
 
-export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning }: Props) {
+export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning, initialRunTypeFilter }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
-  const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>('all');
+  const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>(initialRunTypeFilter ?? 'all');
+
+  // Update filter when initialRunTypeFilter changes (e.g., from post-run navigation)
+  useEffect(() => {
+    if (initialRunTypeFilter) {
+      setRunTypeFilter(initialRunTypeFilter);
+    }
+  }, [initialRunTypeFilter]);
 
   const prevRerunning = useRef(false);
 

@@ -10,7 +10,8 @@ import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thin
 
 interface Props {
   workflows: Workflow[];
-  onComplete: () => void;
+  /** Called when run completes. Pass 'workflow' to pre-filter results to workflow runs. */
+  onComplete: (runType?: 'test' | 'workflow') => void;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
@@ -201,7 +202,7 @@ export default function WorkflowRunner({ workflows, onComplete }: Props) {
           <div className="completion-banner">
             Workflow completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
           </div>
-          <button className="btn btn-primary" onClick={onComplete}>
+          <button className="btn btn-primary" onClick={() => onComplete('workflow')}>
             View Full Results →
           </button>
         </div>
@@ -211,7 +212,7 @@ export default function WorkflowRunner({ workflows, onComplete }: Props) {
           <div className="completion-banner">
             Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
           </div>
-          <button className="btn btn-primary" onClick={onComplete}>
+          <button className="btn btn-primary" onClick={() => onComplete('workflow')}>
             View Full Results →
           </button>
         </div>
