@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { WorkflowNode, WorkflowEdge, NodeRunStatus } from '../types/workflow';
+import type { WorkflowNode, WorkflowEdge, WorkflowNodeType, NodeRunStatus } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
@@ -48,7 +48,7 @@ export function makeCallbacks(): MockCallbackResult {
   };
 }
 
-export function makeNode(id: string, type: string, data: Record<string, unknown> = {}): WorkflowNode {
+export function makeNode(id: string, type: WorkflowNodeType, data: Record<string, unknown> = {}): WorkflowNode {
   return { id, type, position: { x: 0, y: 0 }, data: { label: type, ...data } };
 }
 

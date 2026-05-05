@@ -1,5 +1,5 @@
 import type { TestRun, RequestResult } from '../../../shared/types';
-import { escapeCsv } from '../../../shared/utils/export';
+// import { escapeCsv } from '../../../shared/utils/export';
 
 export interface ReportOptions {
   format: 'html' | 'json' | 'markdown';

@@ -90,7 +90,7 @@ export function useScenarioExportImport({
   const exportAll = useCallback((versionOpts?: VersionExportOptions) => {
     const payload = wrapExport(featureGroups, 'feature-groups', exportMeta, versionOpts);
     if (sharedDataSources && sharedDataSources.length > 0) {
-      (payload as Record<string, unknown>).sharedDataSources = sharedDataSources;
+      (payload as unknown as Record<string, unknown>).sharedDataSources = sharedDataSources;
     }
     downloadJson(payload, fname('feature-groups'));
   }, [featureGroups, sharedDataSources, exportMeta]);

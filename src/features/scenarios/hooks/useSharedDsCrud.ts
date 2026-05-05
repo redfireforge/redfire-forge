@@ -72,11 +72,12 @@ export function useSharedDsCrud({
     }
     if (currentEditingDraft?.test.sharedDataSourceId) {
       const { fgName, scenarioName, test } = currentEditingDraft;
+      const dsId = test.sharedDataSourceId!;
       const fullPath = `${fgName} / ${scenarioName} / ${test.name}`;
-      const arr = map.get(test.sharedDataSourceId) ?? [];
+      const arr = map.get(dsId) ?? [];
       if (!arr.some(r => r.fullPath === fullPath)) {
         arr.push({ testName: test.name, fullPath, isEditing: true });
-        map.set(test.sharedDataSourceId, arr);
+        map.set(dsId, arr);
       }
     }
     return map;
