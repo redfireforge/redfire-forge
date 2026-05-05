@@ -2,7 +2,7 @@
 
 > **Status**: This plan is on hold. **Phase 10 (WorkflowDesigner refactoring)** was completed ahead of schedule as part of Phase 7A development — WorkflowDesigner.tsx reduced from 1432 to 895 lines via 8 extracted hooks + 2 utility modules. ScenarioBuilder.tsx reduced from 984 to 702 lines via useScenarioMutations. The full directory restructure (Phases 1–9) remains pending and will be scheduled after core feature delivery is complete.
 >
-> _Last updated: 2026-05-01_
+> _Last updated: 2026-05-02_
 
 ## Goal
 Reorganize the codebase from flat dumping-ground directories into **functional domain modules** with co-located tests, following professional project structure conventions.

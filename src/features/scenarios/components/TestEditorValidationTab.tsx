@@ -8,6 +8,7 @@ import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
 import RegexAssertionModal from '../../requests/components/RegexAssertionModal';
 import type { RegexAssertionResult } from '../../requests/components/RegexAssertionModal';
 import AssertionPresetMenu from './AssertionPresetMenu';
+import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 import JsonPathPicker from './JsonPathPicker';
 
 export interface TestEditorValidationTabProps {
@@ -463,14 +464,7 @@ export default function TestEditorValidationTab({
               const json = v.sampleJson || '';
               if (!json.trim()) return;
               const prevVersions = v.responseVersions || [];
-              const newVersion: ResponseVersion = {
-                id: uuidv4(), timestamp: Date.now(), json,
-                validationMode: v.mode, selectiveMode: v.selectiveMode,
-                expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-                excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-                unorderedArrays: v.unorderedArrays,
-              };
-              onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, newVersion] } });
+              onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, createResponseVersion(v, json)] } });
             }}
             onRestore={(ver) => {
               const prev = draftRef.current;
@@ -505,15 +499,7 @@ export default function TestEditorValidationTab({
               const v = prev.validation;
               if (!(v.expectedFields || []).length) return;
               const prevVersions = v.rulesVersions || [];
-              const newVersion: RulesVersion = {
-                id: uuidv4(), timestamp: Date.now(),
-                validationMode: v.mode,
-                selectiveMode: v.selectiveMode,
-                expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-                excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-                unorderedArrays: v.unorderedArrays,
-              };
-              onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, newVersion] } });
+              onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, createRulesVersion(v)] } });
             }}
             onRestore={(ver) => {
               const prev = draftRef.current;

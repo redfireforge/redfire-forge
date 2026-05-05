@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Refactored
+- **Code Consolidation (Round 5)**
+  - Extracted `toggleSetItem()` shared utility (`src/shared/utils/setToggle.ts`) — replaces 9 identical inline Set toggle patterns across 5 files (`useScenarioMutations`, `RequestsSidebar`, `MultiEnvResultRow`, `CatalogSendToRequestsModal`)
+  - Extracted `createResponseVersion()` / `createRulesVersion()` factory functions (`src/features/scenarios/utils/versionFactory.ts`) — replaces ~8 inline version object constructions across `TestEditorModal` and `TestEditorValidationTab`
+
+### Tests
+- New unit tests: `setToggle` (4), `versionFactory` (8) — **12 new tests** for Round 5 shared utilities
+- **5717 unit tests passing** (257 files)
+
 ### Improved
 - **Validation Tab UX clarity** — 5 improvements to reduce confusion between assertions and body validation:
   - Renamed "No Validation" → "No Body Validation" to clarify assertions still run independently
@@ -105,7 +114,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Tests
 - **E2E fixes**: Updated 40 failing E2E tests across 9 spec files for gallery redesign, response-detail-modal CSS changes, correlation-wait selectors, and workflow-triggers strict mode
-- **372 E2E tests passing** (0 skipped), **5615 unit tests passing** (254 files)
+- **372 E2E tests passing** (0 skipped), **5717 unit tests passing** (257 files)
 
 - **Async Correlation — Browser ↔ Server Bridge (runtime fix)**
   - `RemoteCorrelationStore` (browser): `ICorrelationStore` implementation that registers paused waits with the webhook server and long-polls `GET /api/correlations/:id/wait` until resumed by an inbound webhook. Wired into `useWorkflowExecution` so production runs (not just tests) actually receive callbacks.
