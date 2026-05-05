@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { RequestCollection, RequestFolder, CatalogRequestMeta } from '../../../shared/types';
 import { countGroupRequests, collectGroupIds, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
 import { saveJsonFile, openJsonFile } from '../../../shared/utils/fileSaver';
+import { toggleSetItem } from '../../../shared/utils/setToggle';
 import { isTauri } from '../../../shared/utils/platform';
 import { v4 as uuidv4 } from 'uuid';
 import SidebarContextMenu from './SidebarContextMenu';
@@ -173,10 +174,10 @@ export default function RequestsSidebar({
   }, [showAddMenu]);
 
   const toggleCol = (colId: string) => {
-    setExpandedCols((prev) => { const n = new Set(prev); if (n.has(colId)) n.delete(colId); else n.add(colId); return n; });
+    toggleSetItem(setExpandedCols, colId);
   };
   const toggleFolder = (folderId: string) => {
-    setExpandedFolders((prev) => { const n = new Set(prev); if (n.has(folderId)) n.delete(folderId); else n.add(folderId); return n; });
+    toggleSetItem(setExpandedFolders, folderId);
   };
 
   const handleContext = (e: React.MouseEvent, type: CtxMenuData['type'], colId: string, folderId?: string, reqId?: string) => {
