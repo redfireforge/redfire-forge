@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import type { GalleryEntry } from '../../../data/galleries/types';
+import type { GalleryEntry, RelatedManual } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { DifficultyDots } from './DifficultyDots';
 import { LiveApiBadge } from './LiveApiBadge';
 import AppModalFrame from '../AppModalFrame';
+import { getRelatedManuals } from '../../../data/galleries/trainingPaths/manualMapping';
 
 interface GalleryDetailPanelProps<T = unknown> {
   entry: GalleryEntry<T> | null;
@@ -123,6 +124,35 @@ export function GalleryDetailPanel<T = unknown>({
               ↗
             </button>
             <pre className="gallery-detail-preview-pre">{preview}</pre>
+          </div>
+        );
+      })()}
+
+      {/* Related Training Manuals */}
+      {(() => {
+        const manuals: RelatedManual[] | undefined = entry.relatedManuals ?? getRelatedManuals(entry.id);
+        if (!manuals || manuals.length === 0) return null;
+        return (
+          <div className="gallery-detail-manuals">
+            <div className="gallery-detail-manuals-header">
+              <span className="gallery-detail-manuals-icon">📖</span>
+              <span className="gallery-detail-manuals-title">Training Manuals</span>
+            </div>
+            <div className="gallery-detail-manuals-list">
+              {manuals.map((manual, idx) => (
+                <a
+                  key={idx}
+                  className="gallery-detail-manual-link"
+                  href={`/docs/training-manuals/${manual.path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={manual.description}
+                >
+                  <span className="gallery-detail-manual-title">{manual.title}</span>
+                  <DifficultyDots level={manual.difficulty} />
+                </a>
+              ))}
+            </div>
           </div>
         );
       })()}
