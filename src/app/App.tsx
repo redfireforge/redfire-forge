@@ -19,6 +19,7 @@ import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
+import WorkflowRunner from '../features/test-runner/WorkflowRunner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
@@ -562,6 +563,7 @@ export default function App() {
             {domainOf(activeTab) === 'workflow' && (
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
+                <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Runner</button>
                 <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
                 <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
                 <div className="sub-nav-spacer" />
@@ -638,6 +640,14 @@ export default function App() {
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">
               <TrainingTracksView onNavigateToSample={(_sampleId) => setActiveTab('gallery')} />
+            </div>
+          )}
+          {activeTab === 'workflow-runner' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WorkflowRunner
+                workflows={wfHook.workflows}
+                onComplete={() => setActiveTab('results')}
+              />
             </div>
           )}
           {activeTab === 'workflow-executions' && (

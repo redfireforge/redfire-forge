@@ -1,11 +1,11 @@
-export type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'results';
+export type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'results';
 
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
 
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
+const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner']);
 export const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
 
 const GALLERY_TABS = new Set<Tab>(['gallery', 'training']);
@@ -26,7 +26,7 @@ export function domainOf(tab: Tab): Domain {
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'training', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
