@@ -1,13 +1,15 @@
+import { useCallback } from 'react';
 import { useTrainingProgress } from './hooks/useTrainingProgress';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import { TrainingProgressDashboard } from './components/TrainingProgressDashboard';
 import { ContinueLearningCard } from './components/ContinueLearningCard';
 import { TrainingPathCard } from './components/TrainingPathCard';
 import { trainingPaths } from '../../data/galleries/trainingPaths';
+import type { ManualStatus } from '../../data/galleries/trainingPaths/types';
 import './training.css';
 
 interface Props {
-  onNavigateToSample: () => void;
+  onNavigateToSample: (sampleId: string) => void;
 }
 
 export default function TrainingTracksView({ onNavigateToSample }: Props) {
@@ -16,9 +18,29 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
     overallStats,
     lastViewedInProgress,
     getManualProgress,
+    updateManualStatus,
+    markViewed,
   } = useTrainingProgress();
 
   const whatsNew = useWhatsNew();
+
+  // Handle status change from ManualRow
+  const handleStatusChange = useCallback((manualPath: string, status: ManualStatus) => {
+    updateManualStatus(manualPath, status);
+  }, [updateManualStatus]);
+
+  // Handle opening a manual (marks as viewed and opens in new tab)
+  const handleOpenManual = useCallback((manualPath: string) => {
+    markViewed(manualPath);
+    window.open(`/docs/training-manuals/${manualPath}`, '_blank');
+  }, [markViewed]);
+
+  // Handle "Continue Learning" click
+  const handleContinueLearning = useCallback(() => {
+    if (lastViewedInProgress) {
+      handleOpenManual(lastViewedInProgress.manualPath);
+    }
+  }, [lastViewedInProgress, handleOpenManual]);
 
   if (isLoading) {
     return (
@@ -66,6 +88,7 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
           phaseName={continueManual.phaseName}
           difficulty={continueManual.manual.difficulty}
           manualPath={continueManual.manual.manualPath!}
+          onContinue={handleContinueLearning}
         />
       )}
 
@@ -93,6 +116,7 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
                   href={`/docs/training-manuals/${item.metadata.manualPath}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => markViewed(item.metadata.manualPath)}
                 >
                   <div className="training-whats-new-item-icon">{item.pathIcon}</div>
                   <div className="training-whats-new-item-info">
@@ -132,6 +156,8 @@ export default function TrainingTracksView({ onNavigateToSample }: Props) {
               path={path}
               getManualProgress={getManualProgress}
               getBadge={whatsNew.getBadge}
+              onStatusChange={handleStatusChange}
+              onOpenManual={handleOpenManual}
               onNavigateToSample={onNavigateToSample}
               defaultExpanded={false}
             />

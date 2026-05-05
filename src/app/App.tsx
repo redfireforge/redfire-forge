@@ -684,7 +684,7 @@ export default function App() {
           )}
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">
-              <TrainingTracksView onNavigateToSample={() => setActiveTab('gallery')} />
+              <TrainingTracksView onNavigateToSample={(_sampleId) => setActiveTab('gallery')} />
             </div>
           )}
           {activeTab === 'workflow-executions' && (
