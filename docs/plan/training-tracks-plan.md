@@ -111,19 +111,31 @@ export interface ManualMetadata {
 
 ---
 
-### Phase 2: Main View & Navigation
+### Phase 2: Main View & Navigation ✅ COMPLETED (2026-05-05)
 
 **Scope**: Page structure, sidebar entry, routing
 
-| Task | Files | Estimate |
-|------|-------|----------|
-| Add sidebar nav item | `src/app/Sidebar.tsx` | S |
-| Add route | `src/app/App.tsx` | S |
-| Create `TrainingTracksView` scaffold | `src/features/training/TrainingTracksView.tsx` | M |
-| Create `TrainingProgressDashboard` | `src/features/training/components/TrainingProgressDashboard.tsx` | M |
-| Create `ContinueLearningCard` | `src/features/training/components/ContinueLearningCard.tsx` | S |
+| Task | Files | Status |
+|------|-------|--------|
+| Add training tab to Gallery domain | `src/app/App.tsx` | ✅ |
+| Create `TrainingTracksView` scaffold | `src/features/training/TrainingTracksView.tsx` | ✅ |
+| Create `TrainingProgressDashboard` | `src/features/training/components/TrainingProgressDashboard.tsx` | ✅ |
+| Create `ContinueLearningCard` | `src/features/training/components/ContinueLearningCard.tsx` | ✅ |
+| Add CSS styles | `src/features/training/training.css` | ✅ |
+| Unit tests for components | `*.test.tsx` | ✅ (16 tests) |
 
-**Deliverable**: Navigate to Training Tracks page, see progress stats
+**Deliverable**: Navigate to Training Tracks page via Gallery → Training Tracks tab, see progress stats
+
+**Files Created/Modified**:
+- `src/app/App.tsx` — Added 'training' tab, sub-nav for Gallery domain, TrainingTracksView render
+- `src/features/training/TrainingTracksView.tsx` — Main page with header, dashboard, "What's New", paths list
+- `src/features/training/components/TrainingProgressDashboard.tsx` — 4 stat cards
+- `src/features/training/components/TrainingProgressDashboard.test.tsx` — 8 unit tests
+- `src/features/training/components/ContinueLearningCard.tsx` — Resume last-viewed card
+- `src/features/training/components/ContinueLearningCard.test.tsx` — 8 unit tests
+- `src/features/training/training.css` — Full styling for all training components
+
+**Note**: Integrated as a tab within the Gallery domain (Gallery → Samples | Training Tracks) rather than a separate sidebar item, since both are learning resources.
 
 ---
 
@@ -403,3 +415,4 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 |------|--------|
 | 2026-05-05 | Initial plan created |
 | 2026-05-05 | Phase 1 completed: types, hooks, metadata, tests (45 passing) |
+| 2026-05-05 | Phase 2 completed: main view, dashboard, continue card, CSS, tests (61 total passing) |

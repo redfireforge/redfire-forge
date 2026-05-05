@@ -40,6 +40,7 @@ import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
 import { GalleryPage } from '../features/gallery/GalleryPage';
+import TrainingTracksView from '../features/training/TrainingTracksView';
 // WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
@@ -50,7 +51,7 @@ import SubCollectionModal from '../features/requests/components/SubCollectionMod
 import { useToast } from '../shared/hooks/useToast';
 import '../styles/index.css';
 
-type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
+type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'results';
 
 type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
@@ -58,7 +59,7 @@ const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
 const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
 const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
 const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
-const GALLERY_TABS = new Set<Tab>(['gallery']);
+const GALLERY_TABS = new Set<Tab>(['gallery', 'training']);
 const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
 const API_TABS = new Set<Tab>(['requests', 'catalog']);
 const isApiTab = (t: Tab) => API_TABS.has(t);
@@ -74,7 +75,7 @@ function domainOf(tab: Tab): Domain {
   return 'settings'; // environments
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'scenarios', 'runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'training', 'scenarios', 'runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -621,6 +622,12 @@ export default function App() {
                 <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
               </div>
             )}
+            {domainOf(activeTab) === 'gallery' && (
+              <div className="sub-nav-tabs">
+                <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Samples</button>
+                <button className={`sub-nav-tab ${activeTab === 'training' ? 'active' : ''}`} onClick={() => setActiveTab('training')}>Training Tracks</button>
+              </div>
+            )}
             {domainOf(activeTab) === 'settings' && (
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'environments' ? 'active' : ''}`} onClick={() => setActiveTab('environments')}>Environments</button>
@@ -673,6 +680,11 @@ export default function App() {
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
               />
+            </div>
+          )}
+          {activeTab === 'training' && (
+            <div className="app-tab-pane training-pane">
+              <TrainingTracksView onNavigateToSample={() => setActiveTab('gallery')} />
             </div>
           )}
           {activeTab === 'workflow-executions' && (
