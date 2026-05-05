@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Callback Simulator — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #856404; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📤</div>
+    <h1>Payment Callback Simulator</h1>
+    <div class="subtitle">Webhook Testing Helper — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Event-Driven · localhost:3001</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Payment Callback Simulator</strong> is a companion workflow that triggers the <em>Payment Gateway Callback</em> sample. It simulates an external payment gateway sending a webhook callback to your local server.</p>
+  <p>This workflow is essential for:</p>
+  <ul>
+    <li>Testing CorrelationWait nodes without real external services</li>
+    <li>Demonstrating webhook-driven async patterns</li>
+    <li>Local development of payment integrations</li>
+  </ul>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Requires Local Server</strong>
+    This simulator POSTs to <code>localhost:3001</code>. You must have the RedfireForge webhook server running. See <a href="../event-driven/webhook-trigger-easy.html">Webhook Trigger Setup</a> for instructions.
+  </div>
+
+  <h2>2. How It Works</h2>
+
+  <h3>Workflow Flow</h3>
+  <pre>Start → Delay (3s) → HTTP POST /webhooks/callback/payment → End</pre>
+
+  <h3>What It Does</h3>
+  <ol>
+    <li><strong>Start</strong> — Begins the simulation</li>
+    <li><strong>Delay 3s</strong> — Waits to simulate payment processing time</li>
+    <li><strong>HTTP POST</strong> — Sends a fake payment callback to the webhook endpoint</li>
+    <li><strong>End</strong> — Completes</li>
+  </ol>
+
+  <h3>Callback Payload</h3>
+  <pre>{
+  "transactionId": "txn-12345",
+  "status": "success",
+  "amount": 99.99,
+  "currency": "USD"
+}</pre>
+
+  <h2>3. Using the Simulator</h2>
+
+  <h3>Step 1: Start the Main Workflow</h3>
+  <ol>
+    <li>Load the <strong>"Payment Gateway Callback"</strong> workflow.</li>
+    <li>Run it — it will pause at the CorrelationWait node, waiting for a callback.</li>
+  </ol>
+
+  <h3>Step 2: Run the Simulator</h3>
+  <ol>
+    <li>Load this <strong>"Payment Callback (Simulator)"</strong> workflow.</li>
+    <li>Run it in a separate browser tab or the Quick Test panel.</li>
+    <li>After 3 seconds, it POSTs the callback.</li>
+  </ol>
+
+  <h3>Step 3: Observe the Main Workflow Resume</h3>
+  <p>When the callback arrives, the CorrelationWait node in the main workflow receives it and the workflow continues.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Test Different Scenarios</strong>
+    Modify the simulator's HTTP body to test different payment outcomes:
+    <ul>
+      <li><code>"status": "failed"</code> — test failure handling</li>
+      <li><code>"status": "pending"</code> — test intermediate states</li>
+      <li>Change <code>amount</code> — test amount validation logic</li>
+    </ul>
+  </div>
+
+  <h2>4. Customization</h2>
+
+  <table>
+    <tr><th>Setting</th><th>How to Change</th><th>Purpose</th></tr>
+    <tr><td>Delay time</td><td>Edit Delay node duration</td><td>Simulate slower/faster gateways</td></tr>
+    <tr><td>Payload fields</td><td>Edit HTTP node body</td><td>Test different callback data</td></tr>
+    <tr><td>Endpoint URL</td><td>Edit HTTP node URL</td><td>Target different webhook paths</td></tr>
+    <tr><td>Add retries</td><td>Add Loop node</td><td>Simulate multiple callback attempts</td></tr>
+  </table>
+
+  <h2>5. Related Workflows</h2>
+  <ul>
+    <li><strong>Payment Gateway Callback</strong> — The main workflow this simulator triggers</li>
+    <li><a href="approval-simulator-easy.html">Manager Approval Simulator</a></li>
+    <li><a href="parallel-payment-simulator-medium.html">Parallel Payment Simulator</a></li>
+  </ul>
+
+  <h2>6. Related Manuals</h2>
+  <ul>
+    <li><a href="payment-callback-easy.html">Payment Gateway Callback</a> — main workflow</li>
+    <li><a href="../event-driven/webhook-trigger-easy.html">Webhook Trigger Setup</a></li>
+    <li><a href="approval-workflow-medium.html">Manager Approval Workflow</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Payment Callback Simulator · Easy
+  </footer>
+</body>
+</html>
