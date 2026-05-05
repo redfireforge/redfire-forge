@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parallel Payment Simulator — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📤</div>
+    <h1>Parallel Payment Simulator</h1>
+    <div class="subtitle">Fork/Join Callback Testing — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Event-Driven · localhost:3001</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Parallel Payment Simulator</strong> triggers the <em>Parallel Payment Processing</em> workflow by sending <strong>two callbacks in parallel</strong> — one for card payment and one for loyalty points.</p>
+  <p>This demonstrates how to test Fork/Join patterns with multiple async callbacks.</p>
+
+  <h2>2. How It Works</h2>
+
+  <h3>Workflow Flow</h3>
+  <pre>Start → Delay (3s) → Fork → [HTTP card callback, HTTP loyalty callback] → Join → End</pre>
+
+  <h3>Two Parallel Callbacks</h3>
+  <p>The simulator uses a Fork/Join pattern to send both callbacks simultaneously:</p>
+
+  <table>
+    <tr><th>Callback</th><th>Endpoint</th><th>Correlation Field</th></tr>
+    <tr><td>Card Payment</td><td><code>/webhooks/callback/card-payment</code></td><td><code>paymentId</code></td></tr>
+    <tr><td>Loyalty Points</td><td><code>/webhooks/callback/loyalty-payment</code></td><td><code>paymentId</code></td></tr>
+  </table>
+
+  <h3>Card Callback Payload</h3>
+  <pre>{
+  "paymentId": "pay-12345",
+  "type": "card",
+  "status": "success",
+  "amount": 89.99
+}</pre>
+
+  <h3>Loyalty Callback Payload</h3>
+  <pre>{
+  "paymentId": "pay-12345",
+  "type": "loyalty",
+  "status": "success",
+  "pointsUsed": 500
+}</pre>
+
+  <h2>3. Testing Scenarios</h2>
+
+  <p>The Parallel Payment workflow waits for <strong>both</strong> callbacks before continuing. Test these scenarios:</p>
+
+  <table>
+    <tr><th>Scenario</th><th>How to Test</th><th>Expected Result</th></tr>
+    <tr><td>Both succeed</td><td>Run simulator as-is</td><td>Workflow completes successfully</td></tr>
+    <tr><td>Card fails</td><td>Change card status to "failed"</td><td>Workflow enters error handling</td></tr>
+    <tr><td>Loyalty fails</td><td>Change loyalty status to "failed"</td><td>Partial success handling</td></tr>
+    <tr><td>One callback only</td><td>Delete one HTTP node</td><td>Workflow times out waiting</td></tr>
+    <tr><td>Delayed callbacks</td><td>Add different delays per branch</td><td>Tests Join synchronization</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Testing Race Conditions</strong>
+    Add random delays (1-5s) to each branch to simulate real-world timing variations. The Join node should correctly wait for both regardless of arrival order.
+  </div>
+
+  <h2>4. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Start the Main Workflow</h3>
+  <ol>
+    <li>Load <strong>"Parallel Payment Processing"</strong>.</li>
+    <li>Run it — it forks into two CorrelationWait nodes.</li>
+    <li>Both wait for their respective callbacks.</li>
+  </ol>
+
+  <h3>Step 2: Run the Simulator</h3>
+  <ol>
+    <li>Load this simulator workflow.</li>
+    <li>Run it — after 3s delay, it sends both callbacks in parallel.</li>
+    <li>Observe the main workflow's Join node activating when both arrive.</li>
+  </ol>
+
+  <h3>Step 3: Test Partial Success</h3>
+  <ol>
+    <li>Edit the simulator's loyalty HTTP node.</li>
+    <li>Change <code>"status": "success"</code> to <code>"status": "insufficient_points"</code>.</li>
+    <li>Run and observe how the main workflow handles mixed results.</li>
+  </ol>
+
+  <h2>5. Related Manuals</h2>
+  <ul>
+    <li><a href="parallel-payment-advanced.html">Parallel Payment Processing</a> — main workflow</li>
+    <li><a href="payment-callback-simulator-easy.html">Payment Callback Simulator</a> — simpler single-callback</li>
+    <li><a href="approval-simulator-easy.html">Manager Approval Simulator</a></li>
+    <li><a href="../../workflow-patterns/flow-control/workflow-fork-join-medium.html">Fork/Join Patterns</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Parallel Payment Simulator · Medium
+  </footer>
+</body>
+</html>
