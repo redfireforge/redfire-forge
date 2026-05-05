@@ -12,11 +12,15 @@ interface Props {
   workflows: Workflow[];
   /** Called when run completes. Pass 'workflow' to pre-filter results to workflow runs. */
   onComplete: (runType?: 'test' | 'workflow') => void;
+  /** Optional: Pre-select a workflow when navigating from Workflow Designer's "Run in Harness" button. */
+  initialWorkflowId?: string | null;
+  /** Clear the initialWorkflowId after it has been applied. */
+  onClearInitialWorkflowId?: () => void;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, onComplete }: Props) {
+export default function WorkflowRunner({ workflows, onComplete, initialWorkflowId, onClearInitialWorkflowId }: Props) {
   const {
     concurrency, setConcurrency,
     totalTransactions, setTotalTransactions,
@@ -39,6 +43,19 @@ export default function WorkflowRunner({ workflows, onComplete }: Props) {
   const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
+
+  // Handle "Run in Harness" navigation from Workflow Designer - pre-select the workflow
+  useEffect(() => {
+    if (initialWorkflowId && initialWorkflowId !== selectedWorkflowId) {
+      const wf = workflows.find(w => w.id === initialWorkflowId);
+      if (wf) {
+        setSelectedWorkflowId(initialWorkflowId);
+        setWorkflowVariables({ ...wf.variables });
+        setVariablesInitialized(true);
+      }
+      onClearInitialWorkflowId?.();
+    }
+  }, [initialWorkflowId, workflows, selectedWorkflowId, setSelectedWorkflowId, onClearInitialWorkflowId]);
 
   // Initialize variables when workflow selection is restored from storage
   useEffect(() => {

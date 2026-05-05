@@ -152,4 +152,41 @@ describe('WorkflowRunner', () => {
       expect(screen.queryByText('▶ Run Workflow')).not.toBeInTheDocument();
     });
   });
+
+  it('pre-selects workflow when initialWorkflowId is provided', async () => {
+    const onClearInitialWorkflowId = vi.fn();
+    render(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        initialWorkflowId="wf2"
+        onClearInitialWorkflowId={onClearInitialWorkflowId}
+      />
+    );
+    
+    await waitFor(() => {
+      expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument();
+      expect(screen.getByText('1 HTTP step')).toBeInTheDocument();
+    });
+    
+    expect(onClearInitialWorkflowId).toHaveBeenCalled();
+  });
+
+  it('does not pre-select if initialWorkflowId does not match any workflow', async () => {
+    const onClearInitialWorkflowId = vi.fn();
+    render(
+      <WorkflowRunner
+        workflows={mockWorkflows}
+        onComplete={vi.fn()}
+        initialWorkflowId="non-existent"
+        onClearInitialWorkflowId={onClearInitialWorkflowId}
+      />
+    );
+    
+    await waitFor(() => {
+      expect(onClearInitialWorkflowId).toHaveBeenCalled();
+    });
+    
+    expect(screen.queryByText('▶ Run Workflow')).not.toBeInTheDocument();
+  });
 });

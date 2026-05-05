@@ -303,24 +303,33 @@ Extend the existing live chart to show:
 
 ### Phase 5: "Run in Harness" Button
 
-**Priority: Medium | Effort: Small**
+**Priority: Medium | Effort: Small | Status: ✅ COMPLETE**
 
 #### 5.1 Button on Workflow Toolbar
 
-Add a "Run in Harness" button (or "Performance Test" button) to the Workflow Designer toolbar:
+Added a "Run in Harness" button to the Workflow Designer toolbar (between Versions and Environment selector):
 
 ```
-[▶ Run] [🐛 Debug] [⚡ Performance Test] [⋯]
+[Services] [Workflow Variables] [Versions] [📊 Run in Harness] [Env…] | [Save] [▶ Quick Test] [🐛 Debug]
 ```
 
 #### 5.2 Navigation Action
 
 Clicking the button:
-1. Switches to the Harness sidebar tab
-2. Auto-selects `executionMode = 'workflow'`
-3. Pre-selects the current workflow in the workflow picker
-4. Pre-populates `workflowVariables` from the workflow's current variable context
-5. Focuses the iterations/concurrency inputs for the user to configure
+1. ✅ Navigates to the Workflow Runner tab (Testing domain)
+2. ✅ Pre-selects the current workflow in the workflow picker
+3. ✅ Pre-populates initial variables from the workflow's default variable context
+4. ✅ Button is disabled during execution and hidden in preview mode
+
+**Files Modified:**
+- `src/features/workflow/components/canvas/WorkflowToolbar.tsx` — Added `onRunInHarness` prop and button
+- `src/features/workflow/WorkflowDesigner.tsx` — Added `onRunInHarness` prop, passed to toolbar
+- `src/features/test-runner/WorkflowRunner.tsx` — Added `initialWorkflowId` and `onClearInitialWorkflowId` props
+- `src/app/App.tsx` — Wired `handleRunInHarness` callback to WorkflowDesigner and WorkflowRunner
+
+**Unit Tests:**
+- `src/features/workflow/components/canvas/WorkflowToolbar.test.tsx` — New test file (5 tests)
+- `src/features/test-runner/WorkflowRunner.test.tsx` — Added 2 tests for initial workflow selection
 
 ---
 
@@ -828,7 +837,7 @@ Add to test presets for workflow-based testing:
 - [x] Full graph topology (conditions, forks, joins, loops) is respected during load runs
 - [x] Results show per-step aggregate metrics (avg, p50, p95, p99 per workflow node)
 - [x] Results show per-iteration pass/fail with total duration
-- [ ] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Harness
+- [x] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Workflow Runner
 - [ ] CLI supports `--workflow` flag for graph-based load testing
 - [x] Existing flat-chain workflow mode continues to work (backward compatible)
 - [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
@@ -844,6 +853,7 @@ Add to test presets for workflow-based testing:
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | Phase 5 complete: Added "Run in Harness" button to Workflow Designer toolbar. Clicking navigates to Workflow Runner tab with workflow pre-selected and variables initialized. Added unit tests for WorkflowToolbar and WorkflowRunner. |
 | 2026-05-05 | Phase 4 complete: Fixed "Workflow" execution mode label in results. Created `WorkflowResultsSummary` component with per-step metrics table and per-iteration drill-down. Extended `resultsGrouping.ts` with `workflowStep` and `iteration` grouping levels plus percentile stats. Added workflow-specific grouping options to the results table. |
 | 2026-05-05 | Phase 3 complete: Created `graphLoadRunner.ts` for load testing with full graph topology. Updated executor, worker bridge, and protocol to pass workflow data. Results tagged with `iterationIndex` and `workflowNodeId`. |
 | 2026-05-05 | Phase 2 complete: Created `WorkflowPicker` component with variable history tracking. Added workflow selection to TestRunner UI. Hides scenario selection when workflow is selected. |
