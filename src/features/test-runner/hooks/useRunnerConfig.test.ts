@@ -1,0 +1,188 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useRunnerConfig, defaultLoadProfile, defaultThinkTime } from './useRunnerConfig';
+
+// ── Mocks ──
+
+const mockLoadRunnerConfig = vi.fn(async () => null);
+const mockSaveRunnerConfig = vi.fn(async () => {});
+
+vi.mock('../../../shared/utils/storage', () => ({
+  loadRunnerConfig: (...args: any[]) => mockLoadRunnerConfig(...args),
+  saveRunnerConfig: (...args: any[]) => mockSaveRunnerConfig(...args),
+}));
+
+// ── Tests ──
+
+describe('useRunnerConfig', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns default values when no saved config exists', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() => useRunnerConfig('test-key'));
+
+    // Wait for async load
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(1);
+    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.selectedScenarios.size).toBe(0);
+    expect(result.current.weights).toEqual({});
+    expect(result.current.skipValidation).toBe(false);
+    expect(result.current.validationOverride).toBe('default');
+    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.hostMode).toBe('settings');
+    expect(result.current.customBaseUrl).toBe('');
+    expect(result.current.executionMode).toBe('batch');
+    expect(result.current.timeoutSec).toBe(10);
+    expect(result.current.retryCount).toBe(0);
+    expect(result.current.retryDelayMs).toBe(1000);
+    expect(result.current.errorPolicy).toBe('continue');
+    expect(result.current.maxErrors).toBe(10);
+    expect(result.current.maxErrorRate).toBe(50);
+    expect(result.current.autoReport).toBe(false);
+    expect(result.current.autoReportFormat).toBe('html');
+  });
+
+  it('restores saved config from storage', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 5,
+      totalTransactions: 100,
+      selectedScenarios: ['s1', 's2'],
+      weights: { s1: 70, s2: 30 },
+      skipValidation: true,
+      validationOverride: 'full',
+      forceUnordered: true,
+      hostMode: 'custom',
+      customBaseUrl: 'http://custom.com',
+      executionMode: 'weighted',
+      timeoutSec: 30,
+      retryCount: 3,
+      retryDelayMs: 2000,
+      errorPolicy: 'stop',
+      maxErrors: 5,
+      maxErrorRate: 25,
+      autoReport: true,
+      autoReportFormat: 'pdf',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('saved-key'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(5);
+    expect(result.current.totalTransactions).toBe(100);
+    expect(result.current.selectedScenarios).toEqual(new Set(['s1', 's2']));
+    expect(result.current.weights).toEqual({ s1: 70, s2: 30 });
+    expect(result.current.skipValidation).toBe(true);
+    expect(result.current.hostMode).toBe('custom');
+    expect(result.current.customBaseUrl).toBe('http://custom.com');
+    expect(result.current.executionMode).toBe('weighted');
+    expect(result.current.timeoutSec).toBe(30);
+    expect(result.current.retryCount).toBe(3);
+    expect(result.current.autoReport).toBe(true);
+  });
+
+  it('auto-saves when config changes', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() => useRunnerConfig('auto-save-key'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    // Clear the initial save from load
+    mockSaveRunnerConfig.mockClear();
+
+    await act(async () => {
+      result.current.setConcurrency(10);
+    });
+
+    // Wait for the save effect to fire
+    await vi.waitFor(() => {
+      expect(mockSaveRunnerConfig).toHaveBeenCalled();
+    });
+
+    const savedConfig = mockSaveRunnerConfig.mock.calls[0][0];
+    expect(savedConfig.concurrency).toBe(10);
+  });
+
+  it('reloads when configContextKey changes', async () => {
+    mockLoadRunnerConfig.mockResolvedValue(null);
+
+    const { result, rerender } = renderHook(
+      ({ key }) => useRunnerConfig(key),
+      { initialProps: { key: 'key-1' } },
+    );
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(mockLoadRunnerConfig).toHaveBeenCalledWith('key-1');
+
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 20,
+      totalTransactions: 50,
+      selectedScenarios: [],
+      weights: {},
+    });
+
+    rerender({ key: 'key-2' });
+
+    await vi.waitFor(() => {
+      expect(result.current.concurrency).toBe(20);
+    });
+
+    expect(mockLoadRunnerConfig).toHaveBeenCalledWith('key-2');
+  });
+
+  it('exports defaultLoadProfile and defaultThinkTime', () => {
+    expect(defaultLoadProfile.type).toBe('sustained');
+    expect(defaultLoadProfile.durationSec).toBe(60);
+    expect(defaultThinkTime.mode).toBe('none');
+  });
+
+  it('provides setter functions for all config fields', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() => useRunnerConfig('setter-test'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    // Verify all setters are functions
+    expect(typeof result.current.setConcurrency).toBe('function');
+    expect(typeof result.current.setTotalTransactions).toBe('function');
+    expect(typeof result.current.setSelectedScenarios).toBe('function');
+    expect(typeof result.current.setWeights).toBe('function');
+    expect(typeof result.current.setSkipValidation).toBe('function');
+    expect(typeof result.current.setValidationOverride).toBe('function');
+    expect(typeof result.current.setForceUnordered).toBe('function');
+    expect(typeof result.current.setHostMode).toBe('function');
+    expect(typeof result.current.setCustomBaseUrl).toBe('function');
+    expect(typeof result.current.setExecutionMode).toBe('function');
+    expect(typeof result.current.setLoadProfile).toBe('function');
+    expect(typeof result.current.setThinkTime).toBe('function');
+    expect(typeof result.current.setTimeoutSec).toBe('function');
+    expect(typeof result.current.setRetryCount).toBe('function');
+    expect(typeof result.current.setRetryDelayMs).toBe('function');
+    expect(typeof result.current.setErrorPolicy).toBe('function');
+    expect(typeof result.current.setMaxErrors).toBe('function');
+    expect(typeof result.current.setMaxErrorRate).toBe('function');
+    expect(typeof result.current.setAutoReport).toBe('function');
+    expect(typeof result.current.setAutoReportFormat).toBe('function');
+  });
+});

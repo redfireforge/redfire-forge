@@ -130,9 +130,15 @@ export function humanizeError(technical: string): string {
   return technical;
 }
 
-/** Deep-clone a plain JSON-safe value. */
+/** Deep-clone a plain JSON-safe value, preferring structuredClone when available. */
+export function deepClone<T>(obj: T): T {
+  try { return structuredClone(obj); }
+  catch { return JSON.parse(JSON.stringify(obj)); }
+}
+
+/** @deprecated Use deepClone instead */
 export function snapshot<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
+  return deepClone(obj);
 }
 
 /** Merge `incoming` items into `existing`, skipping items whose `id` already exists. */

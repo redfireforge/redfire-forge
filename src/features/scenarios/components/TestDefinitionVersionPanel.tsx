@@ -22,6 +22,7 @@ export default function TestDefinitionVersionPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
+  const [viewingVersion, setViewingVersion] = useState<TestDefinitionVersion | null>(null);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -120,13 +121,20 @@ export default function TestDefinitionVersionPanel({
                     </span>
                   )}
                   <span className="test-def-version-item-time">
-                    {formatRelativeTime(v.timestamp)}
+                    {formatRelativeTime(v.timestamp, formatTimestamp)}
                   </span>
                 </div>
                 <div className="test-def-version-item-meta">
                   <span className="test-def-version-item-summary">{changeSummaries.get(v.id) ?? ''}</span>
                 </div>
                 <div className="test-def-version-item-actions">
+                  <button
+                    className="test-def-version-action-btn test-def-version-action-view"
+                    onClick={(e) => { e.stopPropagation(); setViewingVersion(v); }}
+                    title="View this version's snapshot"
+                  >
+                    👁 View
+                  </button>
                   <button
                     className="test-def-version-action-btn"
                     onClick={(e) => { e.stopPropagation(); onRestore(v); }}
@@ -163,26 +171,66 @@ export default function TestDefinitionVersionPanel({
           </button>
         )}
       </div>
+
+      {viewingVersion && (
+        <VersionSnapshotView version={viewingVersion} onClose={() => setViewingVersion(null)} />
+      )}
     </div>
   );
 }
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+function VersionSnapshotView({ version, onClose }: { version: TestDefinitionVersion; onClose: () => void }) {
+  const s = version.snapshot;
+  const label = version.label || formatTimestamp(version.timestamp);
+  return (
+    <div className="test-def-version-view-overlay" onClick={onClose}>
+      <div className="test-def-version-view-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="test-def-version-view-header">
+          <h4>Version Snapshot</h4>
+          <span className="test-def-version-view-label">{label}</span>
+          <button className="btn btn-sm" onClick={onClose}>×</button>
+        </div>
+        <div className="test-def-version-view-body">
+          <div className="test-def-version-view-row">
+            <span className="test-def-version-view-key">Name</span>
+            <span className="test-def-version-view-val">{s.name}</span>
+          </div>
+          <div className="test-def-version-view-row">
+            <span className="test-def-version-view-key">Method</span>
+            <span className="test-def-version-view-val">{s.method}</span>
+          </div>
+          <div className="test-def-version-view-row">
+            <span className="test-def-version-view-key">URL</span>
+            <span className="test-def-version-view-val test-def-version-view-url">{s.url}</span>
+          </div>
+          {s.headers.length > 0 && (
+            <div className="test-def-version-view-row">
+              <span className="test-def-version-view-key">Headers</span>
+              <span className="test-def-version-view-val">
+                {s.headers.map((h, i) => <div key={i}><code>{h.key}</code>: {h.value}</div>)}
+              </span>
+            </div>
+          )}
+          {s.body && (
+            <div className="test-def-version-view-row">
+              <span className="test-def-version-view-key">Body</span>
+              <pre className="test-def-version-view-pre">{s.body}</pre>
+            </div>
+          )}
+          <div className="test-def-version-view-row">
+            <span className="test-def-version-view-key">Auth</span>
+            <span className="test-def-version-view-val">{s.auth.type}</span>
+          </div>
+          {s.extractions && s.extractions.length > 0 && (
+            <div className="test-def-version-view-row">
+              <span className="test-def-version-view-key">Extractions</span>
+              <span className="test-def-version-view-val">{s.extractions.length} extraction(s)</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function formatRelativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return formatTimestamp(ts);
-}
+import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';

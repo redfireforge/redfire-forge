@@ -983,6 +983,30 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
+| **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
+| Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
+| Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |
+| CSV/Excel/JSON import | Import data from external files with column detection and validation |
+| Row tags & filtering | Categorize rows with tags (e.g., `smoke`, `regression`); filter by tag when running |
+| Row enable/disable | Toggle individual rows without deleting; disabled rows are skipped during execution |
+| Bulk operations | Select multiple rows (Ctrl+click, Shift+click) for bulk enable/disable/delete/duplicate |
+| Drag-to-reorder rows | Reorder data rows via drag handles |
+| Row labels & notes | Human-readable labels and annotations per row, shown in results |
+| Distribution modes | Sequential, Random, or Round Robin row execution order |
+| Sample rows | Mark rows as samples for selective validation mode |
+| Pre-validation (Verify All) | Test all rows against the live API before committing to a full run |
+| Populate from API | Send a request, extract an array from the response, map fields to columns — auto-generate data rows |
+| Create Parameterized Copy | Convert any normal test into a parameterized version with auto-detected variables |
+| Re-run failed rows | After a run, re-run only the rows that failed — saves time on large data sets |
+| Grouped results | Results dashboard groups parameterized test results by data row with pass/fail status |
+| **Shared Data Sources** | Top-level data sources shared across multiple tests — edit once, update everywhere |
+| Shared DS modal | Dedicated modal for managing shared data sources with list panel, editor, and fetch config |
+| Cross-test linking | Link any parameterized test to a shared data source; changes propagate automatically |
+| "Used by" section | See which tests are linked to each shared data source |
+| Promote/demote | Promote inline data to a shared source, or demote (detach) to create an independent copy |
+| Impact warnings | Save confirmation modal shows affected tests when modifying shared data |
+| Auth inheritance | Shared data sources can inherit auth from linked tests for API verification |
+| Fetch config | Optional URL/method/headers/body for API-driven population and verification |
 | **API Catalog** | Import OpenAPI 3.0/3.1 and Swagger 2.0 specs; browse endpoints in Swagger-UI-style detail view |
 | Catalog endpoint browser | Tag-grouped endpoint list with search/filter, parameter forms, request body editor, response schemas |
 | Catalog "Try It" testing | Execute endpoints interactively with host strategy (From Spec / Custom URL / Environment) and auth config |
@@ -1168,19 +1192,35 @@ This means data persists across browsers and is shareable via file copy.
 
 ### Web Mode (Browser)
 
-All data is stored in the browser's **localStorage**:
+Data is stored using a tiered storage strategy:
+
+**IndexedDB (Primary — for large data)**
+
+| Store | Content |
+|---|---|
+| `featureGroups` | Feature Groups, Scenarios, Tests, and inline Data Sources |
+| `testRuns` | Historical test run results |
+| `sharedDataSources` | Top-level shared data sources (harness-wide) |
+
+IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 3) uses a blob-per-store pattern with automatic migration from localStorage on first load.
+
+**localStorage (Secondary — for small data)**
 
 | Key | Content |
 |---|---|
-| `perf-test-feature-groups` | Feature Groups, Scenarios, and Tests |
 | `perf-test-environments` | Environment definitions |
 | `perf-test-microservices` | Microservice definitions and base URLs |
 | `perf-test-global-auth` | Global Auth Profile definitions |
-| `perf-test-runs` | Historical test run results (auto-pruned, response bodies truncated to 2 KB) |
 | `perf-test-runner-config` | Runner settings (concurrency, weights, host mode, execution mode, etc.) |
 | `perf-test-max-runs` | Maximum number of stored runs (default 50, configurable 1–500) |
 | `perf-test-selected-env` | Currently selected environment ID |
 | `perf-test-selected-svc` | Currently selected microservice ID |
 | `perf-test-theme` | Theme preference (`dark` or `light`) |
 
-**Storage limits:** localStorage is typically capped at ~5 MB per origin. The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear localStorage for the site in your browser's DevTools (Application → Storage → Clear site data).
+**Fallback Behavior:**
+- If IndexedDB is blocked (e.g., private browsing, DevTools lock), the app falls back to localStorage with a 3-second timeout
+- Feature groups and test runs auto-migrate from localStorage to IndexedDB on first load
+- Response bodies are truncated to 2 KB; results per run capped at 2,000
+
+**Storage Management:**
+The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear site data in your browser's DevTools (Application → Storage → Clear site data).

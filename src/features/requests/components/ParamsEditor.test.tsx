@@ -154,13 +154,16 @@ describe('ParamsEditor', () => {
     expect(onInsert).toHaveBeenCalledWith(0, 'page');
   });
 
-  it('Import from URL resets params', () => {
-    const onChange = vi.fn();
-    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+  it('Import from URL calls onImportFromUrl callback', () => {
+    const onImport = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={vi.fn()} onImportFromUrl={onImport} />);
     fireEvent.click(screen.getByText('Import from URL'));
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0]).toHaveLength(1);
-    expect(onChange.mock.calls[0][0][0].key).toBe('');
+    expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Import from URL button when onImportFromUrl is not provided', () => {
+    render(<ParamsEditor params={makeParams()} onChange={vi.fn()} />);
+    expect(screen.queryByText('Import from URL')).toBeNull();
   });
 
   it('shows no badge when no active params', () => {

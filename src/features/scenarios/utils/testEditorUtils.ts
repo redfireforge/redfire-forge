@@ -14,14 +14,8 @@ export const emptyTest = (): Scenario => ({
   validation: { mode: 'none', expectedFields: [] },
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function canonicalize(val: any): any {
-  if (val === null || val === undefined || typeof val !== 'object') return val;
-  if (Array.isArray(val)) return val.map(canonicalize);
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(val).sort()) out[k] = canonicalize(val[k]);
-  return out;
-}
+import { canonicalize } from '../../../shared/utils/canonicalize';
+export { canonicalize };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function stripPaths(obj: any, paths: string[]): any {
@@ -68,38 +62,31 @@ export function jsonEqual(a: string, b: string, excludedPaths?: string[]): boole
 }
 
 export function parseQueryParams(url: string): KeyValue[] {
-  try {
-    const u = new URL(url);
-    const params: KeyValue[] = [];
-    u.searchParams.forEach((value, key) => {
-      params.push({ key, value });
-    });
-    if (params.length === 0) params.push({ key: '', value: '' });
-    return params;
-  } catch {
-    return [{ key: '', value: '' }];
-  }
+  const qIdx = url.indexOf('?');
+  if (qIdx === -1) return [{ key: '', value: '' }];
+  const qs = url.slice(qIdx + 1);
+  if (!qs) return [{ key: '', value: '' }];
+  const params: KeyValue[] = qs.split('&').map((pair) => {
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx === -1) return { key: pair, value: '' };
+    return { key: pair.slice(0, eqIdx), value: pair.slice(eqIdx + 1) };
+  });
+  return params.length > 0 ? params : [{ key: '', value: '' }];
 }
 
 export function rebuildUrl(url: string, params: KeyValue[]): string {
-  try {
-    const u = new URL(url);
-    u.search = '';
-    const nonEmpty = params.filter((p) => p.key.trim());
-    nonEmpty.forEach((p) => u.searchParams.set(p.key.trim(), p.value));
-    return u.toString();
-  } catch {
-    return url;
-  }
+  const base = getBaseUrl(url);
+  const nonEmpty = params.filter((p) => p.key.trim());
+  if (nonEmpty.length === 0) return base;
+  const qs = nonEmpty
+    .map((p) => `${p.key.trim()}=${p.value}`)
+    .join('&');
+  return `${base}?${qs}`;
 }
 
 export function getBaseUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch {
-    return url;
-  }
+  const qIdx = url.indexOf('?');
+  return qIdx === -1 ? url : url.slice(0, qIdx);
 }
 
 // unwrapImport and pickJsonFile moved to scenarioImportExport.ts — import from there
