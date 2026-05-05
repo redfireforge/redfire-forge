@@ -2,17 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { SharedDataSource, SharedDataSourceFetchConfig, Scenario } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
-
-function defaultFetchConfig(): SharedDataSourceFetchConfig {
-  return {
-    url: '',
-    method: 'GET',
-    headers: [{ key: '', value: '' }],
-    body: '',
-    bodyType: 'none',
-    auth: { type: 'none' },
-  };
-}
+import { defaultFetchConfig } from './useSharedDsEditorPanel';
 
 /**
  * Hook that manages all fetch-configuration handlers for a shared data source.
