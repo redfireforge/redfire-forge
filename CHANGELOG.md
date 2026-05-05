@@ -8,6 +8,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Training Manual Tracks** — New dedicated page for structured learning with progress tracking
+  - `TrainingTracksView`: Full-page training dashboard with expandable learning paths and phases
+  - `TrainingProgressDashboard`: Stats overview showing completed, in-progress, paths started, and day streak
+  - `ContinueLearningCard`: Quick-access card to resume the last viewed in-progress manual
+  - `WhatsNewBanner`: Highlights recently added/updated training manuals with dismiss functionality
+  - `TrainingSearchBar`: Search and filter by difficulty (Easy/Medium/Advanced) and status (Not Started/In Progress/Completed)
+  - `TrainingPathCard`: Expandable path cards with progress bars and phase navigation
+  - `TrainingPhaseSection`: Collapsible phase sections with manual listings
+  - `ManualRow`: Individual manual entries with status toggle, badges, and sample links
+  - Progress persistence in localStorage with learning streak calculation
+  - "What's New" detection based on manual metadata timestamps
+  - Keyboard navigation support with focus indicators
+  - Smooth expand/collapse animations
+  - Responsive design for mobile/tablet
+  - 15 E2E tests covering all interactions
+  - New hooks: `useTrainingProgress`, `useWhatsNew`, `useManualSearch`
+  - 164 unit tests for all new components and hooks
+
 ### Refactored
 - **Code Consolidation (Round 5)**
   - Extracted `toggleSetItem()` shared utility (`src/shared/utils/setToggle.ts`) — replaces 9 identical inline Set toggle patterns across 5 files (`useScenarioMutations`, `RequestsSidebar`, `MultiEnvResultRow`, `CatalogSendToRequestsModal`)
