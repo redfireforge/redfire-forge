@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Current State Audit
+## 1. Current State Audit (Updated May 2026)
 
 ### What Exists Today
 
@@ -13,24 +13,30 @@
 | **Engine** | `runWorkflow()` | ✅ Done | Sequential chain with variable extraction, think time, circuit breaker |
 | **Engine** | `runWorkflowLoad()` | ✅ Done | N iterations × M concurrency with isolated `VariableContext` per iteration |
 | **Engine** | `executor.ts` `mode='workflow'` branch | ✅ Done | Routes to `runWorkflow` / `runWorkflowLoad` based on `totalTransactions` |
+| **Engine** | `graphRunner.ts` | ✅ Done | Full graph execution with conditions, forks, joins, loops, sub-workflows, error handlers |
+| **Engine** | Correlation Wait & Webhooks | ✅ Done | `correlationStore`, CorrelationWait node handler, webhook trigger support |
+| **Engine** | WaitForCondition polling | ✅ Done | Poll sub-graph with configurable interval/timeout/maxAttempts |
 | **Types** | `ExecutionMode` includes `'workflow'` | ✅ Done | `'sequential' \| 'batch' \| 'pool' \| 'load-profile' \| 'workflow'` |
 | **Types** | `TestConfig.workflowVariables` | ✅ Done | `Record<string, string>` — seeds the `VariableContext` |
 | **UI** | Workflow mode radio button in Harness | ✅ Done | `RunnerExecutionConfig.tsx` — user can select "Workflow" mode |
 | **UI** | `WorkflowVariablesInput` panel | ✅ Done | Shown when `executionMode === 'workflow'` — key-value input for initial vars |
 | **UI** | Workflow picker / selector in Harness | ❌ Missing | No way to select a saved workflow definition |
-| **UI** | "Run in Harness" button on Workflow Designer | ❌ Missing | Planned in DESIGN.md but not implemented |
+| **UI** | "Run in Harness" button on Workflow Designer | ❌ Missing | Planned but not implemented |
 | **UI** | Workflow-aware results display | ❌ Missing | Results show "Batch" label for workflow runs; no iteration grouping |
 | **Data** | `TestConfig.workflowId` field | ❌ Missing | No reference to a workflow definition on `TestConfig` |
 | **Engine** | `graphRunner` used in Harness mode | ❌ Missing | Harness workflow mode uses flat `workflowRunner` (step chain), not the full graph with conditions/forks/joins |
 | **Engine** | Iteration-level reporting | ❌ Missing | All results from N iterations are flattened into one `RequestResult[]` |
+| **Engine** | `runGraphLoad()` | ❌ Missing | Load-testing wrapper for `runGraph()` not implemented |
 
 ### Key Gap: Flat Chain vs Graph Topology
 
-The critical architectural gap is that Harness "workflow mode" currently uses `workflowRunner.ts` — a **flat sequential chain** of `Scenario[]` objects. It does **not** use `graphRunner.ts`, which handles the full graph topology (conditions, forks, joins, loops, switches, sub-workflows). This means:
+The critical architectural gap is that Harness "workflow mode" currently uses `workflowRunner.ts` — a **flat sequential chain** of `Scenario[]` objects. It does **not** use `graphRunner.ts`, which handles the full graph topology (conditions, forks, joins, loops, switches, sub-workflows, error handlers). This means:
 
 - Branching logic is ignored
 - Parallel fork/join paths are ignored
 - Loop nodes are ignored
+- Sub-workflow calls are ignored
+- Error handlers are ignored
 - The workflow is effectively reduced to a flat ordered list of HTTP steps
 
 ---
@@ -90,6 +96,8 @@ The critical architectural gap is that Harness "workflow mode" currently uses `w
 | Iteration-level reporting | Per-VU metrics | Transaction Controller | Per-user stats | Per-VU response times | ❌ Flattened | ✅ Per-iteration |
 | Variable isolation per iteration | JS function scope | Thread-local vars | `self` attributes | Local vars | ✅ Child VariableContext | Same |
 | Think time | `sleep()` | Timer elements | `wait_time` | Pre-request delay | ✅ configurable | Same |
+| Sub-workflows in perf tests | JS modules | Module Controller | Python imports | ❌ | ❌ | ✅ SubWorkflow nodes |
+| Error handlers in perf tests | try/catch | Error handling | try/except | ❌ | ❌ | ✅ ErrorHandler nodes |
 
 ### Key Insight from Competitors
 
@@ -101,7 +109,7 @@ The critical architectural gap is that Harness "workflow mode" currently uses `w
 
 ### Phase 1: Data Model & Type Changes (Foundation)
 
-**Priority: Critical | Effort: Small**
+**Priority: Critical | Effort: Small | Status: NOT STARTED**
 
 #### 1.1 Add `workflowId` to `TestConfig`
 
@@ -114,14 +122,15 @@ export interface TestConfig {
 }
 ```
 
-#### 1.2 Add `iterationIndex` to `RequestResult`
+#### 1.2 Add `iterationIndex` and `workflowNodeId` to `RequestResult`
 
 ```typescript
 // src/shared/types/index.ts
 export interface RequestResult {
   // ... existing fields ...
-  iterationIndex?: number;  // NEW: which iteration produced this result (0-based)
-  workflowNodeId?: string;  // NEW: which workflow node produced this result
+  iterationIndex?: number;    // NEW: which iteration produced this result (0-based)
+  workflowNodeId?: string;    // NEW: which workflow node produced this result
+  workflowNodeLabel?: string; // NEW: human-readable node label for display
 }
 ```
 
@@ -133,7 +142,7 @@ No type change needed — `'workflow'` already exists. Update JSDoc comments to 
 
 ### Phase 2: Workflow Picker in Harness UI
 
-**Priority: Critical | Effort: Medium**
+**Priority: Critical | Effort: Medium | Status: NOT STARTED**
 
 #### 2.1 Workflow Selector Component
 
@@ -164,24 +173,42 @@ When `executionMode === 'workflow'`, show a dropdown/combobox to select a saved 
 
 **Implementation:**
 
-- New component: `WorkflowPicker.tsx` in `src/features/test-runner/components/`
-- Props: `workflows: Workflow[]`, `selectedId: string | null`, `onChange: (id: string) => void`
+- New component: `WorkflowSelector.tsx` in `src/features/test-runner/components/`
+- Props: `workflows: Workflow[]`, `selectedId: string | null`, `onChange: (id: string | null) => void`
 - Source workflows from the existing workflow store (same data backing the Workflow Designer sidebar)
 - When a workflow is selected, auto-populate `workflowVariables` from the workflow's defined variables
+- Show workflow summary: node count, estimated step count, has event-driven nodes indicator
 - Hide the scenario checkbox tree when a workflow is selected (scenarios come from the workflow graph, not manual selection)
 
-#### 2.2 Disable Scenario Selection in Workflow Mode
+#### 2.2 Workflow Summary Panel
+
+When a workflow is selected, show a read-only summary:
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ 📋 Selected Workflow: Order API E2E Flow                  │
+│                                                           │
+│ 12 nodes · 5 HTTP steps · 2 conditions · 1 loop          │
+│                                                           │
+│ Flow: Start → Create Order → Condition (stock?) →         │
+│       [Yes] → Reserve Stock → ...                         │
+│       [No]  → Backorder → ...                             │
+│                                                           │
+│ ⚠️ Contains event-driven nodes (see configuration below)  │
+└───────────────────────────────────────────────────────────┘
+```
+
+#### 2.3 Disable Scenario Selection in Workflow Mode
 
 When `executionMode === 'workflow'` AND a workflow is selected:
 - Gray out / hide the FeatureGroup scenario tree
-- Show a read-only summary of the workflow's HTTP nodes: "This workflow has N HTTP steps: Step 1 → Step 2 → ..."
 - Scenarios are derived from the workflow graph, not manually selected
 
 ---
 
 ### Phase 3: Graph-Based Execution in Harness
 
-**Priority: Critical | Effort: Medium**
+**Priority: Critical | Effort: Medium | Status: NOT STARTED**
 
 #### 3.1 Route Harness Workflow Mode Through `graphRunner`
 
@@ -192,7 +219,7 @@ Currently, `executor.ts` routes workflow mode to `runWorkflow()` (flat chain). C
 ```typescript
 if (mode === 'workflow' && config.workflowId) {
   // Full graph execution — use the same engine as the Workflow Designer
-  const workflow = resolveWorkflow(config.workflowId);  // lookup from store
+  const workflow = await resolveWorkflow(config.workflowId);  // lookup from store
   return runGraphLoad(workflow, iterations, concurrency, opts, config.workflowVariables);
 }
 if (mode === 'workflow') {
@@ -208,38 +235,72 @@ Create a load-testing wrapper around `runGraph()`, similar to how `runWorkflowLo
 
 ```typescript
 // src/features/workflow/engine/graphLoadRunner.ts
+
+export interface GraphLoadOptions {
+  iterations: number;
+  concurrency: number;
+  initialVariables?: Record<string, string>;
+  thinkTimeMs?: () => number;
+  timeoutMs?: number;
+  abortSignal?: AbortSignal;
+  onProgress?: (completed: number, total: number, results: RequestResult[]) => void;
+  // Event-driven node config
+  eventDrivenConfig?: {
+    correlationWaitMode: 'auto-resume' | 'synthetic-inject' | 'wait-for-real';
+    syntheticDelayMs?: number;
+    syntheticJitterMs?: number;
+    mockPayloadTemplate?: Record<string, unknown>;
+    maxConcurrentPolls?: number;
+  };
+}
+
 export async function runGraphLoad(
   workflow: Workflow,
-  iterations: number,
-  concurrency: number,
-  opts: RunOpts,
-  initialVariables?: Record<string, string>,
+  opts: GraphLoadOptions,
 ): Promise<RequestResult[]> {
   const allResults: RequestResult[] = [];
   let iterationIndex = 0;
+  const semaphore = new Semaphore(opts.concurrency);
 
   const runOne = async (): Promise<void> => {
-    const myIndex = iterationIndex++;
-    const results = await runGraph(
-      workflow.nodes,
-      workflow.edges,
-      { ...initialVariables },
-      {
-        onNodeStateChange: () => {},  // no canvas animation in harness mode
-        onVariablesChange: () => {},
-        onComplete: (results, passed, durationMs) => {
-          // Tag each result with iteration index
-          for (const r of results) {
-            r.iterationIndex = myIndex;
-          }
-          allResults.push(...results);
+    await semaphore.acquire();
+    try {
+      const myIndex = iterationIndex++;
+      const iterationVars = { ...opts.initialVariables };
+      
+      const results = await runGraph(
+        workflow.nodes,
+        workflow.edges,
+        iterationVars,
+        {
+          onNodeStateChange: () => {},  // no canvas animation in harness mode
+          onVariablesChange: () => {},
+          onNodeResult: (nodeId, nodeLabel, result) => {
+            result.iterationIndex = myIndex;
+            result.workflowNodeId = nodeId;
+            result.workflowNodeLabel = nodeLabel;
+            allResults.push(result);
+          },
+          eventDrivenConfig: opts.eventDrivenConfig,
         },
-      },
-    );
+      );
+      
+      if (opts.thinkTimeMs) {
+        await sleep(opts.thinkTimeMs());
+      }
+    } finally {
+      semaphore.release();
+    }
   };
 
-  // Concurrency pool (same pattern as runWorkflowLoad)
-  // ...
+  const promises: Promise<void>[] = [];
+  for (let i = 0; i < opts.iterations; i++) {
+    promises.push(runOne());
+    opts.onProgress?.(allResults.length, opts.iterations, allResults);
+  }
+  await Promise.all(promises);
+  
+  return allResults;
 }
 ```
 
@@ -248,13 +309,13 @@ export async function runGraphLoad(
 When running a workflow in Harness mode, resolve environments and services the same way the Workflow Designer does:
 - `resolveHttpBaseUrl` — look up the service registry for the selected environment
 - `resolveHttpAuth` — look up auth profiles
-- `environmentLayer` — inject base URL from the selected Harness environment
+- Pass `workflowServices`, `workflowHostProfiles`, `workflowAuthProfiles` from the workflow definition
 
 ---
 
 ### Phase 4: Workflow-Aware Results Display
 
-**Priority: High | Effort: Medium**
+**Priority: High | Effort: Medium | Status: NOT STARTED**
 
 #### 4.1 Execution Mode Label
 
@@ -265,23 +326,23 @@ Fix `ResultsDashboard.tsx` to show "Workflow" instead of "Batch" when `execution
 When results have `iterationIndex`, enable a grouping view:
 
 ```
-┌─────────────────────────────────────────────────┐
-│ Workflow: Order API E2E Flow                    │
-│ 100 iterations × 10 concurrency                │
-│ Overall: 95% pass | avg 1,234ms | p95 2,100ms  │
-├─────────────────────────────────────────────────┤
-│ Per-Step Summary:                               │
-│  Step 1: Create Order   — avg 245ms  p95 410ms │
-│  Step 2: Get Order      — avg 120ms  p95 200ms │
-│  Step 3: Update Order   — avg 189ms  p95 350ms │
-│  Step 4: Verify Status  — avg 95ms   p95 160ms │
-├─────────────────────────────────────────────────┤
-│ Per-Iteration Detail:               [Expand ▼]  │
-│  Iter #1: ✅ 649ms (4/4 passed)                │
-│  Iter #2: ✅ 712ms (4/4 passed)                │
-│  Iter #3: ❌ 1,203ms (3/4 — Step 3 failed)    │
-│  ...                                            │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Workflow: Order API E2E Flow                                │
+│ 100 iterations × 10 concurrency                             │
+│ Overall: 95% pass | avg 1,234ms | p95 2,100ms               │
+├─────────────────────────────────────────────────────────────┤
+│ Per-Step Summary:                                           │
+│  Step 1: Create Order   — avg 245ms  p95 410ms  100% pass   │
+│  Step 2: Get Order      — avg 120ms  p95 200ms  100% pass   │
+│  Step 3: Update Order   — avg 189ms  p95 350ms   98% pass   │
+│  Step 4: Verify Status  — avg 95ms   p95 160ms  100% pass   │
+├─────────────────────────────────────────────────────────────┤
+│ Per-Iteration Detail:                          [Expand ▼]   │
+│  Iter #1: ✅ 649ms (4/4 passed)                             │
+│  Iter #2: ✅ 712ms (4/4 passed)                             │
+│  Iter #3: ❌ 1,203ms (3/4 — Step 3 failed)                  │
+│  ...                                                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 #### 4.3 Per-Step Aggregate Metrics
@@ -291,19 +352,57 @@ Group `RequestResult[]` by `workflowNodeId` and compute:
 - Error distribution per step
 - This gives "which step is the bottleneck?" visibility
 
+**New utility:**
+
+```typescript
+// src/features/results/utils/workflowResultsGrouping.ts
+
+export interface StepMetrics {
+  nodeId: string;
+  nodeLabel: string;
+  count: number;
+  passCount: number;
+  passRate: number;
+  avgMs: number;
+  minMs: number;
+  maxMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  errors: Map<string, number>; // error message -> count
+}
+
+export interface IterationMetrics {
+  iterationIndex: number;
+  totalMs: number;
+  stepCount: number;
+  passCount: number;
+  passed: boolean;
+  failedStep?: string;
+}
+
+export function computeWorkflowMetrics(results: RequestResult[]): {
+  perStep: StepMetrics[];
+  perIteration: IterationMetrics[];
+} {
+  // Group by workflowNodeId, compute step metrics
+  // Group by iterationIndex, compute iteration metrics
+}
+```
+
 #### 4.4 Iteration Timeline Chart
 
 Extend the existing live chart to show:
 - X-axis: time
 - Y-axis: response time per iteration (total workflow time)
 - Color: green (pass) / red (fail)
-- Overlay: per-step breakdown within each iteration bar
+- Hover: show per-step breakdown within the iteration
 
 ---
 
 ### Phase 5: "Run in Harness" Button
 
-**Priority: Medium | Effort: Small**
+**Priority: Medium | Effort: Small | Status: NOT STARTED**
 
 #### 5.1 Button on Workflow Toolbar
 
@@ -326,7 +425,7 @@ Clicking the button:
 
 ### Phase 6: CLI Support
 
-**Priority: Medium | Effort: Small**
+**Priority: Medium | Effort: Small | Status: NOT STARTED**
 
 #### 6.1 CLI Workflow Performance Test Command
 
@@ -340,6 +439,11 @@ redfireforge run --workflow order-flow.json --iterations 100 --concurrency 10
 redfireforge run --workflow order-flow.json --iterations 50 --concurrency 5 \
   --var baseUrl=https://staging.api.example.com \
   --var apiKey=sk-test-xxx
+
+# With event-driven config
+redfireforge run --workflow payment-flow.json --iterations 100 \
+  --correlation-mode auto-resume \
+  --max-concurrent-polls 20
 ```
 
 #### 6.2 CLI Reporter Enhancements
@@ -347,7 +451,7 @@ redfireforge run --workflow order-flow.json --iterations 50 --concurrency 5 \
 Add workflow-aware output to the JUnit and JSON reporters:
 - Per-step metrics in the summary
 - Iteration-level test cases in JUnit XML (each iteration = one `<testcase>`)
-- `workflowName` and `iterationIndex` fields in JSON output
+- `workflowName`, `iterationIndex`, `workflowNodeId` fields in JSON output
 
 ---
 
@@ -361,19 +465,22 @@ Phase 5 (Run in Harness btn)  ←──  Phase 4 (Results Display)
                                           │
                                           ▼
                                    Phase 6 (CLI)
+                                          │
+                                          ▼
+                                   Phase 7 (Event-Driven)
 ```
 
-| Phase | Priority | Effort | Depends On |
-|---|---|---|---|
-| 1. Data Model & Types | Critical | S | — |
-| 2. Workflow Picker UI | Critical | M | Phase 1 |
-| 3. Graph-Based Execution | Critical | M | Phase 1 |
-| 4. Results Display | High | M | Phase 3 |
-| 5. "Run in Harness" Button | Medium | S | Phase 2 |
-| 6. CLI Support | Medium | S | Phase 3 |
-| 7. Event-Driven Node Load Testing | Medium | L | Phase 3 |
+| Phase | Priority | Effort | Depends On | Status |
+|---|---|---|---|---|
+| 1. Data Model & Types | Critical | S | — | NOT STARTED |
+| 2. Workflow Picker UI | Critical | M | Phase 1 | NOT STARTED |
+| 3. Graph-Based Execution | Critical | M | Phase 1 | NOT STARTED |
+| 4. Results Display | High | M | Phase 3 | NOT STARTED |
+| 5. "Run in Harness" Button | Medium | S | Phase 2 | NOT STARTED |
+| 6. CLI Support | Medium | S | Phase 3 | NOT STARTED |
+| 7. Event-Driven Node Load Testing | Medium | L | Phase 3 | NOT STARTED |
 
-**Estimated total: ~7 implementation tasks across 3 priority tiers.**
+**Estimated total: ~7 implementation phases across 3 priority tiers.**
 
 ---
 
@@ -428,21 +535,25 @@ export interface SyntheticEventConfig {
 
 export class SyntheticEventInjector {
   private interval: ReturnType<typeof setInterval> | null = null;
+  private processedIds = new Set<string>();
 
   constructor(
     private correlationStore: ICorrelationStore,
     private config: SyntheticEventConfig,
-    private webhookEndpoint: (path: string, body: Record<string, unknown>) => Promise<void>,
   ) {}
 
   start(): void {
     // Poll correlationStore every 50ms for new paused entries
-    this.interval = setInterval(() => {
-      for (const entry of this.correlationStore.listPaused()) {
+    this.interval = setInterval(async () => {
+      const paused = await this.correlationStore.listPaused();
+      for (const entry of paused) {
+        if (this.processedIds.has(entry.correlationId)) continue;
+        this.processedIds.add(entry.correlationId);
+        
         const delay = this.config.responseDelayMs + randomJitter(this.config.jitterMs);
-        setTimeout(() => {
-          const payload = resolveTemplate(this.config.payloadTemplate, entry.correlationId);
-          this.correlationStore.resume(entry.correlationId, payload);
+        setTimeout(async () => {
+          const payload = resolveTemplate(this.config.payloadTemplate, { correlationId: entry.correlationId });
+          await this.correlationStore.resume(entry.correlationId, payload);
         }, delay);
       }
     }, 50);
@@ -450,6 +561,7 @@ export class SyntheticEventInjector {
 
   stop(): void {
     if (this.interval) clearInterval(this.interval);
+    this.processedIds.clear();
   }
 }
 ```
@@ -548,15 +660,18 @@ Instead of iterating `runGraph()` N times internally, the load runner sends N HT
 ```typescript
 // src/features/workflow/engine/webhookLoadDriver.ts
 
+export interface WebhookLoadConfig {
+  webhookUrl: string;
+  payloadTemplate: string;
+  mode: 'fixed-rate' | 'ramp' | 'burst';
+  ratePerSec: number;
+  durationSec: number;
+  rampToRatePerSec?: number;
+  burstCount?: number;
+}
+
 export async function runWebhookLoadTest(
-  webhookUrl: string,
-  payloadTemplate: string,
-  config: {
-    mode: 'fixed-rate' | 'ramp' | 'burst';
-    ratePerSec: number;
-    durationSec: number;
-    rampTo?: number;
-  },
+  config: WebhookLoadConfig,
   onProgress: (sent: number, completed: number, results: RequestResult[]) => void,
   abortSignal?: AbortSignal,
 ): Promise<RequestResult[]> {
@@ -640,12 +755,12 @@ Phase 7c: Webhook Trigger Load Driver (replace "N iterations" with "N webhook PO
 Phase 7d: WaitForCondition poll throttle (prevent poll storms)
 ```
 
-| Sub-phase | Priority | Effort | Depends On |
-|---|---|---|---|
-| 7a. Auto-resume mode | High | S | Phase 3 |
-| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a |
-| 7c. Webhook Load Driver | Medium | M | Phase 3 |
-| 7d. Poll throttle | Medium | S | Phase 3 |
+| Sub-phase | Priority | Effort | Depends On | Status |
+|---|---|---|---|---|
+| 7a. Auto-resume mode | High | S | Phase 3 | NOT STARTED |
+| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a | NOT STARTED |
+| 7c. Webhook Load Driver | Medium | M | Phase 3 | NOT STARTED |
+| 7d. Poll throttle | Medium | S | Phase 3 | NOT STARTED |
 
 ### 5.8 Success Criteria for Phase 7
 
@@ -658,11 +773,116 @@ Phase 7d: WaitForCondition poll throttle (prevent poll storms)
 
 ---
 
-## 6. Design Principles
+## 6. New Ideas (Added May 2026)
+
+### 6.1 Parameterized Workflow Testing
+
+**Concept:** Combine parameterized testing (data-driven) with workflow execution. Each row in a data source produces one workflow iteration with row values injected as initial variables.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ Data-Driven Workflow Test                                 │
+│                                                           │
+│ Workflow: User Registration Flow                          │
+│ Data Source: users.csv (50 rows)                          │
+│                                                           │
+│ Variable Mapping:                                         │
+│   {{email}}     ← column: email                          │
+│   {{password}}  ← column: password                       │
+│   {{plan}}      ← column: subscription_plan              │
+│                                                           │
+│ Concurrency: [10]                                         │
+│ (50 rows × 10 concurrent = up to 10 parallel iterations) │
+│                                                           │
+│         [▶ Run Data-Driven Workflow Test]                │
+└───────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+- Reuse existing `DataSource` type from parameterized testing
+- Each row becomes `initialVariables` for one `runGraph()` iteration
+- Results tagged with `dataRowIndex` in addition to `iterationIndex`
+- Enables testing the same workflow with different user personas, edge cases, etc.
+
+### 6.2 Workflow Comparison Mode
+
+**Concept:** Run the same workflow against two environments (e.g., staging vs production) and compare metrics side-by-side.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ Workflow Comparison                                       │
+│                                                           │
+│ Workflow: Order API E2E Flow                              │
+│                                                           │
+│ Environment A: [Staging ▼]   Environment B: [Production ▼]│
+│ Iterations:    [100]         Iterations:    [100]         │
+│ Concurrency:   [10]          Concurrency:   [10]          │
+│                                                           │
+│         [▶ Run Comparison Test]                          │
+│                                                           │
+│ Results:                                                  │
+│ ┌─────────────────────┬─────────────────────┐            │
+│ │      Staging        │     Production      │            │
+│ ├─────────────────────┼─────────────────────┤            │
+│ │ avg: 234ms          │ avg: 189ms (-19%)   │            │
+│ │ p95: 450ms          │ p95: 320ms (-29%)   │            │
+│ │ pass: 98%           │ pass: 100%          │            │
+│ └─────────────────────┴─────────────────────┘            │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Workflow Warm-Up Phase
+
+**Concept:** Before the main load test, run a configurable warm-up phase with lower concurrency to prime caches, JIT compilation, connection pools, etc.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ Warm-Up Configuration                                     │
+│                                                           │
+│ ☑ Enable warm-up phase                                   │
+│   Iterations: [20]                                        │
+│   Concurrency: [2]                                        │
+│   ☐ Exclude warm-up results from metrics                 │
+│                                                           │
+│ Main Test:                                                │
+│   Iterations: [500]                                       │
+│   Concurrency: [25]                                       │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 6.4 Workflow Step Timeout per Node
+
+**Concept:** Allow per-node timeout configuration in addition to the global workflow timeout. Useful when some steps (e.g., file processing) are expected to be slow while others should fail fast.
+
+```typescript
+interface HttpNodeData {
+  // ... existing fields ...
+  stepTimeoutMs?: number;  // Override global timeout for this step
+}
+```
+
+### 6.5 Workflow Execution Recording & Replay
+
+**Concept:** Record the exact sequence of HTTP requests from a manual workflow run, then replay it as a load test. This captures the real user journey including dynamic variable values.
+
+- Record: Run workflow once in Designer with recording enabled → capture request/response sequence
+- Replay: Load test replays the recorded sequence with parameterized values
+- Useful for reproducing production issues under load
+
+### 6.6 Integration with Existing Shared Data Sources
+
+The existing Shared Data Sources feature could be leveraged for workflow testing:
+- Link a Shared Data Source to a workflow for data-driven execution
+- Use Shared DS fetch config to refresh test data before each run
+- Tag-based row filtering for different test scenarios
+
+---
+
+## 7. Design Principles
 
 1. **Workflow IS the test.** Follow industry consensus: the workflow graph IS what gets iterated under load. Don't require users to manually re-select scenarios.
 
-2. **Graph fidelity.** Run the full `graphRunner` topology under load, not a flattened chain. Conditions, forks, joins, loops, and switches should all execute during performance tests — that's the real user journey.
+2. **Graph fidelity.** Run the full `graphRunner` topology under load, not a flattened chain. Conditions, forks, joins, loops, sub-workflows, and error handlers should all execute during performance tests — that's the real user journey.
 
 3. **Iteration isolation.** Each iteration gets a fresh `VariableContext` child. No cross-iteration state leakage.
 
@@ -670,9 +890,11 @@ Phase 7d: WaitForCondition poll throttle (prevent poll storms)
 
 5. **Per-step observability.** Tag every result with `iterationIndex` and `workflowNodeId` so results can be sliced by step and by iteration — answering both "which step is slow?" and "which iteration failed?".
 
+6. **Event-driven awareness.** Detect and handle event-driven nodes (CorrelationWait, WebhookTrigger, WaitForCondition) with appropriate load testing strategies.
+
 ---
 
-## 7. Post-Integration Market Position
+## 8. Post-Integration Market Position
 
 ### Where RedfireForge Becomes Unique
 
@@ -684,19 +906,24 @@ No competitor currently offers **visual graph-based workflow design + full-topol
 | Branching under load | Code only | XML config | Code only | Limited | ✅ Visual + executed |
 | Fork/Join parallelism in perf tests | Manual | XML Parallel Controller | Manual greenlets | ❌ | ✅ Native |
 | Loop/retry under load | Code only | Loop Controller | Code only | ❌ | ✅ Visual loop nodes |
+| Sub-workflows under load | JS modules | Module Controller | Python imports | ❌ | ✅ SubWorkflow nodes |
+| Error handlers under load | try/catch | ❌ | try/except | ❌ | ✅ ErrorHandler nodes |
 | Event-driven load testing (webhooks, correlation) | ❌ | ❌ | ❌ | ❌ | ✅ (Phase 7) |
 | Desktop-native (no infra) | ❌ (CLI) | ✅ (Java GUI) | ❌ (CLI) | ✅ (Electron) | ✅ (Tauri) |
 | Per-iteration + per-step metrics | Tags/groups | Transaction Controller | Per-user | Per-VU | ✅ Native |
+| Parameterized workflow testing | Code | CSV Data Set | Python | Collection variables | ✅ (Phase 6.1) |
 
 ### Competitive Advantages
 
-1. **Visual-first, code-optional** — k6/Locust require code. JMeter requires XML tree manipulation. RedfireForge lets users visually build complex workflows (conditions, forks, loops, sub-workflows) and run them under load with zero code.
+1. **Visual-first, code-optional** — k6/Locust require code. JMeter requires XML tree manipulation. RedfireForge lets users visually build complex workflows (conditions, forks, loops, sub-workflows, error handlers) and run them under load with zero code.
 
 2. **Event-driven node load testing (Phase 7)** — This is a gap across ALL competitors. No tool today handles webhook-triggered nodes, correlation waits, or poll-based conditions under load. RedfireForge would be first to market with synthetic event injection and auto-resume strategies.
 
 3. **Unified design ↔ test experience** — Competitors treat workflow=test as the same concept because they have no designer. RedfireForge keeps the visual designer for authoring but makes the bridge seamless ("Run in Harness" button, workflow picker). Best of both worlds.
 
 4. **Desktop-native with no infrastructure** — k6/Locust need CLI + cloud dashboards. JMeter is Java-heavy. Postman moved SaaS-first. RedfireForge via Tauri is lightweight, offline-capable, and owns the data locally.
+
+5. **Parameterized workflow testing** — Combine visual workflows with data-driven testing. Test the same user journey with 100 different personas from a CSV file.
 
 ### Where Competitors Still Win
 
@@ -725,28 +952,49 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 ---
 
-## 8. Non-Goals (Out of Scope)
+## 9. Non-Goals (Out of Scope)
 
-- **Distributed execution** — Multi-machine load generation is Phase 1.x territory
+- **Distributed execution** — Multi-machine load generation is out of scope for initial integration
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
 - **Real browser rendering** — Workflow steps are API calls, not browser interactions
 - **Workflow editing from Harness** — The Harness references a workflow; editing happens in the Workflow Designer
+- **Protocol expansion** — gRPC, WebSocket, GraphQL subscriptions are out of scope
 
 ---
 
-## 9. Success Criteria
+## 10. Success Criteria
 
+### Phase 1-3 (Core Integration)
 - [ ] User can select a saved workflow in the Harness and run it as a performance test
-- [ ] Full graph topology (conditions, forks, joins, loops) is respected during load runs
+- [ ] Full graph topology (conditions, forks, joins, loops, sub-workflows, error handlers) is respected during load runs
+- [ ] Each result is tagged with `iterationIndex` and `workflowNodeId`
+- [ ] Existing flat-chain workflow mode continues to work (backward compatible)
+
+### Phase 4 (Results)
 - [ ] Results show per-step aggregate metrics (avg, p50, p95, p99 per workflow node)
 - [ ] Results show per-iteration pass/fail with total duration
+- [ ] Results execution mode shows "Workflow" not "Batch"
+
+### Phase 5-6 (Convenience)
 - [ ] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Harness
 - [ ] CLI supports `--workflow` flag for graph-based load testing
-- [ ] Existing flat-chain workflow mode continues to work (backward compatible)
+
+### Phase 7 (Event-Driven)
 - [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [ ] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter (Phase 7b)
 - [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
 - [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
+- [ ] Harness UI detects event-driven nodes and shows appropriate configuration panels
 
 ---
 
-_Created: 2026-05-01 | Status: Proposed | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md) Phase 0.7.5_
+## Changelog
+
+| Date | Change |
+|---|---|
+| 2026-05-01 | Initial plan created |
+| 2026-05-05 | Re-evaluated current state audit; confirmed no phases implemented yet. Added new ideas: Parameterized Workflow Testing, Workflow Comparison Mode, Warm-Up Phase, Per-Node Timeout, Recording & Replay, Shared Data Source Integration. Updated competitive matrix to include sub-workflows and error handlers. Added status column to all phase tables. |
+
+---
+
+_Created: 2026-05-01 | Last Updated: 2026-05-05 | Status: Proposed | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md)_
