@@ -32,3 +32,50 @@ export interface TrainingPath {
   /** If true, the path is not yet available (shown as "Coming soon"). */
   comingSoon?: boolean;
 }
+
+// ============================================================================
+// Progress Tracking Types
+// ============================================================================
+
+/** Manual completion status */
+export type ManualStatus = 'not_started' | 'in_progress' | 'completed';
+
+/** User progress for a single manual */
+export interface ManualProgress {
+  /** Unique identifier (manualPath) */
+  manualPath: string;
+  /** Current completion status */
+  status: ManualStatus;
+  /** Unix timestamp when last viewed */
+  lastViewedAt?: number;
+  /** Unix timestamp when marked completed */
+  completedAt?: number;
+}
+
+/** Aggregated user progress across all manuals */
+export interface TrainingProgress {
+  /** Progress entries keyed by manualPath */
+  manuals: Record<string, ManualProgress>;
+  /** Unix timestamp of last update */
+  lastUpdated: number;
+  /** Consecutive days with activity (streak) */
+  streak: number;
+  /** Last date (YYYY-MM-DD) when a manual was completed — used for streak calculation */
+  lastCompletionDate?: string;
+}
+
+// ============================================================================
+// Manual Metadata Types (for "What's New" detection)
+// ============================================================================
+
+/** Metadata for tracking when manuals were added or updated */
+export interface ManualMetadata {
+  /** Relative path to the manual (matches TrainingManual.manualPath) */
+  manualPath: string;
+  /** Unix timestamp when the manual was first added */
+  addedAt: number;
+  /** Unix timestamp of last significant update (undefined if never updated) */
+  updatedAt?: number;
+  /** Brief description of what changed (for updated manuals) */
+  changeNote?: string;
+}
