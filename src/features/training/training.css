@@ -1,0 +1,571 @@
+/* Training Tracks View Styles */
+
+.training-tracks-view {
+  padding: 24px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.training-loading {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+}
+
+/* Header */
+.training-header {
+  margin-bottom: 24px;
+}
+
+.training-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.training-title-icon {
+  font-size: 32px;
+}
+
+.training-subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Progress Dashboard */
+.training-dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.training-dashboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.training-dashboard-value {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.training-dashboard-value-blue { color: var(--accent); }
+.training-dashboard-value-yellow { color: var(--accent-yellow, #d29922); }
+.training-dashboard-value-green { color: var(--accent-green, #3fb950); }
+.training-dashboard-value-purple { color: var(--accent-purple, #a371f7); }
+
+.training-dashboard-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.training-dashboard-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Continue Learning Card */
+.training-continue {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.training-continue-icon {
+  font-size: 24px;
+}
+
+.training-continue-info {
+  flex: 1;
+}
+
+.training-continue-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.training-continue-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.training-continue-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.training-continue-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 14px;
+  transition: opacity 0.15s;
+}
+
+.training-continue-btn:hover {
+  opacity: 0.9;
+}
+
+/* What's New Section */
+.training-whats-new {
+  background: linear-gradient(135deg, rgba(219, 109, 40, 0.1) 0%, rgba(163, 113, 247, 0.1) 100%);
+  border: 1px solid rgba(219, 109, 40, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.training-whats-new-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.training-whats-new-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.training-whats-new-icon {
+  font-size: 18px;
+}
+
+.training-whats-new-badge {
+  background: var(--accent-orange, #db6d28);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.training-whats-new-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.training-whats-new-toggle:hover {
+  color: var(--text-primary);
+}
+
+.training-whats-new-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.training-whats-new-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+  color: inherit;
+}
+
+.training-whats-new-item:hover {
+  background: var(--bg-hover);
+}
+
+.training-whats-new-item-icon {
+  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.training-whats-new-item-info {
+  flex: 1;
+}
+
+.training-whats-new-item-title {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.training-whats-new-item-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.training-whats-new-show-all {
+  background: none;
+  border: 1px dashed var(--border);
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.training-whats-new-show-all:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* Badges */
+.training-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.training-badge-new {
+  background: var(--accent-green, #3fb950);
+  color: #fff;
+}
+
+.training-badge-updated {
+  background: var(--accent-purple, #a371f7);
+  color: #fff;
+}
+
+/* Paths Section */
+.training-paths-section {
+  margin-top: 32px;
+}
+
+.training-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.training-section-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+}
+
+.training-paths-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Path Card */
+.training-path-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.training-path-header {
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.training-path-icon {
+  font-size: 32px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg-hover);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.training-path-info {
+  flex: 1;
+}
+
+.training-path-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.training-path-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.training-path-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.training-progress-bar {
+  flex: 1;
+  max-width: 200px;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.training-progress-fill {
+  height: 100%;
+  background: var(--accent-green, #3fb950);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.training-progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.training-path-in-progress {
+  font-size: 12px;
+  color: var(--accent-yellow, #d29922);
+  margin-top: 4px;
+}
+
+/* Phases */
+.training-path-phases {
+  border-top: 1px solid var(--border);
+  padding: 0 20px 20px;
+}
+
+.training-phase {
+  margin-top: 16px;
+}
+
+.training-phase-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.training-phase-number {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.training-phase-name {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+}
+
+.training-phase-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Manuals List */
+.training-manuals-list {
+  margin-left: 40px;
+  border-left: 2px solid var(--border);
+  padding-left: 16px;
+}
+
+.training-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.training-manual-row:hover {
+  background: var(--bg-hover);
+}
+
+.training-manual-status {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.training-manual-status-not_started {
+  border: 2px solid var(--border);
+}
+
+.training-manual-status-in_progress {
+  background: rgba(88, 166, 255, 0.2);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+.training-manual-status-completed {
+  background: var(--accent-green, #3fb950);
+  color: #fff;
+}
+
+.training-manual-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.training-manual-title {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.training-manual-title a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.training-manual-title a:hover {
+  color: var(--accent);
+}
+
+.training-manual-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Difficulty Dots */
+.training-difficulty {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.training-difficulty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.training-difficulty-easy .training-difficulty-dot {
+  background: var(--accent-green, #3fb950);
+}
+
+.training-difficulty-medium .training-difficulty-dot {
+  background: var(--accent-yellow, #d29922);
+}
+
+.training-difficulty-advanced .training-difficulty-dot {
+  background: var(--accent-red, #f85149);
+}
+
+/* Sample Button */
+.training-manual-sample-btn {
+  background: rgba(88, 166, 255, 0.15);
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.training-manual-sample-btn:hover {
+  opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .training-dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .training-tracks-view {
+    padding: 16px;
+  }
+
+  .training-dashboard {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .training-dashboard-card {
+    padding: 16px;
+  }
+
+  .training-dashboard-value {
+    font-size: 24px;
+  }
+
+  .training-continue {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .training-continue-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .training-path-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .training-manuals-list {
+    margin-left: 20px;
+    padding-left: 12px;
+  }
+}
