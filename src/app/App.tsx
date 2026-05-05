@@ -90,12 +90,18 @@ export default function App() {
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
+  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
     setActiveTab('results');
+  };
+
+  const handleRunInHarness = (workflowId: string) => {
+    setWorkflowRunnerInitialId(workflowId);
+    setActiveTab('workflow-runner');
   };
 
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -629,6 +635,7 @@ export default function App() {
                 setPreviewWorkflow(null);
                 savePreviewSampleId(null);
               }}
+              onRunInHarness={handleRunInHarness}
             />
           </div>
           {activeTab === 'gallery' && (
@@ -653,6 +660,8 @@ export default function App() {
               <WorkflowRunner
                 workflows={wfHook.workflows}
                 onComplete={handleCompleteToResults}
+                initialWorkflowId={workflowRunnerInitialId}
+                onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
               />
             </div>
           )}

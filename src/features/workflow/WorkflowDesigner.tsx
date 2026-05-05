@@ -95,6 +95,8 @@ interface Props {
   previewWorkflow: Workflow | null;
   onClearPreview: () => void;
   onUseAsTemplate: (wf: Workflow) => void;
+  /** Navigate to Workflow Runner with current workflow pre-selected for load testing. */
+  onRunInHarness?: (workflowId: string) => void;
 }
 
 interface WorkflowNodeContextMenuData {
@@ -114,6 +116,7 @@ export default function WorkflowDesignerWrapper(props: Props) {
 function WorkflowDesignerInner({
   collections, catalogEntries, wfHook, environments, microservices, globalAuthProfiles,
   selectedEnvId, onEnvSelect, resolvedBaseUrl, previewWorkflow, onClearPreview, onUseAsTemplate,
+  onRunInHarness,
 }: Props) {
   const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
   const selected = previewWorkflow ?? selectedWorkflow;
@@ -548,6 +551,7 @@ function WorkflowDesignerInner({
         onOpenVersions={versioning.openVersionPanel}
         runProgress={runProgress}
         onReset={handleResetRunStatus}
+        onRunInHarness={selected && onRunInHarness ? () => onRunInHarness(selected.id) : undefined}
       />
 
       <WorkflowInspectProvider value={inspectActions}>
