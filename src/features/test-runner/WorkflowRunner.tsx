@@ -36,6 +36,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     maxErrors, setMaxErrors,
     maxErrorRate, setMaxErrorRate,
     selectedWorkflowId, setSelectedWorkflowId,
+    configLoaded,
   } = useWorkflowRunnerConfig();
 
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
@@ -48,8 +49,9 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
 
   // Handle "Run in Harness" navigation from Workflow Designer - pre-select the workflow
+  // Wait for config to be loaded before applying initialWorkflowId to avoid timing issues
   useEffect(() => {
-    if (initialWorkflowId && initialWorkflowId !== selectedWorkflowId) {
+    if (configLoaded && initialWorkflowId && initialWorkflowId !== selectedWorkflowId) {
       const wf = workflows.find(w => w.id === initialWorkflowId);
       if (wf) {
         setSelectedWorkflowId(initialWorkflowId);
@@ -58,7 +60,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       }
       onClearInitialWorkflowId?.();
     }
-  }, [initialWorkflowId, workflows, selectedWorkflowId, setSelectedWorkflowId, onClearInitialWorkflowId]);
+  }, [configLoaded, initialWorkflowId, workflows, selectedWorkflowId, setSelectedWorkflowId, onClearInitialWorkflowId]);
 
   // Initialize variables when workflow selection is restored from storage
   useEffect(() => {
