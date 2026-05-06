@@ -16,7 +16,9 @@ npm install
 npx tsx cli/index.ts <command> [options]
 ```
 
-### Method B: Global npm Package (Coming Soon)
+### Method B: Global npm Package
+
+Install the CLI as a standalone npm package for use anywhere:
 
 ```bash
 # Install globally
@@ -24,6 +26,21 @@ npm install -g redfireforge-cli
 
 # Run from anywhere
 redfireforge <command> [options]
+
+# Or use npx without installing
+npx redfireforge-cli <command> [options]
+```
+
+**Package Details:**
+- Package name: `redfireforge-cli`
+- Requires: Node.js >= 18
+- Size: ~300KB bundled
+
+**Verify Installation:**
+
+```bash
+redfireforge --version
+redfireforge --help
 ```
 
 ### Method C: Desktop App CLI Mode (Coming Soon)
