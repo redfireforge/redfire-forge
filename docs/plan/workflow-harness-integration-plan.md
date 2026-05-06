@@ -1101,7 +1101,200 @@ Phase 9c: Desktop App CLI Mode (Method C)
 
 ---
 
-## 12. Non-Goals (Out of Scope)
+## Phase 10: Comprehensive User Guides
+
+**Priority: Medium | Effort: Large**
+
+This phase creates a complete set of user guides covering all major features of RedfireForge. Guides are placed in `docs/guides/` and follow the naming convention `<feature>-guide.md` or `<feature>-<topic>.md`.
+
+### 10.1 Current Guides (Complete)
+
+| Guide | Status | Description |
+|-------|--------|-------------|
+| `runners-comparison.md` | ✅ | Compare Test Runner vs Workflow Runner |
+| `workflow-runner-guide.md` | ✅ | Complete Workflow Runner user guide |
+| `cross-platform.md` | ✅ | Desktop vs Web platform differences |
+
+### 10.2 Core Feature Guides (To Create)
+
+#### Getting Started & Overview
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `getting-started.md` | High | First-time setup, UI tour, first test in 5 minutes |
+| `concepts-overview.md` | High | Key concepts: environments, microservices, scenarios, workflows |
+| `keyboard-shortcuts.md` | Low | Complete keyboard shortcut reference |
+
+#### Requests & Collections
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `requests-guide.md` | High | Creating requests, organizing collections, folders |
+| `request-editor-guide.md` | Medium | Headers, body types, query params, path variables |
+| `request-auth-guide.md` | High | Auth types (Basic, Bearer, API Key, OAuth2), global profiles |
+| `request-variables-guide.md` | Medium | Variable syntax, environment variables, extraction |
+| `request-versioning-guide.md` | Low | Version history, diff view, restoring versions |
+
+#### API Catalog
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `catalog-guide.md` | High | Importing OpenAPI specs, browsing endpoints, sending to requests |
+| `catalog-import-guide.md` | Medium | Import from URL, file, Swagger 2.0 vs OpenAPI 3.x |
+
+#### Scenarios & Testing
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `scenarios-guide.md` | High | Creating feature groups, scenarios, tests |
+| `test-runner-guide.md` | High | Running tests, execution modes, concurrency |
+| `parameterized-testing-guide.md` | High | Data sources, CSV/JSON import, variable substitution |
+| `assertions-guide.md` | High | Assertion types, JSONPath, regex, custom assertions |
+| `validation-modes-guide.md` | Medium | None, selective, full validation modes |
+| `shared-data-sources-guide.md` | Medium | Creating and using shared data sources across tests |
+| `test-versioning-guide.md` | Low | Test definition history, diff, restore |
+
+#### Workflow Designer
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `workflow-designer-guide.md` | High | Canvas basics, adding nodes, connecting edges |
+| `workflow-nodes-reference.md` | High | All node types: HTTP, Condition, Delay, Fork, Join, Loop, etc. |
+| `workflow-variables-guide.md` | Medium | Workflow variables, extraction, chaining |
+| `workflow-services-guide.md` | Medium | Service registry, multi-environment URLs, auth |
+| `workflow-debugging-guide.md` | Medium | Debug mode, step-through, console, breakpoints |
+| `workflow-triggers-guide.md` | Medium | Webhook triggers, schedule triggers |
+| `workflow-correlation-guide.md` | Advanced | CorrelationWait, async patterns, event-driven workflows |
+| `workflow-scripts-guide.md` | Advanced | Script nodes, JavaScript execution, libraries |
+| `workflow-sub-workflows-guide.md` | Advanced | Sub-workflow nodes, composition patterns |
+| `workflow-versioning-guide.md` | Low | Version history, diff, restore |
+
+#### Results & Analysis
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `results-guide.md` | High | Results dashboard, metrics, filtering, export |
+| `results-comparison-guide.md` | Medium | Baseline comparison, trend analysis |
+| `results-export-guide.md` | Medium | JSON, CSV, Markdown, JUnit export formats |
+
+#### Environments & Settings
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `environments-guide.md` | High | Creating environments, microservices, base URLs |
+| `global-auth-guide.md` | Medium | Global auth profiles, inheritance |
+| `preferences-guide.md` | Low | Theme, settings, customization |
+
+#### Gallery & Training
+
+| Guide | Priority | Description |
+|-------|----------|-------------|
+| `gallery-guide.md` | Medium | Browsing samples, importing, try-it |
+| `training-tracks-guide.md` | Low | Using training tracks, progress tracking |
+
+### 10.3 Implementation Phases
+
+```
+Phase 10a: Core Guides (High Priority)
+├── getting-started.md
+├── concepts-overview.md
+├── requests-guide.md
+├── request-auth-guide.md
+├── scenarios-guide.md
+├── test-runner-guide.md
+├── parameterized-testing-guide.md
+├── assertions-guide.md
+├── workflow-designer-guide.md
+├── workflow-nodes-reference.md
+├── results-guide.md
+└── environments-guide.md
+
+Phase 10b: Feature Guides (Medium Priority)
+├── request-editor-guide.md
+├── request-variables-guide.md
+├── catalog-guide.md
+├── catalog-import-guide.md
+├── validation-modes-guide.md
+├── shared-data-sources-guide.md
+├── workflow-variables-guide.md
+├── workflow-services-guide.md
+├── workflow-debugging-guide.md
+├── workflow-triggers-guide.md
+├── results-comparison-guide.md
+├── results-export-guide.md
+├── global-auth-guide.md
+└── gallery-guide.md
+
+Phase 10c: Advanced & Reference Guides (Low Priority)
+├── keyboard-shortcuts.md
+├── request-versioning-guide.md
+├── test-versioning-guide.md
+├── workflow-correlation-guide.md
+├── workflow-scripts-guide.md
+├── workflow-sub-workflows-guide.md
+├── workflow-versioning-guide.md
+├── preferences-guide.md
+└── training-tracks-guide.md
+```
+
+### 10.4 Guide Template
+
+Each guide should follow this structure:
+
+```markdown
+# [Feature] Guide
+
+Brief description of what this guide covers.
+
+## Overview
+- What is [Feature]?
+- When to use it
+- Key concepts
+
+## Getting Started
+- Prerequisites
+- Step-by-step first use
+
+## [Main Topic 1]
+### Subtopic
+### Subtopic
+
+## [Main Topic 2]
+...
+
+## Tips & Best Practices
+- Common patterns
+- Performance considerations
+- Gotchas to avoid
+
+## Related Guides
+- Link to related guides
+
+## See Also
+- Link to training manuals
+- Link to samples
+```
+
+### 10.5 Deliverables Summary
+
+| Phase | Guides | Priority | Effort |
+|-------|--------|----------|--------|
+| 10a | 12 core guides | High | Large |
+| 10b | 14 feature guides | Medium | Large |
+| 10c | 9 advanced guides | Low | Medium |
+| **Total** | **35 guides** | | |
+
+### 10.6 Success Criteria
+
+- [ ] All High priority guides complete
+- [ ] Each guide follows the template structure
+- [ ] Cross-linking between related guides
+- [ ] All guides accessible from a central index
+- [ ] Screenshots/diagrams where helpful
+
+---
+
+## 14. Non-Goals (Out of Scope)
 
 - **Distributed execution** — Multi-machine load generation is Phase 1.x territory
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
@@ -1110,7 +1303,7 @@ Phase 9c: Desktop App CLI Mode (Method C)
 
 ---
 
-## 13. Success Criteria
+## 15. Success Criteria
 
 - [x] User can select a saved workflow in the Harness and run it as a performance test
 - [x] Full graph topology (conditions, forks, joins, loops) is respected during load runs
@@ -1130,6 +1323,8 @@ Phase 9c: Desktop App CLI Mode (Method C)
 - [ ] CI/CD integration guide
 - [ ] Standalone CLI npm package (`redfireforge-cli`)
 - [ ] Desktop app CLI mode (`--cli` flag)
+- [ ] Core user guides complete (12 high-priority guides)
+- [ ] Central guide index with navigation
 
 ---
 
