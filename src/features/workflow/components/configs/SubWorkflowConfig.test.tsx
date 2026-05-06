@@ -337,17 +337,72 @@ describe('SubWorkflowConfig', () => {
     expect(screen.getByDisplayValue('Sequential')).toBeTruthy();
   });
 
-  it('disables multi-instance when checkbox unchecked', () => {
+  it('toggles multi-instance execution mode to parallel', () => {
     const onChange = vi.fn();
-    render(
-      <SubWorkflowConfig
-        data={makeData({ multiInstance: { collection: '{{items}}', elementVariable: 'item', mode: 'sequential' } })}
-        onChange={onChange}
-        workflows={sampleWorkflows}
-      />,
+    const data = makeData({
+      multiInstance: { collection: '{{u}}', elementVariable: 'item', mode: 'sequential' },
+    });
+    const { container } = render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
+    const selects = container.querySelectorAll('select');
+    const modeSelect = Array.from(selects).find(s => s.value === 'sequential') as HTMLSelectElement;
+    fireEvent.change(modeSelect, { target: { value: 'parallel' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiInstance: expect.objectContaining({ mode: 'parallel' }),
+      }),
     );
+  });
+
+  it('updates multiInstance collection expression', () => {
+    const onChange = vi.fn();
+    const data = makeData({
+      multiInstance: { collection: '{{a}}', elementVariable: 'item', mode: 'sequential' },
+    });
+    render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
+    fireEvent.change(screen.getByDisplayValue('{{a}}'), { target: { value: '{{b}}' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiInstance: expect.objectContaining({ collection: '{{b}}' }),
+      }),
+    );
+  });
+
+  it('clears multiInstance when checkbox unchecked', () => {
+    const onChange = vi.fn();
+    const data = makeData({
+      multiInstance: { collection: '{{x}}', elementVariable: 'item', mode: 'sequential' },
+    });
+    render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
     const checkbox = screen.getByText('Multi-Instance (forEach)').closest('label')!.querySelector('input')!;
     fireEvent.click(checkbox);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ multiInstance: undefined }));
+  });
+
+  it('updates output mapping target variable', () => {
+    const onChange = vi.fn();
+    const data = makeData({
+      outputMappings: [{ sourceVariable: 'a', targetVariable: 'b' }],
+    });
+    render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
+    fireEvent.change(screen.getByDisplayValue('b'), { target: { value: 'out' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputMappings: [{ sourceVariable: 'a', targetVariable: 'out' }],
+      }),
+    );
+  });
+
+  it('sets empty workflowName when selecting id not in list', () => {
+    const onChange = vi.fn();
+    render(<SubWorkflowConfig data={makeData({ workflowId: '' })} onChange={onChange} workflows={sampleWorkflows} />);
+    const select = screen.getByDisplayValue('— Select workflow —') as HTMLSelectElement;
+    const opt = document.createElement('option');
+    opt.value = 'missing-id';
+    opt.text = 'Ghost';
+    select.appendChild(opt);
+    fireEvent.change(select, { target: { value: 'missing-id' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: 'missing-id', workflowName: '' }),
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   addPausedCorrelation,
   removePausedCorrelation,
@@ -9,8 +9,14 @@ import {
   matchCorrelation,
   extractCorrelationId,
   cleanupExpired,
+  setCorrelationStore,
+  getCorrelationStore,
+  getUnmatchedWebhooks,
   type ServerPausedEntry,
 } from './correlation-handler';
+import { InMemoryServerStore } from './correlation-store-memory.js';
+import { configureWebhookSecurity, generateHmacSignature } from './webhook-security.js';
+import { clearIdempotency } from './webhook-idempotency.js';
 
 // ── helpers ──────────────────────────────────────────
 
@@ -211,6 +217,13 @@ describe('extractCorrelationId', () => {
     const id = extractCorrelationId(entry, { id: 42 }, {}, {});
     expect(id).toBe('42');
   });
+
+  it('returns undefined for unsupported correlationSource', () => {
+    const entry = makeEntry({
+      correlationSource: 'invalid' as unknown as ServerPausedEntry['correlationSource'],
+    });
+    expect(extractCorrelationId(entry, { id: 1 }, {}, {})).toBeUndefined();
+  });
 });
 
 // ── matchCorrelation ─────────────────────────────────
@@ -360,6 +373,39 @@ describe('matchCorrelation', () => {
   });
 });
 
+describe('setCorrelationStore / getCorrelationStore', () => {
+  afterEach(async () => {
+    clearAllCorrelations();
+    const mem = new InMemoryServerStore();
+    await mem.init();
+    setCorrelationStore(mem);
+  });
+
+  it('uses the injected store instance', async () => {
+    const custom = new InMemoryServerStore();
+    await custom.init();
+    setCorrelationStore(custom);
+    expect(getCorrelationStore()).toBe(custom);
+    expect(addPausedCorrelation(makeEntry({ correlationId: 'inj-1' }))).toBe(true);
+    expect(getPausedCount()).toBe(1);
+  });
+});
+
+describe('getUnmatchedWebhooks', () => {
+  beforeEach(() => {
+    clearAllCorrelations();
+  });
+
+  it('returns paths logged by unmatched webhook callbacks', async () => {
+    const supertest = await import('supertest');
+    const { app } = await import('./webhook-server');
+    const request = supertest.default(app);
+    await request.post('/webhooks/callback/get-unmatched-test').send({ x: 1 });
+    const list = getUnmatchedWebhooks();
+    expect(list.some(e => e.path === '/webhooks/callback/get-unmatched-test')).toBe(true);
+  });
+});
+
 // ── Router integration tests ─────────────────────────
 
 describe('correlation-handler — HTTP routes', () => {
@@ -369,6 +415,7 @@ describe('correlation-handler — HTTP routes', () => {
 
   beforeEach(async () => {
     clearAllCorrelations();
+    clearIdempotency();
     // Dynamic import to avoid issues with vitest module resolution
     const supertest = await import('supertest');
     const { app } = await import('./webhook-server');
@@ -551,6 +598,30 @@ describe('correlation-handler — HTTP routes', () => {
     expect(res.body.unmatched[0].path).toBe('/webhooks/callback/nowhere');
   });
 
+  it('GET /api/correlations/idempotency — reports store size', async () => {
+    const res = await request.get('/api/correlations/idempotency');
+    expect(res.status).toBe(200);
+    expect(typeof res.body.size).toBe('number');
+  });
+
+  it('POST /webhooks/callback/* — rejects payload when webhook filter fails', async () => {
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'flt-1',
+      webhookPath: '/webhooks/callback/flt-path',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'id',
+      webhookFilter: '{{status}} == ok',
+    });
+
+    const res = await request
+      .post('/webhooks/callback/flt-path')
+      .send({ id: 'flt-1', status: 'bad' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.resumed).toBe(false);
+  });
+
   // ── Long-poll wait endpoint ──
   describe('GET /api/correlations/:id/wait', () => {
     it('returns timedOut=true when no resume occurs within the wait window', async () => {
@@ -608,6 +679,41 @@ describe('correlation-handler — HTTP routes', () => {
       expect(res.body.webhookData).toMatchObject({ correlationId: 'park-1', value: 42 });
     });
 
+    it('cleans up waiters when the client disconnects before resume', async () => {
+      const http = await import('node:http');
+      const { app } = await import('./webhook-server');
+      const server = http.createServer(app);
+      await new Promise<void>(r => server.listen(0, r));
+      const port = (server.address() as import('net').AddressInfo).port;
+
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path: '/api/correlations/tcp-close/wait?timeoutMs=9000',
+          method: 'GET',
+        },
+        res => {
+          res.resume();
+        },
+      );
+      req.on('error', () => {});
+      req.end();
+      await new Promise(r => setTimeout(r, 40));
+      req.destroy();
+
+      await new Promise(r => setTimeout(r, 120));
+
+      const supertest = await import('supertest');
+      const fin = await supertest.default(app).get('/api/correlations/tcp-close/wait?timeoutMs=500');
+      expect(fin.body.timedOut).toBe(true);
+      expect(fin.body.resumed).toBe(false);
+
+      await new Promise<void>((resolve, reject) => {
+        server.close(err => (err ? reject(err) : resolve()));
+      });
+    });
+
     it('enforces a minimum 1000ms wait when given a tiny positive timeoutMs', async () => {
       const start = Date.now();
       const res = await request.get('/api/correlations/clamp/wait?timeoutMs=10');
@@ -616,5 +722,218 @@ describe('correlation-handler — HTTP routes', () => {
       // server clamps to 1000ms minimum
       expect(elapsed).toBeGreaterThanOrEqual(900);
     }, 5000);
+  });
+});
+
+const TEST_HMAC_SECRET = '01234567890123456789012345678901';
+
+describe('correlation-handler — webhook security integration', () => {
+  let request: typeof import('supertest')['default'];
+
+  beforeEach(async () => {
+    clearAllCorrelations();
+    clearIdempotency();
+    configureWebhookSecurity({
+      enabled: true,
+      secret: TEST_HMAC_SECRET,
+      ipWhitelist: [],
+    });
+    const supertest = await import('supertest');
+    const { app } = await import('./webhook-server');
+    request = supertest.default(app);
+  });
+
+  afterEach(() => {
+    configureWebhookSecurity({ enabled: false, ipWhitelist: [] });
+    clearIdempotency();
+  });
+
+  it('POST /api/correlations/pause — includes webhookToken when security enabled', async () => {
+    const res = await request.post('/api/correlations/pause').send({
+      correlationId: 'sec-tok',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.webhookToken).toBeDefined();
+    expect(res.body.webhookToken.correlationId).toBe('sec-tok');
+  });
+
+  it('POST /webhooks/callback/* — 401 when signature header missing', async () => {
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'sig-miss',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    const res = await request.post('/webhooks/callback/paysec').send({ paymentId: 'sig-miss' });
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /webhooks/callback/* — 200 when HMAC signature matches body', async () => {
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'sig-ok',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    const payload = { paymentId: 'sig-ok', hello: 'world' };
+    const raw = JSON.stringify(payload);
+    const sig = generateHmacSignature(raw);
+    const res = await request
+      .post('/webhooks/callback/paysec')
+      .set('x-webhook-signature', sig)
+      .send(payload);
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+  });
+
+  it('POST /webhooks/callback/* — 401 when HMAC signature invalid', async () => {
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'sig-bad',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    const payload = { paymentId: 'sig-bad' };
+    const res = await request
+      .post('/webhooks/callback/paysec')
+      .set('x-webhook-signature', 'deadbeef')
+      .send(payload);
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /webhooks/callback/* — 403 when IP not whitelisted', async () => {
+    configureWebhookSecurity({
+      enabled: true,
+      secret: TEST_HMAC_SECRET,
+      ipWhitelist: ['203.0.113.50'],
+    });
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'ip-block',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    const payload = { paymentId: 'ip-block' };
+    const raw = JSON.stringify(payload);
+    const res = await request
+      .post('/webhooks/callback/paysec')
+      .set('x-webhook-signature', generateHmacSignature(raw))
+      .send(payload);
+    expect(res.status).toBe(403);
+  });
+
+  it('POST /webhooks/callback/* — 401 when webhook token query is invalid', async () => {
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'q-tok',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    const payload = { paymentId: 'q-tok' };
+    const raw = JSON.stringify(payload);
+    const sig = generateHmacSignature(raw);
+    const res = await request
+      .post('/webhooks/callback/paysec?webhookToken=%%%not-base64%%%')
+      .set('x-webhook-signature', sig)
+      .send(payload);
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /webhooks/callback/* — accepts signed webhookToken query param', async () => {
+    const pause = await request.post('/api/correlations/pause').send({
+      correlationId: 'q-good',
+      webhookPath: '/webhooks/callback/paysec',
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'paymentId',
+    });
+    expect(pause.body.webhookToken).toBeDefined();
+    const tokenStr = Buffer.from(JSON.stringify(pause.body.webhookToken)).toString('base64url');
+    const payload = { paymentId: 'q-good' };
+    const raw = JSON.stringify(payload);
+    const sig = generateHmacSignature(raw);
+    const res = await request
+      .post(`/webhooks/callback/paysec?webhookToken=${encodeURIComponent(tokenStr)}`)
+      .set('x-webhook-signature', sig)
+      .send(payload);
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+  });
+});
+
+/** Store where `find` is always undefined (exercises idempotent cache path while listAll still lists pauses). */
+class FindAlwaysUndefinedStore extends InMemoryServerStore {
+  override find(_correlationId: string): ServerPausedEntry | undefined {
+    return undefined;
+  }
+}
+
+describe('correlation-handler — idempotent cache + wait abort', () => {
+  let request: typeof import('supertest')['default'];
+
+  beforeEach(async () => {
+    clearAllCorrelations();
+    clearIdempotency();
+    configureWebhookSecurity({ enabled: false, ipWhitelist: [] });
+    const store = new FindAlwaysUndefinedStore();
+    await store.init();
+    setCorrelationStore(store);
+    const supertest = await import('supertest');
+    const { app } = await import('./webhook-server');
+    request = supertest.default(app);
+  });
+
+  afterEach(async () => {
+    clearAllCorrelations();
+    clearIdempotency();
+    const mem = new InMemoryServerStore();
+    await mem.init();
+    setCorrelationStore(mem);
+  });
+
+  it('returns cached webhook response when idempotency hits and find() misses', async () => {
+    const path = '/webhooks/callback/idem-test';
+    const idemHeader = { 'x-idempotency-key': 'shared-idem' };
+
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'idem-a',
+      webhookPath: path,
+      executionId: 'e1',
+      correlationSource: 'body',
+      correlationJsonPath: 'cid',
+    });
+
+    const first = await request
+      .post(path)
+      .set(idemHeader)
+      .send({ cid: 'idem-a', round: 1 });
+
+    expect(first.status).toBe(200);
+    expect(first.body.resumed).toBe(true);
+
+    await request.post('/api/correlations/pause').send({
+      correlationId: 'idem-b',
+      webhookPath: path,
+      executionId: 'e2',
+      correlationSource: 'body',
+      correlationJsonPath: 'cid',
+    });
+
+    const second = await request
+      .post(path)
+      .set(idemHeader)
+      .send({ cid: 'idem-b', round: 2 });
+
+    expect(second.status).toBe(first.status);
+    expect(second.body).toEqual(first.body);
   });
 });

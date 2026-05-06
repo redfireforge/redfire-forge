@@ -70,7 +70,16 @@ describe('ContinueLearningCard', () => {
 
   it('shows advanced difficulty', () => {
     render(<ContinueLearningCard {...defaultProps} difficulty="advanced" />);
-    
+
     expect(screen.getByText('Test Suites → Parameterized Testing • advanced difficulty')).toBeInTheDocument();
+  });
+
+  it('calls onContinue instead of window.open when handler is provided', () => {
+    const onContinue = vi.fn();
+    render(<ContinueLearningCard {...defaultProps} onContinue={onContinue} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue →' }));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(window.open).not.toHaveBeenCalled();
   });
 });

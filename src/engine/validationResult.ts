@@ -28,7 +28,7 @@ export interface ValidationOutput {
  */
 export function buildValidationResult(input: ValidationInput): ValidationOutput {
   const { httpStatus, responseTimeMs, responseHeaders, responseObj, validation, assertions } = input;
-  let { errorMessage } = input;
+  const { errorMessage } = input;
 
   const { failures: assertionFailures, statusAsserted } = assertions.length > 0
     ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })

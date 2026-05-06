@@ -17,8 +17,6 @@ interface Props {
   variables: Record<string, string>;
   onVariablesChange: (variables: Record<string, string>) => void;
   disabled?: boolean;
-  /** Called when user clicks Run — saves config to history */
-  onBeforeRun?: () => void;
 }
 
 export default function WorkflowPicker({
@@ -28,7 +26,6 @@ export default function WorkflowPicker({
   variables,
   onVariablesChange,
   disabled,
-  onBeforeRun,
 }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -79,16 +76,6 @@ export default function WorkflowPicker({
     setHistoryOpen(false);
   };
 
-  const handleSaveCurrentToHistory = () => {
-    if (!selectedWorkflowId) return;
-    const saved = saveWorkflowRunConfig({
-      workflowId: selectedWorkflowId,
-      variables,
-    });
-    setHistory(getWorkflowRunConfigs(selectedWorkflowId));
-    return saved;
-  };
-
   const handleStartEditLabel = (config: WorkflowRunConfig) => {
     setEditingLabelId(config.id);
     setEditLabelValue(config.label || '');
@@ -117,17 +104,6 @@ export default function WorkflowPicker({
       onVariablesChange({ ...selectedWorkflow.variables });
     }
   };
-
-  useEffect(() => {
-    if (onBeforeRun) {
-      const originalOnBeforeRun = onBeforeRun;
-      const wrappedOnBeforeRun = () => {
-        handleSaveCurrentToHistory();
-        originalOnBeforeRun();
-      };
-      return () => { wrappedOnBeforeRun; };
-    }
-  }, [onBeforeRun, selectedWorkflowId, variables]);
 
   const variableEntries = Object.entries(variables);
   const hasChanges = selectedWorkflow && JSON.stringify(variables) !== JSON.stringify(selectedWorkflow.variables);

@@ -44,7 +44,7 @@ export default function ConditionConfig({
 
   useEffect(() => {
     const sn = parseSingleVariableRef(data.left);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset pick mode when left operand or available hints change
+     
     if (sn !== null && !hintSet.has(sn)) setPickCustom(true);
      
     else if (sn !== null && hintSet.has(sn)) setPickCustom(false);

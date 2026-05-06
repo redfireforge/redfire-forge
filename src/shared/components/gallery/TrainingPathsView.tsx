@@ -117,7 +117,8 @@ function TrainingPathCard({
 }) {
   const [expanded, setExpanded] = useState(highlighted && !path.comingSoon);
 
-  // Auto-expand when this card becomes highlighted via sidebar click
+  // Auto-expand when this card becomes highlighted via sidebar click.
+  // This is an intentional response to external state (prop) changes.
   useEffect(() => {
     if (highlighted && !path.comingSoon) {
       setExpanded(true);

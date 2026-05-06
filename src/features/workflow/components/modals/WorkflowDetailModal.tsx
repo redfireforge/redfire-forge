@@ -38,7 +38,7 @@ export default function WorkflowDetailModal({
 
   // ── Pretty-print toggle ───────────────────────────────────────────────────
   const [pretty, setPretty] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state when modal opens/closes
+   
   useEffect(() => { setPretty(false); }, [open]);
 
   const prettyValue = (() => {

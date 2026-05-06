@@ -41,7 +41,7 @@ export default function ServerStatusIndicator() {
   };
 
   useEffect(() => {
-    checkServerStatus(); // eslint-disable-line react-hooks/set-state-in-effect
+    checkServerStatus();  
     const interval = setInterval(checkServerStatus, 10000);
     return () => clearInterval(interval);
   }, []);

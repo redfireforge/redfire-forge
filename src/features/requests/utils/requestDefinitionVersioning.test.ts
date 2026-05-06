@@ -128,6 +128,55 @@ describe('generateChangeSummary', () => {
     expect(generateChangeSummary(oldSnap, newSnap)).toContain('auth');
   });
 
+  it('detects plural header removals', () => {
+    const wideOld = createSnapshot(mkRequest({
+      headers: [{ key: 'A', value: '1' }, { key: 'B', value: '2' }],
+    }));
+    const wideNew = createSnapshot(mkRequest({ headers: [] }));
+    expect(generateChangeSummary(wideOld, wideNew)).toContain('2 headers removed');
+  });
+
+  it('detects header modifications when counts match', () => {
+    const newSnap = createSnapshot(mkRequest({
+      headers: [{ key: 'Accept', value: 'text/plain' }],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('headers modified');
+  });
+
+  it('detects form data change', () => {
+    const a = createSnapshot(mkRequest({
+      bodyForm: [{ key: 'f', value: '1', type: 'text' }],
+    }));
+    const b = createSnapshot(mkRequest({
+      bodyForm: [{ key: 'f', value: '2', type: 'text' }],
+    }));
+    expect(generateChangeSummary(a, b)).toContain('form data modified');
+  });
+
+  it('detects body type cleared', () => {
+    const withType = createSnapshot(mkRequest({ bodyType: 'json' }));
+    const cleared = createSnapshot(mkRequest({ bodyType: undefined }));
+    expect(generateChangeSummary(withType, cleared)).toContain('body type → none');
+  });
+
+  it('detects name change in summary', () => {
+    const a = createSnapshot(mkRequest({ name: 'A' }));
+    const b = createSnapshot(mkRequest({ name: 'B' }));
+    expect(generateChangeSummary(a, b)).toContain('name changed');
+  });
+
+  it('uses plural wording for multiple new headers', () => {
+    const oldSnap = createSnapshot(baseRequest);
+    const newSnap = createSnapshot(mkRequest({
+      headers: [
+        { key: 'Accept', value: 'application/json' },
+        { key: 'X-1', value: '1' },
+        { key: 'X-2', value: '2' },
+      ],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('2 headers added');
+  });
+
   it('returns no changes when snapshots are identical', () => {
     expect(generateChangeSummary(oldSnap, oldSnap)).toBe('no changes detected');
   });
@@ -213,6 +262,20 @@ describe('computeSnapshotDiff', () => {
     const diff = computeSnapshotDiff(oldSnap, newSnap);
     expect(diff.bodyChanged).toBe(true);
   });
+
+  it('detects modified headers', () => {
+    const newSnap = createSnapshot(mkRequest({
+      headers: [{ key: 'Accept', value: 'text/plain' }],
+    }));
+    const diff = computeSnapshotDiff(oldSnap, newSnap);
+    expect(diff.headersModified).toHaveLength(1);
+  });
+
+  it('detects form data change', () => {
+    const a = createSnapshot(mkRequest({ bodyForm: [{ key: 'k', value: '1', type: 'text' }] }));
+    const b = createSnapshot(mkRequest({ bodyForm: [{ key: 'k', value: '2', type: 'text' }] }));
+    expect(computeSnapshotDiff(a, b).formDataChanged).toBe(true);
+  });
 });
 
 describe('restoreFromVersion', () => {
@@ -253,6 +316,13 @@ describe('renameVersion', () => {
     ];
     const result = renameVersion(versions, 'v1', 'My Label');
     expect(result[0].label).toBe('My Label');
+  });
+
+  it('leaves list unchanged when id not found', () => {
+    const versions: RequestDefinitionVersion[] = [
+      { id: 'v1', timestamp: 100, snapshot: createSnapshot(baseRequest) },
+    ];
+    expect(renameVersion(versions, 'ghost', 'L')).toEqual(versions);
   });
 });
 
