@@ -797,13 +797,11 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 ## Phase 7: Documentation
 
-**Priority: High | Effort: Medium**
+**Priority: High | Effort: Medium | Status: ✅ COMPLETE**
 
 ### 7.1 Runner Comparison Documentation
 
-Create comprehensive documentation comparing Test Runner vs Workflow Runner:
-
-**File:** `docs/runners-comparison.md`
+✅ Created `docs/runners-comparison.md` with comprehensive comparison:
 
 | Aspect | Test Runner | Workflow Runner |
 |--------|-------------|-----------------|
@@ -816,25 +814,53 @@ Create comprehensive documentation comparing Test Runner vs Workflow Runner:
 | **Results Grouping** | Feature → Scenario → Test → Data Row | Iteration → Workflow Step |
 | **Use Case** | API contract testing, regression suites | End-to-end flow performance, orchestration testing |
 
+**Additional sections in runners-comparison.md:**
+- When to Use Test Runner (with examples)
+- When to Use Workflow Runner (with examples)
+- Feature Comparison (input, execution, results)
+- Results Interpretation for each runner
+- Migration Guide (between runners)
+- Decision Flowchart
+- Common Patterns
+
 ### 7.2 User Guide Sections
 
-Add sections to the user guide:
+✅ Created `docs/workflow-runner-guide.md` covering:
 
-1. **Choosing Between Runners**
-   - When to use Test Runner
-   - When to use Workflow Runner
-   - Migration path from scenarios to workflows
+1. **Getting Started**
+   - Navigate to Workflow Runner
+   - Select a workflow
+   - Configure initial variables
+   - Configure execution settings
+   - Run and view results
 
-2. **Workflow Runner Guide**
-   - Selecting a workflow
-   - Configuring variables
-   - Understanding iteration results
-   - Per-step metrics interpretation
+2. **Understanding Iterations**
+   - Isolation between iterations
+   - Concurrency model
 
 3. **Results Interpretation**
-   - Test Runs vs Workflow Runs filter
-   - Workflow-specific metrics (per-step, per-iteration)
-   - Comparing runs across both types
+   - Iteration Performance Chart
+   - Per-Step Metrics Table
+   - Per-Iteration Detail
+
+4. **Execution Modes**
+   - Fixed Iterations
+   - Load Profiles (sustained, ramp-up, spike)
+
+5. **Working with Variables**
+   - Workflow defaults
+   - Runtime overrides
+   - Variable history
+   - Variable extraction
+
+6. **Error Handling**
+   - Error policies
+   - Threshold configuration
+   - Retry configuration
+
+7. **Tips & Best Practices**
+
+8. **CLI Usage** (link to cli-reference.md)
 
 ---
 
@@ -1096,7 +1122,7 @@ Phase 9c: Desktop App CLI Mode (Method C)
 - [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
 - [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
 - [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
-- [ ] Documentation comparing Test Runner vs Workflow Runner
+- [x] Documentation comparing Test Runner vs Workflow Runner
 - [ ] Training manuals covering Workflow Runner usage
 - [ ] Gallery samples demonstrating workflow performance testing
 - [ ] CLI reference documentation with all command options
@@ -1111,6 +1137,7 @@ Phase 9c: Desktop App CLI Mode (Method C)
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | Phase 7 complete: Created `docs/runners-comparison.md` (comprehensive comparison, decision flowchart, migration guide) and `docs/workflow-runner-guide.md` (full user guide with getting started, iterations, results, variables, error handling, tips). |
 | 2026-05-05 | Phase 6 complete: Added `workflow` and `validate-workflow` CLI commands. Created workflowLoader with simplified YAML format support. Added workflow-aware reporters (console, JUnit, Markdown). Added sample workflow YAML. |
 | 2026-05-05 | Phase 5 complete: Added "Run in Harness" button to Workflow Designer toolbar. Clicking navigates to Workflow Runner tab with workflow pre-selected and variables initialized. Added unit tests for WorkflowToolbar and WorkflowRunner. |
 | 2026-05-05 | Phase 4 complete: Fixed "Workflow" execution mode label in results. Created `WorkflowResultsSummary` component with per-step metrics table and per-iteration drill-down. Extended `resultsGrouping.ts` with `workflowStep` and `iteration` grouping levels plus percentile stats. Added workflow-specific grouping options to the results table. |
