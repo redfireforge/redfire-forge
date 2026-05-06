@@ -883,7 +883,85 @@ Add to test presets for workflow-based testing:
 
 ---
 
-## 10. Non-Goals (Out of Scope)
+## Phase 9: CLI Documentation & Examples
+
+**Priority: Medium | Effort: Medium**
+
+### 9.1 CLI Reference Documentation
+
+Create comprehensive CLI documentation at `docs/cli-reference.md`:
+
+**Sections:**
+1. **Installation & Setup** — npm/npx usage, shebang for scripts
+2. **Test File Commands** — `run`, `validate`
+3. **Workflow Commands** — `workflow`, `validate-workflow`
+4. **All Command Options** — Full reference table for each command
+5. **Environment Variables** — Any supported env vars
+6. **Exit Codes** — 0 (success), 1 (test failed), 2 (error)
+
+### 9.2 Working Examples
+
+Create example files in `examples/` with documentation comments:
+
+| Example File | Purpose | Key Options Demonstrated |
+|--------------|---------|--------------------------|
+| `cli-basic-test.yaml` | Simple API test | `--concurrency`, `--transactions` |
+| `cli-assertions.yaml` | Validation with assertions | `--fail-on-error` |
+| `cli-parameterized.yaml` | Data-driven testing | `--data`, `--tags`, `--tag-mode` |
+| `cli-load-profile.yaml` | Sustained/ramp load testing | `--mode load-profile`, `--duration` |
+| `cli-error-handling.yaml` | Error policy testing | `--error-policy`, `--max-errors`, `--max-error-rate` |
+| `workflow-cli-parallel.yaml` | Workflow with fork/join | `--iterations`, `--concurrency` |
+| `workflow-cli-conditional.yaml` | Workflow with conditions | `--var` variable overrides |
+
+### 9.3 CI/CD Integration Guide
+
+Add `docs/cli-ci-cd.md` with integration examples:
+
+```yaml
+# GitHub Actions example
+- name: Run API Performance Tests
+  run: |
+    npx tsx cli/index.ts run tests/api-tests.yaml \
+      --concurrency 5 \
+      --transactions 100 \
+      --fail-threshold 5 \
+      --junit results/junit.xml \
+      --markdown results/report.md
+
+# With workflow
+- name: Run Workflow Performance Tests
+  run: |
+    npx tsx cli/index.ts workflow tests/order-flow.yaml \
+      --iterations 50 \
+      --concurrency 10 \
+      --var baseUrl=${{ secrets.API_URL }} \
+      --fail-on-error \
+      --junit results/workflow-junit.xml
+```
+
+### 9.4 Example Scripts
+
+Create `examples/scripts/` with ready-to-use shell scripts:
+
+| Script | Purpose |
+|--------|---------|
+| `run-smoke-test.sh` | Quick validation (low concurrency) |
+| `run-load-test.sh` | Full load test with reports |
+| `run-workflow-test.sh` | Workflow performance test |
+| `compare-results.sh` | Compare two JSON reports |
+
+### 9.5 Deliverables
+
+- [ ] `docs/cli-reference.md` — Full command reference
+- [ ] `docs/cli-ci-cd.md` — CI/CD integration guide
+- [ ] `examples/cli-*.yaml` — Working test file examples
+- [ ] `examples/workflow-cli-*.yaml` — Working workflow examples
+- [ ] `examples/scripts/*.sh` — Ready-to-use shell scripts
+- [ ] Update `README.md` — Add CLI quick-start section
+
+---
+
+## 12. Non-Goals (Out of Scope)
 
 - **Distributed execution** — Multi-machine load generation is Phase 1.x territory
 - **Recording/playback** — HAR-to-workflow conversion (like Locust's `har2locust`)
@@ -892,7 +970,7 @@ Add to test presets for workflow-based testing:
 
 ---
 
-## 11. Success Criteria
+## 13. Success Criteria
 
 - [x] User can select a saved workflow in the Harness and run it as a performance test
 - [x] Full graph topology (conditions, forks, joins, loops) is respected during load runs
@@ -907,6 +985,9 @@ Add to test presets for workflow-based testing:
 - [ ] Documentation comparing Test Runner vs Workflow Runner
 - [ ] Training manuals covering Workflow Runner usage
 - [ ] Gallery samples demonstrating workflow performance testing
+- [ ] CLI reference documentation with all command options
+- [ ] Working CLI examples (test files and workflow files)
+- [ ] CI/CD integration guide
 
 ---
 
