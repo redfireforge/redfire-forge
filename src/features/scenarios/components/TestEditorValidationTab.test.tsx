@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import type { TestEditorValidationTabProps } from './TestEditorValidationTab';
 import type { Scenario } from '../../../shared/types';
@@ -12,18 +12,49 @@ import { createRef } from 'react';
 // ── Shared mock setup ────────────────────────────────────────────────────────
 
 vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: () => <div data-testid="json-path-builder" />,
+  default: ({ onSampleJsonChange, onUpdate }: { onSampleJsonChange?: (json: string) => void; onUpdate?: (patch: Record<string, unknown>) => void }) => (
+    <div data-testid="json-path-builder">
+      {onSampleJsonChange && <button data-testid="change-sample" onClick={() => onSampleJsonChange('{"new":"json"}')}>Change Sample</button>}
+      {onUpdate && <button data-testid="update-fields" onClick={() => onUpdate({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] })}>Update Fields</button>}
+    </div>
+  ),
 }));
 vi.mock('../../requests/components/ResponseVersionPanel', () => ({
-  default: () => <div data-testid="response-version-panel" />,
+  default: ({ onSaveVersion, onRestore, onDeleteVersion, onRenameVersion, versions }: {
+    onSaveVersion: () => void;
+    onRestore: (v: unknown) => void;
+    onDeleteVersion: (id: string) => void;
+    onRenameVersion: (id: string, label: string) => void;
+    versions: unknown[];
+  }) => (
+    <div data-testid="response-version-panel">
+      <button data-testid="resp-save" onClick={onSaveVersion}>Save Version</button>
+      <button data-testid="resp-restore" onClick={() => onRestore({ json: '{}', validationMode: 'selective', selectiveMode: 'include', expectedFields: [], excludedPaths: [] })}>Restore</button>
+      {versions.length > 0 && <button data-testid="resp-delete" onClick={() => onDeleteVersion('v1')}>Delete</button>}
+      <button data-testid="resp-rename" onClick={() => onRenameVersion('v1', 'renamed')}>Rename</button>
+    </div>
+  ),
 }));
 vi.mock('../../requests/components/RulesVersionPanel', () => ({
-  default: () => <div data-testid="rules-version-panel" />,
+  default: ({ onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: {
+    onSaveVersion: () => void;
+    onRestore: (v: unknown) => void;
+    onDeleteVersion: (id: string) => void;
+    onRenameVersion: (id: string, label: string) => void;
+  }) => (
+    <div data-testid="rules-version-panel">
+      <button data-testid="rules-save" onClick={onSaveVersion}>Save Rules Version</button>
+      <button data-testid="rules-restore" onClick={() => onRestore({ validationMode: 'full', selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] })}>Restore Rules</button>
+      <button data-testid="rules-delete" onClick={() => onDeleteVersion('rv1')}>Delete Rules</button>
+      <button data-testid="rules-rename" onClick={() => onRenameVersion('rv1', 'renamed-rule')}>Rename Rules</button>
+    </div>
+  ),
 }));
 vi.mock('../../requests/components/RegexAssertionModal', () => ({
-  default: ({ onClose }: { onClose: () => void }) => (
+  default: ({ onClose, onApply }: { onClose: () => void; onApply: (result: { jsonPath: string; pattern: string }) => void }) => (
     <div data-testid="regex-assertion-modal">
       <button onClick={onClose}>Close Regex Modal</button>
+      <button data-testid="apply-regex" onClick={() => onApply({ jsonPath: '$.name', pattern: '^[A-Z]+$' })}>Apply Regex</button>
     </div>
   ),
 }));
@@ -461,6 +492,42 @@ describe('TestEditorValidationTab', () => {
   });
 
   describe('host override controls', () => {
+    it('updates fetch-row host override input and uses first-row Use Settings', () => {
+      const setFetchHostOverride = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      const inputs = () => screen.getAllByPlaceholderText('https://api.example.com');
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        fetchHostEnabled: true,
+        fetchHostOverride: '',
+        setFetchHostOverride,
+        resolvedBaseUrl: 'https://api.example.com',
+      })} />);
+      expect(inputs()).toHaveLength(1);
+      fireEvent.change(inputs()[0], { target: { value: 'https://row-one.test' } });
+      expect(setFetchHostOverride).toHaveBeenCalled();
+      const useFirst = screen.getAllByTitle('Use Settings base URL')[0]!;
+      fireEvent.click(useFirst);
+      expect(setFetchHostOverride).toHaveBeenCalledWith('https://api.example.com');
+    });
+
+    it('toggles Host Override from validate row when rules exist', () => {
+      const setFetchHostEnabled = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        setFetchHostEnabled,
+      })} />);
+      const hostToggles = screen.getAllByRole('checkbox', { name: /Host Override/i });
+      expect(hostToggles.length).toBeGreaterThanOrEqual(2);
+      fireEvent.click(hostToggles[hostToggles.length - 1]!);
+      expect(setFetchHostEnabled).toHaveBeenCalled();
+    });
+
     it('shows host override input in selective mode', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
@@ -531,6 +598,750 @@ describe('TestEditorValidationTab', () => {
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({ unorderedArrays: true }),
+        })
+      );
+    });
+  });
+
+  describe('date assertion interactions', () => {
+    it('changes date reference kind to fixed', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const kindSelect = screen.getByDisplayValue('today');
+      fireEvent.change(kindSelect, { target: { value: 'fixed' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('changes timezone for today reference', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const tzSelect = screen.getByDisplayValue('UTC');
+      fireEvent.change(tzSelect, { target: { value: 'local' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('changes fixed date value', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'fixed', iso: '2026-01-01' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const dateInput = screen.getByDisplayValue('2026-01-01');
+      fireEvent.change(dateInput, { target: { value: '2026-06-15' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('changes date comparison operator', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const opSelect = screen.getByDisplayValue('after (>)');
+      fireEvent.change(opSelect, { target: { value: '<' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('validation result display', () => {
+    it('shows PASSED badge', () => {
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: { passed: true, failures: [], httpStatus: 200 },
+      })} />);
+      expect(screen.getByText('PASSED')).toBeInTheDocument();
+      expect(screen.getByText('HTTP 200')).toBeInTheDocument();
+    });
+
+    it('shows FAILED badge with failure table', () => {
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: {
+          passed: false,
+          failures: [{ path: '$.a', expected: '1', actual: '2' }],
+          httpStatus: 200,
+        },
+      })} />);
+      expect(screen.getByText('FAILED')).toBeInTheDocument();
+      expect(screen.getByText('$.a')).toBeInTheDocument();
+    });
+
+    it('dismisses validation result on × click', () => {
+      const setValidationResult = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: { passed: true, failures: [] },
+        setValidationResult,
+      })} />);
+      fireEvent.click(screen.getByText('×'));
+      expect(setValidationResult).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('pending fetch response bar', () => {
+    it('shows confirmation bar when pendingFetchResponse is set', () => {
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{"new":"data"}',
+        onFetchKeepRules: vi.fn(),
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+      expect(screen.getByText(/existing rule/)).toBeInTheDocument();
+    });
+
+    it('calls onFetchKeepRules', () => {
+      const onFetchKeepRules = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{"x":1}',
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+      fireEvent.click(screen.getByText(/Keep Rules/));
+      expect(onFetchKeepRules).toHaveBeenCalled();
+    });
+
+    it('calls onFetchReplaceAll', () => {
+      const onFetchReplaceAll = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{"x":1}',
+        onFetchKeepRules: vi.fn(),
+        onFetchReplaceAll,
+        onFetchCancel: vi.fn(),
+      })} />);
+      fireEvent.click(screen.getByText(/Replace All/));
+      expect(onFetchReplaceAll).toHaveBeenCalled();
+    });
+  });
+
+  describe('JsonPathBuilder callbacks', () => {
+    it('updates sample JSON through JsonPathBuilder', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('change-sample'));
+      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        validation: expect.objectContaining({ sampleJson: '{"new":"json"}' }),
+      }));
+    });
+
+    it('updates validation fields through JsonPathBuilder', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('update-fields'));
+      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        validation: expect.objectContaining({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] }),
+      }));
+    });
+  });
+
+  describe('version panel callbacks', () => {
+    it('saves response version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], sampleJson: '{"data":true}' } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('resp-save'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.responseVersions?.length).toBeGreaterThan(0);
+    });
+
+    it('restores a response version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('resp-restore'));
+      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        validation: expect.objectContaining({ sampleJson: '{}' }),
+      }));
+    });
+
+    it('deletes a response version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], responseVersions: [{ id: 'v1', json: '{}', timestamp: 1000 }] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('resp-delete'));
+      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        validation: expect.objectContaining({ responseVersions: [] }),
+      }));
+    });
+
+    it('renames a response version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], responseVersions: [{ id: 'v1', json: '{}', timestamp: 1000 }] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('resp-rename'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('saves rules version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('rules-save'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('restores rules version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('rules-restore'));
+      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+        validation: expect.objectContaining({ mode: 'full', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] }),
+      }));
+    });
+
+    it('deletes rules version', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], rulesVersions: [{ id: 'rv1', timestamp: 1000 }] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('rules-delete'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('regex modal apply', () => {
+    it('applies regex from modal', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'regex', jsonPath: '', pattern: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      // Open regex builder
+      fireEvent.click(screen.getByText('Builder'));
+      expect(screen.getByTestId('regex-assertion-modal')).toBeInTheDocument();
+      // Apply regex
+      fireEvent.click(screen.getByTestId('apply-regex'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('renders modal with empty path when index targets a non-regex assertion after rerender', () => {
+      const draftRegex = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'regex', jsonPath: '$.a', pattern: 'x' }],
+        },
+      });
+      const draftRef = { current: draftRegex };
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({ draft: draftRegex, draftRef })} />);
+      fireEvent.click(screen.getByText('Builder'));
+      expect(screen.getByTestId('regex-assertion-modal')).toBeInTheDocument();
+      const draftStatus = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      draftRef.current = draftStatus;
+      rerender(<TestEditorValidationTab {...makeProps({ draft: draftStatus, draftRef })} />);
+      expect(screen.getByTestId('regex-assertion-modal')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('apply-regex'));
+    });
+  });
+
+  describe('add assertion menu edge cases', () => {
+    it('closes the add menu when clicking outside', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      expect(screen.getByText('Regex Builder…')).toBeInTheDocument();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByText('Regex Builder…')).not.toBeInTheDocument();
+    });
+
+    it('adds quick Regex Match assertion from menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Regex Match'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })],
+          }),
+        })
+      );
+    });
+  });
+
+  describe('header assertion row', () => {
+    it('updates header name and expected value when operator is contains', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'header', name: 'x-h', operator: 'contains', value: 'v' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('Header name'), { target: { value: 'content-type' } });
+      fireEvent.change(screen.getByPlaceholderText('Expected value'), { target: { value: 'json' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('does not render value input when operator is exists', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'header', name: 'x-h', operator: 'exists' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.queryByPlaceholderText('Expected value')).not.toBeInTheDocument();
+    });
+
+    it('hides value field after changing operator to exists (parent sync)', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'header', name: 'h', operator: 'contains', value: 'v' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByDisplayValue('contains'), { target: { value: 'exists' } });
+      const next = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      draftRef.current = next;
+      rerender(<TestEditorValidationTab {...makeProps({ draft: next, draftRef, onDraftChange })} />);
+      expect(screen.queryByPlaceholderText('Expected value')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('regex / array / numeric assertion rows', () => {
+    it('updates regex jsonPath and pattern', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'regex', jsonPath: '$.a', pattern: 'old' }],
+          sampleJson: '{"id":1}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.path'), { target: { value: '$.b' } });
+      fireEvent.change(screen.getByPlaceholderText('pattern'), { target: { value: 'newpat' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('selects json path from JsonPathPicker for regex assertion', async () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'regex', jsonPath: '', pattern: '' }],
+          sampleJson: '{"foo":true}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const pickBtns = screen.getAllByTitle('Pick JSON path from sample response');
+      fireEvent.click(pickBtns[0]);
+      await waitFor(() => {
+        expect(screen.getByText('$.foo')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.foo'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates arrayLength path, operator, and compare value', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayLength', jsonPath: '$.a', operator: '>=', value: 1 }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$.items[*]' } });
+      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+      const opSel = selects.find((s) => s.className.includes('assertion-select-operator'))!;
+      fireEvent.change(opSel, { target: { value: '=' } });
+      fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '3' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates numeric path, operator, and value', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'numeric', jsonPath: '$.p', operator: '=', value: 0 }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.price'), { target: { value: '$.qty' } });
+      const opSel = screen.getByDisplayValue('equals (=)');
+      fireEvent.change(opSel, { target: { value: '>' } });
+      fireEvent.change(screen.getByDisplayValue('0'), { target: { value: '42.5' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('selects json path from JsonPathPicker for arrayLength assertion', async () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayLength', jsonPath: '', operator: '>=', value: 1 }],
+          sampleJson: '{"items":[1,2]}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.items')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.items'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('selects json path from JsonPathPicker for numeric assertion', async () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'numeric', jsonPath: '', operator: '=', value: 0 }],
+          sampleJson: '{"price":9}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.price')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.price'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('date assertion JsonPathPicker', () => {
+    it('updates date jsonPath when picking from sample', async () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+          sampleJson: '{"expires":"2026-01-01"}',
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const pickBtns = screen.getAllByTitle('Pick JSON path from sample response');
+      fireEvent.click(pickBtns[0]);
+      await waitFor(() => {
+        expect(screen.getByText('$.expires')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.expires'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates date jsonPath via text input', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.a', operator: '>', reference: { kind: 'today', timezone: 'utc' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.expiresAt'), { target: { value: '$.b' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('date reference kind switch from fixed to today', () => {
+    it('sets today reference with default utc when switching from fixed', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.d', operator: '>', reference: { kind: 'fixed', iso: '2026-01-01' } }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const kindSel = screen.getByDisplayValue('fixed date');
+      fireEvent.change(kindSel, { target: { value: 'today' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [
+              expect.objectContaining({
+                reference: { kind: 'today', timezone: 'utc' },
+              }),
+            ],
+          }),
+        })
+      );
+    });
+  });
+
+  describe('full body validation mode', () => {
+    it('updates expected JSON textarea', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'full', assertions: [], expectedJson: '{}' } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      const ta = screen.getByPlaceholderText(/Paste the complete expected JSON/);
+      fireEvent.change(ta, { target: { value: '{"x":1}' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ expectedJson: '{"x":1}' }),
+        })
+      );
+    });
+
+    it('switches to none via warning link when expected JSON empty', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'full', assertions: [], expectedJson: '' } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByRole('button', { name: 'No Body Validation' }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ mode: 'none' }),
+        })
+      );
+    });
+
+    it('does not show empty-json warning when expectedJson has content', () => {
+      const draft = makeDraft({ validation: { mode: 'full', assertions: [], expectedJson: '{}' } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.queryByText(/No expected JSON provided/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('selective mode verify and fetch', () => {
+    it('calls onFetchSampleResponse when Fetch Response clicked', () => {
+      const onFetchSampleResponse = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onFetchSampleResponse })} />);
+      fireEvent.click(screen.getByText('Fetch Response'));
+      expect(onFetchSampleResponse).toHaveBeenCalled();
+    });
+
+    it('calls onValidateResponse when Verify Rules clicked', () => {
+      const onValidateResponse = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onValidateResponse })} />);
+      fireEvent.click(screen.getByText('Verify Rules'));
+      expect(onValidateResponse).toHaveBeenCalled();
+    });
+
+    it('shows Validating… while validating', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, validating: true })} />);
+      expect(screen.getByText('Validating...')).toBeInTheDocument();
+    });
+
+    it('updates host override from verify row and uses Use Settings', () => {
+      const setFetchHostOverride = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        fetchHostEnabled: true,
+        fetchHostOverride: '',
+        setFetchHostOverride,
+        resolvedBaseUrl: 'https://settings.example',
+      })} />);
+      const verifyRowInputs = document.querySelectorAll('.validate-host-input');
+      expect(verifyRowInputs.length).toBe(1);
+      fireEvent.change(verifyRowInputs[0], { target: { value: 'https://override.test' } });
+      expect(setFetchHostOverride).toHaveBeenCalled();
+      const useSettingsInValidate = screen.getAllByTitle('Use Settings base URL').pop()!;
+      fireEvent.click(useSettingsInValidate);
+      expect(setFetchHostOverride).toHaveBeenCalledWith('https://settings.example');
+    });
+  });
+
+  describe('validation result copy and edge cases', () => {
+    it('uses singular discrepancy when one failure', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: { passed: false, failures: [{ path: '$.a', expected: '1', actual: '2' }] },
+      })} />);
+      expect(screen.getByText('1 discrepancy found')).toBeInTheDocument();
+    });
+
+    it('uses plural discrepancies when multiple failures', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: {
+          passed: false,
+          failures: [
+            { path: '$.a', expected: '1', actual: '2' },
+            { path: '$.b', expected: 'x', actual: 'y' },
+          ],
+        },
+      })} />);
+      expect(screen.getByText('2 discrepancies found')).toBeInTheDocument();
+    });
+
+    it('does not render failure table when failed with zero failures', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: { passed: false, failures: [] },
+      })} />);
+      expect(screen.getByText('FAILED')).toBeInTheDocument();
+      expect(screen.queryByRole('columnheader', { name: 'Path' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('pending fetch cancel', () => {
+    it('calls onFetchCancel', () => {
+      const onFetchCancel = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{}',
+        onFetchKeepRules: vi.fn(),
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel,
+      })} />);
+      fireEvent.click(screen.getByText('Cancel'));
+      expect(onFetchCancel).toHaveBeenCalled();
+    });
+  });
+
+  describe('version panel early returns', () => {
+    it('does not append response version when sample JSON is empty', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], sampleJson: '' } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('resp-save'));
+      expect(onDraftChange).not.toHaveBeenCalled();
+    });
+
+    it('does not append rules version when there are no expected fields', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('rules-save'));
+      expect(onDraftChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('AssertionPresetMenu import', () => {
+    it('imports assertions when a preset card is chosen', async () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('📋 Presets'));
+      await waitFor(() => {
+        expect(screen.getByText('API Health Check')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('API Health Check'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: expect.arrayContaining([expect.objectContaining({ type: 'status' })]),
+          }),
+        })
+      );
+    });
+  });
+
+  describe('rules rename callback', () => {
+    it('maps rules version label on rename', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          rulesVersions: [{
+            id: 'rv1',
+            timestamp: 1,
+            validationMode: 'selective',
+            expectedFields: [],
+            excludedPaths: [],
+          }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByTestId('rules-rename'));
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.rulesVersions?.[0].label).toBe('renamed-rule');
+    });
+  });
+
+  describe('selective mode radio', () => {
+    it('switches to selective body validation', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByLabelText('Selective Fields'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ mode: 'selective' }),
         })
       );
     });

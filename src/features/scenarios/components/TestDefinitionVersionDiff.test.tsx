@@ -16,6 +16,10 @@ vi.mock('json-diff-kit', () => ({
 vi.mock('json-diff-kit/dist/viewer.css', () => ({}));
 vi.mock('json-diff-kit/dist/viewer-monokai.css', () => ({}));
 
+vi.mock('../../../shared/utils/formatRelativeTime', () => ({
+  formatTimestamp: (ts: number) => `fmt-${ts}`,
+}));
+
 const mkSnapshot = (overrides?: Partial<TestDefinitionSnapshot>): TestDefinitionSnapshot => ({
   name: 'Test API',
   url: 'https://api.example.com',
@@ -160,6 +164,81 @@ describe('TestDefinitionVersionDiff', () => {
     const v2 = mkVersion('v2', 2000, mkSnapshot({ body: '{"new": true}' }));
     render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
     // Click Body tab (it's a button element)
+    const bodyTab = screen.getAllByText('Body').find(el => el.tagName === 'BUTTON')!;
+    fireEvent.click(bodyTab);
+    expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();
+  });
+
+  it('shows overview rows for name, body type, and form data changes', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({
+      name: 'A',
+      bodyType: 'none',
+      bodyForm: [{ key: 'k', value: '1' }],
+    }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({
+      name: 'B',
+      bodyType: 'json',
+      bodyForm: [{ key: 'k', value: '2' }],
+    }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    expect(screen.getByText('Name')).toBeTruthy();
+    expect(screen.getByText('Body Type')).toBeTruthy();
+    expect(screen.getByText('Form Data')).toBeTruthy();
+  });
+
+  it('shows extraction changes tab content', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({ extractions: [{ name: 'a', source: 'body', expression: '$.x' }] }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({ extractions: [{ name: 'a', source: 'body', expression: '$.y' }] }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Extractions'));
+    expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();
+  });
+
+  it('uses formatted timestamp in header when version has no label', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot());
+    const v2 = mkVersion('v2', 2000, mkSnapshot());
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    expect(screen.getByText(/fmt-1000.*→.*fmt-2000/)).toBeTruthy();
+  });
+
+  it('does not close when clicking modal body', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot());
+    const v2 = mkVersion('v2', 2000, mkSnapshot());
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    const modal = document.querySelector('.test-def-diff-modal')!;
+    fireEvent.click(modal);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows auth inline diff when auth changes', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({ auth: { type: 'none' } }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({ auth: { type: 'bearer', token: 't', prefix: 'Bearer' } }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Auth'));
+    expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();
+  });
+
+  it('shows header modified rows', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({ headers: [{ key: 'X', value: 'old' }] }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({ headers: [{ key: 'X', value: 'new' }] }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Headers'));
+    expect(screen.getByText('old')).toBeTruthy();
+    expect(screen.getByText('new')).toBeTruthy();
+  });
+
+  it('shows header removed rows', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({ headers: [{ key: 'X', value: '1' }] }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({ headers: [] }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Headers'));
+    expect(screen.getByText('X')).toBeTruthy();
+  });
+
+  it('shows body JSON viewer for non-JSON body strings', () => {
+    const v1 = mkVersion('v1', 1000, mkSnapshot({ body: 'not-json' }));
+    const v2 = mkVersion('v2', 2000, mkSnapshot({ body: 'also-not' }));
+    render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
     const bodyTab = screen.getAllByText('Body').find(el => el.tagName === 'BUTTON')!;
     fireEvent.click(bodyTab);
     expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();

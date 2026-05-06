@@ -47,9 +47,23 @@ describe('HostSelector', () => {
     expect(screen.getByText(/configure base URL in Settings first/)).toBeInTheDocument();
   });
 
-  it('calls onHostModeChange when mode is changed', () => {
+  it('calls onHostModeChange for each mode radio', () => {
     const onHostModeChange = vi.fn();
-    render(
+    const { rerender } = render(
+      <HostSelector
+        hostMode="settings"
+        onHostModeChange={onHostModeChange}
+        customBaseUrl=""
+        onCustomBaseUrlChange={vi.fn()}
+        resolvedBaseUrl="https://api.example.com"
+      />
+    );
+
+    const radios = screen.getAllByRole('radio');
+    fireEvent.click(radios[0]);
+    expect(onHostModeChange).toHaveBeenLastCalledWith('hardcoded');
+
+    rerender(
       <HostSelector
         hostMode="hardcoded"
         onHostModeChange={onHostModeChange}
@@ -58,9 +72,20 @@ describe('HostSelector', () => {
         resolvedBaseUrl="https://api.example.com"
       />
     );
-    
-    fireEvent.click(screen.getByLabelText(/Settings/));
-    expect(onHostModeChange).toHaveBeenCalledWith('settings');
+    fireEvent.click(screen.getAllByRole('radio')[1]);
+    expect(onHostModeChange).toHaveBeenLastCalledWith('settings');
+
+    rerender(
+      <HostSelector
+        hostMode="hardcoded"
+        onHostModeChange={onHostModeChange}
+        customBaseUrl=""
+        onCustomBaseUrlChange={vi.fn()}
+        resolvedBaseUrl="https://api.example.com"
+      />
+    );
+    fireEvent.click(screen.getAllByRole('radio')[2]);
+    expect(onHostModeChange).toHaveBeenLastCalledWith('custom');
   });
 
   it('enables custom URL input only when custom mode is selected', () => {

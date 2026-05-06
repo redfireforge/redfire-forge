@@ -30,6 +30,8 @@ dist-ssr
 
 # Test coverage
 coverage/
+cov-*/
+coverage-*/
 
 # Playwright test results
 test-results/

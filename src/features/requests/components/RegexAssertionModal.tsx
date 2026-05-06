@@ -142,7 +142,7 @@ export default function RegexAssertionModal({
   const prevExternalRef = useRef(externalJson);
   useEffect(() => {
     if (externalJson && externalJson !== prevExternalRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local copy when external prop updates
+       
       setSampleJson(externalJson);
     }
     prevExternalRef.current = externalJson;

@@ -1690,11 +1690,13 @@ Brief description of what this guide covers.
 
 ### 10.6 Success Criteria
 
-- [ ] All High priority guides complete
-- [ ] Each guide follows the template structure
-- [ ] Cross-linking between related guides
-- [ ] All guides accessible from a central index
+- [x] All High priority guides complete (Phase 10a)
+- [x] Each guide follows the template structure
+- [x] Cross-linking between related guides
+- [x] All guides accessible from a central index
 - [ ] Screenshots/diagrams where helpful
+- [x] Medium priority guides complete (Phase 10b)
+- [x] Low priority guides complete (Phase 10c)
 
 ---
 
@@ -1727,8 +1729,8 @@ Brief description of what this guide covers.
 - [ ] CI/CD integration guide
 - [ ] Standalone CLI npm package (`redfireforge-cli`)
 - [ ] Desktop app CLI mode (`--cli` flag)
-- [ ] Core user guides complete (12 high-priority guides)
-- [ ] Central guide index with navigation
+- [x] Core user guides complete (12 high-priority guides)
+- [x] Central guide index with navigation
 
 ---
 
@@ -1736,6 +1738,9 @@ Brief description of what this guide covers.
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | Phase 10c complete: Created 9 advanced guides (keyboard-shortcuts, request-versioning-guide, test-versioning-guide, workflow-correlation-guide, workflow-scripts-guide, workflow-sub-workflows-guide, workflow-versioning-guide, preferences-guide, training-tracks-guide). Phase 10 COMPLETE with 35 total guides. |
+| 2026-05-05 | Phase 10b complete: Created 14 feature guides (request-editor-guide, request-variables-guide, catalog-guide, catalog-import-guide, validation-modes-guide, shared-data-sources-guide, workflow-variables-guide, workflow-services-guide, workflow-debugging-guide, workflow-triggers-guide, results-comparison-guide, results-export-guide, global-auth-guide, gallery-guide). |
+| 2026-05-05 | Phase 10a complete: Created 12 core user guides (getting-started, concepts-overview, requests-guide, request-auth-guide, scenarios-guide, test-runner-guide, parameterized-testing-guide, assertions-guide, workflow-designer-guide, workflow-nodes-reference, results-guide, environments-guide) and guide index (README.md). |
 | 2026-05-05 | Phase 7 complete: Created `docs/runners-comparison.md` (comprehensive comparison, decision flowchart, migration guide) and `docs/workflow-runner-guide.md` (full user guide with getting started, iterations, results, variables, error handling, tips). |
 | 2026-05-05 | Phase 6 complete: Added `workflow` and `validate-workflow` CLI commands. Created workflowLoader with simplified YAML format support. Added workflow-aware reporters (console, JUnit, Markdown). Added sample workflow YAML. |
 | 2026-05-05 | Phase 5 complete: Added "Run in Harness" button to Workflow Designer toolbar. Clicking navigates to Workflow Runner tab with workflow pre-selected and variables initialized. Added unit tests for WorkflowToolbar and WorkflowRunner. |

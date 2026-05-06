@@ -1,114 +1,274 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect } from 'vitest';
-
-// We test the pure helper functions extracted inline.
-// Since they're module-private, we test them via the component's behavior indirectly,
-// but we can also import the module and test detectArrays / resolvePath via re-export or inline.
-
-// For now, test the core logic by importing the module and checking the exported component exists.
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import type { Scenario, DataSource } from '../../../shared/types';
 import PopulateFromApiModal from './PopulateFromApiModal';
 
+const mockHookReturn = {
+  step: 'fetch' as const,
+  loading: false,
+  error: null as string | null,
+  selectedArray: '',
+  fieldMappings: [],
+  insertMode: 'append' as const,
+  setInsertMode: vi.fn(),
+  lastRequest: null,
+  lastResponse: null,
+  detectedArrays: [],
+  arrayItems: [],
+  enabledMappings: [] as { field: string; colType: string; enabled: boolean }[],
+  duplicateFlags: [],
+  duplicateCount: 0,
+  effectiveSelections: [],
+  selectedCount: 0,
+  setRowSelections: vi.fn(),
+  handleFetch: vi.fn(),
+  handleArrayChange: vi.fn(),
+  toggleField: vi.fn(),
+  changeFieldType: vi.fn(),
+  buildPopulatedData: vi.fn(),
+};
+
+vi.mock('../hooks/usePopulateFromApi', () => ({
+  usePopulateFromApi: vi.fn(() => mockHookReturn),
+}));
+
+import { usePopulateFromApi } from '../hooks/usePopulateFromApi';
+
+const mockUsePopulateFromApi = vi.mocked(usePopulateFromApi);
+
+function makeDraft(): Scenario {
+  return {
+    id: 's1',
+    name: 'Test',
+    url: 'https://api.example.com',
+    method: 'GET',
+    headers: [],
+    body: '',
+    bodyType: 'none',
+    validation: { mode: 'none' },
+  };
+}
+
+function makeDataTable(): DataSource {
+  return {
+    id: 'ds1',
+    columns: [],
+    rows: [],
+    source: { type: 'inline' },
+  };
+}
+
 describe('PopulateFromApiModal', () => {
-  it('exports a component', () => {
-    expect(typeof PopulateFromApiModal).toBe('function');
-  });
-});
-
-// ─── Test detectArrays and resolvePath logic directly ────────
-
-// Re-implement the pure functions here for testing since they're not exported
-function detectArrays(obj: unknown, prefix = ''): Array<{ path: string; length: number; sampleKeys: string[] }> {
-  const results: Array<{ path: string; length: number; sampleKeys: string[] }> = [];
-  if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
-    const keys = Object.keys(obj[0] as Record<string, unknown>);
-    results.push({ path: prefix || '$', length: obj.length, sampleKeys: keys });
-  }
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
-      const p = prefix ? `${prefix}.${key}` : key;
-      results.push(...detectArrays(val, p));
-    }
-  }
-  return results;
-}
-
-function resolvePath(obj: unknown, path: string): unknown {
-  if (path === '$') return obj;
-  const segments = path.split('.');
-  let current: unknown = obj;
-  for (const seg of segments) {
-    if (current == null || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[seg];
-  }
-  return current;
-}
-
-describe('detectArrays', () => {
-  it('detects root array', () => {
-    const data = [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }];
-    const result = detectArrays(data);
-    expect(result).toHaveLength(1);
-    expect(result[0].path).toBe('$');
-    expect(result[0].length).toBe(2);
-    expect(result[0].sampleKeys).toEqual(['id', 'name']);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockHookReturn.step = 'fetch';
+    mockHookReturn.insertMode = 'append';
+    mockHookReturn.enabledMappings = [];
+    mockHookReturn.arrayItems = [];
+    mockHookReturn.selectedCount = 0;
+    mockHookReturn.duplicateCount = 0;
+    mockHookReturn.buildPopulatedData = vi.fn();
+    mockUsePopulateFromApi.mockImplementation(() => ({ ...mockHookReturn }));
   });
 
-  it('detects nested array', () => {
-    const data = { users: [{ id: 1 }, { id: 2 }], meta: { total: 2 } };
-    const result = detectArrays(data);
-    expect(result).toHaveLength(1);
-    expect(result[0].path).toBe('users');
-    expect(result[0].length).toBe(2);
+  it('renders fetch step and cancel in footer', () => {
+    const onClose = vi.fn();
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={onClose} />,
+    );
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it('detects deeply nested array', () => {
-    const data = { data: { items: [{ sku: 'A' }, { sku: 'B' }, { sku: 'C' }] } };
-    const result = detectArrays(data);
-    expect(result).toHaveLength(1);
-    expect(result[0].path).toBe('data.items');
-    expect(result[0].length).toBe(3);
+  it('map step shows append footer with duplicate plural', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'append',
+      arrayItems: [{}, {}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      duplicateCount: 2,
+      selectedCount: 1,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByText(/Populate 1 Row$/)).toBeTruthy();
+    const footer = document.querySelector('.populate-api-footer-info');
+    expect(footer?.textContent).toMatch(/2 duplicates/);
   });
 
-  it('detects multiple arrays', () => {
-    const data = { users: [{ id: 1 }], products: [{ sku: 'A' }] };
-    const result = detectArrays(data);
-    expect(result).toHaveLength(2);
-    expect(result.map(r => r.path).sort()).toEqual(['products', 'users']);
+  it('replace mode shows row count label', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'replace',
+      selectedArray: 'items',
+      arrayItems: [{ id: 1 }, { id: 2 }],
+      enabledMappings: [{ field: 'id', colType: 'path', enabled: true }],
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByText(/items/)).toBeTruthy();
+    expect(screen.getByText('Populate 2 Rows')).toBeTruthy();
   });
 
-  it('ignores arrays of primitives', () => {
-    const data = { tags: ['a', 'b', 'c'] };
-    const result = detectArrays(data);
-    expect(result).toHaveLength(0);
+  it('handlePopulate calls onApply and onClose when buildPopulatedData returns data', () => {
+    const onApply = vi.fn();
+    const onClose = vi.fn();
+    const columns = [{ id: 'c1', name: 'a', type: 'path' as const, mapping: 'a' }];
+    const rows = [{ id: 'r1', values: {}, enabled: true }];
+
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'append',
+      arrayItems: [{}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      selectedCount: 1,
+      buildPopulatedData: () => ({ columns, rows }),
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={onApply} onClose={onClose} />,
+    );
+
+    fireEvent.click(screen.getByText('Populate 1 Row'));
+    expect(onApply).toHaveBeenCalledWith(columns, rows, 'append');
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it('returns empty for non-object', () => {
-    expect(detectArrays(42)).toEqual([]);
-    expect(detectArrays('hello')).toEqual([]);
-    expect(detectArrays(null)).toEqual([]);
-  });
-});
+  it('does not call onApply when buildPopulatedData returns null', () => {
+    const onApply = vi.fn();
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      arrayItems: [{}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      selectedCount: 1,
+      buildPopulatedData: () => null,
+    }));
 
-describe('resolvePath', () => {
-  it('resolves $ to root', () => {
-    const data = [1, 2, 3];
-    expect(resolvePath(data, '$')).toEqual([1, 2, 3]);
-  });
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={onApply} onClose={vi.fn()} />,
+    );
 
-  it('resolves single-level key', () => {
-    const data = { users: [{ id: 1 }] };
-    expect(resolvePath(data, 'users')).toEqual([{ id: 1 }]);
-  });
-
-  it('resolves nested path', () => {
-    const data = { data: { items: [{ sku: 'A' }] } };
-    expect(resolvePath(data, 'data.items')).toEqual([{ sku: 'A' }]);
+    fireEvent.click(screen.getByText('Populate 1 Row'));
+    expect(onApply).not.toHaveBeenCalled();
   });
 
-  it('returns undefined for missing path', () => {
-    expect(resolvePath({ a: 1 }, 'b')).toBeUndefined();
-    expect(resolvePath({ a: 1 }, 'a.b.c')).toBeUndefined();
+  it('changes insert mode via select', () => {
+    const setInsertMode = vi.fn();
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      setInsertMode,
+      arrayItems: [{}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      selectedCount: 1,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue('Append to existing rows'), { target: { value: 'replace' } });
+    expect(setInsertMode).toHaveBeenCalledWith('replace');
+  });
+
+  it('disables populate when no enabled mappings', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      arrayItems: [{}],
+      enabledMappings: [],
+      selectedCount: 1,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: /Populate 1 Row/ })).toBeDisabled();
+  });
+
+  it('invokes handleFetch when Send Request is clicked in fetch step', () => {
+    const handleFetch = vi.fn();
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'fetch',
+      handleFetch,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    fireEvent.click(screen.getByText('▶ Send Request'));
+    expect(handleFetch).toHaveBeenCalled();
+  });
+
+  it('map append footer uses singular duplicate when duplicateCount is 1', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'append',
+      arrayItems: [{}, {}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      duplicateCount: 1,
+      selectedCount: 1,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    const footer = document.querySelector('.populate-api-footer-info');
+    expect(footer?.textContent).toMatch(/1 duplicate/);
+    expect(footer?.textContent).not.toMatch(/duplicates/);
+  });
+
+  it('map append footer omits duplicate segment when duplicateCount is 0', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'append',
+      arrayItems: [{}],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+      duplicateCount: 0,
+      selectedCount: 1,
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.queryByText(/duplicate/)).toBeNull();
+  });
+
+  it('disables populate in replace mode when arrayItems is empty', () => {
+    mockUsePopulateFromApi.mockImplementation(() => ({
+      ...mockHookReturn,
+      step: 'map',
+      insertMode: 'replace',
+      selectedArray: 'items',
+      arrayItems: [],
+      enabledMappings: [{ field: 'a', colType: 'path', enabled: true }],
+    }));
+
+    render(
+      <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button', { name: /Populate 0 Rows/ })).toBeDisabled();
   });
 });

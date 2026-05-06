@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
 import type { WorkflowPausedState } from '../types/workflow';
@@ -190,6 +193,84 @@ describe('RemoteCorrelationStore', () => {
     expect(store.get('missing')).toBeUndefined();
 
     store.cancel('a');
+  });
+
+  it('cancel() returns false for unknown correlation id', () => {
+    expect(store.cancel('no-such-id')).toBe(false);
+  });
+
+  it('resolves base URL from window location when baseUrl omitted', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: {} }));
+    const s = new RemoteCorrelationStore({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await s.pause('pid', '/wh', makeState(), 5000);
+    expect(String(fetchImpl.mock.calls[0][0])).toBe('http://localhost:3001/api/correlations/pause');
+  });
+
+  it('retries wait poll when response is not ok', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ err: true }, 500))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { z: 2 } }));
+
+    const r = await store.pause('c-retry-notok', '/wh', makeState(), 60_000);
+    expect(r).toEqual({ z: 2 });
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/wait')).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('backs off and retries when wait fetch throws (network blip)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockRejectedValueOnce(new Error('net down'))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { r: 1 } }));
+
+    const r = await store.pause('c-net', '/wh', makeState(), 60_000);
+    expect(r).toEqual({ r: 1 });
+  });
+
+  it('fails wait loop when overall deadline elapses', async () => {
+    vi.useFakeTimers();
+    try {
+      const start = 1_000_000;
+      vi.setSystemTime(start);
+      fetchMock
+        .mockResolvedValueOnce(ok({ paused: true }, 201))
+        .mockImplementation((url: string) => {
+          if (String(url).includes('/wait')) {
+            vi.advanceTimersByTime(90_000);
+            return Promise.resolve(ok({ resumed: false }));
+          }
+          return Promise.resolve(ok({}));
+        });
+
+      const p = store.pause('c-dead', '/wh', makeState(), 60_000);
+      const assertReject = expect(p).rejects.toThrow(/timed out/);
+      await vi.runAllTimersAsync();
+      await assertReject;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('failAndDelete on unexpected wait error surfaces on pause promise', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string) => {
+        if (String(url).includes('/wait')) {
+          return Promise.resolve({
+            get ok() {
+              throw new Error('wait boom');
+            },
+            json: async () => ({}),
+          } as unknown as Response);
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    await expect(store.pause('c-boom', '/wh', makeState(), 60_000)).rejects.toThrow('wait boom');
   });
 
   it('cleanup() removes expired and rejects their promises', async () => {

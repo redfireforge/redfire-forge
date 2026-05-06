@@ -1,211 +1,169 @@
-/** @vitest-environment jsdom */
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LiveProgressPanel from './LiveProgressPanel';
-import type { TestSummary, LoadProfileConfig } from '../../../shared/types';
 
-const mockSummary: TestSummary = {
-  totalRequests: 100,
-  successfulRequests: 95,
-  failedRequests: 5,
-  avgResponseTime: 150,
-  minResponseTime: 50,
-  maxResponseTime: 500,
-  p95ResponseTime: 350,
-  p99ResponseTime: 450,
-  tps: 10,
-  durationMs: 10000,
-  errorRate: 5,
-  failedValidations: 2,
-  totalIterations: 100,
-  completedIterations: 100,
-  totalDurationMs: 10000,
-};
+vi.mock('./LiveCharts', () => ({
+  LiveCharts: ({ data }: { data: unknown[] }) => <div data-testid="live-charts">{data.length} points</div>,
+}));
 
-const defaultLoadProfile: LoadProfileConfig = {
-  type: 'sustained',
-  maxConcurrency: 10,
-  durationSec: 60,
-};
+vi.mock('./RunnerExecutionConfig', () => ({
+  profileLabel: (type: string) => type === 'ramp-up' ? 'Ramp Up' : type === 'spike' ? 'Spike' : 'Constant',
+}));
+
+vi.mock('../utils/runnerProgressStorage', () => ({
+  thinkTimeLabel: (cfg: { type: string; fixedMs?: number } | undefined) => {
+    if (!cfg || cfg.type === 'none') return null;
+    return `${cfg.fixedMs}ms think`;
+  },
+}));
+
+vi.mock('../../../shared/utils/executionMode', () => ({
+  getExecutionModeMeta: (mode: string) => ({
+    progressLabel: mode === 'sequential' ? 'Sequential' : mode === 'concurrent' ? 'Concurrent' : 'Load Profile',
+  }),
+}));
 
 describe('LiveProgressPanel', () => {
-  it('renders progress bar with correct percentage', () => {
-    render(
-      <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={100}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-      />
-    );
-    
-    expect(screen.getByText('50 / 100 (50%)')).toBeInTheDocument();
+  const baseProps = {
+    isRunning: true,
+    completed: 50,
+    total: 100,
+    summary: null,
+    timeSeries: [],
+    profileMeta: null,
+    executionMode: 'concurrent' as const,
+    concurrency: 10,
+    loadProfile: { type: 'constant' as const, maxConcurrency: 10, durationSec: 60 },
+  };
+
+  it('renders progress header', () => {
+    render(<LiveProgressPanel {...baseProps} />);
+    expect(screen.getByText('Progress')).toBeInTheDocument();
   });
 
-  it('renders metrics when summary is provided', () => {
-    render(
-      <LiveProgressPanel
-        isRunning={false}
-        completed={100}
-        total={100}
-        summary={mockSummary}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-      />
-    );
-    
-    expect(screen.getByText('10')).toBeInTheDocument(); // TPS
-    expect(screen.getByText('150 ms')).toBeInTheDocument(); // Avg Response
-    expect(screen.getByText('5%')).toBeInTheDocument(); // Error Rate
-    expect(screen.getByText('2')).toBeInTheDocument(); // Validation Failures
+  it('shows progress percentage', () => {
+    render(<LiveProgressPanel {...baseProps} />);
+    expect(screen.getByText(/50 \/ 100 \(50%\)/)).toBeInTheDocument();
   });
 
-  it('shows execution mode info in progress header', () => {
-    render(
-      <LiveProgressPanel
-        isRunning={true}
-        completed={25}
-        total={100}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-      />
-    );
-    
-    expect(screen.getByText(/C:5/)).toBeInTheDocument();
+  it('shows concurrency in mode tag', () => {
+    render(<LiveProgressPanel {...baseProps} />);
+    expect(screen.getByText(/C:10/)).toBeInTheDocument();
+  });
+
+  it('shows total in mode tag', () => {
+    render(<LiveProgressPanel {...baseProps} />);
     expect(screen.getByText(/T:100/)).toBeInTheDocument();
   });
 
-  it('shows load profile info when in load-profile mode', () => {
+  it('shows C:1 for sequential mode', () => {
+    render(<LiveProgressPanel {...baseProps} executionMode="sequential" />);
+    expect(screen.getByText(/C:1/)).toBeInTheDocument();
+  });
+
+  it('shows time-based progress for load-profile mode', () => {
     render(
       <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={-1}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={{ elapsedMs: 30000, durationMs: 60000, targetConcurrency: 10, currentInFlight: 8 }}
+        {...baseProps}
         executionMode="load-profile"
-        concurrency={10}
-        loadProfile={{ type: 'sustained', maxConcurrency: 10, durationSec: 60 }}
+        profileMeta={{ elapsedMs: 30000, durationMs: 60000, currentInFlight: 5, targetConcurrency: 10 }}
       />
     );
-    
-    expect(screen.getByText(/Peak:10/)).toBeInTheDocument();
-    // 60s appears in both header and progress text, use getAllByText
-    expect(screen.getAllByText(/60/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/30\.0s/)).toBeInTheDocument();
   });
 
   it('shows think time label when provided', () => {
     render(
       <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={100}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-        thinkTime={{ mode: 'constant', constantMs: 1000 }}
+        {...baseProps}
+        thinkTime={{ type: 'fixed', fixedMs: 500 }}
       />
     );
-    
-    // Think time label format is "Think: 1000ms" or similar
-    expect(screen.getByText(/Think.*1000/i)).toBeInTheDocument();
+    expect(screen.getByText('500ms think')).toBeInTheDocument();
   });
 
   it('shows host label when provided', () => {
-    render(
-      <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={100}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-        hostLabel="https://api.example.com"
-      />
-    );
-    
-    expect(screen.getByText('https://api.example.com')).toBeInTheDocument();
+    render(<LiveProgressPanel {...baseProps} hostLabel="staging.api.com" />);
+    expect(screen.getByText('staging.api.com')).toBeInTheDocument();
   });
 
-  it('shows clear button when not running and onClear is provided', () => {
-    const onClear = vi.fn();
+  it('shows summary metrics when available', () => {
     render(
       <LiveProgressPanel
-        isRunning={false}
-        completed={100}
-        total={100}
-        summary={mockSummary}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-        onClear={onClear}
+        {...baseProps}
+        summary={{ tps: 42, avgResponseTime: 150, errorRate: 2.5, failedValidations: 3 }}
       />
     );
-    
-    const clearBtn = screen.getByTitle('Clear progress');
-    expect(clearBtn).toBeInTheDocument();
-    
-    fireEvent.click(clearBtn);
-    expect(onClear).toHaveBeenCalled();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('150 ms')).toBeInTheDocument();
+    expect(screen.getByText('2.5%')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('shows concurrency metric in time-based mode', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        summary={{ tps: 10, avgResponseTime: 100, errorRate: 0, failedValidations: 0 }}
+        profileMeta={{ elapsedMs: 10000, durationMs: 60000, currentInFlight: 5, targetConcurrency: 10 }}
+      />
+    );
+    expect(screen.getByText('5 / 10')).toBeInTheDocument();
+    expect(screen.getByText('Concurrency')).toBeInTheDocument();
+  });
+
+  it('shows LiveCharts when timeSeries has 2+ points', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        timeSeries={[{ t: 1, rt: 100, tps: 10, err: 0, c: 5 }, { t: 2, rt: 110, tps: 12, err: 0, c: 5 }]}
+      />
+    );
+    expect(screen.getByTestId('live-charts')).toBeInTheDocument();
+  });
+
+  it('does not show LiveCharts when less than 2 points', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        timeSeries={[{ t: 1, rt: 100, tps: 10, err: 0, c: 5 }]}
+      />
+    );
+    expect(screen.queryByTestId('live-charts')).not.toBeInTheDocument();
+  });
+
+  it('shows clear button when not running', () => {
+    const onClear = vi.fn();
+    render(<LiveProgressPanel {...baseProps} isRunning={false} onClear={onClear} />);
+    expect(screen.getByText('✕ Clear')).toBeInTheDocument();
   });
 
   it('hides clear button when running', () => {
-    render(
-      <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={100}
-        summary={null}
-        timeSeries={[]}
-        profileMeta={null}
-        executionMode="batch"
-        concurrency={5}
-        loadProfile={defaultLoadProfile}
-        onClear={vi.fn()}
-      />
-    );
-    
-    expect(screen.queryByTitle('Clear progress')).not.toBeInTheDocument();
+    render(<LiveProgressPanel {...baseProps} isRunning={true} onClear={vi.fn()} />);
+    expect(screen.queryByText('✕ Clear')).not.toBeInTheDocument();
   });
 
-  it('shows concurrency metrics for load profile mode', () => {
+  it('shows per-test progress breakdown', () => {
+    const selectedTests = [
+      { id: 't1', name: 'Test 1', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const liveResults = [
+      { scenarioId: 't1', passed: true, responseTime: 100, httpStatus: 200 },
+      { scenarioId: 't1', passed: false, responseTime: 200, httpStatus: 500 },
+    ];
     render(
       <LiveProgressPanel
-        isRunning={true}
-        completed={50}
-        total={-1}
-        summary={mockSummary}
-        timeSeries={[]}
-        profileMeta={{ elapsedMs: 30000, durationMs: 60000, targetConcurrency: 10, currentInFlight: 8 }}
-        executionMode="load-profile"
-        concurrency={10}
-        loadProfile={{ type: 'sustained', maxConcurrency: 10, durationSec: 60 }}
+        {...baseProps}
+        liveResults={liveResults as never[]}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
       />
     );
-    
-    expect(screen.getByText('8 / 10')).toBeInTheDocument();
-    expect(screen.getByText('Concurrency')).toBeInTheDocument();
+    expect(screen.getByText('Test 1:')).toBeInTheDocument();
   });
 });
