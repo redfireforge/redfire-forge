@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { reIdScenarios, wrapExport, unwrapImport, pickJsonFile, stripVersions, countVersions, hasVersionData } from './scenarioImportExport';
+import type { FeatureGroup } from '../../../shared/types';
+import { reIdScenarios, wrapExport, unwrapImport, unwrapImportWithMeta, pickJsonFile, stripVersions, countVersions, hasVersionData, DEFAULT_VERSION_EXPORT } from './scenarioImportExport';
 
 vi.mock('uuid', () => ({
   v4: (() => {
@@ -293,6 +294,85 @@ describe('wrapExport with version options', () => {
   });
 });
 
+describe('unwrapImportWithMeta', () => {
+  it('returns data and meta for wrapped payloads', () => {
+    const inner = { x: 1 };
+    const wrapped = {
+      _exportMeta: { level: 'tests', exportedAt: '2024-01-01' },
+      data: inner,
+    };
+    const r = unwrapImportWithMeta(wrapped);
+    expect(r.data).toBe(inner);
+    expect(r.meta?.level).toBe('tests');
+  });
+
+  it('returns raw as data when not wrapped', () => {
+    const raw = { foo: 'bar' };
+    expect(unwrapImportWithMeta(raw)).toEqual({ data: raw });
+  });
+});
+
+describe('stripVersions — structure log and definition versions', () => {
+  it('strips structureLog from a single feature group', () => {
+    const fg = {
+      name: 'G',
+      scenarios: [],
+      structureLog: [{ id: 'l1', timestamp: 1, action: 'fg-renamed' as const, entityName: 'E' }],
+    };
+    const result = stripVersions(fg, { ...DEFAULT_VERSION_EXPORT, includeStructureLog: false }) as typeof fg;
+    expect(result.structureLog).toBeUndefined();
+  });
+
+  it('strips a single TestScenario nested tests', () => {
+    const ts = {
+      name: 'S',
+      tests: [{
+        name: 'T', url: '/a', method: 'GET',
+        validation: { responseVersions: [{ id: '1' }] },
+      }],
+    };
+    const result = stripVersions(ts, { includeResponseVersions: false, includeRulesVersions: true, includeDefinitionVersions: true });
+    expect((result as typeof ts).tests[0].validation.responseVersions).toBeUndefined();
+  });
+
+  it('strips definitionVersions from a single scenario', () => {
+    const t = {
+      name: 'T1', url: '/a', method: 'GET',
+      validation: { statusCode: 200 },
+      definitionVersions: [{ id: 'v1', timestamp: 1, snapshot: {} }],
+    };
+    const result = stripVersions(t, { includeResponseVersions: true, includeRulesVersions: true, includeDefinitionVersions: false }) as typeof t;
+    expect(result.definitionVersions).toBeUndefined();
+  });
+});
+
+describe('countVersions — extended', () => {
+  it('counts definition versions and structureLog', () => {
+    const fg = {
+      structureLog: [{ id: 'a', timestamp: 1, action: 'test-added' as const, entityName: 'E', scenarioName: 'S' }],
+      scenarios: [{
+        tests: [{
+          url: '/a', method: 'GET',
+          validation: {},
+          definitionVersions: [{ id: 'v1', timestamp: 1, snapshot: {} }],
+        }],
+      }],
+    };
+    const c = countVersions(fg);
+    expect(c.definitionVersionCount).toBe(1);
+    expect(c.structureLogCount).toBe(1);
+  });
+
+  it('walks a bare TestScenario', () => {
+    const ts = {
+      tests: [
+        { url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } },
+      ],
+    };
+    expect(countVersions(ts).responseVersionCount).toBe(1);
+  });
+});
+
 describe('hasVersionData', () => {
   it('returns true when responseVersions exist on a test', () => {
     expect(hasVersionData({ url: '/a', method: 'GET', validation: { responseVersions: [{ id: '1' }] } })).toBe(true);
@@ -316,10 +396,26 @@ describe('hasVersionData', () => {
     expect(hasVersionData(arr)).toBe(true);
   });
 
-  it('returns true for feature group with scenarios containing versions', () => {
-    const fg = {
-      scenarios: [{ tests: [{ url: '/a', method: 'GET', validation: { rulesVersions: [{ id: '1' }] } }] }],
+  it('returns true for structure log on an empty feature group', () => {
+    const fg: FeatureGroup = {
+      id: 'g',
+      name: 'G',
+      scenarios: [],
+      structureLog: [{ id: 'l', timestamp: 1, action: 'test-added', entityName: 'e' }],
     };
     expect(hasVersionData(fg)).toBe(true);
+  });
+
+  it('returns true when tests carry definition versions', () => {
+    expect(hasVersionData({
+      scenarios: [{
+        tests: [{
+          url: '/a',
+          method: 'GET',
+          validation: {},
+          definitionVersions: [{ id: 'v', timestamp: 1, snapshot: { name: 'n', url: '/u', method: 'GET', headers: [], body: '', auth: { type: 'none' } } }],
+        }],
+      }],
+    })).toBe(true);
   });
 });

@@ -2,19 +2,40 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun, RequestResult } from '../../../shared/types';
 import type { BaselineMark } from '../utils/runBaselines';
+
+vi.mock('./ResponseTimeHistogram', () => ({
+  ResponseTimeOverlayHistogram: () => <div data-testid="overlay-histogram" />,
+}));
 
 // Mock recharts to avoid canvas issues in jsdom
 vi.mock('recharts', () => {
   const FakeChart = ({ children }: { children?: React.ReactNode }) => <div data-testid="chart">{children}</div>;
   return {
     LineChart: FakeChart,
-    Line: () => null,
-    XAxis: () => null,
+    Line: ({ dot: Dot }: { dot?: (p: Record<string, unknown>) => React.ReactNode }) => {
+      if (!Dot) return null;
+      const node = Dot({ cx: 4, cy: 5, payload: { runId: 'r-baseline' } } as Record<string, unknown>);
+      return <div data-testid="line-with-dot">{node}</div>;
+    },
+    XAxis: ({ tickFormatter }: { tickFormatter?: (t: number) => string }) => {
+      tickFormatter?.(1_700_000_000_000);
+      return null;
+    },
     YAxis: () => null,
     CartesianGrid: () => null,
-    Tooltip: () => null,
+    Tooltip: ({
+      labelFormatter,
+      formatter,
+    }: {
+      labelFormatter?: (t: unknown) => string;
+      formatter?: (v: unknown) => unknown;
+    }) => {
+      labelFormatter?.(1_700_000_000_000);
+      formatter?.(42);
+      return null;
+    },
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
     Legend: () => null,
   };
@@ -40,7 +61,7 @@ function makeSummary(overrides: Partial<TestRun['summary']> = {}): TestRun['summ
   };
 }
 
-function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {}): TestRun {
+function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {}, results: RequestResult[] = []): TestRun {
   return {
     id,
     timestamp: Date.now(),
@@ -51,7 +72,25 @@ function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {})
       executionMode: 'pool' as const,
     } as TestRun['config'],
     summary: makeSummary(summaryOverrides),
-    results: [],
+    results,
+  };
+}
+
+function makeReq(partial: Partial<RequestResult> & Pick<RequestResult, 'scenarioName'>): RequestResult {
+  return {
+    id: Math.random().toString(),
+    scenarioId: 'sc-1',
+    scenarioName: partial.scenarioName,
+    url: 'http://localhost/x',
+    method: 'GET',
+    httpStatus: 200,
+    responseTimeMs: 100,
+    responseBody: '',
+    timestamp: Date.now(),
+    passed: true,
+    validationMode: 'none',
+    failureDetails: [],
+    ...partial,
   };
 }
 
@@ -76,7 +115,16 @@ describe('RunComparisonPanel', () => {
     expect(tabs[3].textContent).toContain('Distribution');
   });
 
-  it('renders metric delta table by default', () => {
+  it('can return to Overview tab from another tab', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[0]);
+    expect(container.querySelector('.comparison-table')).toBeTruthy();
+  });
+
+  it('renders metric delta table on overview with P95 delta row', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 150 });
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
@@ -106,6 +154,66 @@ describe('RunComparisonPanel', () => {
     fireEvent.click(regressionsTab);
     expect(container.querySelector('.regression-pass')).toBeTruthy(); // no regressions
   });
+
+  it('shows critical regression alert and regression list with metric deltas', () => {
+    const baseline = makeRun('b', { p95ResponseTime: 100 });
+    const current = makeRun('c', { p95ResponseTime: 250 });
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const crit = container.querySelector('.regression-alert.regression-critical');
+    expect(crit).toBeTruthy();
+    expect(crit?.textContent).toContain('🔴');
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
+    expect(container.querySelector('.regression-detail')).toBeTruthy();
+    expect(container.querySelector('.regression-detail-body')).toBeTruthy();
+  });
+
+  it('shows per-scenario table with regression and faster rows', () => {
+    const baseline = makeRun(
+      'b',
+      {},
+      [
+        makeReq({ scenarioName: 'Slow', featureGroupName: 'FG1', responseTimeMs: 50 }),
+        makeReq({ scenarioName: 'Fast', featureGroupName: 'FG1', responseTimeMs: 200 }),
+      ],
+    );
+    const current = makeRun(
+      'c',
+      {},
+      [
+        makeReq({ scenarioName: 'Slow', featureGroupName: 'FG1', responseTimeMs: 200 }),
+        makeReq({ scenarioName: 'Fast', featureGroupName: 'FG1', responseTimeMs: 50 }),
+      ],
+    );
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    expect(container.querySelector('.scenario-table')).toBeTruthy();
+    expect(container.textContent).toContain('FG1');
+    expect(container.querySelector('.row-regressed')).toBeTruthy();
+    expect(container.querySelector('.status-improved')).toBeTruthy();
+  });
+
+  it('shows empty hint on scenarios tab when there is nothing to compare', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    expect(container.querySelector('.empty-hint')).toBeTruthy();
+  });
+
+  it('renders distribution tab with overlay histogram', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[3]);
+    expect(container.querySelector('[data-testid="overlay-histogram"]')).toBeTruthy();
+  });
+
+  it('shows scenario tab alert badge when a scenario regresses', () => {
+    const baseline = makeRun('b', {}, [makeReq({ scenarioName: 'X', responseTimeMs: 10 })]);
+    const current = makeRun('c', {}, [makeReq({ scenarioName: 'X', responseTimeMs: 500 })]);
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    expect(container.querySelector('.tab-alert')).toBeTruthy();
+  });
 });
 
 describe('TrendChart', () => {
@@ -133,5 +241,27 @@ describe('TrendChart', () => {
     const select = container.querySelector('.trend-metric-select');
     expect(select).toBeTruthy();
     expect(select?.querySelectorAll('option').length).toBe(6);
+  });
+
+  it('changes displayed metric when select changes', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const select = container.querySelector('.trend-metric-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'tps' } });
+    expect(select.value).toBe('tps');
+  });
+
+  it('renders Line dot renderer for baseline highlighting', () => {
+    const runs = [
+      { ...makeRun('r-baseline'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const baselines: BaselineMark[] = [{ runId: 'r-baseline', markedAt: 1 }];
+    const { container } = render(<TrendChart runs={runs} baselines={baselines} />);
+    expect(container.querySelector('[data-testid="line-with-dot"]')).toBeTruthy();
+    expect(container.querySelector('circle[r="6"]')).toBeTruthy();
   });
 });

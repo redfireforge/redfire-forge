@@ -8,6 +8,10 @@ vi.mock('../../../shared/utils/storage', () => ({
   loadRunnerConfig: vi.fn().mockResolvedValue(null),
 }));
 
+import { loadRunnerConfig, saveRunnerConfig } from '../../../shared/utils/storage';
+const mockLoad = vi.mocked(loadRunnerConfig);
+const mockSave = vi.mocked(saveRunnerConfig);
+
 describe('useWorkflowRunnerConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,5 +126,74 @@ describe('useWorkflowRunnerConfig', () => {
     
     expect(result.current.retryCount).toBe(3);
     expect(result.current.retryDelayMs).toBe(2000);
+  });
+
+  it('restores saved config from storage on mount', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 8,
+      totalTransactions: 200,
+      executionMode: 'load-profile',
+      loadProfile: { durationSec: 60, stages: [] },
+      thinkTime: { mode: 'constant', constantMs: 250 },
+      timeoutSec: 30,
+      retryCount: 2,
+      retryDelayMs: 500,
+      errorPolicy: 'stop-first',
+      maxErrors: 5,
+      maxErrorRate: 25,
+      selectedWorkflowId: 'wf-saved',
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.concurrency).toBe(8);
+    expect(result.current.totalTransactions).toBe(200);
+    expect(result.current.executionMode).toBe('load-profile');
+    expect(result.current.loadProfile.durationSec).toBe(60);
+    expect(result.current.thinkTime.mode).toBe('constant');
+    expect(result.current.timeoutSec).toBe(30);
+    expect(result.current.retryCount).toBe(2);
+    expect(result.current.retryDelayMs).toBe(500);
+    expect(result.current.errorPolicy).toBe('stop-first');
+    expect(result.current.maxErrors).toBe(5);
+    expect(result.current.maxErrorRate).toBe(25);
+    expect(result.current.selectedWorkflowId).toBe('wf-saved');
+  });
+
+  it('auto-saves config when state changes', async () => {
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    mockSave.mockClear();
+    act(() => { result.current.setConcurrency(10); });
+
+    await waitFor(() => {
+      expect(mockSave).toHaveBeenCalledWith(
+        expect.objectContaining({ concurrency: 10 }),
+        '_workflow_runner',
+      );
+    });
+  });
+
+  it('allows updating maxErrors and maxErrorRate', async () => {
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    act(() => {
+      result.current.setMaxErrors(20);
+      result.current.setMaxErrorRate(75);
+    });
+
+    expect(result.current.maxErrors).toBe(20);
+    expect(result.current.maxErrorRate).toBe(75);
+  });
+
+  it('allows updating selectedWorkflowId', async () => {
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    act(() => { result.current.setSelectedWorkflowId('wf-new'); });
+    expect(result.current.selectedWorkflowId).toBe('wf-new');
   });
 });

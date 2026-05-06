@@ -131,7 +131,7 @@ export default function App() {
     if (sendToReqEntry) {
       loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset when entry is cleared
+       
       setSendToReqEpValues({});
     }
   }, [sendToReqEntry]);
@@ -146,7 +146,7 @@ export default function App() {
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
+       
       setTheme(initialTheme);
        
     }
@@ -767,7 +767,7 @@ export default function App() {
                 if (!previewRequest) return;
                 const req = previewRequest.request;
                 const GALLERY_COL_NAME = 'Gallery Samples';
-                let col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+                const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
                 let colId: string;
                 if (col) {
                   colId = col.id;

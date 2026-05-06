@@ -35,7 +35,7 @@ export function useModalDrag(open: boolean) {
   }, [dragPos]);
 
   // Reset when modal opens/closes
-  useEffect(() => { setDragPos(null); }, [open]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setDragPos(null); }, [open]);  
 
   const isDragged = dragPos !== null;
 

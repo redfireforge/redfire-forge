@@ -1,21 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Smoke tests for Workflow Picker in Harness (Phase 2)
+ * Smoke tests for Workflow Picker in Workflow Runner (after runner split)
  * Tests the workflow selection UI and variable history features.
+ * 
+ * NOTE: After the runner split, WorkflowPicker is in a dedicated WorkflowRunner component
+ * accessible at /?tab=workflow-runner
  */
 
 test.describe('Workflow Picker Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/?tab=runner');
+    // Navigate to the dedicated Workflow Runner tab
+    await page.goto('http://localhost:5173/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
   });
 
-  test('shows workflow picker when Workflow mode is selected', async ({ page }) => {
-    // Select Workflow execution mode
-    const workflowRadio = page.locator('label.radio-label').filter({ hasText: 'Workflow' });
-    await workflowRadio.click();
-
+  test('shows workflow picker on workflow runner page', async ({ page }) => {
     // Verify WorkflowPicker appears (may show dropdown or empty state)
     await expect(page.locator('.workflow-picker')).toBeVisible();
     // Either shows the select dropdown or the empty state
@@ -31,10 +31,6 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select Workflow mode
-    const workflowRadio = page.locator('label.radio-label').filter({ hasText: 'Workflow' });
-    await workflowRadio.click();
-
     // Check for empty state or workflow dropdown
     const picker = page.locator('.workflow-picker');
     await expect(picker).toBeVisible();
@@ -44,22 +40,16 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await expect(emptyOrDropdown.first()).toBeVisible();
   });
 
-  test('hides scenario selection when workflow mode is selected', async ({ page }) => {
-    // First verify scenario selection is visible in default mode
+  test('workflow runner does not show test scenario selection', async ({ page }) => {
+    // Workflow runner should not have scenario selection (that's in TestRunner)
     const scenarioHeader = page.locator('h3').filter({ hasText: 'Select Scenarios to Test' });
+    await expect(scenarioHeader).not.toBeVisible();
     
-    // Select Workflow mode
-    const workflowRadio = page.locator('label.radio-label').filter({ hasText: 'Workflow' });
-    await workflowRadio.click();
-
-    // Workflow picker should be visible
+    // But workflow picker should be visible
     await expect(page.locator('.workflow-picker')).toBeVisible();
-    
-    // If a workflow is selected, scenario selection should be hidden
-    // (If no workflows exist, the picker will show empty state)
   });
 
-  test('workflow picker dropdown is disabled when test is running', async ({ page }) => {
+  test('workflow picker dropdown is enabled', async ({ page }) => {
     // Create a test workflow via storage
     await page.evaluate(() => {
       const workflow = {
@@ -77,10 +67,6 @@ test.describe('Workflow Picker Smoke Tests', () => {
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
-
-    // Select Workflow mode
-    const workflowRadio = page.locator('label.radio-label').filter({ hasText: 'Workflow' });
-    await workflowRadio.click();
 
     // Verify dropdown exists and is enabled initially
     const dropdown = page.locator('.workflow-picker-select');
@@ -107,9 +93,6 @@ test.describe('Workflow Picker Smoke Tests', () => {
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
-
-    // Select Workflow mode
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
 
     // Select the workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-select');
@@ -139,9 +122,6 @@ test.describe('Workflow Picker Smoke Tests', () => {
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
-
-    // Select Workflow mode
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
 
     // Select the workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-clear');
@@ -180,8 +160,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select Workflow mode and workflow
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
+    // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-history');
 
     // History button should show count
@@ -219,8 +198,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select Workflow mode and workflow
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
+    // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-restore');
 
     // Verify default value
@@ -251,8 +229,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select Workflow mode and workflow
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
+    // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-modified');
 
     // Initially no modified badge
@@ -285,8 +262,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select Workflow mode and workflow
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
+    // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-reset');
 
     // Modify the variable
@@ -300,15 +276,11 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('original-value');
   });
 
-  test('switching away from Workflow mode hides picker', async ({ page }) => {
-    // Select Workflow mode
-    await page.locator('label.radio-label').filter({ hasText: 'Workflow' }).click();
+  test('workflow runner has dedicated tab', async ({ page }) => {
+    // Verify we're on the workflow runner page
     await expect(page.locator('.workflow-picker')).toBeVisible();
-
-    // Switch to Sequential mode
-    await page.locator('label.radio-label').filter({ hasText: 'Sequential' }).click();
     
-    // Workflow picker should be hidden
-    await expect(page.locator('.workflow-picker')).not.toBeVisible();
+    // The current URL should reflect the workflow-runner tab
+    await expect(page).toHaveURL(/tab=workflow-runner/);
   });
 });

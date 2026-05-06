@@ -496,4 +496,77 @@ describe('WorkflowConsolePanel', () => {
     expect(screen.getByText('GET Users')).toBeTruthy();
     expect(screen.getByText('200 · 45ms')).toBeTruthy();
   });
+
+  describe('docked resize', () => {
+    it('resizes docked panel via drag on resize handle', () => {
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+      const handle = container.querySelector('.wf-console-resize-handle')!;
+      fireEvent.mouseDown(handle, { clientX: 0, clientY: 300 });
+      // Drag upward to increase height
+      fireEvent.mouseMove(window, { clientX: 0, clientY: 200 });
+      fireEvent.mouseUp(window);
+      expect(document.body.style.cursor).toBe('');
+    });
+  });
+
+  describe('floating drag', () => {
+    it('drags floating panel via header mousedown + mousemove', () => {
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'floating' } });
+      const header = container.querySelector('.wf-console-header')!;
+      fireEvent.mouseDown(header, { clientX: 100, clientY: 50 });
+      fireEvent.mouseMove(window, { clientX: 150, clientY: 80 });
+      fireEvent.mouseUp(window);
+      expect(document.body.style.cursor).toBe('');
+    });
+
+    it('does not start drag when mousedown on button inside header', () => {
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'floating' } });
+      const clearBtn = screen.getByTitle('Clear console');
+      fireEvent.mouseDown(clearBtn, { clientX: 100, clientY: 50 });
+      // Body cursor should not become grabbing
+      expect(document.body.style.cursor).not.toBe('grabbing');
+    });
+  });
+
+  describe('floating resize (corner)', () => {
+    it('resizes floating panel via grip mousedown + mousemove', () => {
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'floating' } });
+      const grip = container.querySelector('.wf-console-float-grip')!;
+      fireEvent.mouseDown(grip, { clientX: 500, clientY: 400 });
+      fireEvent.mouseMove(window, { clientX: 600, clientY: 500 });
+      fireEvent.mouseUp(window);
+      expect(document.body.style.cursor).toBe('');
+    });
+  });
+
+  describe('floating resize (right edge)', () => {
+    it('resizes floating panel width via right edge drag', () => {
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
+      const select = container.querySelector('.wf-console-mode-select') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'floating' } });
+      const edge = container.querySelector('.wf-console-float-edge-right')!;
+      fireEvent.mouseDown(edge, { clientX: 500, clientY: 200 });
+      fireEvent.mouseMove(window, { clientX: 600, clientY: 200 });
+      fireEvent.mouseUp(window);
+      expect(document.body.style.cursor).toBe('');
+    });
+  });
+
+  describe('timeline active class', () => {
+    it('applies active class to Timeline button when selected', () => {
+      const summaries = [
+        { nodeId: 'h1', label: 'Step', state: 'pass' as const, statusCode: 200 },
+      ];
+      render(<WorkflowConsolePanel {...defaultProps} stepSummaries={summaries} />);
+      const timelineBtn = screen.getByText('Timeline');
+      fireEvent.click(timelineBtn);
+      expect(timelineBtn.classList.contains('wf-console-view-btn-active')).toBe(true);
+    });
+  });
 });

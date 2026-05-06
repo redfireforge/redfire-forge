@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSharedDsFetchConfig } from './useSharedDsFetchConfig';
+import { parseCurl } from '../../../shared/utils/curlParser';
 import type { SharedDataSource, DataSource } from '../../../shared/types';
 
 vi.mock('../../../shared/utils/curlParser', () => ({
@@ -122,6 +123,65 @@ describe('useSharedDsFetchConfig', () => {
     expect(onUpdate).toHaveBeenCalled();
     expect(result.current.showSetupWizard).toBe(true);
     expect(result.current.curlImportExpanded).toBe(false);
+  });
+
+  it('handleImportCurl moves Bearer token from Authorization header into auth config', () => {
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://secure.example.com',
+      method: 'GET',
+      headers: [{ key: 'Authorization', value: 'Bearer secret-token' }],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
+    act(() => result.current.handleCurlInputChange('curl -H "Authorization: Bearer secret-token" https://secure.example.com'));
+    act(() => result.current.handleImportCurl());
+    const updated = onUpdate.mock.calls.at(-1)?.[0];
+    expect(updated?.[0].fetchConfig.auth).toEqual({ type: 'bearer', prefix: 'Bearer', token: 'secret-token' });
+    const authHeader = updated?.[0].fetchConfig.headers?.some((h) => h.key.trim().toLowerCase() === 'authorization');
+    expect(authHeader).toBe(false);
+    expect(updated?.[0].fetchConfig.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('handleImportCurl keeps non-listed HTTP methods by falling back to existing config method', () => {
+    const ds = makeSharedDs({
+      fetchConfig: { ...sources[0].fetchConfig!, method: 'POST' },
+    });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://method.example.com',
+      method: 'OPTIONS',
+      headers: [{ key: 'X', value: 'y' }],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl -X OPTIONS https://method.example.com'));
+    act(() => result.current.handleImportCurl());
+    const updated = onUpdate.mock.calls.at(-1)?.[0];
+    expect(updated?.[0].fetchConfig.method).toBe('POST');
+  });
+
+  it('handleImportCurl is a no-op when curl input is blank', () => {
+    const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
+    onUpdate.mockClear();
+    act(() => result.current.handleImportCurl());
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('handleFetchHeaderChange ignores out-of-range index', () => {
+    const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
+    onUpdate.mockClear();
+    act(() => result.current.handleFetchHeaderChange(5, 'key', 'x'));
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('handleCurlInputChange only updates local state when nothing is selected', () => {
+    const { result } = renderHook(() => useSharedDsFetchConfig(undefined, sources, onUpdate));
+    act(() => result.current.handleCurlInputChange('orphan curl'));
+    expect(result.current.curlInput).toBe('orphan curl');
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 
   it('does nothing when no selected source', () => {

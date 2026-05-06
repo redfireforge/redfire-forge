@@ -271,6 +271,13 @@ app.get('/api/logs/stream', (req: Request, res: Response) => {
   });
 });
 
+// Covered by tests via next(err) — only registered under Vitest.
+if (process.env.VITEST) {
+  app.get('/__vitest_unhandled_error__', (_req: Request, _res: Response, next) => {
+    next(new Error('vitest'));
+  });
+}
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({

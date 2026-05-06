@@ -109,7 +109,7 @@ export default function WorkflowNodeConfigModal({
   // Reset draft if the modal is opened for a different node
   useEffect(() => {
     originalDataRef.current = snapshot(node.data);
-    setDraft(snapshot(node.data)); // eslint-disable-line react-hooks/set-state-in-effect -- reset draft when switching nodes
+    setDraft(snapshot(node.data));  
   }, [node.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftNode = useMemo((): WorkflowNode => ({ ...node, data: draft }), [node, draft]);

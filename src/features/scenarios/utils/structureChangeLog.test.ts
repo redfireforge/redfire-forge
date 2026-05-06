@@ -205,13 +205,52 @@ describe('structureChangeLog', () => {
       expect(actionLabel('fg-renamed')).toBe('Group renamed');
     });
 
-    it('actionIcon returns correct icons', () => {
+    it('deleteLogEntry keeps log when id does not match', () => {
+      const e1 = { ...createEntry('scenario-added', 'A'), id: 'keep' };
+      const fg = makeFg({ structureLog: [e1] });
+      const r = deleteLogEntry(fg, 'missing');
+      expect(r.structureLog).toHaveLength(1);
+    });
+
+    it('actionLabel covers all known action codes', () => {
+      const cases: Array<[import('../../../shared/types').StructureChangeAction, string]> = [
+        ['scenario-added', 'Scenario added'],
+        ['scenario-removed', 'Scenario removed'],
+        ['scenario-renamed', 'Scenario renamed'],
+        ['scenario-moved-in', 'Scenario moved in'],
+        ['scenario-moved-out', 'Scenario moved out'],
+        ['test-added', 'Test added'],
+        ['test-removed', 'Test removed'],
+        ['test-renamed', 'Test renamed'],
+        ['test-moved-in', 'Test moved in'],
+        ['test-moved-out', 'Test moved out'],
+        ['test-copied', 'Test copied'],
+        ['fg-renamed', 'Group renamed'],
+      ];
+      for (const [code, label] of cases) {
+        expect(actionLabel(code)).toBe(label);
+      }
+    });
+
+    it('actionIcon covers renamed actions', () => {
       expect(actionIcon('scenario-added')).toBe('+');
       expect(actionIcon('scenario-moved-in')).toBe('+');
       expect(actionIcon('test-copied')).toBe('+');
       expect(actionIcon('scenario-removed')).toBe('−');
       expect(actionIcon('test-moved-out')).toBe('−');
       expect(actionIcon('scenario-renamed')).toBe('~');
+    });
+
+    it('actionLabel default returns action string for unknown values', () => {
+      expect(actionLabel('not-a-real-action' as unknown as import('../../../shared/types').StructureChangeAction)).toBe('not-a-real-action');
+    });
+
+    it('actionIcon returns bullet fallback', () => {
+      expect(actionIcon('not-a-real-action' as unknown as import('../../../shared/types').StructureChangeAction)).toBe('•');
+    });
+
+    it('actionClass returns empty string fallback', () => {
+      expect(actionClass('not-a-real-action' as unknown as import('../../../shared/types').StructureChangeAction)).toBe('');
     });
 
     it('actionClass returns correct CSS classes', () => {
