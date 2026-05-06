@@ -77,21 +77,17 @@ describe('RunnerExecutionConfig', () => {
     expect(screen.getByLabelText('Batch')).toBeTruthy();
     expect(screen.getByLabelText('Continuous Pool')).toBeTruthy();
     expect(screen.getByLabelText('Load Profile')).toBeTruthy();
-    expect(screen.getByLabelText('Workflow')).toBeTruthy();
+    // 'Workflow' mode is excluded from the generic runner's default mode list
+    // (it is only shown in the Workflow Runner via a dedicated namePrefix + mode list)
+    expect(screen.queryByLabelText('Workflow')).toBeNull();
   });
 
-  it('shows the workflow-specific hint', () => {
-    renderConfig({ executionMode: 'workflow' });
-
-    expect(screen.getByText('Multi-step chain: each request can extract values for the next step')).toBeTruthy();
-  });
-
-  it('dispatches the selected execution mode', () => {
+  it('dispatches the selected execution mode on radio click', () => {
     const { onExecutionModeChange } = renderConfig();
 
-    fireEvent.click(screen.getByLabelText('Workflow'));
+    fireEvent.click(screen.getByLabelText('Sequential'));
 
-    expect(onExecutionModeChange).toHaveBeenCalledWith('workflow');
+    expect(onExecutionModeChange).toHaveBeenCalledWith('sequential');
   });
 
   // --- Sequential mode ---
@@ -139,7 +135,7 @@ describe('RunnerExecutionConfig', () => {
 
   it('enables max-errors / error-rate inputs only for stop-threshold', () => {
     const { container } = renderConfig({ errorPolicy: 'continue' });
-    const maxErrsInput = container.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    const _maxErrsInput = container.querySelectorAll<HTMLInputElement>('input[type="number"]');
     // Max Errors and Error Rate fields should be disabled when not stop-threshold
     const maxErrorsField = screen.getByText('Max Errors').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     expect(maxErrorsField.disabled).toBe(true);
@@ -490,7 +486,7 @@ describe('RunnerExecutionConfig', () => {
   it('uses default spike values when undefined', () => {
     renderConfig({
       executionMode: 'load-profile',
-      loadProfile: { type: 'spike', durationSec: 60, maxConcurrency: 5 } as any,
+      loadProfile: { type: 'spike', durationSec: 60, maxConcurrency: 5 } as unknown as Parameters<typeof renderConfig>[0]['loadProfile'],
     });
     expect(screen.getByText('Spike Concurrency')).toBeTruthy();
   });

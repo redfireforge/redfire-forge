@@ -579,6 +579,27 @@ if (loadTestMode && data.performanceTestBehavior?.mode === 'auto-resume') {
 }
 ```
 
+#### Important: Quick Test vs Workflow Runner
+
+| Feature | Quick Test | Workflow Runner |
+|---------|------------|-----------------|
+| **Purpose** | Debug single workflow runs | Load/performance testing |
+| **CorrelationWait behavior** | Always waits for real webhooks | Respects Load Test Behavior setting |
+| **Auto-Resume mode** | ❌ Not applied | ✅ Skips wait, injects mock payload |
+| **Synthetic Inject mode** | ❌ Not applied | ✅ Waits configured delay, then injects |
+| **Use case** | Verify workflow logic works | Test workflow under load |
+
+**Quick Test** is designed for debugging and always executes the workflow as it would run in production, including waiting for real external webhook callbacks. This ensures you can verify the actual integration works.
+
+**Workflow Runner** is for load testing. Since you can't realistically coordinate thousands of external webhooks during a load test, the Load Test Behavior settings allow you to skip or simulate the wait.
+
+To test a workflow with Auto-Resume:
+1. Configure the CorrelationWait node with "Auto-Resume" mode and a mock payload
+2. Save the workflow
+3. Navigate to **Workflow Runner** (not Quick Test)
+4. Select the workflow and configure iterations/concurrency
+5. Click Run — the CorrelationWait node will immediately inject the mock payload and continue
+
 ### 5.4 Strategy 3: Webhook Trigger Load Driver
 
 For workflows that **start** with a Webhook Trigger node (instead of a Start node), the traditional "N iterations" model doesn't work — the workflow only runs when an HTTP POST arrives.
@@ -701,30 +722,179 @@ Webhook Trigger ──→ HTTP: Validate Payment ──→ HTTP: Create Order �
 ### 5.7 Implementation Sequence
 
 ```
-Phase 7a: Auto-resume mode for CorrelationWait (simplest, enables CI smoke tests)
+Phase 7a: Auto-resume mode for CorrelationWait (simplest, enables CI smoke tests) ✅ COMPLETE
     ↓
 Phase 7b: Synthetic Event Injector (realistic delays, production-like)
     ↓
 Phase 7c: Webhook Trigger Load Driver (replace "N iterations" with "N webhook POSTs")
     ↓
 Phase 7d: WaitForCondition poll throttle (prevent poll storms)
+    ↓
+Phase 7e: Visual Execution Replay (show results on workflow diagram)
+    ↓
+Phase 7f: Multi-Webhook Testing UI (advanced workflows with multiple CorrelationWait nodes)
 ```
 
-| Sub-phase | Priority | Effort | Depends On |
-|---|---|---|---|
-| 7a. Auto-resume mode | High | S | Phase 3 |
-| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a |
-| 7c. Webhook Load Driver | Medium | M | Phase 3 |
-| 7d. Poll throttle | Medium | S | Phase 3 |
+| Sub-phase | Priority | Effort | Depends On | Status |
+|---|---|---|---|---|
+| 7a. Auto-resume mode | High | S | Phase 3 | ✅ COMPLETE |
+| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a | ✅ COMPLETE |
+| 7c. Webhook Load Driver | Medium | M | Phase 3 | Pending |
+| 7d. Poll throttle | Medium | S | Phase 3 | ✅ COMPLETE |
+| 7e. Visual Execution Replay | Medium | L | Phase 3, 4 | Pending |
+| 7f. Multi-Webhook Testing UI | Low | L | Phase 7a, 7e | Pending |
 
 ### 5.8 Success Criteria for Phase 7
 
-- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests
-- [ ] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter
-- [ ] Webhook-triggered workflows can be load tested by sending N webhook POSTs at a configured rate
-- [ ] WaitForCondition polling is throttled across iterations to prevent poll storms
-- [ ] Harness UI detects event-driven nodes and shows appropriate configuration panels
+- [x] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [x] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter (Phase 7b)
+- [ ] Webhook-triggered workflows can be load tested by sending N webhook POSTs at a configured rate (Phase 7c)
+- [x] WaitForCondition polling is throttled across iterations to prevent poll storms (Phase 7d)
+- [x] Harness UI detects event-driven nodes and shows appropriate configuration panels (Phase 7a)
 - [ ] Per-node metrics distinguish between "time waiting for event" and "time executing HTTP call"
+- [ ] Visual Execution Replay: Show workflow diagram with execution results overlay (Phase 7e)
+- [ ] Multi-Webhook Testing UI: Workflow visualization with webhook queue for complex multi-webhook workflows (Phase 7f)
+
+### 5.9 Phase 7e: Visual Execution Replay (NEW)
+
+After running a workflow in Workflow Runner, users should be able to visualize the execution flow on the workflow diagram. This helps users understand what actually happened during the test.
+
+#### Features
+
+1. **View Execution Flow Button** — After run completes, show "View Execution Flow" button that opens replay view
+2. **Read-only Workflow Canvas** — Renders the workflow diagram with execution state overlaid
+3. **Node State Visualization** — Color nodes by pass/fail/skipped state from the run
+4. **Edge Path Highlighting** — Show which edges were actually traversed
+5. **Node Detail on Click** — Click any node to see:
+   - Input variables at that point
+   - Request/response details (for HTTP nodes)
+   - Extracted variables
+   - Timing info
+   - Error details if failed
+6. **Iteration Selector** — For multi-iteration runs, pick specific iteration to replay
+7. **Aggregate View** — Show aggregate metrics overlay (e.g., "95% pass, avg 120ms")
+
+#### Data Model Changes
+
+Add `WorkflowExecutionTrace` to `TestRun` for workflow runs:
+
+```typescript
+interface WorkflowExecutionTrace {
+  // Per-iteration traces (or single trace for 1 iteration)
+  iterations: Array<{
+    index: number;
+    passed: boolean;
+    durationMs: number;
+    // Ordered list of node execution events
+    events: Array<{
+      nodeId: string;          // React Flow node ID
+      nodeType: string;        // 'http', 'condition', 'delay', etc.
+      nodeLabel: string;
+      timestamp: number;
+      state: 'pass' | 'fail' | 'skipped';
+      durationMs?: number;
+      details?: {
+        statusCode?: number;
+        responseTimeMs?: number;
+        requestResultId?: string;  // Link to RequestResult
+        conditionResult?: boolean;
+        inputVariables?: Record<string, string>;
+        extractedVariables?: Record<string, string>;
+        error?: string;
+      };
+    }>;
+    // Final variable state
+    finalVariables: Record<string, string>;
+  }>;
+  // Which edges were traversed (for highlighting paths)
+  traversedEdges: string[];  // Edge IDs
+}
+```
+
+#### Implementation Tasks
+
+1. **Fix `workflowNodeId`** — Store actual React Flow node ID instead of scenario ID
+2. **Capture execution trace** — Add event logging to `runGraph` callbacks
+3. **Store trace in `TestRun`** — Add `executionTrace` field to `TestRun`
+4. **Create `WorkflowExecutionReplay` component** — Read-only canvas with overlaid results
+5. **Create `NodeExecutionDetail` panel** — Show input/output/variables on click
+6. **Add "View Execution Flow" action** — Button in results dashboard
+7. **Handle multi-iteration** — Iteration selector + aggregate view
+8. **Optimize storage** — Consider compression for large traces
+
+### 5.10 Phase 7f: Multi-Webhook Testing UI (NEW)
+
+For complex workflows with multiple CorrelationWait nodes, the current "Wait for Real Webhook" mode requires manual curl commands for each webhook. This phase adds advanced UI to make testing multi-webhook workflows more user-friendly.
+
+#### Current Limitation
+
+With a workflow like:
+```
+HTTP1 → CorrelationWait1 → HTTP2 → CorrelationWait2 → HTTP3
+```
+
+Users must:
+1. Start workflow, it pauses at CorrelationWait1
+2. Copy curl from UI, modify correlation ID, run in terminal
+3. Workflow continues to CorrelationWait2, pauses
+4. Repeat step 2 for each webhook
+
+This is tedious for multi-webhook workflows.
+
+#### Proposed Features
+
+1. **Workflow Visualization in Runner** — Show read-only workflow graph in the runner panel, highlighting current execution state (which node is paused/running/completed)
+
+2. **Webhook Queue** — Pre-define webhook payloads for each CorrelationWait node before starting the test. The UI auto-fires them when the workflow reaches each node.
+
+3. **Webhook Scenarios** — Save/load predefined webhook response sequences for repeated testing of multi-step workflows.
+
+4. **One-Click Fire** — When workflow pauses at a CorrelationWait, show a "Fire Webhook" button directly in the workflow visualization (instead of copying curl).
+
+5. **Payload Editor** — Edit webhook payload inline before firing, with JSON validation.
+
+#### UI Mockup
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Workflow Runner                                             │
+├─────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Workflow: Payment Flow                                  │ │
+│ │ Mode: Wait for Real Webhook (Debug)                     │ │
+│ ├─────────────────────────────────────────────────────────┤ │
+│ │                                                         │ │
+│ │  [Submit] ──✓── [Wait for] ──⏸── [Confirm] ── [Wait for]│ │
+│ │  Payment       Callback          Order          Shipping│ │
+│ │    ✓           PAUSED             ...            ...    │ │
+│ │                                                         │ │
+│ │  ┌──────────────────────────────────────────────────┐   │ │
+│ │  │ Paused at: Wait for Payment Callback            │   │ │
+│ │  │ Correlation ID: pay_12345                       │   │ │
+│ │  │                                                  │   │ │
+│ │  │ Payload:                                        │   │ │
+│ │  │ { "paymentId": "pay_12345", "status": "..." }   │   │ │
+│ │  │                                                  │   │ │
+│ │  │ [Edit Payload]        [🚀 Fire Webhook]         │   │ │
+│ │  └──────────────────────────────────────────────────┘   │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Implementation Tasks
+
+1. **Mini Workflow Visualization** — Render a simplified, horizontal view of the workflow in the runner panel
+2. **Real-time State Sync** — Update node states as workflow executes (polling or WebSocket)
+3. **Paused Node Expansion** — When a node is paused, expand to show webhook controls
+4. **Fire Webhook API** — Integrate with existing `/api/correlations/resume` endpoint
+5. **Payload Editor** — JSON editor with validation for webhook payload
+6. **Webhook Queue System** — Pre-define payloads for all webhooks before running
+7. **Scenario Save/Load** — Persist webhook sequences for repeated testing
+
+#### Dependencies
+
+- Phase 7a (CorrelationWait configuration)
+- Phase 7e (Visual Execution Replay — can share workflow canvas components)
 
 ---
 
@@ -1718,9 +1888,9 @@ Brief description of what this guide covers.
 - [x] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Workflow Runner
 - [x] CLI supports `workflow` command for graph-based load testing
 - [x] Existing flat-chain workflow mode continues to work (backward compatible)
-- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [x] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
 - [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
-- [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
+- [x] WaitForCondition polling is throttled across iterations (Phase 7d)
 - [x] Documentation comparing Test Runner vs Workflow Runner
 - [ ] Training manuals covering Workflow Runner usage
 - [ ] Gallery samples demonstrating workflow performance testing
@@ -1738,6 +1908,12 @@ Brief description of what this guide covers.
 
 | Date | Change |
 |------|--------|
+| 2026-05-06 | **Phase 7b complete: Synthetic Event Injector**. Created `SyntheticEventInjector` class that monitors the correlation store for paused workflows and automatically fires synthetic resume calls after configurable delay + jitter. Wired into `graphLoadRunner.ts` — when mode is `synthetic-inject`, creates an `InMemoryCorrelationStore` + `SyntheticEventInjector`. Updated `handleCorrelationWaitNode` to use store-based pause/resume for synthetic mode (with inline delay fallback when no store). Added 10 unit tests for `SyntheticEventInjector`, updated handler tests. This simulates realistic async timing by testing the full pause/resume flow. |
+| 2026-05-06 | Phase 7a enhancement: **Simplified Mock Payload UI v2**. Only shows editable dynamic fields (status, paymentStatus, state, etc.) with hint about test scenarios. Fixed fields (transactionId, processedAt) are hidden from input but visible in JSON preview. Added "Mock Payload" preview section showing complete JSON. Updated workflow-runner-guide.md and workflow-correlation-guide.md with new UI examples. |
+| 2026-05-06 | Phase 7a enhancement: **Simplified Mock Payload UI**. Replaced JSON textarea with field-based inputs for each extract variable. Shows only configurable fields (e.g., `status`) with clear labels. Info text explains all transactions use the same values. Correlation ID is auto-handled. Advanced per-transaction variable editing deferred to Phase 7f. |
+| 2026-05-06 | Phase 7a enhancements: (1) **Wait for Real Webhook improvements**: Added curl command modal with actual correlation IDs pre-filled, "Currently Paused Workflows" list shows only when workflows are paused, curl button disabled until workflow is paused. (2) **Single transaction mode**: "Wait for Real Webhook" now forces Concurrency=1, Transactions=1 and disables those fields (not suitable for load testing). (3) **Cancelled status**: Clicking Stop on a paused workflow now marks results as "cancelled" instead of "success". Added `cancelled: boolean` to `RequestResult`. (4) **RemoteCorrelationStore for load runner**: `graphLoadRunner` now creates a `RemoteCorrelationStore` when mode is `wait-for-real`, enabling workflows to actually pause and register with the webhook server. (5) **Phase 7f planned**: Added new phase for Multi-Webhook Testing UI to handle complex workflows with multiple CorrelationWait nodes (workflow visualization in runner, one-click fire, webhook queue). |
+| 2026-05-06 | Phase 7a enhancement: Moved CorrelationWait behavior configuration from node-level (`CorrelationWaitNodeData.loadTestBehavior`) to runner-level (`TestConfig.correlationWaitConfig`). This separates workflow logic from test configuration — the same workflow can now be tested with different behaviors without modifying the workflow definition. UI moved from `CorrelationWaitConfig.tsx` design panel to `WorkflowRunner.tsx` with new `CorrelationWaitConfigPanel` component. Config passed through `runGraphLoad` → `runGraph` → `handleCorrelationWaitNode`. Node-level `mockPayload` still works as fallback. Updated unit tests and documentation. |
+| 2026-05-06 | Phase 7a complete: Implemented auto-resume mode for CorrelationWait nodes during load tests. Added `loadTestBehavior` field to `CorrelationWaitNodeData` with three modes: `wait-for-real`, `auto-resume`, `synthetic-inject`. Updated `handleCorrelationWaitNode` to skip actual webhook wait and inject mock payload when `loadTestMode=true` and mode is `auto-resume` or `synthetic-inject`. Added `loadTestMode` flag to `NodeHandlerContext` and `runGraph` function. UI config panel added for configuring mock payload and synthetic delay/jitter. 28 unit tests for handler, 20 tests for UI config. |
 | 2026-05-05 | Phase 10c complete: Created 9 advanced guides (keyboard-shortcuts, request-versioning-guide, test-versioning-guide, workflow-correlation-guide, workflow-scripts-guide, workflow-sub-workflows-guide, workflow-versioning-guide, preferences-guide, training-tracks-guide). Phase 10 COMPLETE with 35 total guides. |
 | 2026-05-05 | Phase 10b complete: Created 14 feature guides (request-editor-guide, request-variables-guide, catalog-guide, catalog-import-guide, validation-modes-guide, shared-data-sources-guide, workflow-variables-guide, workflow-services-guide, workflow-debugging-guide, workflow-triggers-guide, results-comparison-guide, results-export-guide, global-auth-guide, gallery-guide). |
 | 2026-05-05 | Phase 10a complete: Created 12 core user guides (getting-started, concepts-overview, requests-guide, request-auth-guide, scenarios-guide, test-runner-guide, parameterized-testing-guide, assertions-guide, workflow-designer-guide, workflow-nodes-reference, results-guide, environments-guide) and guide index (README.md). |

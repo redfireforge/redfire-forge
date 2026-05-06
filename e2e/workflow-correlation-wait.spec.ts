@@ -157,12 +157,12 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     await expect(labelInput).toHaveValue('Wait for Payment');
   });
 
-  test('config modal closes on Cancel', async ({ page }) => {
+  test('config modal closes on Close button', async ({ page }) => {
     await page.locator('.wf-node-correlationWait .wf-node-configure-badge').click();
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await modal.getByRole('button', { name: 'Cancel' }).click();
-    await expect(modal).not.toBeVisible();
+    await modal.getByRole('button', { name: 'Close' }).click();
+    await expect(modal).not.toBeVisible({ timeout: 3000 });
   });
 });
 

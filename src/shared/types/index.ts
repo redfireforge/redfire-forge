@@ -362,6 +362,18 @@ export interface ThinkTimeConfig {
   stdDevMs?: number;
 }
 
+/** Configuration for how CorrelationWait nodes behave during load tests. */
+export interface CorrelationWaitRunnerConfig {
+  /** How to handle the correlation wait during load tests. */
+  mode: 'wait-for-real' | 'auto-resume' | 'synthetic-inject';
+  /** Delay before synthetic injection (ms). Only used when mode is 'synthetic-inject'. */
+  syntheticDelayMs?: number;
+  /** Random jitter range (±ms) added to syntheticDelayMs. */
+  syntheticJitterMs?: number;
+  /** Per-node mock payloads. Key is node ID. If not specified, uses empty object. */
+  mockPayloads?: Record<string, Record<string, unknown>>;
+}
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
@@ -379,6 +391,10 @@ export interface TestConfig {
   workflowVariables?: Record<string, string>;
   /** Reference to a saved workflow definition (enables full graph execution) */
   workflowId?: string;
+  /** Configuration for how CorrelationWait nodes behave during load tests */
+  correlationWaitConfig?: CorrelationWaitRunnerConfig;
+  /** Maximum concurrent poll operations for WaitForCondition nodes. Defaults to 20. */
+  maxConcurrentPolls?: number;
 }
 
 export interface FailureDetail {
@@ -426,6 +442,8 @@ export interface RequestResult {
   iterationIndex?: number;
   /** Which workflow node produced this result (for per-step metrics) */
   workflowNodeId?: string;
+  /** True if the request was cancelled by user (e.g., Stop button) */
+  cancelled?: boolean;
 }
 
 export interface TestSummary {

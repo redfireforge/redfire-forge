@@ -179,38 +179,86 @@ CorrelationWait:
 
 ## Testing with Correlation
 
+### Quick Test vs Workflow Runner
+
+| Feature | Quick Test | Workflow Runner |
+|---------|------------|-----------------|
+| **Purpose** | Debug single workflow runs | Load/performance testing |
+| **CorrelationWait behavior** | Always waits for real webhooks | Respects Load Test Behavior setting |
+| **Auto-Resume mode** | ❌ Not applied | ✅ Skips wait, injects mock payload |
+| **Synthetic Inject mode** | ❌ Not applied | ✅ Waits configured delay, then injects |
+| **Use case** | Verify workflow logic works | Test workflow under load |
+
 ### Quick Test Mode
 
-In Quick Test, CorrelationWait uses mock payload:
+**Important:** Quick Test always waits for real webhook callbacks, regardless of the Load Test Behavior setting. This is intentional — Quick Test is for debugging and verifying that your actual integration works.
 
-1. Configure mock payload in node
-2. Run Quick Test
-3. Node immediately continues with mock data
+To test in Quick Test:
+1. Run workflow (pauses at CorrelationWait)
+2. Send a real webhook callback (see Manual Testing below)
+3. Workflow resumes with the real payload
+
+### Workflow Runner (Load Testing)
+
+For performance testing with CorrelationWait, configure the **CorrelationWait Behavior** in the **Workflow Runner** settings panel (not the node itself).
+
+| Mode | Behavior |
+|------|----------|
+| **Auto-Resume (Skip Wait)** | Immediately inject mock payload and continue (default for load tests) |
+| **Synthetic Inject (Delayed)** | Wait configured delay + jitter, then inject mock payload |
+| **Wait for Real Webhook** | Same as Quick Test — waits for actual callback (not recommended for load tests) |
+
+**To test with Auto-Resume:**
+1. Go to **Workflow Runner** (not Quick Test)
+2. Select the workflow that has CorrelationWait nodes
+3. The "CorrelationWait Behavior" section appears automatically
+4. Select "Auto-Resume (Skip Wait)" mode
+5. Configure the **Mock Webhook Response**:
+   - **Dynamic fields** (like `paymentStatus`) — enter the scenario you want to test (e.g., "completed", "failed")
+   - **Mock Payload preview** — shows the complete JSON that will be injected
+6. Configure iterations/concurrency and Run
+
+**Example UI:**
+```
+Wait for Payment Callback
+
+paymentStatus    [completed                    ]
+💡 Change this value to test different scenarios
+
+Mock Payload:
+{
+  "paymentId": "{{correlationId}}",
+  "paymentStatus": "completed",
+  "transactionId": "sample_transactionId"
+}
+```
+
+**Important:** All transactions use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
+
+**Why is this in the Runner, not the Node?**
+This design separates workflow logic from test configuration. The same workflow can be tested with different behaviors without modifying the workflow definition. Quick Test always waits for real webhooks (for debugging), while Workflow Runner uses your configured behavior (for load testing).
 
 ### Manual Testing
 
-Test real correlation:
+Test real correlation flow:
 
-1. Run workflow (pauses at CorrelationWait)
+1. Run workflow via Quick Test (pauses at CorrelationWait)
 2. In another terminal:
    ```bash
    curl -X POST http://localhost:3001/api/correlations/resume \
      -H "Content-Type: application/json" \
      -d '{"correlationKey": "ORD-001", "payload": {...}}'
    ```
-3. Workflow resumes
+3. Workflow resumes with the provided payload
 
-### Load Testing
+### Test Webhook Button
 
-For performance testing with CorrelationWait:
+In the CorrelationWait configuration panel, there's a "Test Webhook" section:
+- Configure a test payload
+- Click "Send Test Webhook"
+- If a workflow is paused at this node, it will resume
 
-```yaml
-Workflow Runner Settings:
-  Correlation Mode: Mock
-  
-  # All CorrelationWait nodes use their mock payloads
-  # No actual waiting, enables high throughput testing
-```
+**Note:** This requires an active workflow paused at this node (started via Quick Test).
 
 ## Multiple Correlations
 

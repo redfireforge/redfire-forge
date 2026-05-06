@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, NodeRunStatus, WorkflowErrorConfig, Workflow } from '../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, WorkflowErrorConfig, Workflow } from '../types/workflow';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import type { RequestResult, Scenario } from '../../../shared/types';
 import { TokenManager } from '../../../engine/tokenManager';
@@ -8,6 +8,7 @@ import { humanizeError, toErrorMessage } from '../../../shared/utils/helpers';
 import type { DebugController } from './debugController';
 import type { ICorrelationStore } from './correlationStore';
 import { findStartNodes } from './graphRunnerHelpers';
+import type { Semaphore } from '../../../shared/utils/semaphore';
 import {
   handleHttpNode,
   handleConditionNode,
@@ -30,39 +31,8 @@ import {
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
-
-export interface SubWorkflowRunSummary {
-  /** Parent node ID that triggered the sub-workflow. */
-  parentNodeId: string;
-  /** Child workflow name. */
-  childWorkflowName: string;
-  /** Whether the child workflow passed. */
-  passed: boolean;
-  /** Duration of the child workflow execution in ms. */
-  durationMs: number;
-  /** Number of results produced by the child. */
-  resultCount: number;
-  /** Step summaries from the child workflow (HTTP nodes only). */
-  childSteps: Array<{
-    nodeId: string;
-    label: string;
-    state: 'pass' | 'fail' | 'skipped';
-    statusCode?: number;
-    responseTimeMs?: number;
-    error?: string;
-  }>;
-  /** Which retry attempt produced this result (0 = first attempt). */
-  attempt: number;
-}
-
-export interface GraphRunCallbacks {
-  onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
-  onVariablesChange: (variables: Record<string, string>) => void;
-  onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => void;
-  onLog?: (line: { prefix: string; text: string; ts?: number }) => void;
-  /** Fired when a sub-workflow node completes (after retries). */
-  onSubWorkflowComplete?: (summary: SubWorkflowRunSummary) => void;
-}
+// Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
+export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -89,6 +59,15 @@ export async function runGraph(
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
   /** Optional correlation store for `CorrelationWait` nodes. When omitted, those nodes will fail. */
   correlationStore?: ICorrelationStore,
+  /**
+   * When true, the workflow is running under load test mode (N iterations × M concurrency).
+   * Event-driven nodes (CorrelationWait, WaitForCondition) may use their loadTestBehavior settings.
+   */
+  loadTestMode?: boolean,
+  /** Runner-level configuration for CorrelationWait behavior. Takes precedence over node-level settings. */
+  correlationWaitConfig?: CorrelationWaitRunnerConfig,
+  /** Semaphore for throttling concurrent poll operations during load tests. */
+  pollSemaphore?: Semaphore,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -192,6 +171,9 @@ export async function runGraph(
       executionId: `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`,
       workflowId: 'unknown',
       startTime: Date.now(),
+      loadTestMode,
+      correlationWaitConfig,
+      pollSemaphore,
     };
 
     try {
