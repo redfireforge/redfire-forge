@@ -148,6 +148,7 @@ export default function WorkflowPicker({
       <div className="workflow-picker-selector">
         <select
           className="workflow-picker-select"
+          data-testid="workflow-select"
           value={selectedWorkflowId || ''}
           onChange={(e) => e.target.value ? handleWorkflowSelect(e.target.value) : handleClearSelection()}
           disabled={disabled}
