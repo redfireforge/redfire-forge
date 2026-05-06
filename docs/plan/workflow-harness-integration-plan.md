@@ -868,44 +868,433 @@ After full integration, RedfireForge wouldn't compete head-to-head with k6 Cloud
 
 **Priority: High | Effort: Medium**
 
-### 8.1 Training Manuals
+### 8.1 Training Manuals — Detailed Content Plan
 
-Create training manuals for the workflow integration feature:
+Each manual uses **real-world public APIs** that users can test immediately without authentication.
 
-| Manual | Difficulty | Path | Description |
-|--------|------------|------|-------------|
-| `workflow-runner-basics-easy.html` | Easy | workflow | Introduction to Workflow Runner, selecting a workflow, running with defaults |
-| `workflow-runner-variables-medium.html` | Medium | workflow | Configuring initial variables, using variable history |
-| `workflow-runner-iterations-medium.html` | Medium | workflow | Understanding iterations, concurrency, and load profiles |
-| `workflow-runner-results-medium.html` | Medium | workflow | Interpreting workflow results, per-step metrics, iteration drill-down |
-| `runner-comparison-easy.html` | Easy | tests | Choosing between Test Runner and Workflow Runner |
+#### Manual 1: `workflow-runner-basics-easy.html`
+**Path:** workflow | **Difficulty:** Easy ★☆☆
 
-### 8.2 Gallery Samples
+**Learning Objectives:**
+- Navigate to Workflow Runner from sidebar
+- Select an existing workflow from the dropdown
+- Understand the workflow summary (HTTP steps, node names)
+- Run a workflow with default settings (5 iterations, concurrency 1)
+- View the completion banner and navigate to results
 
-Add workflow samples that demonstrate performance testing:
+**Hands-On Exercise:**
+Uses the existing **"Sample: Create → Extract → Verify"** workflow from Gallery:
+1. Import the sample workflow (JSONPlaceholder API)
+2. Navigate to Testing → Workflow Runner
+3. Select the workflow from dropdown
+4. Click "Run Workflow" (uses defaults)
+5. Observe live progress showing 5 iterations
+6. Click "View Full Results →" when complete
 
-| Sample | Category | Description |
-|--------|----------|-------------|
-| `workflow-perf-simple.json` | workflow | Simple 2-step workflow (GET → POST) for basic load testing |
-| `workflow-perf-branching.json` | workflow | Workflow with conditional branching under load |
-| `workflow-perf-parallel.json` | workflow | Fork/join workflow demonstrating parallel path execution |
+**API Used:** `https://jsonplaceholder.typicode.com`
+- Step 1: POST /posts (create)
+- Step 2: GET /posts/{id} (verify)
+
+**Key Screenshots to Include:**
+- Workflow picker dropdown
+- Workflow summary showing "2 HTTP steps"
+- Live progress panel with iteration counter
+- Completion banner with "View Full Results" button
+
+---
+
+#### Manual 2: `workflow-runner-variables-medium.html`
+**Path:** workflow | **Difficulty:** Medium ★★☆
+
+**Learning Objectives:**
+- Understand workflow variables and `{{name}}` syntax
+- Edit initial variable values before running
+- Use Variable History to restore previous configurations
+- Save and label commonly-used variable sets
+- Reset variables to workflow defaults
+
+**Hands-On Exercise:**
+Create a new workflow "Country Lookup" with variables:
+```
+Variables: { "countryName": "germany", "fields": "name,capital,population" }
+```
+Workflow:
+- Step 1: GET `https://restcountries.com/v3.1/name/{{countryName}}?fields={{fields}}`
+- Step 2: GET `https://restcountries.com/v3.1/alpha/{{countryCode}}` (extracted from step 1)
+
+Exercise:
+1. Run with default variables (Germany)
+2. Edit `countryName` to "japan", run again
+3. Open Variable History panel
+4. Click previous config to restore "germany"
+5. Label the Germany config as "European Test"
+6. Reset to workflow defaults
+
+**API Used:** `https://restcountries.com/v3.1`
+- GET /name/{name} — search by country name
+- GET /alpha/{code} — get by alpha code
+
+**Key Screenshots:**
+- Variables panel with editable inputs
+- "Modified" badge showing changes from defaults
+- History panel with saved configurations
+- Label editing for a history item
+
+---
+
+#### Manual 3: `workflow-runner-iterations-medium.html`
+**Path:** workflow | **Difficulty:** Medium ★★☆
+
+**Learning Objectives:**
+- Configure total iterations (how many times to run the workflow)
+- Configure concurrency (parallel iteration limit)
+- Understand iteration vs. request count
+- Use Load Profile mode for time-based testing
+- Configure think time between iterations
+
+**Hands-On Exercise:**
+Uses a 3-step workflow with JSONPlaceholder:
+```
+Step 1: GET /users/1 → extract userId
+Step 2: GET /users/1/posts → extract postIds
+Step 3: GET /posts/1/comments → verify comments exist
+```
+
+Exercises:
+1. **Basic Load:** 10 iterations, concurrency 2
+   - Expected: 30 total requests (3 steps × 10 iterations)
+   - Observe 2 iterations running at once
+
+2. **Higher Concurrency:** 20 iterations, concurrency 5
+   - Compare total duration vs. sequential
+
+3. **Load Profile Mode:** Select "Ramp Up"
+   - Duration: 30 seconds
+   - Start concurrency: 1, Max: 5
+   - Observe ramp pattern in chart
+
+4. **Think Time:** Add fixed 500ms delay
+   - Notice slower iteration completion
+
+**API Used:** `https://jsonplaceholder.typicode.com`
+
+**Key Concepts Table:**
+
+| Setting | What It Controls | Example |
+|---------|-----------------|---------|
+| Iterations | Total workflow executions | 10 iterations = workflow runs 10 times |
+| Concurrency | Max parallel iterations | 5 = up to 5 iterations at once |
+| Load Profile | Time-based load shaping | Ramp from 1→5 over 30s |
+| Think Time | Delay between iterations | 500ms pause after each iteration |
+
+**Key Screenshots:**
+- Execution config panel with iteration/concurrency inputs
+- Live progress showing "5/20 iterations (25%)"
+- Load profile selector expanded
+- Response time chart during load test
+
+---
+
+#### Manual 4: `workflow-runner-results-medium.html`
+**Path:** workflow | **Difficulty:** Medium ★★☆
+
+**Learning Objectives:**
+- Read the Workflow Execution Summary
+- Understand pass rate at workflow level
+- Interpret per-step metrics table
+- Use the Iteration Performance chart
+- Drill into per-iteration detail
+- Identify failed iterations and debug
+
+**Hands-On Exercise:**
+After running a 10-iteration test on a 2-step workflow:
+
+1. **Overall Summary:**
+   - "⚡ Workflow Execution Summary"
+   - 10 iterations, 2 steps, 20 total requests
+   - 100% Pass Rate (green)
+
+2. **Per-Step Metrics Table:**
+   | Step | Count | Pass % | Avg | p50 | p95 | Min | Max |
+   |------|-------|--------|-----|-----|-----|-----|-----|
+   | 1. Create Post | 10 | 100% | 142ms | 138ms | 165ms | 120ms | 180ms |
+   | 2. Verify Post | 10 | 100% | 89ms | 85ms | 112ms | 72ms | 125ms |
+
+3. **Iteration Performance Chart:**
+   - Bar chart showing each iteration's total duration
+   - Green bars = all steps passed
+   - Red bars = at least one step failed
+   - Dotted line = average duration
+
+4. **Per-Iteration Detail (expand):**
+   - Click "▶ Per-Iteration Detail"
+   - Expand iteration #3
+   - See individual request timings
+
+5. **Debugging Failed Iterations:**
+   - Filter to show only failed iterations
+   - Click a failed request to see error details
+   - Check response body for error message
+
+**API Used:** `https://jsonplaceholder.typicode.com`
+- POST /posts → returns 201 with created post
+- GET /posts/{id} → returns 200 with post data
+
+**Key Screenshots:**
+- Workflow Execution Summary header with metrics
+- Per-step metrics table
+- Iteration Performance bar chart with tooltip
+- Expanded iteration showing request details
+- Response detail modal for a failed request
+
+---
+
+#### Manual 5: `runner-comparison-easy.html`
+**Path:** tests | **Difficulty:** Easy ★☆☆
+
+**Learning Objectives:**
+- Understand when to use Test Runner vs. Workflow Runner
+- Know what each runner is optimized for
+- Choose the right runner for your testing goal
+- Navigate between runners efficiently
+
+**Comparison Content:**
+
+| Aspect | Test Runner | Workflow Runner |
+|--------|-------------|-----------------|
+| **Input** | Test scenarios (feature groups) | Workflow (graph of nodes) |
+| **Best For** | API endpoint testing | Multi-step business flows |
+| **Execution** | Independent requests | Sequential/parallel graph |
+| **Variables** | CSV data sources, extractions | Workflow variables, node outputs |
+| **Conditions** | Assertions on response | Condition/Switch nodes |
+| **Results Grouped By** | Feature → Scenario → Test | Workflow → Step → Iteration |
+| **Use Cases** | Load testing APIs, regression | End-to-end flow testing |
+
+**Decision Flowchart:**
+
+```
+Start
+  │
+  ├─ Testing a single API endpoint? → Test Runner
+  │
+  ├─ Testing multiple endpoints in sequence? 
+  │     └─ With dependencies (data from one to next)? → Workflow Runner
+  │     └─ Independent (no data sharing)? → Test Runner with multiple tests
+  │
+  ├─ Need conditional logic (if/else, switch)? → Workflow Runner
+  │
+  ├─ Testing with CSV data variations? → Test Runner (parameterized)
+  │
+  └─ Testing a user journey (login → action → logout)? → Workflow Runner
+```
+
+**Hands-On Exercise:**
+1. Open Gallery → Samples tab
+2. Find "JSONPlaceholder — List Users" → Import to Test Runner
+3. Run with 5 iterations — see results grouped by scenario
+4. Find "Sample: Create → Extract → Verify" → Import as Workflow
+5. Open Workflow Runner, select it, run with 5 iterations
+6. Compare results: Test Runner shows per-request, Workflow Runner shows per-iteration
+
+**APIs Used:** `https://jsonplaceholder.typicode.com`
+
+---
+
+### 8.2 Gallery Samples — Detailed Content Plan
+
+Each sample is a complete, importable workflow using real public APIs.
+
+#### Sample 1: `workflow-perf-simple.json`
+**Category:** workflow-performance | **API:** JSONPlaceholder
+
+**Purpose:** Simplest possible workflow for load testing introduction.
+
+**Workflow Structure:**
+```
+Start → [1. Create Post] → [2. Verify Post] → End
+```
+
+**Nodes:**
+1. **Create Post** (HTTP POST)
+   - URL: `https://jsonplaceholder.typicode.com/posts`
+   - Body: `{ "title": "Load Test {{$iteration}}", "body": "Test content", "userId": 1 }`
+   - Extract: `postId` from `$.id`
+
+2. **Verify Post** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/posts/{{postId}}`
+   - Assert: Status 200, `$.title` contains "Load Test"
+
+**Variables:**
+```json
+{ }
+```
+
+**Recommended Test Config:**
+- 10 iterations, concurrency 2
+- Expected: 20 requests, ~5-10 seconds
+
+---
+
+#### Sample 2: `workflow-perf-branching.json`
+**Category:** workflow-performance | **API:** REST Countries
+
+**Purpose:** Demonstrate conditional branching performance under load.
+
+**Workflow Structure:**
+```
+Start → [1. Search Country] → [2. Country Found?]
+                                   ├── Yes → [3a. Get Details]
+                                   └── No  → [3b. Fallback]
+```
+
+**Variables:**
+```json
+{
+  "searchTerm": "{{$randomCountry}}",
+  "fallbackCode": "US"
+}
+```
+
+**Nodes:**
+1. **Search Country** (HTTP GET)
+   - URL: `https://restcountries.com/v3.1/name/{{searchTerm}}?fullText=false`
+   - Extract: `countryCode` from `$[0].cca2`, `status` from response
+
+2. **Country Found?** (Condition)
+   - Expression: `{{status}} == 200`
+
+3a. **Get Details** (HTTP GET)
+   - URL: `https://restcountries.com/v3.1/alpha/{{countryCode}}`
+
+3b. **Fallback** (HTTP GET)
+   - URL: `https://restcountries.com/v3.1/alpha/{{fallbackCode}}`
+
+**Recommended Test Config:**
+- 20 iterations, concurrency 3
+- Mix of found/not-found paths exercises branching
+
+---
+
+#### Sample 3: `workflow-perf-parallel.json`
+**Category:** workflow-performance | **API:** JSONPlaceholder
+
+**Purpose:** Demonstrate Fork/Join parallel execution under load.
+
+**Workflow Structure:**
+```
+Start → [1. Get User] → [Fork] ─┬─ [2a. Get Posts]   ─┬─ [Join] → [4. Verify] → End
+                                ├─ [2b. Get Todos]   ─┤
+                                └─ [2c. Get Albums]  ─┘
+```
+
+**Variables:**
+```json
+{
+  "userId": "1"
+}
+```
+
+**Nodes:**
+1. **Get User** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/users/{{userId}}`
+   - Extract: `userName` from `$.name`
+
+2. **Fork** (Fork Node) — 3 parallel paths
+
+2a. **Get Posts** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/users/{{userId}}/posts`
+   - Extract: `postCount` from `$.length`
+
+2b. **Get Todos** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/users/{{userId}}/todos`
+   - Extract: `todoCount` from `$.length`
+
+2c. **Get Albums** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/users/{{userId}}/albums`
+   - Extract: `albumCount` from `$.length`
+
+3. **Join** (Join Node) — waits for all 3 paths
+
+4. **Verify** (HTTP GET)
+   - URL: `https://jsonplaceholder.typicode.com/users/{{userId}}`
+   - Assert: User still exists
+
+**Recommended Test Config:**
+- 10 iterations, concurrency 2
+- Expected: 50 requests (5 HTTP nodes × 10 iterations)
+- Parallel paths should complete faster than sequential
+
+---
 
 ### 8.3 Sample Workflow Presets
 
-Add to test presets for workflow-based testing:
+Add to `src/data/galleries/tests/parameterizedPresets.ts`:
 
 ```typescript
-{
-  id: 'workflow-load-basic',
-  name: 'Workflow Load Test - Basic',
-  description: 'Run a workflow with 10 iterations at concurrency 2',
-  config: {
-    executionMode: 'workflow',
-    totalTransactions: 10,
-    concurrency: 2,
-  }
-}
+// Workflow Load Test Presets
+export const workflowLoadPresets: TestPreset[] = [
+  {
+    id: 'workflow-load-basic',
+    name: 'Workflow: Basic Load',
+    description: 'Run workflow 10 times with 2 concurrent iterations',
+    config: {
+      executionMode: 'workflow',
+      totalTransactions: 10,
+      concurrency: 2,
+      thinkTime: { mode: 'none' },
+    }
+  },
+  {
+    id: 'workflow-load-stress',
+    name: 'Workflow: Stress Test',
+    description: 'Run workflow 50 times with 10 concurrent iterations',
+    config: {
+      executionMode: 'workflow',
+      totalTransactions: 50,
+      concurrency: 10,
+      thinkTime: { mode: 'none' },
+    }
+  },
+  {
+    id: 'workflow-load-ramp',
+    name: 'Workflow: Ramp Profile',
+    description: '60-second ramp from 1 to 5 concurrent iterations',
+    config: {
+      executionMode: 'load-profile',
+      loadProfile: {
+        type: 'ramp',
+        durationSec: 60,
+        startConcurrency: 1,
+        maxConcurrency: 5,
+      },
+      thinkTime: { mode: 'fixed', fixedMs: 200 },
+    }
+  },
+  {
+    id: 'workflow-load-sustained',
+    name: 'Workflow: Sustained Load',
+    description: '2-minute sustained load at 3 concurrent iterations',
+    config: {
+      executionMode: 'load-profile',
+      loadProfile: {
+        type: 'constant',
+        durationSec: 120,
+        maxConcurrency: 3,
+      },
+      thinkTime: { mode: 'fixed', fixedMs: 500 },
+    }
+  },
+];
 ```
+
+### 8.4 Success Criteria
+
+- [ ] All 5 training manuals created with consistent styling
+- [ ] Each manual uses only public APIs (no auth required)
+- [ ] Hands-on exercises are tested and working
+- [ ] All 3 gallery workflow samples importable and runnable
+- [ ] Presets appear in Workflow Runner UI
+- [ ] Cross-links between related manuals
 
 ---
 
