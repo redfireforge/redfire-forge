@@ -1,0 +1,96 @@
+# Workflow CLI Parallel Example
+# Demonstrates Fork/Join parallel execution via CLI
+#
+# Run with default settings:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml
+#
+# Run with high iterations:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml -i 50 -c 5
+#
+# Override variables:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml --var userId=3
+
+name: Parallel User Data Fetch
+description: Fork to fetch posts, todos, albums in parallel, then join
+
+variables:
+  userId: "1"
+
+nodes:
+  - id: start
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+
+  - id: get-user
+    type: http
+    position: { x: 250, y: 100 }
+    data:
+      label: Get User
+      method: GET
+      url: https://jsonplaceholder.typicode.com/users/{{userId}}
+      headers:
+        Accept: application/json
+
+  - id: fork
+    type: fork
+    position: { x: 300, y: 200 }
+    data:
+      label: Fork
+
+  - id: get-posts
+    type: http
+    position: { x: 100, y: 320 }
+    data:
+      label: Get Posts
+      method: GET
+      url: https://jsonplaceholder.typicode.com/users/{{userId}}/posts
+
+  - id: get-todos
+    type: http
+    position: { x: 300, y: 320 }
+    data:
+      label: Get Todos
+      method: GET
+      url: https://jsonplaceholder.typicode.com/users/{{userId}}/todos
+
+  - id: get-albums
+    type: http
+    position: { x: 500, y: 320 }
+    data:
+      label: Get Albums
+      method: GET
+      url: https://jsonplaceholder.typicode.com/users/{{userId}}/albums
+
+  - id: join
+    type: join
+    position: { x: 300, y: 440 }
+    data:
+      label: Join
+
+edges:
+  - id: e1
+    source: start
+    target: get-user
+  - id: e2
+    source: get-user
+    target: fork
+  - id: e3
+    source: fork
+    target: get-posts
+  - id: e4
+    source: fork
+    target: get-todos
+  - id: e5
+    source: fork
+    target: get-albums
+  - id: e6
+    source: get-posts
+    target: join
+  - id: e7
+    source: get-todos
+    target: join
+  - id: e8
+    source: get-albums
+    target: join
