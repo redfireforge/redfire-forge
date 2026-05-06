@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useTestExecution, type TimeSeriesPoint } from './useTestExecution';
+import { useTestExecution } from './useTestExecution';
 import type { Scenario, TestConfig, RequestResult } from '../../../shared/types';
 
 // Mock dependencies
