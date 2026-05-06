@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import type { FeatureGroup, Scenario, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
 import type { RunnerConfig } from '../hooks/useRunnerConfig';
 import { resolveAuth } from '../../requests/utils/authResolver';
@@ -98,8 +98,6 @@ export default function ScenarioSelector({
   featureGroups,
   selectedScenarios,
   onSelectedScenariosChange,
-  weights,
-  onWeightsChange,
   skipValidation,
   onSkipValidationChange,
   validationOverride,

@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { TestConfig, LoadProfileConfig } from '../../shared/types';
 import type { Workflow } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
 import WorkflowPicker, { saveWorkflowRunConfig } from './components/WorkflowPicker';
-import RunnerExecutionConfig, { profileLabel } from './components/RunnerExecutionConfig';
+import RunnerExecutionConfig from './components/RunnerExecutionConfig';
 import LiveProgressPanel from './components/LiveProgressPanel';
-import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from './utils/runnerProgressStorage';
+import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 
 interface Props {
   workflows: Workflow[];
@@ -40,7 +40,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [variablesInitialized, setVariablesInitialized] = useState(false);
 
-  const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
+  const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
 
@@ -135,7 +135,6 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
-  const displayIsTimeBased = hasLiveProgress ? isLoadProfile : savedProgress?.isTimeBased ?? false;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
   const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
   const displayExecMode = hasLiveProgress ? 'workflow' : savedProgress?.executionMode ?? 'workflow';

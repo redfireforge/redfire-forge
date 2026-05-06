@@ -298,6 +298,7 @@ export function useWorkflowDesignerControllerPartB(
     effectiveQuickTestBaseUrl,
     handleExtractionFetchSample,
     navStack,
+    navigateToWorkflow,
     handleBreadcrumbNavigate,
     handleNew,
     handleSelect,
