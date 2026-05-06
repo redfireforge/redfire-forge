@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { RequestResult, TestRun } from '../../../shared/types';
 import {
   hasWorkflowData,
@@ -12,6 +12,194 @@ import {
 interface Props {
   run: TestRun;
   onResultClick?: (result: RequestResult) => void;
+}
+
+interface IterationChartProps {
+  iterations: WorkflowIterationSummary[];
+  maxHeight?: number;
+}
+
+function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+
+  const stats = useMemo(() => {
+    if (iterations.length === 0) return { min: 0, max: 0, avg: 0, p95: 0 };
+    const times = iterations.map(i => i.totalTime).sort((a, b) => a - b);
+    const sum = times.reduce((a, b) => a + b, 0);
+    return {
+      min: times[0],
+      max: times[times.length - 1],
+      avg: Math.round(sum / times.length),
+      p95: times[Math.floor(times.length * 0.95)] ?? times[times.length - 1],
+    };
+  }, [iterations]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || iterations.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = container.clientWidth;
+    const height = maxHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+
+    ctx.clearRect(0, 0, width, height);
+
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    const maxTime = Math.max(...iterations.map(i => i.totalTime)) * 1.1;
+    const barWidth = Math.max(2, Math.min(20, (chartWidth / iterations.length) - 2));
+    const barSpacing = (chartWidth - barWidth * iterations.length) / (iterations.length + 1);
+
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    const gridLines = 4;
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padding.top + (chartHeight / gridLines) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+      
+      const value = Math.round(maxTime - (maxTime / gridLines) * i);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${value}ms`, padding.left - 5, y + 3);
+    }
+    ctx.setLineDash([]);
+
+    iterations.forEach((iter, idx) => {
+      const x = padding.left + barSpacing + idx * (barWidth + barSpacing);
+      const barHeight = (iter.totalTime / maxTime) * chartHeight;
+      const y = padding.top + chartHeight - barHeight;
+
+      const gradient = ctx.createLinearGradient(x, y, x, y + barHeight);
+      if (iter.allPassed) {
+        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.9)');
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0.5)');
+      } else {
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.9)');
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.5)');
+      }
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, y, barWidth, barHeight);
+    });
+
+    if (stats.avg > 0) {
+      const avgY = padding.top + chartHeight - (stats.avg / maxTime) * chartHeight;
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, avgY);
+      ctx.lineTo(width - padding.right, avgY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = 'rgba(251, 191, 36, 1)';
+      ctx.font = 'bold 10px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText(`avg: ${stats.avg}ms`, width - padding.right - 80, avgY - 4);
+    }
+
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    const labelStep = Math.max(1, Math.floor(iterations.length / 10));
+    iterations.forEach((iter, idx) => {
+      if (idx % labelStep === 0 || idx === iterations.length - 1) {
+        const x = padding.left + barSpacing + idx * (barWidth + barSpacing) + barWidth / 2;
+        ctx.fillText(`#${iter.iterationIndex + 1}`, x, height - padding.bottom + 15);
+      }
+    });
+  }, [iterations, maxHeight, stats]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || iterations.length === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+    const chartWidth = container.clientWidth - padding.left - padding.right;
+    const barWidth = Math.max(2, Math.min(20, (chartWidth / iterations.length) - 2));
+    const barSpacing = (chartWidth - barWidth * iterations.length) / (iterations.length + 1);
+
+    const relX = x - padding.left - barSpacing;
+    const idx = Math.floor(relX / (barWidth + barSpacing));
+
+    if (idx >= 0 && idx < iterations.length && x >= padding.left && x <= container.clientWidth - padding.right) {
+      const iter = iterations[idx];
+      setTooltip({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top - 40,
+        text: `Iteration #${iter.iterationIndex + 1}: ${iter.totalTime}ms (${iter.passed}/${iter.total} passed)`,
+      });
+    } else {
+      setTooltip(null);
+    }
+  };
+
+  if (iterations.length === 0) return null;
+
+  return (
+    <div className="workflow-iteration-chart" ref={containerRef}>
+      <div className="chart-header">
+        <h4>Iteration Performance</h4>
+        <div className="chart-legend">
+          <span className="legend-item">
+            <span className="legend-color legend-pass"></span> Passed
+          </span>
+          <span className="legend-item">
+            <span className="legend-color legend-fail"></span> Failed
+          </span>
+          <span className="legend-item">
+            <span className="legend-line"></span> Avg ({stats.avg}ms)
+          </span>
+        </div>
+      </div>
+      <div className="chart-stats">
+        <span className="chart-stat">Min: <strong>{stats.min}ms</strong></span>
+        <span className="chart-stat">Avg: <strong>{stats.avg}ms</strong></span>
+        <span className="chart-stat">p95: <strong>{stats.p95}ms</strong></span>
+        <span className="chart-stat">Max: <strong>{stats.max}ms</strong></span>
+      </div>
+      <div style={{ position: 'relative' }}>
+        <canvas
+          ref={canvasRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setTooltip(null)}
+          style={{ cursor: 'crosshair' }}
+        />
+        {tooltip && (
+          <div
+            className="chart-tooltip"
+            style={{ left: tooltip.x, top: tooltip.y }}
+          >
+            {tooltip.text}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function WorkflowResultsSummary({ run, onResultClick }: Props) {
@@ -85,6 +273,10 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
           <span className="metric-label">TPS</span>
         </div>
       </div>
+
+      {iterationSummaries.length > 0 && (
+        <WorkflowIterationChart iterations={iterationSummaries} />
+      )}
 
       <div className="workflow-steps-section">
         <h4>Per-Step Metrics</h4>
