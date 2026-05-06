@@ -441,4 +441,65 @@ export const workflowPaths: TrainingPath[] = [
       },
     ],
   },
+
+  /* ── Workflow: Runner ── */
+  {
+    id: 'wf-runner',
+    name: 'Workflow: Runner',
+    icon: '⚡',
+    description: 'Run workflows as performance tests — iterations, concurrency, variables, and results analysis.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Workflow Runner Basics',
+            description: 'Navigate to the Workflow Runner, select a workflow, run with defaults, and view results.',
+            difficulty: 'easy',
+            sampleId: 'perf-workflow-simple',
+            manualPath: 'workflow/runner/workflow-runner-basics-easy.html',
+          },
+          {
+            title: 'Runner Comparison',
+            description: 'Choose between Test Runner and Workflow Runner based on your testing goals.',
+            difficulty: 'easy',
+            manualPath: 'tests/runner-comparison-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Configuration',
+        manuals: [
+          {
+            title: 'Workflow Variables',
+            description: 'Edit initial variables, use variable history, label configurations, and reset to defaults.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-branching',
+            manualPath: 'workflow/runner/workflow-runner-variables-medium.html',
+          },
+          {
+            title: 'Iterations & Load',
+            description: 'Configure iterations, concurrency, load profiles, and think time for performance testing.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-parallel',
+            manualPath: 'workflow/runner/workflow-runner-iterations-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Results Analysis',
+        manuals: [
+          {
+            title: 'Workflow Results',
+            description: 'Interpret workflow execution summary, per-step metrics, iteration chart, and drill-down.',
+            difficulty: 'medium',
+            manualPath: 'workflow/runner/workflow-runner-results-medium.html',
+          },
+        ],
+      },
+    ],
+  },
 ];
