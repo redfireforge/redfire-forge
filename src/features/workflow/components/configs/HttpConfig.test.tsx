@@ -1,17 +1,18 @@
 /**
  * @vitest-environment jsdom
  */
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
 import type { HttpNodeData, WorkflowService } from '../../types/workflow';
 import type { Scenario, KeyValue } from '../../../../shared/types';
 
-// Mock ExpressionInput and ExpressionTextarea to avoid complex autocomplete internals
+// Mock ExpressionInput with ref forwarding for cursor-based insertion tests
 vi.mock('../expression/ExpressionInput', () => ({
   __esModule: true,
-  default: vi.fn().mockImplementation(({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) => (
-    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={className} data-testid="expression-input" />
+  default: React.forwardRef(({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }, ref: React.Ref<HTMLInputElement>) => (
+    <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={className} data-testid="expression-input" />
   )),
 }));
 
@@ -22,10 +23,30 @@ vi.mock('../expression/ExpressionTextarea', () => ({
   )),
 }));
 
-// Mock ExtractionEditor
+// Mock ExtractionEditor to expose props for testing
+let lastExtractionEditorProps: Record<string, unknown> = {};
 vi.mock('../../../requests/components/ExtractionEditor', () => ({
   __esModule: true,
-  default: vi.fn().mockImplementation(() => <div data-testid="extraction-editor">ExtractionEditor</div>),
+  default: vi.fn().mockImplementation((props: Record<string, unknown>) => {
+    lastExtractionEditorProps = props;
+    return <div data-testid="extraction-editor">ExtractionEditor</div>;
+  }),
+}));
+
+// Mock ParamsEditor to expose props
+let lastParamsEditorProps: Record<string, unknown> = {};
+vi.mock('../../../requests/components/ParamsEditor', () => ({
+  __esModule: true,
+  ParamsEditor: vi.fn().mockImplementation((props: Record<string, unknown>) => {
+    lastParamsEditorProps = props;
+    return <div data-testid="params-editor">QUERY PARAMETERS</div>;
+  }),
+}));
+
+// Mock DataSourceEditor
+vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation(() => <div data-testid="data-source-editor">DataSourceEditor</div>),
 }));
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -392,5 +413,280 @@ describe('HttpConfig', () => {
     const insertBtns = screen.getAllByText('Insert…');
     fireEvent.click(insertBtns[0]);
     expect(onRequest).toHaveBeenCalledWith(expect.any(Function), true);
+  });
+
+  // --- URL Insert callback with cursor position ---
+  it('inserts variable at cursor position in URL', () => {
+    const onChange = vi.fn();
+    const onRequest = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api/users' }) });
+    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
+
+    const insertBtns = screen.getAllByText('Insert…');
+    fireEvent.click(insertBtns[0]);
+
+    // Get the apply callback from onRequestVariableInsert
+    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
+
+    // Simulate cursor at position 4 in the URL input
+    const urlInput = document.querySelector('.wf-config-url-input') as HTMLInputElement;
+    if (urlInput) {
+      Object.defineProperty(urlInput, 'selectionStart', { value: 4, writable: true });
+      Object.defineProperty(urlInput, 'selectionEnd', { value: 4, writable: true });
+    }
+
+    applyFn('{{userId}}');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api{{userId}}/users',
+      }),
+    }));
+  });
+
+  it('appends variable to URL when no cursor position', () => {
+    const onChange = vi.fn();
+    const onRequest = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api/path' }) });
+    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
+
+    const insertBtns = screen.getAllByText('Insert…');
+    fireEvent.click(insertBtns[0]);
+
+    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
+
+    // Make selectionStart unavailable
+    const urlInput = document.querySelector('.wf-config-url-input') as HTMLInputElement;
+    if (urlInput) {
+      Object.defineProperty(urlInput, 'selectionStart', { value: null, writable: true });
+    }
+
+    applyFn('{{token}}');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api/path{{token}}',
+      }),
+    }));
+  });
+
+  // --- ParamsEditor onChange callback ---
+  it('handles param changes via ParamsEditor onChange', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: 'page', value: '1', enabled: true, description: '' },
+      { key: '', value: '', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: expect.stringContaining('page=1'),
+      }),
+    }));
+  });
+
+  it('handles param changes that rebuild URL with template vars', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?id=123' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: 'id', value: '{{userId}}', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api?id={{userId}}',
+      }),
+    }));
+  });
+
+  it('handles params with all empty trailing rows', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?a=1' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: 'a', value: '1', enabled: true, description: '' },
+      { key: '', value: '', enabled: true, description: '' },
+      { key: '', value: '', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  // --- ParamsEditor onInsertVariable callback ---
+  it('calls onInsertVariable via ParamsEditor', () => {
+    const onRequest = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onRequestVariableInsert={onRequest} />);
+
+    const onInsertVariable = lastParamsEditorProps.onInsertVariable as (rowIndex: number, paramKey: string) => void;
+    onInsertVariable(0, 'key');
+
+    expect(onRequest).toHaveBeenCalledWith(expect.any(Function), false, 'key');
+
+    // Invoke the apply function to ensure the param is updated
+    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
+    applyFn('{{token}}');
+  });
+
+  // --- Header Insert button invokes apply callback ---
+  it('header Insert button apply callback updates header value', () => {
+    const onChange = vi.fn();
+    const onRequest = vi.fn();
+    const headers: KeyValue[] = [{ key: 'Auth', value: 'Bearer old' }];
+    render(<HttpConfig {...defaultProps} activeTab="headers" onChange={onChange} onRequestVariableInsert={onRequest} data={makeHttpData({ scenario: makeScenario({ headers }) })} />);
+
+    const insertBtns = screen.getAllByText('Insert…');
+    fireEvent.click(insertBtns[insertBtns.length - 1]);
+
+    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
+    applyFn('{{authToken}}');
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        headers: [{ key: 'Auth', value: '{{authToken}}' }],
+      }),
+    }));
+  });
+
+  // --- Body insert variable apply callback ---
+  it('body Insert variable button apply callback appends to body', () => {
+    const onChange = vi.fn();
+    const onRequest = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ body: '{"key": "' }) });
+    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} onRequestVariableInsert={onRequest} data={data} />);
+
+    fireEvent.click(screen.getByText('Insert variable…'));
+    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
+    applyFn('{{value}}');
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        body: '{"key": "{{value}}',
+      }),
+    }));
+  });
+
+  // --- Data tab ---
+  it('renders DataSourceEditor when activeTab=data', () => {
+    render(<HttpConfig {...defaultProps} activeTab="data" />);
+    expect(screen.getByTestId('data-source-editor')).toBeTruthy();
+  });
+
+  it('shows data source row count badge on Data tab', () => {
+    const data = makeHttpData({
+      scenario: makeScenario({
+        dataSource: {
+          columns: [{ id: 'c1', name: 'col1' }],
+          rows: [
+            { id: 'r1', enabled: true, values: { c1: 'v1' } },
+            { id: 'r2', enabled: false, values: { c1: 'v2' } },
+          ],
+        },
+      }),
+    });
+    render(<HttpConfig {...defaultProps} data={data} />);
+    const badges = document.querySelectorAll('.tab-badge');
+    const badgeTexts = Array.from(badges).map(b => b.textContent);
+    expect(badgeTexts).toContain('1');
+  });
+
+  // --- Extract tab with full fetchSample host config ---
+  it('passes fetchSample host config to ExtractionEditor', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ fetchHostEnabled: true, fetchHostOverride: 'http://custom' }) });
+    render(<HttpConfig {...defaultProps} activeTab="extract" data={data} onChange={onChange}
+      extractionFetchSample={{ onFetch: vi.fn(), fetching: false, error: null }}
+      effectiveQuickTestBaseUrl="http://base.url"
+    />);
+
+    // The ExtractionEditor should receive fetchSample with host
+    const fetchSample = lastExtractionEditorProps.fetchSample as Record<string, unknown>;
+    expect(fetchSample).toBeTruthy();
+    const host = fetchSample.host as Record<string, unknown>;
+    expect(host.enabled).toBe(true);
+    expect(host.override).toBe('http://custom');
+    expect(host.resolvedBaseUrl).toBe('http://base.url');
+
+    // Test setEnabled
+    (host.setEnabled as (v: boolean) => void)(false);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({ fetchHostEnabled: false }),
+    }));
+
+    // Test setOverride
+    onChange.mockClear();
+    (host.setOverride as (v: string) => void)('http://new-host');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({ fetchHostOverride: 'http://new-host' }),
+    }));
+  });
+
+  // --- parseQueryParams edge cases ---
+  it('handles malformed URL gracefully in query params', () => {
+    // decodeURIComponent would throw on %E0%A4%A (invalid) but URLSearchParams handles it
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
+    expect(screen.getByTestId('params-editor')).toBeTruthy();
+  });
+
+  // --- encodeQueryPart with template vars ---
+  it('does not encode query key/value containing template vars', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: '{{paramName}}', value: '{{paramValue}}', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api?{{paramName}}={{paramValue}}',
+      }),
+    }));
+  });
+
+  // --- disabled params excluded from rebuild ---
+  it('excludes disabled params from rebuilt URL', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?a=1' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: 'a', value: '1', enabled: false, description: '' },
+      { key: 'b', value: '2', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api?b=2',
+      }),
+    }));
+  });
+
+  it('encodes query key and value without template vars', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
+
+    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
+    paramsOnChange([
+      { key: 'q', value: 'hello world', enabled: true, description: '' },
+    ]);
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({
+        url: '/api?q=hello%20world',
+      }),
+    }));
   });
 });

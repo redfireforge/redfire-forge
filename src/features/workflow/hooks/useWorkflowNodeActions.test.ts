@@ -21,6 +21,9 @@ vi.mock('../utils/workflowExtractSubWorkflow', () => ({
   extractToSubWorkflow: vi.fn(() => null),
 }));
 
+import { extractToSubWorkflow } from '../utils/workflowExtractSubWorkflow';
+const mockExtract = vi.mocked(extractToSubWorkflow);
+
 const makeRef = <T,>(value: T) => ({ current: value });
 
 const defaultOpts = () => ({
@@ -179,5 +182,163 @@ describe('useWorkflowNodeActions', () => {
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddFromCatalog('missing', 'ep-1'));
     expect(opts.setNodes).not.toHaveBeenCalled();
+  });
+
+  it('handleAddFromCatalog does nothing for missing endpoint', () => {
+    const opts = defaultOpts();
+    opts.catalogEntries = [{
+      id: 'cat-1',
+      servers: [{ url: 'https://api.example.com' }],
+      endpoints: [{ id: 'ep-1', path: '/pets', method: 'get', summary: 'List Pets' }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromCatalog('cat-1', 'ep-99'));
+    expect(opts.setNodes).not.toHaveBeenCalled();
+  });
+
+  it('handleAddFromRequest does nothing when request not found anywhere', () => {
+    const opts = defaultOpts();
+    opts.collections = [{
+      id: 'col-1',
+      requests: [{ id: 'req-1', name: 'R1', url: '/', method: 'GET' }],
+      folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromRequest('col-1', 'req-missing'));
+    expect(opts.setNodes).not.toHaveBeenCalled();
+  });
+
+  it('handleAddFromRequest searches nested folders', () => {
+    const opts = defaultOpts();
+    opts.collections = [{
+      id: 'col-1',
+      requests: [],
+      folders: [{
+        id: 'f1', name: 'Top', requests: [],
+        folders: [{
+          id: 'f2', name: 'Sub', requests: [
+            { id: 'req-nested', name: 'Nested', url: '/nested', method: 'PUT' },
+          ], folders: [],
+        }],
+      }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromRequest('col-1', 'req-nested'));
+    expect(opts.setNodes).toHaveBeenCalled();
+  });
+
+  it('handleUpdateNode with initialVariables AND other patch fields', () => {
+    const opts = defaultOpts();
+    opts.setNodes = vi.fn((fn: any) => {
+      const result = fn([{ id: 'n1', type: 'http', data: { label: 'Old' }, position: { x: 0, y: 0 } }]);
+      opts.nodesRef.current = result;
+      return result;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleUpdateNode('n1', { initialVariables: { token: 'x' }, label: 'Updated' } as any));
+    expect(opts.nodeInitialVarsRef.current.n1).toEqual({ token: 'x' });
+    expect(opts.setNodeInitialVars).toHaveBeenCalled();
+    expect(opts.setNodes).toHaveBeenCalled();
+  });
+
+  describe('handleExtractToSubWorkflow', () => {
+    it('does nothing when selected is null', () => {
+      const opts = defaultOpts();
+      opts.selected = null;
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleExtractToSubWorkflow('n1'));
+      expect(mockExtract).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when prompt returns empty', () => {
+      const opts = defaultOpts();
+      vi.stubGlobal('prompt', vi.fn(() => ''));
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleExtractToSubWorkflow('n1'));
+      expect(mockExtract).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    it('shows toast warning when extraction returns null', () => {
+      const opts = defaultOpts();
+      vi.stubGlobal('prompt', vi.fn(() => 'Sub WF'));
+      mockExtract.mockReturnValue(null);
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleExtractToSubWorkflow('n1'));
+      expect(mockExtract).toHaveBeenCalled();
+      expect(opts.toast.show).toHaveBeenCalledWith('warning', 'Cannot extract', expect.any(String));
+      vi.unstubAllGlobals();
+    });
+
+    it('performs full extraction when result is valid', () => {
+      const opts = defaultOpts();
+      vi.stubGlobal('prompt', vi.fn(() => 'Auth Sub'));
+
+      const extractResult = {
+        childWorkflow: {
+          name: 'Auth Sub',
+          nodes: [{ id: 'cn1', type: 'http', data: {}, position: { x: 0, y: 0 } }],
+          edges: [],
+          variables: { key: 'val' },
+        },
+        subWorkflowNode: {
+          id: 'sw-1',
+          type: 'subWorkflow',
+          data: { label: 'Auth Sub', workflowId: '', workflowName: '' },
+          position: { x: 0, y: 0 },
+        },
+        extractedNodeIds: new Set(['n1']),
+        extractedEdgeIds: new Set(['e1']),
+      };
+      mockExtract.mockReturnValue(extractResult as any);
+
+      const createdWf = { id: 'new-wf', name: 'Auth Sub' };
+      opts.workflows = [createdWf] as any;
+      opts.setNodes = vi.fn((fn: any) => fn([
+        { id: 'n1', type: 'http', data: {}, position: { x: 0, y: 0 } },
+        { id: 'n2', type: 'http', data: {}, position: { x: 0, y: 100 } },
+      ]));
+      opts.setEdges = vi.fn((fn: any) => fn([
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+      ]));
+
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleExtractToSubWorkflow('n1'));
+
+      expect(opts.undoRedo.takeSnapshot).toHaveBeenCalledWith('Extract to sub-workflow');
+      expect(opts.create).toHaveBeenCalledWith('Auth Sub');
+      expect(opts.update).toHaveBeenCalledWith('new-wf', expect.objectContaining({
+        nodes: extractResult.childWorkflow.nodes,
+        edges: extractResult.childWorkflow.edges,
+        variables: extractResult.childWorkflow.variables,
+      }));
+      expect(opts.toast.show).toHaveBeenCalledWith('success', 'Extracted', expect.stringContaining('Auth Sub'));
+
+      vi.unstubAllGlobals();
+    });
+
+    it('handles extraction when created workflow not found', () => {
+      const opts = defaultOpts();
+      vi.stubGlobal('prompt', vi.fn(() => 'Missing WF'));
+
+      const extractResult = {
+        childWorkflow: { name: 'Missing WF', nodes: [], edges: [], variables: {} },
+        subWorkflowNode: { id: 'sw-1', type: 'subWorkflow', data: { label: 'Missing WF' }, position: { x: 0, y: 0 } },
+        extractedNodeIds: new Set(['n1']),
+        extractedEdgeIds: new Set<string>(),
+      };
+      mockExtract.mockReturnValue(extractResult as any);
+      opts.workflows = [];
+
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleExtractToSubWorkflow('n1'));
+
+      expect(opts.create).toHaveBeenCalledWith('Missing WF');
+      expect(opts.update).not.toHaveBeenCalled();
+      expect(opts.toast.show).toHaveBeenCalledWith('success', 'Extracted', expect.any(String));
+
+      vi.unstubAllGlobals();
+    });
   });
 });

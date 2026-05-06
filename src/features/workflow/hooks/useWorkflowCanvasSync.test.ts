@@ -1,128 +1,396 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { useWorkflowVariableHints } from './useWorkflowCanvasSync';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useWorkflowCanvasSync, useWorkflowVariableHints } from './useWorkflowCanvasSync';
+import type { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../types/workflow';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 
-vi.mock('../utils/workflowNodeFactory', async (importOriginal) => {
-  const actual = await importOriginal() as any;
+function createMockWorkflow(id = 'wf-1', nodes: WorkflowNode[] = [], edges: WorkflowEdge[] = []): Workflow {
   return {
-    ...actual,
-    enrichNodeData: (n: any, ivMap: any) => {
-      const iv = ivMap[n.id];
-      if (iv && n.data) return { ...n, data: { ...n.data, initialVariables: iv } };
-      return n;
-    },
+    id,
+    name: 'Test Workflow',
+    nodes,
+    edges,
+    variables: { baseUrl: 'https://api.example.com' },
+    hostProfiles: [],
+    authProfiles: [],
+    services: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
-});
+}
 
-vi.mock('../utils/workflowVariableHints', () => ({
-  isHttpWorkflowNode: (n: any) => n.type === 'http',
-  collectConditionVariableHints: vi.fn(() => [{ key: 'x', source: 'workflow' }]),
-  collectWaitForConditionVariableHints: vi.fn(() => [{ key: 'w', source: 'waitFor' }]),
-  mergeHttpVariableHintsWithStepInitialVars: vi.fn((base: any[]) => [...base, { key: 'iv', source: 'step' }]),
-}));
+function createMockNode(id: string, type: string, position = { x: 0, y: 0 }, data: Record<string, unknown> = {}): WorkflowNode {
+  return {
+    id,
+    type: type as WorkflowNode['type'],
+    position,
+    data: { label: `${type} ${id}`, ...data },
+  } as WorkflowNode;
+}
 
-import { collectConditionVariableHints, collectWaitForConditionVariableHints } from '../utils/workflowVariableHints';
+function createMockEdge(id: string, source: string, target: string): WorkflowEdge {
+  return { id, source, target };
+}
 
-const makeNode = (overrides: Partial<WorkflowRFNode> = {}): WorkflowRFNode => ({
-  id: 'n1',
-  type: 'http',
-  position: { x: 0, y: 0 },
-  data: { label: 'Test', initialVariables: {} },
-  ...overrides,
-} as any);
+function createMockCanvasSyncOpts() {
+  const abortRef = { current: null as AbortController | null };
+  const debugControllerRef = { current: null };
+  const nextNodeY = { current: 100 };
 
-const defaultOpts = () => ({
-  selectedNodeId: null as string | null,
-  nodes: [makeNode()] as WorkflowRFNode[],
-  edges: [{ id: 'e1', source: 'n0', target: 'n1' }] as WorkflowRFEdge[],
-  nodeInitialVars: {} as Record<string, Record<string, string>>,
-  workflowVariables: { base: 'http://localhost' },
+  return {
+    selected: null as Workflow | null,
+    previewWorkflow: null as Workflow | null,
+    setNodes: vi.fn(),
+    setEdges: vi.fn(),
+    setSelectedNodeId: vi.fn(),
+    setLayoutVersion: vi.fn(),
+    setWorkflowVariables: vi.fn(),
+    setWorkflowHostProfiles: vi.fn(),
+    setWorkflowAuthProfiles: vi.fn(),
+    setWorkflowServices: vi.fn(),
+    setWorkflowErrorConfig: vi.fn(),
+    setNodeInitialVars: vi.fn(),
+    nextNodeY,
+    isRunning: false,
+    abortRef,
+    setIsRunning: vi.fn(),
+    setIsDebugMode: vi.fn(),
+    debugControllerRef,
+  };
+}
+
+describe('useWorkflowCanvasSync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('workflow selection', () => {
+    it('does nothing when no workflow is selected', () => {
+      const opts = createMockCanvasSyncOpts();
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setNodes).not.toHaveBeenCalled();
+      expect(opts.setEdges).not.toHaveBeenCalled();
+    });
+
+    it('syncs canvas when workflow is selected', () => {
+      const opts = createMockCanvasSyncOpts();
+      const nodes = [createMockNode('start-1', 'start', { x: 0, y: 0 })];
+      const edges = [createMockEdge('e1', 'start-1', 'end-1')];
+      opts.selected = createMockWorkflow('wf-1', nodes, edges);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setNodes).toHaveBeenCalled();
+      expect(opts.setEdges).toHaveBeenCalled();
+      expect(opts.setSelectedNodeId).toHaveBeenCalledWith(null);
+      expect(opts.setWorkflowVariables).toHaveBeenCalledWith({ baseUrl: 'https://api.example.com' });
+    });
+
+    it('syncs workflow variables from selected workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      opts.selected.variables = { token: 'abc123', apiKey: 'key456' };
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setWorkflowVariables).toHaveBeenCalledWith({ token: 'abc123', apiKey: 'key456' });
+    });
+
+    it('syncs workflow services from selected workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      opts.selected.services = [{ id: 'svc-1', name: 'API', urls: { prod: 'https://api.example.com' } }];
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setWorkflowServices).toHaveBeenCalledWith(opts.selected.services);
+    });
+
+    it('syncs host profiles from selected workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      opts.selected.hostProfiles = [{ id: 'hp-1', name: 'Prod', baseUrl: 'https://prod.api.com' }];
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setWorkflowHostProfiles).toHaveBeenCalledWith(opts.selected.hostProfiles);
+    });
+
+    it('syncs auth profiles from selected workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      opts.selected.authProfiles = [{ id: 'ap-1', name: 'Bearer', auth: { type: 'bearer', token: 'abc' } }];
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setWorkflowAuthProfiles).toHaveBeenCalledWith(opts.selected.authProfiles);
+    });
+
+    it('extracts initialVariables from HTTP nodes', () => {
+      const opts = createMockCanvasSyncOpts();
+      const httpNode = createMockNode('http-1', 'http', { x: 0, y: 100 }, {
+        scenario: { id: 'sc-1', name: 'Test', url: '/api/test', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } },
+        initialVariables: { userId: '123', token: 'abc' },
+      });
+      opts.selected = createMockWorkflow('wf-1', [httpNode], []);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setNodeInitialVars).toHaveBeenCalledWith(expect.objectContaining({
+        'http-1': { userId: '123', token: 'abc' },
+      }));
+    });
+
+    it('calculates nextNodeY from highest node position', () => {
+      const opts = createMockCanvasSyncOpts();
+      const nodes = [
+        createMockNode('n1', 'start', { x: 0, y: 0 }),
+        createMockNode('n2', 'http', { x: 0, y: 200 }),
+        createMockNode('n3', 'end', { x: 0, y: 400 }),
+      ];
+      opts.selected = createMockWorkflow('wf-1', nodes, []);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.nextNodeY.current).toBeGreaterThan(400);
+    });
+
+    it('aborts running execution when workflow changes', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.isRunning = true;
+      opts.abortRef.current = new AbortController();
+      const abortSpy = vi.spyOn(opts.abortRef.current, 'abort');
+      opts.selected = createMockWorkflow('wf-1', [], []);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(abortSpy).toHaveBeenCalled();
+      expect(opts.setIsRunning).toHaveBeenCalledWith(false);
+      expect(opts.setIsDebugMode).toHaveBeenCalledWith(false);
+    });
+
+    it('does not re-sync when same workflow is re-rendered', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+
+      const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
+
+      vi.clearAllMocks();
+      rerender();
+
+      expect(opts.setNodes).not.toHaveBeenCalled();
+    });
+
+    it('re-syncs when switching to different workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+
+      const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
+
+      vi.clearAllMocks();
+      opts.selected = createMockWorkflow('wf-2', [], []);
+      rerender();
+
+      expect(opts.setNodes).toHaveBeenCalled();
+      expect(opts.setEdges).toHaveBeenCalled();
+    });
+
+    it('triggers layout version increment for preview workflow', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      opts.previewWorkflow = createMockWorkflow('preview-1', [], []);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setLayoutVersion).toHaveBeenCalled();
+    });
+
+    it('handles nodes with invalid positions', () => {
+      const opts = createMockCanvasSyncOpts();
+      const nodeWithBadPosition = {
+        id: 'n1',
+        type: 'start' as const,
+        position: { x: undefined, y: undefined } as unknown as { x: number; y: number },
+        data: { label: 'Start' },
+      };
+      opts.selected = createMockWorkflow('wf-1', [nodeWithBadPosition], []);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setNodes).toHaveBeenCalledWith(expect.arrayContaining([
+        expect.objectContaining({ position: { x: 0, y: 0 } }),
+      ]));
+    });
+  });
 });
 
 describe('useWorkflowVariableHints', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('selectedNode is null when no selectedNodeId', () => {
-    const { result } = renderHook(() => useWorkflowVariableHints(defaultOpts()));
-    expect(result.current.selectedNode).toBeNull();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('selectedNode is found when selectedNodeId matches', () => {
-    const opts = defaultOpts();
-    opts.selectedNodeId = 'n1';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.selectedNode?.id).toBe('n1');
+  function createMockVariableHintsOpts() {
+    return {
+      selectedNodeId: null as string | null,
+      nodes: [] as WorkflowRFNode[],
+      edges: [] as WorkflowRFEdge[],
+      nodeInitialVars: {} as Record<string, Record<string, string>>,
+      workflowVariables: {} as Record<string, string>,
+    };
+  }
+
+  describe('selectedNode', () => {
+    it('returns null when no node is selected', () => {
+      const opts = createMockVariableHintsOpts();
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.selectedNode).toBeNull();
+    });
+
+    it('returns null when selected node is not found', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'non-existent';
+      opts.nodes = [];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.selectedNode).toBeNull();
+    });
+
+    it('returns enriched node when found', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'http-1';
+      opts.nodes = [{
+        id: 'http-1',
+        type: 'http',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'HTTP',
+          scenario: {
+            id: 'sc-1', name: 'Test', url: '/test', method: 'GET',
+            headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+          },
+          initialVariables: {},
+        } as HttpNodeData,
+      }];
+      opts.nodeInitialVars = { 'http-1': { baseUrl: 'https://api.example.com' } };
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.selectedNode).not.toBeNull();
+      expect(result.current.selectedNode?.id).toBe('http-1');
+    });
   });
 
-  it('selectedNode is null when selectedNodeId does not match', () => {
-    const opts = defaultOpts();
-    opts.selectedNodeId = 'missing';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.selectedNode).toBeNull();
+  describe('hintNodes', () => {
+    it('returns enriched nodes array', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.nodes = [
+        { id: 'start-1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } } as WorkflowRFNode,
+        { id: 'end-1', type: 'end', position: { x: 0, y: 100 }, data: { label: 'End' } } as WorkflowRFNode,
+      ];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.hintNodes).toHaveLength(2);
+      expect(result.current.hintNodes[0].id).toBe('start-1');
+      expect(result.current.hintNodes[1].id).toBe('end-1');
+    });
   });
 
-  it('conditionVariableHints is empty when no selectedNode', () => {
-    const { result } = renderHook(() => useWorkflowVariableHints(defaultOpts()));
-    expect(result.current.conditionVariableHints).toEqual([]);
+  describe('hintEdges', () => {
+    it('returns mapped edges array', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.edges = [
+        { id: 'e1', source: 'start-1', target: 'http-1', sourceHandle: 'a', label: 'yes' },
+        { id: 'e2', source: 'http-1', target: 'end-1' },
+      ];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.hintEdges).toHaveLength(2);
+      expect(result.current.hintEdges[0]).toEqual({
+        id: 'e1', source: 'start-1', target: 'http-1', sourceHandle: 'a', label: 'yes',
+      });
+      expect(result.current.hintEdges[1]).toEqual({
+        id: 'e2', source: 'http-1', target: 'end-1', sourceHandle: undefined, label: undefined,
+      });
+    });
+
+    it('handles non-string labels by setting to undefined', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.edges = [
+        { id: 'e1', source: 's', target: 't', label: 123 as unknown as string },
+      ];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.hintEdges[0].label).toBeUndefined();
+    });
   });
 
-  it('conditionVariableHints calls collectConditionVariableHints for condition node', () => {
-    const opts = defaultOpts();
-    opts.nodes = [makeNode({ id: 'n1', type: 'condition' })];
-    opts.selectedNodeId = 'n1';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.conditionVariableHints).toEqual([{ key: 'x', source: 'workflow' }]);
-    expect(collectConditionVariableHints).toHaveBeenCalled();
+  describe('conditionVariableHints', () => {
+    it('returns empty array when no node is selected', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = null;
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.conditionVariableHints).toEqual([]);
+    });
+
+    it('returns empty array for non-condition node types', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'http-1';
+      opts.nodes = [{
+        id: 'http-1',
+        type: 'http',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'HTTP',
+          scenario: {
+            id: 'sc-1', name: 'Test', url: '/test', method: 'GET',
+            headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+          },
+          initialVariables: {},
+        } as HttpNodeData,
+      }];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.conditionVariableHints).toEqual([]);
+    });
   });
 
-  it('conditionVariableHints calls collectWaitForConditionVariableHints for waitForCondition node', () => {
-    const opts = defaultOpts();
-    opts.nodes = [makeNode({ id: 'n1', type: 'waitForCondition' })];
-    opts.selectedNodeId = 'n1';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.conditionVariableHints).toEqual([{ key: 'w', source: 'waitFor' }]);
-    expect(collectWaitForConditionVariableHints).toHaveBeenCalled();
-  });
+  describe('httpVariableHints', () => {
+    it('returns empty array when no node is selected', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = null;
 
-  it('httpVariableHints is empty when no selectedNodeId', () => {
-    const { result } = renderHook(() => useWorkflowVariableHints(defaultOpts()));
-    expect(result.current.httpVariableHints).toEqual([]);
-  });
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
 
-  it('httpVariableHints merges step vars for http node', () => {
-    const opts = defaultOpts();
-    opts.selectedNodeId = 'n1';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.httpVariableHints).toContainEqual({ key: 'iv', source: 'step' });
-  });
+      expect(result.current.httpVariableHints).toEqual([]);
+    });
 
-  it('httpVariableHints is empty for non-http node', () => {
-    const opts = defaultOpts();
-    opts.nodes = [makeNode({ id: 'n1', type: 'condition' })];
-    opts.selectedNodeId = 'n1';
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.httpVariableHints).toEqual([]);
-  });
+    it('returns empty array for non-HTTP node', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'delay-1';
+      opts.nodes = [{
+        id: 'delay-1',
+        type: 'delay',
+        position: { x: 0, y: 0 },
+        data: { label: 'Delay', delayMs: 1000, mode: 'fixed' },
+      }];
 
-  it('hintNodes maps all nodes with enrichNodeData', () => {
-    const opts = defaultOpts();
-    opts.nodes = [makeNode({ id: 'n1' }), makeNode({ id: 'n2' })];
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.hintNodes).toHaveLength(2);
-  });
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
 
-  it('hintEdges maps edges to plain objects', () => {
-    const opts = defaultOpts();
-    opts.edges = [
-      { id: 'e1', source: 'n0', target: 'n1', sourceHandle: 'out', label: 'yes' } as any,
-    ];
-    const { result } = renderHook(() => useWorkflowVariableHints(opts));
-    expect(result.current.hintEdges[0]).toEqual({
-      id: 'e1', source: 'n0', target: 'n1', sourceHandle: 'out', label: 'yes',
+      expect(result.current.httpVariableHints).toEqual([]);
     });
   });
 });

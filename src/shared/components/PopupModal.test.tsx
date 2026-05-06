@@ -7,7 +7,7 @@ import PopupModal from './PopupModal';
 
 vi.mock('./AppModalFrame', () => ({
   __esModule: true,
-  default: ({ title, onClose, children, footer, overlayClassName, dialogClassName, footerClassName, closeButtonKind }: {
+  default: ({ title, onClose: _onClose, children, footer, overlayClassName, dialogClassName, footerClassName, closeButtonKind }: {
     title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode;
     overlayClassName?: string; dialogClassName?: string; footerClassName?: string; closeButtonKind?: string;
   }) => (

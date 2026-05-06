@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadTestFile, buildScenarios, buildTestConfig } from './loader';
 import { loadDataFile } from './dataLoader';
+import { loadWorkflowFile } from './workflowLoader';
 import { runTest } from '../src/engine/executor';
+import { runGraphLoad } from '../src/features/workflow/engine/graphLoadRunner';
+import { CircuitBreaker } from '../src/engine/circuitBreaker';
 import { computeMetrics } from '../src/engine/metrics';
 import {
   buildJsonReport,
@@ -14,8 +17,11 @@ import {
   buildMarkdownReport,
   printConsoleSummary,
   buildDataRowSummary,
+  buildWorkflowJunitXml,
+  buildWorkflowMarkdownReport,
+  printWorkflowConsoleSummary,
 } from './reporters';
-import type { RequestResult } from '../src/types';
+import type { RequestResult, ErrorPolicy } from '../src/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -202,6 +208,162 @@ program
     }
   });
 
+// ── Workflow run command ─────────────────────────────────────
+program
+  .command('workflow')
+  .description('Execute a workflow file as a performance test')
+  .argument('<file>', 'Path to a workflow .yaml, .yml, or .json file')
+  .option('-i, --iterations <n>', 'Total number of workflow iterations', (v) => parseInt(v, 10))
+  .option('-c, --concurrency <n>', 'Number of concurrent iterations', (v) => parseInt(v, 10))
+  .option('--var <vars...>', 'Set workflow variables (format: name=value)')
+  .option('--timeout <sec>', 'Per-request timeout in seconds', (v) => parseInt(v, 10))
+  .option('--error-policy <policy>', 'Error policy: continue, stop-first, stop-threshold')
+  .option('--max-errors <n>', 'Stop after N errors (threshold mode)', (v) => parseInt(v, 10))
+  .option('--max-error-rate <pct>', 'Stop at error rate % (threshold mode)', (v) => parseFloat(v))
+  .option('--fail-on-error', 'Exit code 1 if any request fails')
+  .option('--fail-threshold <pct>', 'Exit code 1 if error rate exceeds this %', (v) => parseFloat(v))
+  .option('-o, --output <path>', 'Write JSON report to file')
+  .option('--junit <path>', 'Write JUnit XML report to file')
+  .option('--markdown <path>', 'Write Markdown report to file')
+  .option('-q, --quiet', 'Suppress progress output')
+  .action(async (filePath: string, opts) => {
+    try {
+      const absPath = resolve(filePath);
+      if (!existsSync(absPath)) {
+        throw new Error(`Workflow file not found: ${absPath}`);
+      }
+
+      const workflow = loadWorkflowFile(absPath);
+
+      if (!opts.quiet) {
+        console.log(`\n  Loading: ${basename(absPath)}`);
+        console.log(`  Workflow: ${workflow.name}`);
+        const httpNodes = workflow.nodes.filter(n => n.type === 'http');
+        console.log(`  Steps:    ${httpNodes.length} HTTP nodes`);
+      }
+
+      // Parse --var options
+      const variables: Record<string, string> = { ...workflow.variables };
+      if (opts.var) {
+        for (const v of opts.var as string[]) {
+          const idx = v.indexOf('=');
+          if (idx === -1) {
+            throw new Error(`Invalid --var format: "${v}". Expected name=value`);
+          }
+          const name = v.slice(0, idx);
+          const value = v.slice(idx + 1);
+          variables[name] = value;
+        }
+      }
+
+      if (!opts.quiet && Object.keys(variables).length > 0) {
+        console.log(`  Variables: ${Object.keys(variables).length}`);
+        for (const [k, v] of Object.entries(variables)) {
+          const display = v.length > 40 ? v.slice(0, 37) + '...' : v;
+          console.log(`    ${k}=${display}`);
+        }
+      }
+
+      const iterations = opts.iterations ?? 10;
+      const concurrency = opts.concurrency ?? 1;
+
+      if (!opts.quiet) {
+        console.log(`  Mode:    workflow (I:${iterations} C:${concurrency})`);
+        console.log('');
+      }
+
+      const abortController = new AbortController();
+      process.on('SIGINT', () => {
+        if (!opts.quiet) console.log('\n  Aborting...');
+        abortController.abort();
+      });
+
+      const breaker = new CircuitBreaker({
+        policy: (opts.errorPolicy ?? 'continue') as ErrorPolicy,
+        maxErrors: opts.maxErrors ?? 10,
+        maxErrorRate: opts.maxErrorRate ?? 50,
+      });
+
+      let lastPrinted = 0;
+      const onProgress = (completed: number, total: number, _results: RequestResult[]) => {
+        if (opts.quiet) return;
+        const now = Date.now();
+        if (now - lastPrinted < 500 && completed < total) return;
+        lastPrinted = now;
+        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        process.stdout.write(`\r  Progress: ${completed}/${total} iterations (${pct}%)`);
+      };
+
+      const t0 = performance.now();
+      const results = await runGraphLoad(workflow, {
+        iterations,
+        concurrency,
+        initialVariables: variables,
+        breaker,
+        abortSignal: abortController.signal,
+        onProgress,
+      });
+      const elapsed = performance.now() - t0;
+      const summary = computeMetrics(results, elapsed);
+
+      if (!opts.quiet) {
+        process.stdout.write('\r' + ' '.repeat(60) + '\r');
+      }
+
+      printWorkflowConsoleSummary(summary, workflow, iterations, concurrency, results);
+
+      const meta = { name: workflow.name, file: basename(absPath) };
+
+      if (opts.output) {
+        const report = buildJsonReport(results, summary, {
+          concurrency,
+          totalTransactions: iterations,
+          executionMode: 'workflow',
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          scenarioWeights: [],
+          timeoutSec: opts.timeout ?? 30,
+          retryCount: 0,
+          retryDelayMs: 0,
+          errorPolicy: opts.errorPolicy ?? 'continue',
+          maxErrors: opts.maxErrors ?? 10,
+          maxErrorRate: opts.maxErrorRate ?? 50,
+        }, meta);
+        writeFileSync(resolve(opts.output), JSON.stringify(report, null, 2));
+        console.log(`  JSON report: ${opts.output}`);
+      }
+
+      if (opts.junit) {
+        const xml = buildWorkflowJunitXml(results, summary, workflow.name, iterations);
+        writeFileSync(resolve(opts.junit), xml);
+        console.log(`  JUnit XML:   ${opts.junit}`);
+      }
+
+      if (opts.markdown) {
+        const md = buildWorkflowMarkdownReport(summary, workflow, iterations, concurrency, results);
+        writeFileSync(resolve(opts.markdown), md);
+        console.log(`  Markdown:    ${opts.markdown}`);
+      }
+
+      // Exit code logic
+      const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
+      if (opts.failOnError && !passed) {
+        process.exit(1);
+      }
+      if (opts.failThreshold != null && summary.errorRate > opts.failThreshold) {
+        if (!opts.quiet) {
+          console.log(`  Error rate ${summary.errorRate}% exceeds threshold ${opts.failThreshold}%`);
+        }
+        process.exit(1);
+      }
+
+      process.exit(0);
+    } catch (err) {
+      console.error(`\n  Error: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+  });
+
 program
   .command('validate')
   .description('Validate a test file without running it')
@@ -218,6 +380,31 @@ program
           ? ` [${s.dataSource.rows.length} data rows]`
           : '';
         console.log(`    - ${s.method} ${s.url}  (${s.name})${dataSuffix}`);
+      }
+      console.log('');
+      process.exit(0);
+    } catch (err) {
+      console.error(`\n  ❌ Invalid: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+  });
+
+// ── Workflow validate command ────────────────────────────────
+program
+  .command('validate-workflow')
+  .description('Validate a workflow file without running it')
+  .argument('<file>', 'Path to a workflow .yaml, .yml, or .json file')
+  .action((filePath: string) => {
+    try {
+      const absPath = resolve(filePath);
+      const workflow = loadWorkflowFile(absPath);
+      const httpNodes = workflow.nodes.filter(n => n.type === 'http');
+      console.log(`\n  ✅ Valid workflow: ${basename(absPath)}`);
+      console.log(`  Name: ${workflow.name}`);
+      console.log(`  Nodes: ${workflow.nodes.length} total, ${httpNodes.length} HTTP`);
+      console.log(`  Edges: ${workflow.edges.length}`);
+      if (Object.keys(workflow.variables).length > 0) {
+        console.log(`  Variables: ${Object.keys(workflow.variables).join(', ')}`);
       }
       console.log('');
       process.exit(0);

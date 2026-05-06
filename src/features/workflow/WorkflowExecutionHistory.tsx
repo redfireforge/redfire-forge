@@ -109,7 +109,7 @@ export default function WorkflowExecutionHistory() {
   // Refresh paused correlations when filter changes to 'paused'
   useEffect(() => {
     if (filter === 'paused') loadPausedCorrelations();
-  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter]);  
 
   // Live timer for paused durations (update every second when viewing paused tab)
   useEffect(() => {

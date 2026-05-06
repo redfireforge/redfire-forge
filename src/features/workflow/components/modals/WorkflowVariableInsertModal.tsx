@@ -119,7 +119,7 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
   // Runs before browser paint so user never sees a flash of empty search
   useLayoutEffect(() => {
     if (open) {
-      setQ(initialSearch); // eslint-disable-line react-hooks/set-state-in-effect -- reset UI on modal open
+      setQ(initialSearch);  
       setActiveCategory('All');  
       setSelectedGroup((prev) => prev ?? (groups.length > 0 ? groups[0].key : null));  
       setView('browse');  

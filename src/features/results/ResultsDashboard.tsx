@@ -4,11 +4,12 @@ import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
 import { loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
 import { exportJson, exportCsv } from '../../shared/utils/export';
-import { buildGroups, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
+import { buildGroups, hasWorkflowData, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
 import { DataRowSummaryTable } from './components/DataRowSummaryTable';
+import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
 
@@ -17,13 +18,25 @@ interface Props {
   svcName?: string;
   onRerunFailed?: (run: TestRun, failedRowIds: string[]) => void;
   isRerunning?: boolean;
+  /** Initial run type filter (can be set from post-run navigation) */
+  initialRunTypeFilter?: 'all' | 'test' | 'workflow';
 }
 
-export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning }: Props) {
+type RunTypeFilter = 'all' | 'test' | 'workflow';
+
+export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning, initialRunTypeFilter }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
+  const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>(initialRunTypeFilter ?? 'all');
+
+  // Update filter when initialRunTypeFilter changes (e.g., from post-run navigation)
+  useEffect(() => {
+    if (initialRunTypeFilter) {
+      setRunTypeFilter(initialRunTypeFilter);
+    }
+  }, [initialRunTypeFilter]);
 
   const prevRerunning = useRef(false);
 
@@ -42,10 +55,33 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
   const runs = useMemo(() => {
     return allRuns.filter((r) => {
+      // For workflow runs, don't filter by env/svc since workflows aren't microservice-specific
+      const isWorkflowRun = r.config.executionMode === 'workflow';
+      if (!isWorkflowRun) {
+        if (envName && r.envName !== envName) return false;
+        if (svcName && r.svcName !== svcName) return false;
+      }
+      // Filter by run type
+      if (runTypeFilter === 'workflow' && !isWorkflowRun) return false;
+      if (runTypeFilter === 'test' && isWorkflowRun) return false;
+      return true;
+    });
+  }, [allRuns, envName, svcName, runTypeFilter]);
+
+  const runCounts = useMemo(() => {
+    // Test runs are filtered by env/svc, workflow runs are not
+    const testRuns = allRuns.filter((r) => {
+      if (r.config.executionMode === 'workflow') return false;
       if (envName && r.envName !== envName) return false;
       if (svcName && r.svcName !== svcName) return false;
       return true;
     });
+    const workflowRuns = allRuns.filter(r => r.config.executionMode === 'workflow');
+    return {
+      all: testRuns.length + workflowRuns.length,
+      test: testRuns.length,
+      workflow: workflowRuns.length,
+    };
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
@@ -128,6 +164,9 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     if (groupBy === 'test' && subGroupBy === 'dataRow') return ['test', 'dataRow'];
     if (groupBy === 'test') return ['test'];
     if (groupBy === 'group') return subGroupBy === 'test' ? ['group', 'test'] : ['group'];
+    // Workflow grouping options
+    if (groupBy === 'iteration') return subGroupBy === 'workflowStep' ? ['iteration', 'workflowStep'] : ['iteration'];
+    if (groupBy === 'workflowStep') return subGroupBy === 'iteration' ? ['workflowStep', 'iteration'] : ['workflowStep'];
     // feature
     if (subGroupBy === 'group') return ['feature', 'group'];
     return ['feature', 'test'];
@@ -169,6 +208,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     });
   };
 
+  const isWorkflowRun = selectedRun?.config.executionMode === 'workflow' && hasWorkflowData(selectedRun.results);
+
   const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
     if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Scenario' }, { value: 'test', label: 'Then by Test Name' }];
     if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
@@ -176,6 +217,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       const hasDataRows = filteredResults.some(r => r.dataRowId);
       if (hasDataRows) return [{ value: 'dataRow', label: 'Then by Data Row' }];
     }
+    if (groupBy === 'iteration') return [{ value: 'workflowStep', label: 'Then by Step' }];
+    if (groupBy === 'workflowStep') return [{ value: 'iteration', label: 'Then by Iteration' }];
     return [];
   }, [groupBy, filteredResults]);
 
@@ -185,6 +228,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     if (val === 'feature') setSubGroupBy('group');
     else if (val === 'group') setSubGroupBy('test');
     else if (val === 'test') setSubGroupBy('test'); // reset; user can pick dataRow from sub-group
+    else if (val === 'iteration') setSubGroupBy('workflowStep');
+    else if (val === 'workflowStep') setSubGroupBy('iteration');
   };
 
   const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
@@ -311,12 +356,18 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           <h2>Results</h2>
           {selectedRun && (
             <div className="context-tags">
-              {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
+              {/* Hide svcName for workflow runs — microservice context doesn't apply */}
+              {selectedRun.svcName && selectedRun.config.executionMode !== 'workflow' && (
+                <span className="context-tag svc-tag">{selectedRun.svcName}</span>
+              )}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
-              {selectedRun.baseUrl
-                ? <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
-                : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
-              }
+              {selectedRun.config.executionMode === 'workflow' && selectedRun.workflowName ? (
+                <span className="context-tag workflow-name-tag" title={selectedRun.workflowName}>⚡ {selectedRun.workflowName}</span>
+              ) : selectedRun.baseUrl ? (
+                <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
+              ) : (
+                <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
+              )}
               <span className="context-tag exec-mode-tag">
                 {selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
                   <>
@@ -327,7 +378,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
                   </>
                 ) : (
                   <>
-                    {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : 'Batch'}
+                    {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : selectedRun.config.executionMode === 'workflow' ? 'Workflow' : 'Batch'}
                     {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
                   </>
                 )}
@@ -358,11 +409,35 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             )}
           </div>
         </div>
+        {/* Run Type Filter Tabs */}
+        <div className="results-run-filter-tabs">
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('all')}
+          >
+            All Runs ({runCounts.all})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'test' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('test')}
+          >
+            🧪 Test Runs ({runCounts.test})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'workflow' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('workflow')}
+          >
+            ⚡ Workflow Runs ({runCounts.workflow})
+          </button>
+        </div>
+
         <select className="results-run-select" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
           {runs.map((r) => {
             const bl = isBaseline(baselines, r.id);
+            const isWf = r.config.executionMode === 'workflow';
             const label = [
               bl ? '★' : '',
+              isWf ? '⚡' : '🧪',
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
@@ -523,6 +598,11 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
         </div>
       )}
 
+      {/* Workflow Results Summary */}
+      {selectedRun && selectedRun.config.executionMode === 'workflow' && hasWorkflowData(selectedRun.results) && (
+        <WorkflowResultsSummary run={selectedRun} onResultClick={setResponseModal} />
+      )}
+
       {/* Response Time Distribution Chart */}
       {selectedRun && selectedRun.results.length > 0 && (
         <ResponseTimeHistogram run={selectedRun} />
@@ -550,6 +630,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               <option value="feature">Feature</option>
               <option value="group">Scenario</option>
               <option value="test">Test Name (flat)</option>
+              {isWorkflowRun && <option value="iteration">Iteration</option>}
+              {isWorkflowRun && <option value="workflowStep">Workflow Step</option>}
             </select>
             {subGroupOptions.length > 0 && (
               <select value={subGroupBy} onChange={(e) => { setSubGroupBy(e.target.value as GroupByLevel); setExpanded(new Set()); }}>

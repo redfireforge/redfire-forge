@@ -148,7 +148,7 @@ describe('GalleryDetailPanel — expanded coverage', () => {
   });
 
   it('handles non-serializable factory output in expand', () => {
-    const circular: any = {};
+    const circular: Record<string, unknown> = {};
     circular.self = circular;
     render(
       <GalleryDetailPanel

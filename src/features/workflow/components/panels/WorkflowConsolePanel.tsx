@@ -284,7 +284,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
 
   // Reset current match when query or matches change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset search position on new query
+     
     setCurrentMatchIdx(0);
   }, [searchQuery]);
 

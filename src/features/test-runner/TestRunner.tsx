@@ -1,23 +1,22 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource } from '../../shared/types';
+import type { LoadProfileConfig } from '../../shared/types';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useRunnerConfig } from './hooks/useRunnerConfig';
 import type { RunnerConfig } from './hooks/useRunnerConfig';
-import type { LoadProfileConfig } from '../../shared/types';
-import { resolveAuth } from '../requests/utils/authResolver';
-import { replaceHost } from '../../shared/utils/urlUtils';
 import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
-import { LiveCharts } from './components/LiveCharts';
-import RunnerExecutionConfig, { profileLabel } from './components/RunnerExecutionConfig';
-import WorkflowVariablesInput from '../workflow/components/expression/WorkflowVariablesInput';
-import { getExecutionModeMeta } from '../../shared/utils/executionMode';
-import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from './utils/runnerProgressStorage';
+import RunnerExecutionConfig from './components/RunnerExecutionConfig';
+import HostSelector from './components/HostSelector';
+import LiveProgressPanel from './components/LiveProgressPanel';
+import ScenarioSelector, { buildSelectedTests } from './components/ScenarioSelector';
+import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 import { generateReport, downloadReport } from '../results/utils/reportGenerator';
 import type { ReportOptions } from '../results/utils/reportGenerator';
 
 interface Props {
   featureGroups: FeatureGroup[];
-  onComplete: () => void;
+  /** Called when run completes. Pass 'test' to pre-filter results to test runs. */
+  onComplete: (runType?: 'test' | 'workflow') => void;
   envName?: string;
   svcName?: string;
   envId?: string;
@@ -25,18 +24,23 @@ interface Props {
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../shared/types').AuthConfig;
-  /** Top-level shared data sources for resolving sharedDataSourceId references */
   sharedDataSources?: SharedDataSource[];
 }
 
-// ---------------------------------------------------------------------------
-// TestRunner Component
-// ---------------------------------------------------------------------------
-
-export default function TestRunner({ featureGroups, onComplete, envName, svcName, envId, svcId, resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [] }: Props) {
+export default function TestRunner({
+  featureGroups,
+  onComplete,
+  envName,
+  svcName,
+  envId,
+  svcId,
+  resolvedBaseUrl,
+  globalAuthProfiles = [],
+  envFallbackAuth,
+  sharedDataSources = [],
+}: Props) {
   const configContextKey = [envId, svcId].filter(Boolean).join(':') || undefined;
   const progressKey = configContextKey || '_default';
-
   const isGalleryEnv = svcName === 'Gallery Samples';
 
   const {
@@ -60,11 +64,8 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     maxErrorRate, setMaxErrorRate,
     autoReport, setAutoReport,
     autoReportFormat, setAutoReportFormat,
-    configLoaded: _configLoaded,
   } = useRunnerConfig(configContextKey);
 
-  const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
-  const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(() => new Set(featureGroups.map(fg => fg.id)));
   const [weightsExpanded, setWeightsExpanded] = useState(true);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [runnerTagFilter, setRunnerTagFilter] = useState('');
@@ -72,10 +73,39 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
 
   const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
+  // Build selected tests using shared utility
+  const selectedTests = useMemo(
+    () => buildSelectedTests(
+      featureGroups,
+      selectedScenarios,
+      hostMode,
+      customBaseUrl,
+      resolvedBaseUrl,
+      skipValidation,
+      validationOverride,
+      forceUnordered,
+      globalAuthProfiles,
+      envFallbackAuth,
+    ),
+    [featureGroups, selectedScenarios, hostMode, customBaseUrl, resolvedBaseUrl, skipValidation, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]
+  );
+
+  // Sync weights with selected tests
+  useEffect(() => {
+    const w: Record<string, number> = {};
+    selectedTests.forEach((t) => (w[t.id] = weights[t.id] ?? 1));
+    if (JSON.stringify(w) !== JSON.stringify(weights)) {
+      setWeights(w);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTests]);
+
+  // Load saved progress
   useEffect(() => {
     setSavedProgress(loadProgress(progressKey));
   }, [progressKey]);
 
+  // Save progress when run completes
   useEffect(() => {
     if (finalRun && liveSummary && !isRunning) {
       const data: PersistedProgress = {
@@ -101,7 +131,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   // Auto-report: download report when test finishes
   useEffect(() => {
     if (!autoReport || !finalRun || isRunning) return;
-    // Prevent duplicate downloads for the same run
     if (autoReportFiredRef.current === finalRun.id) return;
     autoReportFiredRef.current = finalRun.id;
     const content = generateReport(finalRun, { format: autoReportFormat });
@@ -117,184 +146,11 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
     setSavedProgress(null);
   };
 
-  const selectedTests: Scenario[] = useMemo(() => {
-    const tests: Scenario[] = [];
-    // Resolve effective validation mode: runner override > legacy skipValidation > data-source default
-    const runtimeMode = validationOverride !== 'default'
-      ? validationOverride
-      : (skipValidation ? 'none' as const : null);
-
-    for (const fg of featureGroups) {
-      for (const sc of fg.scenarios) {
-        if (selectedScenarios.has(sc.id)) {
-          for (const test of sc.tests) {
-            // Skip base URL replacement for gallery-imported tests — they use absolute URLs.
-            const isGallery = fg.source === 'gallery';
-            const effectiveBaseUrl = isGallery
-              ? ''
-              : (hostMode === 'settings' ? (resolvedBaseUrl || '') : hostMode === 'custom' ? customBaseUrl.trim() : '');
-            const url = effectiveBaseUrl ? replaceHost(test.url, effectiveBaseUrl) : test.url;
-
-            // For parameterized tests: stamp validationMode on the DataSource
-            // so the expander enforces it per-row (isSample filtering)
-            let dataSource = test.dataSource;
-            if (dataSource && runtimeMode) {
-              dataSource = { ...dataSource, validationMode: runtimeMode };
-            }
-
-            // For non-parameterized tests: apply override to validation config directly
-            let validation = test.validation;
-            if (!dataSource && runtimeMode === 'none') {
-              validation = { mode: 'none' as const };
-            }
-
-            if (forceUnordered && validation.mode === 'selective') {
-              validation = { ...validation, unorderedArrays: true };
-            }
-            const auth = resolveAuth(test, sc, fg, globalAuthProfiles, envFallbackAuth);
-            tests.push({ ...test, url, auth, validation, dataSource, featureGroupName: fg.name, groupName: sc.name });
-          }
-        }
-      }
-    }
-    return tests;
-  }, [featureGroups, selectedScenarios, resolvedBaseUrl, skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, globalAuthProfiles, envFallbackAuth]);
-
-   
-  useEffect(() => {
-    const w: Record<string, number> = {};
-    selectedTests.forEach((t) => (w[t.id] = weights[t.id] ?? 1));
-    if (JSON.stringify(w) !== JSON.stringify(weights)) {
-      setWeights(w);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTests]);
-
-  const toggleFeature = (featureId: string) => {
-    setExpandedFeatures((prev) => {
-      const next = new Set(prev);
-      if (next.has(featureId)) next.delete(featureId); else next.add(featureId);
-      return next;
-    });
-  };
-
-  // Helpers for mutual exclusion between gallery and user tests
-  const userGroups = featureGroups.filter(fg => fg.source !== 'gallery');
-  const galleryGroups = featureGroups.filter(fg => fg.source === 'gallery');
-
-  const scenarioSourceOf = (scenarioId: string): 'gallery' | 'user' => {
-    for (const fg of galleryGroups) {
-      if (fg.scenarios.some(sc => sc.id === scenarioId)) return 'gallery';
-    }
-    return 'user';
-  };
-
-  const idsForSource = (source: 'gallery' | 'user') => {
-    const groups = source === 'gallery' ? galleryGroups : userGroups;
-    return new Set(groups.flatMap(fg => fg.scenarios.map(sc => sc.id)));
-  };
-
-  /** Remove all scenarios from the opposite source when adding from one source. */
-  const withExclusion = (next: Set<string>, addingSource: 'gallery' | 'user') => {
-    const oppositeIds = idsForSource(addingSource === 'gallery' ? 'user' : 'gallery');
-    oppositeIds.forEach(id => next.delete(id));
-    return next;
-  };
-
-  const toggleScenario = (scenarioId: string) => {
-    setSelectedScenarios((prev) => {
-      const next = new Set(prev);
-      if (next.has(scenarioId)) {
-        next.delete(scenarioId);
-      } else {
-        next.add(scenarioId);
-        withExclusion(next, scenarioSourceOf(scenarioId));
-      }
-      return next;
-    });
-  };
-
-  const toggleAllInFeature = (fg: FeatureGroup) => {
-    const allSelected = fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
-    const source = fg.source === 'gallery' ? 'gallery' as const : 'user' as const;
-    setSelectedScenarios((prev) => {
-      const next = new Set(prev);
-      fg.scenarios.forEach((sc) => {
-        if (allSelected) next.delete(sc.id); else next.add(sc.id);
-      });
-      if (!allSelected) withExclusion(next, source);
-      return next;
-    });
-  };
-
-  const selectAllUser = () => {
-    setSelectedScenarios(new Set(userGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
-  };
-
-  const selectAllGallery = () => {
-    setSelectedScenarios(new Set(galleryGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
-  };
-
-  const deselectAll = () => {
-    setSelectedScenarios(new Set());
-  };
-
   const activeTestCount = selectedTests.filter((t) => (weights[t.id] ?? 1) > 0).length;
   const isLoadProfile = executionMode === 'load-profile';
 
-  const renderFeatureGroup = (fg: FeatureGroup) => {
-    if (fg.scenarios.length === 0) return null;
-    const allSelected = fg.scenarios.length > 0 && fg.scenarios.every((sc) => selectedScenarios.has(sc.id));
-    const someSelected = fg.scenarios.some((sc) => selectedScenarios.has(sc.id));
-    return (
-      <div key={fg.id} className="selection-feature">
-        <div className="selection-feature-header">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-              onChange={() => toggleAllInFeature(fg)}
-              disabled={isRunning}
-            />
-            <strong>{fg.name}</strong>
-          </label>
-          <span className="expand-toggle" onClick={() => toggleFeature(fg.id)}>
-            {expandedFeatures.has(fg.id) ? '−' : '+'}
-          </span>
-        </div>
-        {expandedFeatures.has(fg.id) && (
-          <div className="selection-scenarios">
-            {fg.scenarios.map((sc) => {
-              if (sc.tests.length === 0) return null;
-              return (
-                <div key={sc.id} className="selection-scenario">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={selectedScenarios.has(sc.id)}
-                      onChange={() => toggleScenario(sc.id)}
-                      disabled={isRunning}
-                    />
-                    <span>{sc.name}</span>
-                    <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
-                    {(() => {
-                      const totalRows = sc.tests.reduce((sum, t) => sum + (t.dataSource?.rows.filter(r => r.enabled).length ?? 0), 0);
-                      return totalRows > 0 ? <span className="count-badge count-badge-data">📊 {totalRows} rows</span> : null;
-                    })()}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const handleRun = () => {
-    // Phase 12: Apply tag filter to data rows
-    let testsToRun = selectedTests;
+    let testsToRun = selectedTests as Scenario[];
     if (runnerTagFilter) {
       const tags = runnerTagFilter.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
       testsToRun = selectedTests.map(t => {
@@ -305,7 +161,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         });
         return { ...t, dataSource: { ...t.dataSource, rows: filteredRows } };
       }).filter(t => {
-        // Exclude parameterized tests with 0 matching rows — they'd run with unresolved {{placeholders}}
         if (t.dataSource && t.dataSource.columns.length > 0 && t.dataSource.rows.length === 0) return false;
         return true;
       });
@@ -315,7 +170,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       scenarioId: t.id,
       weight: weights[t.id] ?? 1,
     }));
-    const isWorkflow = executionMode === 'workflow';
+
     const config: TestConfig = {
       concurrency: isLoadProfile ? loadProfile.maxConcurrency : concurrency,
       totalTransactions: isLoadProfile ? 0 : totalTransactions,
@@ -329,15 +184,16 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
       errorPolicy,
       maxErrors,
       maxErrorRate,
-      ...(isWorkflow && Object.keys(workflowVariables).length > 0 ? { workflowVariables } : {}),
     };
+
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
-    // Resolve shared data sources before execution (use top-level sharedDataSources)
     const resolvedTests = resolveSharedDataSources(testsToRun, sharedDataSources);
     execute(config, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl });
   };
 
-  const isTimeBased = isLoadProfile || (isRunning && total === -1);
+  const updateProfile = (patch: Partial<LoadProfileConfig>) => {
+    setLoadProfile((prev) => ({ ...prev, ...patch }));
+  };
 
   const hasLiveProgress = isRunning || liveSummary;
   const showProgress = hasLiveProgress || (!isRunning && savedProgress);
@@ -347,22 +203,14 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
-  const displayIsTimeBased = hasLiveProgress ? isTimeBased : savedProgress?.isTimeBased ?? false;
-  const displayProgressPct = displayIsTimeBased
-    ? (displayProfileMeta ? Math.min(100, Math.round((displayProfileMeta.elapsedMs / displayProfileMeta.durationMs) * 100)) : 0)
-    : (displayTotal > 0 ? Math.round((displayCompleted / displayTotal) * 100) : 0);
-
+  const displayIsTimeBased = hasLiveProgress ? (isLoadProfile || total === -1) : savedProgress?.isTimeBased ?? false;
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
   const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
-  const displayThinkLabel = thinkTimeLabel(displayThinkTime);
-  const displayExecutionModeMeta = getExecutionModeMeta(displayExecMode);
-  const hasAnyTests = featureGroups.some((fg) => fg.scenarios.some((sc) => sc.tests.length > 0));
+  const hostLabel = hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original';
 
-  const updateProfile = (patch: Partial<LoadProfileConfig>) => {
-    setLoadProfile((prev) => ({ ...prev, ...patch }));
-  };
+  const hasAnyTests = featureGroups.some((fg) => fg.scenarios.some((sc) => sc.tests.length > 0));
 
   return (
     <div className="page">
@@ -373,41 +221,16 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
           {envName && <span className="context-tag env-tag">{envName}</span>}
         </div>
       </div>
-      <div className="runner-host-selector">
-        <span className="runner-host-label">Host:</span>
-        {isGalleryEnv ? (
-          <span className="runner-host-gallery-hint">🏪 Gallery samples use their own hardcoded URLs — no host override needed</span>
-        ) : (
-        <>
-        <label className="radio-label">
-          <input type="radio" name="hostMode" checked={hostMode === 'hardcoded'} onChange={() => setHostMode('hardcoded')} disabled={isRunning} />
-          Original
-        </label>
-        <label className={`radio-label ${!resolvedBaseUrl ? 'disabled' : ''}`}>
-          <input type="radio" name="hostMode" checked={hostMode === 'settings'} onChange={() => setHostMode('settings')} disabled={isRunning || !resolvedBaseUrl} />
-          Settings
-          {resolvedBaseUrl
-            ? <code className="runner-host-url">{resolvedBaseUrl}</code>
-            : <span className="option-hint"> — configure base URL in Settings first</span>
-          }
-        </label>
-        <label className="radio-label">
-          <input type="radio" name="hostMode" checked={hostMode === 'custom'} onChange={() => setHostMode('custom')} disabled={isRunning} />
-          Custom
-        </label>
-        {(
-          <input
-            className="runner-custom-url-input"
-            type="text"
-            value={customBaseUrl}
-            onChange={(e) => setCustomBaseUrl(e.target.value)}
-            placeholder="https://my-host.example.com:8080"
-            disabled={isRunning || hostMode !== 'custom'}
-          />
-        )}
-        </>
-        )}
-      </div>
+
+      <HostSelector
+        hostMode={hostMode}
+        onHostModeChange={setHostMode}
+        customBaseUrl={customBaseUrl}
+        onCustomBaseUrlChange={setCustomBaseUrl}
+        resolvedBaseUrl={resolvedBaseUrl}
+        disabled={isRunning}
+        isGalleryEnv={isGalleryEnv}
+      />
 
       <RunnerExecutionConfig
         executionMode={executionMode}
@@ -436,120 +259,38 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
         isRunning={isRunning}
       />
 
-      {executionMode === 'workflow' && (
-        <WorkflowVariablesInput
-          variables={workflowVariables}
-          onChange={setWorkflowVariables}
-          disabled={isRunning}
-        />
-      )}
-
       {!hasAnyTests ? (
         <div className="empty-state">No tests defined. Go to Feature Groups tab to add some first.</div>
       ) : (
         <>
-          {/* Scenario selection */}
-          <div className="config-form">
-            <div className="selection-header">
-              <h3>Select Scenarios to Test</h3>
-              <div className="selection-actions">
-                <button className="btn btn-sm" onClick={deselectAll} disabled={isRunning}>Deselect All</button>
-                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={skipValidation}
-                    onChange={(e) => setSkipValidation(e.target.checked)}
-                    disabled={isRunning}
-                  />
-                  Skip validation
-                </label>
-                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Runtime validation override — Default uses each test's configured mode">
-                  <select
-                    value={validationOverride}
-                    onChange={(e) => setValidationOverride(e.target.value as RunnerConfig['validationOverride'])}
-                    disabled={isRunning}
-                    style={{ fontSize: '0.78rem', marginLeft: 4 }}
-                  >
-                    <option value="default">Validation: Default</option>
-                    <option value="none">Validate: No Rows</option>
-                    <option value="selective">Validate: Sample Rows Only</option>
-                    <option value="full">Validate: All Rows</option>
-                  </select>
-                </label>
-                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Match array items by content regardless of order — useful when APIs return arrays in non-deterministic order">
-                  <input
-                    type="checkbox"
-                    checked={forceUnordered}
-                    onChange={(e) => setForceUnordered(e.target.checked)}
-                    disabled={isRunning || validationOverride === 'none' || skipValidation}
-                  />
-                  Unordered arrays
-                </label>
-                <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Automatically download a report when the test finishes">
-                  <input
-                    type="checkbox"
-                    checked={autoReport}
-                    onChange={(e) => setAutoReport(e.target.checked)}
-                    disabled={isRunning}
-                  />
-                  Auto-report
-                  {autoReport && (
-                    <select
-                      value={autoReportFormat}
-                      onChange={(e) => setAutoReportFormat(e.target.value as ReportOptions['format'])}
-                      disabled={isRunning}
-                      style={{ fontSize: '0.78rem', marginLeft: 4 }}
-                    >
-                      <option value="html">HTML</option>
-                      <option value="json">JSON</option>
-                      <option value="markdown">Markdown</option>
-                    </select>
-                  )}
-                </label>
-                <span className="filter-count">
-                  {selectedScenarios.size} scenario{selectedScenarios.size !== 1 ? 's' : ''} selected
-                  ({selectedTests.length} test{selectedTests.length !== 1 ? 's' : ''})
-                </span>
-              </div>
-            </div>
+          <ScenarioSelector
+            featureGroups={featureGroups}
+            selectedScenarios={selectedScenarios}
+            onSelectedScenariosChange={setSelectedScenarios}
+            weights={weights}
+            onWeightsChange={setWeights}
+            skipValidation={skipValidation}
+            onSkipValidationChange={setSkipValidation}
+            validationOverride={validationOverride}
+            onValidationOverrideChange={setValidationOverride}
+            forceUnordered={forceUnordered}
+            onForceUnorderedChange={setForceUnordered}
+            autoReport={autoReport}
+            onAutoReportChange={setAutoReport}
+            autoReportFormat={autoReportFormat}
+            onAutoReportFormatChange={setAutoReportFormat}
+            hostMode={hostMode}
+            customBaseUrl={customBaseUrl}
+            resolvedBaseUrl={resolvedBaseUrl}
+            globalAuthProfiles={globalAuthProfiles}
+            envFallbackAuth={envFallbackAuth}
+            disabled={isRunning}
+          />
 
-            {userGroups.length > 0 && (
-              <>
-                <div className="selection-section-header">
-                  <span className="selection-section-label">Your Tests</span>
-                  <button className="btn btn-sm" onClick={selectAllUser} disabled={isRunning}>Select All</button>
-                </div>
-                <div className="selection-tree">
-                  {userGroups.map((fg) => renderFeatureGroup(fg))}
-                </div>
-              </>
-            )}
-
-            {galleryGroups.length > 0 && (
-              <>
-                <div className="selection-section-header selection-section-gallery">
-                  <span className="selection-section-label">🏪 Gallery Samples</span>
-                  <button className="btn btn-sm" onClick={selectAllGallery} disabled={isRunning}>Select All</button>
-                  {userGroups.length > 0 && (
-                    <span className="selection-section-hint">Selecting gallery tests will deselect your tests and vice versa</span>
-                  )}
-                </div>
-                <div className="selection-tree">
-                  {galleryGroups.map((fg) => renderFeatureGroup(fg))}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Config */}
           {selectedTests.length > 0 && (
             <div className="config-form" style={{ marginTop: 16 }}>
-
               <fieldset>
-                <legend
-                  className="collapsible-legend"
-                  onClick={() => setWeightsExpanded((v) => !v)}
-                >
+                <legend className="collapsible-legend" onClick={() => setWeightsExpanded((v) => !v)}>
                   <span className={`collapse-arrow ${weightsExpanded ? 'expanded' : ''}`}>▶</span>
                   Test Distribution (weights)
                   <span className="collapse-count">{selectedTests.length} tests</span>
@@ -585,14 +326,12 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                 )}
               </fieldset>
 
-              {/* 4.2: Execution summary — show expanded request count for parameterized tests */}
+              {/* Expansion Summary */}
               {(() => {
                 const hasParam = selectedTests.some(t => t.dataSource && t.dataSource.rows.filter(r => r.enabled).length > 0);
                 if (!hasParam) return null;
                 const activeTests = selectedTests.filter(t => (weights[t.id] ?? 1) > 0);
                 const totalWeight = activeTests.reduce((s, t) => s + (weights[t.id] ?? 1), 0);
-
-                // Phase 12: Parse tag filter for row counting
                 const filterTags = runnerTagFilter ? runnerTagFilter.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
 
                 const breakdown: { name: string; slots: number; rows: number; filteredRows: number; expanded: number; hasMatchingTags: boolean }[] = [];
@@ -602,7 +341,6 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                   const slots = totalWeight > 0 ? Math.round((w / totalWeight) * totalTransactions) : 0;
                   const enabledRows = t.dataSource?.rows.filter(r => r.enabled) ?? [];
                   const rows = enabledRows.length;
-                  // Count rows that match the tag filter
                   const matchingRows = filterTags.length > 0
                     ? enabledRows.filter(r => {
                         const rowTags = r.tags ?? [];
@@ -651,7 +389,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
                 );
               })()}
 
-              {/* Phase 12: Runner tag filter */}
+              {/* Tag Filter */}
               {selectedTests.some(t => t.dataSource && t.dataSource.rows.some(r => r.tags && r.tags.length > 0)) && (
                 <fieldset className="runner-fieldset">
                   <legend>Tag Filter (comma-separated)</legend>
@@ -685,116 +423,32 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
             </div>
           )}
 
-          {/* Progress */}
           {showProgress && (
-            <div className="progress-section">
-              <div className="progress-header-row">
-                <h3>Progress <span className="progress-mode-tag">
-                  {displayIsTimeBased ? (
-                    <>
-                      {profileLabel(displayLoadProfile.type)}
-                      {' · '}Peak:{displayLoadProfile.maxConcurrency}
-                      {' · '}{displayLoadProfile.durationSec}s
-                      {displayLoadProfile.type === 'ramp-up' && ` · ramp ${displayLoadProfile.rampUpSec ?? displayLoadProfile.durationSec}s`}
-                      {displayLoadProfile.type === 'spike' && ` · spike to ${displayLoadProfile.spikeConcurrency ?? displayLoadProfile.maxConcurrency * 3}`}
-                    </>
-                  ) : (
-                    <>
-                      {displayExecutionModeMeta.progressLabel}
-                      {' · '}C:{displayExecMode === 'sequential' ? 1 : displayConc}
-                      {' · '}T:{displayTotal}
-                    </>
-                  )}
-                </span>
-                {displayThinkLabel && (
-                  <span className="progress-mode-tag think-time-tag">{displayThinkLabel}</span>
-                )}
-                <span className="progress-host-tag">
-                  {hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original'}
-                </span>
-                </h3>
-                {!isRunning && savedProgress && (
-                  <button className="btn btn-xs btn-ghost" onClick={handleClearProgress} title="Clear progress">✕ Clear</button>
-                )}
-              </div>
-
-              <div className="progress-bar-container">
-                <div className="progress-bar" style={{ width: `${displayProgressPct}%` }}></div>
-                <span className="progress-text">
-                  {displayIsTimeBased ? (
-                    <>
-                      {displayProfileMeta ? `${(displayProfileMeta.elapsedMs / 1000).toFixed(1)}s` : '0s'} / {displayProfileMeta ? (displayProfileMeta.durationMs / 1000).toFixed(0) : displayLoadProfile.durationSec}s
-                      {' '}({displayCompleted} requests)
-                    </>
-                  ) : (
-                    <>{displayCompleted} / {displayTotal} ({displayProgressPct}%)</>
-                  )}
-                </span>
-              </div>
-
-              {/* 4.3: Per-test progress breakdown */}
-              {isRunning && liveResults.length > 0 && selectedTests.some(t => t.dataSource) && (
-                <div className="runner-per-test-progress">
-                  {selectedTests.filter(t => (weights[t.id] ?? 1) > 0).map(t => {
-                    const results = liveResults.filter(r => r.scenarioId === t.id);
-                    const passed = results.filter(r => r.passed).length;
-                    const failed = results.length - passed;
-                    const expectedRows = t.dataSource?.rows.filter(r => r.enabled).length ?? 1;
-                    return (
-                      <div key={t.id} className="runner-per-test-row">
-                        <span className="runner-per-test-name">{t.name}:</span>
-                        <span className="runner-per-test-counts">
-                          {results.length}/{expectedRows}
-                          {passed > 0 && <span className="runner-per-test-pass"> ✓{passed}</span>}
-                          {failed > 0 && <span className="runner-per-test-fail"> ✗{failed}</span>}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {displaySummary && (
-                <div className="live-metrics">
-                  <div className="metric-card">
-                    <div className="metric-value">{displaySummary.tps}</div>
-                    <div className="metric-label">TPS</div>
-                  </div>
-                  <div className="metric-card">
-                    <div className="metric-value">{displaySummary.avgResponseTime} ms</div>
-                    <div className="metric-label">Avg Response</div>
-                  </div>
-                  <div className="metric-card">
-                    <div className="metric-value">{displaySummary.errorRate}%</div>
-                    <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>
-                  </div>
-                  <div className="metric-card">
-                    <div className="metric-value">{displaySummary.failedValidations}</div>
-                    <div className="metric-label">Validation Failures <span className="metric-info" data-tooltip="Requests whose actual response did not match expected assertions. 0 means every test got the response it expected — even negative tests that assert error codes.">ⓘ</span></div>
-                  </div>
-                  {displayIsTimeBased && displayProfileMeta && (
-                    <div className="metric-card">
-                      <div className="metric-value">{displayProfileMeta.currentInFlight} / {displayProfileMeta.targetConcurrency}</div>
-                      <div className="metric-label">Concurrency</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Charts */}
-              {displayTimeSeries.length >= 2 && (
-                <LiveCharts data={displayTimeSeries} isTimeBased={displayIsTimeBased} />
-              )}
-            </div>
+            <LiveProgressPanel
+              isRunning={isRunning}
+              completed={displayCompleted}
+              total={displayTotal}
+              summary={displaySummary}
+              timeSeries={displayTimeSeries}
+              profileMeta={displayProfileMeta}
+              executionMode={displayExecMode}
+              concurrency={displayConc}
+              loadProfile={displayLoadProfile}
+              thinkTime={displayThinkTime}
+              hostLabel={hostLabel}
+              liveResults={liveResults}
+              selectedTests={selectedTests as Scenario[]}
+              weights={weights}
+              onClear={!isRunning && savedProgress ? handleClearProgress : undefined}
+            />
           )}
 
-          {/* Completion */}
           {finalRun && !isRunning && (
             <div className="completion-section">
               <div className="completion-banner">
                 Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={onComplete}>
+              <button className="btn btn-primary" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>
@@ -804,7 +458,7 @@ export default function TestRunner({ featureGroups, onComplete, envName, svcName
               <div className="completion-banner">
                 Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={onComplete}>
+              <button className="btn btn-primary" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>

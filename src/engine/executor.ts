@@ -1,4 +1,5 @@
 import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import type { Workflow } from '../features/workflow/types/workflow';
 import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
 import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
 import { resolveAuthHeaders } from '../shared/utils/authHeaders';
@@ -7,7 +8,7 @@ import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
-import { runWorkflow, runWorkflowLoad, VariableContext } from '../features/workflow/engine';
+import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
 import { expandQueue } from './dataSourceExpander';
 
 export interface ProgressMeta {
@@ -66,7 +67,9 @@ export async function runTest(
   config: TestConfig,
   scenarios: Scenario[],
   onProgress: ProgressCallback,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  /** Optional workflow for graph-based execution (when config.workflowId is set). */
+  workflow?: Workflow,
 ): Promise<RequestResult[]> {
   const tokenManager = new TokenManager();
   const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;
@@ -130,6 +133,17 @@ export async function runTest(
   const opts: RunOpts = { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs };
 
   if (mode === 'workflow') {
+    if (workflow && config.workflowId) {
+      const iterations = config.totalTransactions || 1;
+      return runGraphLoad(workflow, {
+        iterations,
+        concurrency: config.concurrency,
+        initialVariables: config.workflowVariables,
+        breaker,
+        abortSignal,
+        onProgress,
+      });
+    }
     const ctx = new VariableContext(config.workflowVariables);
     const iterations = config.totalTransactions || 1;
     if (iterations <= 1) {
