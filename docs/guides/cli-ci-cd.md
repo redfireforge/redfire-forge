@@ -4,6 +4,21 @@ Integrate RedfireForge performance tests into your CI/CD pipelines for automated
 
 ## Quick Start
 
+### Option 1: Using npm Package (Recommended)
+
+```bash
+# Install globally or use npx
+npm install -g redfireforge-cli
+
+# Run tests
+redfireforge run tests/api-test.yaml \
+  --junit results.xml \
+  --fail-on-error \
+  -q
+```
+
+### Option 2: Using Source Repository
+
 ```bash
 # Install dependencies
 npm install
@@ -19,7 +34,58 @@ npx tsx cli/index.ts run tests/api-test.yaml \
 
 ## GitHub Actions
 
-### Basic Test Job
+### Basic Test Job (Using npm Package)
+
+The simplest approach uses the `redfireforge-cli` npm package:
+
+```yaml
+name: API Performance Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Run API tests
+        run: |
+          npx redfireforge-cli run tests/api-test.yaml \
+            --concurrency 5 \
+            --transactions 100 \
+            --junit test-results.xml \
+            --fail-on-error \
+            -q
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+      
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: 'test-results.xml'
+```
+
+### Basic Test Job (Using Source)
+
+If you have the full source repository:
 
 ```yaml
 name: API Performance Tests
