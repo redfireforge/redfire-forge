@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RedfireForge Windows Installer (WiX)
+  
+  This template extends the default Tauri WiX installer to:
+  1. Add the installation directory to the system PATH
+  2. Create a 'redfireforge' command that users can run from any terminal
+  
+  After installation, users can run:
+    redfireforge --cli run tests/test.yaml
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="{{product_name}}"
+    Version="{{version}}"
+    UpgradeCode="{{upgrade_code}}"
+    Language="1033"
+    Codepage="1252"
+    Manufacturer="{{manufacturer}}">
+    
+    <Package
+      Id="*"
+      Keywords="Installer"
+      Description="{{product_name}} Installer"
+      Manufacturer="{{manufacturer}}"
+      InstallerVersion="450"
+      Languages="1033"
+      Compressed="yes"
+      InstallScope="perMachine"
+      SummaryCodepage="1252"/>
+    
+    <MajorUpgrade
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
+    
+    <Media Id="1" Cabinet="app.cab" EmbedCab="yes"/>
+    
+    <!-- Add to PATH -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR"/>
+    
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="{{product_name}}">
+          <Directory Id="CLIDir" Name="cli"/>
+        </Directory>
+      </Directory>
+      
+      <!-- Environment Variables -->
+      <Component Id="PathEntry" Guid="*">
+        <Environment
+          Id="PATH"
+          Name="PATH"
+          Value="[INSTALLDIR]"
+          Permanent="no"
+          Part="last"
+          Action="set"
+          System="yes"/>
+      </Component>
+    </Directory>
+    
+    <Feature Id="MainFeature" Title="RedfireForge" Level="1">
+      <ComponentRef Id="PathEntry"/>
+      {{component_refs}}
+    </Feature>
+    
+    <!-- UI Configuration -->
+    <UIRef Id="WixUI_InstallDir"/>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR"/>
+    
+    <!-- License -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
+    
+  </Product>
+</Wix>

@@ -141,11 +141,72 @@ describe('VariablesSection', () => {
     expect(onUpdateVariables).toHaveBeenCalledWith({ newKey: 'val' });
   });
 
+  it('renames a key when other variables are present', () => {
+    const onUpdateVariables = vi.fn();
+    renderVars({ variables: { a: '1', b: '2' }, onUpdateVariables });
+    fireEvent.change(screen.getByDisplayValue('a'), { target: { value: 'aa' } });
+    expect(onUpdateVariables).toHaveBeenCalledWith({ aa: '1', b: '2' });
+  });
+
   it('ignores rename when new key is empty after trim', () => {
     const onUpdateVariables = vi.fn();
     renderVars({ variables: { k: 'v' }, onUpdateVariables });
     fireEvent.change(screen.getByDisplayValue('k'), { target: { value: '  ' } });
     expect(onUpdateVariables).not.toHaveBeenCalled();
+  });
+
+  it('ignores rename when key unchanged after stripping braces', () => {
+    const onUpdateVariables = vi.fn();
+    renderVars({ variables: { host: 'x' }, onUpdateVariables });
+    fireEvent.change(screen.getByDisplayValue('host'), { target: { value: '{{host}}' } });
+    expect(onUpdateVariables).not.toHaveBeenCalled();
+  });
+
+  it('does not add variable on name blur when value is empty', () => {
+    const onUpdateVariables = vi.fn();
+    renderVars({
+      variables: {},
+      onUpdateVariables,
+      newVarKey: 'onlyKey',
+      newVarValue: '',
+      setNewVarKey: vi.fn(),
+      setNewVarValue: vi.fn(),
+    });
+    fireEvent.blur(screen.getByPlaceholderText('name'));
+    expect(onUpdateVariables).not.toHaveBeenCalled();
+  });
+
+  it('adds variable on value blur when key is set even if value empty', () => {
+    const onUpdateVariables = vi.fn();
+    renderVars({
+      variables: {},
+      onUpdateVariables,
+      newVarKey: 'k',
+      newVarValue: '',
+      setNewVarKey: vi.fn(),
+      setNewVarValue: vi.fn(),
+    });
+    fireEvent.blur(screen.getByPlaceholderText('value'));
+    expect(onUpdateVariables).toHaveBeenCalledWith({ k: '' });
+  });
+
+  it('does not add on value blur when key is blank', () => {
+    const onUpdateVariables = vi.fn();
+    renderVars({
+      variables: {},
+      onUpdateVariables,
+      newVarKey: '   ',
+      newVarValue: 'x',
+      setNewVarKey: vi.fn(),
+      setNewVarValue: vi.fn(),
+    });
+    fireEvent.blur(screen.getByPlaceholderText('value'));
+    expect(onUpdateVariables).not.toHaveBeenCalled();
+  });
+
+  it('ignores column resize mouse moves when drag has not started', () => {
+    renderVars({ variables: { a: '1' } });
+    expect(() => fireEvent.mouseMove(window, { clientX: 50 })).not.toThrow();
   });
 
   it('adds new variable on Enter keydown in key input', () => {
@@ -201,6 +262,17 @@ describe('VariablesSection', () => {
     renderVars({ variables: { x: '1' }, onRequestVariableInsert });
     fireEvent.click(screen.getAllByText('Insert…')[0]);
     expect(onRequestVariableInsert).toHaveBeenCalled();
+  });
+
+  it('calls onRequestVariableInsert for long value row with variable key ref', () => {
+    const onRequestVariableInsert = vi.fn();
+    const longValue = 'a'.repeat(101);
+    renderVars({ variables: { rowKey: longValue }, onRequestVariableInsert });
+    const longWrap = document.querySelector('.wf-var-value-long-wrap');
+    const insertBtn = longWrap?.querySelector('.wf-config-insert-var-btn');
+    expect(insertBtn).toBeTruthy();
+    fireEvent.click(insertBtn!);
+    expect(onRequestVariableInsert).toHaveBeenCalledWith(expect.any(Function), false, 'rowKey');
   });
 
   it('calls onRequestVariableInsert for new row Insert button', () => {
@@ -263,10 +335,40 @@ describe('VariablesSection', () => {
     expect(insertButtons.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('preview input for long value is read-only', () => {
-    const longValue = 'x'.repeat(101);
-    renderVars({ variables: { big: longValue } });
-    // Long values show a read-only preview input and a View button
-    expect(screen.getByText('View…')).toBeTruthy();
+  it('renders source from variable hints and workflow defaults', () => {
+    renderVars({
+      variables: { vin: '{{vin}}' },
+      variableHints: [{ ref: 'vin', label: 'VIN (workflow)' }],
+      workflowVariables: { vin: 'default' },
+    });
+    const sourceInputs = document.querySelectorAll('.wf-var-source-input');
+    expect(sourceInputs[0]).toHaveProperty('value', 'Default');
+  });
+
+  it('truncates long value preview in read-only input', () => {
+    const longValue = 'z'.repeat(101);
+    renderVars({ variables: { k: longValue } });
+    const preview = document.querySelector('.wf-var-value-preview') as HTMLInputElement;
+    expect(preview.value.length).toBe(73);
+    expect(preview.value.endsWith('…') || preview.value.endsWith('...')).toBe(true);
+  });
+
+  it('opens variable detail when clicking long value preview', () => {
+    const longValue = 'z'.repeat(101);
+    renderVars({ variables: { k: longValue } });
+    fireEvent.click(document.querySelector('.wf-var-value-preview')!);
+    expect(inspectActions.openVariableDetail).toHaveBeenCalledWith('k', longValue, expect.any(Function));
+  });
+
+  it('updates new row value via onChange', () => {
+    const setNewVarValue = vi.fn();
+    renderVars({
+      newVarKey: 'k',
+      newVarValue: 'start',
+      setNewVarValue,
+      setNewVarKey: vi.fn(),
+    });
+    fireEvent.change(screen.getByPlaceholderText('value'), { target: { value: 'edited' } });
+    expect(setNewVarValue).toHaveBeenCalledWith('edited');
   });
 });

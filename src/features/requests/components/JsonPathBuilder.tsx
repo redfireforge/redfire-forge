@@ -248,7 +248,7 @@ export default function JsonPathBuilder({
   const hasArrayFields = expectedFields.some(f => /\[\d+\]/.test(f.jsonPath));
   const prevHasArray = useRef(false);
   useEffect(() => {
-    if (hasArrayFields && !prevHasArray.current) setRulesView('table'); // eslint-disable-line react-hooks/set-state-in-effect
+    if (hasArrayFields && !prevHasArray.current) setRulesView('table');  
     prevHasArray.current = hasArrayFields;
   }, [hasArrayFields]);
 

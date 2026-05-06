@@ -76,4 +76,24 @@ describe('WorkflowDebugBar', () => {
     fireEvent.click(screen.getByText(/Stop/));
     expect(onStop).toHaveBeenCalledTimes(1);
   });
+
+  it('calls resumeAll when Resume clicked', () => {
+    const controller = makeController();
+    const resumeSpy = vi.spyOn(controller, 'resumeAll');
+    render(
+      <WorkflowDebugBar debugController={controller} onStop={vi.fn()} variableCount={0} />,
+    );
+    fireEvent.click(screen.getByTitle('Run remaining nodes without pausing'));
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls stepAll when Step All clicked', () => {
+    const controller = makeController();
+    const stepAllSpy = vi.spyOn(controller, 'stepAll');
+    render(
+      <WorkflowDebugBar debugController={controller} onStop={vi.fn()} variableCount={0} />,
+    );
+    fireEvent.click(screen.getByTitle('Step all paused nodes simultaneously'));
+    expect(stepAllSpy).toHaveBeenCalledTimes(1);
+  });
 });

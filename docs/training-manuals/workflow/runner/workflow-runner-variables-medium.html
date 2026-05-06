@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Runner: Variables — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  .var-example {
+    background: #f1f3f5; border-radius: 6px; padding: 12px 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    margin: 10px 0;
+  }
+  .var-example .key { color: #e63946; }
+  .var-example .value { color: #2e7d32; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📝</div>
+    <h1>Workflow Runner: Variables</h1>
+    <div class="subtitle">Configure, Edit, and Track Variable History — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Workflow · Performance Testing</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Understand workflow variables and <code>{{name}}</code> syntax</li>
+    <li>Edit initial variable values before running a test</li>
+    <li>Use Variable History to restore previous configurations</li>
+    <li>Save and label commonly-used variable sets</li>
+    <li>Reset variables to workflow defaults</li>
+  </ul>
+
+  <h2>2. Understanding Workflow Variables</h2>
+
+  <h3>What Are Variables?</h3>
+  <p>Variables are named placeholders that can be used anywhere in your workflow:</p>
+  <ul>
+    <li>URLs: <code>https://api.example.com/users/{{userId}}</code></li>
+    <li>Headers: <code>Authorization: Bearer {{token}}</code></li>
+    <li>Request bodies: <code>{"name": "{{userName}}"}</code></li>
+  </ul>
+
+  <h3>Variable Syntax</h3>
+  <p>Use double curly braces to reference a variable:</p>
+  <div class="var-example">
+    <span class="key">{{</span>variableName<span class="key">}}</span>
+  </div>
+
+  <h3>Where Variables Come From</h3>
+  <table>
+    <tr><th>Source</th><th>Description</th><th>Example</th></tr>
+    <tr>
+      <td>Workflow Defaults</td>
+      <td>Defined when creating the workflow</td>
+      <td><code>userId = "1"</code></td>
+    </tr>
+    <tr>
+      <td>Initial Variables</td>
+      <td>Edited in Workflow Runner before test</td>
+      <td>Override <code>userId = "5"</code></td>
+    </tr>
+    <tr>
+      <td>Extractions</td>
+      <td>Extracted from HTTP responses during execution</td>
+      <td><code>postId</code> from <code>$.id</code></td>
+    </tr>
+  </table>
+
+  <h2>3. The Initial Variables Panel</h2>
+  <p>When you select a workflow in the Workflow Runner, you'll see the <strong>Initial Variables</strong> panel.</p>
+
+  <h3>Panel Components</h3>
+  <table>
+    <tr><th>Component</th><th>Description</th></tr>
+    <tr>
+      <td>Variable rows</td>
+      <td>Each workflow variable with its current value</td>
+    </tr>
+    <tr>
+      <td>Edit inputs</td>
+      <td>Text fields to change variable values</td>
+    </tr>
+    <tr>
+      <td>"Modified" badge</td>
+      <td>Shows when values differ from workflow defaults</td>
+    </tr>
+    <tr>
+      <td>Reset button</td>
+      <td>Restores all variables to workflow defaults</td>
+    </tr>
+    <tr>
+      <td>History button</td>
+      <td>Opens the Variable History panel</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Variables Available to All Steps</strong>
+    The text below the panel header reminds you: "Variables available to all steps via <code>{{name}}</code>."
+  </div>
+
+  <h2>4. Hands-On Exercise: Country Lookup Workflow</h2>
+  <p>Let's create a workflow that uses variables to search for different countries.</p>
+
+  <h3>Step 1: Create the Workflow</h3>
+  <ol>
+    <li>Go to <strong>Workflow → Designer</strong></li>
+    <li>Click <strong>+ New Workflow</strong></li>
+    <li>Name it <strong>"Country Lookup"</strong></li>
+  </ol>
+
+  <h3>Step 2: Add Variables</h3>
+  <ol>
+    <li>Click the <strong>Variables</strong> panel on the right</li>
+    <li>Add these variables:</li>
+  </ol>
+  <div class="var-example">
+    <span class="key">{{</span>countryName<span class="key">}}</span> = <span class="value">"germany"</span><br>
+    <span class="key">{{</span>fields<span class="key">}}</span> = <span class="value">"name,capital,population"</span>
+  </div>
+
+  <h3>Step 3: Add HTTP Nodes</h3>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span>Search Country</h4>
+    <p>Add an HTTP node with:</p>
+    <pre>Method: GET
+URL: https://restcountries.com/v3.1/name/{{countryName}}?fields={{fields}}</pre>
+    <p>Add extraction: <code>countryCode</code> from <code>$[0].cca2</code></p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span>Get Country Details</h4>
+    <p>Add another HTTP node with:</p>
+    <pre>Method: GET
+URL: https://restcountries.com/v3.1/alpha/{{countryCode}}</pre>
+  </div>
+
+  <h3>Step 4: Connect and Save</h3>
+  <p>Connect: Start → Search Country → Get Country Details</p>
+  <p>Save the workflow.</p>
+
+  <div class="page-break"></div>
+
+  <h2>5. Running with Different Variables</h2>
+
+  <h3>Exercise A: Run with Defaults</h3>
+  <ol>
+    <li>Go to <strong>Testing → Workflow Runner</strong></li>
+    <li>Select <strong>"Country Lookup"</strong></li>
+    <li>Observe the Initial Variables panel shows:
+      <pre>{{countryName}} = germany
+{{fields}} = name,capital,population</pre>
+    </li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+    <li>Watch the test complete — it searches for Germany</li>
+  </ol>
+
+  <h3>Exercise B: Change Variables and Run Again</h3>
+  <ol>
+    <li>In the Initial Variables panel, change:
+      <pre>{{countryName}} = japan</pre>
+    </li>
+    <li>Notice the <strong>(modified)</strong> badge appears</li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+    <li>This run searches for Japan instead</li>
+  </ol>
+
+  <h3>Exercise C: Use Variable History</h3>
+  <ol>
+    <li>Click the <strong>📜 History (2)</strong> button</li>
+    <li>You'll see two saved configurations:
+      <ul>
+        <li>Japan run (most recent)</li>
+        <li>Germany run</li>
+      </ul>
+    </li>
+    <li>Click the Germany configuration to restore it</li>
+    <li>The variables reset to <code>countryName = germany</code></li>
+  </ol>
+
+  <h2>6. Labeling Configurations</h2>
+  <p>Give meaningful names to frequently-used variable sets.</p>
+
+  <h3>How to Label</h3>
+  <ol>
+    <li>Open the Variable History panel</li>
+    <li>Find the configuration you want to label</li>
+    <li>Click the <strong>✏️</strong> (edit) icon</li>
+    <li>Enter a label like <strong>"European Test"</strong></li>
+    <li>Press Enter or click Save</li>
+  </ol>
+
+  <h3>Labeled vs. Unlabeled</h3>
+  <table>
+    <tr><th>Unlabeled</th><th>Labeled</th></tr>
+    <tr>
+      <td><code>countryName=germany</code></td>
+      <td><strong>European Test</strong></td>
+    </tr>
+    <tr>
+      <td><code>countryName=japan</code></td>
+      <td><strong>Asian Test</strong></td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Best Practice</strong>
+    Label configurations that represent meaningful test scenarios (e.g., "Staging Credentials", "High Volume User", "Edge Case - Empty").
+  </div>
+
+  <h2>7. Resetting to Defaults</h2>
+  <p>When you've modified variables and want to start fresh:</p>
+
+  <ol>
+    <li>Look for the <strong>Reset</strong> link next to the History button</li>
+    <li>Click it to restore all variables to their workflow-defined defaults</li>
+    <li>The "(modified)" badge disappears</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Reset vs. History</strong>
+    <ul>
+      <li><strong>Reset</strong> — Returns to the workflow's original default values</li>
+      <li><strong>History</strong> — Restores a previously-run configuration</li>
+    </ul>
+  </div>
+
+  <h2>8. Variable History Storage</h2>
+
+  <h3>How History Works</h3>
+  <ul>
+    <li>Each time you run a workflow, the current variables are saved</li>
+    <li>History is stored per-workflow (each workflow has its own history)</li>
+    <li>Up to 10 configurations are kept per workflow</li>
+    <li>Oldest configurations are removed when limit is reached</li>
+  </ul>
+
+  <h3>History Panel Features</h3>
+  <table>
+    <tr><th>Feature</th><th>Description</th></tr>
+    <tr>
+      <td>Click to restore</td>
+      <td>Click any history item to load its variables</td>
+    </tr>
+    <tr>
+      <td>Relative time</td>
+      <td>Shows "2 hours ago", "yesterday", etc.</td>
+    </tr>
+    <tr>
+      <td>Edit label</td>
+      <td>✏️ button to rename the configuration</td>
+    </tr>
+    <tr>
+      <td>Delete</td>
+      <td>🗑️ button to remove from history</td>
+    </tr>
+  </table>
+
+  <h2>9. API Reference</h2>
+  <p>This exercise uses the <strong>REST Countries API</strong>:</p>
+
+  <table>
+    <tr><th>Endpoint</th><th>Description</th></tr>
+    <tr>
+      <td><code>GET /v3.1/name/{name}</code></td>
+      <td>Search countries by name</td>
+    </tr>
+    <tr>
+      <td><code>GET /v3.1/alpha/{code}</code></td>
+      <td>Get country by 2 or 3 letter code</td>
+    </tr>
+    <tr>
+      <td><code>?fields=a,b,c</code></td>
+      <td>Limit response to specific fields</td>
+    </tr>
+  </table>
+
+  <p>Base URL: <code>https://restcountries.com/v3.1</code></p>
+
+  <h2>10. Summary</h2>
+
+  <table>
+    <tr><th>Action</th><th>How</th></tr>
+    <tr>
+      <td>Edit variable</td>
+      <td>Type in the input field next to variable name</td>
+    </tr>
+    <tr>
+      <td>See if modified</td>
+      <td>Look for "(modified)" badge</td>
+    </tr>
+    <tr>
+      <td>Reset to defaults</td>
+      <td>Click "Reset" link</td>
+    </tr>
+    <tr>
+      <td>View history</td>
+      <td>Click "📜 History" button</td>
+    </tr>
+    <tr>
+      <td>Restore from history</td>
+      <td>Click any history item</td>
+    </tr>
+    <tr>
+      <td>Label a config</td>
+      <td>Click ✏️ in history, enter name</td>
+    </tr>
+    <tr>
+      <td>Delete from history</td>
+      <td>Click 🗑️ in history</td>
+    </tr>
+  </table>
+
+  <h2>11. Next Steps</h2>
+  <ul>
+    <li><strong>Workflow Runner: Iterations</strong> — Configure load testing parameters</li>
+    <li><strong>Workflow Runner: Results</strong> — Analyze per-step and per-iteration metrics</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Workflow Runner: Variables · Medium ★★☆
+  </footer>
+
+</body>
+</html>

@@ -116,4 +116,63 @@ describe('ResponseDetailModal', () => {
     expect(screen.queryByText('Request Headers')).toBeNull();
     expect(screen.queryByText('Request Body')).toBeNull();
   });
+
+  it('renders validation failure table rows', () => {
+    const result = makeResult({
+      passed: false,
+      failureDetails: [
+        { path: '$.id', expected: '1', actual: '2' },
+      ],
+    });
+    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+    expect(screen.getByText('Validation Failures (1)')).toBeTruthy();
+    expect(screen.getByText('$.id')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  it('stringifies non-string failure expected/actual values', () => {
+    const result = makeResult({
+      passed: false,
+      failureDetails: [
+        { path: 'x', expected: { a: 1 } as unknown as string, actual: [9] as unknown as string },
+      ],
+    });
+    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+    expect(screen.getByText('{"a":1}')).toBeTruthy();
+    expect(screen.getByText('[9]')).toBeTruthy();
+  });
+
+  it('renders timing breakdown when present', () => {
+    const result = makeResult({
+      timing: {
+        dnsLookup: 1,
+        tcpConnect: 2,
+        tlsHandshake: 3,
+        ttfb: 4,
+        download: 5,
+        total: 15,
+      },
+    });
+    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+    expect(screen.getByText('Timing Breakdown')).toBeTruthy();
+    expect(screen.getByTestId('waterfall-bar')).toBeTruthy();
+  });
+
+  it('renders error message as JSON when not a string', () => {
+    const result = makeResult({
+      passed: false,
+      httpStatus: 0,
+      errorMessage: { code: 'ECONNRESET' } as unknown as string,
+    });
+    render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+    expect(screen.getByText('Error Message')).toBeTruthy();
+    expect(screen.getByText('{"code":"ECONNRESET"}')).toBeTruthy();
+  });
+
+  it('uses ERR tag styling when httpStatus is 0', () => {
+    const result = makeResult({ httpStatus: 0, passed: false });
+    const { container } = render(<ResponseDetailModal result={result} onClose={vi.fn()} />);
+    expect(container.querySelector('.tag-danger')?.textContent).toContain('ERR');
+  });
 });

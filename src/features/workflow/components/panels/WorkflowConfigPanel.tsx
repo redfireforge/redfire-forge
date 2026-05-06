@@ -79,7 +79,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
 
   // Reset to inline view when a different node is selected
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state on node selection change
+     
     setExpanded(false);
   }, [node?.id]);
 

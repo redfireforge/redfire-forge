@@ -1,4 +1,5 @@
 import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import type { Workflow } from '../features/workflow/types/workflow';
 import type { ProgressMeta } from './executor';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { httpFetch } from '../shared/utils/httpClient';
@@ -24,6 +25,8 @@ export function runTestInWorker(
   scenarios: Scenario[],
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal,
+  /** Optional workflow for graph-based execution (when config.workflowId is set). */
+  workflow?: Workflow,
 ): Promise<RequestResult[]> {
   return new Promise<RequestResult[]>((resolve, reject) => {
     const allResults: RequestResult[] = [];
@@ -113,6 +116,7 @@ export function runTestInWorker(
       config,
       scenarios,
       useTauriProxy: isTauri(),
+      workflow,
     } satisfies MainToWorkerMessage);
   });
 }

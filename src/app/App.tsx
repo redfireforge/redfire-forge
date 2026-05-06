@@ -19,6 +19,7 @@ import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
+import WorkflowRunner from '../features/test-runner/WorkflowRunner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
@@ -88,8 +89,20 @@ export default function App() {
 
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+  const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
+  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
+
+  const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
+    setResultsRunTypeFilter(runType);
+    setActiveTab('results');
+  };
+
+  const handleRunInHarness = (workflowId: string) => {
+    setWorkflowRunnerInitialId(workflowId);
+    setActiveTab('workflow-runner');
+  };
 
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
@@ -118,7 +131,7 @@ export default function App() {
     if (sendToReqEntry) {
       loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset when entry is cleared
+       
       setSendToReqEpValues({});
     }
   }, [sendToReqEntry]);
@@ -133,7 +146,7 @@ export default function App() {
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
+       
       setTheme(initialTheme);
        
     }
@@ -209,7 +222,7 @@ export default function App() {
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
-    onComplete: () => setActiveTab('results'),
+    onComplete: () => handleCompleteToResults('test'),
   });
 
   const gallery = useGalleryImport({
@@ -572,6 +585,7 @@ export default function App() {
               <div className="sub-nav-tabs">
                 <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Scenarios</button>
                 <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Runner</button>
+                <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
                 <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
               </div>
             )}
@@ -621,6 +635,7 @@ export default function App() {
                 setPreviewWorkflow(null);
                 savePreviewSampleId(null);
               }}
+              onRunInHarness={handleRunInHarness}
             />
           </div>
           {activeTab === 'gallery' && (
@@ -638,6 +653,16 @@ export default function App() {
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">
               <TrainingTracksView onNavigateToSample={(_sampleId) => setActiveTab('gallery')} />
+            </div>
+          )}
+          {activeTab === 'workflow-runner' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+              <WorkflowRunner
+                workflows={wfHook.workflows}
+                onComplete={handleCompleteToResults}
+                initialWorkflowId={workflowRunnerInitialId}
+                onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+              />
             </div>
           )}
           {activeTab === 'workflow-executions' && (
@@ -696,7 +721,7 @@ export default function App() {
           <div hidden={activeTab !== 'runner'}>
             <TestRunner
               featureGroups={filteredFeatureGroups}
-              onComplete={() => setActiveTab('results')}
+              onComplete={handleCompleteToResults}
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               envId={selectedEnvId}
@@ -713,6 +738,7 @@ export default function App() {
               svcName={selectedSvc?.name}
               onRerunFailed={handleRerunFailed}
               isRerunning={isRerunning}
+              initialRunTypeFilter={resultsRunTypeFilter}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
@@ -741,7 +767,7 @@ export default function App() {
                 if (!previewRequest) return;
                 const req = previewRequest.request;
                 const GALLERY_COL_NAME = 'Gallery Samples';
-                let col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+                const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
                 let colId: string;
                 if (col) {
                   colId = col.id;

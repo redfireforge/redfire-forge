@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import TemplateGalleryModal from './TemplateGalleryModal';
+import '@testing-library/jest-dom';
+import TemplateGalleryModal, { TemplateGalleryContent } from './TemplateGalleryModal';
 
 describe('TemplateGalleryModal', () => {
   it('renders nothing when open is false', () => {
@@ -59,14 +60,20 @@ describe('TemplateGalleryModal', () => {
     expect(screen.getByLabelText('Filter by node type')).toBeTruthy();
   });
 
-  it('renders cards with data-cat and difficulty dots', () => {
+  it('renders paired main/simulator group when catalog includes pairs', () => {
     const { container } = render(
       <TemplateGalleryModal open={true} onClose={vi.fn()} onSelect={vi.fn()} />,
     );
-    const firstCard = container.querySelector('.tg-card') as HTMLElement;
-    expect(firstCard.dataset.cat).toBeTruthy();
-    expect(['api', 'flow', 'event', 'orch']).toContain(firstCard.dataset.cat);
-    const dots = firstCard.querySelectorAll('.tg-difficulty-dots .tg-dot');
-    expect(dots.length).toBe(3);
+    // Real catalog includes at least one paired sample block
+    expect(container.querySelector('.tg-pair')).toBeTruthy();
+  });
+
+  it('filters by node type and clears the active filter', () => {
+    render(<TemplateGalleryContent onSelect={vi.fn()} />);
+    const sel = screen.getByLabelText('Filter by node type') as HTMLSelectElement;
+    fireEvent.change(sel, { target: { value: 'HTTP' } });
+    expect(screen.getByText(/Showing samples using:/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Clear node filter'));
+    expect(sel.value).toBe('');
   });
 });

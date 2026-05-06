@@ -375,7 +375,10 @@ export interface TestConfig {
   errorPolicy?: ErrorPolicy;
   maxErrors?: number;
   maxErrorRate?: number;
+  /** Initial variables to seed the workflow's VariableContext */
   workflowVariables?: Record<string, string>;
+  /** Reference to a saved workflow definition (enables full graph execution) */
+  workflowId?: string;
 }
 
 export interface FailureDetail {
@@ -419,6 +422,10 @@ export interface RequestResult {
   dataRowId?: string;
   /** Human-readable row label (e.g., "Row 3: VIN=1GY...") for display */
   dataRowLabel?: string;
+  /** Which iteration (0-based) produced this result (for workflow load tests) */
+  iterationIndex?: number;
+  /** Which workflow node produced this result (for per-step metrics) */
+  workflowNodeId?: string;
 }
 
 export interface TestSummary {
@@ -448,6 +455,8 @@ export interface TestRun {
   envName?: string;
   svcName?: string;
   baseUrl?: string;
+  /** Name of the workflow (when executionMode is 'workflow') */
+  workflowName?: string;
 }
 
 // ─── Requests types ──────────────────────────────────────────
