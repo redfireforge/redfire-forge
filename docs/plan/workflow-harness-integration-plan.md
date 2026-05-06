@@ -898,7 +898,7 @@ For developers and CI/CD pipelines with access to the source:
 ```bash
 # Clone and install
 git clone <repo-url>
-cd performance-test
+cd redfireforge
 npm install
 
 # Run CLI via npx
