@@ -123,7 +123,7 @@ export async function runGraphLoad(
         workflowNodeId: 'error',
       };
       allResults.push(errorResult);
-      breaker?.recordResult(errorResult);
+      breaker?.record(errorResult);
     }
 
     completedIterations++;

@@ -206,7 +206,7 @@ describe('graphLoadRunner', () => {
       let callCount = 0;
       const breaker = {
         shouldStop: false,
-        recordResult: vi.fn(),
+        record: vi.fn(),
       };
       
       mockRunGraph.mockImplementation(async () => {
@@ -369,7 +369,7 @@ describe('graphLoadRunner', () => {
 
     it('skips runGraph when breaker already shouldStop', async () => {
       const workflow = createMockWorkflow();
-      const breaker = { shouldStop: true, recordResult: vi.fn() };
+      const breaker = { shouldStop: true, record: vi.fn() };
       mockRunGraph.mockResolvedValue([createMockResult()]);
 
       const results = await runGraphLoad(workflow, {
@@ -421,17 +421,17 @@ describe('graphLoadRunner', () => {
 
     it('records breaker result when runGraph throws', async () => {
       const workflow = createMockWorkflow();
-      const recordResult = vi.fn();
+      const record = vi.fn();
       mockRunGraph.mockRejectedValueOnce(new Error('boom'));
 
       await runGraphLoad(workflow, {
         iterations: 1,
         concurrency: 1,
-        breaker: { shouldStop: false, recordResult } as any,
+        breaker: { shouldStop: false, record } as any,
       });
 
-      expect(recordResult).toHaveBeenCalled();
-      const arg = recordResult.mock.calls[0][0];
+      expect(record).toHaveBeenCalled();
+      const arg = record.mock.calls[0][0];
       expect(arg.passed).toBe(false);
       expect(arg.errorMessage).toBe('boom');
     });
