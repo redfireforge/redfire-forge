@@ -335,28 +335,89 @@ Clicking the button:
 
 ### Phase 6: CLI Support
 
-**Priority: Medium | Effort: Small**
+**Priority: Medium | Effort: Small | Status: ✅ COMPLETE**
 
 #### 6.1 CLI Workflow Performance Test Command
 
-Extend the CLI to support graph-based workflow load testing:
+Added `redfireforge workflow` command for graph-based workflow load testing:
 
 ```bash
-# Run a saved workflow as a performance test
-redfireforge run --workflow order-flow.json --iterations 100 --concurrency 10
+# Run a workflow file as a performance test
+npx tsx cli/index.ts workflow workflow-file.yaml --iterations 100 --concurrency 10
 
-# With variables
-redfireforge run --workflow order-flow.json --iterations 50 --concurrency 5 \
+# With variable overrides
+npx tsx cli/index.ts workflow workflow-file.yaml -i 50 -c 5 \
   --var baseUrl=https://staging.api.example.com \
   --var apiKey=sk-test-xxx
+
+# With reporters
+npx tsx cli/index.ts workflow workflow-file.yaml -i 10 -c 2 \
+  --junit results.xml --markdown results.md --output results.json
+
+# Validate without running
+npx tsx cli/index.ts validate-workflow workflow-file.yaml
 ```
+
+**CLI Options:**
+- `-i, --iterations <n>` — Total workflow iterations (default: 10)
+- `-c, --concurrency <n>` — Concurrent iterations (default: 1)
+- `--var <vars...>` — Set variables (format: name=value)
+- `--timeout <sec>` — Per-request timeout
+- `--error-policy <policy>` — continue, stop-first, stop-threshold
+- `--fail-on-error` — Exit code 1 if any request fails
+- `--fail-threshold <pct>` — Exit code 1 if error rate exceeds threshold
+- `-o, --output <path>` — Write JSON report
+- `--junit <path>` — Write JUnit XML report
+- `--markdown <path>` — Write Markdown report
+- `-q, --quiet` — Suppress progress output
 
 #### 6.2 CLI Reporter Enhancements
 
-Add workflow-aware output to the JUnit and JSON reporters:
-- Per-step metrics in the summary
-- Iteration-level test cases in JUnit XML (each iteration = one `<testcase>`)
-- `workflowName` and `iterationIndex` fields in JSON output
+✅ Added workflow-aware reporters:
+- Console summary with per-step metrics and failed iterations
+- JUnit XML with each iteration as a `<testcase>`
+- Markdown report with per-step metrics table and failed iteration details
+- JSON report with `workflowId`, `workflowName`, and `executionMode: 'workflow'`
+
+#### 6.3 Simplified Workflow YAML Format
+
+The workflow loader supports both full and simplified formats for HTTP nodes:
+
+```yaml
+# Simplified format (auto-expanded)
+- id: get-users
+  type: http
+  position: { x: 0, y: 0 }
+  data:
+    label: Get Users
+    method: GET
+    url: "{{baseUrl}}/users"
+    headers:
+      Accept: application/json
+
+# Full format (same as UI export)
+- id: get-users
+  type: http
+  position: { x: 0, y: 0 }
+  data:
+    label: Get Users
+    scenario:
+      id: get-users-scenario
+      name: Get Users
+      url: "{{baseUrl}}/users"
+      method: GET
+      headers: []
+      auth:
+        type: none
+      validation:
+        mode: none
+```
+
+**Files Added/Modified:**
+- `cli/index.ts` — Added `workflow` and `validate-workflow` commands
+- `cli/workflowLoader.ts` — New file: loads and normalizes workflow YAML/JSON
+- `cli/reporters.ts` — Added `printWorkflowConsoleSummary`, `buildWorkflowJunitXml`, `buildWorkflowMarkdownReport`
+- `examples/workflow-cli-sample.yaml` — Sample workflow for CLI testing
 
 ---
 
@@ -838,7 +899,7 @@ Add to test presets for workflow-based testing:
 - [x] Results show per-step aggregate metrics (avg, p50, p95, p99 per workflow node)
 - [x] Results show per-iteration pass/fail with total duration
 - [x] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Workflow Runner
-- [ ] CLI supports `--workflow` flag for graph-based load testing
+- [x] CLI supports `workflow` command for graph-based load testing
 - [x] Existing flat-chain workflow mode continues to work (backward compatible)
 - [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
 - [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
@@ -853,6 +914,7 @@ Add to test presets for workflow-based testing:
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | Phase 6 complete: Added `workflow` and `validate-workflow` CLI commands. Created workflowLoader with simplified YAML format support. Added workflow-aware reporters (console, JUnit, Markdown). Added sample workflow YAML. |
 | 2026-05-05 | Phase 5 complete: Added "Run in Harness" button to Workflow Designer toolbar. Clicking navigates to Workflow Runner tab with workflow pre-selected and variables initialized. Added unit tests for WorkflowToolbar and WorkflowRunner. |
 | 2026-05-05 | Phase 4 complete: Fixed "Workflow" execution mode label in results. Created `WorkflowResultsSummary` component with per-step metrics table and per-iteration drill-down. Extended `resultsGrouping.ts` with `workflowStep` and `iteration` grouping levels plus percentile stats. Added workflow-specific grouping options to the results table. |
 | 2026-05-05 | Phase 3 complete: Created `graphLoadRunner.ts` for load testing with full graph topology. Updated executor, worker bridge, and protocol to pass workflow data. Results tagged with `iterationIndex` and `workflowNodeId`. |

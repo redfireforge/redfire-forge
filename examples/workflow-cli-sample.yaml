@@ -1,0 +1,58 @@
+# Sample workflow for CLI testing
+# Run with: npx tsx cli/index.ts workflow examples/workflow-cli-sample.yaml --iterations 5 --concurrency 2
+#
+# HTTP nodes support two formats:
+# 1. Simplified: method, url, headers, body at data level
+# 2. Full: nested scenario object with complete Scenario structure
+
+name: JSONPlaceholder Test Workflow
+
+variables:
+  baseUrl: https://jsonplaceholder.typicode.com
+
+nodes:
+  - id: start
+    type: start
+    position: { x: 0, y: 100 }
+    data:
+      label: Start
+      inputVariables: {}
+
+  # Simplified HTTP node format
+  - id: get-users
+    type: http
+    position: { x: 200, y: 100 }
+    data:
+      label: Get Users
+      method: GET
+      url: "{{baseUrl}}/users"
+
+  # Simplified HTTP node format with headers
+  - id: get-posts
+    type: http
+    position: { x: 400, y: 100 }
+    data:
+      label: Get Posts
+      method: GET
+      url: "{{baseUrl}}/posts?userId=1"
+      headers:
+        Accept: application/json
+
+  - id: end
+    type: end
+    position: { x: 600, y: 100 }
+    data:
+      label: End
+
+edges:
+  - id: e1
+    source: start
+    target: get-users
+
+  - id: e2
+    source: get-users
+    target: get-posts
+
+  - id: e3
+    source: get-posts
+    target: end
