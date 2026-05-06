@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:cli": "node scripts/build-cli.mjs",
+    "build:cli-package": "./scripts/build-cli-package.sh",
     "build:server": "node scripts/build-server.mjs",
     "server": "tsx src-server/index.ts",
     "server:dev": "tsx watch src-server/index.ts",
