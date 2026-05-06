@@ -2325,6 +2325,74 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .workflow-metric .metric-value { font-size: 1.1rem; font-weight: 600; color: var(--text); }
 .workflow-metric .metric-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
 
+/* Workflow Iteration Chart */
+.workflow-iteration-chart {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-iteration-chart .chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.workflow-iteration-chart .chart-header h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.workflow-iteration-chart .chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.workflow-iteration-chart .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.workflow-iteration-chart .legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+.workflow-iteration-chart .legend-pass {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(34, 197, 94, 0.5));
+}
+.workflow-iteration-chart .legend-fail {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0.5));
+}
+.workflow-iteration-chart .legend-line {
+  width: 20px;
+  height: 2px;
+  background: rgba(251, 191, 36, 0.8);
+}
+.workflow-iteration-chart .chart-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.workflow-iteration-chart .chart-stat strong {
+  color: var(--text);
+  font-weight: 500;
+}
+.workflow-iteration-chart .chart-tooltip {
+  position: absolute;
+  background: var(--bg-elevated, #1e293b);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 100;
+  transform: translateX(-50%);
+}
+
 /* Per-Step Table */
 .workflow-steps-section {
   padding: 16px;
