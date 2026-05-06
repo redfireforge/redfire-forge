@@ -6,8 +6,31 @@ Run API performance tests and workflows using YAML or JSON test files. The CLI u
 
 ## Installation
 
+### Option 1: npm Package (Recommended)
+
 ```bash
 npm install -g redfireforge-cli
+```
+
+### Option 2: Desktop App CLI Mode
+
+If you have the RedfireForge desktop app installed, use the `--cli` flag:
+
+```bash
+# macOS/Linux (symlink created during installation)
+redfireforge --cli run tests/test.yaml
+
+# Windows (added to PATH during installation)
+redfireforge --cli run tests/test.yaml
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/your-org/redfireforge.git
+cd redfireforge
+npm install
+npx tsx cli/index.ts run tests/test.yaml
 ```
 
 ## Quick Start

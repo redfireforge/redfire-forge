@@ -1300,7 +1300,7 @@ export const workflowLoadPresets: TestPreset[] = [
 
 ## Phase 9: CLI Distribution & Documentation
 
-**Priority: Medium | Effort: Medium-Large | Status: 9a ✅ COMPLETE, 9b ✅ COMPLETE, 9c PENDING**
+**Priority: Medium | Effort: Medium-Large | Status: ✅ COMPLETE (9a, 9b, 9c)**
 
 ### 9.1 CLI Access Methods
 
@@ -1494,11 +1494,14 @@ Phase 9c: Desktop App CLI Mode (Method C)
 - [x] Updated `package.json` with `build:cli-package` script
 - [x] Verified CLI bundle works with all commands (run, workflow, validate, validate-workflow)
 
-**Phase 9c (Desktop CLI):**
-- [ ] Tauri CLI mode (`--cli` flag)
-- [ ] macOS symlink in installer
-- [ ] Windows PATH in installer
-- [ ] Linux desktop integration
+**Phase 9c (Desktop CLI): ✅ COMPLETE**
+- [x] Tauri CLI mode (`--cli` flag) in `src-tauri/src/main.rs` with clap argument parsing
+- [x] Full CLI command support (run, workflow, validate, validate-workflow)
+- [x] macOS post-install script for `/usr/local/bin/redfireforge` symlink
+- [x] Windows WiX installer template with PATH configuration
+- [x] Linux post-install script for CLI symlink
+- [x] Bundled CLI script in app resources
+- [x] Updated CLI documentation for desktop mode
 
 ---
 

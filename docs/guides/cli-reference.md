@@ -43,14 +43,56 @@ redfireforge --version
 redfireforge --help
 ```
 
-### Method C: Desktop App CLI Mode (Coming Soon)
+### Method C: Desktop App CLI Mode
+
+If you have the RedfireForge desktop app installed, you can use CLI mode with the `--cli` flag:
 
 ```bash
-# macOS
-/Applications/RedfireForge.app/Contents/MacOS/RedfireForge --cli <command> [options]
+# macOS (after installation, symlink is created automatically)
+redfireforge --cli run tests/test.yaml
 
-# Or via symlink (created by installer)
-redfireforge --cli <command> [options]
+# Or use the full path
+/Applications/RedfireForge.app/Contents/MacOS/RedfireForge --cli run tests/test.yaml
+
+# Windows (added to PATH during installation)
+redfireforge --cli run tests/test.yaml
+
+# Linux (symlink created in /usr/local/bin)
+redfireforge --cli run tests/test.yaml
+```
+
+**Requirements:**
+- RedfireForge desktop app installed
+- Node.js >= 18 (for executing the CLI script)
+
+**Note:** The desktop CLI mode requires Node.js because it executes the bundled JavaScript CLI. If Node.js is not available, the app will suggest using the standalone npm package instead.
+
+**Available Commands in Desktop CLI Mode:**
+
+```bash
+# Show help
+redfireforge --cli
+
+# Run a test file
+redfireforge --cli run <file> [options]
+
+# Run a workflow
+redfireforge --cli workflow <file> [options]
+
+# Validate files
+redfireforge --cli validate <file>
+redfireforge --cli validate-workflow <file>
+```
+
+**Example:**
+
+```bash
+# Run with concurrency and generate reports
+redfireforge --cli run tests/api-test.yaml \
+  -c 10 \
+  -t 100 \
+  --junit results.xml \
+  --fail-on-error
 ```
 
 ---
