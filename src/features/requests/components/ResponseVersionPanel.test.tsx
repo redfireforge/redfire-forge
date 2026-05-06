@@ -6,6 +6,18 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ResponseVersionPanel from './ResponseVersionPanel';
 import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
 
+vi.mock('json-diff-kit', () => ({
+  Differ: class {
+    diff(left: unknown, right: unknown) {
+      const same = JSON.stringify(left) === JSON.stringify(right);
+      return [[{ type: same ? 'equal' : 'modify', text: '' }]];
+    }
+  },
+  Viewer: ({ diff }: { diff: unknown[][] }) => <div data-testid="diff-viewer">{JSON.stringify(diff).slice(0, 50)}</div>,
+}));
+vi.mock('json-diff-kit/dist/viewer.css', () => ({}));
+vi.mock('json-diff-kit/dist/viewer-monokai.css', () => ({}));
+
 function mkVersion(overrides: Partial<ResponseVersion> & { json: string }): ResponseVersion {
   return {
     id: crypto.randomUUID(),
@@ -220,6 +232,324 @@ describe('ResponseVersionPanel', () => {
         />,
       );
       expect(screen.getByText('Compare')).toBeTruthy();
+    });
+
+    it('shows "current" tag for version matching current JSON', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"a":1}'
+        />,
+      );
+      expect(screen.getByText('current')).toBeTruthy();
+    });
+
+    it('shows Restore button for non-current versions', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"a":1}'
+        />,
+      );
+      expect(screen.getByText('Restore')).toBeTruthy();
+    });
+
+    it('calls onRestore when Restore clicked', () => {
+      const onRestore = vi.fn();
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"a":1}'
+          onRestore={onRestore}
+        />,
+      );
+      fireEvent.click(screen.getByText('Restore'));
+      expect(onRestore).toHaveBeenCalledWith(v2);
+    });
+
+    it('calls onDeleteVersion when Delete clicked', () => {
+      const onDelete = vi.fn();
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"a":1}'
+          onDeleteVersion={onDelete}
+        />,
+      );
+      fireEvent.click(screen.getByText('Delete'));
+      expect(onDelete).toHaveBeenCalledWith(v1.id);
+    });
+
+    it('shows validation rules tag when version has rules', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, validationMode: 'selective', selectiveMode: 'include' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+        />,
+      );
+      expect(screen.getByText(/selective·include/)).toBeTruthy();
+    });
+
+    it('allows renaming a version by clicking label', () => {
+      const onRename = vi.fn();
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'my-version' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+          onRenameVersion={onRename}
+        />,
+      );
+      fireEvent.click(screen.getByText('my-version'));
+      const input = screen.getByDisplayValue('my-version');
+      fireEvent.change(input, { target: { value: 'renamed' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onRename).toHaveBeenCalledWith(v1.id, 'renamed');
+    });
+
+    it('cancels rename on Escape', () => {
+      const onRename = vi.fn();
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'my-version' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+          onRenameVersion={onRename}
+        />,
+      );
+      fireEvent.click(screen.getByText('my-version'));
+      const input = screen.getByDisplayValue('my-version');
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(onRename).not.toHaveBeenCalled();
+      expect(screen.getByText('my-version')).toBeTruthy();
+    });
+  });
+
+  describe('compare modal', () => {
+    it('opens compare modal with version selectors', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'first' });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'second' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+      expect(screen.getByText('Left')).toBeTruthy();
+      expect(screen.getByText('Right')).toBeTruthy();
+    });
+
+    it('shows diff viewer when two versions selected', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'first' });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'second' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByTestId('diff-viewer')).toBeTruthy();
+    });
+
+    it('shows "Changes detected" for different versions', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'first' });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'second' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Changes detected')).toBeTruthy();
+    });
+
+    it('shows "Same version selected" when comparing same version', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'first' });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'second' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const leftSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(leftSelect, { target: { value: v2.id } });
+      const rightSelect = screen.getAllByRole('combobox')[1];
+      fireEvent.change(rightSelect, { target: { value: v2.id } });
+      expect(screen.getByText('Same version selected')).toBeTruthy();
+    });
+
+    it('has Unordered Arrays toggle', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Unordered Arrays')).toBeTruthy();
+    });
+
+    it('has Response and Validation Rules tabs', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const tabs = document.querySelectorAll('.version-diff-tab');
+      expect(tabs.length).toBe(2);
+      expect(tabs[0].textContent).toContain('Response');
+      expect(tabs[1].textContent).toContain('Validation Rules');
+    });
+
+    it('closes on close button click', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+      fireEvent.click(screen.getByText('✕'));
+      expect(screen.queryByText('Compare Versions')).toBeNull();
+    });
+
+    it('closes on Escape key', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByText('Compare Versions')).toBeNull();
+    });
+
+    it('switches to rules diff tab', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, validationMode: 'selective', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, validationMode: 'none' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.click(screen.getByText(/Validation Rules/));
+      expect(screen.getByTestId('diff-viewer')).toBeTruthy();
+    });
+  });
+
+  describe('rename on blur', () => {
+    it('saves rename on blur', () => {
+      const onRename = vi.fn();
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'orig' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+          onRenameVersion={onRename}
+        />,
+      );
+      fireEvent.click(screen.getByText('orig'));
+      const input = screen.getByDisplayValue('orig');
+      fireEvent.change(input, { target: { value: 'blurred' } });
+      fireEvent.blur(input);
+      expect(onRename).toHaveBeenCalledWith(v1.id, 'blurred');
+    });
+  });
+
+  describe('unordered arrays toggle', () => {
+    it('toggles unordered arrays checkbox', () => {
+      const v1 = mkVersion({ json: '{"a":[1,2]}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"a":[2,1]}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(true);
+    });
+  });
+
+  describe('overlay click close', () => {
+    it('closes compare modal when overlay clicked', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+      const overlay = document.querySelector('.version-diff-overlay') as HTMLElement;
+      fireEvent.click(overlay);
+      expect(screen.queryByText('Compare Versions')).toBeNull();
+    });
+  });
+
+  describe('excludedPaths stripping', () => {
+    it('considers versions identical when only excluded paths differ', () => {
+      const v1 = mkVersion({ json: '{"a":1,"timestamp":"2024-01-01"}', timestamp: 1000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"a":1,"timestamp":"2025-01-01"}'
+          excludedPaths={['$.timestamp']}
+        />,
+      );
+      expect(screen.getByText(/Identical to/)).toBeTruthy();
     });
   });
 });

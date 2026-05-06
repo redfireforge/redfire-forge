@@ -17,8 +17,8 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths]);
   });
 
-  it('has exactly 15 paths', () => {
-    expect(trainingPaths).toHaveLength(15);
+  it('has exactly 16 paths', () => {
+    expect(trainingPaths).toHaveLength(16);
   });
 });
 
@@ -45,8 +45,8 @@ describe('contentPaths module', () => {
 });
 
 describe('workflowPaths module', () => {
-  it('contains 8 paths', () => {
-    expect(workflowPaths).toHaveLength(8);
+  it('contains 9 paths', () => {
+    expect(workflowPaths).toHaveLength(9);
   });
 
   it('has expected path IDs', () => {
@@ -60,6 +60,7 @@ describe('workflowPaths module', () => {
       'wf-async-correlation',
       'wf-orchestration',
       'wf-node-reference',
+      'wf-runner',
     ]);
   });
 });

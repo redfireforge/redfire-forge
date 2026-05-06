@@ -37,7 +37,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       if (saved.__globalProfileId && globalAuthProfiles?.length) {
         const liveProfile = globalAuthProfiles.find(p => p.id === saved.__globalProfileId);
         if (liveProfile) {
-          setAuth({ ...liveProfile.auth, __globalProfileId: liveProfile.id, __globalProfileName: liveProfile.name }); // eslint-disable-line react-hooks/set-state-in-effect
+          setAuth({ ...liveProfile.auth, __globalProfileId: liveProfile.id, __globalProfileName: liveProfile.name });  
           return;
         }
       }
@@ -91,7 +91,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       const profile = globalAuthProfiles.find(p => p.id === profileId);
       if (profile) {
         const newAuth: AuthConfig = { ...profile.auth, __globalProfileId: profile.id, __globalProfileName: profile.name };
-        setAuth(newAuth); // eslint-disable-line react-hooks/set-state-in-effect
+        setAuth(newAuth);  
         catalog.updateEntry(entry.id, { savedAuth: newAuth });
         return;
       }

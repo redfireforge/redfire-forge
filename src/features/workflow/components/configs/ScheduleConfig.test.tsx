@@ -1,8 +1,10 @@
 /**
  * @vitest-environment jsdom
  */
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ScheduleConfig from './ScheduleConfig';
 import type { ScheduleTriggerNodeData } from '../../types/workflow';
 
@@ -27,6 +29,23 @@ const defaultProps = {
   setNewVarValue: vi.fn(),
   workflowVariables: {},
 };
+
+function ScheduleConfigWithVarState(
+  props: Omit<typeof defaultProps, 'newVarKey' | 'setNewVarKey' | 'newVarValue' | 'setNewVarValue'>,
+) {
+  const [newVarKey, setNewVarKey] = useState('');
+  const [newVarValue, setNewVarValue] = useState('');
+  return (
+    <ScheduleConfig
+      {...defaultProps}
+      {...props}
+      newVarKey={newVarKey}
+      setNewVarKey={setNewVarKey}
+      newVarValue={newVarValue}
+      setNewVarValue={setNewVarValue}
+    />
+  );
+}
 
 describe('ScheduleConfig', () => {
   it('renders cron expression input', () => {
@@ -133,5 +152,17 @@ describe('ScheduleConfig', () => {
   it('renders VariablesSection for initial variables', () => {
     render(<ScheduleConfig {...defaultProps} />);
     expect(screen.getByText('Initial variables')).toBeTruthy();
+  });
+
+  it('calls onChange with inputVariables when a variable is added', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ScheduleConfigWithVarState onChange={onChange} />);
+
+    await user.type(screen.getByPlaceholderText('name'), 'region');
+    await user.type(screen.getByPlaceholderText('value'), 'us-east');
+    await user.click(screen.getByRole('button', { name: '+' }));
+
+    expect(onChange).toHaveBeenCalledWith({ inputVariables: { region: 'us-east' } });
   });
 });

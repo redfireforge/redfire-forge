@@ -39,13 +39,15 @@ interface Props {
   onOpenVersions?: () => void;
   runProgress?: RunProgress | null;
   onReset?: () => void;
+  /** Navigate to Workflow Runner with this workflow pre-selected for load testing. */
+  onRunInHarness?: () => void;
 }
 
 export default function WorkflowToolbar({
   workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0, versionCount = 0,
   environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [], isPreview = false,
   onNew, onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults, onOpenVersions,
-  runProgress = null, onReset,
+  runProgress = null, onReset, onRunInHarness,
 }: Props) {
   const envReadinessMap = useMemo(
     () => workflowServices.length > 0
@@ -119,6 +121,18 @@ export default function WorkflowToolbar({
               Versions
               {versionCount > 0 && <span className="wf-toolbar-services-badge">{versionCount}</span>}
             </button>
+
+            {!isPreview && onRunInHarness && (
+              <button
+                className="btn btn-sm wf-toolbar-btn wf-toolbar-harness-btn"
+                onClick={onRunInHarness}
+                disabled={isRunning}
+                title="Run this workflow under load in the Workflow Runner"
+              >
+                <svg className="wf-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Run in Harness
+              </button>
+            )}
 
             {!isPreview && (
               <span className="wf-toolbar-env-wrap">

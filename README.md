@@ -109,78 +109,45 @@ Press `Ctrl+C` in the terminal running the dev command.
 
 Run API performance tests from the command line using YAML or JSON test files. The CLI reuses the same execution engine, validators, and reporters as the GUI — so tests behave identically in CI/CD and on your desktop.
 
-### Quick Example
+📖 **[Full CLI Reference](docs/guides/cli-reference.md)** — Complete command documentation  
+📖 **[CI/CD Integration Guide](docs/guides/cli-ci-cd.md)** — GitHub Actions, GitLab CI, Jenkins, Azure DevOps examples
+
+### Quick Start
 
 ```bash
-# Run tests (development — uses tsx)
-npx tsx cli/index.ts run examples/sample-api-test.yaml -c 5 -t 20
+# Validate a test file
+npx tsx cli/index.ts validate examples/cli-basic-test.yaml
 
-# Build distributable CLI, then run
-npm run build:cli
-node dist-cli/redfireforge.mjs run examples/sample-api-test.yaml -c 5 -t 20
+# Run a simple test
+npx tsx cli/index.ts run examples/cli-basic-test.yaml
+
+# Run with concurrency and transactions
+npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -t 50
+
+# Run parameterized tests with tags
+npx tsx cli/index.ts run examples/cli-parameterized.yaml --tags smoke,critical
+
+# Run workflow performance test
+npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml -i 20 -c 3
 ```
 
-### Test File Format (YAML)
+### Commands
 
-```yaml
-name: My API Tests
-baseUrl: https://api.example.com
+| Command | Description |
+|---|---|
+| `run <file>` | Execute a test file |
+| `workflow <file>` | Execute a workflow file as a performance test |
+| `validate <file>` | Validate a test file without running |
+| `validate-workflow <file>` | Validate a workflow file without running |
 
-defaults:
-  headers:
-    Accept: application/json
-  timeout: 10
-  retries: 1
-
-config:
-  concurrency: 5
-  transactions: 50
-  mode: batch                  # sequential | batch | pool | load-profile
-
-tests:
-  - name: List Users
-    url: /users
-    method: GET
-    weight: 2
-    validation:
-      mode: selective
-      expectedFields:
-        - jsonPath: "$.data[0].name"
-          expectedValue: "Alice"
-
-  - name: Create User
-    url: /users
-    method: POST
-    headers:
-      Content-Type: application/json
-    body: '{"name": "Test User"}'
-    auth:
-      type: bearer
-      token: my-jwt-token
-```
-
-### CLI Commands
-
-```bash
-# Run a test file
-redfireforge run <file> [options]
-
-# Validate a test file without running
-redfireforge validate <file>
-```
-
-### Run Options
+### Common Options
 
 | Flag | Description |
 |---|---|
 | `-c, --concurrency <n>` | Number of concurrent requests |
-| `-t, --transactions <n>` | Total number of requests |
-| `-m, --mode <mode>` | `sequential`, `batch`, `pool`, `load-profile` |
+| `-t, --transactions <n>` | Total number of requests (or `-i, --iterations` for workflows) |
 | `--timeout <sec>` | Per-request timeout |
-| `--retries <n>` | Retry count on failure |
 | `--base-url <url>` | Override the base URL for all tests |
-| `--env <name>` | Environment name (metadata for reports) |
-| `--duration <sec>` | Duration in seconds (load-profile mode) |
 | `-o, --output <path>` | Write JSON report |
 | `--junit <path>` | Write JUnit XML report |
 | `--markdown <path>` | Write Markdown report |
@@ -188,24 +155,65 @@ redfireforge validate <file>
 | `--fail-threshold <pct>` | Exit code 1 if error rate exceeds % |
 | `-q, --quiet` | Suppress progress output |
 
-### Report Outputs
+### Test File Example (YAML)
 
-**JSON** (`-o report.json`) — Full `TestRun` object compatible with the GUI's import format.
+```yaml
+name: My API Tests
+baseUrl: https://jsonplaceholder.typicode.com
 
-**JUnit XML** (`--junit report.xml`) — Standard JUnit format for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI).
+tests:
+  - name: List Users
+    method: GET
+    url: /users
+    assertions:
+      - type: status
+        expected: "200"
 
-**Markdown** (`--markdown report.md`) — Human-readable summary table with TPS, percentiles, error rates.
+  - name: Get User
+    method: GET
+    url: /users/1
+    assertions:
+      - type: status
+        expected: "200"
+      - type: jsonPath
+        jsonPath: $.name
+        operator: exists
+```
 
-### CI/CD Usage
+### CI/CD Quick Example
 
 ```bash
-# In GitHub Actions, Jenkins, etc.
-npx tsx cli/index.ts run tests/smoke.yaml \
+# GitHub Actions, Jenkins, etc.
+npx tsx cli/index.ts run tests/api-test.yaml \
   --concurrency 10 \
   --transactions 100 \
+  --junit results.xml \
   --fail-on-error \
-  --junit results/junit.xml \
-  --markdown results/summary.md
+  -q
+```
+
+### Example Scripts
+
+Ready-to-use scripts are available in `examples/scripts/`:
+
+```bash
+# Basic test run with reports
+./examples/scripts/run-basic-test.sh
+
+# Parameterized tests with tag filtering
+./examples/scripts/run-parameterized-test.sh smoke
+
+# Load test with configurable concurrency
+./examples/scripts/run-load-test.sh 10 500
+
+# Workflow performance test
+./examples/scripts/run-workflow-test.sh 50 5
+
+# CI/CD smoke test (quick validation)
+./examples/scripts/ci-smoke-test.sh
+
+# CI/CD full test suite
+./examples/scripts/ci-full-test.sh
 ```
 
 Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid file or runtime error.

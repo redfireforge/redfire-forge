@@ -5,9 +5,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptLibraryManager from './ScriptLibraryManager';
 import type { ScriptLibrary } from '../../engine/scriptLibraries';
+import * as scriptLibraryVersioning from '../../engine/scriptLibraryVersioning';
 
 // Mock uuid for deterministic IDs
 vi.mock('uuid', () => ({ v4: () => 'new-lib-id' }));
+
+vi.mock('./ScriptLibraryVersionPanel', () => ({
+  default: ({ onLibraryChange, onClose }: { onLibraryChange: (lib: ScriptLibrary) => void; onClose: () => void }) => (
+    <div data-testid="script-lib-version-panel">
+      <button type="button" onClick={() => onLibraryChange({ id: 'lib-v', name: 'Updated', description: 'd', code: '//', createdAt: '2024-01-01', updatedAt: '2024-01-01' })}>Apply library</button>
+      <button type="button" onClick={onClose}>Close version panel</button>
+    </div>
+  ),
+}));
 
 describe('ScriptLibraryManager', () => {
   const onLibrariesChange = vi.fn();
@@ -210,10 +220,14 @@ describe('ScriptLibraryManager', () => {
     fireEvent.click(editButtons[0]);
     const nameInput = screen.getByDisplayValue('Utils');
     fireEvent.change(nameInput, { target: { value: 'Updated Utils' } });
+    fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: 'New desc' } });
+    fireEvent.change(screen.getByDisplayValue('function add(a,b){return a+b}'), { target: { value: '// x' } });
     fireEvent.click(screen.getByText('Save'));
     expect(onLibrariesChange).toHaveBeenCalled();
     const call = onLibrariesChange.mock.calls[0][0];
     expect(call[0].name).toBe('Updated Utils');
+    expect(call[0].description).toBe('New desc');
+    expect(call[0].code).toBe('// x');
   });
 
   it('cancels edit form', () => {
@@ -234,5 +248,86 @@ describe('ScriptLibraryManager', () => {
     expect(screen.queryByDisplayValue('Utils')).toBeNull();
     // But library name should still show in list
     expect(screen.getByText('Utils')).toBeTruthy();
+  });
+
+  it('uses autoSaveVersion noop when library unchanged on save', () => {
+    const spy = vi.spyOn(scriptLibraryVersioning, 'autoSaveVersion').mockImplementation((lib) => lib);
+    render(
+      <ScriptLibraryManager
+        libraries={sampleLibs}
+        selectedIds={[]}
+        onLibrariesChange={onLibrariesChange}
+        onSelectionChange={onSelectionChange}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getAllByText('Edit')[0]);
+    fireEvent.click(screen.getByText('Save'));
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('opens version panel from History and closes', () => {
+    const withVersions: ScriptLibrary[] = [
+      { id: 'lib-v', name: 'V', description: '', code: 'x', createdAt: '2024-01-01', updatedAt: '2024-01-01', versions: [{ id: 'v1', timestamp: 1, changeSummary: 'x', snapshot: { name: 'V', description: '', code: 'x' } }] },
+    ];
+    render(
+      <ScriptLibraryManager
+        libraries={withVersions}
+        selectedIds={[]}
+        onLibrariesChange={onLibrariesChange}
+        onSelectionChange={onSelectionChange}
+        onClose={onClose}
+      />,
+    );
+    const historyBtn = screen.getByRole('button', { name: /History/ });
+    fireEvent.click(historyBtn);
+    expect(screen.getByTestId('script-lib-version-panel')).toBeTruthy();
+    fireEvent.click(screen.getByText('Apply library'));
+    expect(onLibrariesChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Close version panel'));
+    expect(screen.queryByTestId('script-lib-version-panel')).toBeNull();
+  });
+
+  it('passes usages to version panel when workflows reference library', () => {
+    const withLib: ScriptLibrary[] = [
+      { id: 'lib-u', name: 'U', description: '', code: '//', createdAt: '2024-01-01', updatedAt: '2024-01-01' },
+    ];
+    const workflows = [{ id: 'w1', name: 'W', nodes: [{ id: 'n1', type: 'script', data: { libraryIds: ['lib-u'], label: 'Step' } }] }];
+    render(
+      <ScriptLibraryManager
+        libraries={withLib}
+        selectedIds={[]}
+        onLibrariesChange={onLibrariesChange}
+        onSelectionChange={onSelectionChange}
+        onClose={onClose}
+        workflows={workflows}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /History/ }));
+    expect(screen.getByTestId('script-lib-version-panel')).toBeTruthy();
+  });
+
+  it('uses auto-saved library list when autoSaveVersion returns updated library', () => {
+    const lib: ScriptLibrary = sampleLibs[0];
+    const versioned: ScriptLibrary = {
+      ...lib,
+      versions: [{ id: 'snap', timestamp: 1, changeSummary: 'initial', snapshot: { name: lib.name, description: lib.description, code: lib.code } }],
+    };
+    const spy = vi.spyOn(scriptLibraryVersioning, 'autoSaveVersion').mockReturnValue(versioned);
+    render(
+      <ScriptLibraryManager
+        libraries={sampleLibs}
+        selectedIds={[]}
+        onLibrariesChange={onLibrariesChange}
+        onSelectionChange={onSelectionChange}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getAllByText('Edit')[0]);
+    fireEvent.click(screen.getByText('Save'));
+    expect(spy).toHaveBeenCalled();
+    expect(onLibrariesChange).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

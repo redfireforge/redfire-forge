@@ -7,6 +7,7 @@ import {
   buildColumnsAndRowsFromParseResult,
   extractJsonPath,
   expandPatternFromResponse,
+  inferPatternsFromColumns,
   normalizeForCompare,
   parseExcelSimple,
 } from './dataSourceImport';
@@ -263,17 +264,16 @@ describe('buildColumnsAndRowsFromParseResult', () => {
     expect(columns[1].name).toBe('payload');
   });
 
-  it('handles path: prefixed columns', () => {
+  it('skips columnTypes row when inferred type is name', () => {
     const result = {
-      columns: ['path:userId'],
-      rows: [
-        { scenario: { name: 'T', url: 'http://x', method: 'GET' as const }, raw: { 'path:userId': '42' } },
-      ],
+      columns: ['colA'],
+      rows: [],
       fileErrors: [],
+      columnTypes: new Map([['colA', { type: 'name', mapping: 'n' }]]),
     };
-    const { columns } = buildColumnsAndRowsFromParseResult(result, []);
-    expect(columns[0].type).toBe('path');
-    expect(columns[0].name).toBe('userId');
+    const { columns, rows } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(columns.length).toBe(0);
+    expect(rows.length).toBe(0);
   });
 });
 
@@ -309,7 +309,36 @@ describe('extractJsonPath', () => {
   });
 });
 
-// ─── expandPatternFromResponse ───────────────────────────────
+// ─── inferPatternsFromColumns ────────────────────────────────
+
+describe('inferPatternsFromColumns', () => {
+  it('infers one [*] pattern per indexed validate mapping', () => {
+    expect(
+      inferPatternsFromColumns(
+        [{ type: 'validate', mapping: 'offers[0].code' }, { type: 'path', mapping: 'x' }],
+        new Set(),
+      ),
+    ).toEqual(['offers[*].code']);
+  });
+
+  it('dedupes identical patterns and skips contract entries', () => {
+    const cols = [
+      { type: 'validate', mapping: 'items[0].id' },
+      { type: 'validate', mapping: 'items[1].id' },
+    ];
+    expect(inferPatternsFromColumns(cols, new Set())).toEqual(['items[*].id']);
+    expect(inferPatternsFromColumns(cols, new Set(['items[*].id']))).toEqual([]);
+  });
+
+  it('ignores non-validate and non-indexed columns', () => {
+    expect(
+      inferPatternsFromColumns(
+        [{ type: 'param', mapping: 'offers[0].x' }, { type: 'validate', mapping: 'plain' }],
+        new Set(),
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe('expandPatternFromResponse', () => {
   it('expands [*] pattern against array', () => {
@@ -334,6 +363,11 @@ describe('expandPatternFromResponse', () => {
     const obj = { foo: { bar: 1 } };
     const paths = expandPatternFromResponse(obj, 'foo.bar');
     expect(paths).toEqual(['foo.bar']);
+  });
+
+  it('walks multiple static segments before a wildcard segment', () => {
+    const obj = { a: { b: { items: [{ z: 1 }, { z: 2 }] } } };
+    expect(expandPatternFromResponse(obj, 'a.b.items[*].z')).toEqual(['a.b.items[0].z', 'a.b.items[1].z']);
   });
 });
 

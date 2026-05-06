@@ -1,10 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import CorrelationWaitConfig from './CorrelationWaitConfig';
 import type { CorrelationWaitNodeData } from '../../types/workflow';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 // Mock InsertVarField — just render children
 vi.mock('../expression/InsertVarField', () => ({
@@ -293,11 +297,82 @@ describe('CorrelationWaitConfig', () => {
     expect(screen.getByText('🧪 Send Test Webhook')).toBeTruthy();
   });
 
-  it('includes extract variables in default payload', () => {
-    render(<CorrelationWaitConfig data={makeData({
-      extractVariables: [{ name: 'status', jsonPath: '$.status' }],
-    })} onChange={vi.fn()} />);
-    const textarea = screen.getByTestId('test-webhook-payload') as HTMLTextAreaElement;
-    expect(textarea.value).toContain('status');
+  it('includes nested keys in default test payload for correlation path', () => {
+    render(<CorrelationWaitConfig
+      data={makeData({
+        correlationJsonPath: '$.a.b',
+        correlationIdExpression: 'cid-val',
+        extractVariables: [{ name: 'out', jsonPath: '$.x.y' }],
+      })}
+      onChange={vi.fn()}
+    />);
+    const ta = screen.getByTestId('test-webhook-payload') as HTMLTextAreaElement;
+    const parsed = JSON.parse(ta.value) as Record<string, unknown>;
+    expect((parsed.a as Record<string, unknown>).b).toBe('cid-val');
+    expect(((parsed.x as Record<string, unknown>).y as string)).toBe('<out>');
+  });
+
+  it('send test webhook shows success when resumed', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ resumed: true, executionId: 'ex-1' }),
+    }));
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('Resumed execution ex-1');
+    });
+  });
+
+  it('send test webhook shows message when not resumed', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ resumed: false }),
+    }));
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('No matching paused workflow found');
+    });
+  });
+
+  it('send test webhook surfaces fetch errors', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('net down')));
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('net down');
+    });
+  });
+
+  it('send test webhook stringifies non-Error rejections', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue('weird'));
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toContain('weird');
+    });
+  });
+
+  it('falls back to correlationIdExpression when parsed body lacks path key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ resumed: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CorrelationWaitConfig
+      data={makeData({ correlationJsonPath: '$.nope', correlationIdExpression: 'expr-fallback' })}
+      onChange={vi.fn()}
+    />);
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const posted = JSON.parse(init.body as string) as { correlationId: string };
+    expect(posted.correlationId).toBe('expr-fallback');
+  });
+
+  it('reports invalid JSON in test payload', async () => {
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    const ta = screen.getByTestId('test-webhook-payload');
+    fireEvent.change(ta, { target: { value: 'not-json' } });
+    fireEvent.click(screen.getByTestId('test-webhook-send'));
+    await waitFor(() => {
+      expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Unexpected token/i);
+    });
   });
 });

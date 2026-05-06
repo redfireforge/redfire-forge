@@ -1,0 +1,73 @@
+# CLI Parameterized Test Example
+# Demonstrates data-driven testing with inline data source
+#
+# Run all rows:
+#   npx tsx cli/index.ts run examples/cli-parameterized.yaml
+#
+# Run specific tags:
+#   npx tsx cli/index.ts run examples/cli-parameterized.yaml --tags smoke
+#   npx tsx cli/index.ts run examples/cli-parameterized.yaml --tags critical,regression --tag-mode any
+#
+# Generate data row summary:
+#   npx tsx cli/index.ts run examples/cli-parameterized.yaml --data-rows-summary results.json
+
+name: CLI Parameterized Test
+env: demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+tests:
+  - name: Get User by ID
+    method: GET
+    url: /users/{{id}}
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
+      - type: jsonPath
+        jsonPath: $.name
+        operator: contains
+        value: "{{expectedName}}"
+    dataSource:
+      columns:
+        - id: c-id
+          name: id
+          type: path
+          mapping: id
+          description: User ID to fetch
+        - id: c-name
+          name: expectedName
+          type: validate
+          mapping: $.name
+          description: Expected user name
+      rows:
+        - id: user-1
+          values:
+            c-id: "1"
+            c-name: Leanne Graham
+          tags: [smoke, critical]
+        - id: user-2
+          values:
+            c-id: "2"
+            c-name: Ervin Howell
+          tags: [smoke]
+        - id: user-3
+          values:
+            c-id: "3"
+            c-name: Clementine Bauch
+          tags: [regression]
+        - id: user-4
+          values:
+            c-id: "4"
+            c-name: Patricia Lebsack
+          tags: [regression]
+        - id: user-5
+          values:
+            c-id: "5"
+            c-name: Chelsey Dietrich
+          tags: [regression]
+        - id: user-10
+          values:
+            c-id: "10"
+            c-name: Clementina DuBuque
+          tags: [boundary, critical]

@@ -1,10 +1,23 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import RulesVersionPanel from './RulesVersionPanel';
 import type { RulesVersion, ValidationConfig } from '../../../shared/types';
+
+const mocks = vi.hoisted(() => ({
+  differDiff: vi.fn(),
+}));
+
+vi.mock('json-diff-kit', () => ({
+  Differ: class {
+    diff() {
+      return mocks.differDiff();
+    }
+  },
+  Viewer: () => <div data-testid="json-diff-viewer" />,
+}));
 
 function mkRulesVersion(overrides: Partial<RulesVersion> = {}): RulesVersion {
   return {
@@ -37,6 +50,10 @@ const defaultProps = () => ({
 });
 
 describe('RulesVersionPanel', () => {
+  beforeEach(() => {
+    mocks.differDiff.mockReturnValue([[{ type: 'modify' as const, content: '' }]]);
+  });
+
   describe('visibility', () => {
     it('does not render when no rules and no versions', () => {
       const { container } = render(
@@ -355,6 +372,147 @@ describe('RulesVersionPanel', () => {
       fireEvent.change(selects[0], { target: { value: v1.id } });
       fireEvent.change(selects[1], { target: { value: v1.id } });
       expect(screen.getByText('Same version selected')).toBeTruthy();
+    });
+
+    it('closes compare modal on Escape', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByText('Compare Rules Versions')).toBeNull();
+    });
+
+    it('closes compare modal when overlay backdrop is clicked', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      const { container } = render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      const overlay = container.querySelector('.version-diff-overlay');
+      expect(overlay).toBeTruthy();
+      fireEvent.click(overlay!);
+      expect(screen.queryByText('Compare Rules Versions')).toBeNull();
+    });
+
+    it('shows Changes detected when diff has non-equal segments', () => {
+      mocks.differDiff.mockReturnValue([[{ type: 'modify' as const, content: 'x' }]]);
+      const v1 = mkRulesVersion({ timestamp: 1000, label: 'a', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, label: 'b', expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('Changes detected')).toBeTruthy();
+      expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();
+    });
+
+    it('shows Identical when diff segments are all equal', () => {
+      mocks.differDiff.mockReturnValue([[{ type: 'equal' as const, content: 'x' }]]);
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('✔ Identical')).toBeTruthy();
+    });
+
+    it('shows no differences when differ throws', () => {
+      mocks.differDiff.mockImplementation(() => { throw new Error('diff fail'); });
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('No differences found.')).toBeTruthy();
+    });
+
+    it('shows placeholder when compare sides not fully selected', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      const selects = screen.getAllByRole('combobox');
+      fireEvent.change(selects[0], { target: { value: '' } });
+      expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
+    });
+  });
+
+  describe('rename label', () => {
+    it('calls onRename on blur', () => {
+      const onRename = vi.fn();
+      const v1 = mkRulesVersion({ timestamp: 1000, label: 'L1', expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] });
+      render(
+        <RulesVersionPanel {...defaultProps()} versions={[v1]} currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] }} onRenameVersion={onRename} />,
+      );
+      fireEvent.click(screen.getByText('L1'));
+      const input = screen.getByDisplayValue('L1');
+      fireEvent.change(input, { target: { value: 'FromBlur' } });
+      fireEvent.blur(input);
+      expect(onRename).toHaveBeenCalledWith(v1.id, 'FromBlur');
+    });
+
+    it('calls onRename on Enter and not on Escape', () => {
+      const onRename = vi.fn();
+      const v1 = mkRulesVersion({ timestamp: 1000, label: 'L1', expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] });
+      render(
+        <RulesVersionPanel {...defaultProps()} versions={[v1]} currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] }} onRenameVersion={onRename} />,
+      );
+      fireEvent.click(screen.getByText('L1'));
+      const input = screen.getByDisplayValue('L1');
+      fireEvent.change(input, { target: { value: 'Renamed' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onRename).toHaveBeenCalledWith(v1.id, 'Renamed');
+      onRename.mockClear();
+      fireEvent.click(screen.getByText('L1'));
+      const input2 = screen.getByDisplayValue('L1');
+      fireEvent.change(input2, { target: { value: 'Aborted' } });
+      fireEvent.keyDown(input2, { key: 'Escape' });
+      expect(onRename).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rules description tag', () => {
+    it('renders excluded paths, single rule wording, unordered flag', () => {
+      const v1 = mkRulesVersion({
+        timestamp: 1000,
+        validationMode: 'full',
+        selectiveMode: 'exclude',
+        expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+        excludedPaths: ['$.x', '$.y'],
+        unorderedArrays: true,
+        label: '',
+      });
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.other', expectedValue: '1' }] }}
+        />,
+      );
+      expect(screen.getByText(/full/)).toBeTruthy();
+      expect(screen.getByText(/1 rule/)).toBeTruthy();
+      expect(screen.getByText(/2 excluded/)).toBeTruthy();
+      expect(screen.getByText(/unordered/)).toBeTruthy();
+    });
+
+    it('uses default rN label when version label is empty', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, label: '', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, label: '', expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.z', expectedValue: '3' }] }}
+        />,
+      );
+      expect(screen.getByText('r2')).toBeTruthy();
+      expect(screen.getByText('r1')).toBeTruthy();
+    });
+  });
+
+  describe('duplicate UI', () => {
+    it('hides inline duplicate hint while confirmation bar is open', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, label: 'dup' });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1]} />);
+      fireEvent.click(screen.getByText('Save Rules Version'));
+      expect(screen.getByText('Save Anyway')).toBeTruthy();
+      expect(document.querySelector('.version-duplicate-hint')).toBeNull();
     });
   });
 });

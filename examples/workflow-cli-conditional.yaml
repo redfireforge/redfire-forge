@@ -1,0 +1,86 @@
+# Workflow CLI Conditional Example
+# Demonstrates conditional branching based on response data
+#
+# Run with default settings:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml
+#
+# Try different countries:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml --var country=germany
+#   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml --var country=japan
+#
+# Load test:
+#   npx tsx cli/index.ts workflow examples/workflow-cli-conditional.yaml -i 30 -c 3
+
+name: Conditional Country Lookup
+description: Look up country data and branch based on region
+
+variables:
+  country: "france"
+
+nodes:
+  - id: start
+    type: start
+    position: { x: 300, y: 0 }
+    data:
+      label: Start
+
+  - id: lookup-country
+    type: http
+    position: { x: 250, y: 100 }
+    data:
+      label: Lookup Country
+      method: GET
+      url: https://restcountries.com/v3.1/name/{{country}}
+      headers:
+        Accept: application/json
+
+  - id: check-region
+    type: switch
+    position: { x: 300, y: 220 }
+    data:
+      label: Check Region
+      expression: $response.body[0].region
+      cases:
+        - value: Europe
+          targetNodeId: european-action
+        - value: Asia
+          targetNodeId: asian-action
+      defaultTargetNodeId: other-region
+
+  - id: european-action
+    type: http
+    position: { x: 100, y: 350 }
+    data:
+      label: European Country
+      method: GET
+      url: https://restcountries.com/v3.1/subregion/western%20europe
+      headers:
+        Accept: application/json
+
+  - id: asian-action
+    type: http
+    position: { x: 300, y: 350 }
+    data:
+      label: Asian Country
+      method: GET
+      url: https://restcountries.com/v3.1/subregion/eastern%20asia
+      headers:
+        Accept: application/json
+
+  - id: other-region
+    type: http
+    position: { x: 500, y: 350 }
+    data:
+      label: Other Region
+      method: GET
+      url: https://restcountries.com/v3.1/all?fields=name,region
+      headers:
+        Accept: application/json
+
+edges:
+  - id: e1
+    source: start
+    target: lookup-country
+  - id: e2
+    source: lookup-country
+    target: check-region

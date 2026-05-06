@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { executionModes, getExecutionModeMeta } from './executionMode';
-import type { ExecutionMode } from '../types';
 
 describe('executionModes', () => {
   it('exports array of all execution modes', () => {

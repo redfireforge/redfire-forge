@@ -1,10 +1,17 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useUndoRedo } from './useUndoRedo';
 import type { Node, Edge } from '@xyflow/react';
+
+beforeEach(() => {
+  localStorage.clear();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function setup() {
   let nodes: Node[] = [{ id: 'a', position: { x: 0, y: 0 }, data: {} }];
@@ -124,6 +131,94 @@ describe('useUndoRedo', () => {
     act(() => { label = result.current.redo(); });
     expect(label!).toBe('Step 3');
     expect(result.current.canRedo()).toBe(false);
+  });
+
+  it('persists undo stack to localStorage after debounce when workflowId is set', () => {
+    vi.useFakeTimers();
+    let nodes: Node[] = [{ id: 'a', position: { x: 0, y: 0 }, data: {} }];
+    let edges: Edge[] = [];
+    const { result, rerender } = renderHook(
+      (wfId: string | null) =>
+        useUndoRedo(
+          () => nodes,
+          () => edges,
+          (n: Node[]) => { nodes = n; },
+          (e: Edge[]) => { edges = e; },
+          wfId,
+        ),
+      { initialProps: 'wf-1' as string | null },
+    );
+    act(() => result.current.takeSnapshot('snap'));
+    act(() => { vi.advanceTimersByTime(600); });
+    const raw = localStorage.getItem('perf-test-wf-undo-wf-1');
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].label).toBe('snap');
+    rerender(null);
+    act(() => result.current.takeSnapshot('orphan'));
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(localStorage.getItem('perf-test-wf-undo-wf-1')).toBeTruthy();
+  });
+
+  it('loads persisted stack when workflowId is provided', () => {
+    const snap = {
+      nodes: [{ id: 'n1', position: { x: 1, y: 2 }, data: {} }],
+      edges: [] as Edge[],
+      label: 'restored',
+    };
+    localStorage.setItem('perf-test-wf-undo-wf-load', JSON.stringify([snap]));
+    let nodes: Node[] = [{ id: 'x', position: { x: 0, y: 0 }, data: {} }];
+    let edges: Edge[] = [];
+    const { result } = renderHook(() =>
+      useUndoRedo(
+        () => nodes,
+        () => edges,
+        (n: Node[]) => { nodes = n; },
+        (e: Edge[]) => { edges = e; },
+        'wf-load',
+      ),
+    );
+    expect(result.current.canUndo()).toBe(true);
+    act(() => { result.current.undo(); });
+    expect(nodes[0]?.id).toBe('n1');
+  });
+
+  it('treats invalid persisted JSON as empty stack', () => {
+    localStorage.setItem('perf-test-wf-undo-wf-bad', '{not json');
+    const { result } = renderHook(() =>
+      useUndoRedo(() => [], () => [], () => {}, () => {}, 'wf-bad'),
+    );
+    expect(result.current.canUndo()).toBe(false);
+  });
+
+  it('ignores localStorage setItem failures when persisting', () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    const { result } = renderHook(() =>
+      useUndoRedo(
+        () => [{ id: 'a', position: { x: 0, y: 0 }, data: {} }],
+        () => [],
+        () => {},
+        () => {},
+        'wf-quota',
+      ),
+    );
+    act(() => result.current.takeSnapshot('x'));
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(result.current.canUndo()).toBe(true);
+    spy.mockRestore();
+  });
+
+  it('clear swallows removeItem errors', () => {
+    const { result } = renderHook(() =>
+      useUndoRedo(() => [], () => [], () => {}, () => {}, 'wf-rm'),
+    );
+    const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('nope'); });
+    act(() => result.current.takeSnapshot('a'));
+    act(() => { result.current.clear(); });
+    expect(result.current.canUndo()).toBe(false);
+    spy.mockRestore();
   });
 
   it('uses structuredClone for deep copies (mutations do not affect snapshots)', () => {
