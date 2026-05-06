@@ -883,23 +883,97 @@ Add to test presets for workflow-based testing:
 
 ---
 
-## Phase 9: CLI Documentation & Examples
+## Phase 9: CLI Distribution & Documentation
 
-**Priority: Medium | Effort: Medium**
+**Priority: Medium | Effort: Medium-Large**
 
-### 9.1 CLI Reference Documentation
+### 9.1 CLI Access Methods
+
+Support three ways to access the CLI:
+
+#### Method A: Source Repository (Current, for Developers)
+
+For developers and CI/CD pipelines with access to the source:
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd performance-test
+npm install
+
+# Run CLI via npx
+npx tsx cli/index.ts run tests/my-test.yaml
+npx tsx cli/index.ts workflow tests/my-workflow.yaml
+```
+
+**Use case:** Local development, CI/CD pipelines, contributors
+
+#### Method B: Standalone CLI Binary (npm Global Install)
+
+Publish as a standalone npm package for easy global installation:
+
+```bash
+# Install globally
+npm install -g redfireforge-cli
+
+# Run from anywhere
+redfireforge run tests/my-test.yaml
+redfireforge workflow tests/my-workflow.yaml
+```
+
+**Implementation:**
+1. Create `cli/package.json` for standalone package
+2. Use `esbuild` or `pkg` to bundle CLI as single executable
+3. Publish to npm as `redfireforge-cli`
+4. Include pre-built binaries for macOS, Linux, Windows
+
+**Deliverables:**
+- [ ] `cli/package.json` — Standalone package definition
+- [ ] `scripts/build-cli.sh` — Build script for bundling
+- [ ] npm publish workflow (GitHub Actions)
+- [ ] Pre-built binaries in GitHub Releases
+
+#### Method C: CLI Embedded in Desktop App
+
+Allow users who have the desktop app to run CLI commands:
+
+```bash
+# macOS
+/Applications/RedfireForge.app/Contents/MacOS/RedfireForge --cli run tests/test.yaml
+
+# Or via symlink (created by installer)
+redfireforge --cli workflow tests/workflow.yaml
+```
+
+**Implementation:**
+1. Add CLI argument parsing to Tauri main process
+2. When `--cli` flag detected, skip GUI and run CLI mode
+3. macOS installer creates `/usr/local/bin/redfireforge` symlink
+4. Windows installer adds to PATH
+
+**Deliverables:**
+- [ ] Tauri CLI mode in `src-tauri/src/main.rs`
+- [ ] macOS post-install script for symlink
+- [ ] Windows PATH configuration in installer
+- [ ] Linux `.desktop` file with CLI alias
+
+### 9.2 CLI Reference Documentation
 
 Create comprehensive CLI documentation at `docs/cli-reference.md`:
 
 **Sections:**
-1. **Installation & Setup** — npm/npx usage, shebang for scripts
-2. **Test File Commands** — `run`, `validate`
-3. **Workflow Commands** — `workflow`, `validate-workflow`
-4. **All Command Options** — Full reference table for each command
-5. **Environment Variables** — Any supported env vars
-6. **Exit Codes** — 0 (success), 1 (test failed), 2 (error)
+1. **Installation Options** — All three methods (A, B, C)
+2. **Quick Start** — First test in 30 seconds
+3. **Test File Commands** — `run`, `validate`
+4. **Workflow Commands** — `workflow`, `validate-workflow`
+5. **All Command Options** — Full reference table for each command
+6. **Test File Format** — YAML/JSON schema with examples
+7. **Workflow File Format** — Simplified and full formats
+8. **Environment Variables** — Supported env vars
+9. **Exit Codes** — 0 (success), 1 (test failed), 2 (error)
+10. **Troubleshooting** — Common issues and solutions
 
-### 9.2 Working Examples
+### 9.3 Working Examples
 
 Create example files in `examples/` with documentation comments:
 
@@ -913,24 +987,28 @@ Create example files in `examples/` with documentation comments:
 | `workflow-cli-parallel.yaml` | Workflow with fork/join | `--iterations`, `--concurrency` |
 | `workflow-cli-conditional.yaml` | Workflow with conditions | `--var` variable overrides |
 
-### 9.3 CI/CD Integration Guide
+### 9.4 CI/CD Integration Guide
 
 Add `docs/cli-ci-cd.md` with integration examples:
 
 ```yaml
-# GitHub Actions example
+# GitHub Actions example (using npm package)
+- name: Install RedfireForge CLI
+  run: npm install -g redfireforge-cli
+
 - name: Run API Performance Tests
   run: |
-    npx tsx cli/index.ts run tests/api-tests.yaml \
+    redfireforge run tests/api-tests.yaml \
       --concurrency 5 \
       --transactions 100 \
       --fail-threshold 5 \
       --junit results/junit.xml \
       --markdown results/report.md
 
-# With workflow
-- name: Run Workflow Performance Tests
+# GitHub Actions example (using source)
+- name: Setup and Run Tests
   run: |
+    npm ci
     npx tsx cli/index.ts workflow tests/order-flow.yaml \
       --iterations 50 \
       --concurrency 10 \
@@ -939,7 +1017,14 @@ Add `docs/cli-ci-cd.md` with integration examples:
       --junit results/workflow-junit.xml
 ```
 
-### 9.4 Example Scripts
+**CI/CD Platforms Covered:**
+- GitHub Actions
+- GitLab CI
+- Jenkins
+- Azure DevOps
+- CircleCI
+
+### 9.5 Example Scripts
 
 Create `examples/scripts/` with ready-to-use shell scripts:
 
@@ -950,14 +1035,43 @@ Create `examples/scripts/` with ready-to-use shell scripts:
 | `run-workflow-test.sh` | Workflow performance test |
 | `compare-results.sh` | Compare two JSON reports |
 
-### 9.5 Deliverables
+### 9.6 Implementation Sequence
 
+```
+Phase 9a: Documentation & Examples (Method A)
+    ↓
+Phase 9b: Standalone npm Package (Method B)
+    ↓
+Phase 9c: Desktop App CLI Mode (Method C)
+```
+
+| Sub-phase | Priority | Effort | Description |
+|-----------|----------|--------|-------------|
+| 9a. Documentation | High | S | Docs, examples, CI/CD guide |
+| 9b. npm Package | Medium | M | Standalone `redfireforge-cli` package |
+| 9c. Desktop CLI | Low | M | Tauri CLI mode + installer integration |
+
+### 9.7 Deliverables
+
+**Phase 9a (Documentation):**
 - [ ] `docs/cli-reference.md` — Full command reference
 - [ ] `docs/cli-ci-cd.md` — CI/CD integration guide
 - [ ] `examples/cli-*.yaml` — Working test file examples
 - [ ] `examples/workflow-cli-*.yaml` — Working workflow examples
 - [ ] `examples/scripts/*.sh` — Ready-to-use shell scripts
 - [ ] Update `README.md` — Add CLI quick-start section
+
+**Phase 9b (npm Package):**
+- [ ] `cli/package.json` — Standalone package config
+- [ ] `scripts/build-cli.sh` — Bundle script
+- [ ] GitHub Action for npm publish
+- [ ] Pre-built binaries in Releases
+
+**Phase 9c (Desktop CLI):**
+- [ ] Tauri CLI mode (`--cli` flag)
+- [ ] macOS symlink in installer
+- [ ] Windows PATH in installer
+- [ ] Linux desktop integration
 
 ---
 
@@ -988,6 +1102,8 @@ Create `examples/scripts/` with ready-to-use shell scripts:
 - [ ] CLI reference documentation with all command options
 - [ ] Working CLI examples (test files and workflow files)
 - [ ] CI/CD integration guide
+- [ ] Standalone CLI npm package (`redfireforge-cli`)
+- [ ] Desktop app CLI mode (`--cli` flag)
 
 ---
 
