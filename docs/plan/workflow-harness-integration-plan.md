@@ -1300,7 +1300,7 @@ export const workflowLoadPresets: TestPreset[] = [
 
 ## Phase 9: CLI Distribution & Documentation
 
-**Priority: Medium | Effort: Medium-Large | Status: 9a ✅ COMPLETE, 9b/9c PENDING**
+**Priority: Medium | Effort: Medium-Large | Status: 9a ✅ COMPLETE, 9b ✅ COMPLETE, 9c PENDING**
 
 ### 9.1 CLI Access Methods
 
@@ -1486,11 +1486,13 @@ Phase 9c: Desktop App CLI Mode (Method C)
 - [x] `examples/scripts/ci-full-test.sh` — CI full test suite script
 - [x] Updated `README.md` — CLI quick-start section with guide links
 
-**Phase 9b (npm Package):**
-- [ ] `cli/package.json` — Standalone package config
-- [ ] `scripts/build-cli.sh` — Bundle script
-- [ ] GitHub Action for npm publish
-- [ ] Pre-built binaries in Releases
+**Phase 9b (npm Package): ✅ COMPLETE**
+- [x] `cli/package.json` — Standalone package config with dependencies, bin entry, npm metadata
+- [x] `cli/README.md` — Package documentation with usage examples
+- [x] `scripts/build-cli-package.sh` — Build script for creating publishable package
+- [x] `.github/workflows/publish-cli.yml` — GitHub Action for npm publish on version tags
+- [x] Updated `package.json` with `build:cli-package` script
+- [x] Verified CLI bundle works with all commands (run, workflow, validate, validate-workflow)
 
 **Phase 9c (Desktop CLI):**
 - [ ] Tauri CLI mode (`--cli` flag)
