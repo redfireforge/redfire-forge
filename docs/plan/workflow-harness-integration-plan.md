@@ -1300,7 +1300,7 @@ export const workflowLoadPresets: TestPreset[] = [
 
 ## Phase 9: CLI Distribution & Documentation
 
-**Priority: Medium | Effort: Medium-Large**
+**Priority: Medium | Effort: Medium-Large | Status: 9a ✅ COMPLETE, 9b/9c PENDING**
 
 ### 9.1 CLI Access Methods
 
@@ -1468,13 +1468,23 @@ Phase 9c: Desktop App CLI Mode (Method C)
 
 ### 9.7 Deliverables
 
-**Phase 9a (Documentation):**
-- [ ] `docs/cli-reference.md` — Full command reference
-- [ ] `docs/cli-ci-cd.md` — CI/CD integration guide
-- [ ] `examples/cli-*.yaml` — Working test file examples
-- [ ] `examples/workflow-cli-*.yaml` — Working workflow examples
-- [ ] `examples/scripts/*.sh` — Ready-to-use shell scripts
-- [ ] Update `README.md` — Add CLI quick-start section
+**Phase 9a (Documentation): ✅ COMPLETE**
+- [x] `docs/guides/cli-reference.md` — Full command reference (installation, commands, options, file formats)
+- [x] `docs/guides/cli-ci-cd.md` — CI/CD integration guide (GitHub Actions, GitLab CI, Jenkins, Azure DevOps, CircleCI)
+- [x] `examples/cli-basic-test.yaml` — Basic test with common options
+- [x] `examples/cli-assertions.yaml` — Assertion types demonstration
+- [x] `examples/cli-parameterized.yaml` — Data-driven testing with tags
+- [x] `examples/cli-load-profile.yaml` — Load profile configuration
+- [x] `examples/cli-error-handling.yaml` — Error policies and retries
+- [x] `examples/workflow-cli-parallel.yaml` — Workflow fork/join example
+- [x] `examples/workflow-cli-conditional.yaml` — Workflow switch/branching example
+- [x] `examples/scripts/run-basic-test.sh` — Basic test runner script
+- [x] `examples/scripts/run-parameterized-test.sh` — Tag-filtered test script
+- [x] `examples/scripts/run-load-test.sh` — Configurable load test script
+- [x] `examples/scripts/run-workflow-test.sh` — Workflow test script
+- [x] `examples/scripts/ci-smoke-test.sh` — CI quick validation script
+- [x] `examples/scripts/ci-full-test.sh` — CI full test suite script
+- [x] Updated `README.md` — CLI quick-start section with guide links
 
 **Phase 9b (npm Package):**
 - [ ] `cli/package.json` — Standalone package config

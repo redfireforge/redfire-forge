@@ -1,0 +1,47 @@
+# CLI Basic Test Example
+# A simple test file demonstrating basic CLI usage
+#
+# Run with:
+#   npx tsx cli/index.ts run examples/cli-basic-test.yaml
+#
+# With options:
+#   npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -t 50
+
+name: CLI Basic Test
+env: demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+tests:
+  - name: List Users
+    method: GET
+    url: /users
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
+      - type: jsonPath
+        jsonPath: $.length
+        operator: ">"
+        value: 0
+
+  - name: Get Single User
+    method: GET
+    url: /users/1
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
+      - type: jsonPath
+        jsonPath: $.name
+        operator: exists
+
+  - name: List Posts
+    method: GET
+    url: /posts
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
