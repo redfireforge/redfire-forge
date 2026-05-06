@@ -11,8 +11,8 @@ const mockLoadRunnerConfig = vi.fn(async () => null);
 const mockSaveRunnerConfig = vi.fn(async () => {});
 
 vi.mock('../../../shared/utils/storage', () => ({
-  loadRunnerConfig: (...args: any[]) => mockLoadRunnerConfig(...args),
-  saveRunnerConfig: (...args: any[]) => mockSaveRunnerConfig(...args),
+  loadRunnerConfig: (...args: unknown[]) => mockLoadRunnerConfig(...args),
+  saveRunnerConfig: (...args: unknown[]) => mockSaveRunnerConfig(...args),
 }));
 
 // ── Tests ──

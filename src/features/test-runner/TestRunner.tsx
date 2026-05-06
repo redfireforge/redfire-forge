@@ -7,7 +7,8 @@ import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
 import RunnerExecutionConfig from './components/RunnerExecutionConfig';
 import HostSelector from './components/HostSelector';
 import LiveProgressPanel from './components/LiveProgressPanel';
-import ScenarioSelector, { buildSelectedTests } from './components/ScenarioSelector';
+import ScenarioSelector from './components/ScenarioSelector';
+import { buildSelectedTests } from './utils/buildSelectedTests';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 import { generateReport, downloadReport } from '../results/utils/reportGenerator';
 
