@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { HttpNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
+import type { WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),

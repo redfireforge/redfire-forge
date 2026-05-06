@@ -194,7 +194,7 @@ describe('CorrelationWaitConfig', () => {
   it('adds a new extract variable', () => {
     const onChange = vi.fn();
     render(<CorrelationWaitConfig data={makeData({ extractVariables: [] })} onChange={onChange} />);
-    fireEvent.click(screen.getByText('+ Add Variable'));
+    fireEvent.click(screen.getByText('Add Variable'));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ extractVariables: [{ name: '', jsonPath: '' }] }),
     );
@@ -206,7 +206,7 @@ describe('CorrelationWaitConfig', () => {
       data={makeData({ extractVariables: [{ name: 'a', jsonPath: '$.a' }, { name: 'b', jsonPath: '$.b' }] })}
       onChange={onChange}
     />);
-    const removeButtons = screen.getAllByTitle('Remove variable');
+    const removeButtons = screen.getAllByLabelText('Remove variable');
     fireEvent.click(removeButtons[0]);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ extractVariables: [{ name: 'b', jsonPath: '$.b' }] }),
@@ -257,7 +257,7 @@ describe('CorrelationWaitConfig', () => {
 
   it('handles undefined extractVariables', () => {
     render(<CorrelationWaitConfig data={makeData({ extractVariables: undefined })} onChange={vi.fn()} />);
-    expect(screen.getByText('+ Add Variable')).toBeTruthy();
+    expect(screen.getByText('Add Variable')).toBeTruthy();
   });
 
   it('handles undefined correlationJsonPath', () => {
@@ -294,7 +294,7 @@ describe('CorrelationWaitConfig', () => {
   it('renders Send Test Webhook button', () => {
     render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
     expect(screen.getByTestId('test-webhook-send')).toBeTruthy();
-    expect(screen.getByText('🧪 Send Test Webhook')).toBeTruthy();
+    expect(screen.getByText('Send Test Webhook')).toBeTruthy();
   });
 
   it('includes nested keys in default test payload for correlation path', () => {
@@ -353,15 +353,24 @@ describe('CorrelationWaitConfig', () => {
   });
 
   it('falls back to correlationIdExpression when parsed body lacks path key', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ resumed: true }) });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ resumed: true, correlations: [] }) });
     vi.stubGlobal('fetch', fetchMock);
     render(<CorrelationWaitConfig
       data={makeData({ correlationJsonPath: '$.nope', correlationIdExpression: 'expr-fallback' })}
       onChange={vi.fn()}
     />);
     fireEvent.click(screen.getByTestId('test-webhook-send'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    // Wait for the resume call specifically (POST to /api/correlations/resume)
+    await waitFor(() => {
+      const resumeCall = fetchMock.mock.calls.find(
+        (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume')
+      );
+      expect(resumeCall).toBeTruthy();
+    });
+    const resumeCall = fetchMock.mock.calls.find(
+      (c: [string, RequestInit?]) => typeof c[0] === 'string' && c[0].includes('/api/correlations/resume')
+    );
+    const init = resumeCall![1] as RequestInit;
     const posted = JSON.parse(init.body as string) as { correlationId: string };
     expect(posted.correlationId).toBe('expr-fallback');
   });
@@ -375,4 +384,7 @@ describe('CorrelationWaitConfig', () => {
       expect(screen.getByTestId('test-webhook-result').textContent).toMatch(/Unexpected token/i);
     });
   });
+
+  // Note: Load Test Behavior UI was moved to Workflow Runner
+  // Tests for that functionality are now in WorkflowRunner.test.tsx
 });

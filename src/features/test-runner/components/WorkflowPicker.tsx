@@ -2,10 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import type { Workflow } from '../../workflow/types/workflow';
 import {
   getWorkflowRunConfigs,
-  saveWorkflowRunConfig,
+  saveWorkflowRunConfigManually,
   updateWorkflowRunConfigLabel,
   deleteWorkflowRunConfig,
-  formatConfigLabel,
   formatRelativeTime,
   type WorkflowRunConfig,
 } from '../utils/workflowRunConfigStorage';
@@ -31,6 +30,8 @@ export default function WorkflowPicker({
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editLabelValue, setEditLabelValue] = useState('');
   const [history, setHistory] = useState<WorkflowRunConfig[]>([]);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
 
   const selectedWorkflow = useMemo(
     () => workflows.find(w => w.id === selectedWorkflowId) ?? null,
@@ -97,6 +98,14 @@ export default function WorkflowPicker({
     if (selectedWorkflowId) {
       setHistory(getWorkflowRunConfigs(selectedWorkflowId));
     }
+  };
+
+  const handleSavePreset = () => {
+    if (!selectedWorkflowId) return;
+    saveWorkflowRunConfigManually(selectedWorkflowId, variables, newPresetName);
+    setHistory(getWorkflowRunConfigs(selectedWorkflowId));
+    setNewPresetName('');
+    setSavingPreset(false);
   };
 
   const handleResetToDefaults = () => {
@@ -181,20 +190,54 @@ export default function WorkflowPicker({
                 )}
                 <button
                   type="button"
-                  className={`btn btn-sm ${historyOpen ? 'btn-primary' : ''}`}
-                  onClick={() => setHistoryOpen(!historyOpen)}
+                  className="btn btn-sm"
+                  onClick={() => { setSavingPreset(true); setHistoryOpen(true); }}
                   disabled={disabled}
-                  title="View variable history"
+                  title="Save the current variable values as a named preset"
                 >
-                  📜 History {history.length > 0 && `(${history.length})`}
+                  💾 Save preset
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${historyOpen ? 'btn-primary' : ''}`}
+                  onClick={() => { setHistoryOpen(!historyOpen); setSavingPreset(false); }}
+                  disabled={disabled}
+                  title="View and restore saved variable presets"
+                >
+                  📋 Presets {history.length > 0 && `(${history.length})`}
                 </button>
               </div>
             </div>
 
             {historyOpen && (
               <div className="workflow-history-panel">
+                {/* Save new preset form */}
+                {savingPreset ? (
+                  <div className="history-save-form">
+                    <span className="history-save-label">Name this preset</span>
+                    <input
+                      type="text"
+                      className="history-save-input"
+                      value={newPresetName}
+                      onChange={(e) => setNewPresetName(e.target.value)}
+                      placeholder="e.g. Staging config, Prod test..."
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSavePreset();
+                        if (e.key === 'Escape') { setSavingPreset(false); setNewPresetName(''); }
+                      }}
+                    />
+                    <button className="btn btn-sm btn-primary" onClick={handleSavePreset}>Save</button>
+                    <button className="btn btn-sm" onClick={() => { setSavingPreset(false); setNewPresetName(''); }}>Cancel</button>
+                  </div>
+                ) : (
+                  <p className="history-panel-hint">
+                    Saved variable presets. Click <strong>Restore</strong> to apply a preset's values.
+                  </p>
+                )}
+
                 {history.length === 0 ? (
-                  <p className="history-empty">No saved configurations yet. Run a test to save the current variables.</p>
+                  <p className="history-empty">No presets yet. Use <strong>Save preset</strong> or run a workflow to save values.</p>
                 ) : (
                   <ul className="history-list">
                     {history.map(config => (
@@ -205,28 +248,50 @@ export default function WorkflowPicker({
                               type="text"
                               value={editLabelValue}
                               onChange={(e) => setEditLabelValue(e.target.value)}
-                              placeholder="Enter label..."
+                              placeholder="Give this run a name..."
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleSaveLabel();
                                 if (e.key === 'Escape') setEditingLabelId(null);
                               }}
                             />
-                            <button className="btn btn-sm" onClick={handleSaveLabel}>Save</button>
+                            <button className="btn btn-sm btn-primary" onClick={handleSaveLabel}>Save</button>
                             <button className="btn btn-sm" onClick={() => setEditingLabelId(null)}>Cancel</button>
                           </div>
                         ) : (
                           <>
-                            <div className="history-item-info" onClick={() => handleRestoreConfig(config)}>
-                              <span className="history-label">{formatConfigLabel(config)}</span>
-                              <span className="history-time">{formatRelativeTime(config.usedAt)}</span>
+                            <div className="history-item-info">
+                              <div className="history-item-header">
+                                <span className="history-label">{config.label || 'Unnamed preset'}</span>
+                                <span className="history-time">{formatRelativeTime(config.usedAt)}</span>
+                              </div>
+                              <div className="history-item-vars">
+                                {Object.entries(config.variables).map(([k, v]) => (
+                                  <span key={k} className="history-var-row">
+                                    <span className="history-var-key">{k}</span>
+                                    <span className="history-var-eq">=</span>
+                                    <span className="history-var-val">{v || <em>empty</em>}</span>
+                                  </span>
+                                ))}
+                                {Object.keys(config.variables).length === 0 && (
+                                  <span className="history-var-empty">No variables</span>
+                                )}
+                              </div>
                             </div>
                             <div className="history-item-actions">
                               <button
                                 type="button"
+                                className="btn btn-sm btn-primary"
+                                onClick={() => handleRestoreConfig(config)}
+                                title="Restore these variable values"
+                              >
+                                ↩ Restore
+                              </button>
+                              <button
+                                type="button"
                                 className="btn btn-sm btn-link"
                                 onClick={() => handleStartEditLabel(config)}
-                                title="Edit label"
+                                title="Rename this entry"
                               >
                                 ✏️
                               </button>
@@ -286,4 +351,3 @@ export default function WorkflowPicker({
   );
 }
 
-export { saveWorkflowRunConfig };

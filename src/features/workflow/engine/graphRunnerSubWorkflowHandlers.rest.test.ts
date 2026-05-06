@@ -21,7 +21,6 @@ import {
   makeCallbacks,
   makeHandlerContext,
   makeNode,
-  makeEdge,
   makePassedFlag,
 } from './graphRunnerNodeHandlers.test-utils';
 
@@ -259,7 +258,7 @@ describe('handleSubWorkflowNode', () => {
   it('forwards logs with [sub] prefix when onLog is provided', async () => {
     const ctx = makeCtx();
     const logLines: Array<{ prefix: string; text: string }> = [];
-    const { callbacks, states } = makeCallbacks();
+    const { callbacks } = makeCallbacks();
     callbacks.onLog = vi.fn((line) => logLines.push(line));
     const childNodes = [makeNode('ch1', 'http')];
     const childEdges: WorkflowEdge[] = [];
@@ -322,7 +321,7 @@ describe('handleSubWorkflowNode', () => {
 
   it('maps skipped state for child nodes that are not pass or fail', async () => {
     const ctx = makeCtx();
-    const { callbacks, states } = makeCallbacks();
+    const { callbacks } = makeCallbacks();
     const onSubWorkflowComplete = vi.fn();
     callbacks.onSubWorkflowComplete = onSubWorkflowComplete;
     const childNodes = [makeNode('ch1', 'http', { label: 'Child HTTP' })];

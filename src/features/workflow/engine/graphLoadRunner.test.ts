@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RequestResult } from '../../../shared/types';
+import type { CircuitBreaker } from '../../../engine/circuitBreaker';
 import type { Workflow, WorkflowNode, WorkflowEdge } from '../types/workflow';
 
 // Mock graphRunner
@@ -10,7 +11,7 @@ vi.mock('./graphRunner', () => ({
   runGraph: vi.fn(),
 }));
 
-import { runGraphLoad, type GraphLoadRunOpts } from './graphLoadRunner';
+import { runGraphLoad } from './graphLoadRunner';
 import { runGraph } from './graphRunner';
 
 const mockRunGraph = vi.mocked(runGraph);
@@ -124,8 +125,18 @@ describe('graphLoadRunner', () => {
         workflow.nodes,
         workflow.edges,
         { baseUrl: 'https://api.example.com', userId: '123', token: 'abc' },
-        expect.any(Object),
-        undefined,
+        expect.any(Object), // callbacks
+        undefined,          // abortSignal
+        undefined,          // environmentLayer
+        undefined,          // resolveHttpBaseUrl
+        undefined,          // resolveHttpAuth
+        undefined,          // debugController
+        undefined,          // errorConfig
+        undefined,          // resolveSubWorkflow
+        undefined,          // correlationStore
+        true,               // loadTestMode
+        undefined,          // correlationWaitConfig
+        undefined,          // pollSemaphore
       );
     });
 
@@ -221,7 +232,7 @@ describe('graphLoadRunner', () => {
       const results = await runGraphLoad(workflow, {
         iterations: 10,
         concurrency: 1,
-        breaker: breaker as any,
+        breaker: breaker as CircuitBreaker,
       });
 
       // Should stop after breaker triggers (after 3 iterations)
@@ -375,7 +386,7 @@ describe('graphLoadRunner', () => {
       const results = await runGraphLoad(workflow, {
         iterations: 2,
         concurrency: 1,
-        breaker: breaker as any,
+        breaker: breaker as CircuitBreaker,
       });
       expect(results).toHaveLength(0);
     });
@@ -427,7 +438,7 @@ describe('graphLoadRunner', () => {
       await runGraphLoad(workflow, {
         iterations: 1,
         concurrency: 1,
-        breaker: { shouldStop: false, recordResult } as any,
+        breaker: { shouldStop: false, recordResult } as CircuitBreaker,
       });
 
       expect(recordResult).toHaveBeenCalled();

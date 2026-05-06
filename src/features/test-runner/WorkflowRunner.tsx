@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import type { TestConfig, LoadProfileConfig } from '../../shared/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig } from '../../shared/types';
 import type { Workflow } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
-import WorkflowPicker, { saveWorkflowRunConfig } from './components/WorkflowPicker';
-import RunnerExecutionConfig, { profileLabel } from './components/RunnerExecutionConfig';
+import WorkflowPicker from './components/WorkflowPicker';
+import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
+import RunnerExecutionConfig from './components/RunnerExecutionConfig';
 import LiveProgressPanel from './components/LiveProgressPanel';
-import { type PersistedProgress, saveProgress, loadProgress, clearProgress, thinkTimeLabel } from './utils/runnerProgressStorage';
+import CorrelationWaitConfigPanel from './components/CorrelationWaitConfig';
+import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 
 interface Props {
   workflows: Workflow[];
@@ -39,8 +41,9 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [variablesInitialized, setVariablesInitialized] = useState(false);
+  const [correlationWaitConfig, setCorrelationWaitConfig] = useState<CorrelationWaitRunnerConfig | undefined>(undefined);
 
-  const { isRunning, completed, total, liveSummary, liveResults, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
+  const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
 
@@ -64,6 +67,31 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       setVariablesInitialized(true);
     }
   }, [selectedWorkflow, variablesInitialized]);
+
+  // Detect if workflow has CorrelationWait nodes and auto-initialize config
+  const hasCorrelationWait = useMemo(() => {
+    return selectedWorkflow?.nodes.some(n => n.type === 'correlationWait') ?? false;
+  }, [selectedWorkflow]);
+
+  // Detect if workflow has WaitForCondition nodes (for poll throttling)
+  const hasWaitForCondition = useMemo(() => {
+    return selectedWorkflow?.nodes.some(n => n.type === 'waitForCondition') ?? false;
+  }, [selectedWorkflow]);
+
+  // Max concurrent polls config (for WaitForCondition throttling)
+  const [maxConcurrentPolls, setMaxConcurrentPolls] = useState(20);
+
+  // Auto-initialize correlation config when workflow changes
+  useEffect(() => {
+    if (hasCorrelationWait && !correlationWaitConfig) {
+      // Auto-initialize with auto-resume mode (most common for load tests)
+      setCorrelationWaitConfig({ mode: 'auto-resume', mockPayloads: {} });
+    } else if (!hasCorrelationWait && correlationWaitConfig) {
+      // Clear config when switching to workflow without CorrelationWait
+      setCorrelationWaitConfig(undefined);
+    }
+  }, [hasCorrelationWait, correlationWaitConfig, selectedWorkflowId]);
+
   const isLoadProfile = executionMode === 'load-profile';
 
   // Load saved progress on mount
@@ -106,12 +134,15 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const handleRun = () => {
     if (!selectedWorkflow) return;
 
+    // Force single transaction for "wait-for-real" mode
+    const isWaitForReal = correlationWaitConfig?.mode === 'wait-for-real';
+
     const config: TestConfig = {
-      concurrency: isLoadProfile ? loadProfile.maxConcurrency : concurrency,
-      totalTransactions: isLoadProfile ? 0 : totalTransactions,
+      concurrency: isWaitForReal ? 1 : (isLoadProfile ? loadProfile.maxConcurrency : concurrency),
+      totalTransactions: isWaitForReal ? 1 : (isLoadProfile ? 0 : totalTransactions),
       scenarioWeights: [],
       executionMode: 'workflow',
-      ...(isLoadProfile ? { loadProfile } : {}),
+      ...(isLoadProfile && !isWaitForReal ? { loadProfile } : {}),
       thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
       timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
       retryCount: retryCount > 0 ? retryCount : 0,
@@ -121,6 +152,8 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       maxErrorRate,
       workflowVariables: Object.keys(workflowVariables).length > 0 ? workflowVariables : undefined,
       workflowId: selectedWorkflowId!,
+      correlationWaitConfig: hasCorrelationWait ? correlationWaitConfig : undefined,
+      maxConcurrentPolls: hasWaitForCondition ? maxConcurrentPolls : undefined,
     };
 
     saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
@@ -135,7 +168,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
-  const displayIsTimeBased = hasLiveProgress ? isLoadProfile : savedProgress?.isTimeBased ?? false;
+  const _displayIsTimeBased = hasLiveProgress ? isLoadProfile : savedProgress?.isTimeBased ?? false;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
   const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
   const displayExecMode = hasLiveProgress ? 'workflow' : savedProgress?.executionMode ?? 'workflow';
@@ -161,6 +194,44 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
 
       {selectedWorkflow && (
         <>
+          {/* CorrelationWait behavior config — right after workflow selection since it's workflow-specific */}
+          {hasCorrelationWait && (
+            <CorrelationWaitConfigPanel
+              workflow={selectedWorkflow}
+              config={correlationWaitConfig}
+              onChange={setCorrelationWaitConfig}
+              disabled={isRunning}
+            />
+          )}
+
+          {/* WaitForCondition poll throttle — prevents poll storms during load tests */}
+          {hasWaitForCondition && (
+            <div className="config-section wf-runner-poll-throttle-section">
+              <div className="config-section-header">
+                <span className="config-section-icon">🔄</span>
+                <h3>Poll Throttle</h3>
+                <span className="config-section-badge">
+                  {selectedWorkflow.nodes.filter(n => n.type === 'waitForCondition').length} node{selectedWorkflow.nodes.filter(n => n.type === 'waitForCondition').length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="wf-runner-poll-throttle-field">
+                <span className="wf-runner-poll-label-text">Max Concurrent Polls</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={maxConcurrentPolls}
+                  onChange={(e) => setMaxConcurrentPolls(Math.max(1, parseInt(e.target.value) || 20))}
+                  disabled={isRunning}
+                />
+                <span className="wf-runner-poll-hint">
+                  Limit simultaneous polls across {concurrency} concurrent iteration{concurrency > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Execution settings (concurrency, iterations, etc.) */}
           <div className="workflow-runner-config-section">
             <RunnerExecutionConfig
               executionMode={executionMode}
@@ -187,6 +258,8 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
               onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
               activeTestCount={1}
               isRunning={isRunning}
+              forceSingleTransaction={correlationWaitConfig?.mode === 'wait-for-real'}
+              namePrefix="workflow-runner"
             />
           </div>
 
@@ -214,7 +287,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
           summary={displaySummary}
           timeSeries={displayTimeSeries}
           profileMeta={displayProfileMeta}
-          executionMode={displayExecMode as any}
+          executionMode={displayExecMode as 'workflow' | 'load-profile'}
           concurrency={displayConc}
           loadProfile={displayLoadProfile}
           thinkTime={displayThinkTime}
