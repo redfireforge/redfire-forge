@@ -142,6 +142,8 @@ export async function runTest(
         breaker,
         abortSignal,
         onProgress,
+        correlationWaitConfig: config.correlationWaitConfig,
+        maxConcurrentPolls: config.maxConcurrentPolls,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);

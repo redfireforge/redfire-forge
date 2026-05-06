@@ -17,7 +17,6 @@ import type { WorkflowNode } from '../types/workflow';
 import { handleHttpNode } from './graphRunnerNodeHandlers';
 import {
   getMockFetch,
-  makeCtx,
   makeCallbacks,
   makeHandlerContext,
   makeNode,
@@ -225,17 +224,6 @@ describe('handleHttpNode', () => {
 });
 
 describe('handleHttpNode — additional branch coverage', () => {
-  function httpNode(id: string, label = 'HTTP', url = 'https://api.example.com/test'): WorkflowNode {
-    return makeNode(id, 'http', {
-      label,
-      scenario: {
-        id, name: label, url, method: 'GET',
-        headers: [], body: '', auth: { type: 'none' },
-        validation: { mode: 'none', assertions: [] },
-      },
-    });
-  }
-
   it('logs humanized error when request fails without failureDetails', async () => {
     mockFetch.mockResolvedValueOnce({
       status: 0,

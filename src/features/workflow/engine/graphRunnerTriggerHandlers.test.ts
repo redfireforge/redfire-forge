@@ -13,7 +13,6 @@ vi.mock('./scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import type { WorkflowNode, WorkflowEdge } from '../types/workflow';
 import { handleDelayNode, handleStartNode, handleWebhookNode, handleScheduleNode } from './graphRunnerNodeHandlers';
 import {
   getMockFetch,
