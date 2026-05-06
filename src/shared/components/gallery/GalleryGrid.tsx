@@ -105,7 +105,8 @@ export function GalleryGrid<T = unknown>({
     });
   }, [entries, filters, externalSearch]);
 
-  // Reset page when filters change
+  // Reset page when filters change.
+  // This is an intentional response to external filter/search state changes.
   const prevFilteredLen = useRef(filtered.length);
   useEffect(() => {
     if (filtered.length !== prevFilteredLen.current) {

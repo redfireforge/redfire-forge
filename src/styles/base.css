@@ -600,6 +600,33 @@
 .results-top-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .results-top-row h2 { font-size: 1.5rem; margin: 0; white-space: nowrap; }
 .results-top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* Run Type Filter Tabs */
+.results-run-filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.run-filter-tab {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.run-filter-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.run-filter-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .results-run-select { width: 100%; }
 .context-tag {
   display: inline-flex;
@@ -638,6 +665,15 @@
   background: rgba(246, 173, 85, 0.15);
   color: #f6ad55;
   border: 1px solid rgba(246, 173, 85, 0.3);
+}
+.workflow-name-tag {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .exec-mode-tag {
   background: rgba(66, 153, 225, 0.15);
@@ -1956,6 +1992,196 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .wf-var-add-key { max-width: 140px; }
 
+/* ═══ Workflow Picker (Harness) ═══ */
+
+.workflow-picker {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.workflow-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.workflow-picker-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.workflow-picker-selector {
+  margin-bottom: 8px;
+}
+.workflow-picker-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.workflow-picker-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.workflow-picker-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+}
+.workflow-step-count {
+  font-weight: 600;
+  color: var(--primary);
+}
+.workflow-step-names {
+  color: var(--text-muted);
+  font-family: 'SF Mono', monospace;
+  font-size: 0.78rem;
+}
+.workflow-vars-section {
+  margin-top: 12px;
+}
+.workflow-vars-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.workflow-vars-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.vars-modified-badge {
+  color: #f59e0b;
+  font-style: italic;
+  font-size: 0.78rem;
+}
+.empty-vars-hint {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  margin: 8px 0;
+}
+.workflow-picker-hint {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+.workflow-picker-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+}
+.workflow-picker-empty .empty-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+.workflow-picker-empty p {
+  margin: 4px 0;
+}
+.workflow-picker-empty .empty-hint {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* Workflow History Panel */
+.workflow-history-panel {
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.history-empty {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin: 4px 0;
+}
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.history-item:hover {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+.history-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.history-label {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.history-item-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.history-item:hover .history-item-actions {
+  opacity: 1;
+}
+.history-edit-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+.history-edit-row input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+
 /* ── Run Baselines & Comparison ── */
 .baseline-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .baseline-toggle { border-color: var(--border); transition: all 0.15s; }
@@ -2032,3 +2258,268 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .histogram-stat-group .stat-label { font-weight: 600; }
 .baseline-stat { color: var(--info, #3b82f6); }
 .current-stat { color: var(--success, #22c55e); }
+
+/* ── Workflow Results Summary ── */
+.workflow-results-summary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.workflow-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+  border-bottom: 1px solid var(--border);
+}
+.workflow-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.workflow-icon { font-size: 1.1rem; }
+.workflow-summary-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.workflow-meta-item strong {
+  color: var(--text);
+  margin-right: 4px;
+}
+.workflow-summary-overall {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-pass-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 8px;
+  min-width: 80px;
+}
+.pass-rate-success { background: rgba(34, 197, 94, 0.15); }
+.pass-rate-warning { background: rgba(234, 179, 8, 0.15); }
+.pass-rate-danger { background: rgba(239, 68, 68, 0.15); }
+.pass-rate-value { font-size: 1.5rem; font-weight: 700; }
+.pass-rate-success .pass-rate-value { color: #22c55e; }
+.pass-rate-warning .pass-rate-value { color: #eab308; }
+.pass-rate-danger .pass-rate-value { color: #ef4444; }
+.pass-rate-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.workflow-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.workflow-metric .metric-value { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+.workflow-metric .metric-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+
+/* Workflow Iteration Chart */
+.workflow-iteration-chart {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-iteration-chart .chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.workflow-iteration-chart .chart-header h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.workflow-iteration-chart .chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.workflow-iteration-chart .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.workflow-iteration-chart .legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+.workflow-iteration-chart .legend-pass {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(34, 197, 94, 0.5));
+}
+.workflow-iteration-chart .legend-fail {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0.5));
+}
+.workflow-iteration-chart .legend-line {
+  width: 20px;
+  height: 2px;
+  background: rgba(251, 191, 36, 0.8);
+}
+.workflow-iteration-chart .chart-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.workflow-iteration-chart .chart-stat strong {
+  color: var(--text);
+  font-weight: 500;
+}
+.workflow-iteration-chart .chart-tooltip {
+  position: absolute;
+  background: var(--bg-elevated, #1e293b);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 100;
+  transform: translateX(-50%);
+}
+
+/* Per-Step Table */
+.workflow-steps-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-steps-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.workflow-steps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.workflow-steps-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.workflow-steps-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-light, var(--border));
+}
+.workflow-steps-table tr:last-child td { border-bottom: none; }
+.step-row-failed { background: rgba(239, 68, 68, 0.05); }
+.step-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.pass-cell { color: #22c55e; font-weight: 500; }
+.fail-cell { color: #ef4444; font-weight: 500; }
+
+/* Per-Iteration Detail */
+.workflow-iterations-section {
+  padding: 0;
+}
+.workflow-iterations-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg);
+  transition: background 0.15s;
+}
+.workflow-iterations-header:hover { background: rgba(59, 130, 246, 0.05); }
+.workflow-iterations-header h4 { margin: 0; font-size: 0.9rem; font-weight: 600; flex: 1; }
+.collapse-arrow {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.collapse-arrow.expanded { transform: rotate(90deg); }
+.iteration-count-badge {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.workflow-iterations-list {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.iteration-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.iteration-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.iteration-header:hover { background: rgba(59, 130, 246, 0.05); }
+.iteration-passed { border-left: 3px solid #22c55e; }
+.iteration-failed { border-left: 3px solid #ef4444; }
+.iteration-status { font-size: 0.9rem; }
+.iteration-label { font-weight: 500; flex: 1; }
+.iteration-time { font-size: 0.82rem; color: var(--text-muted); }
+.iteration-pass-count { font-size: 0.78rem; color: var(--text-muted); }
+.iteration-details {
+  padding: 8px 12px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+}
+.iteration-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+}
+.iteration-result:hover { background: rgba(59, 130, 246, 0.1); }
+.iteration-result.result-failed { background: rgba(239, 68, 68, 0.08); }
+.result-name { flex: 1; }
+.result-status { color: var(--text-muted); }
+.result-time { color: var(--text-muted); }
+.result-passed { font-weight: 500; }
+.iteration-result.result-failed .result-passed { color: #ef4444; }

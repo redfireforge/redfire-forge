@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceTags } from './useDataSourceTags';
 import type { Scenario, DataSource } from '../../../shared/types';
@@ -240,5 +240,130 @@ describe('useDataSourceTags', () => {
     expect(result.current.allTags).toEqual([]);
     expect(result.current.tagCounts).toEqual({});
     expect(result.current.untaggedCount).toBe(0);
+  });
+
+  it('addTagToRow does nothing when dataSource is undefined', () => {
+    const draft: Scenario = {
+      id: 'sc-1', name: 'Test', url: 'http://x', method: 'GET',
+      headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+    };
+    const onDraftChange = vi.fn();
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, undefined, onDraftChange, new Set()),
+    );
+    act(() => result.current.addTagToRow('r1', 'x'));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
+  it('bulkAddTag skips duplicate tags on selected rows', () => {
+    const onDraftChange = vi.fn();
+    const selected = new Set(['r1']);
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true, tags: ['smoke'] },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, selected),
+    );
+    act(() => result.current.bulkAddTag('smoke'));
+    expect(onDraftChange).toHaveBeenCalled();
+    expect(onDraftChange.mock.calls[0][0].dataSource.rows[0].tags).toEqual(['smoke']);
+  });
+
+  it('bulkAddTag ignores empty tag string', () => {
+    const onDraftChange = vi.fn();
+    const draft = makeScenario([{ id: 'r1', values: {}, enabled: true }]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, new Set(['r1'])),
+    );
+    act(() => result.current.bulkAddTag('   '));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
+  it('bulkRemoveTag does nothing when no selection', () => {
+    const onDraftChange = vi.fn();
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true, tags: ['a'] },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, new Set()),
+    );
+    act(() => result.current.bulkRemoveTag('a'));
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
+  it('bulkRemoveTag clears tags only on rows that contained the tag', () => {
+    const onDraftChange = vi.fn();
+    const selected = new Set(['r1', 'r2']);
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true, tags: ['smoke'] },
+      { id: 'r2', values: {}, enabled: true },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, selected),
+    );
+    act(() => result.current.bulkRemoveTag('smoke'));
+    const rows = onDraftChange.mock.calls[0][0].dataSource.rows;
+    expect(rows[0].tags).toBeUndefined();
+    expect(rows[1].tags).toBeUndefined();
+  });
+
+  it('addTagToRow updates only the targeted row', () => {
+    const onDraftChange = vi.fn();
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true },
+      { id: 'r2', values: {}, enabled: true },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, new Set()),
+    );
+    act(() => result.current.addTagToRow('r2', 't'));
+    const rows = onDraftChange.mock.calls[0][0].dataSource.rows;
+    expect(rows[0].tags).toBeUndefined();
+    expect(rows[1].tags).toEqual(['t']);
+  });
+
+  it('removeTagFromRow only touches the matching row', () => {
+    const onDraftChange = vi.fn();
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true, tags: ['a'] },
+      { id: 'r2', values: {}, enabled: true, tags: ['b'] },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, new Set()),
+    );
+    act(() => result.current.removeTagFromRow('r1', 'a'));
+    const rows = onDraftChange.mock.calls[0][0].dataSource.rows;
+    expect(rows[0].tags).toBeUndefined();
+    expect(rows[1].tags).toEqual(['b']);
+  });
+
+  it('bulkRemoveTag skips unselected rows', () => {
+    const onDraftChange = vi.fn();
+    const selected = new Set(['r1']);
+    const draft = makeScenario([
+      { id: 'r1', values: {}, enabled: true, tags: ['x'] },
+      { id: 'r2', values: {}, enabled: true, tags: ['x'] },
+    ]);
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, draft.dataSource!, onDraftChange, selected),
+    );
+    act(() => result.current.bulkRemoveTag('x'));
+    const rows = onDraftChange.mock.calls[0][0].dataSource.rows;
+    expect(rows[0].tags).toBeUndefined();
+    expect(rows[1].tags).toEqual(['x']);
+  });
+
+  it('addSubset and removeSubset no-op when dataSource is undefined', () => {
+    const draft: Scenario = {
+      id: 'sc-1', name: 'Test', url: 'http://x', method: 'GET',
+      headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+    };
+    const onDraftChange = vi.fn();
+    const { result } = renderHook(() =>
+      useDataSourceTags(draft, undefined, onDraftChange, new Set()),
+    );
+    act(() => result.current.addSubset({ name: 'N', filter: { type: 'tags', tags: ['x'], mode: 'any' } }));
+    act(() => result.current.removeSubset('N'));
+    expect(onDraftChange).not.toHaveBeenCalled();
   });
 });

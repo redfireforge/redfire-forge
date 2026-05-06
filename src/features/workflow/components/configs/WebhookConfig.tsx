@@ -29,10 +29,10 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
   };
 
   const handleCopyCurl = async () => {
-    if (!webhookUrl) return;
+    const url = webhookUrl!;
     const payload = data.samplePayload?.trim() || '{}';
     const escaped = payload.replace(/'/g, "'\\''");
-    const curl = `curl --noproxy '*' -X ${data.method} '${webhookUrl}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${escaped}'`;
+    const curl = `curl --noproxy '*' -X ${data.method} '${url}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${escaped}'`;
     try {
       await navigator.clipboard.writeText(curl);
       setCurlCopied(true);

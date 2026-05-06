@@ -6,9 +6,12 @@ import type { AuthConfig } from '../types';
 vi.mock('./authHeaders', () => ({
   resolveAuthHeaders: vi.fn((auth: AuthConfig, token?: string) => {
     if (token) return { Authorization: `Bearer ${token}` };
-    if (auth.type === 'bearer') return { Authorization: `Bearer ${(auth as any).token}` };
+    if (auth.type === 'bearer') return { Authorization: `Bearer ${(auth as { type: 'bearer'; token: string }).token}` };
     if (auth.type === 'basic') return { Authorization: 'Basic dXNlcjpwYXNz' };
-    if (auth.type === 'apikey') return { [(auth as any).key || 'X-API-Key']: (auth as any).value || 'key123' };
+    if (auth.type === 'apikey') {
+      const apiKeyAuth = auth as { type: 'apikey'; key?: string; value?: string };
+      return { [apiKeyAuth.key || 'X-API-Key']: apiKeyAuth.value || 'key123' };
+    }
     return {};
   }),
 }));

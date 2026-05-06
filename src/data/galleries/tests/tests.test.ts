@@ -121,4 +121,12 @@ describe('testSampleCatalog', () => {
       }
     }
   });
+
+  it('runs additionalFeatureGroupsFactory for cross-feature-group Pokémon catalog entry', () => {
+    const entry = testSampleCatalog.find(e => e.id === 'test-shared-pokemon-cross-fg');
+    expect(entry?.additionalFeatureGroupsFactory).toBeDefined();
+    const extraGroups = entry!.additionalFeatureGroupsFactory!();
+    expect(extraGroups.length).toBeGreaterThanOrEqual(1);
+    expect(extraGroups[0].id).toBeTruthy();
+  });
 });

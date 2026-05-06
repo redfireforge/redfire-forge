@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Runner Basics — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚡</div>
+    <h1>Workflow Runner Basics</h1>
+    <div class="subtitle">Run Workflows as Performance Tests — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Workflow · Performance Testing</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Navigate to the Workflow Runner from the sidebar</li>
+    <li>Select an existing workflow from the dropdown</li>
+    <li>Understand the workflow summary (HTTP steps, node names)</li>
+    <li>Run a workflow with default settings</li>
+    <li>View the completion banner and navigate to results</li>
+  </ul>
+
+  <h2>2. What is the Workflow Runner?</h2>
+  <p>The <strong>Workflow Runner</strong> is a dedicated tool for running workflows as performance tests. Unlike the Test Runner (which executes individual API requests), the Workflow Runner executes an entire workflow graph — including conditions, branches, and parallel paths — as a single iteration.</p>
+
+  <div class="callout">
+    <strong>Key Concept: Iteration</strong>
+    An iteration is one complete execution of your workflow from Start to End. Running 10 iterations means your workflow executes 10 times, each time following the same graph topology.
+  </div>
+
+  <h3>When to Use Workflow Runner</h3>
+  <table>
+    <tr><th>Use Workflow Runner For</th><th>Use Test Runner For</th></tr>
+    <tr>
+      <td>Multi-step API flows (login → action → verify)</td>
+      <td>Single endpoint load testing</td>
+    </tr>
+    <tr>
+      <td>Workflows with conditional logic</td>
+      <td>Parameterized tests with CSV data</td>
+    </tr>
+    <tr>
+      <td>Sequential data dependencies</td>
+      <td>Independent API requests</td>
+    </tr>
+  </table>
+
+  <h2>3. Navigating to Workflow Runner</h2>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span>Open the Sidebar</h4>
+    <p>Click the menu icon (☰) or press <code>Cmd+B</code> / <code>Ctrl+B</code> to ensure the sidebar is visible.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span>Find the Testing Section</h4>
+    <p>In the sidebar, locate the <strong>Testing</strong> domain. It contains:</p>
+    <ul>
+      <li>Scenarios — Test definitions</li>
+      <li>Runner — Test Runner for scenarios</li>
+      <li><strong>Workflow Runner</strong> — Run workflows as performance tests</li>
+      <li>Results — View all test results</li>
+    </ul>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">3</span>Click "Workflow Runner"</h4>
+    <p>The Workflow Runner page opens with a workflow picker at the top.</p>
+  </div>
+
+  <h2>4. Selecting a Workflow</h2>
+  <p>Before you can run a test, you need to select a workflow.</p>
+
+  <h3>The Workflow Picker</h3>
+  <p>At the top of the page, you'll see a dropdown labeled <strong>Workflow</strong>. Click it to see all available workflows in your project.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 No workflows?</strong>
+    If the dropdown is empty, you need to create a workflow first. Go to <strong>Workflow → Designer</strong> and create one, or import a sample from the Gallery.
+  </div>
+
+  <h3>Workflow Summary</h3>
+  <p>After selecting a workflow, you'll see a summary:</p>
+  <ul>
+    <li><strong>HTTP steps count</strong> — "3 HTTP steps" means the workflow has 3 HTTP request nodes</li>
+    <li><strong>Step names</strong> — Shows the first few step labels like "Get User → Create Post → Verify"</li>
+  </ul>
+
+  <h2>5. Hands-On Exercise: Your First Workflow Run</h2>
+  <p>Let's run a workflow using the JSONPlaceholder public API.</p>
+
+  <h3>Step 1: Import a Sample Workflow</h3>
+  <ol>
+    <li>Go to <strong>Gallery</strong> in the sidebar</li>
+    <li>Click the <strong>Samples</strong> tab</li>
+    <li>Find <strong>"Sample: Create → Extract → Verify"</strong></li>
+    <li>Click <strong>Import</strong> to add it to your workflows</li>
+  </ol>
+
+  <div class="callout">
+    <strong>About This Sample</strong>
+    This workflow uses <code>https://jsonplaceholder.typicode.com</code> — a free fake REST API:
+    <ul>
+      <li>Step 1: POST /posts — Creates a new post</li>
+      <li>Step 2: GET /posts/{id} — Verifies the post was created</li>
+    </ul>
+  </div>
+
+  <h3>Step 2: Navigate to Workflow Runner</h3>
+  <ol>
+    <li>Click <strong>Testing → Workflow Runner</strong> in the sidebar</li>
+    <li>Click the <strong>Workflow</strong> dropdown</li>
+    <li>Select <strong>"Sample: Create → Extract → Verify"</strong></li>
+  </ol>
+
+  <h3>Step 3: Review the Summary</h3>
+  <p>You should see:</p>
+  <pre>2 HTTP steps
+Create Post → Verify Post</pre>
+
+  <h3>Step 4: Run with Default Settings</h3>
+  <p>Without changing any settings, click the <strong>▶ Run Workflow</strong> button.</p>
+
+  <p>Default settings are:</p>
+  <table>
+    <tr><th>Setting</th><th>Default Value</th></tr>
+    <tr><td>Iterations</td><td>5</td></tr>
+    <tr><td>Concurrency</td><td>1</td></tr>
+    <tr><td>Execution Mode</td><td>Fixed Iterations</td></tr>
+  </table>
+
+  <h3>Step 5: Watch Live Progress</h3>
+  <p>As the test runs, you'll see:</p>
+  <ul>
+    <li><strong>Progress bar</strong> — "3/5 iterations (60%)"</li>
+    <li><strong>Live stats</strong> — Avg response time, TPS, error count</li>
+    <li><strong>Response time chart</strong> — Real-time visualization</li>
+  </ul>
+
+  <h3>Step 6: View Completion Banner</h3>
+  <p>When the test finishes, you'll see:</p>
+  <pre>Workflow completed — 10 requests in 2.34s</pre>
+  <p>This shows 10 total requests (2 HTTP steps × 5 iterations).</p>
+
+  <h3>Step 7: Navigate to Results</h3>
+  <ol>
+    <li>Click <strong>View Full Results →</strong></li>
+    <li>The Results page opens, filtered to show workflow runs</li>
+    <li>You'll see the <strong>Workflow Execution Summary</strong> with per-step metrics</li>
+  </ol>
+
+  <h2>6. Understanding the Results</h2>
+  <p>After clicking "View Full Results", you'll see specialized workflow metrics:</p>
+
+  <table>
+    <tr><th>Metric</th><th>What It Shows</th></tr>
+    <tr><td>Iterations</td><td>How many times the workflow ran (5)</td></tr>
+    <tr><td>Steps</td><td>HTTP nodes in the workflow (2)</td></tr>
+    <tr><td>Total Requests</td><td>Iterations × Steps (10)</td></tr>
+    <tr><td>Pass Rate</td><td>Percentage of successful requests</td></tr>
+    <tr><td>Avg / p95</td><td>Response time percentiles</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Per-Step Metrics</strong>
+    Scroll down to see the <strong>Per-Step Metrics</strong> table, which breaks down timing for each HTTP node in your workflow.
+  </div>
+
+  <h2>7. Quick Reference</h2>
+
+  <h3>Keyboard Shortcuts</h3>
+  <table>
+    <tr><th>Action</th><th>Shortcut</th></tr>
+    <tr><td>Toggle sidebar</td><td><code>Cmd/Ctrl + B</code></td></tr>
+    <tr><td>Stop running test</td><td>Click <strong>■ Stop</strong> button</td></tr>
+  </table>
+
+  <h3>Common Issues</h3>
+  <table>
+    <tr><th>Issue</th><th>Solution</th></tr>
+    <tr><td>No workflows in dropdown</td><td>Create or import a workflow first</td></tr>
+    <tr><td>"Run Workflow" button disabled</td><td>Select a workflow from the dropdown</td></tr>
+    <tr><td>All requests failed</td><td>Check if the API is accessible (try URL in browser)</td></tr>
+  </table>
+
+  <h2>8. Next Steps</h2>
+  <p>Now that you've run your first workflow test, continue learning with:</p>
+  <ul>
+    <li><strong>Workflow Runner: Variables</strong> — Configure initial variables and use history</li>
+    <li><strong>Workflow Runner: Iterations</strong> — Configure load testing parameters</li>
+    <li><strong>Workflow Runner: Results</strong> — Deep dive into metrics and charts</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Workflow Runner Basics · Easy ★☆☆
+  </footer>
+
+</body>
+</html>

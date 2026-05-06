@@ -9,8 +9,9 @@ import type { Extraction } from '../../../shared/types';
 // Mock ExpressionInput
 vi.mock('../../workflow/components/expression/ExpressionInput', () => ({
   __esModule: true,
-  default: ({ value, onChange, placeholder, disabled, className, 'aria-label': ariaLabel }: {
+  default: ({ value, onChange, placeholder, disabled, className, 'aria-label': ariaLabel, variableHints = [] }: {
     value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean; className?: string; 'aria-label'?: string;
+    variableHints?: unknown[];
   }) => (
     <input
       value={value}
@@ -20,6 +21,7 @@ vi.mock('../../workflow/components/expression/ExpressionInput', () => ({
       className={className}
       aria-label={ariaLabel}
       data-testid="expression-input"
+      data-hint-count={variableHints.length}
     />
   ),
 }));
@@ -27,8 +29,19 @@ vi.mock('../../workflow/components/expression/ExpressionInput', () => ({
 // Mock ExtractionPathPickerModal and ExtractionMapperModal
 vi.mock('./ExtractionPathPickerModal', () => ({
   __esModule: true,
-  default: ({ onApply, onClose }: { onApply: (expr: string) => void; onClose: () => void }) => (
-    <div data-testid="picker-modal">
+  default: ({
+    onApply,
+    onClose,
+    initialSampleJson,
+  }: {
+    onApply: (expr: string) => void;
+    onClose: () => void;
+    initialSampleJson?: string;
+  }) => (
+    <div
+      data-testid="picker-modal"
+      data-initial-sample={initialSampleJson === undefined ? 'none' : initialSampleJson}
+    >
       <button onClick={() => onApply('$.data.id')}>Apply Path</button>
       <button onClick={onClose}>Close Picker</button>
     </div>
@@ -266,5 +279,93 @@ describe('ExtractionEditor', () => {
     fireEvent.click(screen.getByText('⚡ Fetch & Map'));
     fireEvent.click(screen.getByText('Close Mapper'));
     expect(screen.queryByTestId('mapper-modal')).toBeNull();
+  });
+
+  it('suggests variable name when applying path and name is empty', () => {
+    const onChange = vi.fn();
+    render(
+      <ExtractionEditor
+        extractions={[{ name: '', source: 'body', expression: '', fallback: '' }]}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
+    fireEvent.click(screen.getByText('Apply Path'));
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'id', expression: '$.data.id' }),
+    ]);
+  });
+
+  it('does not reorder when dropping on same row', () => {
+    const onChange = vi.fn();
+    const ext1 = makeExtraction({ name: 'only' });
+    const { container } = render(<ExtractionEditor extractions={[ext1]} onChange={onChange} />);
+    const row = container.querySelector('.ext-row')!;
+    fireEvent.dragStart(row);
+    fireEvent.drop(row);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('uses first source hint when source value is invalid', () => {
+    render(
+      <ExtractionEditor
+        extractions={[makeExtraction({ source: 'not-a-real-source' as 'body' })]}
+        onChange={vi.fn()}
+      />,
+    );
+    const exprInputs = screen.getAllByLabelText('Expression') as HTMLInputElement[];
+    expect(exprInputs[0].placeholder).toBe('$.data.id');
+  });
+
+  it('clears fallback to undefined when expression field emptied', () => {
+    const onChange = vi.fn();
+    render(<ExtractionEditor extractions={[makeExtraction({ fallback: 'x' })]} onChange={onChange} />);
+    const fb = screen.getByLabelText('Fallback');
+    fireEvent.change(fb, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ fallback: undefined })]);
+  });
+
+  it('updates expression field value', () => {
+    const onChange = vi.fn();
+    render(<ExtractionEditor extractions={[makeExtraction({ expression: '$.a' })]} onChange={onChange} />);
+    const [expressionRow] = screen.getAllByLabelText('Expression');
+    fireEvent.change(expressionRow, { target: { value: '$.b' } });
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ expression: '$.b' })]);
+  });
+
+  it('does not show resolved URL when host is disabled but has no base URL', () => {
+    const fetchSample = {
+      onFetch: vi.fn(),
+      fetching: false,
+      error: null,
+      host: { enabled: false, resolvedBaseUrl: '' },
+    };
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
+    expect(screen.queryByText(/Target:/)).toBeNull();
+  });
+
+  it('trims sample body when seeding path picker (empty after trim uses undefined)', () => {
+    render(
+      <ExtractionEditor
+        extractions={[makeExtraction({ source: 'body' })]}
+        onChange={vi.fn()}
+        sampleResponseBody="   "
+      />,
+    );
+    fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
+    expect((screen.getByTestId('picker-modal') as HTMLElement).dataset.initialSample).toBe('none');
+  });
+
+  it('passes non-empty sample JSON to path picker', () => {
+    const body = '{"x":1}';
+    render(
+      <ExtractionEditor
+        extractions={[makeExtraction({ source: 'body' })]}
+        onChange={vi.fn()}
+        sampleResponseBody={body}
+      />,
+    );
+    fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
+    expect((screen.getByTestId('picker-modal') as HTMLElement).dataset.initialSample).toBe(body);
   });
 });

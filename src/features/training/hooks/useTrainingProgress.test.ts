@@ -337,6 +337,20 @@ describe('calculatePathProgress', () => {
 
     expect(result.total).toBe(1); // Only counts manual with manualPath
   });
+
+  it('returns 0% when no manuals have manualPath', () => {
+    const emptyPath: TrainingPath = {
+      id: 'e',
+      name: 'E',
+      icon: '🧪',
+      description: 'd',
+      phases: [{ id: 1, name: 'P', manuals: [{ title: 'm', description: '', difficulty: 'easy' }] }],
+    };
+    const progress: TrainingProgress = { manuals: {}, lastUpdated: 0, streak: 0 };
+    const result = calculatePathProgress(emptyPath, progress);
+    expect(result.total).toBe(0);
+    expect(result.percentage).toBe(0);
+  });
 });
 
 describe('calculateOverallStats', () => {
@@ -402,18 +416,16 @@ describe('findLastViewedInProgress', () => {
     expect(result?.manualPath).toBe('test/manual2.html');
   });
 
-  it('ignores in-progress manuals without lastViewedAt', () => {
+  it('findLastViewedInProgress prefers higher lastViewedAt when prior entry lacks it', () => {
     const progress: TrainingProgress = {
       manuals: {
-        'test/manual1.html': { manualPath: 'test/manual1.html', status: 'in_progress' }, // No lastViewedAt
-        'test/manual2.html': { manualPath: 'test/manual2.html', status: 'in_progress', lastViewedAt: 1000 },
+        'a.html': { manualPath: 'a.html', status: 'in_progress', lastViewedAt: 100 },
+        'b.html': { manualPath: 'b.html', status: 'in_progress' },
       },
-      lastUpdated: 1000,
+      lastUpdated: 100,
       streak: 0,
     };
-
-    const result = findLastViewedInProgress(progress);
-    expect(result?.manualPath).toBe('test/manual2.html');
+    expect(findLastViewedInProgress(progress)?.manualPath).toBe('a.html');
   });
 });
 
@@ -461,7 +473,99 @@ describe('streak calculation', () => {
       await result.current.updateManualStatus('test/manual2.html', 'completed');
     });
 
-    // Streak should remain 1 (same day)
     expect(result.current.progress.streak).toBe(1);
+  });
+
+  it('increments streak on consecutive-day completion', async () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+
+    const existingProgress: TrainingProgress = {
+      manuals: {},
+      lastUpdated: 1000,
+      streak: 2,
+      lastCompletionDate: yStr,
+    };
+
+    mockReadKey.mockResolvedValue(JSON.stringify(existingProgress));
+
+    const { result } = renderHook(() => useTrainingProgress());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.updateManualStatus('test/manual1.html', 'completed');
+    });
+
+    expect(result.current.progress.streak).toBe(3);
+  });
+
+  it('resets streak when last completion was not consecutive', async () => {
+    const old = new Date();
+    old.setDate(old.getDate() - 10);
+    const oldStr = old.toISOString().split('T')[0];
+
+    const existingProgress: TrainingProgress = {
+      manuals: {},
+      lastUpdated: 1000,
+      streak: 4,
+      lastCompletionDate: oldStr,
+    };
+
+    mockReadKey.mockResolvedValue(JSON.stringify(existingProgress));
+
+    const { result } = renderHook(() => useTrainingProgress());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.updateManualStatus('test/manual1.html', 'completed');
+    });
+
+    expect(result.current.progress.streak).toBe(1);
+  });
+});
+
+describe('useTrainingProgress edge cases', () => {
+  it('ignores invalid JSON in storage', async () => {
+    mockReadKey.mockResolvedValue('{broken');
+
+    const { result } = renderHook(() => useTrainingProgress());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.progress.manuals).toEqual({});
+  });
+
+  it('exposes getManualProgress and lastViewedInProgress from loaded state', async () => {
+    const existingProgress: TrainingProgress = {
+      manuals: {
+        'test/manual2.html': {
+          manualPath: 'test/manual2.html',
+          status: 'in_progress',
+          lastViewedAt: 5000,
+        },
+      },
+      lastUpdated: 5000,
+      streak: 0,
+    };
+
+    mockReadKey.mockResolvedValue(JSON.stringify(existingProgress));
+
+    const { result } = renderHook(() => useTrainingProgress());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.getManualProgress('test/manual2.html')?.status).toBe('in_progress');
+    expect(result.current.lastViewedInProgress?.manualPath).toBe('test/manual2.html');
   });
 });

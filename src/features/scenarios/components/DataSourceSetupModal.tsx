@@ -543,12 +543,7 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
     const wb = generateExcelTemplate({ test, pathVariables: pathVars, columnDefs, dataRows });
     const safeName = test.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || 'template';
     await downloadExcel(wb, `${safeName}_template.xlsx`);
-    // Also apply to data table if we're in configure mode
-    if (mode === 'configure') {
-      handleApply();
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   const findExistingColId = (def: ColumnDef): string | undefined => {

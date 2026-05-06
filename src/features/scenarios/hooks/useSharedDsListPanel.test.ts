@@ -90,6 +90,16 @@ describe('useSharedDsListPanel', () => {
       });
       expect(result.current.filteredList).toHaveLength(0);
     });
+
+    it('returns all items when search is whitespace only', () => {
+      const { result } = renderHook(() =>
+        useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
+      );
+      act(() => {
+        result.current.setListSearch('   ');
+      });
+      expect(result.current.filteredList).toHaveLength(3);
+    });
   });
 
   describe('context menu', () => {
@@ -163,6 +173,18 @@ describe('useSharedDsListPanel', () => {
       expect(result.current.renamingId).toBe(null);
     });
 
+    it('handleRename treats whitespace-only name as empty', () => {
+      const { result } = renderHook(() =>
+        useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
+      );
+      act(() => {
+        result.current.startRenaming('ds-1', 'Users');
+        result.current.handleRename('ds-1', '   ');
+      });
+      expect(mockOnUpdate).not.toHaveBeenCalled();
+      expect(result.current.renamingId).toBe(null);
+    });
+
     it('cancelRenaming clears renaming state', () => {
       const { result } = renderHook(() =>
         useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
@@ -228,6 +250,66 @@ describe('useSharedDsListPanel', () => {
       });
       expect(result.current.isResizing).toBe(true);
       expect(mockEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    it('updates width on mousemove while resizing', () => {
+      const { result } = renderHook(() =>
+        useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
+      );
+      const mockEvent = {
+        preventDefault: vi.fn(),
+        clientX: 200,
+      } as unknown as React.MouseEvent<HTMLDivElement>;
+
+      act(() => {
+        result.current.handleResizeMouseDown(mockEvent);
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: 250 }));
+      });
+      expect(result.current.listPanelWidth).toBe(270);
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup'));
+      });
+      expect(result.current.isResizing).toBe(false);
+    });
+
+    it('clamps resize width between 180 and 450 (min)', () => {
+      const { result } = renderHook(() =>
+        useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
+      );
+      act(() => {
+        result.current.handleResizeMouseDown({
+          preventDefault: vi.fn(),
+          clientX: 300,
+        } as unknown as React.MouseEvent<HTMLDivElement>);
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: -500 }));
+      });
+      expect(result.current.listPanelWidth).toBe(180);
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup'));
+      });
+    });
+
+    it('clamps resize width to max 450', () => {
+      const { result } = renderHook(() =>
+        useSharedDsListPanel({ sharedDataSources: mockSources, onUpdate: mockOnUpdate })
+      );
+      act(() => {
+        result.current.handleResizeMouseDown({
+          preventDefault: vi.fn(),
+          clientX: 300,
+        } as unknown as React.MouseEvent<HTMLDivElement>);
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: 99999 }));
+      });
+      expect(result.current.listPanelWidth).toBe(450);
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup'));
+      });
     });
   });
 

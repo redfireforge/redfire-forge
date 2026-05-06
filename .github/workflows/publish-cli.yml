@@ -1,0 +1,111 @@
+name: Publish CLI to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip actual publish)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    name: Build and Publish CLI
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI bundle
+        run: |
+          echo "Building CLI bundle..."
+          node scripts/build-cli.mjs
+          
+          # Copy to cli/dist
+          mkdir -p cli/dist
+          cp dist-cli/redfireforge.mjs cli/dist/redfireforge.mjs
+          
+          # Verify build
+          if [ -f cli/dist/redfireforge.mjs ]; then
+            echo "✅ Bundle created successfully"
+            ls -la cli/dist/
+          else
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+      - name: Sync version
+        run: |
+          # Get version from main package.json
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Version: $VERSION"
+          
+          # Update cli/package.json
+          node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('cli/package.json', 'utf-8'));
+          pkg.version = '$VERSION';
+          fs.writeFileSync('cli/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          
+          echo "Updated cli/package.json to version $VERSION"
+          cat cli/package.json
+
+      - name: Test CLI bundle
+        run: |
+          echo "Testing CLI bundle..."
+          
+          # Syntax check
+          node --check cli/dist/redfireforge.mjs
+          echo "✅ Syntax check passed"
+          
+          # Version check
+          node cli/dist/redfireforge.mjs --version
+          echo "✅ Version check passed"
+          
+          # Help check
+          node cli/dist/redfireforge.mjs --help
+          echo "✅ Help check passed"
+          
+          # Validate example file
+          node cli/dist/redfireforge.mjs validate examples/cli-basic-test.yaml
+          echo "✅ Validation check passed"
+
+      - name: Publish to npm (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        working-directory: ./cli
+        run: |
+          echo "DRY RUN - Would publish:"
+          npm publish --dry-run
+
+      - name: Publish to npm
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        working-directory: ./cli
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Upload CLI bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: redfireforge-cli-bundle
+          path: |
+            cli/dist/redfireforge.mjs
+            cli/package.json
+            cli/README.md
+          retention-days: 30
