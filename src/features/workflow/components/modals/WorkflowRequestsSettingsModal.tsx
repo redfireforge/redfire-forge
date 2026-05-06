@@ -57,7 +57,7 @@ export default function WorkflowRequestsSettingsModal({
       if (!isHttpNode(node)) continue;
       next[node.id] = cloneHttpData(node.data as HttpNodeData);
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset drafts when modal opens with workflow data
+     
     setDrafts(next);
     const firstId = Object.keys(next)[0] ?? null;
      

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTheme } from './useTheme';
 
@@ -10,133 +10,210 @@ vi.mock('../../shared/utils/storage', () => ({
   saveTheme: vi.fn(),
 }));
 
-// Mock ThemeCustomizer functions
+// Mock ThemeCustomizer
 vi.mock('../ThemeCustomizer', () => ({
-  loadSavedThemes: vi.fn(() => []),
+  loadSavedThemes: vi.fn().mockReturnValue([]),
   isCustomThemeId: vi.fn((id: string) => id.startsWith('custom:')),
-  findSavedTheme: vi.fn((id: string) => {
-    if (id === 'custom:test') {
-      return { id: 'test', name: 'Test Theme', colors: {} };
-    }
-    return null;
-  }),
+  findSavedTheme: vi.fn().mockReturnValue(null),
   applyCustomTheme: vi.fn(),
   clearCustomOverrides: vi.fn(),
 }));
 
+import { saveTheme } from '../../shared/utils/storage';
+import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../ThemeCustomizer';
+
+const mockSaveTheme = vi.mocked(saveTheme);
+const mockLoadSavedThemes = vi.mocked(loadSavedThemes);
+const mockIsCustomThemeId = vi.mocked(isCustomThemeId);
+const mockFindSavedTheme = vi.mocked(findSavedTheme);
+const mockApplyCustomTheme = vi.mocked(applyCustomTheme);
+const mockClearCustomOverrides = vi.mocked(clearCustomOverrides);
+
 describe('useTheme', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsCustomThemeId.mockImplementation((id: string) => id.startsWith('custom:'));
+    mockLoadSavedThemes.mockReturnValue([]);
+    mockFindSavedTheme.mockReturnValue(null);
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('initializes with dark theme', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    expect(result.current.theme).toBe('dark');
-    expect(result.current.showCustomizer).toBe(false);
-    expect(result.current.themePickerOpen).toBe(false);
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-theme');
   });
 
-  it('sets theme and updates DOM', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    act(() => {
-      result.current.setTheme('light');
+  describe('initial state', () => {
+    it('returns default dark theme', () => {
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.theme).toBe('dark');
     });
-    
-    expect(result.current.theme).toBe('light');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+    it('returns theme management state', () => {
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.showCustomizer).toBe(false);
+      expect(result.current.themePickerOpen).toBe(false);
+      expect(result.current.themePickerRef).toBeDefined();
+    });
+
+    it('exports THEMES and THEME_ICONS', () => {
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.THEMES).toBeDefined();
+      expect(result.current.THEMES.length).toBeGreaterThan(0);
+      expect(result.current.THEME_ICONS).toBeDefined();
+      expect(result.current.THEME_ICONS['dark']).toBeDefined();
+    });
   });
 
-  it('provides THEMES and THEME_ICONS constants', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    expect(result.current.THEMES).toBeDefined();
-    expect(Array.isArray(result.current.THEMES)).toBe(true);
-    expect(result.current.THEMES.length).toBeGreaterThan(0);
-    
-    expect(result.current.THEME_ICONS).toBeDefined();
-    expect(typeof result.current.THEME_ICONS).toBe('object');
+  describe('setTheme', () => {
+    it('applies theme to document', () => {
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('light');
+      });
+
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    });
+
+    it('saves theme to storage', () => {
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('steel');
+      });
+
+      expect(mockSaveTheme).toHaveBeenCalledWith('steel');
+    });
+
+    it('clears custom overrides when switching to non-custom theme', () => {
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('dim');
+      });
+
+      expect(mockClearCustomOverrides).toHaveBeenCalled();
+    });
   });
 
-  it('opens and closes theme customizer', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    act(() => {
-      result.current.setShowCustomizer(true);
+  describe('custom themes', () => {
+    it('applies custom theme data', () => {
+      const customThemeData = { id: 'mytheme', name: 'My Theme', tokens: {} };
+      mockFindSavedTheme.mockReturnValue(customThemeData);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('custom:mytheme');
+      });
+
+      expect(mockApplyCustomTheme).toHaveBeenCalledWith(customThemeData);
     });
-    
-    expect(result.current.showCustomizer).toBe(true);
-    
-    act(() => {
-      result.current.setShowCustomizer(false);
+
+    it('falls back to dark when custom theme not found', () => {
+      mockFindSavedTheme.mockReturnValue(null);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('custom:nonexistent');
+      });
+
+      expect(mockClearCustomOverrides).toHaveBeenCalled();
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     });
-    
-    expect(result.current.showCustomizer).toBe(false);
+
+    it('migrates legacy custom theme', () => {
+      mockLoadSavedThemes.mockReturnValue([{ id: 'legacy', name: 'Legacy', tokens: {} }]);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('custom');
+      });
+
+      expect(result.current.theme).toBe('custom:legacy');
+    });
   });
 
-  it('opens and closes theme picker', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    act(() => {
-      result.current.setThemePickerOpen(true);
+  describe('reapplyTheme', () => {
+    it('reapplies current non-custom theme', () => {
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('light');
+      });
+
+      vi.clearAllMocks();
+
+      act(() => {
+        result.current.reapplyTheme();
+      });
+
+      expect(mockClearCustomOverrides).toHaveBeenCalled();
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
-    
-    expect(result.current.themePickerOpen).toBe(true);
-    
-    act(() => {
-      result.current.setThemePickerOpen(false);
+
+    it('reapplies custom theme', () => {
+      const customThemeData = { id: 'mytheme', name: 'My Theme', tokens: {} };
+      mockFindSavedTheme.mockReturnValue(customThemeData);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('custom:mytheme');
+      });
+
+      vi.clearAllMocks();
+
+      act(() => {
+        result.current.reapplyTheme();
+      });
+
+      expect(mockApplyCustomTheme).toHaveBeenCalledWith(customThemeData);
     });
-    
-    expect(result.current.themePickerOpen).toBe(false);
   });
 
-  it('provides themePickerRef', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    expect(result.current.themePickerRef).toBeDefined();
-    expect(result.current.themePickerRef.current).toBeNull();
+  describe('theme picker', () => {
+    it('opens and closes theme picker', () => {
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.themePickerOpen).toBe(false);
+
+      act(() => {
+        result.current.setThemePickerOpen(true);
+      });
+
+      expect(result.current.themePickerOpen).toBe(true);
+
+      act(() => {
+        result.current.setThemePickerOpen(false);
+      });
+
+      expect(result.current.themePickerOpen).toBe(false);
+    });
   });
 
-  it('provides reapplyTheme function', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    expect(typeof result.current.reapplyTheme).toBe('function');
-    
-    act(() => {
-      result.current.reapplyTheme();
-    });
-    
-    // Should not throw
-  });
+  describe('customizer', () => {
+    it('opens and closes customizer', () => {
+      const { result } = renderHook(() => useTheme());
 
-  it('handles custom theme IDs', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    act(() => {
-      result.current.setTheme('custom:test');
-    });
-    
-    expect(result.current.theme).toBe('custom:test');
-  });
+      expect(result.current.showCustomizer).toBe(false);
 
-  it('sets multiple themes sequentially', () => {
-    const { result } = renderHook(() => useTheme());
-    
-    act(() => {
-      result.current.setTheme('light');
+      act(() => {
+        result.current.setShowCustomizer(true);
+      });
+
+      expect(result.current.showCustomizer).toBe(true);
+
+      act(() => {
+        result.current.setShowCustomizer(false);
+      });
+
+      expect(result.current.showCustomizer).toBe(false);
     });
-    expect(result.current.theme).toBe('light');
-    
-    act(() => {
-      result.current.setTheme('steel');
-    });
-    expect(result.current.theme).toBe('steel');
-    
-    act(() => {
-      result.current.setTheme('dark');
-    });
-    expect(result.current.theme).toBe('dark');
   });
 });

@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { generateReport } from './reportGenerator';
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { generateReport, downloadReport } from './reportGenerator';
 import type { TestRun, RequestResult } from '../../../shared/types';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
@@ -121,6 +124,25 @@ describe('generateReport', () => {
       const parsed = JSON.parse(json);
       expect(parsed.results[0].responseBody).toBe('{}');
     });
+
+    it('builds failed row error string from failureDetails when errorMessage is absent', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            dataRowId: 'r1',
+            dataRowLabel: 'Row A',
+            passed: false,
+            httpStatus: 422,
+            errorMessage: undefined,
+            failureDetails: [{ path: '$.id', expected: '1', actual: '2' }],
+          }),
+        ],
+      });
+      const json = generateReport(run, { format: 'json' });
+      const parsed = JSON.parse(json);
+      expect(parsed.parameterized.failedRowDetails[0].error).toContain('$.id');
+      expect(parsed.parameterized.failedRowDetails[0].error).toContain('expected 1');
+    });
   });
 
   describe('Markdown format', () => {
@@ -139,5 +161,55 @@ describe('generateReport', () => {
       const md = generateReport(run, { format: 'markdown' });
       expect(md).not.toContain('## Failed');
     });
+
+    it('uses failureDetails in markdown when errorMessage is missing', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            errorMessage: undefined,
+            failureDetails: [{ path: 'a', expected: 'x', actual: 'y' }],
+          }),
+        ],
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('a: expected x, got y');
+    });
+  });
+});
+
+describe('downloadReport', () => {
+  const origCreate = document.createElement.bind(document);
+
+  beforeEach(() => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:test-url'),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('creates blob URL, clicks anchor, and revokes URL', () => {
+    let capturedAnchor: HTMLAnchorElement | null = null;
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag === 'a') {
+        capturedAnchor = origCreate('a') as HTMLAnchorElement;
+        vi.spyOn(capturedAnchor, 'click').mockImplementation(() => {});
+        return capturedAnchor;
+      }
+      return origCreate(tag);
+    });
+
+    downloadReport('body', 'report.html', 'text/html');
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(capturedAnchor!.download).toBe('report.html');
+    expect(capturedAnchor!.click).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
   });
 });

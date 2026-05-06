@@ -24,7 +24,7 @@ describe('sampleWorkflowCatalog', () => {
   });
 
   it('every category is valid', () => {
-    const validCategories: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration'];
+    const validCategories: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance'];
     for (const entry of sampleWorkflowCatalog) {
       expect(validCategories).toContain(entry.category);
     }
@@ -79,5 +79,6 @@ describe('sampleWorkflowCatalog', () => {
     expect(categories.has('event-driven')).toBe(true);
     expect(categories.has('flow-control')).toBe(true);
     expect(categories.has('orchestration')).toBe(true);
+    expect(categories.has('performance')).toBe(true);
   });
 });

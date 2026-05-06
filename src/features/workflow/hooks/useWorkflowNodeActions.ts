@@ -221,7 +221,7 @@ export function useWorkflowNodeActions({
     setEdges((eds) => eds.filter((e) => !result.extractedEdgeIds.has(e.id)));
     queueMicrotask(() => persistWorkflow());
     toast.show('success', 'Extracted', `Created sub-workflow "${childName.trim()}"`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo, create, update object identity
+     
   }, [selected, serializeNodes, serializeEdges, workflows, create, update, setNodes, setEdges, persistWorkflow, toast, nodesRef, edgesRef, undoRedo]);
 
   return {

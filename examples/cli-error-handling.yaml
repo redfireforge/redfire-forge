@@ -1,0 +1,56 @@
+# CLI Error Handling Example
+# Demonstrates error policies, retries, and failure thresholds
+#
+# Run with retry on failure:
+#   npx tsx cli/index.ts run examples/cli-error-handling.yaml --retries 2 --retry-delay 1000
+#
+# Stop on first error:
+#   npx tsx cli/index.ts run examples/cli-error-handling.yaml --error-policy stop-first
+#
+# Stop at error threshold:
+#   npx tsx cli/index.ts run examples/cli-error-handling.yaml --error-policy stop-threshold --max-error-rate 10
+#
+# CI/CD mode with failure threshold:
+#   npx tsx cli/index.ts run examples/cli-error-handling.yaml --fail-threshold 5 --fail-on-error -q
+
+name: CLI Error Handling Demo
+env: demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+tests:
+  - name: Valid Request (Success)
+    method: GET
+    url: /users/1
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Valid Request 2 (Success)
+    method: GET
+    url: /users/2
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Non-Existent Resource (404)
+    method: GET
+    url: /users/99999
+    # This will likely return 404, demonstrating error handling
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Valid Request 3 (Success)
+    method: GET
+    url: /users/3
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Slow Request (Timeout Test)
+    method: GET
+    url: /posts
+    # Many posts - good for timeout testing with --timeout 1
+    assertions:
+      - type: status
+        expected: "200"

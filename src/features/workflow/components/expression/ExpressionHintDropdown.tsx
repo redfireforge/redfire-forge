@@ -20,7 +20,7 @@ export default function ExpressionHintDropdown({ open, items, selectedIndex, onS
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useLayoutEffect(() => {
-    if (!open || items.length === 0) { setPos(null); return; } // eslint-disable-line react-hooks/set-state-in-effect -- measure DOM then position
+    if (!open || items.length === 0) { setPos(null); return; }  
     const el = anchorRef.current;
     if (!el) { setPos(null); return; }
     const rect = el.getBoundingClientRect();

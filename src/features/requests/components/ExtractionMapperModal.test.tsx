@@ -481,6 +481,48 @@ describe('ExtractionMapperModal', () => {
       expect(container.querySelector('.emm-legend-untouched')).toBeTruthy();
     });
 
+    it('shows KB label for large response bodies', () => {
+      const big = JSON.stringify({ x: 'y'.repeat(3000) });
+      renderModal({ sampleResponseBody: big });
+      expect(screen.getByText(/KB/)).toBeTruthy();
+    });
+
+    it('shows active row hint in footer when a row is active', () => {
+      const { container } = renderModal({ sampleResponseBody: SAMPLE_JSON });
+      fireEvent.click(screen.getByLabelText('Add extraction'));
+      const row = container.querySelector('.emm-mapping-row');
+      expect(row).toBeTruthy();
+      fireEvent.click(row!);
+      const hint = container.querySelector('.emm-footer-hint');
+      expect(hint?.textContent).toMatch(/Row 1 active/);
+    });
+
+    it('parse error path still allows fetch controls', () => {
+      const parseSpy = vi.spyOn(JSON, 'parse').mockImplementationOnce(() => {
+        throw 'bad';
+      });
+      renderModal({ sampleResponseBody: '{}' });
+      expect(screen.getByText(/Parse error: Invalid JSON/)).toBeTruthy();
+      parseSpy.mockRestore();
+    });
+
+    it('calls host setOverride when typing override input', () => {
+      const setOverride = vi.fn();
+      const fs = makeFetchSample({
+        host: {
+          enabled: true,
+          setEnabled: vi.fn(),
+          override: '',
+          setOverride,
+          resolvedBaseUrl: 'https://base.example',
+        },
+      });
+      renderModal({ fetchSample: fs });
+      const input = document.querySelector('.ext-host-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'https://other' } });
+      expect(setOverride).toHaveBeenCalledWith('https://other');
+    });
+
     it('shows changed count in apply button', () => {
       const existing: Extraction[] = [
         { name: 'postId', source: 'body', expression: '$.id' },

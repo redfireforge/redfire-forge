@@ -189,4 +189,27 @@ describe('useWorkflowPersistence hook', () => {
     expect(handles.setWorkflowVariables).toHaveBeenCalledWith({ next: 'val' });
     expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ variables: { next: 'val' } }));
   });
+
+  it('handleCopyNode delegates to clipboard', () => {
+    const { handles, opts } = makeOpts();
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handleCopyNode('nid'); });
+    expect(handles.clipboard.copyNode).toHaveBeenCalledWith('nid');
+    act(() => { result.current.handleCopyNode(); });
+    expect(handles.clipboard.copyNode).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('insertNodeAndPersist takes snapshot, appends node, and queues persist', async () => {
+    const { handles, opts } = makeOpts();
+    handles.setNodes.mockImplementation((updater: (n: typeof opts.nodes) => typeof opts.nodes) => updater(opts.nodes));
+    const newNode = { id: 'extra', type: 'http' as const, position: { x: 10, y: 20 }, data: { label: 'Extra', scenario: { method: 'GET', url: '/x' }, initialVariables: {} } };
+    const { result } = renderPersistence(opts);
+    await act(async () => {
+      result.current.insertNodeAndPersist(newNode as never, 'Add node');
+      await new Promise<void>((r) => queueMicrotask(r));
+    });
+    expect(handles.undoRedo.takeSnapshot).toHaveBeenCalledWith('Add node');
+    expect(handles.setNodes).toHaveBeenCalled();
+    expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ nodes: expect.any(Array) }));
+  });
 });

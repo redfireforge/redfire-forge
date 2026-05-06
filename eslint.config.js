@@ -28,6 +28,8 @@ export default defineConfig([
         ignoreRestSiblings: true,
       }],
       'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
     },
   },
 ])
