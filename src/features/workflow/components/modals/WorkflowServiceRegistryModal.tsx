@@ -87,7 +87,7 @@ export default function WorkflowServiceRegistryModal({
       ...svc,
       endpoints: ensureAllEnvRows(svc.endpoints ?? [], environments),
     }));
-    setDrafts(cloned); // eslint-disable-line react-hooks/set-state-in-effect
+    setDrafts(cloned);  
     setSelectedId(cloned[0]?.id ?? null);
     setExpandedEnvId(null);
   }, [open, services, environments]);

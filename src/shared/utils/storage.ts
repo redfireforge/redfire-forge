@@ -175,7 +175,7 @@ export async function saveTestRun(run: TestRun): Promise<{ ok: boolean; quotaErr
   const truncated = capAndTruncateResults(run);
   if (isTauri()) {
     // Tauri: file-system backed, keep existing approach
-    let runs = await loadTestRuns();
+    const runs = await loadTestRuns();
     runs.unshift(truncated);
     const max = await getMaxRuns();
     if (runs.length > max) runs.length = max;

@@ -181,7 +181,7 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
   // For non-tree mode: keep searchMatchCount in sync
   useEffect(() => {
     if (!jTree) {
-      setSearchMatchCount(totalMatchCount); // eslint-disable-line react-hooks/set-state-in-effect
+      setSearchMatchCount(totalMatchCount);  
     }
   }, [jTree, totalMatchCount]);
 

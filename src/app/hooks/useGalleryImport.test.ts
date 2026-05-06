@@ -1,15 +1,25 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('../../shared/utils/storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../shared/utils/storage')>();
+  return {
+    ...actual,
+    loadSharedDataSources: vi.fn().mockResolvedValue([]),
+    saveSharedDataSources: vi.fn().mockResolvedValue(undefined),
+  };
+});
 import { renderHook, act } from '@testing-library/react';
+import * as storage from '../../shared/utils/storage';
 import { useGalleryImport } from './useGalleryImport';
-import type { GalleryEntry } from '../../data/galleries/types';
+import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
+import type { RequestCollection } from '../../shared/types';
 
 function makeDeps(overrides = {}) {
   return {
     wb: {
-      collections: [] as any[],
+      collections: [] as RequestCollection[],
       addCollection: vi.fn().mockReturnValue('col-1'),
       addRequest: vi.fn().mockReturnValue('req-1'),
       updateRequest: vi.fn(),
@@ -31,10 +41,10 @@ function makeDeps(overrides = {}) {
   };
 }
 
-function makeEntry(domain: string, overrides = {}): GalleryEntry<unknown> {
+function makeEntry(domain: GalleryDomain, overrides = {}): GalleryEntry<unknown> {
   return {
     id: 'e1',
-    domain: domain as any,
+    domain,
     name: 'Test Entry',
     description: 'desc',
     icon: '🔌',
@@ -51,6 +61,11 @@ function makeEntry(domain: string, overrides = {}): GalleryEntry<unknown> {
 }
 
 describe('useGalleryImport', () => {
+  beforeEach(() => {
+    vi.mocked(storage.loadSharedDataSources).mockResolvedValue([]);
+    vi.mocked(storage.saveSharedDataSources).mockResolvedValue(undefined);
+  });
+
   describe('importedSamples', () => {
     it('returns empty map when no feature groups have gallery IDs', () => {
       const deps = makeDeps();
@@ -77,6 +92,16 @@ describe('useGalleryImport', () => {
       });
       const { result } = renderHook(() => useGalleryImport(deps));
       expect(result.current.importedSamples).toEqual({});
+    });
+
+    it('maps legacy gallery imports using stripped Gallery: name when hash/id missing', () => {
+      const deps = makeDeps({
+        featureGroups: [
+          { id: 'fg1', source: 'gallery', name: 'Gallery: Legacy Sample', scenarios: [] },
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples).toEqual({ '__name:Legacy Sample': '' });
     });
   });
 
@@ -173,6 +198,62 @@ describe('useGalleryImport', () => {
       expect(deps.setMicroservices).not.toHaveBeenCalled();
       // But should still set feature groups
       expect(deps.setFeatureGroups).toHaveBeenCalled();
+    });
+
+    it('adds new env row to existing Gallery microservice when env id is missing', async () => {
+      const deps = makeDeps({
+        environments: [{ id: 'env-new', name: 'Gallery Samples' }],
+        microservices: [{ id: 'svc-1', name: 'Gallery Samples', baseUrls: { 'other-env': '' } }],
+      });
+      const entry = makeEntry('tests', {
+        factory: () => ({ id: 'fg', name: 'Extra FG', scenarios: [] }),
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
+      expect(deps.setMicroservices).toHaveBeenCalled();
+      expect(deps.setFeatureGroups).toHaveBeenCalled();
+    });
+
+    it('imports additional feature groups from test entry factory', async () => {
+      const deps = makeDeps();
+      const entry = {
+        ...makeEntry('tests', {
+          factory: () => ({ id: 'fg', name: 'Main', scenarios: [] }),
+        }),
+        additionalFeatureGroupsFactory: () => [
+          { id: 'sub', name: 'Child', scenarios: [], microserviceId: 'x', environmentId: 'y' },
+        ],
+      } as GalleryEntry<unknown> & { additionalFeatureGroupsFactory: () => unknown[] };
+      const { result } = renderHook(() => useGalleryImport(deps));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
+      const updater = deps.setFeatureGroups.mock.calls[0][0] as (p: unknown[]) => unknown[];
+      const pushed = updater([]);
+      expect(pushed).toHaveLength(2);
+    });
+
+    it('merges shared data sources when sample provides a factory', async () => {
+      vi.mocked(storage.loadSharedDataSources).mockResolvedValue([
+        { id: 'ds-existing', name: 'Old', columns: [], rows: [], updatedAt: 0 },
+      ] as Awaited<ReturnType<typeof storage.loadSharedDataSources>>);
+      const deps = makeDeps();
+      const newDs = { id: 'ds-new', name: 'New', columns: [], rows: [], updatedAt: 1 };
+      const entry = {
+        ...makeEntry('tests', {
+          factory: () => ({ id: 'fg', name: 'Has DS', scenarios: [] }),
+        }),
+        sharedDataSourceFactory: () => [newDs, { ...newDs, id: 'ds-existing' }],
+      } as GalleryEntry<unknown> & { sharedDataSourceFactory: () => unknown[] };
+      const { result } = renderHook(() => useGalleryImport(deps));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
+      expect(storage.saveSharedDataSources).toHaveBeenCalled();
+      const saved = vi.mocked(storage.saveSharedDataSources).mock.calls[0][0] as { id: string }[];
+      expect(saved.some(d => d.id === 'ds-new')).toBe(true);
     });
   });
 

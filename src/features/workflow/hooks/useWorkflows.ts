@@ -60,7 +60,7 @@ export function useWorkflows() {
     if (!missing && !invalid) return;
     const sorted = [...workflows].sort((a, b) => b.updatedAt - a.updatedAt);
     const pick = sorted[0]?.id ?? null;
-    setSelectedId(pick); // eslint-disable-line react-hooks/set-state-in-effect
+    setSelectedId(pick);  
     void saveSelectedWorkflowId(pick);
   }, [loaded, workflows, selectedId]);
 

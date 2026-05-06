@@ -293,4 +293,119 @@ describe('useDataSourceRows', () => {
       expect(result.current.enabledCount).toBe(0);
     });
   });
+
+  describe('handleRowSelect', () => {
+    it('selects a single row on plain click', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r2', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r2')).toBe(true);
+      expect(result.current.selectedRows.size).toBe(1);
+    });
+
+    it('selects range with shift click', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      // First plain click on r1
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      // Shift+click on r3
+      act(() => result.current.handleRowSelect('r3', { shiftKey: true, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r1')).toBe(true);
+      expect(result.current.selectedRows.has('r2')).toBe(true);
+      expect(result.current.selectedRows.has('r3')).toBe(true);
+      expect(result.current.selectedRows.size).toBe(3);
+    });
+
+    it('toggles individual row with ctrl click', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      // Ctrl+click r2 to add to selection
+      act(() => result.current.handleRowSelect('r2', { shiftKey: false, ctrlKey: true, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r1')).toBe(true);
+      expect(result.current.selectedRows.has('r2')).toBe(true);
+      // Ctrl+click r1 to deselect it
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: true, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r1')).toBe(false);
+      expect(result.current.selectedRows.has('r2')).toBe(true);
+    });
+
+    it('toggles individual row with meta click', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: true } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r1')).toBe(true);
+    });
+  });
+
+  describe('bulkDuplicate', () => {
+    it('duplicates selected rows after the last selected', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      // Select r1 and r2
+      act(() => result.current.selectAll());
+      // Actually just select r1 and r2 manually
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.handleRowSelect('r2', { shiftKey: false, ctrlKey: true, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.bulkDuplicate());
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows.length).toBe(5); // 3 original + 2 duplicated
+      expect(result.current.selectedRows.size).toBe(0);
+    });
+  });
+
+  describe('drag and drop', () => {
+    it('handleDragStart sets dragRowId and dataTransfer', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      const mockEvent = {
+        dataTransfer: { effectAllowed: '', setData: vi.fn() },
+      } as unknown as React.DragEvent;
+      act(() => result.current.handleDragStart('r1', mockEvent));
+      expect(result.current.dragRowId).toBe('r1');
+      expect(mockEvent.dataTransfer.effectAllowed).toBe('move');
+      expect(mockEvent.dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'r1');
+    });
+
+    it('handleDragOver prevents default and sets dropEffect', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      const mockEvent = {
+        preventDefault: vi.fn(),
+        dataTransfer: { dropEffect: '' },
+      } as unknown as React.DragEvent;
+      act(() => result.current.handleDragOver(mockEvent));
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(mockEvent.dataTransfer.dropEffect).toBe('move');
+    });
+
+    it('handleDrop reorders row from drag source to target', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      // Start drag from r1
+      const startEvent = { dataTransfer: { effectAllowed: '', setData: vi.fn() } } as unknown as React.DragEvent;
+      act(() => result.current.handleDragStart('r1', startEvent));
+      // Drop on r3
+      const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
+      act(() => result.current.handleDrop('r3', dropEvent));
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows[0].id).toBe('r2');
+      expect(updated.rows[1].id).toBe('r3');
+      expect(updated.rows[2].id).toBe('r1');
+      expect(result.current.dragRowId).toBeNull();
+    });
+
+    it('handleDrop does nothing when same row', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      const startEvent = { dataTransfer: { effectAllowed: '', setData: vi.fn() } } as unknown as React.DragEvent;
+      act(() => result.current.handleDragStart('r1', startEvent));
+      const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
+      act(() => result.current.handleDrop('r1', dropEvent));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });
