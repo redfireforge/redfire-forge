@@ -14,7 +14,7 @@ const { mockOpenStepDetail } = vi.hoisted(() => ({
 }));
 
 // Mock the useNodeBase hook - stores latest mock values for test manipulation
-let mockNodeBaseState = {
+const mockNodeBaseState = {
   rs: null as { state?: string; error?: string; responseDetail?: string; statusCode?: number; responseTimeMs?: number } | null,
   stateClass: '',
   debugStep: null as string | null,
@@ -88,7 +88,7 @@ function renderWithProvider(ui: React.ReactElement) {
   );
 }
 
-function createNodeProps<T>(data: T): NodeProps<any> {
+function createNodeProps<T>(data: T): NodeProps<T> {
   return {
     id: 'test-node',
     type: 'test',
@@ -627,7 +627,7 @@ describe('Workflow Nodes', () => {
       renderWithProvider(
         <LogDebugNode {...createNodeProps({ label: 'Log', message: 'test', logLevel: 'warn' })} />
       );
-      expect(screen.getByText('⚠️ Warn')).toBeInTheDocument();
+      expect(screen.getByText('Warn')).toBeInTheDocument();
     });
 
     it('shows snapshot indicator when enabled', () => {
@@ -933,7 +933,7 @@ describe('Workflow Nodes', () => {
         />
       );
       expect(screen.getByText('2 extracts')).toBeInTheDocument();
-      expect(screen.getByText(/📊 1 row/)).toBeInTheDocument();
+      expect(screen.getByText(/1 row/)).toBeInTheDocument();
     });
 
     it('shows running spinner when rs state is running', () => {

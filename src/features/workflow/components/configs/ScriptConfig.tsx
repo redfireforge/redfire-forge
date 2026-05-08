@@ -114,10 +114,10 @@ export default function ScriptConfig({
       <div className="wf-config-field">
         <div className="wf-config-button-row">
           <button className="wf-config-add-btn" onClick={() => setShowTemplates(!showTemplates)}>
-            {showTemplates ? 'Hide Templates' : '📋 Templates'}
+            {showTemplates ? 'Hide Templates' : 'Templates'}
           </button>
           <button className="wf-config-add-btn" onClick={() => setShowLibraries(!showLibraries)}>
-            {showLibraries ? 'Hide Libraries' : '📚 Libraries'}
+            {showLibraries ? 'Hide Libraries' : 'Libraries'}
           </button>
         </div>
       </div>
@@ -154,7 +154,7 @@ export default function ScriptConfig({
         </InsertVarField>
         <div className="wf-config-button-row" style={{ marginTop: 4 }}>
           <button className="wf-config-add-btn" onClick={() => setShowCodeModal(true)} title="Open full-screen editor with test panel">
-            🖥 Open Editor
+            <svg className="wf-inline-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Open Editor
           </button>
         </div>
         <span className="wf-config-hint">
@@ -166,7 +166,7 @@ export default function ScriptConfig({
         <div className="wf-config-field">
           <div className="wf-script-warnings">
             {complexityWarnings.map((w, i) => (
-              <div key={i} className="wf-script-warning">⚠ {w}</div>
+              <div key={i} className="wf-script-warning"><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> {w}</div>
             ))}
           </div>
         </div>

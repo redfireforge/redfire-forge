@@ -3,6 +3,7 @@ import type { ConditionNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 import { NodeConfigureButton } from './NodeConfigureButton';
 
 type ConditionWorkflowNode = Node<ConditionNodeData, 'condition'>;
@@ -25,6 +26,7 @@ export default function ConditionNode({ id, data, selected }: Props) {
         <NodeConfigureButton title="Configure this condition" onClick={handleConfigure} />
       </div>
       <div className="wf-condition-expr" title={expr}>{expr}</div>
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="source" position={Position.Bottom} id="true" className="wf-handle wf-handle-true" style={{ left: '30%' }} />

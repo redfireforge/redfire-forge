@@ -4,10 +4,14 @@ interface Props {
   nodeRunStatus?: NodeRunStatus | null;
 }
 
-/**
- * Output tab for WorkflowNodeConfigModal — shows last Quick Test result
- * including status, duration, extracted variables, response body, and errors.
- */
+const STATE_LABELS: Record<string, string> = {
+  pass: 'Passed',
+  fail: 'Failed',
+  running: 'Running',
+  skipped: 'Skipped',
+  paused: 'Paused',
+};
+
 export default function NodeConfigOutputTab({ nodeRunStatus }: Props) {
   const hasData = nodeRunStatus && nodeRunStatus.state !== 'idle' && nodeRunStatus.state !== 'pending';
 
@@ -19,13 +23,16 @@ export default function NodeConfigOutputTab({ nodeRunStatus }: Props) {
     );
   }
 
+  const stateLabel = nodeRunStatus.statusCode
+    ? `${nodeRunStatus.statusCode}`
+    : STATE_LABELS[nodeRunStatus.state] ?? nodeRunStatus.state;
+
   return (
     <div className="wf-config-tab-content">
       <div className="wf-output-header">
         <span className="wf-output-label">Last Quick Test</span>
         <span className={`wf-output-status wf-output-status-${nodeRunStatus.state}`}>
-          ●{' '}
-          {nodeRunStatus.statusCode ? `${nodeRunStatus.statusCode}` : nodeRunStatus.state}
+          <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> {stateLabel}
         </span>
       </div>
       <div className="wf-output-meta">
@@ -39,6 +46,14 @@ export default function NodeConfigOutputTab({ nodeRunStatus }: Props) {
           <div className="wf-output-meta-item">
             <div className="wf-output-meta-label">Duration</div>
             <div className="wf-output-meta-value wf-output-meta-info">{nodeRunStatus.responseTimeMs}ms</div>
+          </div>
+        )}
+        {nodeRunStatus.statusCode == null && nodeRunStatus.responseTimeMs == null && (
+          <div className="wf-output-meta-item">
+            <div className="wf-output-meta-label">Result</div>
+            <div className={`wf-output-meta-value ${nodeRunStatus.state === 'pass' ? 'wf-output-meta-ok' : nodeRunStatus.state === 'fail' ? 'wf-output-meta-err' : 'wf-output-meta-info'}`}>
+              {stateLabel}
+            </div>
           </div>
         )}
       </div>
