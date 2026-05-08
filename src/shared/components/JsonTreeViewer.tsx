@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 
 interface Props {
   data: string | Record<string, unknown> | unknown[] | unknown;
@@ -10,7 +10,11 @@ interface Props {
   copyable?: boolean;
   /** Compact mode with smaller font */
   compact?: boolean;
+  /** Show search bar */
+  searchable?: boolean;
 }
+
+const SearchContext = createContext<string>('');
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -29,6 +33,7 @@ export default function JsonTreeViewer({
   maxHeight = 400,
   copyable = true,
   compact = false,
+  searchable = false,
 }: Props) {
   const parsed = useMemo(() => parseValue(data), [data]);
   const rawString = useMemo(() => {
@@ -40,6 +45,9 @@ export default function JsonTreeViewer({
   }, [data]);
 
   const [copied, setCopied] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandOverride, setExpandOverride] = useState<boolean | null>(null);
+  const expandKey = useRef(0);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(rawString).then(() => {
@@ -47,6 +55,18 @@ export default function JsonTreeViewer({
       setTimeout(() => setCopied(false), 1500);
     });
   }, [rawString]);
+
+  const handleExpandAll = useCallback(() => {
+    expandKey.current++;
+    setExpandOverride(true);
+  }, []);
+
+  const handleCollapseAll = useCallback(() => {
+    expandKey.current++;
+    setExpandOverride(false);
+  }, []);
+
+  const effectiveExpandDepth = expandOverride === true ? 999 : expandOverride === false ? 0 : defaultExpandDepth;
 
   if (parsed === null || parsed === undefined) {
     return <div className="jtv-empty">null</div>;
@@ -60,24 +80,80 @@ export default function JsonTreeViewer({
     );
   }
 
+  const searchLower = searchTerm.toLowerCase();
+  const matchCount = searchTerm ? countMatches(parsed, searchLower) : 0;
+
   return (
-    <div className={`jtv-root ${compact ? 'jtv-compact' : ''}`} style={maxHeight ? { maxHeight } : undefined}>
-      {copyable && (
-        <button className="jtv-copy" onClick={handleCopy} title="Copy JSON">
-          {copied ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-            </svg>
-          )}
-        </button>
-      )}
-      <JsonNode value={parsed} depth={0} expandDepth={defaultExpandDepth} isRoot />
-    </div>
+    <SearchContext.Provider value={searchLower}>
+      <div className={`jtv-root ${compact ? 'jtv-compact' : ''}`} style={maxHeight ? { maxHeight } : undefined}>
+        {(searchable || copyable) && (
+          <div className="jtv-toolbar">
+            {searchable && (
+              <div className="jtv-search">
+                <input
+                  type="text"
+                  placeholder="Search keys or values..."
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value) { expandKey.current++; setExpandOverride(true); } }}
+                  className="jtv-search-input"
+                />
+                {searchTerm && <span className="jtv-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>}
+              </div>
+            )}
+            <div className="jtv-toolbar-actions">
+              <button className="jtv-toolbar-btn" onClick={handleExpandAll} title="Expand all">+</button>
+              <button className="jtv-toolbar-btn" onClick={handleCollapseAll} title="Collapse all">−</button>
+              {copyable && (
+                <button className="jtv-toolbar-btn" onClick={handleCopy} title="Copy JSON">
+                  {copied ? '✓' : 'Copy'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <JsonNode key={expandKey.current} value={parsed} depth={0} expandDepth={effectiveExpandDepth} isRoot />
+      </div>
+    </SearchContext.Provider>
+  );
+}
+
+function countMatches(value: JsonValue, term: string): number {
+  if (!term) return 0;
+  if (value === null) return 'null'.includes(term) ? 1 : 0;
+  if (typeof value !== 'object') {
+    return String(value).toLowerCase().includes(term) ? 1 : 0;
+  }
+  let count = 0;
+  const entries = Array.isArray(value) ? value.map((v, i) => [String(i), v]) : Object.entries(value);
+  for (const [k, v] of entries) {
+    if (k.toLowerCase().includes(term)) count++;
+    count += countMatches(v as JsonValue, term);
+  }
+  return count;
+}
+
+function subtreeContainsMatch(value: JsonValue, term: string): boolean {
+  if (!term) return false;
+  if (value === null) return 'null'.includes(term);
+  if (typeof value !== 'object') return String(value).toLowerCase().includes(term);
+  const entries = Array.isArray(value) ? value.map((v, i) => [String(i), v]) : Object.entries(value);
+  for (const [k, v] of entries) {
+    if (k.toLowerCase().includes(term)) return true;
+    if (subtreeContainsMatch(v as JsonValue, term)) return true;
+  }
+  return false;
+}
+
+function HighlightText({ text, term }: { text: string; term: string }) {
+  if (!term) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(term);
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="jtv-highlight">{text.slice(idx, idx + term.length)}</mark>
+      {text.slice(idx + term.length)}
+    </>
   );
 }
 
@@ -96,12 +172,19 @@ function JsonNode({
   isLast?: boolean;
   isRoot?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(depth < expandDepth);
+  const searchTerm = useContext(SearchContext);
+  const hasMatch = searchTerm ? subtreeContainsMatch(value, searchTerm) : false;
+  const forceExpand = searchTerm ? hasMatch : false;
+  const [expanded, setExpanded] = useState(depth < expandDepth || forceExpand);
+
+  const keyLabel = keyName !== undefined
+    ? <><span className="jtv-key"><HighlightText text={keyName} term={searchTerm} /></span><span className="jtv-colon">: </span></>
+    : null;
 
   if (value === null) {
     return (
       <div className="jtv-line">
-        {keyName !== undefined && <><span className="jtv-key">{keyName}</span><span className="jtv-colon">: </span></>}
+        {keyLabel}
         <span className="jtv-null">null</span>
         {!isLast && <span className="jtv-comma">,</span>}
       </div>
@@ -111,7 +194,7 @@ function JsonNode({
   if (typeof value !== 'object') {
     return (
       <div className="jtv-line">
-        {keyName !== undefined && <><span className="jtv-key">{keyName}</span><span className="jtv-colon">: </span></>}
+        {keyLabel}
         <ValueSpan value={value} />
         {!isLast && <span className="jtv-comma">,</span>}
       </div>
@@ -140,7 +223,7 @@ function JsonNode({
         <span className={`jtv-arrow ${expanded ? 'open' : ''}`}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
         </span>
-        {keyName !== undefined && <><span className="jtv-key">{keyName}</span><span className="jtv-colon">: </span></>}
+        {keyLabel}
         <span className="jtv-brace">{openBrace}</span>
         {!expanded && (
           <>
@@ -175,15 +258,19 @@ function JsonNode({
 }
 
 function ValueSpan({ value }: { value: string | number | boolean }) {
+  const searchTerm = useContext(SearchContext);
   if (typeof value === 'string') {
     const isUrl = /^https?:\/\//.test(value);
     const isLong = value.length > 120;
     return (
       <span className={`jtv-string ${isLong ? 'jtv-string-long' : ''}`} title={isLong ? value : undefined}>
-        &quot;{isUrl ? <a href={value} target="_blank" rel="noopener noreferrer" className="jtv-url">{value}</a> : value}&quot;
+        &quot;{isUrl
+          ? <a href={value} target="_blank" rel="noopener noreferrer" className="jtv-url"><HighlightText text={value} term={searchTerm} /></a>
+          : <HighlightText text={value} term={searchTerm} />
+        }&quot;
       </span>
     );
   }
-  if (typeof value === 'number') return <span className="jtv-number">{value}</span>;
-  return <span className="jtv-boolean">{String(value)}</span>;
+  if (typeof value === 'number') return <span className="jtv-number"><HighlightText text={String(value)} term={searchTerm} /></span>;
+  return <span className="jtv-boolean"><HighlightText text={String(value)} term={searchTerm} /></span>;
 }

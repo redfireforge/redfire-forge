@@ -1488,7 +1488,74 @@
   padding: 8px 0;
 }
 
-/* Copy button */
+/* Toolbar (search + actions) */
+.jtv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.jtv-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jtv-search-input {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  outline: none;
+}
+
+.jtv-search-input:focus {
+  border-color: var(--primary);
+}
+
+.jtv-search-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.jtv-toolbar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.jtv-toolbar-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.jtv-toolbar-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
+/* Search highlight */
+.jtv-highlight {
+  background: rgba(250, 204, 21, 0.35);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Legacy copy button (fallback when no toolbar) */
 .jtv-copy {
   position: absolute;
   top: 8px;
