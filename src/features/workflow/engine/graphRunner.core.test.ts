@@ -510,4 +510,42 @@ describe('runGraph', () => {
     const results = await runGraph([cond, hYes], edges, {}, cb);
     expect(results).toHaveLength(1);
   });
+
+  it('merges captured HTTP request/response into trace event details when captureFullTrace is enabled', async () => {
+    const h = httpNode('h1', 'Traced step');
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+    await runGraph(
+      [h],
+      [],
+      {},
+      cb,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { captureFullTrace: true },
+    );
+
+    expect(cb.onComplete).toHaveBeenCalled();
+    const iterationTrace = cb.onComplete.mock.calls[0][3];
+    expect(iterationTrace).toBeDefined();
+
+    const httpEvent = iterationTrace!.events.find((e: { nodeId: string }) => e.nodeId === 'h1');
+    expect(httpEvent?.details?.request).toBeDefined();
+    expect(httpEvent?.details?.request?.url).toContain('https://example.com/h1');
+    expect(httpEvent?.details?.response).toBeDefined();
+    expect(httpEvent?.details?.response?.statusCode).toBe(200);
+    expect(httpEvent?.details?.assertions).toBeDefined();
+  });
 });

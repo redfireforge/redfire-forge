@@ -1,5 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import type { WorkflowIterationTrace } from '../../../shared/types';
+import { truncate } from '../../../shared/utils/helpers';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
 
 type SortField = 'iteration' | 'status' | 'total' | string;
 type SortDirection = 'asc' | 'desc';
@@ -18,8 +20,11 @@ interface IterationRow {
   originalIndex: number;
   passed: boolean;
   totalDurationMs: number;
+  httpDurationMs: number;
+  overheadMs: number;
   error?: string;
   nodeDurations: Map<string, { durationMs?: number; state: 'pass' | 'fail' | 'skipped' }>;
+  sampled: boolean;
 }
 
 export default function IterationMatrixTable({
@@ -67,12 +72,21 @@ export default function IterationMatrixTable({
         error = failedEvent?.details?.error;
       }
 
+      let httpSum = 0;
+      for (const entry of nodeDurations.values()) {
+        if (entry.durationMs) httpSum += entry.durationMs;
+      }
+      const overhead = Math.max(0, iter.durationMs - httpSum);
+
       return {
         originalIndex: i,
         passed: iter.passed,
         totalDurationMs: iter.durationMs,
+        httpDurationMs: httpSum,
+        overheadMs: overhead,
         error,
         nodeDurations,
+        sampled: iter.sampled !== false,
       };
     });
   }, [iterations, httpNodes]);
@@ -237,7 +251,7 @@ export default function IterationMatrixTable({
                   onClick={() => handleSort(node.id)}
                   title={node.data?.label || node.id}
                 >
-                  {truncateLabel(node.data?.label || node.id)}
+                  {truncate(node.data?.label || node.id, 15, '…')}
                   {sortField === node.id && (sortDirection === 'asc' ? ' ↑' : ' ↓')}
                 </th>
               ))}
@@ -263,10 +277,12 @@ export default function IterationMatrixTable({
                 className={`
                   ${row.passed ? '' : 'failed-row'}
                   ${selectedIteration === row.originalIndex ? 'selected-row' : ''}
+                  ${!row.sampled ? 'not-sampled-row' : ''}
                 `}
                 onClick={() => onIterationSelect(row.originalIndex)}
+                title={!row.sampled ? 'Trace not captured (sampled run)' : undefined}
               >
-                <td className="iter-num">#{row.originalIndex + 1}</td>
+                <td className="iter-num">#{row.originalIndex + 1}{!row.sampled ? ' ○' : ''}</td>
                 {httpNodes.map(node => {
                   const data = row.nodeDurations.get(node.id);
                   return (
@@ -283,17 +299,29 @@ export default function IterationMatrixTable({
                     >
                       {data?.state === 'pass' && '✓ '}
                       {data?.state === 'fail' && '✗ '}
-                      {formatDuration(data?.durationMs)}
+                      {formatDurationMs(data?.durationMs)}
                     </td>
                   );
                 })}
-                <td className="total-col">{formatDuration(row.totalDurationMs)}</td>
+                <td
+                  className="total-col"
+                  title={row.overheadMs > 50
+                    ? `HTTP: ${formatDurationMs(row.httpDurationMs)} + Other nodes (delay, condition, etc.): ${formatDurationMs(row.overheadMs)}`
+                    : undefined}
+                >
+                  {formatDurationMs(row.totalDurationMs)}
+                  {row.overheadMs > 50 && (
+                    <span className="overhead-hint" title={`Non-HTTP overhead: ${formatDurationMs(row.overheadMs)}`}>
+                      {' '}+{formatDurationMs(row.overheadMs)}
+                    </span>
+                  )}
+                </td>
                 <td className={`status-col ${row.passed ? 'pass' : 'fail'}`}>
                   {row.passed ? '✓' : '✗'}
                 </td>
                 {failedCount > 0 && (
                   <td className="error-col" title={row.error}>
-                    {row.error ? truncateError(row.error) : '—'}
+                    {row.error ? truncate(row.error, 30, '…') : '—'}
                   </td>
                 )}
               </tr>
@@ -305,9 +333,9 @@ export default function IterationMatrixTable({
               {httpNodes.map(node => {
                 const stat = stats.nodeStats.get(node.id);
                 const avg = stat && stat.count > 0 ? stat.sum / stat.count : undefined;
-                return <td key={node.id}>{formatDuration(avg)}</td>;
+                return <td key={node.id}>{formatDurationMs(avg)}</td>;
               })}
-              <td>{formatDuration(stats.totalAvg)}</td>
+              <td>{formatDurationMs(stats.totalAvg)}</td>
               <td></td>
               {failedCount > 0 && <td></td>}
             </tr>
@@ -318,19 +346,3 @@ export default function IterationMatrixTable({
   );
 }
 
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function truncateLabel(label: string, maxLength = 15): string {
-  if (label.length <= maxLength) return label;
-  return label.slice(0, maxLength - 1) + '…';
-}
-
-function truncateError(error: string, maxLength = 30): string {
-  if (error.length <= maxLength) return error;
-  return error.slice(0, maxLength - 1) + '…';
-}

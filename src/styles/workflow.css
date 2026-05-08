@@ -6291,6 +6291,23 @@
   z-index: 1000;
 }
 
+/* Heatmap: colored bar at bottom + tinted background */
+.replay-node-heatmap {
+  background:
+    linear-gradient(to top, color-mix(in srgb, var(--heatmap-color) calc(var(--heatmap-intensity) * 100%), transparent) 0%, transparent 50%),
+    var(--surface, #1e293b) !important;
+}
+.replay-node-heatmap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--heatmap-color);
+  border-radius: 0 0 6px 6px;
+  opacity: 0.85;
+}
 
 /* Node State Indicators (Badge/Overlay) */
 .replay-node-pass::before {
@@ -6351,12 +6368,17 @@
 .replay-edge-traversed {
   stroke: #a78bfa !important;
   stroke-width: 2.5px !important;
-  animation: pulseEdge 2s ease-in-out infinite;
 }
 
 .replay-edge-traversed path {
   stroke: #a78bfa !important;
   stroke-width: 2.5px !important;
+  stroke-dasharray: 8 4;
+  animation: edgeFlow 0.6s linear infinite;
+}
+
+@keyframes edgeFlow {
+  to { stroke-dashoffset: -12; }
 }
 
 .replay-edge-not-traversed {
@@ -6395,6 +6417,30 @@
   }
 }
 
+/* Edge traversal percentage badges — HTML overlay */
+.edge-pct-badge {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  padding: 5px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255, 255, 255, 0.15);
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+}
+.edge-pct-badge.edge-pct-zero {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  opacity: 0.7;
+}
+
 /* Execution Stats Overlay (optional, for future use) */
 .replay-node-stats {
   position: absolute;
@@ -6410,6 +6456,52 @@
   pointer-events: none;
   z-index: 5;
 }
+
+/* ── Node Hover Tooltip ── */
+.replay-node-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  pointer-events: none;
+  z-index: 100;
+  min-width: 140px;
+  max-width: 260px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  animation: replay-tooltip-in 0.12s ease-out;
+}
+
+@keyframes replay-tooltip-in {
+  from { opacity: 0; transform: translate(-50%, -100%) translateY(4px); }
+  to   { opacity: 1; transform: translate(-50%, -100%) translateY(0); }
+}
+
+.replay-tooltip-label {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.replay-tooltip-row {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.replay-tooltip-status {
+  font-weight: 600;
+}
+.replay-tooltip-pass  { color: #22c55e; }
+.replay-tooltip-fail  { color: #ef4444; }
+.replay-tooltip-skipped { color: #64748b; }
 
 /* ReactFlow Controls Styling (Zoom buttons, etc.) - Hide default controls */
 .workflow-execution-replay-canvas .react-flow__controls {

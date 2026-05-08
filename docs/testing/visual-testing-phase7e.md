@@ -104,7 +104,12 @@ This guide explains how to visually test the new **Visual Execution Replay** fea
 4. Test zoom, pan, minimap navigation
 
 ### 6. Keyboard Shortcuts
-- **Escape**: Close the replay modal
+- **Escape**: Deselect node, or close modal if no node selected
+- **← / →**: Navigate previous / next iteration
+- **1–9**: Jump directly to iteration N
+- **Space**: Toggle between aggregate view and iteration #1
+- **A**: Return to aggregate view
+- **M**: Toggle iteration matrix panel
 
 ### 7. Browser DevTools Check
 Open browser DevTools (F12) and check:
@@ -112,11 +117,11 @@ Open browser DevTools (F12) and check:
 - **Network**: Verify no failed requests
 - **React DevTools** (if installed): Inspect component state
 
-## Known Limitations (Phase 7e - Phase 2)
-- Node execution details (status code, timing, variables) not yet shown in UI
-- Iteration-by-iteration replay controls not yet implemented
-- No timeline scrubber or step-through controls yet
-- Node hover tooltips with execution details pending (Phase 3+)
+## Known Limitations
+- No timeline scrubber or step-through animation controls
+- No screenshot export of canvas view
+- Heatmap coloring by performance intensity not yet implemented
+- Imported traces are session-only (not persisted)
 
 ## Troubleshooting
 
@@ -136,12 +141,12 @@ Open browser DevTools (F12) and check:
 - **Cause**: ReactFlow initialization issue
 - **Fix**: Refresh page, check for JavaScript errors
 
-## Next Steps
-After visual testing confirms Phase 2 is working:
-- ✅ **Phase 7e Task 2.4**: Add CSS styling for better node state visualization (COMPLETE)
-- **Phase 7e Task 3.x**: Add iteration selector and timeline controls
-- **Phase 7e Task 4.x**: Add node detail panel with execution info
-- **Phase 7e Task 5.x**: Add execution compression for large workflows
+## Completed Features
+- ✅ **Phase 1**: Trace data model & capture
+- ✅ **Phase 2**: Basic replay UI with ReactFlow canvas
+- ✅ **Phase 3**: Node detail panel with tabbed view (Overview/Request/Response/Variables/Assertions)
+- ✅ **Phase 4**: Multi-iteration support with iteration matrix
+- ✅ **Phase 5**: Polish & optimization (17/17 items — compression, sampling, lazy loading, tooltips, export/import, edge traversal percentages, animated edges, CSV export, keyboard shortcuts)
 
 ## Files to Monitor
 - `src/features/results/ResultsDashboard.tsx` - Replay button integration

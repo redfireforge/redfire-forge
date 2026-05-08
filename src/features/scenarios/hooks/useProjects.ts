@@ -11,7 +11,7 @@ import {
   migrateToFlat,
   migratePerFgSharedDataSourcesToTopLevel,
   getMaxRuns, getStorageUsage,
-  loadTestRuns,
+  loadTestRunsLite,
   loadTheme,
 } from '../../../shared/utils/storage';
 import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/ThemeCustomizer';
@@ -82,7 +82,7 @@ export function useProjects(): UseProjectsReturn {
         getMaxRuns(),
         getStorageUsage(),
         loadTheme(),
-        loadTestRuns(),
+        loadTestRunsLite(),
       ]);
 
       setEnvironments(envs);

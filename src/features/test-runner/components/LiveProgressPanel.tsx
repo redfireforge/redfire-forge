@@ -96,7 +96,7 @@ export default function LiveProgressPanel({
               {' '}({completed} requests)
             </>
           ) : (
-            <>{completed} / {total} ({progressPct}%)</>
+            <>{completed} / {total} {executionMode === 'workflow' ? 'iterations' : 'requests'} ({progressPct}%)</>
           )}
         </span>
       </div>

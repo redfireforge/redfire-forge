@@ -397,6 +397,8 @@ export interface TestConfig {
   maxConcurrentPolls?: number;
   /** Options for trace capture (Results Explorer) */
   traceOptions?: ExecutionTraceOptions;
+  /** Base URL for workflow HTTP nodes with relative paths (from environment config). */
+  workflowBaseUrl?: string;
 }
 
 export interface FailureDetail {
@@ -484,6 +486,10 @@ export interface ExecutionTraceOptions {
   maxResponseBodySize?: number;
   /** Always capture full trace for failed iterations regardless of captureFullTrace setting */
   alwaysCaptureFailures?: boolean;
+  /** Whether to sample iterations for large runs. Default: true */
+  samplingEnabled?: boolean;
+  /** Iteration count threshold above which sampling activates. Default: 50 */
+  samplingThreshold?: number;
 }
 
 /**
@@ -635,6 +641,9 @@ export interface WorkflowIterationTrace {
   
   /** Edges traversed in this specific iteration */
   traversedEdges: string[];
+
+  /** False if this iteration was stripped during trace sampling (events/variables unavailable) */
+  sampled?: boolean;
 }
 
 /**
@@ -681,6 +690,10 @@ export interface TestRun {
   workflowName?: string;
   /** Execution trace for workflow runs (Phase 7e: Visual Execution Replay) */
   executionTrace?: WorkflowExecutionTrace;
+  /** Compressed execution trace (base64 lz-string). Mutually exclusive with executionTrace. */
+  compressedTrace?: string;
+  /** Lightweight flag set during save — true when compressedTrace exists. Used for lazy loading. */
+  hasTrace?: boolean;
 }
 
 // ─── Requests types ──────────────────────────────────────────

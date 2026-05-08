@@ -197,6 +197,12 @@
 - [ ] Error search filters correctly
 - [ ] Cell click selects iteration AND node
 - [ ] Collapse/expand matrix works
-- [ ] Keyboard shortcuts work
+- [ ] Keyboard shortcuts work (← → navigate, 1-9 jump, Space toggle, A aggregate, M matrix, Esc close)
 - [ ] "Full Trace" badge shown when enabled
 - [ ] Warning shown before execution when capturing full trace
+- [ ] "⬇ Export JSON" button exports trace
+- [ ] "📊 Export CSV" button exports per-node metrics
+- [ ] "📂 Import Trace" loads and validates JSON
+- [ ] Edge traversal percentages visible on branching edges (aggregate view, 2+ iterations)
+- [ ] Animated flowing dashes on traversed edges
+- [ ] Node tooltips on hover (label, status, avg duration, pass rate, executions)

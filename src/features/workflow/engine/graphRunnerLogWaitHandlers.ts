@@ -90,6 +90,7 @@ export async function handleWaitForConditionNode(
     }
     try {
       for (const e of bodyEdges) {
+        hCtx.traceCollector.onEdgeTraversed(e.id);
         await hCtx.visit(e.target, `${hCtx.threadId}-poll-${attempt}`);
       }
     } finally {
@@ -129,6 +130,7 @@ export async function handleWaitForConditionNode(
   }
 
   for (const e of doneEdges) {
+    hCtx.traceCollector.onEdgeTraversed(e.id);
     await hCtx.visit(e.target, hCtx.threadId);
   }
 }

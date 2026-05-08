@@ -5,6 +5,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import {
   idbLoadTestRuns,
+  idbLoadTestRunsLite,
+  idbLoadTrace,
   idbSaveTestRun,
   idbDeleteTestRun,
   idbSaveTestRunsBulk,
@@ -20,6 +22,14 @@ function makeRun(id: string, timestamp: number): TestRun {
   return {
     id,
     timestamp,
+    config: { concurrency: 1, totalTransactions: 1, executionMode: 'sequential', scenarioWeights: [] },
+    results: [],
+  } as unknown as TestRun;
+}
+
+function makeRunSansTimestamp(id: string): TestRun {
+  return {
+    id,
     config: { concurrency: 1, totalTransactions: 1, executionMode: 'sequential', scenarioWeights: [] },
     results: [],
   } as unknown as TestRun;
@@ -51,12 +61,74 @@ describe('idbTestRuns', () => {
       expect(loaded.map(r => r.id)).toEqual(['r2', 'r3', 'r1']);
     });
 
+    it('treats missing timestamp as zero when sorting', async () => {
+      await idbSaveTestRun(makeRun('older', 100));
+      await idbSaveTestRun(makeRunSansTimestamp('noTs'));
+      const loaded = await idbLoadTestRuns();
+      expect(loaded.map(r => r.id)).toEqual(['older', 'noTs']);
+    });
+
     it('upserts existing run (put semantics)', async () => {
       await idbSaveTestRun(makeRun('r1', 1000));
       await idbSaveTestRun({ ...makeRun('r1', 2000) });
       const loaded = await idbLoadTestRuns();
       expect(loaded).toHaveLength(1);
       expect(loaded[0].timestamp).toBe(2000);
+    });
+  });
+
+  describe('idbLoadTestRunsLite', () => {
+    it('strips compressedTrace, sets hasTrace, and leaves traceless runs unchanged', async () => {
+      const withTrace = {
+        ...makeRun('t1', 3000),
+        compressedTrace: 'gzip:abc',
+      } as TestRun;
+      const noTrace = makeRun('t2', 2000);
+      await idbSaveTestRun(withTrace);
+      await idbSaveTestRun(noTrace);
+      const lite = await idbLoadTestRunsLite();
+      expect(lite).toHaveLength(2);
+      const heavy = lite.find(r => r.id === 't1')!;
+      expect(heavy.hasTrace).toBe(true);
+      expect(heavy.compressedTrace).toBeUndefined();
+      const light = lite.find(r => r.id === 't2')!;
+      expect(light.compressedTrace).toBeUndefined();
+      expect(light.hasTrace).toBeUndefined();
+    });
+
+    it('returns runs sorted newest-first', async () => {
+      await idbSaveTestRun(makeRun('a', 100));
+      await idbSaveTestRun(makeRun('b', 400));
+      await idbSaveTestRun(makeRun('c', 200));
+      const lite = await idbLoadTestRunsLite();
+      expect(lite.map(r => r.id)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('sorts runs with missing timestamp as zero during lite load', async () => {
+      await idbSaveTestRun(makeRun('with', 500));
+      await idbSaveTestRun(makeRunSansTimestamp('sans'));
+      const lite = await idbLoadTestRunsLite();
+      expect(lite.map(r => r.id)).toEqual(['with', 'sans']);
+    });
+  });
+
+  describe('idbLoadTrace', () => {
+    it('returns compressedTrace for an existing run that has one', async () => {
+      const run = {
+        ...makeRun('r', 1),
+        compressedTrace: 'trace-bytes',
+      } as TestRun;
+      await idbSaveTestRun(run);
+      await expect(idbLoadTrace('r')).resolves.toBe('trace-bytes');
+    });
+
+    it('returns undefined for a nonexistent id', async () => {
+      await expect(idbLoadTrace('missing')).resolves.toBeUndefined();
+    });
+
+    it('returns undefined when the run has no compressedTrace', async () => {
+      await idbSaveTestRun(makeRun('r', 1));
+      await expect(idbLoadTrace('r')).resolves.toBeUndefined();
     });
   });
 
@@ -104,6 +176,15 @@ describe('idbTestRuns', () => {
       expect(deleted).toBe(1);
       const loaded = await idbLoadTestRuns();
       expect(loaded.map(r => r.id).sort()).toEqual(['r2', 'r3']);
+    });
+
+    it('treats missing timestamp as zero when applying cutoff', async () => {
+      await idbSaveTestRun(makeRunSansTimestamp('ancient'));
+      await idbSaveTestRun(makeRun('recent', 9000));
+      const deleted = await idbDeleteRunsOlderThan(5000);
+      expect(deleted).toBe(1);
+      const loaded = await idbLoadTestRuns();
+      expect(loaded.map(r => r.id)).toEqual(['recent']);
     });
 
     it('returns 0 when nothing to delete', async () => {
@@ -210,6 +291,13 @@ describe('idbTestRuns', () => {
       localStorage.setItem(LS_KEY, 'not json');
       const migrated = await idbMigrateFromLocalStorage(LS_KEY);
       expect(migrated).toBe(false);
+    });
+
+    it('returns false when parsed value is not an array', async () => {
+      localStorage.setItem(LS_KEY, JSON.stringify({ not: 'array' }));
+      const migrated = await idbMigrateFromLocalStorage(LS_KEY);
+      expect(migrated).toBe(false);
+      expect(localStorage.getItem(LS_KEY)).not.toBeNull();
     });
   });
 });

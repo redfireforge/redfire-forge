@@ -28,10 +28,12 @@ vi.mock('@xyflow/react', () => ({
 }));
 
 const lastCanvasTrace = vi.hoisted(() => ({ current: null as any }));
+const lastBottleneckCallback = vi.hoisted(() => ({ current: null as ((insights: any[]) => void) | null }));
 
 vi.mock('./WorkflowExecutionCanvas', () => ({
   default: (props: any) => {
     lastCanvasTrace.current = props.trace;
+    lastBottleneckCallback.current = props.onBottlenecksComputed || null;
     return (
       <div data-testid="mock-wf-canvas">
         <span data-testid="canvas-fit-trigger">{props.fitViewTrigger}</span>
@@ -100,6 +102,18 @@ vi.mock('./IterationMatrixTable', () => ({
       </button>
     </div>
   ),
+}));
+
+const mockSaveJsonFile = vi.fn();
+const mockSaveCsvFile = vi.fn();
+const mockBuildExportFilename = vi.fn(({ level, name, ext }: { level: string; name?: string; ext?: string }) =>
+  `${level}-${name || 'unknown'}.${ext || 'json'}`,
+);
+
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveJsonFile: (...args: unknown[]) => mockSaveJsonFile(...args),
+  saveCsvFile: (...args: unknown[]) => mockSaveCsvFile(...args),
+  buildExportFilename: (...args: unknown[]) => mockBuildExportFilename(...args),
 }));
 
 import WorkflowResultsExplorerModal from './WorkflowResultsExplorerModal';
@@ -336,9 +350,9 @@ describe('WorkflowResultsExplorerModal', () => {
     };
     render(<WorkflowResultsExplorerModal trace={trace} onClose={mockOnClose} />);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(screen.getByText(/<1ms/)).toBeInTheDocument();
+    expect(screen.getByText(/Iteration #1 — Passed — <1ms/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(screen.getByText(/300ms/)).toBeInTheDocument();
+    expect(screen.getByText(/Iteration #2 — Failed — 300ms/)).toBeInTheDocument();
   });
 
   it('shows failed label when pinning a failed iteration', () => {
@@ -552,5 +566,434 @@ describe('WorkflowResultsExplorerModal', () => {
     const closeButtons = screen.getAllByRole('button', { name: /^Close$/i });
     fireEvent.click(closeButtons[closeButtons.length - 1]);
     expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe('export trace as JSON', () => {
+    it('renders the export button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
+    });
+
+    it('calls saveJsonFile with trace data when clicked', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockSaveJsonFile).toHaveBeenCalledTimes(1);
+      expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, expect.any(String));
+    });
+
+    it('builds filename with workflow name and level "trace"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'trace',
+          name: 'Test Workflow',
+        }),
+      );
+    });
+
+    it('uses the generated filename for saveJsonFile', () => {
+      mockBuildExportFilename.mockReturnValueOnce('trace-my-workflow.json');
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, 'trace-my-workflow.json');
+    });
+  });
+
+  describe('imported trace', () => {
+    it('shows imported badge with filename when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      const badge = screen.getByTestId('imported-badge');
+      expect(badge).toBeInTheDocument();
+      expect(badge.textContent).toContain('my-trace.json');
+    });
+
+    it('hides export button when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      expect(screen.queryByTestId('export-trace-btn')).not.toBeInTheDocument();
+    });
+
+    it('shows export button when importedFileName is not set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
+      expect(screen.queryByTestId('imported-badge')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard shortcut: Space toggles aggregate', () => {
+    it('toggles from aggregate to iteration 0 on Space', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      // Initially aggregate — footer shows Avg HTTP
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      // Should now show iteration #1
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+    });
+
+    it('toggles back from iteration to aggregate on second Space', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard shortcut: number keys jump to iteration', () => {
+    it('pressing 1 jumps to iteration #1', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '1' }); });
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+    });
+
+    it('pressing 2 jumps to iteration #2', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '2' }); });
+      expect(screen.getByText(/Iteration #2/)).toBeInTheDocument();
+    });
+
+    it('pressing a number beyond total iterations does nothing', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '9' }); });
+      // Should remain in aggregate view
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+    });
+  });
+
+  describe('export CSV', () => {
+    it('renders the CSV export button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-csv-btn')).toBeInTheDocument();
+    });
+
+    it('calls saveCsvFile with CSV content on click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      expect(mockSaveCsvFile).toHaveBeenCalledTimes(1);
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('Node');
+      expect(csvContent).toContain('Pass Rate (%)');
+      expect(csvContent).toContain('P95 (ms)');
+    });
+
+    it('includes HTTP node data in CSV', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('Get Users');
+      expect(csvContent).toContain('Create Order');
+    });
+
+    it('builds filename with level "metrics" and ext "csv"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'metrics', name: 'Test Workflow', ext: 'csv' }),
+      );
+    });
+
+    it('hides CSV export button when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      expect(screen.queryByTestId('export-csv-btn')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('footer shortcuts text', () => {
+    it('includes new shortcuts in footer hint', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByText(/1-9 jump/)).toBeInTheDocument();
+      expect(screen.getByText(/Space toggle/)).toBeInTheDocument();
+    });
+  });
+
+  describe('iteration picker', () => {
+    it('renders picker for multi-iteration traces', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('view-toggle')).toBeInTheDocument();
+      expect(screen.getByTestId('iter-picker-toggle')).toBeInTheDocument();
+    });
+
+    it('does not render picker for single-iteration traces', () => {
+      const singleTrace: WorkflowExecutionTrace = {
+        ...mockTrace,
+        iterations: [mockTrace.iterations[0]],
+        totalIterations: 1,
+      };
+      render(<WorkflowResultsExplorerModal trace={singleTrace} onClose={mockOnClose} />);
+      expect(screen.queryByTestId('view-toggle')).not.toBeInTheDocument();
+    });
+
+    it('starts in aggregate mode', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('iter-picker-toggle').textContent).toMatch(/Aggregate/);
+    });
+
+    it('opens dropdown on toggle click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+      expect(screen.getByTestId('iter-picker-dropdown')).toBeInTheDocument();
+      expect(screen.getByTestId('iter-picker-aggregate')).toBeInTheDocument();
+    });
+
+    it('switches to single iteration when an iteration item is clicked', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+      fireEvent.click(screen.getByTestId('iter-picker-item-0'));
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+    });
+
+    it('switches back to aggregate', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+      fireEvent.click(screen.getByTestId('iter-picker-item-0'));
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+      fireEvent.click(screen.getByTestId('iter-picker-aggregate'));
+      expect(screen.getByTestId('iter-picker-toggle').textContent).toMatch(/Aggregate/);
+    });
+
+    it('selects a different iteration', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+      fireEvent.click(screen.getByTestId('iter-picker-item-1'));
+      expect(screen.getByText(/Iteration #2/)).toBeInTheDocument();
+    });
+  });
+
+  describe('sampled iterations', () => {
+    const sampledTrace: WorkflowExecutionTrace = {
+      ...mockTrace,
+      iterations: [
+        { ...mockTrace.iterations[0], sampled: true as any },
+        { ...mockTrace.iterations[1], sampled: false as any },
+      ],
+    };
+
+    it('shows sampled badge when some iterations are unsampled', () => {
+      render(<WorkflowResultsExplorerModal trace={sampledTrace} onClose={mockOnClose} />);
+      expect(screen.getByText(/Sampled/)).toBeInTheDocument();
+      expect(screen.getByText(/1\/2/)).toBeInTheDocument();
+    });
+
+    it('falls back to full trace when pinned iteration is unsampled', () => {
+      render(<WorkflowResultsExplorerModal trace={sampledTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      expect(lastCanvasTrace.current.iterations.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('shows sampled run footer text for unsampled pinned iteration', () => {
+      render(<WorkflowResultsExplorerModal trace={sampledTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      expect(screen.getByText(/Trace not captured \(sampled run\)/)).toBeInTheDocument();
+    });
+  });
+
+  describe('search and filter', () => {
+    it('renders search input', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('node-search-input')).toBeInTheDocument();
+    });
+
+    it('updates search query on input change', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      fireEvent.change(input, { target: { value: 'Get' } });
+      expect(input).toHaveValue('Get');
+    });
+
+    it('shows clear button when search query is non-empty', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.queryByTestId('node-search-clear')).not.toBeInTheDocument();
+      fireEvent.change(screen.getByTestId('node-search-input'), { target: { value: 'test' } });
+      expect(screen.getByTestId('node-search-clear')).toBeInTheDocument();
+    });
+
+    it('clears search on clear button click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      fireEvent.change(input, { target: { value: 'test' } });
+      fireEvent.click(screen.getByTestId('node-search-clear'));
+      expect(input).toHaveValue('');
+    });
+
+    it('clears search on Escape inside input', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      fireEvent.change(input, { target: { value: 'hello' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(input).toHaveValue('');
+    });
+
+    it('toggles state filter buttons', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const passBtn = screen.getByTestId('node-filter-pass');
+      fireEvent.click(passBtn);
+      expect(passBtn).toHaveClass('active');
+      fireEvent.click(passBtn);
+      expect(passBtn).not.toHaveClass('active');
+    });
+
+    it('toggles between different state filters', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const failBtn = screen.getByTestId('node-filter-fail');
+      const skipBtn = screen.getByTestId('node-filter-skipped');
+      fireEvent.click(failBtn);
+      expect(failBtn).toHaveClass('active');
+      fireEvent.click(skipBtn);
+      expect(skipBtn).toHaveClass('active');
+      expect(failBtn).not.toHaveClass('active');
+    });
+
+    it('renders filter buttons with counts', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('node-filter-all')).toHaveTextContent('All');
+      expect(screen.getByTestId('node-filter-pass')).toHaveTextContent(/Pass/);
+      expect(screen.getByTestId('node-filter-fail')).toHaveTextContent(/Fail/);
+      expect(screen.getByTestId('node-filter-skipped')).toHaveTextContent(/Skip/);
+    });
+  });
+
+  describe('/ keyboard shortcut (focus search)', () => {
+    it('focuses search input on / key press', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      fireEvent.keyDown(window, { key: '/' });
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('ignores / when Ctrl or Meta is held', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      fireEvent.keyDown(window, { key: '/', ctrlKey: true });
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it('ignores / when an INPUT is already focused', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const input = screen.getByTestId('node-search-input');
+      input.focus();
+      const initialFocus = document.activeElement;
+      fireEvent.keyDown(window, { key: '/' });
+      expect(document.activeElement).toBe(initialFocus);
+    });
+  });
+
+  describe('bottleneck insights', () => {
+    it('renders bottleneck panel when insights are provided via canvas callback', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const insights = [
+        {
+          nodeId: 'n2',
+          nodeLabel: 'Get Users',
+          severity: 'critical' as const,
+          type: 'time-dominant' as const,
+          message: 'Takes most time',
+          suggestion: 'Optimize this node',
+          metric: { label: 'Time %', value: '65%' },
+        },
+        {
+          nodeId: 'n3',
+          nodeLabel: 'Create Order',
+          severity: 'warning' as const,
+          type: 'high-variance' as const,
+          message: 'High variance',
+          suggestion: 'Investigate variance',
+          metric: { label: 'CV', value: '0.8' },
+        },
+      ];
+      act(() => { lastBottleneckCallback.current?.(insights); });
+      expect(screen.getByTestId('bottleneck-insights')).toBeInTheDocument();
+      expect(screen.getByTestId('bottleneck-insight-0')).toBeInTheDocument();
+      expect(screen.getByTestId('bottleneck-insight-1')).toBeInTheDocument();
+      expect(screen.getByText('Get Users')).toBeInTheDocument();
+      expect(screen.getByText('Takes most time')).toBeInTheDocument();
+      expect(screen.getByText('Optimize this node')).toBeInTheDocument();
+    });
+
+    it('renders severity icons for different levels', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const insights = [
+        { nodeId: 'n2', nodeLabel: 'N2', severity: 'critical' as const, type: 'time-dominant' as const, message: 'm1', suggestion: 's1', metric: { label: 'l', value: 'v' } },
+        { nodeId: 'n3', nodeLabel: 'N3', severity: 'warning' as const, type: 'high-variance' as const, message: 'm2', suggestion: 's2', metric: { label: 'l', value: 'v' } },
+        { nodeId: 'n4', nodeLabel: 'N4', severity: 'info' as const, type: 'high-failure' as const, message: 'm3', suggestion: 's3', metric: { label: 'l', value: 'v' } },
+      ];
+      act(() => { lastBottleneckCallback.current?.(insights); });
+      const icons = document.querySelectorAll('.bottleneck-insight-icon');
+      expect(icons[0].textContent).toContain('🔥');
+      expect(icons[1].textContent).toContain('⚠');
+      expect(icons[2].textContent).toContain('ℹ');
+    });
+
+    it('clicking bottleneck insight selects the node', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const insights = [
+        { nodeId: 'n2', nodeLabel: 'Get Users', severity: 'critical' as const, type: 'time-dominant' as const, message: 'm', suggestion: 's', metric: { label: 'l', value: 'v' } },
+      ];
+      act(() => { lastBottleneckCallback.current?.(insights); });
+      fireEvent.click(screen.getByTestId('bottleneck-insight-0'));
+      expect(screen.getByTestId('detail-node-label')).toHaveTextContent('Get Users');
+    });
+
+    it('does not render bottleneck panel when no insights', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.queryByTestId('bottleneck-insights')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('matrix collapse chevron', () => {
+    it('shows right-pointing chevron when collapsed', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const toggle = document.querySelector('.matrix-toggle-icon');
+      expect(toggle?.textContent).toBe('▶');
+    });
+
+    it('shows down-pointing chevron when expanded', () => {
+      vi.useFakeTimers();
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByText('Iteration Matrix'));
+      act(() => { vi.advanceTimersByTime(200); });
+      const toggle = document.querySelector('.matrix-toggle-icon');
+      expect(toggle?.textContent).toBe('▼');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('returns empty events for invalid selected iteration index', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      expect(screen.getByTestId('detail-events-count')).toHaveAttribute('data-count', '2');
+    });
+
+    it('handles empty iterations array for avgIterationTime', () => {
+      const emptyTrace: WorkflowExecutionTrace = {
+        ...mockTrace,
+        iterations: [],
+        totalIterations: 0,
+        totalDurationMs: 0,
+      };
+      render(<WorkflowResultsExplorerModal trace={emptyTrace} onClose={mockOnClose} />);
+      expect(screen.getByText('0% pass')).toBeInTheDocument();
+    });
+
+    it('handles export when first event has no timestamp', () => {
+      const noTimestampTrace: WorkflowExecutionTrace = {
+        ...mockTrace,
+        iterations: [{
+          ...mockTrace.iterations[0],
+          events: [
+            { nodeId: 'n1', nodeType: 'start', nodeLabel: 'Start', timestamp: 0, state: 'pass' as const },
+          ],
+        }],
+        totalIterations: 1,
+      };
+      render(<WorkflowResultsExplorerModal trace={noTimestampTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockSaveJsonFile).toHaveBeenCalled();
+    });
   });
 });
