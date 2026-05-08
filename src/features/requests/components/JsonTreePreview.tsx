@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { ChevronIcon, bestEffortFormat, countTextMatches } from '../../../shared/components/jsonTreeShared';
 

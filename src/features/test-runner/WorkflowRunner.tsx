@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, ExecutionTraceOptions } from '../../shared/types';
+import type {
+  TestConfig,
+  LoadProfileConfig,
+  CorrelationWaitRunnerConfig,
+  ExecutionTraceOptions,
+  RequestResult,
+  WorkflowExecutionTrace,
+} from '../../shared/types';
 import type { Workflow, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
@@ -268,7 +275,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       { projectName: `Webhook: ${selectedWorkflow.name}` }
     );
 
-    const collectedResults: import('../../../shared/types').RequestResult[] = [];
+    const collectedResults: RequestResult[] = [];
 
     try {
       // Register workflow with the webhook server before starting load test
@@ -316,7 +323,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       );
 
       // Build execution trace if traces were captured
-      let executionTrace: import('../../../shared/types').WorkflowExecutionTrace | undefined;
+      let executionTrace: WorkflowExecutionTrace | undefined;
       if (captureTraces && loadResult.iterationTraces && loadResult.iterationTraces.length > 0) {
         // Collect all traversed edges from all iterations
         const allTraversedEdges = new Set<string>();
@@ -419,7 +426,6 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
-  const _displayIsTimeBased = hasLiveProgress ? isLoadProfile : savedProgress?.isTimeBased ?? false;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
   const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
   const displayExecMode = hasLiveProgress ? 'workflow' : savedProgress?.executionMode ?? 'workflow';
