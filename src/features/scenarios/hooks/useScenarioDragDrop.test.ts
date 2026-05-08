@@ -108,6 +108,19 @@ describe('useScenarioDragDrop', () => {
     expect(setFeatureGroups.mock.results[0].value).toBe(fgs);
   });
 
+  it('moveScenario aborts cross-feature moves when scenario is missing from populated source', () => {
+    const fgs: FeatureGroup[] = [
+      fg('f1', [{ id: 's1', name: 'Scenario 1', tests: [] }]),
+      fg('f2', []),
+    ];
+    setFeatureGroups = vi.fn((updater) => typeof updater === 'function' ? updater(fgs) : updater);
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => result.current.moveScenario('missing-id', 'f1', 'f2'));
+
+    expect(setFeatureGroups.mock.results[0].value).toBe(fgs);
+  });
+
   it('moveTest moves test between scenarios', () => {
     const fgs: FeatureGroup[] = [
       fg('f1', [
@@ -140,6 +153,19 @@ describe('useScenarioDragDrop', () => {
 
     const updated = setFeatureGroups.mock.results[0].value;
     expect(updated[0].scenarios[1].tests.map((t: { id: string }) => t.id)).toEqual(['t2', 't1', 't3']);
+  });
+
+  it('moveTest returns prev when test id not found on cross-feature attempt', () => {
+    const fgs: FeatureGroup[] = [
+      fg('f1', [{ id: 's1', name: 'S1', tests: [{ id: 't1', name: 'T1' }] }]),
+      fg('f2', [{ id: 's2', name: 'S2', tests: [] }]),
+    ];
+    setFeatureGroups = vi.fn((updater) => typeof updater === 'function' ? updater(fgs) : updater);
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => result.current.moveTest('missing-t', 'f1', 's1', 'f2', 's2'));
+
+    expect(setFeatureGroups.mock.results[0].value).toBe(fgs);
   });
 
   it('moveTest does nothing when same location without beforeTestId', () => {
@@ -237,5 +263,83 @@ describe('useScenarioDragDrop', () => {
     });
     act(() => result.current.handleDragEnd());
     expect(setFeatureGroups).toHaveBeenCalled();
+  });
+
+  it('handleDragEnd does not move test when drop target omits scenarioId', () => {
+    const fgs: FeatureGroup[] = [
+      fg('f1', [
+        { id: 's1', name: 'Scenario 1', tests: [{ id: 't1', name: 'Test 1' }] },
+      ]),
+    ];
+    setFeatureGroups = vi.fn((updater) => typeof updater === 'function' ? updater(fgs) : updater);
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => {
+      result.current.setDragTest({ testId: 't1', fromFeatureId: 'f1', fromScenarioId: 's1' });
+      result.current.setDropTarget({ type: 'test', featureId: 'f1' });
+    });
+    act(() => result.current.handleDragEnd());
+    expect(setFeatureGroups).not.toHaveBeenCalled();
+  });
+
+  it('handleDragEnd clears state when drop target type does not match drag', () => {
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => {
+      result.current.setDragScenario({ scenarioId: 's1', fromFeatureId: 'f1' });
+      result.current.setDropTarget({ type: 'test', featureId: 'f1', scenarioId: 's1' });
+    });
+    act(() => result.current.handleDragEnd());
+    expect(result.current.dragScenario).toBeNull();
+    expect(result.current.dropTarget).toBeNull();
+  });
+
+  it('moveTest reorders within same scenario when beforeTestId is set', () => {
+    const fgs: FeatureGroup[] = [
+      fg('f1', [
+        { id: 's1', name: 'Scenario 1', tests: [{ id: 't1', name: 'Test 1' }, { id: 't2', name: 'Test 2' }] },
+      ]),
+    ];
+    setFeatureGroups = vi.fn((updater) => typeof updater === 'function' ? updater(fgs) : updater);
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => result.current.moveTest('t2', 'f1', 's1', 'f1', 's1', 't1'));
+
+    const updated = setFeatureGroups.mock.results[0].value;
+    expect(updated[0].scenarios[0].tests.map((t: { id: string }) => t.id)).toEqual(['t2', 't1']);
+  });
+
+  it('moveTest moves a test across feature groups', () => {
+    const fgs: FeatureGroup[] = [
+      fg('fa', [{ id: 's1', name: 'Scenario 1', tests: [{ id: 't1', name: 'Test 1' }] }]),
+      fg('fb', [{ id: 's2', name: 'Scenario 2', tests: [] }]),
+    ];
+    setFeatureGroups = vi.fn((updater) => (typeof updater === 'function' ? updater(fgs) : updater));
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => result.current.moveTest('t1', 'fa', 's1', 'fb', 's2'));
+
+    const updated = setFeatureGroups.mock.results[0].value;
+    expect(updated[0].scenarios[0].tests).toHaveLength(0);
+    expect(updated[1].scenarios[0].tests.map((t: { id: string }) => t.id)).toEqual(['t1']);
+  });
+
+  it('handleDragEnd passes scenario target anchor to moveScenario', () => {
+    const fgs: FeatureGroup[] = [
+      fg('f1', [
+        { id: 'sx', name: 'A', tests: [] },
+        { id: 'sy', name: 'B', tests: [] },
+      ]),
+    ];
+    setFeatureGroups = vi.fn((updater) => (typeof updater === 'function' ? updater(fgs) : updater));
+
+    const { result } = renderHook(() => useScenarioDragDrop({ setFeatureGroups }));
+    act(() => {
+      result.current.setDragScenario({ scenarioId: 'sx', fromFeatureId: 'f1' });
+      result.current.setDropTarget({ type: 'scenario', featureId: 'f1', targetId: 'sy' });
+    });
+    act(() => result.current.handleDragEnd());
+
+    const updated = setFeatureGroups.mock.results[0].value;
+    expect(updated[0].scenarios.map((s: { id: string }) => s.id)).toEqual(['sx', 'sy']);
   });
 });

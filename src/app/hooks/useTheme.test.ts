@@ -216,4 +216,92 @@ describe('useTheme', () => {
       expect(result.current.showCustomizer).toBe(false);
     });
   });
+
+  describe('outside click handling', () => {
+    it('closes theme picker on outside click when ref is null', () => {
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setThemePickerOpen(true);
+      });
+
+      expect(result.current.themePickerOpen).toBe(true);
+
+      // When themePickerRef.current is null, the condition fails and picker closes
+      // The ref is null by default from useRef, so clicking outside should close
+      // But the condition is: if (ref.current && !ref.current.contains(target))
+      // When ref.current is null, the first part fails, so it doesn't close
+      // Let's test the case where the ref exists but doesn't contain the click
+      const pickerDiv = document.createElement('div');
+      document.body.appendChild(pickerDiv);
+
+      // Set the ref to a real element
+      Object.defineProperty(result.current.themePickerRef, 'current', {
+        value: pickerDiv,
+        writable: true,
+      });
+
+      // Click on an element outside the picker
+      const outsideDiv = document.createElement('div');
+      document.body.appendChild(outsideDiv);
+
+      act(() => {
+        const event = new MouseEvent('mousedown', { bubbles: true });
+        Object.defineProperty(event, 'target', { value: outsideDiv });
+        document.dispatchEvent(event);
+      });
+
+      expect(result.current.themePickerOpen).toBe(false);
+
+      document.body.removeChild(pickerDiv);
+      document.body.removeChild(outsideDiv);
+    });
+
+    it('does not close picker when clicking inside ref', () => {
+      const { result } = renderHook(() => useTheme());
+
+      // Create a div to act as the picker
+      const pickerDiv = document.createElement('div');
+      document.body.appendChild(pickerDiv);
+
+      // Manually set the ref
+      Object.defineProperty(result.current.themePickerRef, 'current', {
+        value: pickerDiv,
+        writable: true,
+      });
+
+      act(() => {
+        result.current.setThemePickerOpen(true);
+      });
+
+      expect(result.current.themePickerOpen).toBe(true);
+
+      // Simulate click inside the picker
+      act(() => {
+        const event = new MouseEvent('mousedown', { bubbles: true });
+        Object.defineProperty(event, 'target', { value: pickerDiv });
+        document.dispatchEvent(event);
+      });
+
+      // Picker should stay open since click was inside
+      expect(result.current.themePickerOpen).toBe(true);
+
+      document.body.removeChild(pickerDiv);
+    });
+  });
+
+  describe('legacy custom theme with no saved themes', () => {
+    it('sets document theme to dark when legacy custom has no saved themes', () => {
+      mockLoadSavedThemes.mockReturnValue([]);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('custom');
+      });
+
+      // Should fall back to dark theme when no saved themes exist
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    });
+  });
 });

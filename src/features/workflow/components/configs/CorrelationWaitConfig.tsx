@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { CorrelationWaitNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
@@ -9,6 +9,12 @@ const SOURCE_OPTIONS: { value: CorrelationWaitNodeData['correlationSource']; lab
   { value: 'header', label: 'HTTP Header' },
   { value: 'query', label: 'Query Parameter' },
 ];
+
+interface PausedCorrelation {
+  correlationId: string;
+  webhookPath: string;
+  pausedAt: number;
+}
 
 export default function CorrelationWaitConfig({
   data,
@@ -25,8 +31,35 @@ export default function CorrelationWaitConfig({
   const [testPayload, setTestPayload] = useState<string>('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
+  const [loadingPaused, setLoadingPaused] = useState(false);
 
-  const defaultPayload = useMemo(() => {
+  // Fetch currently paused correlations from the server
+  const fetchPausedCorrelations = useCallback(async () => {
+    setLoadingPaused(true);
+    try {
+      const host = window.location.hostname || 'localhost';
+      const res = await fetch(`http://${host}:3001/api/correlations`);
+      if (res.ok) {
+        const data = await res.json();
+        setPausedCorrelations(data.correlations ?? []);
+      }
+    } catch {
+      // Server may not be running
+    } finally {
+      setLoadingPaused(false);
+    }
+  }, []);
+
+  // Poll for paused correlations while the panel is open
+  useEffect(() => {
+    fetchPausedCorrelations();
+    const interval = setInterval(fetchPausedCorrelations, 3000);
+    return () => clearInterval(interval);
+  }, [fetchPausedCorrelations]);
+
+  // Build a default payload structure based on correlation source and extract variables
+  const buildDefaultPayload = useCallback(() => {
     const payload: Record<string, unknown> = {};
     // Add correlation ID field based on source config
     if (data.correlationSource === 'body' && data.correlationJsonPath) {
@@ -39,7 +72,7 @@ export default function CorrelationWaitConfig({
       }
       current[keys[keys.length - 1]] = data.correlationIdExpression || '<correlationId>';
     }
-    // Add extract variables with sample values
+    // Add extract variables
     for (const ev of data.extractVariables ?? []) {
       if (ev.name && ev.jsonPath) {
         const path = ev.jsonPath.replace(/^\$\.?/, '');
@@ -52,8 +85,13 @@ export default function CorrelationWaitConfig({
         current[keys[keys.length - 1]] = `<${ev.name}>`;
       }
     }
-    return JSON.stringify(payload, null, 2);
+    return payload;
   }, [data.correlationSource, data.correlationJsonPath, data.correlationIdExpression, data.extractVariables]);
+
+  // Default payload for Test Webhook
+  const defaultPayload = useMemo(() => {
+    return JSON.stringify(buildDefaultPayload(), null, 2);
+  }, [buildDefaultPayload]);
 
   const handleSendTestWebhook = useCallback(async () => {
     setTestSending(true);
@@ -179,48 +217,56 @@ export default function CorrelationWaitConfig({
         <span className="wf-config-hint">
           Variables to extract from the webhook payload into the workflow context.
         </span>
-        {(data.extractVariables ?? []).map((ev, i) => (
-          <div key={i} className="wf-config-row">
-            <input
-              className="wf-config-input-half"
-              value={ev.name}
-              onChange={(e) => {
-                const vars = [...(data.extractVariables ?? [])];
-                vars[i] = { ...vars[i], name: e.target.value };
-                onChange({ ...data, extractVariables: vars });
-              }}
-              placeholder="Variable name"
-            />
-            <input
-              className="wf-config-input-half"
-              value={ev.jsonPath}
-              onChange={(e) => {
-                const vars = [...(data.extractVariables ?? [])];
-                vars[i] = { ...vars[i], jsonPath: e.target.value };
-                onChange({ ...data, extractVariables: vars });
-              }}
-              placeholder="$.path.to.value"
-            />
-            <button
-              className="wf-config-btn-remove"
-              onClick={() => {
-                const vars = (data.extractVariables ?? []).filter((_, idx) => idx !== i);
-                onChange({ ...data, extractVariables: vars });
-              }}
-              title="Remove variable"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+        <div className="wf-extract-vars-list">
+          {(data.extractVariables ?? []).map((ev, i) => (
+            <div key={i} className="wf-extract-var-row">
+              <input
+                className="wf-extract-var-name"
+                value={ev.name}
+                onChange={(e) => {
+                  const vars = [...(data.extractVariables ?? [])];
+                  vars[i] = { ...vars[i], name: e.target.value };
+                  onChange({ ...data, extractVariables: vars });
+                }}
+                placeholder="Variable name"
+              />
+              <input
+                className="wf-extract-var-path"
+                value={ev.jsonPath}
+                onChange={(e) => {
+                  const vars = [...(data.extractVariables ?? [])];
+                  vars[i] = { ...vars[i], jsonPath: e.target.value };
+                  onChange({ ...data, extractVariables: vars });
+                }}
+                placeholder="$.path.to.value"
+              />
+              <button
+                className="wf-extract-var-remove"
+                onClick={() => {
+                  const vars = (data.extractVariables ?? []).filter((_, idx) => idx !== i);
+                  onChange({ ...data, extractVariables: vars });
+                }}
+                title="Remove variable"
+                aria-label="Remove variable"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
         <button
-          className="wf-config-btn-add"
+          className="wf-extract-var-add"
           onClick={() => {
             const vars = [...(data.extractVariables ?? []), { name: '', jsonPath: '' }];
             onChange({ ...data, extractVariables: vars });
           }}
         >
-          + Add Variable
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add Variable
         </button>
       </div>
 
@@ -271,10 +317,65 @@ export default function CorrelationWaitConfig({
 
       {/* ── Test Webhook ── */}
       <div className="wf-test-webhook-section" data-testid="test-webhook-section">
-        <div className="wf-test-webhook-title">Test Webhook</div>
-        <span className="wf-config-hint">
+        <div className="wf-test-webhook-header">
+          <span className="wf-test-webhook-icon">🧪</span>
+          <span className="wf-test-webhook-title">Test Webhook</span>
+        </div>
+        <p className="wf-test-webhook-desc">
           Send a test webhook payload to resume a paused workflow with this configuration.
-        </span>
+          <strong> Requires an active workflow paused at this node.</strong>
+        </p>
+
+        {/* Show currently paused correlations */}
+        <div className="wf-paused-correlations" data-testid="paused-correlations">
+          <div className="wf-paused-correlations-header">
+            <span>Currently Paused Workflows</span>
+            <button
+              className="wf-paused-refresh-btn"
+              onClick={fetchPausedCorrelations}
+              disabled={loadingPaused}
+              title="Refresh"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 4v6h-6M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+              </svg>
+            </button>
+          </div>
+          {pausedCorrelations.length === 0 ? (
+            <div className="wf-paused-empty">
+              {loadingPaused ? 'Loading...' : 'No workflows currently paused. Run a workflow first.'}
+            </div>
+          ) : (
+            <div className="wf-paused-list">
+              {pausedCorrelations.map((pc) => (
+                <button
+                  key={pc.correlationId}
+                  className="wf-paused-item"
+                  onClick={() => {
+                    // Update the payload with the actual correlation ID
+                    const payloadObj = JSON.parse(testPayload || defaultPayload);
+                    const path = data.correlationJsonPath?.replace(/^\$\.?/, '') ?? 'correlationId';
+                    const keys = path.split('.');
+                    let current = payloadObj;
+                    for (let i = 0; i < keys.length - 1; i++) {
+                      current[keys[i]] = current[keys[i]] || {};
+                      current = current[keys[i]] as Record<string, unknown>;
+                    }
+                    current[keys[keys.length - 1]] = pc.correlationId;
+                    setTestPayload(JSON.stringify(payloadObj, null, 2));
+                    setTestResult(null);
+                  }}
+                  title={`Click to use this correlation ID in the payload`}
+                >
+                  <span className="wf-paused-item-id">{pc.correlationId}</span>
+                  <span className="wf-paused-item-path">{pc.webhookPath}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <textarea
           className="wf-test-webhook-payload"
           value={testPayload || defaultPayload}
@@ -284,12 +385,16 @@ export default function CorrelationWaitConfig({
         />
         <div className="wf-test-webhook-actions">
           <button
-            className="wf-config-btn-add"
+            className="wf-test-webhook-btn"
             onClick={handleSendTestWebhook}
             disabled={testSending}
             data-testid="test-webhook-send"
           >
-            {testSending ? 'Sending...' : '🧪 Send Test Webhook'}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 2L11 13" />
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            </svg>
+            {testSending ? 'Sending...' : 'Send Test Webhook'}
           </button>
           {testResult && (
             <span

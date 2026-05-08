@@ -238,7 +238,7 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig();
     const onProgress = vi.fn();
-    const results = await runTest(config, [s], onProgress);
+    const { results } = await runTest(config, [s], onProgress);
     expect(results.length).toBe(2);
     expect(onProgress).toHaveBeenCalled();
   });
@@ -246,14 +246,14 @@ describe('runTest', () => {
   it('runs test with batch mode', async () => {
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'batch', concurrency: 2 });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
   it('runs test with pool mode', async () => {
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'pool', concurrency: 2, totalTransactions: 3 });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
 
@@ -264,7 +264,7 @@ describe('runTest', () => {
       totalTransactions: 1,
       loadProfile: { type: 'sustained', durationSec: 0.08, maxConcurrency: 1 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -278,7 +278,7 @@ describe('runTest', () => {
         { scenarioId: 's2', weight: 3 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
+    const { results } = await runTest(config, [s1, s2], vi.fn());
     expect(results.length).toBe(10);
     const s1Count = results.filter(r => r.scenarioName === 'Scenario1').length;
     const s2Count = results.filter(r => r.scenarioName === 'Scenario2').length;
@@ -298,7 +298,7 @@ describe('runTest', () => {
         { scenarioId: 's3', weight: 1 },
       ],
     });
-    const results = await runTest(config, [s1, s2, s3], vi.fn());
+    const { results } = await runTest(config, [s1, s2, s3], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -313,7 +313,7 @@ describe('runTest', () => {
         { scenarioId: 's2', weight: 4 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
+    const { results } = await runTest(config, [s1, s2], vi.fn());
     randomSpy.mockRestore();
     expect(results).toHaveLength(1);
     expect(['Eq1', 'Eq2']).toContain(results[0].scenarioName);
@@ -322,7 +322,7 @@ describe('runTest', () => {
   it('applies timeout config', async () => {
     const s = makeScenario();
     const config = makeConfig({ timeoutSec: 5 });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -336,7 +336,7 @@ describe('runTest', () => {
         { scenarioId: 's2', weight: 0 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
+    const { results } = await runTest(config, [s1, s2], vi.fn());
     expect(results.every(r => r.scenarioName === 'Active')).toBe(true);
   });
 
@@ -345,7 +345,7 @@ describe('runTest', () => {
     const config = makeConfig({
       thinkTime: { mode: 'constant', constantMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -356,7 +356,7 @@ describe('runTest', () => {
       concurrency: 2,
       thinkTime: { mode: 'uniform', minMs: 0, maxMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -368,7 +368,7 @@ describe('runTest', () => {
       totalTransactions: 3,
       thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
 
@@ -376,21 +376,21 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig();
     expect(config.thinkTime).toBeUndefined();
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
   it('treats mode none same as no thinkTime', async () => {
     const s = makeScenario();
     const config = makeConfig({ thinkTime: { mode: 'none' } });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
   it('caps expanded data-source queue at totalTransactions', async () => {
     const s = makeScenarioWithDataRows(3);
     const config = makeConfig({ totalTransactions: 2, executionMode: 'sequential' });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -455,7 +455,7 @@ describe('runTest', () => {
       totalTransactions: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
     } as TestConfig;
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -468,7 +468,7 @@ describe('runTest', () => {
         { scenarioId: 's1', weight: 1 },
       ],
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
 
@@ -495,7 +495,7 @@ describe('runTest', () => {
         { scenarioId: 's1', weight: 1 },
       ],
     });
-    const results = await runTest(config, [s1], vi.fn());
+    const { results } = await runTest(config, [s1], vi.fn());
     expect(results.every(r => r.scenarioName === 'Only')).toBe(true);
   });
 
@@ -510,7 +510,7 @@ describe('runTest', () => {
       ],
       executionMode: 'sequential',
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
+    const { results } = await runTest(config, [s1, s2], vi.fn());
     expect(results.length).toBe(12);
   });
 });

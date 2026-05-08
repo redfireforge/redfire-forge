@@ -1,14 +1,23 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ResponseVersionPanel from './ResponseVersionPanel';
 import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
 
+const diffKitCtl = vi.hoisted(() => ({
+  throwOnSecondDiffInRender: false,
+  diffCallInRender: 0,
+}));
+
 vi.mock('json-diff-kit', () => ({
   Differ: class {
     diff(left: unknown, right: unknown) {
+      if (diffKitCtl.throwOnSecondDiffInRender) {
+        diffKitCtl.diffCallInRender += 1;
+        if (diffKitCtl.diffCallInRender === 2) throw new Error('rules-diff-fail');
+      }
       const same = JSON.stringify(left) === JSON.stringify(right);
       return [[{ type: same ? 'equal' : 'modify', text: '' }]];
     }
@@ -51,6 +60,11 @@ const defaultProps = () => ({
 });
 
 describe('ResponseVersionPanel', () => {
+  beforeEach(() => {
+    diffKitCtl.throwOnSecondDiffInRender = false;
+    diffKitCtl.diffCallInRender = 0;
+  });
+
   describe('empty state', () => {
     it('shows empty message when no versions', () => {
       render(<ResponseVersionPanel {...defaultProps()} />);
@@ -550,6 +564,290 @@ describe('ResponseVersionPanel', () => {
         />,
       );
       expect(screen.getByText(/Identical to/)).toBeTruthy();
+    });
+
+    it('strips nested excluded paths and ignores empty path segments', () => {
+      const v1 = mkVersion({ json: '{"a":{"b":9,"keep":2}}', timestamp: 1000, label: 'nested-strip' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"a":{"b":1,"keep":2}}'
+          excludedPaths={['$.', '$.a.b']}
+        />,
+      );
+      expect(screen.getByText(/Identical to nested-strip/)).toBeTruthy();
+    });
+
+    it('handles excluded path through array index', () => {
+      const v1 = mkVersion({ json: '{"items":[{"id":1,"noise":9}]}', timestamp: 1000, label: 'arr-path' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"items":[{"id":1,"noise":0}]}'
+          excludedPaths={['$.items.0.noise']}
+        />,
+      );
+      expect(screen.getByText(/Identical to arr-path/)).toBeTruthy();
+    });
+  });
+
+  describe('branch coverage: duplicate canonicalization', () => {
+    it('uses trimmed raw string when current JSON is not parseable', () => {
+      const v1 = mkVersion({ json: 'raw-token', timestamp: 1000, label: 'raw-catch' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson="  raw-token  "
+        />,
+      );
+      expect(screen.getByText(/Identical to raw-catch/)).toBeTruthy();
+    });
+
+    it('uses raw version json when stored version JSON is not parseable', () => {
+      const v1 = mkVersion({ json: 'not-parseable', timestamp: 1000, label: 'raw' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson="not-parseable"
+        />,
+      );
+      expect(screen.getByText(/Identical to raw/)).toBeTruthy();
+    });
+  });
+
+  describe('branch coverage: version list UI', () => {
+    it('falls back to vN when label is missing', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+        />,
+      );
+      expect(screen.getByText('v1')).toBeTruthy();
+    });
+
+    it('omits selective suffix in rules tag when selectiveMode is empty', () => {
+      const v1 = mkVersion({
+        json: '{"a":1}',
+        timestamp: 1000,
+        validationMode: 'selective',
+        selectiveMode: '' as 'include',
+      });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"b":2}'
+        />,
+      );
+      const tag = screen.getByText('selective');
+      expect(tag.textContent).toBe('selective');
+    });
+  });
+
+  describe('branch coverage: compare modal', () => {
+    it('does not close modal on non-Escape keys', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.keyDown(window, { key: 'Enter' });
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+    });
+
+    it('returns null diff when compare ids are stale after versions shrink', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      const { rerender } = render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      rerender(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"c":3}'
+        />,
+      );
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+      expect(screen.getByText('No differences found.')).toBeTruthy();
+    });
+
+    it('shows no differences when response JSON cannot be parsed for diff', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'ok' });
+      const v2 = mkVersion({ json: '{"oops":', timestamp: 2000, label: 'bad' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText('No differences found.')).toBeTruthy();
+    });
+
+    it('shows select-two-versions prompt when a side is cleared', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'L' });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'R' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const leftSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(leftSelect, { target: { value: '' } });
+      expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
+    });
+
+    it('hides info bar when compare id string is set but version missing', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const leftSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(leftSelect, { target: { value: 'definitely-missing-id' } });
+      expect(screen.queryByText('Changes detected')).toBeNull();
+      expect(screen.queryByText('Same version selected')).toBeNull();
+    });
+
+    it('shows identical unordered status when arrays reorder under unordered mode', () => {
+      const v1 = mkVersion({ json: '{"x":[2,1]}', timestamp: 1000, label: 'o1' });
+      const v2 = mkVersion({ json: '{"x":[1,2]}', timestamp: 2000, label: 'o2' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"z":0}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByText(/Identical \(unordered\)/)).toBeTruthy();
+    });
+
+    it('exercises sortArraysDeep when nested arrays contain tie-break-equal children', () => {
+      const payload = '{"k":[[1,2],[1,2]]}';
+      const v1 = mkVersion({ json: payload, timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"k":1}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"z":0}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByTestId('diff-viewer')).toBeTruthy();
+    });
+
+    it('surfaces rules diff errors as empty rules diff', () => {
+      diffKitCtl.throwOnSecondDiffInRender = true;
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.click(screen.getByText(/Validation Rules/));
+      expect(screen.getByText('No differences found.')).toBeTruthy();
+    });
+
+    it('shows rule count chips when comparing versions with validation', () => {
+      const v1 = mkVersion({
+        json: '{"a":1}',
+        timestamp: 1000,
+        label: 'r1',
+        validationMode: 'selective',
+        expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+      });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'r2' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByText(/1 rule\(s\)/)).toBeTruthy();
+    });
+
+    it('switches back to Response tab and shows identical suffix when bodies match', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 's1' });
+      const v2 = mkVersion({ json: '{"a":1}', timestamp: 2000, label: 's2' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"z":0}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      fireEvent.click(screen.getByText(/Validation Rules/));
+      fireEvent.click(screen.getByRole('button', { name: /^Response/ }));
+      expect(screen.getByText(/Response \(identical\)/)).toBeTruthy();
+    });
+
+    it('does not close modal when clicking modal contents (overlay branch)', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
+      const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1, v2]}
+          currentJson='{"c":3}'
+        />,
+      );
+      fireEvent.click(screen.getByText('Compare'));
+      const modal = document.querySelector('.version-diff-modal') as HTMLElement;
+      fireEvent.click(modal);
+      expect(screen.getByText('Compare Versions')).toBeTruthy();
+    });
+  });
+
+  describe('branch coverage: save title duplicate hint', () => {
+    it('sets title when save would duplicate', () => {
+      const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'hint-title' });
+      render(
+        <ResponseVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentJson='{"a":1}'
+        />,
+      );
+      const btn = screen.getByText('Save as Version');
+      expect(btn.getAttribute('title')).toContain('Identical to hint-title');
     });
   });
 });

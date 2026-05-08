@@ -273,4 +273,139 @@ describe('TrainingPathCard', () => {
     const card = container.querySelector('.training-path-card');
     expect(card).not.toHaveClass('expanded');
   });
+
+  it('renders with filteredPhases showing match count (plural)', () => {
+    render(
+      <TrainingPathCard
+        path={defaultPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={true}
+        filteredPhases={[
+          {
+            phase: defaultPath.phases[0],
+            manuals: [defaultPath.phases[0].manuals[0], defaultPath.phases[0].manuals[1]],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('2 matches')).toBeInTheDocument();
+    expect(screen.getByText('Getting Started')).toBeInTheDocument();
+  });
+
+  it('renders with filteredPhases showing singular match count', () => {
+    render(
+      <TrainingPathCard
+        path={defaultPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={true}
+        filteredPhases={[
+          {
+            phase: defaultPath.phases[0],
+            manuals: [defaultPath.phases[0].manuals[0]],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
+
+  it('renders with filteredPhases showing 0 matches', () => {
+    render(
+      <TrainingPathCard
+        path={defaultPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={true}
+        filteredPhases={[
+          { phase: defaultPath.phases[0], manuals: [] },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('0 matches')).toBeInTheDocument();
+  });
+
+  it('passes filteredManuals to TrainingPhaseSection when filteredPhases is provided', () => {
+    render(
+      <TrainingPathCard
+        path={defaultPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={true}
+        filteredPhases={[
+          {
+            phase: defaultPath.phases[0],
+            manuals: [defaultPath.phases[0].manuals[0]],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Getting Started')).toBeInTheDocument();
+  });
+
+  it('filters out manuals without manualPath in unfiltered mode', () => {
+    const pathWithNoManualPath: TrainingPath = {
+      ...defaultPath,
+      phases: [
+        {
+          id: 1,
+          name: 'Phase A',
+          manuals: [
+            { title: 'Has Path', description: 'd', difficulty: 'easy', manualPath: 'a.html' },
+            { title: 'No Path', description: 'd', difficulty: 'easy' },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <TrainingPathCard
+        path={pathWithNoManualPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={true}
+      />
+    );
+
+    expect(screen.getByText('0/1 manuals (0%)')).toBeInTheDocument();
+  });
+
+  it('shows 0% progress when path has no manuals with manualPath', () => {
+    const emptyPath: TrainingPath = {
+      ...defaultPath,
+      phases: [
+        { id: 1, name: 'Empty Phase', manuals: [{ title: 'No Path', description: 'd', difficulty: 'easy' }] },
+      ],
+    };
+
+    render(
+      <TrainingPathCard
+        path={emptyPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+      />
+    );
+
+    expect(screen.getByText('0/0 manuals (0%)')).toBeInTheDocument();
+  });
+
+  it('ignores unrelated keyDown events', () => {
+    render(
+      <TrainingPathCard
+        path={defaultPath}
+        getManualProgress={mockGetManualProgress}
+        getBadge={mockGetBadge}
+        defaultExpanded={false}
+      />
+    );
+
+    const header = screen.getByRole('button', { name: /test suites/i });
+    fireEvent.keyDown(header, { key: 'Tab' });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+  });
 });

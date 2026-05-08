@@ -676,6 +676,96 @@ describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
     expect(refs).toContain('wait.conditionMet');
   });
 
+  it('includes script outputVariables from upstream', () => {
+    const scriptNode: WorkflowNode = {
+      id: 'sc1',
+      type: 'script',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Transform',
+        code: 'return {}',
+        mode: 'transform',
+        inputVariables: [],
+        outputVariables: ['parsed', 'count', '', '  ', 'fine'],
+        timeoutMs: 5000,
+        captureConsole: false,
+      },
+    };
+    const nodes = [scriptNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.map((h) => h.ref).sort()).toEqual(['count', 'fine', 'parsed']);
+    const parsed = hints.find((h) => h.ref === 'parsed');
+    expect(parsed?.type).toBe('string');
+    expect(parsed?.source).toEqual({ nodeId: 'sc1', nodeLabel: 'Transform', nodeType: 'script', category: 'Data' });
+    expect(parsed?.description).toContain('Transform');
+  });
+
+  it('script node with missing outputVariables adds no script hints', () => {
+    const scriptNode: WorkflowNode = {
+      id: 'sc1',
+      type: 'script',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'X',
+        code: '',
+        mode: 'transform',
+        inputVariables: [],
+        timeoutMs: 5000,
+        captureConsole: false,
+      } as WorkflowNode['data'],
+    };
+    delete (scriptNode.data as Record<string, unknown>).outputVariables;
+    const nodes = [scriptNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.length).toBe(0);
+  });
+
+  it('script with no label falls back to "Script"', () => {
+    const scriptNode: WorkflowNode = {
+      id: 'sc1',
+      type: 'script',
+      position: { x: 0, y: 0 },
+      data: {
+        label: '',
+        code: '',
+        mode: 'transform',
+        inputVariables: [],
+        outputVariables: ['out'],
+        timeoutMs: 5000,
+        captureConsole: false,
+      },
+    };
+    const nodes = [scriptNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const out = hints.find((h) => h.ref === 'out');
+    expect(out?.label).toContain('Script');
+    expect(out?.description).toContain('script "Script"');
+  });
+
+  it('skips script outputVariables entries that trim to empty', () => {
+    const scriptNode: WorkflowNode = {
+      id: 'sc1',
+      type: 'script',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'S',
+        code: '',
+        mode: 'transform',
+        inputVariables: [],
+        outputVariables: ['\t', '\n', 'keep'],
+        timeoutMs: 5000,
+        captureConsole: false,
+      },
+    };
+    const nodes = [scriptNode, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e', source: 'sc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.map((h) => h.ref)).toEqual(['keep']);
+  });
+
   it('includes start node inputVariables from upstream', () => {
     const startNode: WorkflowNode = {
       id: 's1', type: 'start', position: { x: 0, y: 0 },

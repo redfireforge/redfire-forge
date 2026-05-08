@@ -48,6 +48,13 @@ alwaysApply: true
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
 | `src/engine/workerProtocol.ts` | Typed message protocol for Main ↔ Worker comms |
+| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Results Explorer: three-panel modal (diagram + detail + matrix) |
+| `src/features/results/components/WorkflowExecutionCanvas.tsx` | Results Explorer: ReactFlow canvas with execution state overlay, search/filter dimming, save layout |
+| `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Results Explorer: tabbed detail panel (overview/request/response/variables/assertions) |
+| `src/features/results/components/IterationMatrixTable.tsx` | Results Explorer: iteration × node matrix table |
+| `src/features/workflow/engine/traceCollector.ts` | Trace capture during workflow execution |
+| `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
+| `src/styles/results-explorer.css` | All Results Explorer CSS (2400+ lines) |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 

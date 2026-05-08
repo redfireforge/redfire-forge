@@ -330,6 +330,65 @@ describe('useSharedDsCrud', () => {
       expect(result.current.usedByMap.get('ds-2')?.[0].testName).toBe('Draft Test');
       expect(result.current.usedByMap.get('ds-2')?.[0].isEditing).toBe(true);
     });
+    it('does not duplicate usedBy entries when editing path matches persisted test', () => {
+      const fgLinked = createMockFeatureGroup('fg-linked', 'ds-1');
+      const { result } = renderHook(() =>
+        useSharedDsCrud({
+          sharedDataSources: mockSources,
+          onUpdate: mockOnUpdate,
+          selectedId: 'ds-1',
+          setSelectedId: mockSetSelectedId,
+          setContextMenuId: mockSetContextMenuId,
+          setPendingNameFocusId: mockSetPendingNameFocusId,
+          featureGroups: [fgLinked],
+          currentEditingDraft: {
+            fgName: 'FG fg-linked',
+            scenarioName: 'Scenario fg-linked',
+            test: {
+              id: 't-draft',
+              name: 'Test fg-linked',
+              url: 'https://api.example.com',
+              method: 'GET',
+              headers: [],
+              body: '',
+              auth: { type: 'none' },
+              sharedDataSourceId: 'ds-1',
+            },
+          },
+        }),
+      );
+      expect(result.current.usedByMap.get('ds-1')).toHaveLength(1);
+    });
+
+    it('confirmDelete leaves selection untouched when deleting a different source id', () => {
+      const fgWithSharedDs = createMockFeatureGroup('fg-linked', 'ds-1');
+      const { result } = renderHook(() =>
+        useSharedDsCrud({
+          sharedDataSources: mockSources,
+          onUpdate: mockOnUpdate,
+          selectedId: 'ds-2',
+          setSelectedId: mockSetSelectedId,
+          setContextMenuId: mockSetContextMenuId,
+          setPendingNameFocusId: mockSetPendingNameFocusId,
+          featureGroups: [fgWithSharedDs],
+        }),
+      );
+
+      mockOnUpdate.mockClear();
+      mockSetSelectedId.mockClear();
+
+      act(() => {
+        result.current.handleDelete('ds-1');
+      });
+      expect(result.current.pendingDeleteId).toBe('ds-1');
+
+      act(() => {
+        result.current.confirmDelete();
+      });
+
+      expect(mockSetSelectedId).not.toHaveBeenCalled();
+      expect(mockOnUpdate).toHaveBeenCalled();
+    });
   });
 
   describe('totalRows', () => {
@@ -340,6 +399,22 @@ describe('useSharedDsCrud', () => {
 
     it('returns 0 for empty sources', () => {
       const { result } = renderCrudHook([]);
+      expect(result.current.totalRows).toBe(0);
+    });
+
+    it('treats shared data sources without rows as zero', () => {
+      const broken = { id: 'x', name: 'X', updatedAt: Date.now() } as SharedDataSource;
+      const { result } = renderHook(() =>
+        useSharedDsCrud({
+          sharedDataSources: [broken],
+          onUpdate: mockOnUpdate,
+          selectedId: null,
+          setSelectedId: mockSetSelectedId,
+          setContextMenuId: mockSetContextMenuId,
+          setPendingNameFocusId: mockSetPendingNameFocusId,
+          featureGroups: mockFeatureGroups,
+        }),
+      );
       expect(result.current.totalRows).toBe(0);
     });
   });

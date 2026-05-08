@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { HttpNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
+import type { WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -288,7 +288,7 @@ describe('runGraph', () => {
     await runGraph([start, h1], edges, {}, cb);
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number));
+    expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number), expect.any(Object));
   });
 
   it('findStartNodes prefers start-type nodes over root nodes', async () => {

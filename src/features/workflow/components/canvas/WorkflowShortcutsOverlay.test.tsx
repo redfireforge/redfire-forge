@@ -1,11 +1,39 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowShortcutsOverlay, { SHORTCUTS } from './WorkflowShortcutsOverlay';
 
 describe('WorkflowShortcutsOverlay', () => {
+  const originalUA = navigator.userAgent;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: originalUA, configurable: true });
+  });
+
+  it('uses Mac-style modifier label when user agent looks like macOS', async () => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      configurable: true,
+    });
+    vi.resetModules();
+    const { SHORTCUTS: MacShortcuts } = await import('./WorkflowShortcutsOverlay');
+    expect(MacShortcuts.some((s) => s.display.includes('⌘'))).toBe(true);
+  });
+
+  it('does not register Escape handler effect until overlay opens', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const { rerender } = render(
+      <WorkflowShortcutsOverlay open={false} onClose={vi.fn()} />,
+    );
+    const initialKeydownAdds = addSpy.mock.calls.filter((c) => c[0] === 'keydown').length;
+    rerender(<WorkflowShortcutsOverlay open={true} onClose={vi.fn()} />);
+    const afterOpenAdds = addSpy.mock.calls.filter((c) => c[0] === 'keydown').length;
+    expect(afterOpenAdds).toBeGreaterThan(initialKeydownAdds);
+    addSpy.mockRestore();
+  });
+
   it('does not render when open is false', () => {
     const { container } = render(
       <WorkflowShortcutsOverlay open={false} onClose={vi.fn()} />,
@@ -45,6 +73,13 @@ describe('WorkflowShortcutsOverlay', () => {
     render(<WorkflowShortcutsOverlay open={true} onClose={onClose} />);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onClose for non-Escape keys', () => {
+    const onClose = vi.fn();
+    render(<WorkflowShortcutsOverlay open={true} onClose={onClose} />);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose when backdrop is clicked', () => {

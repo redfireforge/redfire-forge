@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'rea
 import type { TestRun, RequestResult } from '../../shared/types';
 import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
-import { loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
+import { loadTestRunsLite, loadTraceForRun, deleteTestRun } from '../../shared/utils/storage';
 import { exportJson, exportCsv } from '../../shared/utils/export';
 import { buildGroups, hasWorkflowData, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
@@ -12,6 +12,9 @@ import { DataRowSummaryTable } from './components/DataRowSummaryTable';
 import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
+import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
+import { hasExecutionTrace, decompressTrace, validateTrace } from '../../shared/utils/traceCompression';
+import type { WorkflowExecutionTrace } from '../../shared/types';
 
 interface Props {
   envName?: string;
@@ -41,14 +44,14 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   const prevRerunning = useRef(false);
 
   useEffect(() => {
-    loadTestRuns().then(setAllRuns);
+    loadTestRunsLite().then(setAllRuns);
     loadBaselines().then(setBaselines);
   }, []);
 
   // Auto-refresh when a re-run completes
   useEffect(() => {
     if (prevRerunning.current && !isRerunning) {
-      loadTestRuns().then(setAllRuns);
+      loadTestRunsLite().then(setAllRuns);
     }
     prevRerunning.current = !!isRerunning;
   }, [isRerunning]);
@@ -92,6 +95,9 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 50;
+  const [showReplayModal, setShowReplayModal] = useState(false);
+  const [replayTrace, setReplayTrace] = useState<WorkflowExecutionTrace | null>(null);
+  const [traceLoading, setTraceLoading] = useState(false);
 
   useEffect(() => {
     if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
@@ -103,6 +109,32 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const summary = selectedRun?.summary ?? null;
+
+  const handleOpenResultsExplorer = useCallback(async () => {
+    if (!selectedRun) return;
+    if (selectedRun.executionTrace) {
+      setReplayTrace(selectedRun.executionTrace);
+      setShowReplayModal(true);
+      return;
+    }
+    if (selectedRun.compressedTrace) {
+      setReplayTrace(decompressTrace(selectedRun.compressedTrace));
+      setShowReplayModal(true);
+      return;
+    }
+    if (selectedRun.hasTrace) {
+      setTraceLoading(true);
+      try {
+        const compressed = await loadTraceForRun(selectedRun.id);
+        if (compressed) {
+          setReplayTrace(decompressTrace(compressed));
+          setShowReplayModal(true);
+        }
+      } finally {
+        setTraceLoading(false);
+      }
+    }
+  }, [selectedRun]);
 
   const handleDelete = async (runId: string) => {
     await deleteTestRun(runId);
@@ -119,11 +151,36 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   };
 
   const refreshRuns = async () => {
-    const fresh = await loadTestRuns();
+    const fresh = await loadTestRunsLite();
     setAllRuns(fresh);
     const bl = await loadBaselines();
     setBaselines(bl);
   };
+
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
+
+  const handleImportTrace = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        const trace = validateTrace(data);
+        setReplayTrace(trace);
+        setImportedFileName(file.name);
+        setShowReplayModal(true);
+      } catch (err) {
+        setImportError(err instanceof Error ? err.message : 'Failed to parse trace file');
+      }
+    };
+    reader.onerror = () => setImportError('Failed to read file');
+    reader.readAsText(file);
+    e.target.value = '';
+  }, []);
 
   const toggleBaseline = useCallback(async (runId: string) => {
     if (isBaseline(baselines, runId)) {
@@ -342,9 +399,23 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       <div className="page">
         <div className="page-header">
           <h2>Results</h2>
-          <button className="btn" onClick={refreshRuns}>Refresh</button>
+          <div className="results-top-actions">
+            <button className="btn" onClick={refreshRuns}>Refresh</button>
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
+              📂 Import Trace
+            </button>
+            <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
+          </div>
         </div>
+        {importError && <div className="results-import-error">{importError}</div>}
         <div className="empty-state">No test runs yet. Run a test first.</div>
+        {showReplayModal && replayTrace && (
+          <WorkflowResultsExplorerModal
+            trace={replayTrace}
+            onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+            importedFileName={importedFileName ?? undefined}
+          />
+        )}
       </div>
     );
   }
@@ -388,10 +459,26 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               )}
             </div>
           )}
+          {importError && <div className="results-import-error">{importError}</div>}
           <div className="results-top-actions">
             <button className="btn" onClick={refreshRuns}>Refresh</button>
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
+              📂 Import Trace
+            </button>
+            <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
             {selectedRun && (
               <>
+                {/* Results Explorer button (workflow runs only) */}
+                {hasExecutionTrace(selectedRun) && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleOpenResultsExplorer}
+                    disabled={traceLoading}
+                    title="Explore execution results"
+                  >
+                    {traceLoading ? '⏳ Loading trace…' : '📊 Results Explorer'}
+                  </button>
+                )}
                 <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
                 <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
                 <div className="report-menu-wrapper">
@@ -519,8 +606,22 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             </div>
             <div className="metric-card">
               <div className="metric-value">{summary.avgResponseTime} ms</div>
-              <div className="metric-label">Avg Response</div>
+              <div className="metric-label">
+                Avg Response
+                {summary.avgIterationTime !== undefined && (
+                  <span className="metric-info" data-tooltip="Average HTTP request duration">ⓘ</span>
+                )}
+              </div>
             </div>
+            {summary.avgIterationTime !== undefined && (
+              <div className="metric-card highlight">
+                <div className="metric-value">{summary.avgIterationTime} ms</div>
+                <div className="metric-label">
+                  Avg Iteration
+                  <span className="metric-info" data-tooltip="Average workflow iteration duration (all nodes)">ⓘ</span>
+                </div>
+              </div>
+            )}
             <div className="metric-card">
               <div className="metric-value">{summary.minResponseTime} ms</div>
               <div className="metric-label">Min</div>
@@ -732,6 +833,15 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       </div>
 
       <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
+
+      {/* Results Explorer Modal */}
+      {showReplayModal && replayTrace && (
+        <WorkflowResultsExplorerModal
+          trace={replayTrace}
+          onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+          importedFileName={importedFileName ?? undefined}
+        />
+      )}
     </div>
   );
 }

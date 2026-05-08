@@ -1218,6 +1218,7 @@
 .jt-comma { color: var(--text-muted); opacity: 0.5; }
 .jt-error { padding: 16px; color: #f87171; white-space: pre-wrap; word-break: break-word; }
 .jt-raw { padding: 16px; color: var(--text); white-space: pre-wrap; word-break: break-word; overflow: auto; }
+.jt-raw-formatted { font-size: 0.82rem; line-height: 1.5; max-height: 70vh; }
 
 /* ─── Catalog request badges (sidebar) ─── */
 .req-req-catalog-badge {

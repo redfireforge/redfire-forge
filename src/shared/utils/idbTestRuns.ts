@@ -30,6 +30,31 @@ export async function idbLoadTestRuns(): Promise<TestRun[]> {
   return all;
 }
 
+/**
+ * Load all test runs WITHOUT compressedTrace (lightweight).
+ * Sets hasTrace=true if compressedTrace existed. Used for dashboard list loading.
+ */
+export async function idbLoadTestRunsLite(): Promise<TestRun[]> {
+  const store = await tx('readonly');
+  const all: TestRun[] = await wrap(store.getAll());
+  all.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+  return all.map(run => {
+    if (!run.compressedTrace) return run;
+    const { compressedTrace: _, ...lite } = run;
+    return { ...lite, hasTrace: true };
+  });
+}
+
+/**
+ * Load only the compressedTrace for a single run by ID.
+ * Returns the compressed string, or undefined if not found / no trace.
+ */
+export async function idbLoadTrace(runId: string): Promise<string | undefined> {
+  const store = await tx('readonly');
+  const run: TestRun | undefined = await wrap(store.get(runId));
+  return run?.compressedTrace;
+}
+
 /** Save (put) a single test run. */
 export async function idbSaveTestRun(run: TestRun): Promise<void> {
   const store = await tx('readwrite');

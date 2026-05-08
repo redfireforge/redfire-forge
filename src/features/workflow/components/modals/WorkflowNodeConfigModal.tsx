@@ -83,7 +83,7 @@ interface Props {
 }
 
 export default function WorkflowNodeConfigModal({
-  node, workflowVariables, onUpdateNode, onDeleteNode, onClose, workflowId,
+  node, workflowVariables, onUpdateNode, onDeleteNode: _onDeleteNode, onClose, workflowId,
   lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl,
   resolveBaseUrl, fallbackBaseUrl = '',
   extractionSampleResponseBody, extractionFetchSample,
@@ -180,21 +180,13 @@ export default function WorkflowNodeConfigModal({
         titleId="wf-config-modal-title"
         onClose={handleCancel}
         expandMode="fullscreen"
-        headerActions={(
-          <button
-            type="button"
-            className="btn btn-sm btn-danger"
-            onClick={() => { onDeleteNode(node.id); onClose(); }}
-            title="Delete node"
-          >
-            Delete
-          </button>
-        )}
+        hideExpandButton
+        hideCloseButton
         footer={(
-          <>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Cancel</button>
+          <div className="wf-config-modal-footer-actions">
+            <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>
             <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
-          </>
+          </div>
         )}
       >
           {isHttpWorkflowNode(draftNode) && (

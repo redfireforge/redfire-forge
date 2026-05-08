@@ -4,6 +4,7 @@ import { render, fireEvent } from '@testing-library/react';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '../../../shared/types';
 import type { BaselineMark } from '../utils/runBaselines';
+import * as runBaselines from '../utils/runBaselines';
 
 vi.mock('./ResponseTimeHistogram', () => ({
   ResponseTimeOverlayHistogram: () => <div data-testid="overlay-histogram" />,
@@ -214,6 +215,27 @@ describe('RunComparisonPanel', () => {
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
     expect(container.querySelector('.tab-alert')).toBeTruthy();
   });
+
+  it('renders TPS improvement styling on overview when compare marks it improved', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'TPS',
+        baselineValue: 10,
+        currentValue: 20,
+        delta: 10,
+        deltaPercent: 100,
+        regressed: false,
+        improved: true,
+      }],
+      scenarioDeltas: [],
+      regressions: [],
+    } as any);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    expect(container.querySelector('.row-improved')).toBeTruthy();
+    spy.mockRestore();
+  });
 });
 
 describe('TrendChart', () => {
@@ -263,5 +285,87 @@ describe('TrendChart', () => {
     const { container } = render(<TrendChart runs={runs} baselines={baselines} />);
     expect(container.querySelector('[data-testid="line-with-dot"]')).toBeTruthy();
     expect(container.querySelector('circle[r="6"]')).toBeTruthy();
+  });
+});
+
+describe('RunComparisonPanel - edge cases', () => {
+  it('shows status-neutral badge when scenario has no improvement', () => {
+    const baseline = makeRun(
+      'b',
+      {},
+      [makeReq({ scenarioName: 'Same', responseTimeMs: 100 })],
+    );
+    const current = makeRun(
+      'c',
+      {},
+      [makeReq({ scenarioName: 'Same', responseTimeMs: 100 })],
+    );
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    expect(container.querySelector('.status-neutral')).toBeTruthy();
+    expect(container.textContent).toContain('OK');
+  });
+
+  it('shows delta-worse class for increased error rate', () => {
+    const baseline = makeRun(
+      'b',
+      {},
+      [
+        makeReq({ scenarioName: 'API', httpStatus: 200, responseTimeMs: 100 }),
+        makeReq({ scenarioName: 'API', httpStatus: 200, responseTimeMs: 100 }),
+      ],
+    );
+    const current = makeRun(
+      'c',
+      {},
+      [
+        makeReq({ scenarioName: 'API', httpStatus: 500, responseTimeMs: 100 }),
+        makeReq({ scenarioName: 'API', httpStatus: 200, responseTimeMs: 100 }),
+      ],
+    );
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    expect(container.querySelector('.delta-worse')).toBeTruthy();
+  });
+
+  it('does not show featureGroupName when it is undefined', () => {
+    const baseline = makeRun(
+      'b',
+      {},
+      [makeReq({ scenarioName: 'NoGroup', featureGroupName: undefined, responseTimeMs: 50 })],
+    );
+    const current = makeRun(
+      'c',
+      {},
+      [makeReq({ scenarioName: 'NoGroup', featureGroupName: undefined, responseTimeMs: 100 })],
+    );
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[1]);
+    expect(container.querySelector('.scenario-fg')).toBeFalsy();
+    expect(container.textContent).toContain('NoGroup');
+  });
+
+  it('shows warning regression alert for moderate regression', () => {
+    const baseline = makeRun('b', { p95ResponseTime: 100 });
+    const current = makeRun('c', { p95ResponseTime: 115 }); // +15%
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const warning = container.querySelector('.regression-alert.regression-warning');
+    expect(warning).toBeTruthy();
+    expect(warning?.textContent).toContain('🟡');
+  });
+
+  it('shows regression detail without delta body when metric is missing from deltas', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{ metric: 'TPS', baselineValue: 1, currentValue: 2, delta: 1, deltaPercent: 100, regressed: false, improved: true }],
+      scenarioDeltas: [],
+      regressions: [{ severity: 'warning' as const, metric: 'Ghost' }],
+    } as any);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
+    expect(container.querySelector('.regression-detail')).toBeTruthy();
+    expect(container.querySelector('.regression-detail-body')).toBeFalsy();
+    spy.mockRestore();
   });
 });

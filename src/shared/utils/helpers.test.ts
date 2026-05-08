@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById, deepClone } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById, deepClone, formatJson, truncate } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -296,6 +296,45 @@ describe('prettyJson', () => {
   it('returns partial JSON unchanged', () => {
     const input = '{"incomplete":';
     expect(prettyJson(input)).toBe(input);
+  });
+});
+
+describe('formatJson', () => {
+  it('returns empty string for undefined and empty', () => {
+    expect(formatJson(undefined)).toBe('');
+    expect(formatJson('')).toBe('');
+  });
+
+  it('matches prettyJson for non-empty input', () => {
+    const input = '{"a":1}';
+    expect(formatJson(input)).toBe(prettyJson(input));
+  });
+});
+
+describe('truncate', () => {
+  it('returns short strings when prefix limit not exceeded (suffix appended mode)', () => {
+    expect(truncate('hi', 100, '...', false)).toBe('hi');
+  });
+
+  it('truncates with default append style like former truncateValue', () => {
+    const s = 'a'.repeat(101);
+    expect(truncate(s, 100, '...', false)).toBe('a'.repeat(100) + '...');
+  });
+
+  it('does not truncate when length equals maxLength in append mode', () => {
+    const s = 'a'.repeat(100);
+    expect(truncate(s, 100, '...', false)).toBe(s);
+  });
+
+  it('respects custom maxLength in append mode', () => {
+    expect(truncate('hello world', 5, '...', false)).toBe('hello...');
+  });
+
+  it('caps total length including suffix when suffixInsideBudget is true', () => {
+    expect(truncate('hello world', 5, '…')).toBe('hell…');
+    const label = 'a'.repeat(15);
+    expect(truncate(label, 15, '…')).toBe(label);
+    expect(truncate('a'.repeat(16), 15, '…')).toBe('a'.repeat(14) + '…');
   });
 });
 

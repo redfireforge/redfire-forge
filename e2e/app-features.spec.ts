@@ -260,14 +260,10 @@ test.describe('Execution Mode Selector', () => {
     await page.goto('/?tab=runner');
     await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
 
-    // Execution mode uses radio buttons, not a select
-    const execLabel = page.locator('.runner-exec-label');
-    if (await execLabel.isVisible()) {
-      await expect(execLabel).toContainText('Execution Mode');
-      // Verify at least one radio button exists
-      const radios = page.locator('input[name="execMode"]');
-      const count = await radios.count();
-      expect(count).toBeGreaterThanOrEqual(2);
-    }
+    // Execution mode is shown as a label with radio buttons
+    await expect(page.getByText('Execution Mode:')).toBeVisible();
+    // Verify at least the main execution mode options exist
+    await expect(page.getByText('Sequential')).toBeVisible();
+    await expect(page.getByText('Batch')).toBeVisible();
   });
 });

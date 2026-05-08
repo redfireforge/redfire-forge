@@ -67,6 +67,8 @@ redfireforge --cli run tests/test.yaml
 
 **Note:** The desktop CLI mode requires Node.js because it executes the bundled JavaScript CLI. If Node.js is not available, the app will suggest using the standalone npm package instead.
 
+**Full Option Parity:** The desktop `--cli` mode supports all the same options as the standalone npm CLI (`run`, `workflow`, `validate`, `validate-workflow`) — including `--data`, `--tags`, `--error-policy`, `--duration`, and all other flags documented below.
+
 **Available Commands in Desktop CLI Mode:**
 
 ```bash
@@ -256,6 +258,7 @@ npx tsx cli/index.ts workflow <file> [options]
 | `-i, --iterations <n>` | integer | 10 | Total number of workflow iterations |
 | `-c, --concurrency <n>` | integer | 1 | Number of concurrent iterations |
 | `--var <vars...>` | string | - | Set workflow variables (format: `name=value`) |
+| `--base-url <url>` | string | - | Base URL for HTTP nodes with relative paths |
 | `--timeout <sec>` | integer | 30 | Per-request timeout in seconds |
 
 ##### Error Handling
@@ -556,14 +559,18 @@ npx tsx cli/index.ts run tests/api-test.yaml \
   -q
 ```
 
-### 4. Override Variables for Different Environments
+### 4. Override Base URL for Different Environments
 
 ```bash
 # Staging
 npx tsx cli/index.ts workflow workflows/checkout.yaml \
-  --var baseUrl=https://staging.example.com
+  --base-url https://staging.example.com
 
 # Production
+npx tsx cli/index.ts workflow workflows/checkout.yaml \
+  --base-url https://api.example.com
+
+# Or via workflow variable (equivalent, but --base-url is preferred)
 npx tsx cli/index.ts workflow workflows/checkout.yaml \
   --var baseUrl=https://api.example.com
 ```
