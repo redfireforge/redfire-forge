@@ -57,6 +57,7 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 | Guide | Description |
 |-------|-------------|
 | [Results Guide](./results-guide.md) | Results dashboard, metrics, filtering, export |
+| [Results Explorer Guide](./results-explorer-guide.md) | Visual workflow execution analysis: diagram, detail panel, iteration matrix, search/filter, bottleneck analysis |
 | [Results Comparison Guide](./results-comparison-guide.md) | Baseline comparison, trend analysis |
 | [Results Export Guide](./results-export-guide.md) | JSON, CSV, Markdown, JUnit export formats |
 | [Runners Comparison](./runners-comparison.md) | Test Runner vs Workflow Runner comparison |
@@ -139,14 +140,16 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 2. [Test Runner Guide](./test-runner-guide.md) — Execution modes
 3. [Parameterized Testing Guide](./parameterized-testing-guide.md) — Data-driven tests
 4. [Results Guide](./results-guide.md) — Metrics and analysis
-5. [CLI Reference](./cli-reference.md) — Automated testing
+5. [Results Explorer Guide](./results-explorer-guide.md) — Visual execution analysis
+6. [CLI Reference](./cli-reference.md) — Automated testing
 
 ### For Workflow Testing
 
 1. [Workflow Designer Guide](./workflow-designer-guide.md) — Build workflows
 2. [Workflow Nodes Reference](./workflow-nodes-reference.md) — Node types
 3. [Workflow Runner Guide](./workflow-runner-guide.md) — Performance test workflows
-4. [Runners Comparison](./runners-comparison.md) — When to use which
+4. [Results Explorer Guide](./results-explorer-guide.md) — Visual execution analysis
+5. [Runners Comparison](./runners-comparison.md) — When to use which
 
 ### For CI/CD Integration
 

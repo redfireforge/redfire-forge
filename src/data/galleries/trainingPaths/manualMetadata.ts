@@ -124,6 +124,9 @@ export const manualMetadata: ManualMetadata[] = [
 
   // Edge Traversal Percentages
   { manualPath: 'edge-traversal-percentages-guide.html', addedAt: date('2026-05-07') },
+
+  // Results Explorer
+  { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

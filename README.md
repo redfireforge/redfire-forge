@@ -921,6 +921,31 @@ A bar chart shows the distribution of response times in histogram buckets.
 - **Export CSV**: Flat table suitable for spreadsheets.
 - All exports use a native "Save As" dialog with sensible default filenames.
 
+#### Results Explorer (Workflow Runs)
+
+After running a workflow, click **📊 Results Explorer** to open a full-screen modal for visual execution analysis.
+
+**Three-Panel Layout:**
+
+- **Left — Workflow Diagram**: Read-only React Flow canvas showing execution state. Nodes colored green (pass), red (fail), or gray (skipped). Traversed edges show animated flowing dash; untaken edges are gray dashed. Heatmap gradient colors nodes by avg response time. Bottleneck nodes get a pulsing border.
+- **Right — Detail Panel**: Click any node for tabbed details (Overview, Request, Response, Variables, Assertions). Shows hero stats, timing breakdown, per-iteration drill-down.
+- **Bottom — Iteration Matrix**: Collapsible table (rows = iterations, columns = HTTP nodes) with sort, filter, error search, and cell click to jump to node+iteration.
+
+**Key Features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Search & Filter** | Search bar to find nodes by name; filter buttons (All / Pass / Fail / Skipped). Non-matching nodes dimmed. Press `/` to focus. |
+| **Save Layout** | Drag nodes to custom positions and save via pill controls. Restored automatically on next open. |
+| **Heatmap** | Nodes colored green→yellow→orange→red by avg duration. |
+| **Bottleneck Analysis** | Identifies time-dominant, high-variance, and high-failure nodes with suggestions. |
+| **Edge Traversal %** | Branching edges show traversal percentage labels in aggregate view. |
+| **Iteration Picker** | Rich dropdown with filter tabs (All / Failed / Slowest), jump-to-# search. |
+| **Export** | Export trace as JSON or aggregate metrics as CSV. Import previously exported traces. |
+| **Keyboard Shortcuts** | `←/→` iterate, `1-9` jump, `Space` toggle, `A` aggregate, `M` matrix, `/` search, `Esc` close. |
+
+**Requirements:** Enable **"Capture Full Trace"** in Workflow Runner config before running to capture request/response details. Without it, only timing and pass/fail data are available.
+
 ---
 
 ## Feature Reference

@@ -19,7 +19,7 @@ interface IterationChartProps {
   maxHeight?: number;
 }
 
-function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartProps) {
+export function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);

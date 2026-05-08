@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
-import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
+import WorkflowExecutionCanvas, { type NodeStateFilter } from './WorkflowExecutionCanvas';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
+import IterationPicker from './IterationPicker';
 import { saveJsonFile, saveCsvFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 
 interface Props {
   trace: WorkflowExecutionTrace;
@@ -30,6 +32,9 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   );
   const [matrixCollapsed, setMatrixCollapsed] = useState(true);
   const [fitViewTrigger, setFitViewTrigger] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stateFilter, setStateFilter] = useState<NodeStateFilter>('all');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sampledCount = useMemo(
     () => trace.iterations.filter(i => i.sampled !== false).length,
@@ -45,6 +50,12 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
 
   const isSelectedIterationSampled = selectedIteration !== undefined
     && trace.iterations[selectedIteration]?.sampled !== false;
+
+  const [bottleneckInsights, setBottleneckInsights] = useState<BottleneckInsight[]>([]);
+
+  const handleBottlenecksComputed = useCallback((insights: BottleneckInsight[]) => {
+    setBottleneckInsights(insights);
+  }, []);
 
   // Build a per-iteration trace for canvas display
   const canvasTrace = useMemo<WorkflowExecutionTrace>(() => {
@@ -86,6 +97,25 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const failedIterationCount = useMemo(() => {
     return trace.iterations.filter(iter => !iter.passed).length;
   }, [trace.iterations]);
+
+  // Node state counts for filter badges
+  const nodeStateCounts = useMemo(() => {
+    const counts = { pass: 0, fail: 0, skipped: 0 };
+    const nodes = trace.workflowSnapshot.nodes as Array<{ id: string }>;
+    for (const node of nodes) {
+      let state: 'pass' | 'fail' | 'skipped' = 'skipped';
+      for (const iter of trace.iterations) {
+        for (const ev of iter.events) {
+          if (ev.nodeId !== node.id) continue;
+          if (ev.state === 'fail') { state = 'fail'; break; }
+          if (ev.state === 'pass') state = 'pass';
+        }
+        if (state === 'fail') break;
+      }
+      counts[state]++;
+    }
+    return counts;
+  }, [trace]);
 
   // Calculate average HTTP response time (only HTTP nodes with timing)
   const avgHttpResponseTime = useMemo(() => {
@@ -146,6 +176,11 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
         if (idx < trace.totalIterations) {
           setSelectedIteration(idx);
         }
+      } else if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement;
+        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        searchInputRef.current?.focus();
       }
     };
 
@@ -230,6 +265,17 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
             <span className="results-explorer-subtitle">Results Explorer</span>
           </div>
           <div className="results-explorer-meta">
+            {trace.totalIterations > 1 && (
+              <>
+                <IterationPicker
+                  iterations={trace.iterations}
+                  selectedIteration={selectedIteration}
+                  onSelect={setSelectedIteration}
+                  failedCount={failedIterationCount}
+                />
+                <span className="results-explorer-meta-sep">•</span>
+              </>
+            )}
             <span>{timestamp}</span>
             <span className="results-explorer-meta-sep">•</span>
             <span>{trace.totalIterations} iteration{trace.totalIterations !== 1 ? 's' : ''}</span>
@@ -314,7 +360,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           </div>
           <div className="results-explorer-footer-actions">
             <span className="results-explorer-shortcuts">
-              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • Esc close
+              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • / search • Esc close
             </span>
             <button className="cat-btn" onClick={onClose}>
               Close
@@ -326,6 +372,44 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
       <div className="results-explorer-body">
         {/* Left Panel: Workflow Diagram */}
         <div className="results-explorer-diagram">
+          <div className="node-search-bar" data-testid="node-search-bar">
+            <div className="node-search-input-wrap">
+              <svg className="node-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="node-search-input"
+                placeholder="Search nodes… ( / )"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); (e.target as HTMLInputElement).blur(); } }}
+                data-testid="node-search-input"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="node-search-clear"
+                  onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
+                  data-testid="node-search-clear"
+                >×</button>
+              )}
+            </div>
+            <div className="node-filter-btns">
+              {(['all', 'pass', 'fail', 'skipped'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`node-filter-btn node-filter-btn-${f}${stateFilter === f ? ' active' : ''}`}
+                  onClick={() => setStateFilter(stateFilter === f ? 'all' : f)}
+                  data-testid={`node-filter-${f}`}
+                >
+                  {f === 'all' ? 'All' : f === 'pass' ? `Pass (${nodeStateCounts.pass})` : f === 'fail' ? `Fail (${nodeStateCounts.fail})` : `Skip (${nodeStateCounts.skipped})`}
+                </button>
+              ))}
+            </div>
+          </div>
           <ReactFlowProvider>
             <WorkflowExecutionCanvas
               trace={canvasTrace}
@@ -334,6 +418,9 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
               showMinimap={showMinimap}
               onToggleMinimap={() => setShowMinimap(!showMinimap)}
               fitViewTrigger={fitViewTrigger}
+              onBottlenecksComputed={handleBottlenecksComputed}
+              searchQuery={searchQuery}
+              stateFilter={stateFilter}
             />
           </ReactFlowProvider>
         </div>
@@ -379,6 +466,34 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                   <span className="summary-stat-label">Avg Duration</span>
                 </div>
               </div>
+              {bottleneckInsights.length > 0 && (
+                <div className="bottleneck-insights-panel" data-testid="bottleneck-insights">
+                  <div className="bottleneck-insights-title">Bottleneck Analysis</div>
+                  {bottleneckInsights.map((insight, i) => (
+                    <button
+                      key={`${insight.nodeId}-${i}`}
+                      className={`bottleneck-insight-card bottleneck-insight-${insight.severity}`}
+                      onClick={() => handleNodeClick(insight.nodeId)}
+                      data-testid={`bottleneck-insight-${i}`}
+                    >
+                      <div className="bottleneck-insight-header">
+                        <span className="bottleneck-insight-icon">
+                          {insight.severity === 'critical' ? '🔥' : insight.severity === 'warning' ? '⚠️' : 'ℹ️'}
+                        </span>
+                        <span className="bottleneck-insight-node">{insight.nodeLabel}</span>
+                        <span className={`bottleneck-insight-severity bottleneck-severity-${insight.severity}`}>
+                          {insight.severity}
+                        </span>
+                      </div>
+                      <div className="bottleneck-insight-message">{insight.message}</div>
+                      <div className="bottleneck-insight-suggestion">{insight.suggestion}</div>
+                      <div className="bottleneck-insight-metric">
+                        {insight.metric.label}: <strong>{insight.metric.value}</strong>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -499,6 +499,13 @@ export const workflowPaths: TrainingPath[] = [
             manualPath: 'workflow/runner/workflow-runner-results-medium.html',
           },
           {
+            title: 'Results Explorer',
+            description: 'Visual execution analysis — interactive diagram, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, and export.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-bottleneck',
+            manualPath: 'workflow/runner/results-explorer-medium.html',
+          },
+          {
             title: 'Edge Traversal Percentages',
             description: 'Visualize branch path distribution across iterations — see which paths are taken and how often.',
             difficulty: 'easy',

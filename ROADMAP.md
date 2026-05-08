@@ -387,12 +387,13 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 - [x] **Trace Data Model** — `WorkflowExecutionTrace`, `WorkflowIterationTrace`, `ExecutionEvent`, `ExecutionEventDetails` types; `TestRun.executionTrace` field; `fullTraceCaptured` flag
 - [x] **TraceCollector** — `traceCollector.ts` class with `onNodeStart`, `onNodeComplete`, `onEdgeTraversed`; integrated into `graphRunner.ts` and `graphLoadRunner.ts`
-- [x] **WorkflowResultsExplorerModal** — Full-screen modal with split layout: read-only workflow canvas (left) + detail panel (right); opened via "Explore Results" button in Results Dashboard
+- [x] **WorkflowResultsExplorerModal** — Full-screen modal with split layout: read-only workflow canvas (left) + detail panel (right); opened via "📊 Results Explorer" button in Results Dashboard
 - [x] **WorkflowExecutionCanvas** — Read-only React Flow canvas with pass/fail/skipped node coloring, traversed edge highlighting, timing overlays, fit-to-view, minimap
 - [x] **NodeExecutionDetailPanel** — Click a node to see HTTP request/response, timing breakdown, variable state, condition evaluation, loop iteration data; iteration selector dropdown
 - [x] **IterationMatrixTable** — Collapsible bottom table showing all iterations × nodes with status/timing; click cell to jump to node+iteration on canvas; non-HTTP overhead displayed inline
 - [x] **Aggregate Overlay** — When no node selected, shows summary statistics across all iterations
 - [x] **Phase 5: Polish & Optimization** — Trace compression (lz-string), trace sampling (configurable threshold), lazy trace loading, node tooltips, export/import trace as JSON, error surfacing in trace, real-time avg iteration metric, progress display fix, floating point precision fix, iteration overhead breakdown, edge traversal percentages on branching edges, edge traversal gallery sample & training manual, additional keyboard shortcuts (Space toggle, 1-9 jump), animated edge flow, export aggregate metrics as CSV, heatmap coloring (nodes colored by avg duration)
+- [x] **Post-Phase Enhancements** — Bottleneck analysis (time-dominant, high-variance, high-failure nodes with suggestions), iteration picker redesign (filter tabs, jump-to-#, p95 badges), save layout (persist node positions to localStorage), node search & filter (search bar + state filter buttons with dimming, `/` hotkey)
 
 ### Phase 0.5.8b — Correlation Wait Runner Config & Webhook Load Driver 🚧 IN PROGRESS
 
@@ -622,4 +623,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-05-08 (v0.5.7-beta.1 — on `feature/correlation-wait-runner-config` branch; Workflow ↔ Harness integration done, Visual Execution Replay & Phase 5 Polish 100% complete (17/17), Parameterized Testing done; load testing at Good; 191/235 items done)_
+_Last updated: 2026-05-08 (v0.5.6-beta.1 — on `feature/trace-optimization-and-url-resolution` branch; Workflow ↔ Harness integration done, Visual Execution Replay & Results Explorer fully complete (17/17 Phase 5 + post-phase enhancements), Parameterized Testing done; load testing at Good; 192/235 items done)_
