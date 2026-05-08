@@ -425,7 +425,138 @@ describe('workflowAutoLayout - Additional Coverage', () => {
     });
   });
 
+  describe('switch handleOrder / branch sorting', () => {
+    it('skips condition branch centering when both targets collapse past join stops (no drawable bounds)', () => {
+      const nodes = [
+        makeNode('cond', 'condition'),
+        makeNode('join', 'join'),
+      ];
+      const edges: Edge[] = [
+        makeEdge('e1', 'cond', 'join', 'true'),
+        makeEdge('e2', 'cond', 'join', 'false'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result).toHaveLength(2);
+    });
+
+    it('skips fork centering when fewer than two drawable nodes exist between fork and join', () => {
+      const nodes = [
+        makeNode('fork', 'fork'),
+        makeNode('a', 'http'),
+        makeNode('join', 'join'),
+      ];
+      const edges = [
+        makeEdge('e1', 'fork', 'join'),
+        makeEdge('e2', 'fork', 'a'),
+        makeEdge('e3', 'a', 'join'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result).toHaveLength(3);
+    });
+
+    it('uses fallback rank 500 for handles that are not case-N, default, or errorHandler labels', () => {
+      const nodes = [
+        makeNode('sw', 'switch'),
+        makeNode('a', 'http'),
+        makeNode('b', 'http'),
+        makeNode('c', 'http'),
+      ];
+      const edges: Edge[] = [
+        makeEdge('e1', 'sw', 'a', 'zebra'),
+        makeEdge('e2', 'sw', 'b', 'case-12'),
+        makeEdge('e3', 'sw', 'c', 'mystery'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+
+      const ordered = ['a', 'b', 'c'].sort(
+        (i, j) => result.find(n => n.id === i)!.position.x - result.find(n => n.id === j)!.position.x,
+      );
+      const bRank = ordered.indexOf('b');
+      expect(bRank).toBeLessThan(ordered.indexOf('a'));
+      expect(bRank).toBeLessThan(ordered.indexOf('c'));
+    });
+
+    it('treats case handles without a trailing digit as fallback rank 500', () => {
+      const nodes = [
+        makeNode('sw', 'switch'),
+        makeNode('a', 'http'),
+        makeNode('b', 'http'),
+      ];
+      const edges: Edge[] = [
+        makeEdge('e1', 'sw', 'a', 'case-no-digits-here'),
+        makeEdge('e2', 'sw', 'b', 'case-3'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result.find(n => n.id === 'b')!.position.x).toBeLessThan(result.find(n => n.id === 'a')!.position.x);
+    });
+
+    it('skips case spread when only one switch branch has a finite subtree (others converge at target)', () => {
+      const nodes = [makeNode('sw', 'switch'), makeNode('a', 'http'), makeNode('b', 'http')];
+      const edges: Edge[] = [
+        makeEdge('e1', 'sw', 'a'),
+        makeEdge('e2', 'sw', 'b'),
+        makeEdge('e3', 'a', 'b'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result.every(n => Number.isFinite(n.position.x) && Number.isFinite(n.position.y))).toBe(true);
+    });
+
+    it('does not run case layout when switch has fewer than two outgoing edges', () => {
+      const nodes = [makeNode('sw', 'switch'), makeNode('a', 'http')];
+      const edges = [makeEdge('e1', 'sw', 'a')];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result).toHaveLength(2);
+    });
+
+    it('sorts null/undefined sourceHandles between case order and default', () => {
+      const nodes = [
+        makeNode('sw', 'switch'),
+        makeNode('a', 'http'),
+        makeNode('b', 'http'),
+        makeNode('c', 'http'),
+      ];
+      const edges: Edge[] = [
+        { id: 'e1', source: 'sw', target: 'a', sourceHandle: 'default' },
+        { id: 'e2', source: 'sw', target: 'b' },
+        { id: 'e3', source: 'sw', target: 'c', sourceHandle: 'case-0' },
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      const byX = ['a', 'b', 'c']
+        .map(id => ({ id, x: result.find(n => n.id === id)!.position.x }))
+        .sort((p, q) => p.x - q.x);
+      expect(byX.map(p => p.id)).toEqual(['c', 'b', 'a']);
+    });
+  });
+
   describe('Edge cases', () => {
+    it('stops linear chain propagation when an intermediate node fans out to multiple children', () => {
+      const nodes = [
+        makeNode('start', 'start'),
+        makeNode('a', 'http'),
+        makeNode('b', 'http'),
+        makeNode('c', 'http'),
+      ];
+      const edges = [
+        makeEdge('e1', 'start', 'a'),
+        makeEdge('e2', 'a', 'b'),
+        makeEdge('e3', 'a', 'c'),
+      ];
+      const result = getAutoLayoutNodes(nodes, edges, 'TB');
+      expect(result.every(n => Number.isFinite(n.position.x))).toBe(true);
+    });
+
+    it('treats nodes without a type as full-size (non-compact) for layout dimensions', () => {
+      const nodes = [{ id: 'odd', position: { x: 0, y: 0 }, data: {} } as Node];
+      const r = getAutoLayoutNodes(nodes, [], 'TB');
+      expect(r).toHaveLength(1);
+      expect(Number.isFinite(r[0].position.x)).toBe(true);
+    });
+
+    it('handles join node with no incoming edges', () => {
+      const result = getAutoLayoutNodes([makeNode('j', 'join')], [], 'TB');
+      expect(result).toHaveLength(1);
+    });
+
     it('handles node with measured width/height', () => {
       const nodes: Node[] = [{
         id: 'custom',

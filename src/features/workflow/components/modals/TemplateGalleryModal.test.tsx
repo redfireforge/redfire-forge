@@ -76,4 +76,18 @@ describe('TemplateGalleryModal', () => {
     fireEvent.click(screen.getByLabelText('Clear node filter'));
     expect(sel.value).toBe('');
   });
+
+  it('uses singular result label when exactly one template matches node filter', () => {
+    render(<TemplateGalleryContent onSelect={vi.fn()} />);
+    const sel = screen.getByLabelText('Filter by node type') as HTMLSelectElement;
+    fireEvent.change(sel, { target: { value: 'WaitCondition' } });
+    expect(screen.getByText(/Showing samples using:/).textContent).toMatch(/\(1 result\)/);
+  });
+
+  it('marks orchestration templates with orch data-cat', () => {
+    const { container } = render(
+      <TemplateGalleryModal open onClose={vi.fn()} onSelect={vi.fn()} />,
+    );
+    expect(container.querySelector('.tg-card[data-cat="orch"]')).toBeTruthy();
+  });
 });

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import WebhookConfig from './WebhookConfig';
 import type { WebhookTriggerNodeData } from '../../types/workflow';
 
@@ -181,6 +181,46 @@ describe('WebhookConfig', () => {
     await vi.waitFor(() => expect(screen.getByText('✓ Copied!')).toBeTruthy());
   });
 
+  it('resets URL copy button label after copy timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Copy'));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByText('✓ Copied!')).toBeTruthy();
+      await act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText('Copy')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resets cURL copy button label after copy timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Copy cURL'));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByText('✓ Copied!')).toBeTruthy();
+      await act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText('Copy cURL')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not show webhook URL panel when only workflowId is provided', () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" />);
     expect(document.querySelector('.wf-webhook-url-panel')).toBeNull();
@@ -195,5 +235,26 @@ describe('WebhookConfig', () => {
     render(<WebhookConfig data={makeData({ notes: undefined })} onChange={vi.fn()} />);
     const textarea = screen.getByPlaceholderText(/Documentation or notes about this webhook/);
     expect((textarea as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('uses PATCH method in cURL command', async () => {
+    render(<WebhookConfig data={makeData({ method: 'PATCH' })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain('-X PATCH');
+  });
+
+  it('calls onChange with PATCH when method selected', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('POST'), { target: { value: 'PATCH' } });
+    expect(onChange).toHaveBeenCalledWith({ method: 'PATCH' });
+  });
+
+  it('uses {} when samplePayload is undefined', async () => {
+    render(<WebhookConfig data={makeData({ samplePayload: undefined })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain("'{}'");
   });
 });

@@ -435,6 +435,15 @@ describe('ScriptCodeModal', () => {
       fireEvent.click(screen.getByText('Expand All'));
     });
 
+    it('toggles tree node expansion from JsonPreview', () => {
+      mockMockInputs = { userId: '{"a":1}' };
+      render(<ScriptCodeModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('userId').closest('button')!);
+      const toggle = screen.getByTestId('toggle-node');
+      fireEvent.click(toggle);
+      fireEvent.click(toggle);
+    });
+
     it('navigates search results with Enter key', () => {
       mockMockInputs = { userId: 'hello hello hello' };
       render(<ScriptCodeModal {...defaultProps} />);
@@ -492,16 +501,28 @@ describe('ScriptCodeModal', () => {
       expect(mockSetMockInputs).toHaveBeenCalled();
     });
 
-    it('toggles tree node', () => {
-      mockMockInputs = { userId: '{"a": 1}' };
+    it('minify tolerates invalid JSON in text mode', () => {
+      mockMockInputs = { userId: '{"x":1}' };
       render(<ScriptCodeModal {...defaultProps} />);
       const valueBtn = screen.getByText('userId');
       fireEvent.click(valueBtn.closest('button')!);
-      const toggleBtn = screen.getByTestId('toggle-node');
-      fireEvent.click(toggleBtn);
-      // handleToggle was called (internal state change)
-      expect(toggleBtn).toBeInTheDocument();
+      fireEvent.click(screen.getByTitle('Switch to text editor'));
+      const textarea = document.querySelector('.wf-script-value-panel-editor') as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: '{\nnot-json' } });
+      fireEvent.click(screen.getByTitle('Minify JSON'));
+      expect(mockSetMockInputs).toHaveBeenCalled();
     });
+
+    it('treats invalid search regexp as zero matches in text mode', () => {
+      mockMockInputs = { userId: 'hello' };
+      render(<ScriptCodeModal {...defaultProps} />);
+      const valueBtn = screen.getByText('userId');
+      fireEvent.click(valueBtn.closest('button')!);
+      const searchInput = document.querySelector('.wf-script-value-popup-search') as HTMLInputElement;
+      fireEvent.change(searchInput, { target: { value: '(' } });
+      expect(screen.getByText('No match')).toBeInTheDocument();
+    });
+
   });
 
   describe('InsertVarField integration', () => {

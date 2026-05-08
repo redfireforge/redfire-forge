@@ -117,6 +117,27 @@ vi.mock('./DataSourceRowDetailModal', () => ({
   },
 }));
 
+vi.mock('./DataSourceToolbar', async (importOriginal) => {
+  const { default: DataSourceToolbar } = await importOriginal<typeof import('./DataSourceToolbar')>();
+  return {
+    default: function DataSourceToolbarWithDetachProbe(props: ComponentProps<typeof DataSourceToolbar>) {
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="probe-detach-with-copy"
+            style={{ position: 'absolute', left: -3000, width: 1, height: 1, overflow: 'hidden' }}
+            onClick={() => props.onDetachWithCopy()}
+          >
+            probe detach copy
+          </button>
+          <DataSourceToolbar {...props} />
+        </>
+      );
+    },
+  };
+});
+
 vi.mock('./DataSourceSetupModal', async (importOriginal) => {
   const { default: DataSourceSetupModal } = await importOriginal<typeof import('./DataSourceSetupModal')>();
   return {
@@ -508,6 +529,21 @@ describe('DataSourceEditor', () => {
       expect(updated.sharedDataSourceId).toBe('shared-1');
     });
 
+    it('does not close detach menu on mousedown inside the dropdown', () => {
+      const shared = makeSharedDs();
+      render(
+        <DataSourceEditor
+          draft={makeScenario({ dataSource: makeDataSource(), sharedDataSourceId: 'shared-1' })}
+          onDraftChange={vi.fn()}
+          sharedDataSources={[shared]}
+        />
+      );
+      fireEvent.click(screen.getByTitle('Detach from shared data source'));
+      const copyBtn = screen.getByTitle('Copy shared data to this test\'s inline data, then unlink');
+      fireEvent.mouseDown(copyBtn);
+      expect(screen.getByTitle('Copy shared data to this test\'s inline data, then unlink')).toBeTruthy();
+    });
+
     it('detaches shared DS with copy', () => {
       const shared = makeSharedDs();
       const onChange = vi.fn();
@@ -881,6 +917,36 @@ describe('DataSourceEditor', () => {
       )?.[0] as Scenario;
       expect(updated.sharedDataSourceId).toBe('new-shared-id');
       expect(updated.dataSource).toBeUndefined();
+    });
+
+    it('promote fetchConfig uses urlTemplate, GET, and empty headers when draft omits them', () => {
+      const onPromote = vi.fn().mockReturnValue('sid');
+      const ds = makeDataSource();
+      ds.urlTemplate = 'https://template/from-ds';
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: ds,
+            url: '',
+            method: '' as Scenario['method'],
+            headers: undefined as unknown as Scenario['headers'],
+          })}
+          onDraftChange={vi.fn()}
+          onPromoteToShared={onPromote}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Promote inline data to a shared data source'));
+      fireEvent.click(screen.getByRole('button', { name: /Promote & Link/ }));
+      expect(onPromote).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        undefined,
+        expect.objectContaining({
+          url: 'https://template/from-ds',
+          method: 'GET',
+          headers: [],
+        }),
+      );
     });
 
     it('does not unlink inline data when promote returns empty id', () => {
@@ -1378,6 +1444,73 @@ describe('DataSourceEditor', () => {
         fireEvent.dragEnd(rowHandles[0], { dataTransfer: xfer });
       });
       expect(rowHandles[0]).toBeTruthy();
+    });
+  });
+
+  describe('branch coverage: orphaned shared link, subsets, prompt, fetch detail', () => {
+    afterEach(() => {
+      hoistedMocks.setFetchHookOverride(null);
+    });
+
+    it('detachWithCopy is a no-op when shared id does not resolve to a catalog entry', () => {
+      const onChange = vi.fn();
+      render(
+        <DataSourceEditor
+          draft={makeScenario({ dataSource: makeDataSource(), sharedDataSourceId: 'missing-shared' })}
+          onDraftChange={onChange}
+          sharedDataSources={[]}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('probe-detach-with-copy'));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('subset chip with rowIds filter shows row id title and click skips tag-only handler', () => {
+      const ds = makeDataSource();
+      ds.subsets = [{ name: 'Row subset', filter: { type: 'rows', rowIds: ['r1', 'r2'] } }];
+      render(<DataSourceEditor draft={makeScenario({ dataSource: ds })} onDraftChange={vi.fn()} />);
+      const chipBtn = screen.getByText('Row subset');
+      expect(chipBtn.getAttribute('title')).toContain('r1');
+      fireEvent.click(chipBtn);
+    });
+
+    it('subset chip with empty tags array does not toggle filter on click', () => {
+      const ds = makeDataSource();
+      ds.subsets = [{ name: 'Empty tags', filter: { type: 'tags', tags: [], mode: 'any' } }];
+      render(<DataSourceEditor draft={makeScenario({ dataSource: ds })} onDraftChange={vi.fn()} />);
+      fireEvent.click(screen.getByText('Empty tags'));
+    });
+
+    it('save as subset ignores blank prompt input', () => {
+      const ds = makeDataSource();
+      ds.rows[0].tags = ['vip'];
+      const onChange = vi.fn();
+      const promptSpy = vi.spyOn(window, 'prompt');
+      promptSpy.mockReturnValueOnce(null);
+      render(<DataSourceEditor draft={makeScenario({ dataSource: ds })} onDraftChange={onChange} />);
+      fireEvent.click(screen.getByText(/🏷 vip/));
+      fireEvent.click(screen.getByText(/Save as Subset/));
+      expect(onChange).not.toHaveBeenCalled();
+
+      promptSpy.mockReturnValueOnce('   ');
+      fireEvent.click(screen.getByText(/Save as Subset/));
+      expect(onChange).not.toHaveBeenCalled();
+      promptSpy.mockRestore();
+    });
+
+    it('fetch error banner omits URL block when detail has no url', () => {
+      hoistedMocks.setFetchHookOverride(() => ({
+        fetchRowResponse: vi.fn(),
+        refetchAllRows: vi.fn().mockResolvedValue(undefined),
+        fetchingRowId: null,
+        refetchingAll: false,
+        fetchRowError: 'failed',
+        fetchRowErrorDetail: { body: 'x' },
+        clearFetchError: vi.fn(),
+      }));
+      render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
+      expect(screen.getByText(/Fetch error: failed/)).toBeTruthy();
+      expect(document.querySelector('.data-source-fetch-error code')).toBeNull();
     });
   });
 });

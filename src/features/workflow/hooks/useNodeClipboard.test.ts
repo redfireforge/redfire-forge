@@ -143,6 +143,18 @@ describe('useNodeClipboard', () => {
     expect(result.current.buildDuplicateNode('missing')).toBeNull();
   });
 
+  it('buildDuplicateNode uses zero offsets when source position is missing', () => {
+    const nodes: Node[] = [
+      { id: 'n1', type: 'http', data: { label: 'A', scenario: {} } } as Node,
+    ];
+    const toast = mockToast();
+    const { result } = renderHook(() =>
+      useNodeClipboard({ getNodes: () => nodes, selectedNodeId: 'n1', toast }),
+    );
+    const dup = result.current.buildDuplicateNode();
+    expect(dup!.position).toEqual({ x: 40, y: 80 });
+  });
+
   it('node label falls back to type when label is undefined', () => {
     const nodes: Node[] = [
       { id: 'n1', type: 'delay', position: { x: 0, y: 0 }, data: {} },

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSidebarResize } from './useSidebarResize';
 
@@ -264,6 +264,39 @@ describe('useSidebarResize', () => {
       });
 
       expect(result.current.sidebarWidth).toBe(initialWidth);
+    });
+
+    it('mousemove handler no-ops after resize ends when invoked directly', () => {
+      let moveHandler: ((e: MouseEvent) => void) | undefined;
+      const realAdd = document.addEventListener.bind(document);
+      const spy = vi.spyOn(document, 'addEventListener').mockImplementation((type, listener, options) => {
+        if (type === 'mousemove') {
+          moveHandler = listener as (e: MouseEvent) => void;
+        }
+        return realAdd(type, listener as EventListener, options);
+      });
+
+      const { result } = renderHook(() => useSidebarResize({ initialWidth: 280, minWidth: 200, maxWidth: 400 }));
+      const mouseDownEvent = new MouseEvent('mousedown', { clientX: 280, bubbles: true }) as unknown as React.MouseEvent;
+
+      act(() => {
+        result.current.handleResizeStart(mouseDownEvent);
+      });
+
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup'));
+      });
+
+      const widthAfterUp = result.current.sidebarWidth;
+      expect(moveHandler).toBeDefined();
+
+      act(() => {
+        moveHandler!(new MouseEvent('mousemove', { clientX: 900 }));
+      });
+
+      expect(result.current.sidebarWidth).toBe(widthAfterUp);
+
+      spy.mockRestore();
     });
   });
 

@@ -196,6 +196,17 @@ describe('ConditionConfig', () => {
     expect(screen.getByText(/Unknown variable/)).toBeTruthy();
   });
 
+  it('uses plural "variables" when multiple unknown refs', () => {
+    render(
+      <ConditionConfig
+        data={makeData({ left: '{{bad1}} + {{bad2}}' })}
+        onChange={vi.fn()}
+        variableHints={defaultHints}
+      />,
+    );
+    expect(screen.getByText(/Unknown variables/)).toBeTruthy();
+  });
+
   it('shows validation error in expression mode for unknown refs', () => {
     render(<ConditionConfig data={makeData({ left: '{{badRef}} + {{badRef2}}' })} onChange={vi.fn()} variableHints={defaultHints} />);
     expect(screen.getByRole('alert')).toBeTruthy();

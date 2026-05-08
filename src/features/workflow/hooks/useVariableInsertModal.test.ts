@@ -47,6 +47,12 @@ describe('useVariableInsertModal', () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
+  it('handleVariableInsertPicked invokes default ref noop when apply was never set', () => {
+    const { result } = renderHook(() => useVariableInsertModal());
+    act(() => result.current.handleVariableInsertPicked('{{orphan}}'));
+    expect(result.current.variableInsertOpen).toBe(false);
+  });
+
   it('subsequent requestVariableInsert replaces the apply callback', () => {
     const { result } = renderHook(() => useVariableInsertModal());
     const apply1 = vi.fn();

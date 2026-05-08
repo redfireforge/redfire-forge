@@ -260,6 +260,12 @@ describe('DataSourceVerifyModal', () => {
       expect(screen.getByText('▶ Re-verify')).toBeInTheDocument();
     });
 
+    it('runs verification again when Re-verify is clicked', () => {
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('▶ Re-verify'));
+      expect(mockRunVerification).toHaveBeenCalled();
+    });
+
     it('shows pass count in summary', () => {
       render(<DataSourceVerifyModal {...defaultProps} />);
       expect(screen.getByText('✓ 2 passed')).toBeInTheDocument();
@@ -359,6 +365,41 @@ describe('DataSourceVerifyModal', () => {
       const patternList = document.querySelector('.verify-pattern-list');
       expect(patternList).toBeInTheDocument();
     });
+
+    it('falls back to column id in failure labels when column metadata is missing', () => {
+      mockEngineState.results = new Map([
+        ['r1', { rowId: 'r1', status: 'fail', httpStatus: 200, failedCells: { cx_missing: 'bad' }, actualCells: { cx_missing: 'bad' } }],
+        ['r2', { rowId: 'r2', status: 'fail', httpStatus: 200, failedCells: { cx_missing: 'bad' }, actualCells: { cx_missing: 'bad' } }],
+      ]);
+      mockEngineState.summary = {
+        passCount: 0, warnCount: 0, failCount: 2, errorCount: 0,
+        allDone: true, allPassed: false, summaryClass: '',
+      };
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      fireEvent.click(screen.getByText(/failure pattern/));
+      expect(screen.getByText(/cx_missing:/)).toBeInTheDocument();
+    });
+
+    it('uses plural when more than one distinct failure pattern is detected', () => {
+      mockEngineState.enabledRows = [
+        { id: 'r1', values: { c1: '1', c2: 'active' }, enabled: true, label: 'Row 1' },
+        { id: 'r2', values: { c1: '2', c2: 'active' }, enabled: true, label: 'Row 2' },
+        { id: 'r3', values: { c1: '3', c2: 'active' }, enabled: true, label: 'Row 3' },
+        { id: 'r4', values: { c1: '4', c2: 'active' }, enabled: true, label: 'Row 4' },
+      ];
+      mockEngineState.results = new Map([
+        ['r1', { rowId: 'r1', status: 'fail', httpStatus: 200, failedCells: { c2: 'bad-a' }, actualCells: { c2: 'bad-a' } }],
+        ['r2', { rowId: 'r2', status: 'fail', httpStatus: 200, failedCells: { c2: 'bad-a' }, actualCells: { c2: 'bad-a' } }],
+        ['r3', { rowId: 'r3', status: 'fail', httpStatus: 200, failedCells: { c2: 'bad-b' }, actualCells: { c2: 'bad-b' } }],
+        ['r4', { rowId: 'r4', status: 'fail', httpStatus: 200, failedCells: { c2: 'bad-b' }, actualCells: { c2: 'bad-b' } }],
+      ]);
+      mockEngineState.summary = {
+        passCount: 0, warnCount: 0, failCount: 4, errorCount: 0,
+        allDone: true, allPassed: false, summaryClass: 'verify-has-fails',
+      };
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      expect(screen.getByText('▸ 2 failure patterns detected')).toBeInTheDocument();
+    });
   });
 
   describe('Row actions', () => {
@@ -397,6 +438,19 @@ describe('DataSourceVerifyModal', () => {
       };
       render(<DataSourceVerifyModal {...defaultProps} />);
       expect(screen.getByText('🟡 1 warn')).toBeInTheDocument();
+    });
+
+    it('includes warn phrasing in footer summary when finished', () => {
+      mockEngineState.results = new Map([
+        ['r1', { rowId: 'r1', status: 'pass', httpStatus: 200, failedCells: {}, actualCells: {} }],
+        ['r2', { rowId: 'r2', status: 'warn', httpStatus: 200, failedCells: {}, actualCells: {} }],
+      ]);
+      mockEngineState.summary = {
+        passCount: 1, warnCount: 1, failCount: 0, errorCount: 0,
+        allDone: true, allPassed: false, summaryClass: '',
+      };
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      expect(screen.getByText('1 passed, 1 warn, 0 failed, 0 errors')).toBeInTheDocument();
     });
   });
 
@@ -517,6 +571,20 @@ describe('DataSourceVerifyModal', () => {
   });
 
   describe('Error patterns grouped', () => {
+    it('uses Unknown error label when error text is missing on zero HTTP status', () => {
+      mockEngineState.results = new Map([
+        ['r1', { rowId: 'r1', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} } as any],
+        ['r2', { rowId: 'r2', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} } as any],
+      ]);
+      mockEngineState.summary = {
+        passCount: 0, warnCount: 0, failCount: 0, errorCount: 2,
+        allDone: true, allPassed: false, summaryClass: '',
+      };
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      fireEvent.click(screen.getByText(/failure pattern/));
+      expect(screen.getByText('Unknown error')).toBeInTheDocument();
+    });
+
     it('groups error rows with same HTTP status', () => {
       mockEngineState.results = new Map([
         ['r1', { rowId: 'r1', status: 'error', httpStatus: 404, error: 'Not Found', failedCells: {}, actualCells: {} }],
@@ -528,6 +596,20 @@ describe('DataSourceVerifyModal', () => {
       };
       render(<DataSourceVerifyModal {...defaultProps} />);
       expect(screen.getByText(/failure pattern/)).toBeInTheDocument();
+    });
+
+    it('uses plain error message when HTTP status is zero', () => {
+      mockEngineState.results = new Map([
+        ['r1', { rowId: 'r1', status: 'error', httpStatus: 0, error: 'Net down', failedCells: {}, actualCells: {} }],
+        ['r2', { rowId: 'r2', status: 'error', httpStatus: 0, error: 'Net down', failedCells: {}, actualCells: {} }],
+      ]);
+      mockEngineState.summary = {
+        passCount: 0, warnCount: 0, failCount: 0, errorCount: 2,
+        allDone: true, allPassed: false, summaryClass: 'verify-has-errors',
+      };
+      render(<DataSourceVerifyModal {...defaultProps} />);
+      fireEvent.click(screen.getByText(/failure pattern/));
+      expect(screen.getByText('Net down')).toBeInTheDocument();
     });
   });
 
