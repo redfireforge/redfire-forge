@@ -124,4 +124,40 @@ describe('useSplitterDrag', () => {
     expect(document.body.style.cursor).toBe('');
     expect(document.body.style.userSelect).toBe('');
   });
+
+  it('mousemove handler no-ops when drag ref was cleared', () => {
+    const setWidth = vi.fn();
+    const { result } = renderHook(() => useSplitterDrag(300, setWidth, 100, 600));
+
+    let moveHandler: ((e: MouseEvent) => void) | undefined;
+    const addSpy = vi.spyOn(document, 'addEventListener').mockImplementation(function (
+      this: Document,
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) {
+      if (type === 'mousemove' && typeof listener === 'function') {
+        moveHandler = listener as (e: MouseEvent) => void;
+      }
+      return Document.prototype.addEventListener.call(this, type, listener as EventListener, options);
+    });
+
+    try {
+      const fakeEvent = { clientX: 500, preventDefault: vi.fn() } as unknown as React.MouseEvent;
+      act(() => result.current(fakeEvent));
+      expect(moveHandler).toBeDefined();
+
+      act(() => {
+        document.dispatchEvent(mouseEvent('mouseup', 500));
+      });
+
+      setWidth.mockClear();
+      act(() => {
+        moveHandler!(mouseEvent('mousemove', 400));
+      });
+      expect(setWidth).not.toHaveBeenCalled();
+    } finally {
+      addSpy.mockRestore();
+    }
+  });
 });

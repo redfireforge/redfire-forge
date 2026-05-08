@@ -155,6 +155,23 @@ describe('ErrorHandlerConfig', () => {
     expect(screen.getByText('How it works')).toBeTruthy();
   });
 
+  it('clamps retry count to 0 for NaN input', () => {
+    const onChange = vi.fn();
+    render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('0'), { target: { value: 'x' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryCount: 0 }));
+  });
+
+  it('clamps retry timeout to 0 for NaN input', () => {
+    const onChange = vi.fn();
+    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
+    const label = screen.getByText('Retry Timeout (ms)');
+    const field = label.closest('.wf-config-field')!;
+    const input = field.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'x' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryTimeoutMs: 0 }));
+  });
+
   it('clamps retry delay to 0 for NaN input', () => {
     const onChange = vi.fn();
     render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);

@@ -74,6 +74,16 @@ describe('AggregateConfig', () => {
     expect(screen.getByDisplayValue('$.total')).toBeTruthy();
   });
 
+  it('renders custom mapping input when customExpression is omitted', () => {
+    const data = makeData({
+      mappings: [{ id: 'm1', sourceExpression: 's', targetVariable: 't', strategy: 'custom' }],
+    });
+    render(<AggregateConfig data={data} onChange={vi.fn()} />);
+    const customInput = document.querySelector('.wf-aggregate-mapping-custom') as HTMLInputElement;
+    expect(customInput).toBeTruthy();
+    expect(customInput.value).toBe('');
+  });
+
   it('removes mapping', () => {
     const onChange = vi.fn();
     const data = makeData({
@@ -182,14 +192,19 @@ describe('AggregateConfig', () => {
     expect(screen.getByText('Insert…')).toBeTruthy();
   });
 
-  it('calls onRequestVariableInsert when Insert button is clicked', () => {
-    const onRequest = vi.fn();
+  it('appends snippet when variable insert apply is invoked', () => {
+    const onChange = vi.fn();
     const data = makeData({
-      mappings: [{ id: 'm1', sourceExpression: '{{item}}', targetVariable: 'result', strategy: 'concat' }],
+      mappings: [{ id: 'm1', sourceExpression: 'base', targetVariable: 'out', strategy: 'concat' }],
     });
-    render(<AggregateConfig data={data} onChange={vi.fn()} onRequestVariableInsert={onRequest} />);
+    const onRequest = vi.fn((apply: (s: string) => void) => {
+      apply('_snippet');
+    });
+    render(<AggregateConfig data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
     fireEvent.click(screen.getByText('Insert…'));
-    expect(onRequest).toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      mappings: [expect.objectContaining({ sourceExpression: 'base_snippet' })],
+    }));
   });
 
   it('renders Available Variables section when variableHints are provided', () => {

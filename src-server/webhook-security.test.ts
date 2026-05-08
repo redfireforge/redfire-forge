@@ -80,6 +80,14 @@ describe('webhook-security', () => {
       expect(result.reason).toContain('signature');
     });
 
+    it('rejects token when signature hex length mismatches expected', () => {
+      const token = generateWebhookToken('corr-123', '/webhooks/callback/payment');
+      token.signature = 'abcd';
+      const result = verifyWebhookToken(token);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe('Invalid signature');
+    });
+
     it('rejects expired token', () => {
       configureWebhookSecurity({ tokenExpirationMs: 1 });
       const token = generateWebhookToken('corr-123', '/webhooks/callback/payment');
@@ -191,6 +199,16 @@ describe('webhook-security', () => {
       expect(isIpAllowed('192.168.2.1')).toBe(false);
     });
 
+    it('rejects CIDR with invalid prefix length', () => {
+      configureWebhookSecurity({ ipWhitelist: ['10.0.0.0/99'] });
+      expect(isIpAllowed('10.0.0.1')).toBe(false);
+    });
+
+    it('treats 0.0.0.0/0 as matching any IPv4', () => {
+      configureWebhookSecurity({ ipWhitelist: ['0.0.0.0/0'] });
+      expect(isIpAllowed('8.8.8.8')).toBe(true);
+    });
+
     it('rejects undefined IP', () => {
       configureWebhookSecurity({ ipWhitelist: ['192.168.1.1'] });
       expect(isIpAllowed(undefined)).toBe(false);
@@ -211,6 +229,20 @@ describe('webhook-security', () => {
       const body = '{"test": true}';
       const sig = generateHmacSignature(body);
       const result = validateRequestSignature(body, { 'x-hub-signature-256': `sha256=${sig}` });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts x-signature header when present', () => {
+      const body = '{"x":1}';
+      const sig = generateHmacSignature(body);
+      const result = validateRequestSignature(body, { 'x-signature': sig });
+      expect(result.valid).toBe(true);
+    });
+
+    it('uses first signature value when header is an array', () => {
+      const body = '{"a":true}';
+      const sig = generateHmacSignature(body);
+      const result = validateRequestSignature(body, { 'x-webhook-signature': [sig, 'ignored'] });
       expect(result.valid).toBe(true);
     });
 

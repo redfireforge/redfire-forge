@@ -8,7 +8,11 @@ import WorkflowExecutionHistory from './WorkflowExecutionHistory';
 
 vi.mock('../requests/components/JsonTreePreview', () => ({
   default: ({ body, search, onMatchCountChange, onToggle }: { body: string; search?: string; onMatchCountChange?: (n: number) => void; onToggle?: (path: string) => void }) => {
-    if (onMatchCountChange) onMatchCountChange(search ? 2 : 0);
+    if (onMatchCountChange) {
+      if (!search) onMatchCountChange(0);
+      else if (search === 'nomatch') onMatchCountChange(0);
+      else onMatchCountChange(2);
+    }
     return (
       <div data-testid="json-preview">
         {body.slice(0, 50)}
@@ -442,6 +446,114 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     expect(screen.getByText(/2 total/)).toBeInTheDocument();
   });
 
+  it('shows subtitle with singular execution', async () => {
+    mockFetch.mockReturnValue(mockExecutionsResponse([sampleExecution]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.getByText(/1 execution(?!s)/)).toBeInTheDocument();
+    });
+  });
+
+  it('hides sort toggle when only one execution matches filter', async () => {
+    mockFetch.mockReturnValue(mockExecutionsResponse([sampleExecution]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.queryByText(/Newest/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows schedule trigger icon on schedule executions', async () => {
+    mockFetch.mockReturnValue(mockExecutionsResponse([sampleExecution2]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.getByText('⏰')).toBeInTheDocument();
+    });
+  });
+
+  it('omits variables section when execution has no variables', async () => {
+    mockFetch.mockReturnValue(mockExecutionsResponse([{ ...sampleExecution, variables: {}, error: null }]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Variables' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not render response body details when result has no body', async () => {
+    const execNoBody = {
+      ...sampleExecution,
+      results: [{ url: 'https://api.example.com/x', statusCode: 204, responseTime: 1, body: null as string | null }],
+    };
+    mockFetch.mockReturnValue(mockExecutionsResponse([execNoBody]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.queryByText('Response Body')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows loading state when paused tab fetches correlations', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/correlations')) {
+        return new Promise(() => {});
+      }
+      return mockExecutionsResponse();
+    });
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    expect(screen.getByText('Loading paused workflows...')).toBeInTheDocument();
+  });
+
+  it('survives correlations fetch failure on paused tab', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/correlations')) return Promise.resolve({ ok: false, status: 500 });
+      return mockExecutionsResponse();
+    });
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    await waitFor(() => {
+      expect(errSpy).toHaveBeenCalled();
+    });
+    errSpy.mockRestore();
+  });
+
+  it('shows elapsed in hours for long paused workflows', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/correlations')) {
+        return mockCorrelationsResponse([{
+          ...samplePaused[0],
+          pausedAt: Date.now() - 7200000,
+        }]);
+      }
+      return mockExecutionsResponse();
+    });
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    await waitFor(() => {
+      expect(screen.getByText(/2h ago/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows Expired when timeout is in the past', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/correlations')) {
+        return mockCorrelationsResponse([{
+          ...samplePaused[0],
+          timeoutAt: Date.now() - 1000,
+        }]);
+      }
+      return mockExecutionsResponse();
+    });
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    await waitFor(() => {
+      expect(screen.getByText('Expired')).toBeInTheDocument();
+    });
+  });
+
   it('renders Refresh button and reloads', async () => {
     mockFetch.mockReturnValue(mockExecutionsResponse([sampleExecution]));
     render(<WorkflowExecutionHistory />);
@@ -453,6 +565,18 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     await waitFor(() => {
       expect(screen.getByText('wf-other')).toBeInTheDocument();
     });
+  });
+
+  it('ExhResultBody search shows No match when preview reports zero hits', async () => {
+    mockFetch.mockReturnValue(mockExecutionsResponse([sampleExecution]));
+    render(<WorkflowExecutionHistory />);
+    await waitFor(() => {
+      expect(screen.getByText(/Response Body/)).toBeInTheDocument();
+    });
+    const details = document.querySelector('details.exh-result-body-toggle') as HTMLElement;
+    fireEvent.click(details.querySelector('summary')!);
+    fireEvent.change(screen.getByPlaceholderText('Search response...'), { target: { value: 'nomatch' } });
+    expect(screen.getByText('No match')).toBeInTheDocument();
   });
 
   it('renders response body with JSON tree', async () => {
