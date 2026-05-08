@@ -1357,7 +1357,7 @@ describe('MultiWebhookTestingPanel', () => {
         },
         {
           id: 'ifn',
-          type: 'ifCondition',
+          type: 'condition',
           position: { x: 0, y: 160 },
           data: {
             label: 'If Gate',

@@ -202,7 +202,6 @@ export default function TestRunner({
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
-  const _displayIsTimeBased = hasLiveProgress ? (isLoadProfile || total === -1) : savedProgress?.isTimeBased ?? false;
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;

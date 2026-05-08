@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Workflow, CorrelationWaitNodeData, SwitchNodeData, ConditionNodeData, Node as WorkflowNode, Edge as WorkflowEdge } from '../../workflow/types/workflow';
+import type { Workflow, CorrelationWaitNodeData, SwitchNodeData, ConditionNodeData, WorkflowNode, WorkflowEdge } from '../../workflow/types/workflow';
 
 interface PausedCorrelation {
   correlationId: string;
@@ -192,7 +192,7 @@ function findDecisionOptions(
       return { jsonPath, label: switchData.label || 'Decision', options };
     }
 
-    if (node.type === 'condition' || node.type === 'ifCondition') {
+    if (node.type === 'condition') {
       const condData = node.data as ConditionNodeData;
       const varRef = extractVariableRef(condData.left);
       if (!varRef) continue;
@@ -265,7 +265,7 @@ export default function MultiWebhookTestingPanel({
   onDeleteScenario,
   onLoadScenario,
 }: Props) {
-  const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
+  const [, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
   const [loadingPaused, setLoadingPaused] = useState(false);
   const [nodeStates, setNodeStates] = useState<Map<string, NodeStateInfo>>(new Map());
   const [editingPayloads, setEditingPayloads] = useState<Map<string, Record<string, unknown>>>(new Map());

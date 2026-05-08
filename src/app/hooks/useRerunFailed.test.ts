@@ -21,9 +21,9 @@ vi.mock('../../engine/executor', () => ({
 }));
 
 vi.mock('../../engine/rerunMerge', () => ({
-  mergeRerunResults: vi.fn((run: TestRun, rerunResults: any) => ({
+  mergeRerunResults: vi.fn((run: TestRun, newResults: import('../../shared/types').RequestResult[]) => ({
     ...run,
-    results: [...run.results, ...rerunResults.results],
+    results: [...run.results, ...newResults],
   })),
 }));
 

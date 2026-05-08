@@ -55,7 +55,7 @@ export default function NodeExecutionDetailPanel({
       // Use worst state (fail > pass > skipped)
       const hasFailure = nodeEventsInIter.some(e => e.state === 'fail');
       const hasPass = nodeEventsInIter.some(e => e.state === 'pass');
-      const state = hasFailure ? 'fail' : hasPass ? 'pass' : 'skipped';
+      const state: 'pass' | 'fail' | 'skipped' = hasFailure ? 'fail' : hasPass ? 'pass' : 'skipped';
       return { iterIndex, state, durationMs: totalDuration };
     });
   }, [iterations, nodeId]);

@@ -1,6 +1,6 @@
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, WorkflowErrorConfig, Workflow } from '../types/workflow';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
-import type { RequestResult, Scenario, ExecutionEvent, ExecutionEventDetails } from '../../../shared/types';
+import type { RequestResult, Scenario } from '../../../shared/types';
 import { TokenManager } from '../../../engine/tokenManager';
 import { VariableContext } from './variableContext';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
@@ -32,6 +32,7 @@ import {
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
+import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 
@@ -243,7 +244,7 @@ export async function runGraph(
         const lastResult = nodeResults[nodeResults.length - 1];
         if (lastResult) {
           eventDetails = {
-            statusCode: lastResult.statusCode,
+            statusCode: lastResult.httpStatus,
             responseTimeMs: lastResult.responseTimeMs,
             requestResultId: lastResult.id,
             method: lastResult.method,

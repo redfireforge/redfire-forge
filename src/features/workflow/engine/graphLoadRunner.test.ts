@@ -545,7 +545,7 @@ describe('graphLoadRunner', () => {
       await runGraphLoad(workflow, {
         iterations: 1,
         concurrency: 1,
-        breaker: { shouldStop: false, recordResult } as CircuitBreaker,
+        breaker: { shouldStop: false, record: recordResult } as CircuitBreaker,
       });
 
       expect(recordResult).toHaveBeenCalled();

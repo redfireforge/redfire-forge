@@ -102,7 +102,7 @@ export function useRerunFailed({
         new AbortController().signal,
       );
 
-      const merged = mergeRerunResults(run, rerunResults);
+      const merged = mergeRerunResults(run, rerunResults.results);
       await updateTestRun(merged);
       onComplete?.();
     } catch (err) {
