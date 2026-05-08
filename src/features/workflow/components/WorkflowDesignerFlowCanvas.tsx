@@ -96,6 +96,23 @@ export function WorkflowDesignerFlowCanvas({
           Insert between nodes
         </div>
       )}
+      {nodes.length === 0 && !previewWorkflow && !isDragOver && (
+        <div className="wf-empty-canvas">
+          <svg className="wf-empty-canvas-icon" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="8" y="12" width="26" height="16" rx="4" />
+            <rect x="46" y="12" width="26" height="16" rx="4" />
+            <rect x="27" y="52" width="26" height="16" rx="4" />
+            <line x1="21" y1="28" x2="21" y2="40" />
+            <line x1="21" y1="40" x2="40" y2="40" />
+            <line x1="40" y1="40" x2="40" y2="52" />
+            <line x1="59" y1="28" x2="59" y2="40" />
+            <line x1="59" y1="40" x2="40" y2="40" />
+            <circle cx="40" cy="40" r="2.5" fill="currentColor" stroke="none" />
+          </svg>
+          <p className="wf-empty-canvas-title">Drop your first node here</p>
+          <p className="wf-empty-canvas-hint">Drag a block from the palette on the left, or press <kbd>⌘K</kbd> for commands</p>
+        </div>
+      )}
       {!previewWorkflow && (
         <WorkflowExecSummary
           runProgress={runProgress}
