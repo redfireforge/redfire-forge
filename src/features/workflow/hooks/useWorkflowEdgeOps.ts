@@ -32,6 +32,7 @@ export function useWorkflowEdgeOps({
       id: uuidv4(),
       animated: false,
       label: params.sourceHandle === 'true' ? 'Yes' : params.sourceHandle === 'false' ? 'No' : undefined,
+      className: params.sourceHandle === 'false' ? 'wf-edge-false-branch' : undefined,
     };
     setEdges((eds) => {
       const updated = addEdge(newEdge, eds);
@@ -69,9 +70,11 @@ export function useWorkflowEdgeOps({
     const statusKeys = Object.keys(nodeStatuses);
     if (statusKeys.length === 0) {
       setEdges(prev => {
-        const needsReset = prev.some(e => e.className);
-        if (!needsReset) return prev;
-        return prev.map(e => e.className ? { ...e, className: undefined } : e);
+        return prev.map(e => {
+          const base = e.sourceHandle === 'false' ? 'wf-edge-false-branch' : undefined;
+          if (e.className === base) return e;
+          return { ...e, className: base };
+        });
       });
       return;
     }
@@ -82,17 +85,19 @@ export function useWorkflowEdgeOps({
       const sourceState = sourceStatus?.state;
       const targetState = targetStatus?.state;
 
-      let className: string | undefined;
+      const baseCls = edge.sourceHandle === 'false' ? 'wf-edge-false-branch' : '';
+      let execCls = '';
       if (targetState === 'running') {
-        className = 'wf-edge-animated';
+        execCls = 'wf-edge-animated';
       } else if (targetState === 'skipped') {
-        className = 'wf-edge-skipped';
+        execCls = 'wf-edge-skipped';
       } else if (sourceState === 'pass' && (targetState === 'pass' || targetState === 'fail')) {
-        className = targetState === 'pass' ? 'wf-edge-pass' : 'wf-edge-fail';
+        execCls = targetState === 'pass' ? 'wf-edge-pass' : 'wf-edge-fail';
       } else if (sourceState === 'fail' && targetState === 'fail') {
-        className = 'wf-edge-fail';
+        execCls = 'wf-edge-fail';
       }
 
+      const className = [baseCls, execCls].filter(Boolean).join(' ') || undefined;
       if (edge.className === className) return edge;
       return { ...edge, className };
     }));

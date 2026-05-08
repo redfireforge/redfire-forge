@@ -36,24 +36,24 @@ export default function WorkflowCommandPalette({ open, onClose, actions }: Props
 
   const commands = useMemo<CommandItem[]>(() => [
     // Actions
-    { id: 'save', group: 'Actions', icon: '💾', title: 'Save Workflow', description: 'Save current workflow', shortcut: '⌘S', action: actions.onSave },
+    { id: 'save', group: 'Actions', icon: '⬇', title: 'Save Workflow', description: 'Save current workflow', shortcut: '⌘S', action: actions.onSave },
     { id: 'quick-test', group: 'Actions', icon: '▶', title: 'Run Quick Test', description: 'Execute all workflow steps', shortcut: '⌘↵', action: actions.onQuickTest },
-    { id: 'debug-test', group: 'Actions', icon: '🐛', title: 'Run Debug Test', description: 'Step-by-step debugging', shortcut: '⌘⇧↵', action: actions.onDebugTest },
+    { id: 'debug-test', group: 'Actions', icon: '⏎', title: 'Run Debug Test', description: 'Step-by-step debugging', shortcut: '⌘⇧↵', action: actions.onDebugTest },
     { id: 'auto-layout', group: 'Actions', icon: '⊞', title: 'Auto Layout', description: 'Arrange nodes automatically', shortcut: '⌘L', action: actions.onAutoLayout },
     { id: 'fit-view', group: 'Actions', icon: '⊡', title: 'Fit to View', description: 'Zoom to fit all nodes', shortcut: '⌘0', action: actions.onFitView },
     { id: 'minimap', group: 'Actions', icon: '◫', title: 'Toggle Minimap', description: 'Show or hide minimap', shortcut: '⌘M', action: actions.onToggleMinimap },
     { id: 'shortcuts', group: 'Actions', icon: '⌨', title: 'Keyboard Shortcuts', description: 'View all shortcuts', shortcut: '?', action: actions.onOpenShortcuts },
     // Navigate
-    { id: 'services', group: 'Navigate', icon: '🔗', title: 'Open Service Registry', description: 'Manage hosts and auth', action: actions.onOpenServices },
+    { id: 'services', group: 'Navigate', icon: '⛓', title: 'Open Service Registry', description: 'Manage hosts and auth', action: actions.onOpenServices },
     { id: 'variables', group: 'Navigate', icon: '{}', title: 'Open Variables', description: 'Workflow default variables', action: actions.onOpenDefaults },
-    { id: 'console', group: 'Navigate', icon: '🖥', title: 'Toggle Console', description: 'Show or hide console panel', shortcut: '⌘J', action: actions.onToggleConsole },
+    { id: 'console', group: 'Navigate', icon: '▸_', title: 'Toggle Console', description: 'Show or hide console panel', shortcut: '⌘J', action: actions.onToggleConsole },
     // Add node
-    { id: 'add-http', group: 'Add Node', icon: '⚡', title: 'Add HTTP Request', description: 'Add an HTTP step to the canvas', action: () => actions.onAddNode('http') },
+    { id: 'add-http', group: 'Add Node', icon: '↗', title: 'Add HTTP Request', description: 'Add an HTTP step to the canvas', action: () => actions.onAddNode('http') },
     { id: 'add-condition', group: 'Add Node', icon: '◇', title: 'Add Condition', description: 'Add if/else branching', action: () => actions.onAddNode('condition') },
-    { id: 'add-delay', group: 'Add Node', icon: '⏱', title: 'Add Delay', description: 'Add a pause between steps', action: () => actions.onAddNode('delay') },
-    { id: 'add-loop', group: 'Add Node', icon: '🔁', title: 'Add Loop', description: 'Add repeat / for-each / while', action: () => actions.onAddNode('loop') },
+    { id: 'add-delay', group: 'Add Node', icon: '◴', title: 'Add Delay', description: 'Add a pause between steps', action: () => actions.onAddNode('delay') },
+    { id: 'add-loop', group: 'Add Node', icon: '↻', title: 'Add Loop', description: 'Add repeat / for-each / while', action: () => actions.onAddNode('loop') },
     { id: 'add-switch', group: 'Add Node', icon: '⑂', title: 'Add Switch', description: 'Add multi-way branching', action: () => actions.onAddNode('switch') },
-    { id: 'add-setvar', group: 'Add Node', icon: '📝', title: 'Add Set Variable', description: 'Assign or transform variables', action: () => actions.onAddNode('setVariable') },
+    { id: 'add-setvar', group: 'Add Node', icon: '≔', title: 'Add Set Variable', description: 'Assign or transform variables', action: () => actions.onAddNode('setVariable') },
     { id: 'add-fork', group: 'Add Node', icon: '⑃', title: 'Add Parallel Fork', description: 'Add concurrent branches', action: () => actions.onAddNode('fork') },
     { id: 'add-join', group: 'Add Node', icon: '⑄', title: 'Add Join', description: 'Wait for all branches', action: () => actions.onAddNode('join') },
   ], [actions]);

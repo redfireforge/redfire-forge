@@ -81,6 +81,7 @@ export function useWorkflowCanvasSync({
       }));
       const rfEdges: WorkflowRFEdge[] = selected.edges.map(e => ({
         id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, label: e.label, animated: false,
+        className: e.sourceHandle === 'false' ? 'wf-edge-false-branch' : undefined,
       }));
       setNodes(rfNodes);
       setEdges(rfEdges);

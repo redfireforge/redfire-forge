@@ -4,6 +4,7 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type SwitchWorkflowNode = Node<SwitchNodeData, 'switch'>;
 type Props = NodeProps<SwitchWorkflowNode>;
@@ -71,6 +72,7 @@ export default function SwitchNode({ id, data, selected }: Props) {
         Default
       </span>
 
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />

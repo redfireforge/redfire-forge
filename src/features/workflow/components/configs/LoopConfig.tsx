@@ -149,7 +149,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
           <div className="wf-loop-datasource-section">
             <button type="button" className="wf-loop-datasource-toggle" onClick={() => setDsOpen(o => !o)}>
               <span>{dsOpen ? '▾' : '▸'}</span>
-              📊 Data Source {enabledRowCount > 0 && <span className="tab-badge">{enabledRowCount}</span>}
+              <svg className="wf-inline-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Data Source {enabledRowCount > 0 && <span className="tab-badge">{enabledRowCount}</span>}
             </button>
             {dsOpen && (
               <div className="wf-loop-datasource-editor">
