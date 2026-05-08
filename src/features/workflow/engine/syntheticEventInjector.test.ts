@@ -7,15 +7,17 @@ describe('SyntheticEventInjector', () => {
   let store: InMemoryCorrelationStore;
   let injector: SyntheticEventInjector;
 
-  const makePausedState = (nodeId: string): WorkflowPausedState => ({
+  const makePausedState = (pausedNodeId: string): WorkflowPausedState => ({
     executionId: 'exec-1',
     workflowId: 'wf-1',
-    nodeId,
+    pausedNodeId,
     variables: {},
+    visitedNodes: [],
+    threadId: 'thread-1',
+    joinArrived: {},
     results: [],
-    visitedNodes: new Set(),
-    nodeStates: {},
     startTime: Date.now(),
+    initialVariables: {},
   });
 
   beforeEach(() => {

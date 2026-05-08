@@ -523,7 +523,7 @@ describe('runWebhookLoadTest', () => {
 
       expect(result.iterationTraces).toHaveLength(1);
       expect(result.iterationTraces![0].passed).toBe(true);
-      expect(result.iterationTraces![0].iterationIndex).toBe(0);
+      expect(result.iterationTraces![0].index).toBe(0);
     });
 
     it('handles non-JSON response gracefully when capturing traces', async () => {

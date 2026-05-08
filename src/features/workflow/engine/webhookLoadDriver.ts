@@ -183,7 +183,7 @@ export async function runWebhookLoadTest(
         try {
           serverResponse = JSON.parse(responseBody) as WebhookServerResponse;
           if (serverResponse.iterationTrace) {
-            serverResponse.iterationTrace.iterationIndex = myIndex;
+            serverResponse.iterationTrace.index = myIndex;
             iterationTraces.push(serverResponse.iterationTrace);
           }
         } catch {

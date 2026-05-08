@@ -53,11 +53,13 @@ export class SyntheticEventInjector {
   private pendingInjections = new Map<string, PendingInjection>();
   private processedCorrelationIds = new Set<string>();
   private stopped = false;
+  private correlationStore: ICorrelationStore;
+  private config: SyntheticEventConfig;
 
-  constructor(
-    private correlationStore: ICorrelationStore,
-    private config: SyntheticEventConfig,
-  ) {}
+  constructor(correlationStore: ICorrelationStore, config: SyntheticEventConfig) {
+    this.correlationStore = correlationStore;
+    this.config = config;
+  }
 
   /**
    * Start monitoring the correlation store for paused workflows.
@@ -150,10 +152,10 @@ export class SyntheticEventInjector {
       return;
     }
     
-    const nodeId = entry.state?.nodeId;
-    const payloadTemplate = 
-      (nodeId && this.config.mockPayloads?.[nodeId]) ?? 
-      this.config.defaultPayload ?? 
+    const nodeId = entry.state?.pausedNodeId;
+    const payloadTemplate =
+      (nodeId ? this.config.mockPayloads?.[nodeId] : undefined) ??
+      this.config.defaultPayload ??
       {};
     
     const resolvedPayload = resolvePayloadTemplate(payloadTemplate, correlationId);

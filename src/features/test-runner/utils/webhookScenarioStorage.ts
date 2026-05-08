@@ -1,4 +1,4 @@
-import type { WebhookScenario, WebhookPayloadPreset } from '../components/MultiWebhookTestingPanel';
+import type { WebhookScenario } from '../components/MultiWebhookTestingPanel';
 
 const STORAGE_KEY_PREFIX = 'webhook_scenarios_';
 

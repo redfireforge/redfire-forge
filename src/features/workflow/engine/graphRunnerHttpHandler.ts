@@ -133,12 +133,12 @@ function buildAssertionResults(requestResult: import('../../../shared/types').Re
   const results: AssertionResult[] = [];
   
   // Status assertion (implicit)
-  if (requestResult.statusCode !== undefined) {
+  if (requestResult.httpStatus !== undefined) {
     results.push({
       type: 'status',
-      description: `Status code is ${requestResult.statusCode}`,
+      description: `Status code is ${requestResult.httpStatus}`,
       passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== 'status') !== false,
-      expected: requestResult.statusCode?.toString(),
+      expected: requestResult.httpStatus?.toString(),
       actual: requestResult.httpStatus?.toString(),
     });
   }

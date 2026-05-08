@@ -168,7 +168,9 @@ function countMatches(value: JsonValue, term: string): number {
     return String(value).toLowerCase().includes(term) ? 1 : 0;
   }
   let count = 0;
-  const entries = Array.isArray(value) ? value.map((v, i) => [String(i), v]) : Object.entries(value);
+  const entries: [string, JsonValue][] = Array.isArray(value)
+    ? value.map((v, i) => [String(i), v])
+    : Object.entries(value);
   for (const [k, v] of entries) {
     if (k.toLowerCase().includes(term)) count++;
     count += countMatches(v as JsonValue, term);
@@ -180,7 +182,9 @@ function subtreeContainsMatch(value: JsonValue, term: string): boolean {
   if (!term) return false;
   if (value === null) return 'null'.includes(term);
   if (typeof value !== 'object') return String(value).toLowerCase().includes(term);
-  const entries = Array.isArray(value) ? value.map((v, i) => [String(i), v]) : Object.entries(value);
+  const entries: [string, JsonValue][] = Array.isArray(value)
+    ? value.map((v, i) => [String(i), v])
+    : Object.entries(value);
   for (const [k, v] of entries) {
     if (k.toLowerCase().includes(term)) return true;
     if (subtreeContainsMatch(v as JsonValue, term)) return true;
