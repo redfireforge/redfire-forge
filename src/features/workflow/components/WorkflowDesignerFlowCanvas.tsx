@@ -177,6 +177,19 @@ export function WorkflowDesignerFlowCanvas({
             />
           )}
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
+          <svg width="0" height="0" style={{ position: 'absolute' }}>
+            <defs>
+              <marker id="wf-arrow-pass" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
+              </marker>
+              <marker id="wf-arrow-fail" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+              </marker>
+              <marker id="wf-arrow-animated" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+              </marker>
+            </defs>
+          </svg>
         </ReactFlow>
       </WorkflowDebugStepContext.Provider>
       </WorkflowNodeRunContext.Provider>

@@ -197,7 +197,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         </select>
         {workflowServices.length === 0 && (
           <p className="wf-config-managed-note-text">
-            Click the <strong>🔗 Services</strong> button in the toolbar to register external services.
+            Click the <strong>Services</strong> button in the toolbar to register external services.
           </p>
         )}
       </div>
