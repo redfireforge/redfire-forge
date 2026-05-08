@@ -32,7 +32,10 @@ vi.mock('../../shared/utils/platform', () => ({
 import { useWorkflowImportExport } from './useWorkflowImportExport';
 
 describe('useWorkflowImportExport', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPickJsonFile.mockReset();
+  });
 
   it('handleWorkflowExport exports without version stripping when no versions', () => {
     const wf = { id: 'wf-1', name: 'Test WF', nodes: [], edges: [], variables: {} };
@@ -132,5 +135,56 @@ describe('useWorkflowImportExport', () => {
     );
     await act(async () => { result.current.handleWorkflowImport(); });
     expect(showToast).toHaveBeenCalledWith('error', 'Invalid JSON file');
+  });
+
+  it('handleWorkflowImport shows error when nodes is not an array', () => {
+    mockIsTauri.mockReturnValue(false);
+    const wfHook = { workflows: [], insert: vi.fn() } as any;
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+    );
+    act(() => { result.current.handleWorkflowImport(); });
+    const doImport = mockPickJsonFile.mock.calls[0][0];
+    act(() => { doImport({ name: 'X', nodes: {} }); });
+    expect(showToast).toHaveBeenCalledWith('error', 'Invalid workflow file');
+  });
+
+  it('handleWorkflowImport shows error when name is empty', () => {
+    mockIsTauri.mockReturnValue(false);
+    const wfHook = { workflows: [], insert: vi.fn() } as any;
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+    );
+    act(() => { result.current.handleWorkflowImport(); });
+    mockPickJsonFile.mock.calls[0][0]({ name: '', nodes: [], edges: [] });
+    expect(showToast).toHaveBeenCalledWith('error', 'Invalid workflow file');
+  });
+
+  it('handleWorkflowImport (Tauri) rejects invalid workflow shape after parse', async () => {
+    mockIsTauri.mockReturnValue(true);
+    mockOpenJsonFile.mockResolvedValue({ content: JSON.stringify({ nodes: [] }) });
+    const showToast = vi.fn();
+    const wfHook = { workflows: [], insert: vi.fn() } as any;
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+    );
+    await act(async () => { result.current.handleWorkflowImport(); });
+    expect(showToast).toHaveBeenCalledWith('error', 'Invalid workflow file');
+    expect(wfHook.insert).not.toHaveBeenCalled();
+  });
+
+  it('handleWorkflowImport forwards pickJsonFile errors to toast', () => {
+    mockIsTauri.mockReturnValue(false);
+    mockPickJsonFile.mockImplementation((_cb: (raw: unknown) => void, onError: (msg: string) => void) => {
+      onError('picker failed');
+    });
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook: { workflows: [], insert: vi.fn() } as any, setActiveTab: vi.fn(), showToast }),
+    );
+    act(() => { result.current.handleWorkflowImport(); });
+    expect(showToast).toHaveBeenCalledWith('error', 'Import failed', 'picker failed');
   });
 });

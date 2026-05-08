@@ -60,6 +60,14 @@ describe('useWorkflowDetailModal', () => {
     expect(result.current.detailModal).toBeNull();
   });
 
+  it('openRunErrorDetail does nothing when lastRunError is only whitespace', () => {
+    const opts = defaultOpts();
+    opts.lastRunError = '   \n\t';
+    const { result } = renderHook(() => useWorkflowDetailModal(opts));
+    act(() => result.current.openRunErrorDetail());
+    expect(result.current.detailModal).toBeNull();
+  });
+
   it('openVariableDetail opens with currentValue', () => {
     const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));
     act(() => result.current.openVariableDetail('token', 'xyz'));
@@ -81,6 +89,29 @@ describe('useWorkflowDetailModal', () => {
     expect(result.current.variableDetailDraft).toBe('http://localhost');
   });
 
+  it('openVariableDetail drafts empty when workflowVariables lacks key and no selectedNode', () => {
+    const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));
+    act(() => result.current.openVariableDetail('missingGlobal'));
+    expect(result.current.variableDetailDraft).toBe('');
+  });
+
+  it('openVariableDetail uses workflowVariables when selectedNode is not http', () => {
+    const opts = defaultOpts();
+    opts.selectedNode = makeNode({ type: 'condition' });
+    const { result } = renderHook(() => useWorkflowDetailModal(opts));
+    act(() => result.current.openVariableDetail('baseUrl'));
+    expect(result.current.variableDetailDraft).toBe('http://localhost');
+  });
+
+  it('openVariableDetail drafts empty string when http node has no initial value for key', () => {
+    const opts = defaultOpts();
+    opts.selectedNode = makeNode();
+    opts.nodeInitialVarsRef = { current: { n1: { token: 'abc' } } } as any;
+    const { result } = renderHook(() => useWorkflowDetailModal(opts));
+    act(() => result.current.openVariableDetail('missingKey'));
+    expect(result.current.variableDetailDraft).toBe('');
+  });
+
   it('handleApplyVariableDetail with custom onApply callback', () => {
     const onApply = vi.fn();
     const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));
@@ -94,11 +125,28 @@ describe('useWorkflowDetailModal', () => {
   it('handleApplyVariableDetail updates nodeInitialVars for http node', () => {
     const opts = defaultOpts();
     opts.selectedNode = makeNode();
+    opts.setNodeInitialVars = vi.fn((updater: (p: Record<string, Record<string, string>>) => Record<string, Record<string, string>>) =>
+      updater({}),
+    ) as any;
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openVariableDetail('token'));
     act(() => result.current.setVariableDetailDraft('updated'));
     act(() => result.current.handleApplyVariableDetail());
     expect(opts.setNodeInitialVars).toHaveBeenCalled();
+    expect(opts.nodeInitialVarsRef.current.n1).toEqual({ token: 'updated' });
+  });
+
+  it('handleApplyVariableDetail merges nodeInitialVars with existing node entry in prev', () => {
+    const opts = defaultOpts();
+    opts.selectedNode = makeNode();
+    opts.setNodeInitialVars = vi.fn((updater: (p: Record<string, Record<string, string>>) => Record<string, Record<string, string>>) =>
+      updater({ n1: { keep: 'yes' } }),
+    ) as any;
+    const { result } = renderHook(() => useWorkflowDetailModal(opts));
+    act(() => result.current.openVariableDetail('token', 'x'));
+    act(() => result.current.setVariableDetailDraft('merged'));
+    act(() => result.current.handleApplyVariableDetail());
+    expect(opts.nodeInitialVarsRef.current.n1).toEqual({ keep: 'yes', token: 'merged' });
   });
 
   it('handleApplyVariableDetail updates workflowVariables for non-http node', () => {
@@ -111,12 +159,24 @@ describe('useWorkflowDetailModal', () => {
     expect(opts.setWorkflowVariables).toHaveBeenCalled();
   });
 
+  it('handleApplyVariableDetail updates workflowVariables when selectedNode is null', () => {
+    const opts = defaultOpts();
+    opts.selectedNode = null;
+    opts.setWorkflowVariables = vi.fn((updater: (p: Record<string, string>) => Record<string, string>) =>
+      updater(opts.workflowVariables),
+    ) as any;
+    const { result } = renderHook(() => useWorkflowDetailModal(opts));
+    act(() => result.current.openVariableDetail('baseUrl'));
+    act(() => result.current.setVariableDetailDraft('http://staging'));
+    act(() => result.current.handleApplyVariableDetail());
+    expect(opts.setWorkflowVariables).toHaveBeenCalled();
+  });
+
   it('handleApplyVariableDetail is no-op when modal is not variable', () => {
     const opts = defaultOpts();
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openStepDetail('n1'));
     act(() => result.current.handleApplyVariableDetail());
-    // Should not throw, should not call any setters
     expect(opts.setWorkflowVariables).not.toHaveBeenCalled();
     expect(opts.setNodeInitialVars).not.toHaveBeenCalled();
   });
@@ -150,6 +210,28 @@ describe('useWorkflowDetailModal', () => {
       const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));
       act(() => result.current.openStepDetail('n1'));
       expect(result.current.stepDetailMeta.body).toContain('No details available');
+    });
+
+    it('uses HTTP step title when step node id is missing from nodes', () => {
+      const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));
+      act(() => result.current.openStepDetail('unknown'));
+      expect(result.current.stepDetailMeta.title).toBe('HTTP step');
+    });
+
+    it('uses HTTP step title when node exists but is not http', () => {
+      const opts = defaultOpts();
+      opts.nodes = [makeNode({ id: 'c1', type: 'condition', data: { label: 'Branch' } as any })];
+      const { result } = renderHook(() => useWorkflowDetailModal(opts));
+      act(() => result.current.openStepDetail('c1'));
+      expect(result.current.stepDetailMeta.title).toBe('HTTP step');
+    });
+
+    it('prefers responseDetail over error when both present', () => {
+      const opts = defaultOpts();
+      opts.nodeStatuses = { n1: { responseDetail: 'ok body', error: 'should not show' } };
+      const { result } = renderHook(() => useWorkflowDetailModal(opts));
+      act(() => result.current.openStepDetail('n1'));
+      expect(result.current.stepDetailMeta.body).toBe('ok body');
     });
   });
 

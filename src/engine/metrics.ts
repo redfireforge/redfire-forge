@@ -47,7 +47,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
     }
   }
 
-  const errorRate = total > 0 ? (failedRequests / total) * 100 : 0;
+  const errorRate = (failedRequests / total) * 100;
 
   return {
     tps: Math.round(tps * 100) / 100,

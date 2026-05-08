@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow';
 import type { Workflow } from '../src/features/workflow/types/workflow';
+import type { WorkflowIterationTrace } from '../src/shared/types/index';
 
 // Mock dependencies
 vi.mock('../src/features/workflow/engine/graphRunner', () => ({
@@ -229,6 +230,54 @@ describe('executeWorkflow', () => {
 
     expect(result.duration).toBeGreaterThanOrEqual(400); // approximate
     expect(result.executionId).toBe('exec-7');
+  });
+
+  it('returns iterationTrace when onComplete provides trace', async () => {
+    const iterationTrace: WorkflowIterationTrace = {
+      index: 0,
+      passed: true,
+      durationMs: 12,
+      events: [],
+      finalVariables: { x: '1' },
+      traversedEdges: [],
+    };
+
+    mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
+      callbacks.onComplete?.([], true, 12, iterationTrace);
+    });
+
+    const result = await executeWorkflow({
+      executionId: 'exec-trace',
+      workflow: makeWorkflow(),
+      initialVariables: {},
+      triggerType: 'webhook',
+      triggerId: 't1',
+      startTime: Date.now(),
+      traceOptions: { captureFullTrace: true },
+    });
+
+    expect(result.iterationTrace).toEqual(iterationTrace);
+    expect(mockRunGraph.mock.calls[0][15]).toEqual({ captureFullTrace: true });
+  });
+
+  it('invokes onVariablesChange callback from runGraph', async () => {
+    let capturedOnVariablesChange: ((v: Record<string, string>) => void) | undefined;
+    mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
+      capturedOnVariablesChange = callbacks.onVariablesChange;
+      callbacks.onVariablesChange?.({ a: 'b' });
+      callbacks.onComplete?.([], true, 10);
+    });
+
+    await executeWorkflow({
+      executionId: 'exec-var',
+      workflow: makeWorkflow(),
+      initialVariables: {},
+      triggerType: 'schedule',
+      triggerId: 't1',
+      startTime: Date.now(),
+    });
+
+    expect(capturedOnVariablesChange).toEqual(expect.any(Function));
   });
 });
 

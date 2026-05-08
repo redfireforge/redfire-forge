@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import JsonPathBuilder from './JsonPathBuilder';
 
@@ -167,6 +167,13 @@ describe('JsonPathBuilder', () => {
       expect(onSampleJsonChange).toHaveBeenCalledWith('{\n  "a": 1\n}');
     });
 
+    it('does not call onSampleJsonChange when Prettify runs on invalid JSON', () => {
+      const onSampleJsonChange = vi.fn();
+      render(<JsonPathBuilder {...defaultProps} sampleJson='{broken' onSampleJsonChange={onSampleJsonChange} />);
+      fireEvent.click(screen.getByText('Prettify'));
+      expect(onSampleJsonChange).not.toHaveBeenCalled();
+    });
+
     it('renders tree nodes with checkboxes', () => {
       render(<JsonPathBuilder {...defaultProps} sampleJson={SAMPLE_JSON} />);
       const checkboxes = screen.getAllByRole('checkbox');
@@ -182,6 +189,15 @@ describe('JsonPathBuilder', () => {
     it('shows parse error for invalid JSON', () => {
       render(<JsonPathBuilder {...defaultProps} sampleJson='{invalid json' />);
       expect(screen.getByText(/Parse error/)).toBeInTheDocument();
+    });
+
+    it('shows generic invalid message when JSON.parse throws a non-Error', () => {
+      const spy = vi.spyOn(JSON, 'parse').mockImplementationOnce(() => {
+        throw 'not an Error object';
+      });
+      render(<JsonPathBuilder {...defaultProps} sampleJson='{"x": 1}' />);
+      expect(screen.getByText(/Invalid JSON/)).toBeInTheDocument();
+      spy.mockRestore();
     });
 
     it('does not show tree for invalid JSON', () => {
@@ -309,6 +325,24 @@ describe('JsonPathBuilder', () => {
         expectedFields: expect.arrayContaining([
           expect.objectContaining({ jsonPath: 'name' }),
         ]),
+      });
+    });
+
+    it('Select Matched still runs when matched paths are already selected', () => {
+      const onUpdate = vi.fn();
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"name": "test", "id": 1}'
+          expectedFields={[{ jsonPath: 'name', expectedValue: '"test"' }]}
+          onUpdate={onUpdate}
+        />
+      );
+      const searchInput = screen.getByPlaceholderText('Search fields...');
+      fireEvent.change(searchInput, { target: { value: 'name' } });
+      fireEvent.click(screen.getByText(/Select Matched/));
+      expect(onUpdate).toHaveBeenCalledWith({
+        expectedFields: [{ jsonPath: 'name', expectedValue: '"test"' }],
       });
     });
 
@@ -498,6 +532,55 @@ describe('JsonPathBuilder', () => {
       );
       expect(screen.getByText('—')).toBeInTheDocument();
     });
+
+    it('uses Path as the table header when rows are not a uniform array index group', () => {
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"user": {"id": 1, "name": "x"}}'
+          expectedFields={[
+            { jsonPath: 'user.id', expectedValue: '1' },
+            { jsonPath: 'user.name', expectedValue: '"x"' },
+          ]}
+        />
+      );
+      fireEvent.click(screen.getByText('Table'));
+      const pathHeaders = screen.getAllByText('Path');
+      expect(pathHeaders.length).toBeGreaterThan(0);
+    });
+
+    it('renders a (root) row for json paths without a dot segment', () => {
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"id": 1, "name": "n"}'
+          expectedFields={[
+            { jsonPath: 'id', expectedValue: '1' },
+            { jsonPath: 'name', expectedValue: '"n"' },
+          ]}
+        />
+      );
+      fireEvent.click(screen.getByText('Table'));
+      const table = screen.getByRole('table');
+      expect(within(table).getAllByText('(root)').length).toBeGreaterThan(0);
+    });
+
+    it('uses plain row keys in the table when there is no shared array prefix', () => {
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"offers": [{"x": 1}], "meta": {"y": 2}}'
+          expectedFields={[
+            { jsonPath: 'offers[0].x', expectedValue: '1' },
+            { jsonPath: 'meta.y', expectedValue: '2' },
+          ]}
+        />
+      );
+      fireEvent.click(screen.getByText('Table'));
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('offers[0]')).toBeInTheDocument();
+      expect(within(table).getByText('meta')).toBeInTheDocument();
+    });
   });
 
   describe('Textarea interaction', () => {
@@ -514,6 +597,53 @@ describe('JsonPathBuilder', () => {
     it('renders children normally', () => {
       render(<JsonPathBuilder {...defaultProps} sampleJson='{"ok": true}' />);
       expect(screen.getAllByText('ok').length).toBeGreaterThan(0);
+    });
+
+    it('shows recovery UI when the tree throws and restores on Retry', async () => {
+      vi.resetModules();
+      const tree = await import('../utils/jsonPathTreeUtils');
+      const realGetAllPaths = tree.getAllPaths;
+      let allowTree = false;
+      const spy = vi.spyOn(tree, 'getAllPaths').mockImplementation((node) => {
+        if (!allowTree) throw new Error('tree failure');
+        return realGetAllPaths(node);
+      });
+      const { default: JsonPathBuilderFresh } = await import('./JsonPathBuilder');
+      render(
+        <JsonPathBuilderFresh
+          {...defaultProps}
+          sampleJson='{"a": 1}'
+        />,
+      );
+      expect(screen.getByText(/Tree rendering error/)).toBeInTheDocument();
+      allowTree = true;
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(screen.getAllByText('a').length).toBeGreaterThan(0);
+      spy.mockRestore();
+    });
+  });
+
+  describe('Tree expand/collapse and search filtering', () => {
+    it('collapses a branch when the chevron is clicked', () => {
+      render(<JsonPathBuilder {...defaultProps} sampleJson={SAMPLE_JSON} />);
+      const toggles = document.querySelectorAll('.jt-toggle');
+      expect(toggles.length).toBeGreaterThan(0);
+      fireEvent.click(toggles[0] as HTMLElement);
+      expect(toggles[0].className).toContain('jt-toggle--collapsed');
+    });
+
+    it('hides subtree nodes that do not match the search term', () => {
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"show": 1, "hide": 2}'
+        />
+      );
+      fireEvent.change(screen.getByPlaceholderText('Search fields...'), {
+        target: { value: 'show' },
+      });
+      expect(screen.getAllByText('show').length).toBeGreaterThan(0);
+      expect(screen.queryByText('hide')).not.toBeInTheDocument();
     });
   });
 
@@ -571,6 +701,19 @@ describe('JsonPathBuilder', () => {
           expectedFields={[{ jsonPath: 'data.long', expectedValue: longValue }]}
         />
       );
+      expect(screen.getByText(/\.\.\.$/)).toBeInTheDocument();
+    });
+
+    it('truncates long values in list view when the sample tree is present', () => {
+      const longValue = '"' + 'y'.repeat(100) + '"';
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"a": 1}'
+          expectedFields={[{ jsonPath: 'data.long', expectedValue: longValue }]}
+        />
+      );
+      fireEvent.click(screen.getByText('List'));
       expect(screen.getByText(/\.\.\.$/)).toBeInTheDocument();
     });
   });
@@ -658,6 +801,22 @@ describe('JsonPathBuilder', () => {
         expectedFields: [{ jsonPath: 'b', expectedValue: '2' }],
       });
     });
+
+    it('shows overflow hint when more than 50 rules are listed with tree', () => {
+      const many = Array.from({ length: 51 }, (_, i) => ({
+        jsonPath: `k${i}`,
+        expectedValue: `"v${i}"`,
+      }));
+      render(
+        <JsonPathBuilder
+          {...defaultProps}
+          sampleJson='{"x": 1}'
+          expectedFields={many}
+        />
+      );
+      fireEvent.click(screen.getByText('List'));
+      expect(screen.getByText('...and 1 more')).toBeInTheDocument();
+    });
   });
 
   describe('No-JSON fallback with fields', () => {
@@ -736,6 +895,15 @@ describe('JsonPathBuilder', () => {
       expect(onUpdate).toHaveBeenCalledWith({
         expectedFields: [{ jsonPath: '', expectedValue: 'hello' }],
       });
+    });
+
+    it('shows overflow hint when more than 50 rules are listed without sample JSON', () => {
+      const many = Array.from({ length: 51 }, (_, i) => ({
+        jsonPath: `p${i}`,
+        expectedValue: `"z${i}"`,
+      }));
+      render(<JsonPathBuilder {...defaultProps} expectedFields={many} />);
+      expect(screen.getByText('...and 1 more')).toBeInTheDocument();
     });
   });
 

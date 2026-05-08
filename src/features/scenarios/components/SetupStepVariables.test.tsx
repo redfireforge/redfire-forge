@@ -84,6 +84,29 @@ describe('SetupStepVariables', () => {
       fireEvent.change(input, { target: { value: 'new_name' } });
       expect(setVarName).toHaveBeenCalledWith(2, 'new_name');
     });
+
+    it('renders empty path variable name when checked selection has no name', () => {
+      render(<SetupStepVariables {...makeProps({
+        selections: { 1: { checked: true, name: '' } },
+      })} />);
+      const varInputs = screen.getAllByPlaceholderText('variable name');
+      expect(varInputs.some(el => (el as HTMLInputElement).value === '')).toBe(true);
+    });
+
+    it('treats absent path variable name as empty when selection is checked', () => {
+      render(<SetupStepVariables {...makeProps({
+        selections: { 0: { checked: true, name: undefined as unknown as string } },
+      })} />);
+      const varInputs = screen.getAllByPlaceholderText('variable name');
+      expect(varInputs.some(el => (el as HTMLInputElement).value === '')).toBe(true);
+    });
+
+    it('ignores undefined selection entries when counting selected path segments', () => {
+      render(<SetupStepVariables {...makeProps({
+        selections: { 0: undefined as unknown as { checked: boolean; name: string }, 1: { checked: true, name: 'x' } },
+      })} />);
+      expect(screen.getByText('1 selected')).toBeInTheDocument();
+    });
   });
 
   describe('URL template', () => {
@@ -154,6 +177,14 @@ describe('SetupStepVariables', () => {
       expect(screen.getByText('1/2')).toBeInTheDocument();
     });
 
+    it('defaults missing param selection to enabled for count', () => {
+      render(<SetupStepVariables {...makeProps({
+        urlParams: [{ key: 'q', value: 'x' }],
+        paramSelections: {},
+      })} />);
+      expect(screen.getByText('1/1')).toBeInTheDocument();
+    });
+
     it('calls setParamSelection on checkbox change', () => {
       const setParamSelection = vi.fn();
       render(<SetupStepVariables {...makeProps({
@@ -208,6 +239,25 @@ describe('SetupStepVariables', () => {
       fireEvent.click(headerCb!);
       expect(setHeaderSelection).toHaveBeenCalledWith('X-Api-Key', { enabled: expect.any(Boolean) });
     });
+
+    it('calls setHeaderSelection with sanitized name when header name input changes', () => {
+      const setHeaderSelection = vi.fn();
+      render(<SetupStepVariables {...makeProps({
+        headerCandidates: [{ key: 'X-Foo', value: 'bar', suggestedName: 'fooVar', suggestedEnabled: true }],
+        headerSelections: { 'X-Foo': { enabled: true, name: 'fooVar' } },
+        setHeaderSelection,
+      })} />);
+      fireEvent.change(screen.getByDisplayValue('fooVar'), { target: { value: 'new_name!' } });
+      expect(setHeaderSelection).toHaveBeenCalledWith('X-Foo', { name: 'new_name' });
+    });
+
+    it('counts enabled header selections including suggested defaults when none stored', () => {
+      render(<SetupStepVariables {...makeProps({
+        headerCandidates: [{ key: 'H1', value: 'v', suggestedName: 'h1', suggestedEnabled: true }],
+        headerSelections: {},
+      })} />);
+      expect(screen.getByText('0/1')).toBeInTheDocument();
+    });
   });
 
   describe('body variables', () => {
@@ -235,6 +285,25 @@ describe('SetupStepVariables', () => {
       const bodyCb = checkboxes.find(cb => cb.closest('.csv-fixed-item')?.textContent?.includes('payload'));
       fireEvent.click(bodyCb!);
       expect(setBodySelection).toHaveBeenCalledWith('payload', { enabled: expect.any(Boolean) });
+    });
+
+    it('calls setBodySelection with sanitized name when body variable name input changes', () => {
+      const setBodySelection = vi.fn();
+      render(<SetupStepVariables {...makeProps({
+        bodyVariableCandidates: ['bodyKey'],
+        bodySelections: { bodyKey: { enabled: true, name: 'bodyKey' } },
+        setBodySelection,
+      })} />);
+      fireEvent.change(screen.getByDisplayValue('bodyKey'), { target: { value: 'row_id@1' } });
+      expect(setBodySelection).toHaveBeenCalledWith('bodyKey', { name: 'row_id1' });
+    });
+
+    it('shows body variable count from stored selections only', () => {
+      render(<SetupStepVariables {...makeProps({
+        bodyVariableCandidates: ['onlyVar'],
+        bodySelections: {},
+      })} />);
+      expect(screen.getByText('0/1')).toBeInTheDocument();
     });
   });
 
@@ -264,6 +333,30 @@ describe('SetupStepVariables', () => {
       expect(patchWorkingAuth).toHaveBeenCalledWith({ token: 'new-token' });
     });
 
+    it('uses default Bearer prefix when bearer auth omits prefix', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'bearer', token: 't-only' },
+      })} />);
+      expect(screen.getByDisplayValue('Bearer')).toBeInTheDocument();
+    });
+
+    it('uses empty token value when bearer omits token', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'bearer', prefix: 'Bearer' },
+      })} />);
+      expect(screen.getByPlaceholderText('Token')).toHaveValue('');
+    });
+
+    it('patches bearer prefix input on change', () => {
+      const patchWorkingAuth = vi.fn();
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'bearer', token: 'x', prefix: 'Bearer' },
+        patchWorkingAuth,
+      })} />);
+      fireEvent.change(screen.getByPlaceholderText('Prefix (Bearer)'), { target: { value: 'Token' } });
+      expect(patchWorkingAuth).toHaveBeenCalledWith({ prefix: 'Token' });
+    });
+
     it('shows basic auth fields and edits username', () => {
       const patchWorkingAuth = vi.fn();
       render(<SetupStepVariables {...makeProps({
@@ -273,6 +366,14 @@ describe('SetupStepVariables', () => {
       expect(screen.getByDisplayValue('admin')).toBeInTheDocument();
       fireEvent.change(screen.getByDisplayValue('admin'), { target: { value: 'root' } });
       expect(patchWorkingAuth).toHaveBeenCalledWith({ username: 'root' });
+    });
+
+    it('shows empty basic auth fields when username and password are omitted', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'basic' },
+      })} />);
+      expect(screen.getByPlaceholderText('Username')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Password')).toHaveValue('');
     });
 
     it('edits basic auth password', () => {
@@ -297,6 +398,21 @@ describe('SetupStepVariables', () => {
       expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
       fireEvent.change(screen.getByDisplayValue('Header'), { target: { value: 'query' } });
       expect(patchWorkingAuth).toHaveBeenCalledWith({ apiKeyIn: 'query' });
+    });
+
+    it('defaults apikey location to header when apiKeyIn is omitted', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'apikey', apiKeyName: 'K', apiKeyValue: 'v' },
+      })} />);
+      expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
+    });
+
+    it('shows empty api key name and value fields when omitted', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'apikey' },
+      })} />);
+      expect(screen.getByPlaceholderText('Key Name')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Key Value')).toHaveValue('');
     });
 
     it('edits apikey name', () => {
@@ -351,6 +467,15 @@ describe('SetupStepVariables', () => {
       fireEvent.change(secretInput, { target: { value: 'new-secret' } });
       expect(patchWorkingAuth).toHaveBeenCalledWith({ clientSecret: 'new-secret' });
     });
+
+    it('shows empty oauth2 fields when optional properties are omitted', () => {
+      render(<SetupStepVariables {...makeProps({
+        workingAuth: { type: 'oauth2' },
+      })} />);
+      expect(screen.getByPlaceholderText('Token URL')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Client ID')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Client Secret')).toHaveValue('');
+    });
   });
 
   describe('fixed configuration', () => {
@@ -359,11 +484,29 @@ describe('SetupStepVariables', () => {
       expect(screen.getByText('POST')).toBeInTheDocument();
     });
 
+    it('applies lowercased method to method badge class', () => {
+      const { container } = render(<SetupStepVariables {...makeProps({
+        test: { method: 'PATCH', headers: [], body: '' },
+      })} />);
+      expect(container.querySelector('.method-patch')).toBeInTheDocument();
+    });
+
     it('shows headers list', () => {
       render(<SetupStepVariables {...makeProps({
         test: { method: 'GET', headers: [{ key: 'Content-Type', value: 'application/json' }, { key: '', value: '' }], body: '' },
       })} />);
       expect(screen.getByText('Content-Type')).toBeInTheDocument();
+    });
+
+    it('joins multiple non-empty header keys with comma and space', () => {
+      render(<SetupStepVariables {...makeProps({
+        test: {
+          method: 'GET',
+          headers: [{ key: 'A', value: '1' }, { key: 'B', value: '2' }],
+          body: '',
+        },
+      })} />);
+      expect(screen.getByText('A, B')).toBeInTheDocument();
     });
 
     it('shows "None" when no headers', () => {

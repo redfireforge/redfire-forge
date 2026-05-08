@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowCanvasSync, useWorkflowVariableHints } from './useWorkflowCanvasSync';
 import type { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../types/workflow';
@@ -210,6 +210,26 @@ describe('useWorkflowCanvasSync', () => {
       expect(opts.setLayoutVersion).toHaveBeenCalled();
     });
 
+    it('uses empty defaults when optional workflow fields are omitted', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = {
+        id: 'wf-partial',
+        name: 'Partial',
+        nodes: [],
+        edges: [],
+        createdAt: 1,
+        updatedAt: 2,
+      } as Workflow;
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      expect(opts.setWorkflowVariables).toHaveBeenCalledWith({});
+      expect(opts.setWorkflowHostProfiles).toHaveBeenCalledWith([]);
+      expect(opts.setWorkflowAuthProfiles).toHaveBeenCalledWith([]);
+      expect(opts.setWorkflowServices).toHaveBeenCalledWith([]);
+      expect(opts.setWorkflowErrorConfig).toHaveBeenCalledWith(undefined);
+    });
+
     it('handles nodes with invalid positions', () => {
       const opts = createMockCanvasSyncOpts();
       const nodeWithBadPosition = {
@@ -225,6 +245,16 @@ describe('useWorkflowCanvasSync', () => {
       expect(opts.setNodes).toHaveBeenCalledWith(expect.arrayContaining([
         expect.objectContaining({ position: { x: 0, y: 0 } }),
       ]));
+    });
+
+    it('does not sync when selected workflow becomes null', () => {
+      const opts = createMockCanvasSyncOpts();
+      opts.selected = createMockWorkflow('wf-1', [], []);
+      const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
+      vi.clearAllMocks();
+      opts.selected = null;
+      rerender();
+      expect(opts.setNodes).not.toHaveBeenCalled();
     });
   });
 });
@@ -365,6 +395,57 @@ describe('useWorkflowVariableHints', () => {
       const { result } = renderHook(() => useWorkflowVariableHints(opts));
 
       expect(result.current.conditionVariableHints).toEqual([]);
+    });
+
+    it('collects hints for waitForCondition nodes', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'w1';
+      opts.nodes = [
+        {
+          id: 'w1',
+          type: 'waitForCondition',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Wait',
+            conditionExpression: 'true',
+            pollIntervalMs: 100,
+            timeoutMs: 1000,
+            maxAttempts: 0,
+          },
+        } as WorkflowRFNode,
+      ];
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+      expect(Array.isArray(result.current.conditionVariableHints)).toBe(true);
+    });
+
+    it('collects hints for condition nodes', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'c1';
+      opts.nodes = [
+        {
+          id: 'c1',
+          type: 'condition',
+          position: { x: 0, y: 0 },
+          data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+        } as WorkflowRFNode,
+      ];
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+      expect(Array.isArray(result.current.conditionVariableHints)).toBe(true);
+    });
+
+    it('collects hints for switch nodes', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'sw1';
+      opts.nodes = [
+        {
+          id: 'sw1',
+          type: 'switch',
+          position: { x: 0, y: 0 },
+          data: { label: 'Switch', expression: '{{x}}', cases: [] },
+        } as WorkflowRFNode,
+      ];
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+      expect(Array.isArray(result.current.conditionVariableHints)).toBe(true);
     });
   });
 

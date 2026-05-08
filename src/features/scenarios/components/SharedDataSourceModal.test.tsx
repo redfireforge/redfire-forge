@@ -57,11 +57,13 @@ vi.mock('./DataSourceSetupModal', () => ({
   default: ({
     onApply,
     onClose,
+    sourceName,
   }: {
     onApply: (dataTable: DataSource, urlTemplate: string, opts?: { auth?: unknown }) => void;
     onClose: () => void;
+    sourceName?: string;
   }) => (
-    <div data-testid="setup-wizard-mock">
+    <div data-testid="setup-wizard-mock" data-source-name={sourceName ?? ''}>
       <button
         type="button"
         onClick={() =>
@@ -79,6 +81,21 @@ vi.mock('./DataSourceSetupModal', () => ({
           )}
       >
         Wizard Apply
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onApply(
+            {
+              id: 'tbl-flat',
+              columns: [{ id: 'c1', name: 'A', type: 'path' as const, mapping: 'a' }],
+              rows: [{ id: 'r1', values: { c1: 'v' }, enabled: true }],
+              source: { type: 'inline' as const },
+            },
+            '',
+          )}
+      >
+        Wizard Apply Flat URL
       </button>
       <button type="button" onClick={onClose}>
         Wizard Close
@@ -450,6 +467,34 @@ describe('SharedDataSourceModal', () => {
       
       expect(screen.getByText(/used by 1 test/i)).toBeInTheDocument();
     });
+
+    it('marks editing draft in expanded used-by list', async () => {
+      const sources = [makeSharedDs('s1', 'Shared')];
+      const currentEditingDraft = {
+        fgName: 'Feature',
+        scenarioName: 'Scenario',
+        test: {
+          id: 't1',
+          name: 'Editing Test',
+          url: 'http://api',
+          method: 'GET' as const,
+          headers: [],
+          body: '',
+          validation: { mode: 'none' as const },
+          sharedDataSourceId: 's1',
+        },
+      };
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[]}
+          currentEditingDraft={currentEditingDraft}
+        />,
+      );
+      await userEvent.click(document.querySelector('.shared-ds-used-by-toggle') as HTMLElement);
+      expect(screen.getByText('Editing Test ✎')).toBeInTheDocument();
+    });
   });
 
   describe('Close Modal', () => {
@@ -575,6 +620,62 @@ describe('SharedDataSourceModal', () => {
       expect(onCreateTest).toHaveBeenCalledWith(sources[0], 'fg1', expect.any(String), 'My New Test');
       expect(onClose).toHaveBeenCalled();
     });
+
+    it('resets target scenario when changing feature group in create flow', async () => {
+      const sources = [makeSharedDs('s1', 'Shared', { fetchConfig: { url: 'https://a.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
+      const fgA = makeFeatureGroup('fgA', 'Group A', 2);
+      const fgB = makeFeatureGroup('fgB', 'Group B', 2);
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[fgA, fgB]}
+          onCreateTestFromSharedDs={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
+      const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
+      const fgSelect = within(popup).getAllByRole('combobox')[0];
+      await userEvent.selectOptions(fgSelect, 'fgB');
+      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
+      expect(scSelect.value).toBe('sc-fgB-0');
+    });
+
+    it('shows not set for URL preview when fetch config is absent', async () => {
+      const sources = [makeSharedDs('s1', 'No URL')];
+      const s0 = sources[0] as SharedDataSource & { fetchConfig?: unknown };
+      delete s0.fetchConfig;
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[makeFeatureGroup('fg1', 'F')]}
+          onCreateTestFromSharedDs={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
+      expect(screen.getByText('(not set)')).toBeInTheDocument();
+    });
+
+    it('clears scenario selection when target feature group has zero scenarios', async () => {
+      const sources = [makeSharedDs('s1', 'Shared', { fetchConfig: { url: 'https://a.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
+      const emptyFg = makeFeatureGroup('fgEmpty', 'No Scenarios', 0);
+      const normalFg = makeFeatureGroup('fg1', 'Has Scenarios', 2);
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[normalFg, emptyFg]}
+          onCreateTestFromSharedDs={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
+      const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
+      const fgSelect = within(popup).getAllByRole('combobox')[0];
+      await userEvent.selectOptions(fgSelect, 'fgEmpty');
+      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
+      expect(scSelect.value).toBe('');
+    });
   });
 
   describe('Fetch Config Editor', () => {
@@ -655,6 +756,59 @@ describe('SharedDataSourceModal', () => {
       expect(bodyTab?.textContent).toContain('Body');
     });
 
+    it('shows Body tab badge dot when request body is non-empty on PUT', () => {
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: {
+            url: 'https://api.test.com',
+            method: 'PUT',
+            headers: [],
+            body: '{"a":1}',
+            auth: { type: 'none' },
+          },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      const tabs = document.querySelector('.builder-tabs') as HTMLElement;
+      const bodyBtn = within(tabs).getByRole('button', { name: /^Body\b/ });
+      expect(bodyBtn.querySelector('.tab-badge-dot')).toBeTruthy();
+    });
+
+    it('omits Body tab badge dot when body is blank after trim', () => {
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: {
+            url: 'https://api.test.com',
+            method: 'PUT',
+            headers: [],
+            body: '   ',
+            auth: { type: 'none' },
+          },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      const tabs = document.querySelector('.builder-tabs') as HTMLElement;
+      const bodyBtn = within(tabs).getByRole('button', { name: /^Body\b/ });
+      expect(bodyBtn.querySelector('.tab-badge-dot')).toBeNull();
+    });
+
+    it('shows Auth tab badge when fetch auth type is inherit', () => {
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: {
+            url: 'https://api.test.com',
+            method: 'GET',
+            headers: [],
+            auth: { type: 'inherit' },
+          },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      const tabs = document.querySelector('.builder-tabs') as HTMLElement;
+      const authBtn = within(tabs).getByRole('button', { name: /^auth\b/i });
+      expect(authBtn.querySelector('.tab-badge-dot')).toBeTruthy();
+    });
+
     it('does not show Body tab for GET method', () => {
       const sources = [makeSharedDs('s1', 'Test', { fetchConfig: { url: 'https://api.test.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
@@ -695,6 +849,12 @@ describe('SharedDataSourceModal', () => {
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
       expect(screen.getByText('production')).toBeInTheDocument();
       expect(screen.getByText('critical')).toBeInTheDocument();
+    });
+
+    it('hides tags section when tags array is empty', () => {
+      const sources = [makeSharedDs('s1', 'Test', { tags: [] })];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      expect(document.querySelector('.shared-ds-tags')).toBeNull();
     });
   });
 
@@ -744,6 +904,23 @@ describe('SharedDataSourceModal', () => {
         expect(screen.queryByText(/^Data Source \d/)).not.toBeInTheDocument();
       });
       expect(screen.getByText('Alpha')).toBeInTheDocument();
+    });
+
+    it('footer Cancel selects first snapshot source when current selection is gone after revert', async () => {
+      render(
+        <ModalHarness
+          initialSources={[makeSharedDs('a', 'Alpha'), makeSharedDs('b', 'Beta')]}
+          onClose={vi.fn()}
+          featureGroups={[]}
+        />,
+      );
+      await userEvent.click(screen.getByText('Beta').closest('.shared-ds-list-item')!);
+      await userEvent.click(screen.getByRole('button', { name: /\+ new/i }));
+      await waitFor(() => expect(screen.getByText(/^Data Source/i)).toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Alpha').closest('.shared-ds-list-item')).toHaveClass('active');
+      });
     });
 
     it('footer Close opens save confirm when dirty', async () => {
@@ -809,6 +986,79 @@ describe('SharedDataSourceModal', () => {
   });
 
   describe('List panel edge cases', () => {
+    it('shows singular mapping issue label for one warning', () => {
+      const ds = makeDataSource('tbl1', 1, 0);
+      ds.columns[0] = { id: 'p1', name: 'orphPath', type: 'path', mapping: 'ghost' };
+      const sources = [
+        {
+          id: 's1',
+          name: 'Warn1',
+          dataSource: ds,
+          updatedAt: Date.now(),
+          fetchConfig: { url: 'https://plain.test/x', method: 'GET', headers: [], auth: { type: 'none' } },
+        },
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      expect(screen.getByRole('button', { name: /^1 issue$/ })).toBeInTheDocument();
+    });
+
+    it('used-by expanded list omits pencil for catalog-linked tests only', async () => {
+      const sources = [makeSharedDs('s1', 'Shared')];
+      const fg: FeatureGroup = {
+        id: 'fg1',
+        name: 'FG',
+        scenarios: [{
+          id: 'sc1',
+          name: 'Sc',
+          tests: [{
+            id: 't1',
+            name: 'CatalogLinked',
+            url: 'http://x',
+            method: 'GET',
+            headers: [],
+            body: '',
+            validation: { mode: 'none' },
+            sharedDataSourceId: 's1',
+          }],
+          auth: { type: 'none' },
+          enabled: true,
+        }],
+      };
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[fg]} />);
+      await userEvent.click(screen.getByRole('button', { name: /used by 1 test/i }));
+      expect(screen.getByText('CatalogLinked')).toBeInTheDocument();
+      expect(screen.queryByText(/CatalogLinked ✎/)).toBeNull();
+    });
+
+    it('shows plural label when multiple mapping warnings exist', () => {
+      const ds = makeDataSource('tbl1', 1, 0);
+      ds.columns = [
+        { id: 'p1', name: 'orphPath', type: 'path', mapping: 'notInUrl' },
+        { id: 'p2', name: 'orphQ', type: 'param', mapping: 'missingQ' },
+      ];
+      const sources = [
+        {
+          id: 's1',
+          name: 'Warn2',
+          dataSource: ds,
+          updatedAt: Date.now(),
+          fetchConfig: { url: 'https://plain.test/no', method: 'GET', headers: [], auth: { type: 'none' } },
+        },
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      expect(screen.getByRole('button', { name: /2 issues/i })).toBeInTheDocument();
+    });
+
+    it('footer Cancel after first create from empty list restores empty snapshot', async () => {
+      render(<ModalHarness initialSources={[]} onClose={vi.fn()} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /\+ create first shared data source/i }));
+      await waitFor(() => expect(screen.getByPlaceholderText('Data source name')).toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      await waitFor(() => {
+        expect(screen.getByText(/no shared data sources yet/i)).toBeInTheDocument();
+      });
+    });
+
     it('shows No matches when search filters everything out', async () => {
       render(<ModalHarness initialSources={[makeSharedDs('s1', 'Only')]} onClose={vi.fn()} featureGroups={[]} />);
       await userEvent.type(screen.getByPlaceholderText('Search…'), 'nomatch');
@@ -1000,8 +1250,24 @@ describe('SharedDataSourceModal', () => {
       const sources = [makeSharedDs('s1', 'T', { fetchConfig: { url: 'https://api.com/u', method: 'GET', headers: [], auth: { type: 'none' } } })];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
       await userEvent.click(screen.getByRole('button', { name: /configure variables \+ auth/i }));
+      expect(screen.getByTestId('setup-wizard-mock')).toHaveAttribute('data-source-name', 'T');
       await userEvent.click(screen.getByText('Wizard Apply'));
       expect(screen.queryByTestId('setup-wizard-mock')).not.toBeInTheDocument();
+    });
+
+    it('wizard apply with empty url template preserves existing fetch URL', async () => {
+      const onUpdate = vi.fn();
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://keep.me/here', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} onUpdate={onUpdate} />);
+      await userEvent.click(screen.getByRole('button', { name: /configure variables \+ auth/i }));
+      await userEvent.click(screen.getByText('Wizard Apply Flat URL'));
+      const next = onUpdate.mock.calls.at(-1)![0][0] as SharedDataSource;
+      expect(next.fetchConfig?.url).toBe('https://keep.me/here');
+      expect(next.fetchConfig?.pathVariables).toBeUndefined();
     });
 
     it('closes setup wizard without applying', async () => {
@@ -1303,6 +1569,24 @@ describe('SharedDataSourceModal', () => {
       const secondSc = fg.scenarios[1];
       fireEvent.change(scSelect, { target: { value: secondSc.id } });
       expect((scSelect as HTMLSelectElement).value).toBe(secondSc.id);
+    });
+
+    it('create-test: invalid feature group id yields empty scenario options list', async () => {
+      const sources = [makeSharedDs('s1', 'D', { fetchConfig: { url: 'https://x.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[makeFeatureGroup('fg1', 'G')]}
+          onCreateTestFromSharedDs={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
+      const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
+      const fgSelect = within(popup).getAllByRole('combobox')[0];
+      fireEvent.change(fgSelect, { target: { value: 'not-a-real-fg' } });
+      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
+      expect(scSelect.querySelectorAll('option')).toHaveLength(0);
     });
 
     it('create-test popup: frame onClose dismisses modal', async () => {

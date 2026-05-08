@@ -48,6 +48,27 @@ function ScheduleConfigWithVarState(
 }
 
 describe('ScheduleConfig', () => {
+  it('uses empty object when inputVariables is undefined', () => {
+    render(
+      <ScheduleConfig
+        {...defaultProps}
+        data={makeData({ inputVariables: undefined })}
+      />,
+    );
+    expect(screen.getByText('Initial variables')).toBeTruthy();
+  });
+
+  it('uses empty notes when notes is undefined', () => {
+    render(
+      <ScheduleConfig
+        {...defaultProps}
+        data={makeData({ notes: undefined })}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText(/Documentation or notes about this schedule/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('');
+  });
+
   it('renders cron expression input', () => {
     render(<ScheduleConfig {...defaultProps} />);
     expect(screen.getByDisplayValue('0 9 * * MON-FRI')).toBeTruthy();

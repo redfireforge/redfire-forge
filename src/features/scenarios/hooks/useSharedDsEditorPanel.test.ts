@@ -283,6 +283,30 @@ describe('useSharedDsEditorPanel', () => {
       const { result } = renderEditorHook(ds);
       expect(result.current.fetchDraftScenario?.url).toBe('https://resolved.example.com/users/42');
     });
+
+    it('keeps template URL when URL has no templates but raw cURL is set', () => {
+      const ds = createMockSharedDs('ds', 'Plain', 'https://plain.example.com/items');
+      ds.fetchConfig = {
+        ...defaultFetchConfig(),
+        url: 'https://plain.example.com/items',
+        rawCurl: 'curl -X GET https://resolved.example.com/other',
+      };
+      mockSources = [ds];
+      const { result } = renderEditorHook(ds);
+      expect(result.current.fetchDraftScenario?.url).toBe('https://plain.example.com/items');
+    });
+
+    it('treats whitespace-only raw cURL as absent for resolved URL', () => {
+      const ds = createMockSharedDs('ds', 'W', 'https://a.com/{{id}}');
+      ds.fetchConfig = {
+        ...defaultFetchConfig(),
+        url: 'https://a.com/{{id}}',
+        rawCurl: '   ',
+      };
+      mockSources = [ds];
+      const { result } = renderEditorHook(ds);
+      expect(result.current.fetchDraftScenario?.url).toBe('https://a.com/{{id}}');
+    });
   });
 
   describe('jumpToFetchSection', () => {
@@ -518,6 +542,19 @@ describe('useSharedDsEditorPanel', () => {
   });
 
   describe('handleFetchRow', () => {
+    it('resolves auth when hook has no selected data source', async () => {
+      mockGlobalAuthProfiles = [{ id: 'g', name: 'G', auth: { type: 'bearer', token: 't' } }];
+      mockFeatureGroups = [{ id: 'fg', name: 'F', scenarios: [], auth: { type: 'none' } }];
+      const { result } = renderEditorHook(null);
+      await act(async () => {
+        await result.current.handleFetchRow('https://x', 'GET', {});
+      });
+      expect(applyAuthHeaders).toHaveBeenCalledWith(
+        { type: 'bearer', token: 't' },
+        expect.any(Object),
+      );
+    });
+
     it('falls back to first concrete global profile when cfg auth is inherit and feature groups have no concrete auth', async () => {
       mockGlobalAuthProfiles = [
         { id: 'gp1', name: 'Empty', auth: { type: 'none' } },
@@ -676,6 +713,55 @@ describe('useSharedDsEditorPanel', () => {
       });
       expect(applyAuthHeaders).toHaveBeenCalledWith(
         { type: 'bearer', token: 'cfg' },
+        expect.any(Object),
+      );
+    });
+
+    it('leaves inherit auth when no global profile is concrete', async () => {
+      mockGlobalAuthProfiles = [
+        { id: 'g1', name: 'A', auth: { type: 'none' } },
+        { id: 'g2', name: 'B', auth: { type: 'inherit' } },
+      ];
+      mockFeatureGroups = [{ id: 'fg', name: 'F', scenarios: [], auth: { type: 'none' } }];
+      const inheritDs = createMockSharedDs('ds-1', 'U', 'https://x');
+      inheritDs.fetchConfig = { ...defaultFetchConfig(), url: 'https://x', auth: { type: 'inherit' } };
+      mockSources = [inheritDs];
+      const { result } = renderEditorHook(inheritDs);
+      await act(async () => {
+        await result.current.handleFetchRow('https://x', 'GET', {});
+      });
+      expect(applyAuthHeaders).toHaveBeenCalledWith(
+        { type: 'inherit' },
+        expect.any(Object),
+      );
+    });
+
+    it('skips non-concrete resolved profile and uses a later feature group auth', async () => {
+      mockGlobalAuthProfiles = [{ id: 'gp-none', name: 'N', auth: { type: 'none' } }];
+      mockFeatureGroups = [
+        {
+          id: 'fg-skip',
+          name: 'S',
+          scenarios: [],
+          auth: { type: 'inherit' },
+          globalAuthProfileId: 'gp-none',
+        },
+        {
+          id: 'fg-use',
+          name: 'U',
+          scenarios: [],
+          auth: { type: 'bearer', token: 'late' },
+        },
+      ];
+      const inheritDs = createMockSharedDs('ds-1', 'U', 'https://x');
+      inheritDs.fetchConfig = { ...defaultFetchConfig(), url: 'https://x', auth: { type: 'inherit' } };
+      mockSources = [inheritDs];
+      const { result } = renderEditorHook(inheritDs);
+      await act(async () => {
+        await result.current.handleFetchRow('https://x', 'GET', {});
+      });
+      expect(applyAuthHeaders).toHaveBeenCalledWith(
+        { type: 'bearer', token: 'late' },
         expect.any(Object),
       );
     });

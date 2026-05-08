@@ -303,4 +303,306 @@ describe('generateExcelTemplate — decode + config branches', () => {
     expect(defs.filter(d => d.type === 'validate' && d.mapping === '$.status')).toHaveLength(1);
     expect(defs.some(d => d.type === 'validate' && d.mapping === '$.data.vin')).toBe(true);
   });
+
+  it('sample row uses customName in dataRows when mapping key is absent', () => {
+    const test = makeTestScenario({ validation: { mode: 'none' } });
+    const defs = buildColumnDefs(makeExportOpts({ test, pathVariables: [] }));
+    const nameDef = defs.find(d => d.type === 'name')!;
+    nameDef.customName = 'RowTitle';
+    const wb = generateExcelTemplate({
+      test,
+      pathVariables: [],
+      columnDefs: defs,
+      dataRows: [{ values: { RowTitle: 'KeyedByCustom' } }],
+    });
+    const data = XLSX.utils.sheet_to_json<string[][]>(wb.Sheets.Data, { header: 1, defval: '' }) as string[][];
+    expect(data.some(r => r.includes('KeyedByCustom'))).toBe(true);
+  });
+
+  it('sample path cell is empty when path variable name does not match any pathVariables entry', () => {
+    const test = makeTestScenario({
+      url: 'https://api.example.com/vehicles/99',
+      validation: { mode: 'none' },
+    });
+    const defs = buildColumnDefs(
+      makeExportOpts({ test, pathVariables: [{ segmentIndex: 1, variableName: 'vehicleId' }] }),
+    );
+    const pathDef = defs.find(d => d.type === 'path')!;
+    pathDef.mapping = 'wrongName';
+    const wb = generateExcelTemplate({
+      test,
+      pathVariables: [{ segmentIndex: 1, variableName: 'vehicleId' }],
+      columnDefs: defs,
+    });
+    const data = XLSX.utils.sheet_to_json<string[][]>(wb.Sheets.Data, { header: 1, defval: '' }) as string[][];
+    const headerRow = data[1];
+    const pathCol = headerRow.indexOf(pathDef.customName);
+    const sample = data[2][pathCol];
+    expect(sample).toBe('');
+  });
+
+  it('sample param cell is empty when query key is not in the URL', () => {
+    const test = makeTestScenario({
+      url: 'https://api.example.com/items?env=prod',
+      validation: { mode: 'none' },
+    });
+    const defs = buildColumnDefs(makeExportOpts({ test, pathVariables: [] }));
+    const paramDef = defs.find(d => d.type === 'param');
+    expect(paramDef).toBeDefined();
+    paramDef!.mapping = 'missingParam';
+    const wb = generateExcelTemplate({ test, pathVariables: [], columnDefs: defs });
+    const data = XLSX.utils.sheet_to_json<string[][]>(wb.Sheets.Data, { header: 1, defval: '' }) as string[][];
+    const headerRow = data[1];
+    const col = headerRow.indexOf(paramDef!.customName);
+    expect(data[2][col]).toBe('');
+  });
+
+  it('sample validate cell is empty when jsonPath is not in expectedFields', () => {
+    const test = makeTestScenario({
+      url: 'https://api.example.com/x',
+      validation: { mode: 'selective', expectedFields: [] },
+    });
+    const defs = buildColumnDefs(makeExportOpts({ test, pathVariables: [] }));
+    const vDef = defs.find(d => d.type === 'validate');
+    expect(vDef).toBeUndefined();
+    defs.push({
+      type: 'validate',
+      fullKey: 'validate:$.orphan',
+      mapping: '$.orphan',
+      autoName: 'orphan',
+      customName: 'orphan',
+    });
+    const wb = generateExcelTemplate({ test, pathVariables: [], columnDefs: defs });
+    const data = XLSX.utils.sheet_to_json<string[][]>(wb.Sheets.Data, { header: 1, defval: '' }) as string[][];
+    const headerRow = data[1];
+    const col = headerRow.indexOf('orphan');
+    expect(data[2][col]).toBe('');
+  });
+});
+
+describe('buildColumnDefs — shortName edge', () => {
+  it('falls back to full jsonPath when the path collapses to an empty leaf', () => {
+    const test = makeTestScenario({
+      url: 'https://api.example.com/x',
+      validation: {
+        mode: 'selective',
+        expectedFields: [{ jsonPath: '$', expectedValue: '1' }],
+      },
+    });
+    const defs = buildColumnDefs(makeExportOpts({ test, pathVariables: [] }));
+    const v = defs.find(d => d.type === 'validate');
+    expect(v?.autoName).toBe('$');
+  });
+});
+
+function writeWorkbookPair(dataAoa: string[][], metaAoa: (string | number | boolean)[][]): ArrayBuffer {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dataAoa), 'Data');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaAoa), 'Metadata');
+  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+}
+
+describe('parseExcelToScenarios — sheet shape and metadata branches', () => {
+  const tailConfig = (): (string | number | boolean)[][] => [
+    [],
+    ['CONFIG', ''],
+    ['key', 'value'],
+    ['version', 2],
+    ['method', 'GET'],
+    ['urlPattern', 'https://api.example.com/items'],
+    ['body', ''],
+    ['bodyType', 'json'],
+    ['auth', JSON.stringify({ type: 'none' })],
+    ['validationMode', 'selective'],
+    ['selectiveMode', 'include'],
+    ['unorderedArrays', 'false'],
+    ['excludedPaths', ''],
+    [],
+    ['HEADERS', ''],
+    ['header', 'value'],
+  ];
+
+  it('rejects metadata when COLUMN MAPPINGS defines no columns', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair([['Request'], ['name'], ['x']], meta);
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors.some(e => e.includes('no column mappings'))).toBe(true);
+  });
+
+  it('rejects metadata when no column has type "name"', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['onlyPath', 'path', 'id'],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request'],
+        ['onlyPath'],
+        ['v1'],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors.some(e => e.includes('no "name" type column'))).toBe(true);
+  });
+
+  it('rejects CONFIG method that is not a supported HTTP verb', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      [],
+      ['CONFIG', ''],
+      ['key', 'value'],
+      ['version', 2],
+      ['method', 'WHY'],
+      ['urlPattern', 'https://api.example.com/items'],
+      ['body', ''],
+      ['bodyType', 'json'],
+      ['auth', JSON.stringify({ type: 'none' })],
+      ['validationMode', 'none'],
+      ['selectiveMode', 'include'],
+      ['unorderedArrays', 'false'],
+      ['excludedPaths', ''],
+      [],
+      ['HEADERS', ''],
+      ['header', 'value'],
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request'],
+        ['name'],
+        ['x'],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors.some(e => e.includes('Invalid HTTP method'))).toBe(true);
+  });
+
+  it('treats row 0 as headers when it is not a Request/Response category row', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ['lane', 'validate', '$.lane'],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['name', 'lane'],
+        ['One', ''],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors).toEqual([]);
+    expect(result.validRows).toBe(1);
+    expect(result.rows[0].scenario!.validation.expectedFields).toBeUndefined();
+  });
+
+  it('errors when the header row contains only blank cells', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request'],
+        ['', '  \t '],
+        ['should-not-reach'],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors.some(e => e.includes('no column headers'))).toBe(true);
+  });
+
+  it('errors when there are headers but every data row is blank', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request'],
+        ['name'],
+        [''],
+        ['   '],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors.some(e => e.includes('no data rows'))).toBe(true);
+  });
+
+  it('warns when the Data sheet has columns not listed in metadata', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      ...tailConfig(),
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request', '', ''],
+        ['name', 'UserAdded', 'UserAdded2'],
+        ['A', 'b', 'c'],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.warnings.some(w => w.includes('User-added columns'))).toBe(true);
+    expect(result.validRows).toBe(1);
+  });
+
+  it('ignores invalid JSON for optional contract fields in metadata', () => {
+    const meta: (string | number | boolean)[][] = [
+      ['COLUMN MAPPINGS', '', ''],
+      ['column', 'type', 'mapping'],
+      ['name', 'name', ''],
+      [],
+      ['CONFIG', ''],
+      ['key', 'value'],
+      ['version', 2],
+      ['method', 'GET'],
+      ['urlPattern', 'https://api.example.com/items'],
+      ['body', ''],
+      ['bodyType', 'json'],
+      ['bodyForm', '{broken'],
+      ['validationContract', 'not-json'],
+      ['arrayValidationMode', 'oops'],
+      ['auth', '{'],
+      ['validationMode', 'none'],
+      ['selectiveMode', 'include'],
+      ['unorderedArrays', 'false'],
+      ['excludedPaths', ''],
+      [],
+      ['HEADERS', ''],
+      ['header', 'value'],
+    ];
+    const buf = writeWorkbookPair(
+      [
+        ['Request'],
+        ['name'],
+        ['Ok'],
+      ],
+      meta,
+    );
+    const result = parseExcelToScenarios(buf);
+    expect(result.fileErrors).toEqual([]);
+    expect(result.rows[0].scenario!.auth).toEqual({ type: 'inherit' });
+    expect(result.validationContract).toBeUndefined();
+    expect(result.arrayValidationMode).toBeUndefined();
+  });
 });

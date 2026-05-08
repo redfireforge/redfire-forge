@@ -196,6 +196,18 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.setNodes).not.toHaveBeenCalled();
   });
 
+  it('handleAddFromCatalog uses relative URL when server list is empty', () => {
+    const opts = defaultOpts();
+    opts.catalogEntries = [{
+      id: 'cat-1',
+      servers: [],
+      endpoints: [{ id: 'ep-1', path: '/z', method: 'get', summary: '' }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromCatalog('cat-1', 'ep-1'));
+    expect(opts.setNodes).toHaveBeenCalled();
+  });
+
   it('handleAddFromRequest does nothing when request not found anywhere', () => {
     const opts = defaultOpts();
     opts.collections = [{

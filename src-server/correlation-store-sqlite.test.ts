@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
 import { SqliteServerStore } from './correlation-store-sqlite';
 import type { ServerPausedEntry } from './correlation-handler';
 import fs from 'fs';
 import path from 'path';
+
+const MAX_UNMATCHED_LOG = 100;
 
 const TEST_DB_PATH = path.join(__dirname, '../test-data/test-correlations.db');
 
@@ -54,6 +57,18 @@ describe('SqliteServerStore', () => {
     expect(store.count()).toBe(1);
   });
 
+  it('add persists optional body/header/query fields as null when omitted', () => {
+    const entry = makeEntry({
+      correlationId: 'minimal',
+      webhookFilter: undefined,
+      correlationJsonPath: undefined,
+      correlationHeader: undefined,
+      correlationQueryParam: undefined,
+    });
+    expect(store.add(entry)).toBe(true);
+    expect(store.find('minimal')).toBeDefined();
+  });
+
   it('rejects duplicate correlation IDs', () => {
     store.add(makeEntry());
     expect(store.add(makeEntry())).toBe(false);
@@ -103,6 +118,16 @@ describe('SqliteServerStore', () => {
     expect(unmatched).toHaveLength(1);
     expect(unmatched[0].path).toBe('/webhooks/test');
     expect(unmatched[0].correlationId).toBe('corr-x');
+  });
+
+  it('trims in-memory unmatched webhooks past cap', () => {
+    for (let i = 0; i < MAX_UNMATCHED_LOG + 5; i++) {
+      store.logUnmatched(`/p/${i}`, `c-${i}`, { i });
+    }
+    expect(store.getUnmatched()).toHaveLength(MAX_UNMATCHED_LOG);
+    const paths = store.getUnmatched().map((u) => u.path);
+    expect(paths).toContain(`/p/${MAX_UNMATCHED_LOG + 4}`);
+    expect(paths).not.toContain('/p/0');
   });
 
   // ── clearAll ──
@@ -165,6 +190,70 @@ describe('SqliteServerStore', () => {
     expect(store2.count()).toBe(1);
     expect(store2.find('expired-1')).toBeUndefined();
     expect(store2.find('active-1')).toBeDefined();
+
+    await store2.close();
+    store = new SqliteServerStore(TEST_DB_PATH);
+    await store.init();
+  });
+
+  it('rehydrates unmatched webhooks with JSON payload from disk', async () => {
+    store.logUnmatched('/persist-u', 'u1', { n: 42 });
+    await store.close();
+
+    const store2 = new SqliteServerStore(TEST_DB_PATH);
+    await store2.init();
+
+    const list = store2.getUnmatched();
+    expect(list).toHaveLength(1);
+    expect(list[0].path).toBe('/persist-u');
+    expect(list[0].correlationId).toBe('u1');
+    expect(list[0].payload).toEqual({ n: 42 });
+
+    await store2.close();
+    store = new SqliteServerStore(TEST_DB_PATH);
+    await store.init();
+  });
+
+  it('rehydrates paused entry when correlation_json_path is null in DB', async () => {
+    store.add(
+      makeEntry({
+        correlationId: 'no-json-path',
+        correlationJsonPath: undefined,
+      }),
+    );
+    await store.close();
+
+    const store2 = new SqliteServerStore(TEST_DB_PATH);
+    await store2.init();
+
+    const found = store2.find('no-json-path');
+    expect(found).toBeDefined();
+    expect(found?.correlationJsonPath).toBeUndefined();
+
+    await store2.close();
+    store = new SqliteServerStore(TEST_DB_PATH);
+    await store.init();
+  });
+
+  it('rehydrates unmatched rows with null correlation_id and payload', async () => {
+    await store.close();
+
+    const raw = new Database(TEST_DB_PATH);
+    raw
+      .prepare(
+        'INSERT INTO unmatched_webhooks (path, correlation_id, payload, received_at) VALUES (?, ?, ?, ?)',
+      )
+      .run('/hook-nulls', null, null, Date.now());
+    raw.close();
+
+    const store2 = new SqliteServerStore(TEST_DB_PATH);
+    await store2.init();
+
+    const list = store2.getUnmatched();
+    expect(list).toHaveLength(1);
+    expect(list[0].path).toBe('/hook-nulls');
+    expect(list[0].correlationId).toBeUndefined();
+    expect(list[0].payload).toBeUndefined();
 
     await store2.close();
     store = new SqliteServerStore(TEST_DB_PATH);

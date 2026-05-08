@@ -32,7 +32,6 @@ function createMockMonaco() {
       },
     },
     editor: {
-      // Mock editor instance
       getModel: vi.fn(() => ({ getValue: vi.fn(() => ''), setValue: vi.fn() })),
     },
     disposable,
@@ -196,6 +195,25 @@ describe('ScriptCodeEditor', () => {
     expect(labels).toContain('console');
   });
 
+  it('provides top-level suggestions after punctuation / whitespace context', () => {
+    render(
+      <ScriptCodeEditor value="" onChange={vi.fn()} inputVariables={[]} outputVariables={[]} />,
+    );
+    const mock = createMockMonaco();
+    act(() => {
+      capturedOnMount?.(mock.editor, mock.monaco);
+    });
+    const provider = mock.monaco.languages.registerCompletionItemProvider.mock.calls[0][1];
+    const model = {
+      getValueInRange: () => 'const x = ',
+      getWordUntilPosition: () => ({ startColumn: 12, endColumn: 12 }),
+    };
+    const position = { lineNumber: 1, column: 12 };
+    const result = provider.provideCompletionItems(model, position);
+    const labels = result.suggestions.map((s: { label: string }) => s.label);
+    expect(labels).toContain('input');
+  });
+
   it('returns empty suggestions for unrecognized context', () => {
     render(
       <ScriptCodeEditor value="" onChange={vi.fn()} inputVariables={[]} outputVariables={[]} />,
@@ -235,6 +253,34 @@ describe('ScriptCodeEditor', () => {
     const result = provider.provideCompletionItems(model, position);
     expect(result.suggestions).toHaveLength(1);
     expect(result.suggestions[0].label).toBe('valid');
+  });
+
+  it('sets model value on mount when it lags behind prop value', () => {
+    const setValue = vi.fn();
+    const getValue = vi.fn(() => 'stale-from-model');
+    render(
+      <ScriptCodeEditor value="from-props" onChange={vi.fn()} inputVariables={[]} outputVariables={[]} />,
+    );
+    const mock = createMockMonaco();
+    mock.editor.getModel = vi.fn(() => ({ getValue, setValue }));
+    act(() => {
+      capturedOnMount?.(mock.editor, mock.monaco);
+    });
+    expect(setValue).toHaveBeenCalledWith('from-props');
+  });
+
+  it('disposes completion provider on unmount', () => {
+    const { unmount } = render(
+      <ScriptCodeEditor value="" onChange={vi.fn()} inputVariables={[]} outputVariables={[]} />,
+    );
+    const mock = createMockMonaco();
+    act(() => {
+      capturedOnMount?.(mock.editor, mock.monaco);
+    });
+    const disposable = mock.monaco.languages.registerCompletionItemProvider.mock.results[0]
+      .value as { dispose: ReturnType<typeof vi.fn> };
+    unmount();
+    expect(disposable.dispose).toHaveBeenCalled();
   });
 
   it('disables minimap', () => {
