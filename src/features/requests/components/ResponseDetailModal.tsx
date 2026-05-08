@@ -126,23 +126,38 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
   );
 }
 
+function looksLikeJson(text: string): boolean {
+  const t = text.trimStart();
+  return t.startsWith('{') || t.startsWith('[');
+}
+
+function bestEffortPrettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    // Truncated or malformed JSON — apply regex-based formatting
+    return text
+      .replace(/([{[,])\s*/g, '$1\n  ')
+      .replace(/\s*([}\]])/g, '\n$1')
+      .replace(/":\s*/g, '": ')
+      .replace(/,\n\s*"/g, ',\n  "');
+  }
+}
+
 function ResponseBodySection({ body, pretty, onToggle }: { body: string; pretty: boolean; onToggle: () => void }) {
-  const isJson = useMemo(() => {
-    try { JSON.parse(body); return true; }
-    catch { return false; }
-  }, [body]);
+  const jsonLike = useMemo(() => looksLikeJson(body), [body]);
 
   const formatted = useMemo(() => {
-    if (!pretty || !isJson) return body;
-    return prettyJson(body);
-  }, [body, pretty, isJson]);
+    if (!pretty || !jsonLike) return body;
+    return bestEffortPrettyJson(body);
+  }, [body, pretty, jsonLike]);
 
   return (
     <div className="response-detail-section">
       <div className="response-body-header">
         <h4>Response Body</h4>
         <div className="response-body-actions">
-          {isJson && (
+          {jsonLike && (
             <button
               className={`body-toggle-btn ${pretty ? 'active' : ''}`}
               onClick={onToggle}
@@ -153,7 +168,7 @@ function ResponseBodySection({ body, pretty, onToggle }: { body: string; pretty:
           )}
           <button
             className="body-toggle-btn"
-            onClick={() => navigator.clipboard.writeText(pretty && isJson ? prettyJson(body) : body)}
+            onClick={() => navigator.clipboard.writeText(formatted)}
             title="Copy to clipboard"
           >
             Copy
