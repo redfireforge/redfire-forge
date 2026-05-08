@@ -635,6 +635,112 @@ describe('graphLoadRunner', () => {
       expect(results[0].cancelled).toBe(true);
       expect(results[0].errorMessage).toBe('Cancelled by user');
     });
+
+    it('uses raw runGraph return value when onComplete was not invoked', async () => {
+      const workflow = createMockWorkflow();
+      const raw = createMockResult({ scenarioId: 'http1', featureGroupName: undefined as unknown as string });
+
+      mockRunGraph.mockImplementation(async () => [raw]);
+
+      const { results } = await runGraphLoad(workflow, { iterations: 1, concurrency: 1 });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].iterationIndex).toBe(0);
+      expect(results[0].featureGroupName).toBe('Workflow: Test Workflow');
+    });
+
+    it('does not overwrite truthy iterationIndex or existing featureGroupName on raw results', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([
+        createMockResult({
+          iterationIndex: 77,
+          featureGroupName: 'PreTagged',
+          groupName: 'G',
+          scenarioName: 'S',
+        }),
+      ]);
+
+      const { results } = await runGraphLoad(workflow, { iterations: 1, concurrency: 1 });
+
+      expect(results[0].iterationIndex).toBe(77);
+      expect(results[0].featureGroupName).toBe('PreTagged');
+      expect(results[0].groupName).toBe('G');
+    });
+
+    it('when aborting, only marks passed onComplete results as cancelled (leaves failed rows unchanged)', async () => {
+      const workflow = createMockWorkflow();
+      const controller = new AbortController();
+
+      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
+        callbacks.onComplete(
+          [
+            createMockResult({ passed: true, scenarioId: 'a' }),
+            createMockResult({
+              passed: false,
+              scenarioId: 'b',
+              errorMessage: 'Expected failure',
+              cancelled: false,
+            }),
+          ],
+          false,
+          10,
+        );
+        controller.abort();
+        return [];
+      });
+
+      const { results } = await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        abortSignal: controller.signal,
+      });
+
+      const failed = results.find(r => r.scenarioId === 'b');
+      expect(failed?.passed).toBe(false);
+      expect(failed?.errorMessage).toBe('Expected failure');
+      expect(failed?.cancelled).not.toBe(true);
+
+      const passedThenCancelled = results.find(r => r.scenarioId === 'a');
+      expect(passedThenCancelled?.cancelled).toBe(true);
+    });
+
+    it('completes immediately with no iterations when concurrency is greater than one', async () => {
+      const workflow = createMockWorkflow();
+
+      await runGraphLoad(workflow, { iterations: 0, concurrency: 8 });
+
+      expect(mockRunGraph).not.toHaveBeenCalled();
+    });
+
+    it('passes environmentLayer through to runGraph', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        environmentLayer: { baseUrl: 'https://harness.example' },
+      });
+
+      expect(mockRunGraph).toHaveBeenCalledWith(
+        workflow.nodes,
+        workflow.edges,
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+        { baseUrl: 'https://harness.example' },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true,
+        undefined,
+        undefined,
+        undefined,
+      );
+    });
   });
 
   describe('correlation wait modes', () => {
@@ -777,6 +883,27 @@ describe('graphLoadRunner', () => {
         expect.objectContaining({ mode: 'synthetic-inject' }),
         undefined,
         undefined,
+      );
+    });
+
+    it('uses zero delay and jitter defaults for synthetic-inject when omitted', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        correlationWaitConfig: { mode: 'synthetic-inject' },
+      });
+
+      const ctorCalls = (SyntheticEventInjectorMock as any).mock.calls as unknown[][];
+      const [, configArg] = ctorCalls[ctorCalls.length - 1]!;
+      expect(configArg).toEqual(
+        expect.objectContaining({
+          responseDelayMs: 0,
+          jitterMs: 0,
+          defaultPayload: {},
+        }),
       );
     });
   });

@@ -954,4 +954,245 @@ describe('ResultsExplorerDetailPanel', () => {
       expect(screen.queryByText('Timing Breakdown')).not.toBeInTheDocument();
     });
   });
+
+  describe('P95 timing stat', () => {
+    it('shows P95 in aggregate timing stats', () => {
+      const manyEvents: ExecutionEvent[] = Array.from({ length: 20 }, (_, i) => ({
+        nodeId: 'http-1',
+        nodeType: 'http',
+        nodeLabel: 'Get Users',
+        timestamp: 1000 + i * 100,
+        state: 'pass' as const,
+        durationMs: 50 + i * 10,
+        details: { statusCode: 200, method: 'GET', url: '/api/users', responseTimeMs: 50 + i * 10 },
+      }));
+      const manyIterations: WorkflowIterationTrace[] = manyEvents.map((e, i) => ({
+        index: i,
+        passed: true,
+        durationMs: e.durationMs!,
+        traversedEdges: [],
+        events: [e],
+      }));
+
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={manyEvents}
+          iterations={manyIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const timingStats = container.querySelector('.explorer-timing-stats')!;
+      expect(timingStats).toBeTruthy();
+      const labels = Array.from(timingStats.querySelectorAll('.timing-label')).map(el => el.textContent);
+      expect(labels).toContain('P95');
+    });
+
+    it('does not show P95 in single iteration view', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[mockEvents[0]]}
+          iterations={mockIterations}
+          selectedIteration={0}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByText('P95')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Mini Duration Histogram', () => {
+    function makeManyEvents(count: number, failEvery = 0): { events: ExecutionEvent[]; iterations: WorkflowIterationTrace[] } {
+      const events: ExecutionEvent[] = Array.from({ length: count }, (_, i) => ({
+        nodeId: 'http-1',
+        nodeType: 'http',
+        nodeLabel: 'Get Users',
+        timestamp: 1000 + i * 100,
+        state: (failEvery > 0 && (i + 1) % failEvery === 0 ? 'fail' : 'pass') as 'pass' | 'fail',
+        durationMs: 50 + i * 10 + Math.round(Math.sin(i) * 20),
+        details: { statusCode: failEvery > 0 && (i + 1) % failEvery === 0 ? 500 : 200, method: 'GET', url: '/api/users' },
+      }));
+      const iterations: WorkflowIterationTrace[] = events.map((e, i) => ({
+        index: i,
+        passed: e.state === 'pass',
+        durationMs: e.durationMs!,
+        traversedEdges: [],
+        events: [e],
+      }));
+      return { events, iterations };
+    }
+
+    it('renders histogram in aggregate view with 3+ durations', () => {
+      const { events, iterations } = makeManyEvents(10);
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.getByTestId('mini-histogram')).toBeInTheDocument();
+      expect(screen.getByText('Duration Distribution')).toBeInTheDocument();
+    });
+
+    it('shows Avg and P95 legend items', () => {
+      const { events, iterations } = makeManyEvents(10);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const legend = container.querySelector('.mini-histogram-legend')!;
+      expect(legend).toBeTruthy();
+      expect(legend.querySelector('.avg-legend')).toBeTruthy();
+      expect(legend.querySelector('.p95-legend')).toBeTruthy();
+      expect(legend.querySelector('.pass-legend')).toBeTruthy();
+    });
+
+    it('shows Fail legend when there are failed events', () => {
+      const { events, iterations } = makeManyEvents(10, 3);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const legend = container.querySelector('.mini-histogram-legend')!;
+      expect(legend.querySelector('.fail-legend')).toBeTruthy();
+    });
+
+    it('does not render histogram in single iteration view', () => {
+      const { events, iterations } = makeManyEvents(10);
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[events[0]]}
+          iterations={iterations}
+          selectedIteration={0}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByTestId('mini-histogram')).not.toBeInTheDocument();
+    });
+
+    it('does not render histogram with fewer than 3 durations', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={mockEvents}
+          iterations={mockIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByTestId('mini-histogram')).not.toBeInTheDocument();
+    });
+
+    it('renders 12 bars in the histogram', () => {
+      const { events, iterations } = makeManyEvents(20);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const bars = container.querySelectorAll('.mini-histogram-bar-wrap');
+      expect(bars.length).toBe(12);
+    });
+
+    it('shows x-axis min and max labels', () => {
+      const { events, iterations } = makeManyEvents(10);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const xAxis = container.querySelector('.mini-histogram-x-axis');
+      expect(xAxis).toBeTruthy();
+      expect(xAxis!.children.length).toBe(2);
+    });
+
+    it('renders avg and p95 marker lines', () => {
+      const { events, iterations } = makeManyEvents(20);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(container.querySelector('.mini-histogram-marker.avg')).toBeTruthy();
+      expect(container.querySelector('.mini-histogram-marker.p95')).toBeTruthy();
+    });
+
+    it('renders fail segments in bars when failures exist', () => {
+      const { events, iterations } = makeManyEvents(20, 4);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const failBars = container.querySelectorAll('.mini-histogram-bar-fail');
+      expect(failBars.length).toBeGreaterThan(0);
+    });
+  });
 });

@@ -328,6 +328,71 @@ describe('useTestExecution', () => {
       expect(result.current.error).toBe('Network failure');
     });
 
+    it('clears pending throttle timer when execute throws after progress scheduled deferred flush', async () => {
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        // lastFlushRef is 0: small sinceLast schedules setTimeout flush, no immediate flush
+        onProgress(1, 10, [createMockResult({ id: 'p1' })]);
+        throw new Error('aborted after throttle schedule');
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.error).toBe('aborted after throttle schedule');
+      expect(result.current.isRunning).toBe(false);
+    });
+
+    it('clears pending throttle timer on worker path when execute throws after deferred flush was scheduled', async () => {
+      mockSupportsWorkers.mockReturnValue(true);
+      mockRunTestInWorker.mockImplementation(async (_config, _scenarios, onProgress) => {
+        onProgress(1, 10, [createMockResult({ id: 'w1' })]);
+        throw new Error('worker failed after schedule');
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.error).toBe('worker failed after schedule');
+    });
+
+    it('clears pending throttle timer when runTest resolves before deferred flush fires', async () => {
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        onProgress(1, 10, [createMockResult({ id: 'resolved-1' })]);
+        return { results: [createMockResult({ id: 'final-1' })] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.finalRun).not.toBeNull();
+    });
+
+    it('clears pending throttle timer when runTestInWorker resolves before deferred flush fires', async () => {
+      mockSupportsWorkers.mockReturnValue(true);
+      mockRunTestInWorker.mockImplementation(async (_config, _scenarios, onProgress) => {
+        onProgress(1, 10, [createMockResult({ id: 'wr-1' })]);
+        return { results: [createMockResult({ id: 'wr-final' })] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.finalRun).not.toBeNull();
+    });
+
     it('sets total to -1 for load-profile mode', async () => {
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockImplementation(async () => {
@@ -346,6 +411,35 @@ describe('useTestExecution', () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(50);
       });
+    });
+
+    it('keeps total at -1 after load-profile run completes', async () => {
+      const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
+      mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(config, [createMockScenario()]);
+      });
+
+      expect(result.current.total).toBe(-1);
+      expect(result.current.completed).toBe(1);
+    });
+
+    it('keeps total at -1 on load-profile quota error', async () => {
+      const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
+      mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+      mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(config, [createMockScenario()]);
+      });
+
+      expect(result.current.total).toBe(-1);
+      expect(result.current.pendingRun).not.toBeNull();
     });
   });
 
@@ -906,6 +1000,38 @@ describe('useTestExecution', () => {
       expect(result.current.isRunning).toBe(true);
     });
 
+    it('external reportProgress clears pending setTimeout when immediate throttle flush runs', async () => {
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((_handler: unknown) => {
+        return 99 as unknown as ReturnType<typeof setTimeout>;
+      });
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout').mockImplementation(() => {});
+
+      try {
+        const { result } = renderHook(() => useTestExecution());
+
+        let callbacks: ReturnType<typeof result.current.startExternalExecution>;
+        act(() => {
+          callbacks = result.current.startExternalExecution(10);
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(10);
+          callbacks!.reportProgress([createMockResult({ id: 'ex1' })], 1);
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(500);
+          callbacks!.reportProgress([createMockResult({ id: 'ex1' }), createMockResult({ id: 'ex2' })], 2);
+        });
+
+        expect(clearTimeoutSpy).toHaveBeenCalled();
+        expect(result.current.completed).toBe(2);
+      } finally {
+        setTimeoutSpy.mockRestore();
+        clearTimeoutSpy.mockRestore();
+      }
+    });
+
     it('dedups results when reportProgress called multiple times with same results', async () => {
       const { result } = renderHook(() => useTestExecution());
 
@@ -931,6 +1057,61 @@ describe('useTestExecution', () => {
   });
 
   describe('time series tracking', () => {
+    it('omits time series point when progress has no results yet', async () => {
+      let progressCallback: ((c: number, t: number, r: RequestResult[]) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 5000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+        progressCallback?.(5, 10, []);
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(result.current.timeSeries).toEqual([]);
+    });
+
+    it('records concurrency 0 in time series when progress has no profileMeta', async () => {
+      let progressCallback: ((
+        c: number,
+        t: number,
+        r: RequestResult[],
+        meta?: import('../../../engine/executor').ProgressMeta,
+      ) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 5000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      await act(async () => {
+        progressCallback?.(1, 10, [createMockResult()], undefined);
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      expect(result.current.timeSeries.length).toBeGreaterThan(0);
+      expect(result.current.timeSeries[0].concurrency).toBe(0);
+    });
+
     it('builds time series data during execution', async () => {
       let progressCallback: ((c: number, t: number, r: RequestResult[], meta?: import('../../../engine/executor').ProgressMeta) => void) | undefined;
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
@@ -1022,6 +1203,28 @@ describe('useTestExecution', () => {
 
       // avgIterationTime should be (80 + 120) / 2 = 100
       expect(result.current.liveSummary?.avgIterationTime).toBe(100);
+    });
+
+    it('does not set avgIterationTime when trace has no iterations', async () => {
+      const trace = {
+        workflowId: 'wf-1',
+        workflowName: 'Test',
+        totalIterations: 0,
+        totalDurationMs: 0,
+        iterations: [],
+        traversedEdges: [],
+        workflowSnapshot: { nodes: [], edges: [] },
+        fullTraceCaptured: false,
+      };
+      mockRunTest.mockResolvedValue({ results: [createMockResult()], trace });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.liveSummary?.avgIterationTime).toBeUndefined();
     });
 
     it('stores execution trace in test run', async () => {
@@ -1147,6 +1350,190 @@ describe('useTestExecution', () => {
       });
 
       expect(result.current.completed).toBe(2);
+    });
+
+    it('clears scheduled flush timer when progress arrives after throttle window with pending timeout', async () => {
+      let progressCallback: ((c: number, t: number, r: RequestResult[]) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 5000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10);
+      });
+
+      await act(async () => {
+        progressCallback?.(1, 10, [createMockResult({ id: 't1' })]);
+        await vi.advanceTimersByTimeAsync(50);
+      });
+
+      await act(async () => {
+        progressCallback?.(2, 10, [createMockResult({ id: 't2' }), createMockResult({ id: 't3' })]);
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(result.current.completed).toBe(2);
+    });
+  });
+
+  describe('profile meta live summary', () => {
+    it('uses avgIterationTimeMs from progress profileMeta for live summary', async () => {
+      let progressCallback: ((
+        c: number,
+        t: number,
+        r: RequestResult[],
+        meta?: import('../../../engine/executor').ProgressMeta,
+      ) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 2000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      await act(async () => {
+        progressCallback?.(1, 10, [createMockResult()], {
+          elapsedMs: 100,
+          targetConcurrency: 1,
+          currentInFlight: 1,
+          durationMs: 0,
+          avgIterationTimeMs: 42.5,
+        });
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(result.current.liveSummary?.avgIterationTime).toBe(42.5);
+    });
+  });
+
+  describe('deferred flush timer clearing', () => {
+    it('execute onProgress clears pending setTimeout when sinceLast reaches throttle', async () => {
+      let progressCb!: (
+        c: number,
+        t: number,
+        r: RequestResult[],
+        m?: import('../../../engine/executor').ProgressMeta,
+      ) => void;
+      let finishRun!: (v: { results: RequestResult[] }) => void;
+
+      mockRunTest.mockImplementation((_a, _b, onProgress) => {
+        progressCb = onProgress;
+        return new Promise<{ results: RequestResult[] }>((resolve) => {
+          finishRun = resolve;
+        });
+      });
+
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((_h: unknown) => {
+        return 42 as unknown as ReturnType<typeof setTimeout>;
+      });
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout').mockImplementation(() => {});
+
+      const { result } = renderHook(() => useTestExecution());
+
+      try {
+        act(() => {
+          void result.current.execute(createMockConfig(), [createMockScenario()]);
+        });
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        await act(async () => {
+          progressCb(1, 10, [createMockResult({ id: 'th1' })]);
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(500);
+        });
+
+        await act(async () => {
+          progressCb(2, 10, [createMockResult({ id: 'th1' }), createMockResult({ id: 'th2' })]);
+        });
+
+        expect(clearTimeoutSpy).toHaveBeenCalled();
+      } finally {
+        setTimeoutSpy.mockRestore();
+        clearTimeoutSpy.mockRestore();
+        await act(async () => {
+          finishRun({ results: [createMockResult()] });
+        });
+      }
+
+      await waitFor(() => {
+        expect(result.current.isRunning).toBe(false);
+      });
+    });
+
+    it('execute clears pending throttle timer when starting a new run over a hung test', async () => {
+      let progressCb!: (
+        c: number,
+        t: number,
+        r: RequestResult[],
+        m?: import('../../../engine/executor').ProgressMeta,
+      ) => void;
+      let invoke = 0;
+      mockRunTest.mockImplementation((_a, _b, onProgress) => {
+        progressCb = onProgress;
+        invoke += 1;
+        if (invoke === 1) {
+          return new Promise(() => {
+            /* never resolves */
+          });
+        }
+        return Promise.resolve({ results: [createMockResult()] });
+      });
+
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((_h: unknown) => {
+        return 7 as unknown as ReturnType<typeof setTimeout>;
+      });
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+      const { result } = renderHook(() => useTestExecution());
+
+      try {
+        act(() => {
+          void result.current.execute(createMockConfig(), [createMockScenario()]);
+        });
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        await act(async () => {
+          progressCb(1, 10, [createMockResult({ id: 'stale-1' })]);
+        });
+
+        const clearsAfterProgress = clearTimeoutSpy.mock.calls.length;
+
+        await act(async () => {
+          await result.current.execute(createMockConfig(), [createMockScenario()]);
+        });
+
+        expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThan(clearsAfterProgress);
+        expect(result.current.isRunning).toBe(false);
+      } finally {
+        setTimeoutSpy.mockRestore();
+        clearTimeoutSpy.mockRestore();
+        mockRunTest.mockReset();
+      }
     });
   });
 });

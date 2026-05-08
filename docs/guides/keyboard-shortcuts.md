@@ -157,7 +157,8 @@ Available throughout the application.
 | `Space` | Toggle aggregate ↔ iteration #1 |
 | `A` | Return to aggregate view |
 | `M` | Toggle iteration matrix panel |
-| `Escape` | Deselect node / Close modal |
+| `/` | Focus node search bar |
+| `Escape` | Clear search / Deselect node / Close modal |
 
 ## Data Source Editor
 

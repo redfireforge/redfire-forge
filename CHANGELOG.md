@@ -42,6 +42,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 - **Export Aggregate Metrics as CSV** — "📊 Export CSV" button in Results Explorer exports per-HTTP-node metrics (executions, pass rate, avg, min, max, P95) as a `.csv` file
 - **Heatmap Coloring** — Nodes in Results Explorer canvas are colored on a green→yellow→orange→red gradient based on average response time. Fastest nodes appear green, slowest appear red, with a 4px colored bar at the bottom of each node. Only activates when 2+ nodes have timing data.
 - **Fit View After Measurement** — Results Explorer canvas now re-fits after custom nodes are measured, ensuring the workflow fills the available space correctly on initial load
+- **Bottleneck Analysis** — Results Explorer identifies time-dominant (≥40% of total), high-variance (CV>0.5), high-failure (≥20%), and critical-path nodes. Pulsing border on bottleneck nodes, detailed tooltip with suggestions, and insights panel in right sidebar empty state.
+- **Save Layout** — Users can drag nodes in Results Explorer to custom positions and save via the pill controls save button. Layouts persist in `localStorage` keyed by workflow ID and are automatically restored on next open.
+- **Node Search & Filter** — Search bar in the Results Explorer diagram panel to find nodes by name. State filter buttons (All / Pass / Fail / Skipped) with badge counts. Non-matching nodes are dimmed. Press `/` to focus search, `Escape` to clear.
+- **Iteration Picker** — Redesigned iteration selector as a rich dropdown with filter tabs (All / Failed / Slowest), jump-to-# search, p95 "slow" badges, and pass/fail color coding
 
 ### Refactored
 - **Code Consolidation (Round 5)**

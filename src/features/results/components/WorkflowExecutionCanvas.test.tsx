@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as XyflowReact from '@xyflow/react';
@@ -199,6 +199,10 @@ describe('WorkflowExecutionCanvas', () => {
     flowApi.zoomIn.mockClear();
     flowApi.zoomOut.mockClear();
     flowApi.fitView.mockClear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('renders React Flow canvas', () => {
@@ -795,6 +799,53 @@ describe('WorkflowExecutionCanvas', () => {
       expect(tooltip.textContent).not.toContain('Avg:');
       expect(tooltip.textContent).not.toContain('Executions:');
     });
+
+    it('shows bottleneck section when node has a bottleneck insight', () => {
+      const trace: WorkflowExecutionTrace = {
+        workflowId: 'wf-bottleneck-tip',
+        workflowName: 'Bottleneck tooltip',
+        totalIterations: 2,
+        totalDurationMs: 2000,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'slow', nodeType: 'http', nodeLabel: 'Slow', timestamp: 0, state: 'pass', durationMs: 800 },
+              { nodeId: 'fast', nodeType: 'http', nodeLabel: 'Fast', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+          {
+            index: 1,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'slow', nodeType: 'http', nodeLabel: 'Slow', timestamp: 0, state: 'pass', durationMs: 800 },
+              { nodeId: 'fast', nodeType: 'http', nodeLabel: 'Fast', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'slow', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Slow' } },
+            { id: 'fast', type: 'http', position: { x: 200, y: 0 }, data: { label: 'Fast' } },
+          ],
+          edges: [{ id: 'e1', source: 'slow', target: 'fast' }],
+        },
+      };
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      hoverNode(getByTestId, 'slow');
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.querySelector('.replay-tooltip-bottleneck')).toBeInTheDocument();
+      expect(tooltip.querySelector('.replay-tooltip-bottleneck-critical')).toBeInTheDocument();
+      expect(tooltip.textContent).toMatch(/Consumes|execution time/i);
+    });
   });
 
   describe('edge traversal percentages', () => {
@@ -1013,6 +1064,49 @@ describe('WorkflowExecutionCanvas', () => {
       expect(heatmapNodes.length).toBe(0);
     });
 
+    it('does not apply heatmap when all timed nodes have the same average (max - min < 1)', () => {
+      const trace: WorkflowExecutionTrace = {
+        workflowId: 'wf-flat-heat',
+        workflowName: 'Flat heatmap',
+        totalIterations: 2,
+        totalDurationMs: 2000,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'n1', nodeType: 'http', nodeLabel: 'A', timestamp: 0, state: 'pass', durationMs: 100 },
+              { nodeId: 'n2', nodeType: 'http', nodeLabel: 'B', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+          {
+            index: 1,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'n1', nodeType: 'http', nodeLabel: 'A', timestamp: 0, state: 'pass', durationMs: 100 },
+              { nodeId: 'n2', nodeType: 'http', nodeLabel: 'B', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'A' } },
+            { id: 'n2', type: 'http', position: { x: 0, y: 100 }, data: { label: 'B' } },
+          ],
+          edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+        },
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+      expect(container.querySelectorAll('.replay-node-heatmap')).toHaveLength(0);
+    });
+
     it('does not apply heatmap to skipped nodes', () => {
       const trace = createHeatmapTrace();
       // Add a skipped node
@@ -1032,6 +1126,188 @@ describe('WorkflowExecutionCanvas', () => {
       const heatmapNodes = container.querySelectorAll('.replay-node-heatmap');
       expect(allNodes.length).toBe(3);
       expect(heatmapNodes.length).toBe(2);
+    });
+  });
+
+  describe('search and state filter', () => {
+    it('dims only non-matching nodes for searchQuery', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} searchQuery="Request" />);
+      expect(getByTestId('node-n1').className).not.toContain('replay-node-dimmed');
+      expect(getByTestId('node-n2').className).toContain('replay-node-dimmed');
+      expect(getByTestId('node-n3').className).toContain('replay-node-dimmed');
+    });
+
+    it('dims nodes that do not contain a non-matching search string', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} searchQuery="zzzz-no-match" />);
+      expect(getByTestId('node-n1').className).toContain('replay-node-dimmed');
+      expect(getByTestId('node-n2').className).toContain('replay-node-dimmed');
+    });
+
+    it('dims nodes that fail stateFilter=pass while keeping passing nodes visible', () => {
+      const trace = createMockTrace({ iterations: 2, passedIterations: 1 });
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} stateFilter="pass" />);
+      expect(getByTestId('node-n1').className).toContain('replay-node-dimmed');
+      expect(getByTestId('node-n2').className).not.toContain('replay-node-dimmed');
+      expect(getByTestId('node-n3').className).toContain('replay-node-dimmed');
+    });
+  });
+
+  describe('saved layout', () => {
+    it('persists layout via save button using replayLayout: storage key', () => {
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      fireEvent.click(getByTestId('save-layout-btn'));
+      expect(setItemSpy).toHaveBeenCalled();
+      const [key] = setItemSpy.mock.calls[0];
+      expect(key).toMatch(/^replayLayout:/);
+      expect(key).toBe(`replayLayout:${trace.workflowId}`);
+      setItemSpy.mockRestore();
+    });
+
+    it('restores node xy positions from localStorage on mount', () => {
+      const trace = createMockTrace();
+      const positions = { n1: { x: 42, y: 84 }, n2: { x: 10, y: 20 }, n3: { x: -5, y: 7 } };
+      localStorage.setItem(`replayLayout:${trace.workflowId}`, JSON.stringify(positions));
+      render(<WorkflowExecutionCanvas trace={trace} />);
+      const nodes = getLastReactFlowProps().nodes as Array<{ id: string; position: { x: number; y: number } }>;
+      expect(nodes.find((n) => n.id === 'n1')?.position).toEqual({ x: 42, y: 84 });
+      expect(nodes.find((n) => n.id === 'n2')?.position).toEqual({ x: 10, y: 20 });
+      expect(nodes.find((n) => n.id === 'n3')?.position).toEqual({ x: -5, y: 7 });
+    });
+  });
+
+  describe('bottleneck styling and callback', () => {
+    function createBottleneckTrace(): WorkflowExecutionTrace {
+      return {
+        workflowId: 'wf-bottleneck-style',
+        workflowName: 'Bottleneck style',
+        totalIterations: 2,
+        totalDurationMs: 2000,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'slow', nodeType: 'http', nodeLabel: 'Slow', timestamp: 0, state: 'pass', durationMs: 800 },
+              { nodeId: 'fast', nodeType: 'http', nodeLabel: 'Fast', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+          {
+            index: 1,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'slow', nodeType: 'http', nodeLabel: 'Slow', timestamp: 0, state: 'pass', durationMs: 800 },
+              { nodeId: 'fast', nodeType: 'http', nodeLabel: 'Fast', timestamp: 1, state: 'pass', durationMs: 100 },
+            ],
+            finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'slow', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Slow' } },
+            { id: 'fast', type: 'http', position: { x: 200, y: 0 }, data: { label: 'Fast' } },
+          ],
+          edges: [{ id: 'e1', source: 'slow', target: 'fast' }],
+        },
+      };
+    }
+
+    it('applies bottleneck severity classes from bottleneck insights', () => {
+      const trace = createBottleneckTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      expect(getByTestId('node-slow').className).toContain('replay-node-bottleneck-critical');
+      expect(getByTestId('node-fast').className).toContain('replay-node-bottleneck-info');
+    });
+
+    it('invokes onBottlenecksComputed with insights', () => {
+      const onBottlenecksComputed = vi.fn();
+      const trace = createBottleneckTrace();
+      render(<WorkflowExecutionCanvas trace={trace} onBottlenecksComputed={onBottlenecksComputed} />);
+      expect(onBottlenecksComputed).toHaveBeenCalled();
+      const insights = onBottlenecksComputed.mock.calls[0][0];
+      expect(Array.isArray(insights)).toBe(true);
+      expect(insights.some((i: { nodeId: string }) => i.nodeId === 'slow')).toBe(true);
+    });
+  });
+
+  describe('node label fallback for search matching', () => {
+    function createTraceWithNameAndIdFallback(): WorkflowExecutionTrace {
+      return {
+        workflowId: 'wf-label-fallback',
+        workflowName: 'Label fallback',
+        totalIterations: 1,
+        totalDurationMs: 500,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 500,
+            traversedEdges: ['e1', 'e2'],
+            events: [
+              {
+                nodeId: 'nameOnly',
+                nodeType: 'http',
+                nodeLabel: 'FromNameField',
+                timestamp: 0,
+                state: 'pass',
+                durationMs: 50,
+              },
+              {
+                nodeId: 'idonly',
+                nodeType: 'http',
+                nodeLabel: 'FallbackId',
+                timestamp: 1,
+                state: 'pass',
+                durationMs: 40,
+              },
+            ],
+            finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1', 'e2'],
+        workflowSnapshot: {
+          nodes: [
+            {
+              id: 'nameOnly',
+              type: 'http',
+              position: { x: 0, y: 0 },
+              data: { name: 'DisplayFromName' },
+            },
+            {
+              id: 'idonly',
+              type: 'http',
+              position: { x: 0, y: 100 },
+              data: {},
+            },
+          ],
+          edges: [
+            { id: 'e1', source: 'nameOnly', target: 'idonly' },
+            { id: 'e2', source: 'idonly', target: 'nameOnly' },
+          ],
+        },
+      };
+    }
+
+    it('matches search against data.name when label is absent', () => {
+      const trace = createTraceWithNameAndIdFallback();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} searchQuery="displayfromname" />);
+      expect(getByTestId('node-nameOnly').className).not.toContain('replay-node-dimmed');
+      expect(getByTestId('node-idonly').className).toContain('replay-node-dimmed');
+    });
+
+    it('matches search against node id when label and name are absent', () => {
+      const trace = createTraceWithNameAndIdFallback();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} searchQuery="idonly" />);
+      expect(getByTestId('node-idonly').className).not.toContain('replay-node-dimmed');
     });
   });
 });
