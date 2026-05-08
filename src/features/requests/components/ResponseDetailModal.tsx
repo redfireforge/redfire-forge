@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
-import { prettyJson } from '../../../shared/utils/helpers';
+import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -10,7 +9,6 @@ type ResponseDetailModalProps = {
 };
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
-  const [prettyBody, setPrettyBody] = useState(true);
 
   if (!result) return null;
 
@@ -96,7 +94,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           {result.requestLog?.body && (
             <div className="response-detail-section">
               <h4>Request Body</h4>
-              <pre className="response-body-pre">{prettyJson(result.requestLog.body)}</pre>
+              <JsonTreeViewer data={result.requestLog.body} defaultExpandDepth={3} maxHeight={300} />
             </div>
           )}
 
@@ -120,62 +118,11 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           )}
 
           {result.responseBody && (
-            <ResponseBodySection body={result.responseBody} pretty={prettyBody} onToggle={() => setPrettyBody(p => !p)} />
+            <div className="response-detail-section">
+              <h4>Response Body</h4>
+              <JsonTreeViewer data={result.responseBody} defaultExpandDepth={3} maxHeight={0} searchable />
+            </div>
           )}
     </WorkflowEditorModalFrame>
-  );
-}
-
-function looksLikeJson(text: string): boolean {
-  const t = text.trimStart();
-  return t.startsWith('{') || t.startsWith('[');
-}
-
-function bestEffortPrettyJson(text: string): string {
-  try {
-    return JSON.stringify(JSON.parse(text), null, 2);
-  } catch {
-    // Truncated or malformed JSON — apply regex-based formatting
-    return text
-      .replace(/([{[,])\s*/g, '$1\n  ')
-      .replace(/\s*([}\]])/g, '\n$1')
-      .replace(/":\s*/g, '": ')
-      .replace(/,\n\s*"/g, ',\n  "');
-  }
-}
-
-function ResponseBodySection({ body, pretty, onToggle }: { body: string; pretty: boolean; onToggle: () => void }) {
-  const jsonLike = useMemo(() => looksLikeJson(body), [body]);
-
-  const formatted = useMemo(() => {
-    if (!pretty || !jsonLike) return body;
-    return bestEffortPrettyJson(body);
-  }, [body, pretty, jsonLike]);
-
-  return (
-    <div className="response-detail-section">
-      <div className="response-body-header">
-        <h4>Response Body</h4>
-        <div className="response-body-actions">
-          {jsonLike && (
-            <button
-              className={`body-toggle-btn ${pretty ? 'active' : ''}`}
-              onClick={onToggle}
-              title={pretty ? 'Show raw' : 'Pretty print'}
-            >
-              {pretty ? '{ }' : '{ … }'}
-            </button>
-          )}
-          <button
-            className="body-toggle-btn"
-            onClick={() => navigator.clipboard.writeText(formatted)}
-            title="Copy to clipboard"
-          >
-            Copy
-          </button>
-        </div>
-      </div>
-      <pre className="response-body-pre">{formatted}</pre>
-    </div>
   );
 }

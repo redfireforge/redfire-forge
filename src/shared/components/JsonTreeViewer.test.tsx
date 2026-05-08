@@ -53,7 +53,7 @@ describe('JsonTreeViewer', () => {
     const json = '{"a":1,"b":"ok"}';
     render(<JsonTreeViewer data={json} />);
     expect(screen.getAllByText('a').some((el) => el.classList.contains('jtv-key'))).toBe(true);
-    expect(screen.getByRole('button', { name: 'Copy JSON' })).toHaveAttribute('title', 'Copy JSON');
+    expect(screen.getByTitle('Copy JSON')).toBeInTheDocument();
   });
 
   it('uses pretty-printed stringify for copied text when JSON string is valid', async () => {
@@ -103,22 +103,22 @@ describe('JsonTreeViewer', () => {
     }
   });
 
-  it('shows copy success state briefly then restores icon', async () => {
+  it('shows copy success state briefly then restores text', async () => {
     render(<JsonTreeViewer data={{ k: 'v' }} />);
     const btn = screen.getByTitle('Copy JSON');
-    expect(btn.querySelector('polyline')).toBeNull();
+    expect(btn.textContent).toBe('Copy');
 
     fireEvent.click(btn);
     await act(async () => {
       Promise.resolve().then(() => {});
     });
 
-    expect(btn.querySelector('polyline')).toBeTruthy();
+    expect(btn.textContent).toBe('✓');
 
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    expect(btn.querySelector('polyline')).toBeNull();
+    expect(btn.textContent).toBe('Copy');
   });
 
   it('renders nested object/array with expand/collapse and root class', () => {
