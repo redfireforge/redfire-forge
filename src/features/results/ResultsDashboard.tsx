@@ -12,6 +12,7 @@ import { DataRowSummaryTable } from './components/DataRowSummaryTable';
 import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
+import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
 
 interface Props {
   envName?: string;
@@ -92,6 +93,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 50;
+  const [showReplayModal, setShowReplayModal] = useState(false);
 
   useEffect(() => {
     if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
@@ -392,6 +394,16 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             <button className="btn" onClick={refreshRuns}>Refresh</button>
             {selectedRun && (
               <>
+                {/* Results Explorer button (workflow runs only) */}
+                {selectedRun.executionTrace && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setShowReplayModal(true)}
+                    title="Explore execution results"
+                  >
+                    📊 Results Explorer
+                  </button>
+                )}
                 <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
                 <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
                 <div className="report-menu-wrapper">
@@ -519,8 +531,22 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             </div>
             <div className="metric-card">
               <div className="metric-value">{summary.avgResponseTime} ms</div>
-              <div className="metric-label">Avg Response</div>
+              <div className="metric-label">
+                Avg Response
+                {summary.avgIterationTime !== undefined && (
+                  <span className="metric-info" data-tooltip="Average HTTP request duration">ⓘ</span>
+                )}
+              </div>
             </div>
+            {summary.avgIterationTime !== undefined && (
+              <div className="metric-card highlight">
+                <div className="metric-value">{summary.avgIterationTime} ms</div>
+                <div className="metric-label">
+                  Avg Iteration
+                  <span className="metric-info" data-tooltip="Average workflow iteration duration (all nodes)">ⓘ</span>
+                </div>
+              </div>
+            )}
             <div className="metric-card">
               <div className="metric-value">{summary.minResponseTime} ms</div>
               <div className="metric-label">Min</div>
@@ -732,6 +758,14 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       </div>
 
       <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
+
+      {/* Results Explorer Modal */}
+      {showReplayModal && selectedRun?.executionTrace && (
+        <WorkflowResultsExplorerModal
+          trace={selectedRun.executionTrace}
+          onClose={() => setShowReplayModal(false)}
+        />
+      )}
     </div>
   );
 }

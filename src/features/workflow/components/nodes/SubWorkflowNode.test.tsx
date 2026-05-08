@@ -176,6 +176,14 @@ describe('SubWorkflowNode', () => {
     expect(mockNavigateToWorkflow).toHaveBeenCalledWith('child-uuid');
   });
 
+  it('shows preview stats without badge when lastRunStatus omitted', () => {
+    mockGetWorkflowPreview.mockReturnValue({ nodeCount: 3, edgeCount: 7 });
+    const { container } = render(<SubWorkflowNode {...makeProps({ workflowId: 'child-uuid' })} />);
+    const preview = container.querySelector('.wf-subworkflow-preview');
+    expect(preview?.textContent).toContain('7 edges');
+    expect(container.querySelector('.wf-subworkflow-preview-status')).toBeNull();
+  });
+
   // ── E4: Inline Canvas Preview ──
 
   it('shows node and edge counts when getWorkflowPreview returns data', () => {
@@ -264,8 +272,19 @@ describe('SubWorkflowNode', () => {
     expect(badge?.textContent).toContain('user');
   });
 
-  it('does not show multi-instance badge when not configured', () => {
+  it('shows fail-status branch for preview lastRunStatus running', () => {
+    mockGetWorkflowPreview.mockReturnValue({ nodeCount: 2, edgeCount: 1, lastRunStatus: 'running' });
     const { container } = render(<SubWorkflowNode {...makeProps({ workflowId: 'child-uuid' })} />);
-    expect(container.querySelector('.wf-subworkflow-multi-instance')).toBeNull();
+    expect(container.querySelector('.wf-subworkflow-preview-status-running')).toBeTruthy();
+    expect(container.querySelector('.wf-subworkflow-preview-status')?.textContent).toContain('✗');
+  });
+
+  it('shows empty collection placeholder in multi-instance tooltip', () => {
+    const { container } = render(<SubWorkflowNode {...makeProps({
+      workflowId: 'child-uuid',
+      multiInstance: { collection: '', elementVariable: 'item', mode: 'sequential' },
+    })} />);
+    const badge = container.querySelector('.wf-subworkflow-multi-instance') as HTMLElement;
+    expect(badge?.title ?? '').toContain('(empty)');
   });
 });

@@ -36,7 +36,13 @@ export interface SubWorkflowRunSummary {
 export interface GraphRunCallbacks {
   onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
   onVariablesChange: (variables: Record<string, string>) => void;
-  onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => void;
+  onComplete: (
+    results: RequestResult[], 
+    passed: boolean, 
+    durationMs: number,
+    /** Phase 7e: Execution trace for visual replay (optional for backwards compatibility) */
+    trace?: import('../../../shared/types').WorkflowIterationTrace,
+  ) => void;
   onLog?: (line: { prefix: string; text: string; ts?: number }) => void;
   /** Fired when a sub-workflow node completes (after retries). */
   onSubWorkflowComplete?: (summary: SubWorkflowRunSummary) => void;

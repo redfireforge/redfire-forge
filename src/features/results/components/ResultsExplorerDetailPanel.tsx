@@ -1,0 +1,651 @@
+import { useMemo, useState } from 'react';
+import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
+
+type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
+
+interface Props {
+  nodeId: string;
+  nodeType: string;
+  nodeLabel: string;
+  events: ExecutionEvent[];
+  iterations: WorkflowIterationTrace[];
+  selectedIteration?: number;
+  onIterationChange: (iteration: number | undefined) => void;
+  onClose: () => void;
+  fullTraceCaptured?: boolean;
+}
+
+export default function ResultsExplorerDetailPanel({
+  nodeId,
+  nodeType,
+  nodeLabel,
+  events,
+  iterations,
+  selectedIteration,
+  onIterationChange,
+  onClose,
+  fullTraceCaptured,
+}: Props) {
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  // Get the event for the current view (selected iteration or latest)
+  const currentEvent = useMemo(() => {
+    if (events.length === 0) return null;
+    if (selectedIteration !== undefined) {
+      return events[0]; // Single iteration view
+    }
+    return events[events.length - 1]; // Latest event for aggregate
+  }, [events, selectedIteration]);
+
+  // Calculate aggregate stats
+  const stats = useMemo(() => {
+    if (events.length === 0) return null;
+    
+    const durations = events.filter(e => e.durationMs !== undefined).map(e => e.durationMs!);
+    const passCount = events.filter(e => e.state === 'pass').length;
+    const failCount = events.filter(e => e.state === 'fail').length;
+
+    const waitDurations = events
+      .filter(e => e.details?.waitDurationMs !== undefined)
+      .map(e => e.details!.waitDurationMs!);
+
+    return {
+      totalExecutions: events.length,
+      passCount,
+      failCount,
+      passRate: events.length > 0 ? (passCount / events.length) * 100 : 0,
+      avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : undefined,
+      minDuration: durations.length > 0 ? Math.min(...durations) : undefined,
+      maxDuration: durations.length > 0 ? Math.max(...durations) : undefined,
+      avgWaitDuration: waitDurations.length > 0 ? waitDurations.reduce((a, b) => a + b, 0) / waitDurations.length : undefined,
+    };
+  }, [events]);
+
+  const isHttpNode = nodeType === 'http';
+  const hasFullTrace = fullTraceCaptured && currentEvent?.details?.request;
+  const hasWebhookInput = !!currentEvent?.details?.webhookInput;
+  const hasVariables = !!(currentEvent?.details?.variablesSnapshot || currentEvent?.details?.extractedVariables || hasWebhookInput);
+  const hasBasicRequest = !!(currentEvent?.details?.method && currentEvent?.details?.url);
+  const hasBasicResponse = !!(currentEvent?.details?.statusCode !== undefined);
+
+  return (
+    <div className="explorer-detail-panel">
+      {/* Header */}
+      <div className="explorer-detail-header">
+        <div className="explorer-detail-title-row">
+          <span className="explorer-detail-type">{formatNodeType(nodeType)}</span>
+          <button className="explorer-detail-close" onClick={onClose} title="Close (Escape)">✕</button>
+        </div>
+        <h3 className="explorer-detail-name">{nodeLabel}</h3>
+        
+        {/* Quick stats */}
+        {stats && (
+          <div className="explorer-detail-quick-stats">
+            <span className={`quick-stat ${stats.passRate === 100 ? 'pass' : stats.passRate === 0 ? 'fail' : 'mixed'}`}>
+              {stats.passRate.toFixed(0)}% pass
+            </span>
+            <span className="quick-stat">{stats.totalExecutions} exec</span>
+            {stats.avgDuration !== undefined && (
+              <span className="quick-stat">{formatDuration(stats.avgDuration)} avg</span>
+            )}
+          </div>
+        )}
+
+        {/* Iteration selector */}
+        {iterations.length > 1 && (
+          <div className="explorer-detail-iteration-select">
+            <select
+              value={selectedIteration === undefined ? 'all' : selectedIteration}
+              onChange={(e) => {
+                const val = e.target.value;
+                onIterationChange(val === 'all' ? undefined : Number(val));
+              }}
+            >
+              <option value="all">All Iterations (Aggregate)</option>
+              {iterations.map((iter, i) => (
+                <option key={i} value={i}>
+                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDuration(iter.durationMs)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="explorer-detail-tabs">
+        <button
+          className={`explorer-tab ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </button>
+        {isHttpNode && (
+          <>
+            <button
+              className={`explorer-tab ${activeTab === 'request' ? 'active' : ''}`}
+              onClick={() => setActiveTab('request')}
+              disabled={!hasFullTrace && !hasBasicRequest}
+            >
+              Request
+            </button>
+            <button
+              className={`explorer-tab ${activeTab === 'response' ? 'active' : ''}`}
+              onClick={() => setActiveTab('response')}
+              disabled={!hasFullTrace && !hasBasicResponse}
+            >
+              Response
+            </button>
+          </>
+        )}
+        <button
+          className={`explorer-tab ${activeTab === 'variables' ? 'active' : ''}`}
+          onClick={() => setActiveTab('variables')}
+          disabled={!hasVariables}
+        >
+          Variables
+        </button>
+        {isHttpNode && (
+          <button
+            className={`explorer-tab ${activeTab === 'assertions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('assertions')}
+          >
+            Assertions
+          </button>
+        )}
+      </div>
+
+      {/* Tab Content */}
+      <div className="explorer-detail-content">
+        {activeTab === 'overview' && (
+          <OverviewTab
+            events={events}
+            stats={stats}
+            currentEvent={currentEvent}
+            selectedIteration={selectedIteration}
+            onIterationClick={(i) => onIterationChange(i)}
+          />
+        )}
+        {activeTab === 'request' && currentEvent && (
+          <RequestTab event={currentEvent} hasFullTrace={!!hasFullTrace} />
+        )}
+        {activeTab === 'response' && currentEvent && (
+          <ResponseTab event={currentEvent} hasFullTrace={!!hasFullTrace} />
+        )}
+        {activeTab === 'variables' && currentEvent && (
+          <VariablesTab event={currentEvent} hasFullTrace={!!hasVariables} />
+        )}
+        {activeTab === 'assertions' && currentEvent && (
+          <AssertionsTab event={currentEvent} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+
+interface OverviewTabProps {
+  events: ExecutionEvent[];
+  stats: {
+    totalExecutions: number;
+    passCount: number;
+    failCount: number;
+    passRate: number;
+    avgDuration?: number;
+    minDuration?: number;
+    maxDuration?: number;
+    avgWaitDuration?: number;
+  } | null;
+  currentEvent: ExecutionEvent | null;
+  selectedIteration?: number;
+  onIterationClick: (iteration: number) => void;
+}
+
+function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterationClick }: OverviewTabProps) {
+  if (!stats) {
+    return <div className="explorer-empty">No execution data available</div>;
+  }
+
+  return (
+    <div className="explorer-overview">
+      {/* Hero Stats */}
+      <div className="explorer-hero-stats">
+        <div className="hero-stat">
+          <span className="hero-value" style={{ 
+            color: stats.passRate === 100 ? '#22c55e' : stats.passRate === 0 ? '#ef4444' : '#f59e0b' 
+          }}>
+            {stats.passRate.toFixed(0)}%
+          </span>
+          <span className="hero-label">Pass Rate</span>
+        </div>
+        <div className="hero-divider" />
+        <div className="hero-stat">
+          <span className="hero-value">{stats.totalExecutions}</span>
+          <span className="hero-label">Executions</span>
+        </div>
+        <div className="hero-divider" />
+        <div className="hero-stat">
+          <span className="hero-value">{formatDuration(stats.avgDuration)}</span>
+          <span className="hero-label">Avg Duration</span>
+        </div>
+      </div>
+
+      {/* Status Bar */}
+      <div className="explorer-status-bar">
+        {stats.passCount > 0 && (
+          <div 
+            className="status-segment pass" 
+            style={{ width: `${(stats.passCount / stats.totalExecutions) * 100}%` }}
+            title={`${stats.passCount} passed`}
+          />
+        )}
+        {stats.failCount > 0 && (
+          <div 
+            className="status-segment fail" 
+            style={{ width: `${(stats.failCount / stats.totalExecutions) * 100}%` }}
+            title={`${stats.failCount} failed`}
+          />
+        )}
+      </div>
+      <div className="explorer-status-legend">
+        {stats.passCount > 0 && <span className="legend-pass">✓ {stats.passCount}</span>}
+        {stats.failCount > 0 && <span className="legend-fail">✗ {stats.failCount}</span>}
+      </div>
+
+      {/* Timing Stats */}
+      {stats.avgDuration !== undefined && stats.totalExecutions > 1 && (
+        <div className="explorer-timing-stats">
+          <div className="timing-stat">
+            <span className="timing-label">Min</span>
+            <span className="timing-value">{formatDuration(stats.minDuration)}</span>
+          </div>
+          <div className="timing-stat">
+            <span className="timing-label">Avg</span>
+            <span className="timing-value">{formatDuration(stats.avgDuration)}</span>
+          </div>
+          <div className="timing-stat">
+            <span className="timing-label">Max</span>
+            <span className="timing-value">{formatDuration(stats.maxDuration)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* CorrelationWait split timing */}
+      {stats.avgWaitDuration !== undefined && (
+        <div className="explorer-timing-split">
+          <h4>Timing Breakdown</h4>
+          <div className="timing-split-bar">
+            <div
+              className="timing-split-segment wait"
+              style={{ flex: stats.avgWaitDuration }}
+              title={`Avg wait: ${formatDuration(stats.avgWaitDuration)}`}
+            />
+            <div
+              className="timing-split-segment processing"
+              style={{ flex: Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration) }}
+              title={`Avg processing: ${formatDuration((stats.avgDuration ?? 0) - stats.avgWaitDuration)}`}
+            />
+          </div>
+          <div className="timing-split-legend">
+            <span className="legend-wait">Wait for Event: {formatDuration(stats.avgWaitDuration)}</span>
+            <span className="legend-processing">Processing: {formatDuration(Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration))}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Webhook Input (for webhook trigger nodes) */}
+      {currentEvent && currentEvent.details?.webhookInput && (
+        <div className="explorer-webhook-input">
+          <h4>Webhook Input</h4>
+          {currentEvent.details.webhookInput.method && currentEvent.details.webhookInput.path && (
+            <div className="webhook-endpoint">
+              <span className="webhook-method">{currentEvent.details.webhookInput.method}</span>
+              <span className="webhook-path">{currentEvent.details.webhookInput.path}</span>
+            </div>
+          )}
+          <div className="webhook-payload">
+            <JsonTreeViewer data={currentEvent.details.webhookInput.payload} defaultExpandDepth={3} maxHeight={300} />
+          </div>
+        </div>
+      )}
+
+      {/* Current Event Details — Card Layout */}
+      {currentEvent && currentEvent.details && (
+        <div className="exec-card">
+          <div className="exec-card-header">
+            <span className="exec-card-title">Last Execution</span>
+            {currentEvent.details.statusCode !== undefined && (
+              <span className={`exec-status-badge ${currentEvent.details.statusCode < 400 ? 'success' : 'error'}`}>
+                {currentEvent.details.statusCode}
+              </span>
+            )}
+          </div>
+
+          {currentEvent.details.method && currentEvent.details.url && (
+            <div className="exec-endpoint">
+              <span className="exec-method">{currentEvent.details.method}</span>
+              <span className="exec-url">{currentEvent.details.url}</span>
+            </div>
+          )}
+
+          {(currentEvent.durationMs !== undefined || currentEvent.details.responseTimeMs !== undefined) && (
+            <div className="exec-timing-row">
+              <div className="exec-timing-bar-track">
+                <div
+                  className={`exec-timing-bar-fill ${currentEvent.details.statusCode !== undefined && currentEvent.details.statusCode >= 400 ? 'error' : ''}`}
+                  style={{ width: `${Math.min(100, ((currentEvent.durationMs ?? 0) / Math.max(stats?.maxDuration ?? 1, 1)) * 100)}%` }}
+                />
+              </div>
+              <span className="exec-timing-label">{formatDuration(currentEvent.durationMs)}</span>
+            </div>
+          )}
+
+          {currentEvent.details.error && (
+            <div className="exec-error">
+              <span className="exec-error-icon">!</span>
+              <span className="exec-error-text">{currentEvent.details.error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Per-Iteration List (in aggregate view) */}
+      {selectedIteration === undefined && events.length > 1 && (
+        <div className="explorer-iteration-list">
+          <h4>Per-Iteration Breakdown</h4>
+          <div className="iteration-list-scroll">
+            {events.map((event, i) => (
+              <div 
+                key={i}
+                className={`iteration-row ${event.state}`}
+                onClick={() => onIterationClick(i)}
+              >
+                <span className="iteration-num">#{i + 1}</span>
+                <span className={`iteration-status ${event.state}`}>
+                  {event.state === 'pass' ? '✓' : event.state === 'fail' ? '✗' : '○'}
+                </span>
+                <span className="iteration-duration">{formatDuration(event.durationMs)}</span>
+                <span className="iteration-arrow">→</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Request Tab ──────────────────────────────────────────────────────────────
+
+function RequestTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTrace: boolean }) {
+  const [showResolved, setShowResolved] = useState(true);
+
+  const req = event.details?.request;
+  const method = req?.method ?? event.details?.method;
+  const url = req?.url ?? event.details?.url;
+
+  if (!method && !url && !req) {
+    return <div className="explorer-empty">No request data available</div>;
+  }
+
+  return (
+    <div className="explorer-request">
+      {(method || url) && (
+        <div className="request-url">
+          {method && <span className="request-method">{method}</span>}
+          {url && <span className="request-url-text">{url}</span>}
+        </div>
+      )}
+
+      {req?.headers && Object.keys(req.headers).length > 0 && (
+        <div className="request-section">
+          <h4>Headers</h4>
+          <div className="headers-list">
+            {Object.entries(req.headers).map(([key, value]) => (
+              <div key={key} className="header-row">
+                <span className="header-key">{key}:</span>
+                <span className="header-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {req && (req.bodyTemplate || req.bodyResolved) && (
+        <div className="request-section">
+          <div className="section-header-with-toggle">
+            <h4>Body</h4>
+            {req.bodyTemplate && req.bodyResolved && req.bodyTemplate !== req.bodyResolved && (
+              <button 
+                className={`toggle-btn ${showResolved ? 'active' : ''}`}
+                onClick={() => setShowResolved(!showResolved)}
+              >
+                {showResolved ? 'Show Template' : 'Show Resolved'}
+              </button>
+            )}
+          </div>
+          <JsonTreeViewer data={showResolved ? req.bodyResolved : req.bodyTemplate} defaultExpandDepth={3} maxHeight={400} />
+        </div>
+      )}
+
+      {!hasFullTrace && (
+        <div className="explorer-trace-hint">
+          Enable <strong>Capture Full Trace</strong> to see headers and body.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Response Tab ─────────────────────────────────────────────────────────────
+
+function ResponseTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTrace: boolean }) {
+  const res = event.details?.response;
+  const basicStatus = event.details?.statusCode;
+
+  if (!res && basicStatus === undefined) {
+    return <div className="explorer-empty">No response data available</div>;
+  }
+
+  const statusCode = res?.statusCode ?? basicStatus;
+
+  return (
+    <div className="explorer-response">
+      <div className="response-status-row">
+        {statusCode !== undefined && (
+          <span className={`response-status ${statusCode < 400 ? 'success' : 'error'}`}>
+            {statusCode}
+          </span>
+        )}
+        {res?.statusText && <span className="response-status-text">{res.statusText}</span>}
+        {event.durationMs !== undefined && (
+          <span className="response-time">{formatDuration(event.durationMs)}</span>
+        )}
+      </div>
+
+      {res?.headers && Object.keys(res.headers).length > 0 && (
+        <div className="response-section">
+          <h4>Headers</h4>
+          <div className="headers-list">
+            {Object.entries(res.headers).map(([key, value]) => (
+              <div key={key} className="header-row">
+                <span className="header-key">{key}:</span>
+                <span className="header-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {res?.body && (
+        <div className="response-section">
+          <div className="section-header-with-toggle">
+            <h4>Body</h4>
+            {res.bodyTruncated && <span className="truncated-badge">Truncated</span>}
+          </div>
+          <JsonTreeViewer data={res.body} defaultExpandDepth={3} maxHeight={400} />
+        </div>
+      )}
+
+      {!hasFullTrace && (
+        <div className="explorer-trace-hint">
+          Enable <strong>Capture Full Trace</strong> to see headers and body.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Variables Tab ────────────────────────────────────────────────────────────
+
+function VariablesTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTrace: boolean }) {
+  if (!hasFullTrace) {
+    return (
+      <div className="explorer-empty">
+        <p>Full trace not captured.</p>
+        <p className="explorer-empty-hint">Enable "Capture Full Trace" before running to see variable values.</p>
+      </div>
+    );
+  }
+
+  const extracted = event.details?.extractedVariables;
+  const snapshot = event.details?.variablesSnapshot;
+
+  if (!extracted && !snapshot) {
+    return <div className="explorer-empty">No variable data available</div>;
+  }
+
+  return (
+    <div className="explorer-variables">
+      {extracted && Object.keys(extracted).length > 0 && (
+        <div className="variables-section">
+          <h4>Extracted by This Node</h4>
+          <div className="variables-table">
+            {Object.entries(extracted).map(([key, value]) => (
+              <div key={key} className="variable-row extracted">
+                <span className="variable-name">{key}</span>
+                <span className="variable-value">{truncateValue(value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {snapshot && Object.keys(snapshot).length > 0 && (
+        <div className="variables-section">
+          <h4>All Variables (after this node)</h4>
+          <div className="variables-table">
+            {Object.entries(snapshot).map(([key, value]) => {
+              const isExtracted = extracted && key in extracted;
+              return (
+                <div key={key} className={`variable-row ${isExtracted ? 'highlighted' : ''}`}>
+                  <span className="variable-name">
+                    {key}
+                    {isExtracted && <span className="new-badge">new</span>}
+                  </span>
+                  <span className="variable-value">{truncateValue(value)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Assertions Tab ───────────────────────────────────────────────────────────
+
+function AssertionsTab({ event }: { event: ExecutionEvent }) {
+  const assertions = event.details?.assertions;
+
+  if (!assertions || assertions.length === 0) {
+    return (
+      <div className="explorer-empty">
+        <p>No assertions defined for this node.</p>
+      </div>
+    );
+  }
+
+  const passCount = assertions.filter(a => a.passed).length;
+
+  return (
+    <div className="explorer-assertions">
+      <div className="assertions-summary">
+        <span className={passCount === assertions.length ? 'all-pass' : 'has-fail'}>
+          {passCount} of {assertions.length} passed
+        </span>
+      </div>
+
+      <div className="assertions-list">
+        {assertions.map((assertion, i) => (
+          <div key={i} className={`assertion-row ${assertion.passed ? 'pass' : 'fail'}`}>
+            <span className="assertion-icon">{assertion.passed ? '✓' : '✗'}</span>
+            <div className="assertion-content">
+              <span className="assertion-type">{assertion.type}</span>
+              <span className="assertion-desc">{assertion.description}</span>
+              {(assertion.expected || assertion.actual) && (
+                <div className="assertion-values">
+                  {assertion.expected && (
+                    <span className="assertion-expected">Expected: {assertion.expected}</span>
+                  )}
+                  {assertion.actual && (
+                    <span className="assertion-actual">Actual: {assertion.actual}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const NODE_TYPE_LABELS: Record<string, string> = {
+  start: 'START',
+  http: 'HTTP',
+  script: 'SCRIPT',
+  logDebug: 'LOG / DEBUG',
+  delay: 'DELAY',
+  ifCondition: 'CONDITION',
+  loop: 'LOOP',
+  subWorkflow: 'SUB-WORKFLOW',
+  webhook: 'WEBHOOK',
+  schedule: 'SCHEDULE',
+  correlationWait: 'CORRELATION WAIT',
+  end: 'END',
+  errorHandler: 'ERROR HANDLER',
+  group: 'GROUP',
+  parallel: 'PARALLEL',
+};
+
+function formatNodeType(type: string): string {
+  return NODE_TYPE_LABELS[type] ?? type.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
+}
+
+function formatDuration(ms?: number): string {
+  if (ms === undefined || ms === null) return '—';
+  if (ms < 1) return '<1ms';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+function formatJson(str?: string): string {
+  if (!str) return '';
+  try {
+    const parsed = JSON.parse(str);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return str;
+  }
+}
+
+function truncateValue(value: string, maxLength = 100): string {
+  if (value.length <= maxLength) return value;
+  return value.slice(0, maxLength) + '...';
+}

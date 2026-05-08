@@ -110,4 +110,47 @@ describe('useWorkflowEdgeOps', () => {
     });
     expect(e.get()[0].className).toBe('wf-edge-skipped');
   });
+
+  it('marks edge as fail when source is pass and target is fail', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge];
+    const { e } = setup({
+      initialEdges: initial,
+      nodeStatuses: { a: { state: 'pass' }, b: { state: 'fail' } } as unknown as Record<string, NodeRunStatus>,
+    });
+    expect(e.get()[0].className).toBe('wf-edge-fail');
+  });
+
+  it('marks edge as fail when both source and target are fail', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge];
+    const { e } = setup({
+      initialEdges: initial,
+      nodeStatuses: { a: { state: 'fail' }, b: { state: 'fail' } } as unknown as Record<string, NodeRunStatus>,
+    });
+    expect(e.get()[0].className).toBe('wf-edge-fail');
+  });
+
+
+  it('does not modify edge when className is unchanged', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b', className: 'wf-edge-pass' } as unknown as WorkflowRFEdge];
+    const { e, rerender } = setup({
+      initialEdges: initial,
+      nodeStatuses: { a: { state: 'pass' }, b: { state: 'pass' } } as unknown as Record<string, NodeRunStatus>,
+    });
+    const firstEdge = e.get()[0];
+    // Re-render with same statuses - edge should not change identity
+    rerender({ statuses: { a: { state: 'pass' }, b: { state: 'pass' } } as unknown as Record<string, NodeRunStatus> });
+    expect(e.get()[0]).toBe(firstEdge);
+  });
+
+  it('does not reset edges when none have className', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge];
+    const { e, rerender } = setup({
+      initialEdges: initial,
+      nodeStatuses: {},
+    });
+    const firstEdge = e.get()[0];
+    // Re-render with empty statuses - edge should remain unchanged since it has no className
+    rerender({ statuses: {} as Record<string, NodeRunStatus> });
+    expect(e.get()[0]).toBe(firstEdge);
+  });
 });

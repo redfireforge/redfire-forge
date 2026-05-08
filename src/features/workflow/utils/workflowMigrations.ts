@@ -481,8 +481,53 @@ function migrateV4ToV5(wf: Workflow): Workflow {
   return { ...wf, schemaVersion: 5 };
 }
 
+// ── v5 → v6: Remove orphaned Start nodes from webhook/schedule triggered workflows ──
+
+function migrateV5ToV6(wf: Workflow): Workflow {
+  if ((wf.schemaVersion ?? 1) >= 6) return wf;
+  
+  // Check if workflow has webhook or schedule trigger nodes
+  const webhookNode = wf.nodes.find(n => n.type === 'webhook');
+  const scheduleNode = wf.nodes.find(n => n.type === 'schedule');
+  const triggerNode = webhookNode || scheduleNode;
+  
+  if (!triggerNode) {
+    // Not a trigger-based workflow, no changes needed
+    return { ...wf, schemaVersion: 6 };
+  }
+  
+  // Find Start nodes that only connect to the trigger node (orphaned)
+  const startNodesToRemove: string[] = [];
+  
+  for (const node of wf.nodes) {
+    if (node.type !== 'start') continue;
+    
+    const outgoingEdges = wf.edges.filter(e => e.source === node.id);
+    
+    // Remove if: no outgoing edges, or only connects to the trigger node
+    if (outgoingEdges.length === 0) {
+      startNodesToRemove.push(node.id);
+    } else if (outgoingEdges.length === 1 && outgoingEdges[0].target === triggerNode.id) {
+      startNodesToRemove.push(node.id);
+    }
+  }
+  
+  if (startNodesToRemove.length === 0) {
+    return { ...wf, schemaVersion: 6 };
+  }
+  
+  const removedSet = new Set(startNodesToRemove);
+  
+  return {
+    ...wf,
+    schemaVersion: 6,
+    nodes: wf.nodes.filter(n => !removedSet.has(n.id)),
+    edges: wf.edges.filter(e => !removedSet.has(e.source) && !removedSet.has(e.target)),
+  };
+}
+
 /**
- * Run all schema migrations on a workflow (v1 → v2 → v3 → v4 → v5 + fixups).
+ * Run all schema migrations on a workflow (v1 → v2 → v3 → v4 → v5 → v6 + fixups).
  * Pure function — no React dependencies.
  */
 export function migrateWorkflowSchema(wf: Workflow): Workflow {
@@ -492,6 +537,7 @@ export function migrateWorkflowSchema(wf: Workflow): Workflow {
   if ((migrated.schemaVersion ?? 1) < 3) migrated = migrateV2ToV3(migrated);
   if ((migrated.schemaVersion ?? 1) < 4) migrated = migrateV3ToV4(migrated);
   if ((migrated.schemaVersion ?? 1) < 5) migrated = migrateV4ToV5(migrated);
+  if ((migrated.schemaVersion ?? 1) < 6) migrated = migrateV5ToV6(migrated);
 
   migrated = {
     ...migrated,

@@ -123,6 +123,56 @@ describe('ColumnOrderPopover', () => {
     expect(items.length).toBe(3);
   });
 
+  it('omits dragOver state branch when hovering the same slot twice', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const items = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const dt = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: vi.fn(),
+      getData: vi.fn(),
+      clearData: vi.fn(),
+      setDragImage: vi.fn(),
+      files: [],
+      types: [],
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(items[1], { dataTransfer: dt });
+    fireEvent.dragOver(items[1], { dataTransfer: dt, preventDefault: () => {} });
+    fireEvent.dragOver(items[1], { dataTransfer: dt, preventDefault: () => {} });
+    fireEvent.dragEnd(items[1]);
+  });
+
+  it('ends drag without reordering when dropped on same index', () => {
+    render(<ColumnOrderPopover {...defaultProps} />);
+    const items = screen.getAllByText('⠿').map(el => el.closest('.col-order-field-item') as HTMLElement);
+    const dt = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: vi.fn(),
+      getData: vi.fn(),
+      clearData: vi.fn(),
+      setDragImage: vi.fn(),
+      files: [],
+      types: [],
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(items[0], { dataTransfer: dt });
+    fireEvent.drop(items[0], { dataTransfer: dt, preventDefault: () => {} });
+    const names = screen.getAllByText(/userId|status|name/).filter(el => el.classList.contains('col-order-field-name'));
+    expect(names.map(n => n.textContent)).toEqual(['userId', 'status', 'name']);
+  });
+
+  it('does not render a type badge when type is omitted', () => {
+    const items = [{ mapping: 'plain', name: 'Plain Column' }] as OrderableItem[];
+    render(<ColumnOrderPopover {...defaultProps} items={items} />);
+    expect(screen.queryByText('Path')).not.toBeInTheDocument();
+  });
+
+  it('applies modulo index styling classes for indexed mappings', () => {
+    const items: OrderableItem[] = [{ mapping: 'offers[4].code', name: 'c4', type: 'validate' }];
+    render(<ColumnOrderPopover {...defaultProps} items={items} />);
+    expect(document.querySelector('.idx-0')).toBeTruthy();
+  });
+
   it('auto-applies when autoApply is true', () => {
     const onApply = vi.fn();
     const items: OrderableItem[] = [

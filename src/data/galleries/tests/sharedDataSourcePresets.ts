@@ -89,7 +89,7 @@ export function createSharedUserIdsDataSource(): SharedDataSource {
     row('r7',  { 'c-id': '7',  'c-name': 'Kurtis Weissnat',       'c-email': 'Telly.Hoeger@billy.biz' }),
     row('r8',  { 'c-id': '8',  'c-name': 'Nicholas Runolfsdottir V', 'c-email': 'Sherwood@rosamond.me' }),
     row('r9',  { 'c-id': '9',  'c-name': 'Glenna Reichert',       'c-email': 'Chaim_McDermott@dana.io' }),
-    row('r10', { 'c-id': '10', 'c-name': 'Clementina DuBuque',    'c-email': 'Rey.Padberg@karina.biz' }),
+    row('r10', { 'c-id': '10', 'c-name': 'Clementina DuBuque',    'c-email': 'Rey.Padberg@karina.biz' }, { enabled: false }),
   ];
 
   return {
@@ -347,7 +347,7 @@ export function createSharedAuthUsersDataSource(): SharedDataSource {
   const columns = [
     col('c-user', 'username', 'body', 'username', 'Login username'),
     col('c-pass', 'password', 'body', 'password', 'Login password'),
-    col('c-first', 'expectedFirst', 'validate', '$.firstName', 'Expected first name'),
+    col('c-first', 'expectedFirst', 'validate', '$.firstName'),
   ];
   // DummyJSON test credentials: https://dummyjson.com/docs/auth
   const rows: DataSourceRow[] = [
@@ -355,7 +355,7 @@ export function createSharedAuthUsersDataSource(): SharedDataSource {
     row('r2', { 'c-user': 'michaelw',  'c-pass': 'michaelwpass',  'c-first': 'Michael' },  { tags: ['user'] }),
     row('r3', { 'c-user': 'sophiab',   'c-pass': 'sophiabpass',   'c-first': 'Sophia' },   { tags: ['user'] }),
     row('r4', { 'c-user': 'jamesd',    'c-pass': 'jamesdpass',    'c-first': 'James' },    { tags: ['user'] }),
-    row('r5', { 'c-user': 'emmaj',     'c-pass': 'emmajpass',     'c-first': 'Emma' },     { tags: ['admin'] }),
+    row('r5', { 'c-user': 'emmaj',     'c-pass': 'emmajpass',     'c-first': 'Emma' }),
   ];
 
   return {

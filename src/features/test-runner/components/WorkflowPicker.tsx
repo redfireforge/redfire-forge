@@ -8,6 +8,7 @@ import {
   formatRelativeTime,
   type WorkflowRunConfig,
 } from '../utils/workflowRunConfigStorage';
+import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
 
 interface Props {
   workflows: Workflow[];
@@ -16,7 +17,10 @@ interface Props {
   variables: Record<string, string>;
   onVariablesChange: (variables: Record<string, string>) => void;
   disabled?: boolean;
+  onImportSample?: (workflow: Workflow) => void;
 }
+
+const PERF_SAMPLE_IDS = ['perf-workflow-simple', 'perf-workflow-branching', 'perf-workflow-parallel'];
 
 export default function WorkflowPicker({
   workflows,
@@ -25,6 +29,7 @@ export default function WorkflowPicker({
   variables,
   onVariablesChange,
   disabled,
+  onImportSample,
 }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -117,14 +122,56 @@ export default function WorkflowPicker({
   const variableEntries = Object.entries(variables);
   const hasChanges = selectedWorkflow && JSON.stringify(variables) !== JSON.stringify(selectedWorkflow.variables);
 
+  const perfSamples = useMemo(() =>
+    sampleWorkflowCatalog.filter(s => PERF_SAMPLE_IDS.includes(s.id)),
+    []
+  );
+
+  const alreadyImportedIds = useMemo(() => {
+    const names = new Set(workflows.map(w => w.name));
+    return new Set(perfSamples.filter(s => names.has(s.name)).map(s => s.id));
+  }, [workflows, perfSamples]);
+
+  const handleImportSample = (sampleId: string) => {
+    if (!onImportSample) return;
+    const entry = perfSamples.find(s => s.id === sampleId);
+    if (!entry?.factory) return;
+    const existingWf = workflows.find(w => w.name === entry.name);
+    const wf = entry.factory();
+    if (existingWf) {
+      wf.id = existingWf.id;
+    }
+    onImportSample(wf);
+  };
+
   if (workflows.length === 0) {
     return (
       <div className="workflow-picker">
         <div className="workflow-picker-empty">
           <span className="empty-icon">⚡</span>
           <p>No workflows available</p>
-          <p className="empty-hint">Create a workflow in the Workflow Designer first.</p>
+          <p className="empty-hint">Create a workflow in the Workflow Designer, or try a sample below.</p>
         </div>
+        {onImportSample && perfSamples.length > 0 && (
+          <div className="workflow-picker-samples">
+            <span className="samples-label">Quick Start — Performance Samples</span>
+            <div className="samples-grid">
+              {perfSamples.map(sample => (
+                <button
+                  key={sample.id}
+                  className="sample-card"
+                  onClick={() => handleImportSample(sample.id)}
+                  disabled={disabled}
+                >
+                  <span className="sample-icon">{sample.icon}</span>
+                  <span className="sample-name">{sample.name}</span>
+                  <span className="sample-desc">{sample.description}</span>
+                  <span className="sample-meta">{sample.nodeCount} nodes · {sample.difficulty}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -344,9 +391,32 @@ export default function WorkflowPicker({
       )}
 
       {!selectedWorkflow && (
-        <p className="workflow-picker-hint">
-          Select a workflow above to run it as a performance test with full graph topology (conditions, forks, joins, loops).
-        </p>
+        <>
+          <p className="workflow-picker-hint">
+            Select a workflow above to run it as a performance test with full graph topology (conditions, forks, joins, loops).
+          </p>
+          {perfSamples.length > 0 && (
+            <div className="workflow-picker-samples compact">
+              <span className="samples-label">Quick Start — Performance Samples</span>
+              <div className="samples-inline">
+                {perfSamples.map(sample => {
+                  const imported = alreadyImportedIds.has(sample.id);
+                  return (
+                    <button
+                      key={sample.id}
+                      className={`sample-chip ${imported ? 'imported' : ''}`}
+                      onClick={() => handleImportSample(sample.id)}
+                      disabled={disabled}
+                      title={imported ? `Update & select "${sample.name}"` : sample.description}
+                    >
+                      {sample.icon} {sample.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

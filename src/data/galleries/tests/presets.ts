@@ -24,6 +24,16 @@ function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & { asserti
   };
 }
 
+/** Minimal scenario omitting assertions to exercise presets helper branch (validation mode none). */
+export function presetsBareScenarioProbe(): Scenario {
+  return s({
+    id: 'cov-presets-s-probe',
+    name: 'Presets probe',
+    url: 'https://dummyjson.com/products/1',
+    method: 'GET',
+  });
+}
+
 // ─── 1. User API Smoke Test (Easy) ───────────────────────────────────────────
 
 export function createUserApiSmokeTest(): FeatureGroup {

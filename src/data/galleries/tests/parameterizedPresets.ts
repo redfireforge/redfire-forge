@@ -34,7 +34,7 @@ function ds(id: string, columns: DataSourceColumn[], rows: DataSourceRow[], urlT
 export function createUserLookupSweepTest(): FeatureGroup {
   const columns = [
     col('c-id', 'id', 'path', 'id', 'User ID (1–10)'),
-    col('c-name', 'expectedName', 'validate', '$.name', 'Expected user name'),
+    col('c-name', 'expectedName', 'validate', '$.name'),
     col('c-email', 'expectedEmail', 'validate', '$.email', 'Expected email'),
   ];
   const rows: DataSourceRow[] = [
@@ -335,7 +335,7 @@ export function createRowTagsDemoTest(): FeatureGroup {
     row('r5',  { 'c-id': '20', 'c-title': 'doloremque' },         { tags: ['edge-case'] }),
     row('r6',  { 'c-id': '50', 'c-title': 'repellendus' },        { tags: ['edge-case', 'slow'] }),
     row('r7',  { 'c-id': '99', 'c-title': 'temporibus' },         { tags: ['edge-case'] }),
-    row('r8',  { 'c-id': '100', 'c-title': 'at nam' },            { tags: ['boundary', 'critical'] }),
+    row('r8',  { 'c-id': '100', 'c-title': 'at nam' },            { tags: ['boundary', 'critical'], enabled: false }),
   ];
 
   return {

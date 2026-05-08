@@ -103,6 +103,10 @@ export class VariableContext {
     this.extracted.set(name, value);
   }
 
+  delete(name: string): boolean {
+    return this.extracted.delete(name);
+  }
+
   get(name: string): string | undefined {
     const scoped = parseNodeScopedInner(name);
     if (scoped) {
@@ -178,12 +182,22 @@ export class VariableContext {
 
   snapshot(): Record<string, string> {
     const out: Record<string, string> = {};
-    for (const [k, v] of this.environment) out[k] = v;
-    for (const [k, v] of this.manual) out[k] = v;
-    for (const [k, v] of this.extracted) out[k] = v;
+    // Internal variables used only for trace capture (not visible to user)
+    const internalVars = new Set(['__webhookInput', '__webhookMethod', '__webhookPath', '__webhookPayload']);
+    for (const [k, v] of this.environment) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
+    for (const [k, v] of this.manual) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
+    for (const [k, v] of this.extracted) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
     for (const [nodeId, inner] of this.byNode) {
       for (const [name, v] of inner) {
-        out[this.snapshotKeyForNodeVar(nodeId, name)] = v;
+        if (!internalVars.has(name)) {
+          out[this.snapshotKeyForNodeVar(nodeId, name)] = v;
+        }
       }
     }
     return out;

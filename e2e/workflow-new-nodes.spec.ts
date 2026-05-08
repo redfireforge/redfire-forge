@@ -188,11 +188,11 @@ test.describe('New Node Types — Config Modals', () => {
     await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');
   });
 
-  test('Switch config modal closes on Cancel', async ({ page }) => {
+  test('Switch config modal closes on Close', async ({ page }) => {
     await page.locator('.wf-node-switch .wf-node-configure-badge').click();
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await modal.getByRole('button', { name: 'Cancel' }).click();
+    await modal.getByRole('button', { name: 'Close' }).click();
     await expect(modal).not.toBeVisible();
   });
 });

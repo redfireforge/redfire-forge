@@ -45,9 +45,36 @@ enum Commands {
         /// Delay between retries in milliseconds
         #[arg(long)]
         retry_delay: Option<u32>,
+        /// Duration in seconds (load-profile mode)
+        #[arg(long)]
+        duration: Option<u32>,
         /// Override the base URL for all tests
         #[arg(long)]
         base_url: Option<String>,
+        /// External data file (CSV or JSON) for parameterized testing
+        #[arg(long)]
+        data: Option<String>,
+        /// Run only the test matching this name (used with --data)
+        #[arg(long)]
+        scenario: Option<String>,
+        /// Environment name (metadata only)
+        #[arg(long)]
+        env: Option<String>,
+        /// Error policy: continue, stop-first, stop-threshold
+        #[arg(long)]
+        error_policy: Option<String>,
+        /// Stop after N errors (threshold mode)
+        #[arg(long)]
+        max_errors: Option<u32>,
+        /// Stop at error rate % (threshold mode)
+        #[arg(long)]
+        max_error_rate: Option<f32>,
+        /// Exit code 1 if any request fails
+        #[arg(long)]
+        fail_on_error: bool,
+        /// Exit code 1 if error rate exceeds this %
+        #[arg(long)]
+        fail_threshold: Option<f32>,
         /// Write JSON report to file
         #[arg(short, long)]
         output: Option<String>,
@@ -57,12 +84,15 @@ enum Commands {
         /// Write Markdown report to file
         #[arg(long)]
         markdown: Option<String>,
-        /// Exit code 1 if any request fails
+        /// Write data row summary JSON (CI/CD format)
         #[arg(long)]
-        fail_on_error: bool,
-        /// Exit code 1 if error rate exceeds this %
+        data_rows_summary: Option<String>,
+        /// Run only data rows with these tags (comma-separated)
         #[arg(long)]
-        fail_threshold: Option<f32>,
+        tags: Option<String>,
+        /// Tag matching mode: any (default) or all
+        #[arg(long)]
+        tag_mode: Option<String>,
         /// Suppress progress output
         #[arg(short, long)]
         quiet: bool,
@@ -83,6 +113,21 @@ enum Commands {
         /// Per-request timeout in seconds
         #[arg(long)]
         timeout: Option<u32>,
+        /// Error policy: continue, stop-first, stop-threshold
+        #[arg(long)]
+        error_policy: Option<String>,
+        /// Stop after N errors (threshold mode)
+        #[arg(long)]
+        max_errors: Option<u32>,
+        /// Stop at error rate % (threshold mode)
+        #[arg(long)]
+        max_error_rate: Option<f32>,
+        /// Exit code 1 if any request fails
+        #[arg(long)]
+        fail_on_error: bool,
+        /// Exit code 1 if error rate exceeds this %
+        #[arg(long)]
+        fail_threshold: Option<f32>,
         /// Write JSON report to file
         #[arg(short, long)]
         output: Option<String>,
@@ -92,12 +137,6 @@ enum Commands {
         /// Write Markdown report to file
         #[arg(long)]
         markdown: Option<String>,
-        /// Exit code 1 if any request fails
-        #[arg(long)]
-        fail_on_error: bool,
-        /// Exit code 1 if error rate exceeds this %
-        #[arg(long)]
-        fail_threshold: Option<f32>,
         /// Suppress progress output
         #[arg(short, long)]
         quiet: bool,
@@ -180,7 +219,9 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
     match cmd {
         Commands::Run {
             file, concurrency, transactions, mode, timeout, retries, retry_delay,
-            base_url, output, junit, markdown, fail_on_error, fail_threshold, quiet
+            duration, base_url, data, scenario, env, error_policy, max_errors,
+            max_error_rate, fail_on_error, fail_threshold, output, junit, markdown,
+            data_rows_summary, tags, tag_mode, quiet
         } => {
             args.push("run".to_string());
             args.push(file.clone());
@@ -190,17 +231,28 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
             if let Some(t) = timeout { args.extend(["--timeout".to_string(), t.to_string()]); }
             if let Some(r) = retries { args.extend(["--retries".to_string(), r.to_string()]); }
             if let Some(r) = retry_delay { args.extend(["--retry-delay".to_string(), r.to_string()]); }
+            if let Some(d) = duration { args.extend(["--duration".to_string(), d.to_string()]); }
             if let Some(b) = base_url { args.extend(["--base-url".to_string(), b.clone()]); }
+            if let Some(d) = data { args.extend(["--data".to_string(), d.clone()]); }
+            if let Some(s) = scenario { args.extend(["--scenario".to_string(), s.clone()]); }
+            if let Some(e) = env { args.extend(["--env".to_string(), e.clone()]); }
+            if let Some(p) = error_policy { args.extend(["--error-policy".to_string(), p.clone()]); }
+            if let Some(n) = max_errors { args.extend(["--max-errors".to_string(), n.to_string()]); }
+            if let Some(r) = max_error_rate { args.extend(["--max-error-rate".to_string(), r.to_string()]); }
+            if *fail_on_error { args.push("--fail-on-error".to_string()); }
+            if let Some(f) = fail_threshold { args.extend(["--fail-threshold".to_string(), f.to_string()]); }
             if let Some(o) = output { args.extend(["-o".to_string(), o.clone()]); }
             if let Some(j) = junit { args.extend(["--junit".to_string(), j.clone()]); }
             if let Some(m) = markdown { args.extend(["--markdown".to_string(), m.clone()]); }
-            if *fail_on_error { args.push("--fail-on-error".to_string()); }
-            if let Some(f) = fail_threshold { args.extend(["--fail-threshold".to_string(), f.to_string()]); }
+            if let Some(d) = data_rows_summary { args.extend(["--data-rows-summary".to_string(), d.clone()]); }
+            if let Some(t) = tags { args.extend(["--tags".to_string(), t.clone()]); }
+            if let Some(t) = tag_mode { args.extend(["--tag-mode".to_string(), t.clone()]); }
             if *quiet { args.push("-q".to_string()); }
         },
         Commands::Workflow {
-            file, iterations, concurrency, vars, timeout,
-            output, junit, markdown, fail_on_error, fail_threshold, quiet
+            file, iterations, concurrency, vars, timeout, error_policy,
+            max_errors, max_error_rate, fail_on_error, fail_threshold,
+            output, junit, markdown, quiet
         } => {
             args.push("workflow".to_string());
             args.push(file.clone());
@@ -208,11 +260,14 @@ fn build_cli_args(cmd: &Commands) -> Vec<String> {
             if let Some(c) = concurrency { args.extend(["-c".to_string(), c.to_string()]); }
             for v in vars { args.extend(["--var".to_string(), v.clone()]); }
             if let Some(t) = timeout { args.extend(["--timeout".to_string(), t.to_string()]); }
+            if let Some(p) = error_policy { args.extend(["--error-policy".to_string(), p.clone()]); }
+            if let Some(n) = max_errors { args.extend(["--max-errors".to_string(), n.to_string()]); }
+            if let Some(r) = max_error_rate { args.extend(["--max-error-rate".to_string(), r.to_string()]); }
+            if *fail_on_error { args.push("--fail-on-error".to_string()); }
+            if let Some(f) = fail_threshold { args.extend(["--fail-threshold".to_string(), f.to_string()]); }
             if let Some(o) = output { args.extend(["-o".to_string(), o.clone()]); }
             if let Some(j) = junit { args.extend(["--junit".to_string(), j.clone()]); }
             if let Some(m) = markdown { args.extend(["--markdown".to_string(), m.clone()]); }
-            if *fail_on_error { args.push("--fail-on-error".to_string()); }
-            if let Some(f) = fail_threshold { args.extend(["--fail-threshold".to_string(), f.to_string()]); }
             if *quiet { args.push("-q".to_string()); }
         },
         Commands::Validate { file } => {

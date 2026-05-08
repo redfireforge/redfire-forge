@@ -31,17 +31,46 @@ export async function handleWebhookNode(
   hCtx: NodeHandlerContext,
 ): Promise<void> {
   const data = node.data as WebhookTriggerNodeData;
-  if (data.extractVariables && data.extractVariables.length > 0) {
+  
+  // Use runtime webhook payload if provided, otherwise fall back to sample payload
+  // Runtime payload is set by webhook load driver or actual webhook invocation
+  const runtimePayload = hCtx.ctx.get('__webhookPayload');
+  let payload: Record<string, unknown> = {};
+  let payloadSource = 'sample';
+  
+  if (runtimePayload) {
     try {
-      const payload = JSON.parse(data.samplePayload || '{}');
-      extractPayloadVariables(payload, data.extractVariables, hCtx.ctx);
+      payload = typeof runtimePayload === 'string' ? JSON.parse(runtimePayload) : runtimePayload;
+      payloadSource = 'runtime';
+      // Clear the runtime payload after use
+      hCtx.ctx.delete('__webhookPayload');
     } catch {
-      // Invalid JSON in samplePayload — skip extraction
+      // Invalid runtime payload, fall back to sample
+      payload = JSON.parse(data.samplePayload || '{}');
+    }
+  } else if (data.samplePayload) {
+    try {
+      payload = JSON.parse(data.samplePayload);
+    } catch {
+      // Invalid sample payload
     }
   }
+  
+  // Store webhook input in context for trace capture (prefixed with __ to avoid conflicts)
+  hCtx.ctx.set('__webhookInput', JSON.stringify(payload));
+  hCtx.ctx.set('__webhookMethod', data.method);
+  hCtx.ctx.set('__webhookPath', data.path);
+  
+  // Extract variables from the payload
+  if (data.extractVariables && data.extractVariables.length > 0) {
+    extractPayloadVariables(payload, data.extractVariables, hCtx.ctx);
+  }
+  
   hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
-  hCtx.log({ prefix: '*', text: `[Webhook Trigger] Seeded variables from sample payload` });
+  hCtx.log({ prefix: '*', text: `[Webhook Trigger] Seeded variables from ${payloadSource} payload` });
+  
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+  
   await hCtx.visitOutgoing(nodeId, hCtx.threadId);
 }
 

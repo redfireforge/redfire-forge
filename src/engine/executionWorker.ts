@@ -50,7 +50,7 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
       }
 
       try {
-        const results = await runTest(
+        const testResult = await runTest(
           msg.config,
           msg.scenarios,
           (completed, total, allResults, meta) => {
@@ -61,9 +61,9 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
           abortController.signal,
           msg.workflow,
         );
-        const finalNew = results.slice(lastSentCount);
-        lastSentCount = results.length;
-        postMsg({ type: 'done', newResults: finalNew });
+        const finalNew = testResult.results.slice(lastSentCount);
+        lastSentCount = testResult.results.length;
+        postMsg({ type: 'done', newResults: finalNew, trace: testResult.trace });
       } catch (err) {
         postMsg({ type: 'error', message: err instanceof Error ? err.message : String(err) });
       }

@@ -9,7 +9,7 @@ import {
 } from '../../../shared/utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 
-const WORKFLOW_SCHEMA_VERSION = 5;
+const WORKFLOW_SCHEMA_VERSION = 6;
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
