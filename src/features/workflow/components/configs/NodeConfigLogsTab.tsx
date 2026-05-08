@@ -19,16 +19,26 @@ export default function NodeConfigLogsTab({ nodeRunStatus }: Props) {
     );
   }
 
+  const levelTag = nodeRunStatus.state === 'pass' ? 'ok' : nodeRunStatus.state === 'fail' ? 'err' : 'info';
+  const levelLabel = nodeRunStatus.state === 'pass' ? 'OK' : nodeRunStatus.state === 'fail' ? 'ERR' : 'INFO';
+
   return (
     <div className="wf-config-tab-content">
       <div className="wf-logs-list">
         {nodeRunStatus.statusCode != null && (
           <div className="wf-log-entry">
-            <span className={`wf-log-level wf-log-level-${nodeRunStatus.state === 'pass' ? 'ok' : nodeRunStatus.state === 'fail' ? 'err' : 'info'}`}>
-              {nodeRunStatus.state === 'pass' ? 'OK' : nodeRunStatus.state === 'fail' ? 'ERR' : 'INFO'}
-            </span>
+            <span className={`wf-log-level wf-log-level-${levelTag}`}>{levelLabel}</span>
             <span className="wf-log-msg">
               HTTP {nodeRunStatus.statusCode}
+              {nodeRunStatus.responseTimeMs != null && ` (${nodeRunStatus.responseTimeMs}ms)`}
+            </span>
+          </div>
+        )}
+        {nodeRunStatus.statusCode == null && (
+          <div className="wf-log-entry">
+            <span className={`wf-log-level wf-log-level-${levelTag}`}>{levelLabel}</span>
+            <span className="wf-log-msg">
+              Node {nodeRunStatus.state}
               {nodeRunStatus.responseTimeMs != null && ` (${nodeRunStatus.responseTimeMs}ms)`}
             </span>
           </div>

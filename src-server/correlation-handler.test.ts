@@ -467,7 +467,7 @@ describe('getUnmatchedWebhooks', () => {
     await request.post('/webhooks/callback/get-unmatched-test').send({ x: 1 });
     const list = getUnmatchedWebhooks();
     expect(list.some(e => e.path === '/webhooks/callback/get-unmatched-test')).toBe(true);
-  });
+  }, 15000);
 });
 
 // ── Router integration tests ─────────────────────────

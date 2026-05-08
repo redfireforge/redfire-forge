@@ -359,7 +359,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
               ? 'Auto-clear is ON: console clears before each run. Click to keep logs across runs.'
               : 'Append mode: logs accumulate across runs. Click to auto-clear before each run.'}
           >
-            {runBehavior === 'clear' ? '● Auto-clear' : '○ Append'}
+            {runBehavior === 'clear' ? <><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> Auto-clear</> : <><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6"/></svg> Append</>}
           </button>
           <span className="wf-console-actions-sep" />
           <select

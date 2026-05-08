@@ -3337,6 +3337,11 @@
   filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
 }
 
+/* Conditional false-branch: dashed line style */
+.react-flow__edge.wf-edge-false-branch .react-flow__edge-path {
+  stroke-dasharray: 6 3;
+}
+
 /* Edge labels for condition branches */
 .react-flow__edge .react-flow__edge-textwrapper .react-flow__edge-textbg { fill: var(--surface); }
 .react-flow__edge .react-flow__edge-textwrapper .react-flow__edge-text { fill: var(--text-muted); font-size: 11px; font-weight: 600; }
@@ -3825,8 +3830,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(1px);
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+.wf-config-modal-overlay.modal-overlay > .modal {
+  pointer-events: auto;
 }
 .wf-config-modal.modal.ram-modal {
   display: flex;
@@ -4609,6 +4618,12 @@
 }
 .wf-palette-search:focus { border-color: var(--primary); outline: none; }
 .wf-palette-search::placeholder { color: var(--text-muted); }
+.wf-palette-search-clear {
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+}
+.wf-palette-search-clear:hover { color: var(--text); background: rgba(148,163,184,0.1); }
 .wf-palette-match {
   background: rgba(99,102,241,0.3); border-radius: 2px; padding: 0 1px;
   color: inherit;
@@ -4626,7 +4641,7 @@
 /* ── Config modal tabs ── */
 .wf-config-modal-tabs {
   display: flex; border-bottom: 1px solid var(--border);
-  background: rgba(15,23,42,0.4);
+  background: transparent;
 }
 .wf-config-modal-tab {
   flex: 1; padding: 10px 8px; text-align: center;
@@ -5224,10 +5239,53 @@
 .wf-config-checkbox-label input[type="checkbox"] {
   width: 16px; height: 16px; accent-color: var(--primary);
 }
+/* ── Config panel section structure ── */
+.wf-config-section {
+  margin-bottom: 16px;
+}
+.wf-config-label {
+  display: block; font-size: 0.75rem; font-weight: 600; color: var(--text);
+  text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px;
+}
 .wf-config-section-info {
   margin-top: 12px; padding: 12px; border-radius: 6px;
   background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
 }
+
+/* ── Collapsible config section group ── */
+.wf-config-group {
+  margin-bottom: 14px; border: 1px solid rgba(148,163,184,0.25); border-radius: 8px;
+  overflow: hidden; background: rgba(148,163,184,0.02);
+}
+.wf-config-group-header {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 10px 14px; background: rgba(99,102,241,0.06);
+  border: none; border-bottom: 1px solid rgba(148,163,184,0.2);
+  cursor: pointer; text-align: left; transition: background 0.15s;
+  color: var(--text);
+}
+.wf-config-group-header:hover { background: rgba(99,102,241,0.12); }
+.wf-config-group-header.collapsed { border-bottom: none; }
+.wf-config-group-header svg {
+  width: 14px; height: 14px; flex-shrink: 0;
+  fill: none; stroke: var(--primary, #6366f1); stroke-width: 2.5;
+  stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 0.2s;
+}
+.wf-config-group-header.collapsed svg { transform: rotate(-90deg); }
+.wf-config-group-title {
+  font-size: 0.8rem; font-weight: 700; color: var(--text);
+  letter-spacing: 0.02em;
+}
+.wf-config-group-count {
+  margin-left: auto; font-size: 0.65rem; color: var(--text-muted);
+  background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 10px;
+  font-weight: 600;
+}
+.wf-config-group-body {
+  padding: 14px 16px;
+}
+.wf-config-group-header.collapsed + .wf-config-group-body { display: none; }
 .wf-config-info-title {
   font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: var(--text);
 }
@@ -6125,7 +6183,19 @@
 }
 .wf-logdebug-level {
   font-size: 0.65rem; color: #10b981; padding: 0 16px 6px;
-  font-weight: 600;
+  font-weight: 600; display: flex; align-items: center; gap: 4px;
+}
+.wf-log-level--info  { color: #3b82f6; }
+.wf-log-level--warn  { color: #f59e0b; }
+.wf-log-level--error { color: #ef4444; }
+.wf-log-level--debug { color: #10b981; }
+
+/* Inline SVG icons used as text-level glyphs (replaces emoji) */
+.wf-inline-icon {
+  width: 14px; height: 14px; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: middle; display: inline-block;
 }
 
 /* ── Wait for Condition node ───────────────────── */

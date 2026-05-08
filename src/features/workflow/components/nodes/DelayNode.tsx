@@ -3,6 +3,7 @@ import type { DelayNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 import { NodeConfigureButton } from './NodeConfigureButton';
 
 type DelayWorkflowNode = Node<DelayNodeData, 'delay'>;
@@ -25,6 +26,7 @@ export default function DelayNode({ id, data, selected }: Props) {
         <NodeConfigureButton title="Configure this delay" onClick={handleConfigure} />
         <span className="wf-delay-value">{display}</span>
       </div>
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="source" position={Position.Bottom} id="out" className="wf-handle" />

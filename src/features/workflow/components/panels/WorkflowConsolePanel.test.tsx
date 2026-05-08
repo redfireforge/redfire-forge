@@ -95,25 +95,25 @@ describe('WorkflowConsolePanel', () => {
 
   it('displays auto-clear toggle in clear mode', () => {
     render(<WorkflowConsolePanel {...defaultProps} runBehavior="clear" />);
-    expect(screen.getByText('● Auto-clear')).toBeTruthy();
+    expect(screen.getByText('Auto-clear')).toBeTruthy();
   });
 
   it('displays append toggle in append mode', () => {
     render(<WorkflowConsolePanel {...defaultProps} runBehavior="append" />);
-    expect(screen.getByText('○ Append')).toBeTruthy();
+    expect(screen.getByText('Append')).toBeTruthy();
   });
 
   it('toggles run behavior when toggle clicked', () => {
     const onRunBehaviorChange = vi.fn();
     render(<WorkflowConsolePanel {...defaultProps} onRunBehaviorChange={onRunBehaviorChange} />);
-    fireEvent.click(screen.getByText('● Auto-clear'));
+    fireEvent.click(screen.getByText('Auto-clear'));
     expect(onRunBehaviorChange).toHaveBeenCalledWith('append');
   });
 
   it('toggles from append to clear', () => {
     const onRunBehaviorChange = vi.fn();
     render(<WorkflowConsolePanel {...defaultProps} runBehavior="append" onRunBehaviorChange={onRunBehaviorChange} />);
-    fireEvent.click(screen.getByText('○ Append'));
+    fireEvent.click(screen.getByText('Append'));
     expect(onRunBehaviorChange).toHaveBeenCalledWith('clear');
   });
 
@@ -204,7 +204,7 @@ describe('WorkflowConsolePanel', () => {
       makeLine('hello world', '*'),
       makeLine('foo baz', '*'),
     ];
-    const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+    render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
     fireEvent.click(screen.getByTitle('Search console'));
     const input = screen.getByPlaceholderText('Search console…');
     fireEvent.change(input, { target: { value: 'foo' } });
@@ -398,7 +398,7 @@ describe('WorkflowConsolePanel', () => {
   });
 
   it('handles unknown prefix gracefully', () => {
-    const lines: ConsoleLine[] = [{ text: 'unknown prefix', prefix: 'X' as any }];
+    const lines: ConsoleLine[] = [{ text: 'unknown prefix', prefix: 'X' as ConsoleLine['prefix'] }];
     const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
     // Should use wf-cl-plain as fallback
     expect(container.querySelector('.wf-cl-plain')).toBeTruthy();
