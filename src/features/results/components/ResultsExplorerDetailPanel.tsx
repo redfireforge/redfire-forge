@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { truncate } from '../../../shared/utils/helpers';
+import { computeHistogramBins } from '../utils/responseTimeHistogram';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 
@@ -50,6 +53,11 @@ export default function ResultsExplorerDetailPanel({
       .filter(e => e.details?.waitDurationMs !== undefined)
       .map(e => e.details!.waitDurationMs!);
 
+    const sorted = [...durations].sort((a, b) => a - b);
+    const p95Duration = sorted.length > 0
+      ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]
+      : undefined;
+
     return {
       totalExecutions: events.length,
       passCount,
@@ -58,6 +66,8 @@ export default function ResultsExplorerDetailPanel({
       avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : undefined,
       minDuration: durations.length > 0 ? Math.min(...durations) : undefined,
       maxDuration: durations.length > 0 ? Math.max(...durations) : undefined,
+      p95Duration,
+      durations,
       avgWaitDuration: waitDurations.length > 0 ? waitDurations.reduce((a, b) => a + b, 0) / waitDurations.length : undefined,
     };
   }, [events]);
@@ -67,7 +77,7 @@ export default function ResultsExplorerDetailPanel({
   const hasWebhookInput = !!currentEvent?.details?.webhookInput;
   const hasVariables = !!(currentEvent?.details?.variablesSnapshot || currentEvent?.details?.extractedVariables || hasWebhookInput);
   const hasBasicRequest = !!(currentEvent?.details?.method && currentEvent?.details?.url);
-  const hasBasicResponse = !!(currentEvent?.details?.statusCode !== undefined);
+  const hasBasicResponse = !!(currentEvent?.details?.statusCode !== undefined || currentEvent?.details?.error);
 
   return (
     <div className="explorer-detail-panel">
@@ -87,7 +97,7 @@ export default function ResultsExplorerDetailPanel({
             </span>
             <span className="quick-stat">{stats.totalExecutions} exec</span>
             {stats.avgDuration !== undefined && (
-              <span className="quick-stat">{formatDuration(stats.avgDuration)} avg</span>
+              <span className="quick-stat">{formatDurationMs(stats.avgDuration)} avg</span>
             )}
           </div>
         )}
@@ -105,7 +115,7 @@ export default function ResultsExplorerDetailPanel({
               <option value="all">All Iterations (Aggregate)</option>
               {iterations.map((iter, i) => (
                 <option key={i} value={i}>
-                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDuration(iter.durationMs)}
+                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
                 </option>
               ))}
             </select>
@@ -196,6 +206,8 @@ interface OverviewTabProps {
     avgDuration?: number;
     minDuration?: number;
     maxDuration?: number;
+    p95Duration?: number;
+    durations: number[];
     avgWaitDuration?: number;
   } | null;
   currentEvent: ExecutionEvent | null;
@@ -227,7 +239,7 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
         </div>
         <div className="hero-divider" />
         <div className="hero-stat">
-          <span className="hero-value">{formatDuration(stats.avgDuration)}</span>
+          <span className="hero-value">{formatDurationMs(stats.avgDuration)}</span>
           <span className="hero-label">Avg Duration</span>
         </div>
       </div>
@@ -259,17 +271,31 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
         <div className="explorer-timing-stats">
           <div className="timing-stat">
             <span className="timing-label">Min</span>
-            <span className="timing-value">{formatDuration(stats.minDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.minDuration)}</span>
           </div>
           <div className="timing-stat">
             <span className="timing-label">Avg</span>
-            <span className="timing-value">{formatDuration(stats.avgDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.avgDuration)}</span>
+          </div>
+          <div className="timing-stat">
+            <span className="timing-label">P95</span>
+            <span className="timing-value">{formatDurationMs(stats.p95Duration)}</span>
           </div>
           <div className="timing-stat">
             <span className="timing-label">Max</span>
-            <span className="timing-value">{formatDuration(stats.maxDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.maxDuration)}</span>
           </div>
         </div>
+      )}
+
+      {/* Mini Duration Histogram */}
+      {selectedIteration === undefined && stats.durations.length >= 3 && (
+        <MiniDurationHistogram
+          durations={stats.durations}
+          events={events}
+          avgDuration={stats.avgDuration}
+          p95Duration={stats.p95Duration}
+        />
       )}
 
       {/* CorrelationWait split timing */}
@@ -280,17 +306,17 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
             <div
               className="timing-split-segment wait"
               style={{ flex: stats.avgWaitDuration }}
-              title={`Avg wait: ${formatDuration(stats.avgWaitDuration)}`}
+              title={`Avg wait: ${formatDurationMs(stats.avgWaitDuration)}`}
             />
             <div
               className="timing-split-segment processing"
               style={{ flex: Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration) }}
-              title={`Avg processing: ${formatDuration((stats.avgDuration ?? 0) - stats.avgWaitDuration)}`}
+              title={`Avg processing: ${formatDurationMs((stats.avgDuration ?? 0) - stats.avgWaitDuration)}`}
             />
           </div>
           <div className="timing-split-legend">
-            <span className="legend-wait">Wait for Event: {formatDuration(stats.avgWaitDuration)}</span>
-            <span className="legend-processing">Processing: {formatDuration(Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration))}</span>
+            <span className="legend-wait">Wait for Event: {formatDurationMs(stats.avgWaitDuration)}</span>
+            <span className="legend-processing">Processing: {formatDurationMs(Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration))}</span>
           </div>
         </div>
       )}
@@ -338,7 +364,7 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
                   style={{ width: `${Math.min(100, ((currentEvent.durationMs ?? 0) / Math.max(stats?.maxDuration ?? 1, 1)) * 100)}%` }}
                 />
               </div>
-              <span className="exec-timing-label">{formatDuration(currentEvent.durationMs)}</span>
+              <span className="exec-timing-label">{formatDurationMs(currentEvent.durationMs)}</span>
             </div>
           )}
 
@@ -366,13 +392,104 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
                 <span className={`iteration-status ${event.state}`}>
                   {event.state === 'pass' ? '✓' : event.state === 'fail' ? '✗' : '○'}
                 </span>
-                <span className="iteration-duration">{formatDuration(event.durationMs)}</span>
+                <span className="iteration-duration">{formatDurationMs(event.durationMs)}</span>
                 <span className="iteration-arrow">→</span>
               </div>
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Mini Duration Histogram ──────────────────────────────────────────────────
+
+interface MiniHistogramProps {
+  durations: number[];
+  events: ExecutionEvent[];
+  avgDuration?: number;
+  p95Duration?: number;
+}
+
+function MiniDurationHistogram({ durations, events, avgDuration, p95Duration }: MiniHistogramProps) {
+  const bins = useMemo(() => computeHistogramBins(durations, 12), [durations]);
+  const maxCount = useMemo(() => Math.max(...bins.map(b => b.count), 1), [bins]);
+
+  const failDurations = useMemo(() => {
+    return new Set(
+      events.filter(e => e.state === 'fail' && e.durationMs !== undefined).map(e => e.durationMs!)
+    );
+  }, [events]);
+
+  const binsWithFailRatio = useMemo(() => {
+    if (failDurations.size === 0) return bins.map(b => ({ ...b, failCount: 0 }));
+    return bins.map(bin => {
+      let failCount = 0;
+      for (const d of failDurations) {
+        if (d >= bin.min && (d < bin.max || (bin === bins[bins.length - 1] && d <= bin.max))) {
+          failCount++;
+        }
+      }
+      return { ...bin, failCount };
+    });
+  }, [bins, failDurations]);
+
+  if (bins.length === 0) return null;
+
+  const rangeMin = bins[0].min;
+  const rangeMax = bins[bins.length - 1].max;
+  const rangeSpan = rangeMax - rangeMin || 1;
+
+  const avgPct = avgDuration !== undefined ? ((avgDuration - rangeMin) / rangeSpan) * 100 : undefined;
+  const p95Pct = p95Duration !== undefined ? ((p95Duration - rangeMin) / rangeSpan) * 100 : undefined;
+
+  return (
+    <div className="mini-histogram" data-testid="mini-histogram">
+      <h4>Duration Distribution</h4>
+      <div className="mini-histogram-chart">
+        {binsWithFailRatio.map((bin, i) => {
+          const heightPct = (bin.count / maxCount) * 100;
+          const failPct = bin.count > 0 ? (bin.failCount / bin.count) * 100 : 0;
+          return (
+            <div
+              key={i}
+              className="mini-histogram-bar-wrap"
+              title={`${formatDurationMs(bin.min)}–${formatDurationMs(bin.max)}: ${bin.count} exec (${bin.percent}%)${bin.failCount > 0 ? `, ${bin.failCount} failed` : ''}`}
+            >
+              <div className="mini-histogram-bar" style={{ height: `${heightPct}%` }}>
+                {failPct > 0 && (
+                  <div className="mini-histogram-bar-fail" style={{ height: `${failPct}%` }} />
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {avgPct !== undefined && avgPct >= 0 && avgPct <= 100 && (
+          <div
+            className="mini-histogram-marker avg"
+            style={{ left: `${avgPct}%` }}
+            title={`Avg: ${formatDurationMs(avgDuration)}`}
+          />
+        )}
+        {p95Pct !== undefined && p95Pct >= 0 && p95Pct <= 100 && (
+          <div
+            className="mini-histogram-marker p95"
+            style={{ left: `${p95Pct}%` }}
+            title={`P95: ${formatDurationMs(p95Duration)}`}
+          />
+        )}
+      </div>
+      <div className="mini-histogram-x-axis">
+        <span>{formatDurationMs(rangeMin)}</span>
+        <span>{formatDurationMs(rangeMax)}</span>
+      </div>
+      <div className="mini-histogram-legend">
+        <span className="mini-legend-item pass-legend">Pass</span>
+        {failDurations.size > 0 && <span className="mini-legend-item fail-legend">Fail</span>}
+        <span className="mini-legend-item avg-legend">Avg</span>
+        <span className="mini-legend-item p95-legend">P95</span>
+      </div>
     </div>
   );
 }
@@ -444,8 +561,9 @@ function RequestTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTra
 function ResponseTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTrace: boolean }) {
   const res = event.details?.response;
   const basicStatus = event.details?.statusCode;
+  const hasError = !!event.details?.error;
 
-  if (!res && basicStatus === undefined) {
+  if (!res && basicStatus === undefined && !hasError) {
     return <div className="explorer-empty">No response data available</div>;
   }
 
@@ -461,9 +579,16 @@ function ResponseTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTr
         )}
         {res?.statusText && <span className="response-status-text">{res.statusText}</span>}
         {event.durationMs !== undefined && (
-          <span className="response-time">{formatDuration(event.durationMs)}</span>
+          <span className="response-time">{formatDurationMs(event.durationMs)}</span>
         )}
       </div>
+
+      {event.details?.error && (
+        <div className="exec-error" style={{ margin: '8px 0' }}>
+          <span className="exec-error-icon">!</span>
+          <span className="exec-error-text">{event.details.error}</span>
+        </div>
+      )}
 
       {res?.headers && Object.keys(res.headers).length > 0 && (
         <div className="response-section">
@@ -526,7 +651,7 @@ function VariablesTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullT
             {Object.entries(extracted).map(([key, value]) => (
               <div key={key} className="variable-row extracted">
                 <span className="variable-name">{key}</span>
-                <span className="variable-value">{truncateValue(value)}</span>
+                <span className="variable-value">{truncate(value, 100, '...', false)}</span>
               </div>
             ))}
           </div>
@@ -545,7 +670,7 @@ function VariablesTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullT
                     {key}
                     {isExtracted && <span className="new-badge">new</span>}
                   </span>
-                  <span className="variable-value">{truncateValue(value)}</span>
+                  <span className="variable-value">{truncate(value, 100, '...', false)}</span>
                 </div>
               );
             })}
@@ -626,26 +751,4 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 
 function formatNodeType(type: string): string {
   return NODE_TYPE_LABELS[type] ?? type.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function formatJson(str?: string): string {
-  if (!str) return '';
-  try {
-    const parsed = JSON.parse(str);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return str;
-  }
-}
-
-function truncateValue(value: string, maxLength = 100): string {
-  if (value.length <= maxLength) return value;
-  return value.slice(0, maxLength) + '...';
 }

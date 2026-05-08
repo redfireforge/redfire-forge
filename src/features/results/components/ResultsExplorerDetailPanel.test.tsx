@@ -100,6 +100,26 @@ describe('ResultsExplorerDetailPanel', () => {
     expect(screen.getByText('100ms avg')).toBeInTheDocument();
   });
 
+  it('hides quick-stat average when no execution reports durationMs', () => {
+    const noDur: ExecutionEvent[] = [
+      { ...mockEvents[0], durationMs: undefined },
+      { ...mockEvents[1], durationMs: undefined },
+    ];
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={noDur}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.queryByText(/avg$/)).not.toBeInTheDocument();
+  });
+
   it('renders tabs for HTTP nodes', () => {
     render(
       <ResultsExplorerDetailPanel
@@ -191,6 +211,45 @@ describe('ResultsExplorerDetailPanel', () => {
     const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '0' } });
     expect(mockOnIterationChange).toHaveBeenCalledWith(0);
+    mockOnIterationChange.mockClear();
+    fireEvent.change(select, { target: { value: 'all' } });
+    expect(mockOnIterationChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it('uses first event when a specific iteration index is selected', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[mockEvents[0], { ...mockEvents[1], details: { ...mockEvents[1].details, statusCode: 418 } }]}
+        iterations={mockIterations}
+        selectedIteration={0}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.getByText('200')).toBeInTheDocument();
+    expect(screen.queryByText('418')).not.toBeInTheDocument();
+  });
+
+  it('returns to overview tab when Overview is clicked', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={mockEvents}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    expect(screen.getByText('Pass Rate')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', () => {
@@ -227,6 +286,77 @@ describe('ResultsExplorerDetailPanel', () => {
     expect(screen.getByText('Per-Iteration Breakdown')).toBeInTheDocument();
     expect(screen.getByText('#1')).toBeInTheDocument();
     expect(screen.getByText('#2')).toBeInTheDocument();
+  });
+
+  it('shows neutral iteration marker for skipped executions', () => {
+    const skippedEvent: ExecutionEvent = {
+      nodeId: 'http-1',
+      nodeType: 'http',
+      nodeLabel: 'Get Users',
+      timestamp: 3000,
+      state: 'skipped',
+      durationMs: 5,
+      details: { method: 'GET', url: '/api/x' },
+    };
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[mockEvents[0], skippedEvent]}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    const rows = document.querySelectorAll('.iteration-row.skipped');
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toHaveTextContent('○');
+  });
+
+  it('formats sub-millisecond and multi-second durations in iteration picker', () => {
+    const iters: WorkflowIterationTrace[] = [
+      { index: 0, passed: true, durationMs: 0.4, traversedEdges: [], events: [] },
+      { index: 1, passed: false, durationMs: 1500, traversedEdges: [], events: [] },
+    ];
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={mockEvents}
+        iterations={iters}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.getByText('#1 — ✓ <1ms')).toBeInTheDocument();
+    expect(screen.getByText('#2 — ✗ 1.50s')).toBeInTheDocument();
+  });
+
+  it('shows timing bar from responseTimeMs when durationMs is absent', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[{
+          nodeId: 'http-1',
+          nodeType: 'http',
+          nodeLabel: 'Get Users',
+          timestamp: 1,
+          state: 'pass',
+          details: { method: 'GET', url: '/x', statusCode: 200, responseTimeMs: 99 },
+        }]}
+        iterations={[{ index: 0, passed: true, durationMs: 99, traversedEdges: [], events: [] }]}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(document.querySelector('.exec-timing-row')).toBeInTheDocument();
   });
 
   it('switches to assertions tab', () => {
@@ -516,6 +646,34 @@ describe('ResultsExplorerDetailPanel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Response' }));
       expect(screen.getByText('Truncated')).toBeInTheDocument();
     });
+
+    it('shows empty response when full trace has request but no response payload', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[{
+            nodeId: 'http-1',
+            nodeType: 'http',
+            nodeLabel: 'Get Users',
+            timestamp: 1,
+            state: 'pass',
+            durationMs: 10,
+            details: {
+              request: { method: 'GET', url: '/x' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 10, traversedEdges: [], events: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Response' }));
+      expect(screen.getByText('No response data available')).toBeInTheDocument();
+    });
   });
 
   describe('Variables Tab', () => {
@@ -533,6 +691,59 @@ describe('ResultsExplorerDetailPanel', () => {
         variablesSnapshot: { token: 'abc123', userId: '42', baseUrl: 'https://api.example.com' },
       },
     }];
+
+    it('shows empty variable message when only webhook input exists', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="webhook-1"
+          nodeType="webhook"
+          nodeLabel="Hook"
+          events={[{
+            nodeId: 'webhook-1',
+            nodeType: 'webhook',
+            nodeLabel: 'Hook',
+            timestamp: 1,
+            state: 'pass',
+            details: {
+              webhookInput: { payload: '{}', method: 'POST', path: '/p' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 1, traversedEdges: [], events: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getByText('No variable data available')).toBeInTheDocument();
+    });
+
+    it('truncates long variable values', () => {
+      const longVal = `${'x'.repeat(120)}end`;
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[{
+            ...eventsWithVariables[0],
+            details: {
+              ...eventsWithVariables[0].details,
+              extractedVariables: { token: longVal },
+              variablesSnapshot: { token: longVal, baseUrl: 'https://api.example.com' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithVariables }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getAllByText(`${'x'.repeat(100)}...`)).toHaveLength(2);
+    });
 
     it('shows extracted and snapshot variables', () => {
       render(
@@ -741,6 +952,247 @@ describe('ResultsExplorerDetailPanel', () => {
       );
 
       expect(screen.queryByText('Timing Breakdown')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('P95 timing stat', () => {
+    it('shows P95 in aggregate timing stats', () => {
+      const manyEvents: ExecutionEvent[] = Array.from({ length: 20 }, (_, i) => ({
+        nodeId: 'http-1',
+        nodeType: 'http',
+        nodeLabel: 'Get Users',
+        timestamp: 1000 + i * 100,
+        state: 'pass' as const,
+        durationMs: 50 + i * 10,
+        details: { statusCode: 200, method: 'GET', url: '/api/users', responseTimeMs: 50 + i * 10 },
+      }));
+      const manyIterations: WorkflowIterationTrace[] = manyEvents.map((e, i) => ({
+        index: i,
+        passed: true,
+        durationMs: e.durationMs!,
+        traversedEdges: [],
+        events: [e],
+      }));
+
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={manyEvents}
+          iterations={manyIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const timingStats = container.querySelector('.explorer-timing-stats')!;
+      expect(timingStats).toBeTruthy();
+      const labels = Array.from(timingStats.querySelectorAll('.timing-label')).map(el => el.textContent);
+      expect(labels).toContain('P95');
+    });
+
+    it('does not show P95 in single iteration view', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[mockEvents[0]]}
+          iterations={mockIterations}
+          selectedIteration={0}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByText('P95')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Mini Duration Histogram', () => {
+    function makeManyEvents(count: number, failEvery = 0): { events: ExecutionEvent[]; iterations: WorkflowIterationTrace[] } {
+      const events: ExecutionEvent[] = Array.from({ length: count }, (_, i) => ({
+        nodeId: 'http-1',
+        nodeType: 'http',
+        nodeLabel: 'Get Users',
+        timestamp: 1000 + i * 100,
+        state: (failEvery > 0 && (i + 1) % failEvery === 0 ? 'fail' : 'pass') as 'pass' | 'fail',
+        durationMs: 50 + i * 10 + Math.round(Math.sin(i) * 20),
+        details: { statusCode: failEvery > 0 && (i + 1) % failEvery === 0 ? 500 : 200, method: 'GET', url: '/api/users' },
+      }));
+      const iterations: WorkflowIterationTrace[] = events.map((e, i) => ({
+        index: i,
+        passed: e.state === 'pass',
+        durationMs: e.durationMs!,
+        traversedEdges: [],
+        events: [e],
+      }));
+      return { events, iterations };
+    }
+
+    it('renders histogram in aggregate view with 3+ durations', () => {
+      const { events, iterations } = makeManyEvents(10);
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.getByTestId('mini-histogram')).toBeInTheDocument();
+      expect(screen.getByText('Duration Distribution')).toBeInTheDocument();
+    });
+
+    it('shows Avg and P95 legend items', () => {
+      const { events, iterations } = makeManyEvents(10);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const legend = container.querySelector('.mini-histogram-legend')!;
+      expect(legend).toBeTruthy();
+      expect(legend.querySelector('.avg-legend')).toBeTruthy();
+      expect(legend.querySelector('.p95-legend')).toBeTruthy();
+      expect(legend.querySelector('.pass-legend')).toBeTruthy();
+    });
+
+    it('shows Fail legend when there are failed events', () => {
+      const { events, iterations } = makeManyEvents(10, 3);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const legend = container.querySelector('.mini-histogram-legend')!;
+      expect(legend.querySelector('.fail-legend')).toBeTruthy();
+    });
+
+    it('does not render histogram in single iteration view', () => {
+      const { events, iterations } = makeManyEvents(10);
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[events[0]]}
+          iterations={iterations}
+          selectedIteration={0}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByTestId('mini-histogram')).not.toBeInTheDocument();
+    });
+
+    it('does not render histogram with fewer than 3 durations', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={mockEvents}
+          iterations={mockIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByTestId('mini-histogram')).not.toBeInTheDocument();
+    });
+
+    it('renders 12 bars in the histogram', () => {
+      const { events, iterations } = makeManyEvents(20);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const bars = container.querySelectorAll('.mini-histogram-bar-wrap');
+      expect(bars.length).toBe(12);
+    });
+
+    it('shows x-axis min and max labels', () => {
+      const { events, iterations } = makeManyEvents(10);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const xAxis = container.querySelector('.mini-histogram-x-axis');
+      expect(xAxis).toBeTruthy();
+      expect(xAxis!.children.length).toBe(2);
+    });
+
+    it('renders avg and p95 marker lines', () => {
+      const { events, iterations } = makeManyEvents(20);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(container.querySelector('.mini-histogram-marker.avg')).toBeTruthy();
+      expect(container.querySelector('.mini-histogram-marker.p95')).toBeTruthy();
+    });
+
+    it('renders fail segments in bars when failures exist', () => {
+      const { events, iterations } = makeManyEvents(20, 4);
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={events}
+          iterations={iterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      const failBars = container.querySelectorAll('.mini-histogram-bar-fail');
+      expect(failBars.length).toBeGreaterThan(0);
     });
   });
 });

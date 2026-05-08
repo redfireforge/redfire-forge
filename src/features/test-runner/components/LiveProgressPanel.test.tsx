@@ -46,8 +46,10 @@ describe('LiveProgressPanel', () => {
   });
 
   it('shows progress percentage', () => {
-    render(<LiveProgressPanel {...baseProps} />);
-    expect(screen.getByText(/50 \/ 100 \(50%\)/)).toBeInTheDocument();
+    const { container } = render(<LiveProgressPanel {...baseProps} />);
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText).toBeInTheDocument();
+    expect(progressText!.textContent).toMatch(/50\s*\/\s*100.*50%/);
   });
 
   it('shows concurrency in mode tag', () => {
@@ -165,5 +167,200 @@ describe('LiveProgressPanel', () => {
       />
     );
     expect(screen.getByText('Test 1:')).toBeInTheDocument();
+  });
+
+  it('shows iterations label in workflow mode', () => {
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="workflow"
+        total={5}
+        completed={3}
+      />
+    );
+    expect(screen.getByText(/iterations/)).toBeInTheDocument();
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText?.textContent).toMatch(/3\s*\/\s*5.*iterations/);
+  });
+
+  it('shows 0s and loadProfile duration when load-profile has null profileMeta', () => {
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={null}
+        loadProfile={{ type: 'sustained', maxConcurrency: 10, durationSec: 90 }}
+      />
+    );
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText?.textContent).toContain('0s');
+    expect(progressText?.textContent).toMatch(/\/\s*90s/);
+  });
+
+  it('uses 0% progress when total is not positive in non-time-based mode', () => {
+    const { container } = render(
+      <LiveProgressPanel {...baseProps} total={0} completed={10} />
+    );
+    const bar = container.querySelector('.progress-bar') as HTMLElement | null;
+    expect(bar?.style.width).toBe('0%');
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText?.textContent).toMatch(/\(0%\)/);
+  });
+
+  it('shows ramp-up segment in time-based header for ramp-up profile', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={{ elapsedMs: 0, durationMs: 120000, currentInFlight: 1, targetConcurrency: 5 }}
+        loadProfile={{ type: 'ramp-up', maxConcurrency: 5, durationSec: 120, rampUpSec: 30 }}
+      />
+    );
+    expect(screen.getByText(/Ramp Up/)).toBeInTheDocument();
+    expect(screen.getByText(/ramp 30s/)).toBeInTheDocument();
+  });
+
+  it('shows spike concurrency segment in time-based header for spike profile', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={{ elapsedMs: 0, durationMs: 60000, currentInFlight: 2, targetConcurrency: 4 }}
+        loadProfile={{ type: 'spike', maxConcurrency: 4, durationSec: 60, spikeConcurrency: 25 }}
+      />
+    );
+    expect(screen.getByText(/Spike/)).toBeInTheDocument();
+    expect(screen.getByText(/spike to 25/)).toBeInTheDocument();
+  });
+
+  it('falls back to durationSec for ramp-up when rampUpSec omitted', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={{ elapsedMs: 0, durationMs: 60000, currentInFlight: 1, targetConcurrency: 2 }}
+        loadProfile={{ type: 'ramp-up', maxConcurrency: 2, durationSec: 48 }}
+      />
+    );
+    expect(screen.getByText(/ramp 48s/)).toBeInTheDocument();
+  });
+
+  it('falls back to maxConcurrency * 3 for spike when spikeConcurrency omitted', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={{ elapsedMs: 0, durationMs: 60000, currentInFlight: 1, targetConcurrency: 3 }}
+        loadProfile={{ type: 'spike', maxConcurrency: 3, durationSec: 60 }}
+      />
+    );
+    expect(screen.getByText(/spike to 9/)).toBeInTheDocument();
+  });
+
+  it('shows Avg Response info and Avg Iteration metric when avgIterationTime is set', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        summary={{
+          tps: 1,
+          avgResponseTime: 200,
+          avgIterationTime: 500,
+          errorRate: 0,
+          failedValidations: 0,
+        }}
+      />
+    );
+    expect(screen.getByText('Avg Iteration')).toBeInTheDocument();
+    expect(screen.getByText('500 ms')).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-tooltip="Average duration of individual HTTP requests"]')
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-tooltip="Average duration of complete workflow iterations (all nodes)"]')
+    ).toBeInTheDocument();
+  });
+
+  it('omits per-test rows when weight is 0', () => {
+    const selectedTests = [
+      { id: 't0', name: 'Hidden', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r0', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+      { id: 't1', name: 'Visible', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const liveResults = [
+      { scenarioId: 't0', passed: true, responseTime: 50, httpStatus: 200 },
+      { scenarioId: 't1', passed: true, responseTime: 50, httpStatus: 200 },
+    ];
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults as never[]}
+        selectedTests={selectedTests as never[]}
+        weights={{ t0: 0, t1: 1 }}
+      />
+    );
+    expect(screen.queryByText('Hidden:')).not.toBeInTheDocument();
+    expect(screen.getByText('Visible:')).toBeInTheDocument();
+  });
+
+  it('per-test row shows only pass counts when all results passed', () => {
+    const selectedTests = [
+      { id: 't1', name: 'All pass', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const liveResults = [
+      { scenarioId: 't1', passed: true, responseTime: 10, httpStatus: 200 },
+      { scenarioId: 't1', passed: true, responseTime: 11, httpStatus: 200 },
+    ];
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults as never[]}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
+      />
+    );
+    expect(container.querySelector('.runner-per-test-pass')).toBeTruthy();
+    expect(container.querySelector('.runner-per-test-fail')).toBeNull();
+    expect(screen.getByText(/✓2/)).toBeInTheDocument();
+  });
+
+  it('per-test row shows only fail counts when all results failed', () => {
+    const selectedTests = [
+      { id: 't1', name: 'All fail', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const liveResults = [
+      { scenarioId: 't1', passed: false, responseTime: 10, httpStatus: 500 },
+    ];
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults as never[]}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
+      />
+    );
+    expect(container.querySelector('.runner-per-test-pass')).toBeNull();
+    expect(container.querySelector('.runner-per-test-fail')).toBeTruthy();
+    expect(screen.getByText(/✗1/)).toBeInTheDocument();
+  });
+
+  it('uses time-based progress layout when concurrent run has total -1', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="concurrent"
+        isRunning={true}
+        total={-1}
+        profileMeta={null}
+        loadProfile={{ type: 'sustained', maxConcurrency: 8, durationSec: 45 }}
+      />
+    );
+    expect(screen.queryByText(/C:10/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Constant/)).toBeInTheDocument();
+    expect(screen.getByText(/Peak:8/)).toBeInTheDocument();
+    expect(screen.getByText(/· 45s/)).toBeInTheDocument();
+  });
+
+  it('does not show clear button when onClear is omitted', () => {
+    render(<LiveProgressPanel {...baseProps} isRunning={false} />);
+    expect(screen.queryByText('✕ Clear')).not.toBeInTheDocument();
   });
 });

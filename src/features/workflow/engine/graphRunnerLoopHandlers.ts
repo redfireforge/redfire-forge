@@ -88,6 +88,7 @@ export async function handleLoopNode(
     hCtx.log({ prefix: '*', text: `[${hCtx.nodeLabel(nodeId)}] Iteration ${iterations}` });
 
     for (const e of bodyEdges) {
+      hCtx.traceCollector.onEdgeTraversed(e.id);
       await hCtx.visit(e.target, `${hCtx.threadId}-loop-${iterations}`);
     }
 
@@ -99,6 +100,7 @@ export async function handleLoopNode(
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
 
   for (const e of doneEdges) {
+    hCtx.traceCollector.onEdgeTraversed(e.id);
     await hCtx.visit(e.target, hCtx.threadId);
   }
 }
