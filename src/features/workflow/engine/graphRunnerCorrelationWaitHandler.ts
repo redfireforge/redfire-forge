@@ -40,12 +40,15 @@ export async function handleCorrelationWaitNode(
     correlationId = `${correlationId}-${uniqueSuffix}`;
   }
 
+  const waitStartTime = Date.now();
+
   // ── Load Test Mode: Auto-Resume ──
   if (hCtx.loadTestMode && effectiveMode === 'auto-resume') {
     const mockPayload = getMockPayload(nodeId, runnerConfig?.mockPayloads, data.loadTestBehavior?.mockPayload);
     hCtx.log({ prefix: '*', text: `[${label}] Auto-resume mode — skipping wait, injecting mock payload` });
 
     injectWebhookPayload(mockPayload, correlationId, data, hCtx.ctx, hCtx.log, label);
+    hCtx.ctx.set('__cwWaitDurationMs', String(Date.now() - waitStartTime));
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
     await hCtx.visitOutgoing(nodeId, hCtx.threadId);
@@ -70,6 +73,7 @@ export async function handleCorrelationWaitNode(
       }
 
       injectWebhookPayload(mockPayload, correlationId, data, hCtx.ctx, hCtx.log, label);
+      hCtx.ctx.set('__cwWaitDurationMs', String(Date.now() - waitStartTime));
       hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
       hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       await hCtx.visitOutgoing(nodeId, hCtx.threadId);
@@ -89,6 +93,8 @@ export async function handleCorrelationWaitNode(
       const webhookData = abortPromise ? await Promise.race([waitPromise, abortPromise]) : await waitPromise;
 
       injectWebhookPayload(webhookData, correlationId, data, hCtx.ctx, hCtx.log, label);
+      hCtx.ctx.set('__cwWebhookPayload', JSON.stringify(webhookData));
+      hCtx.ctx.set('__cwWaitDurationMs', String(Date.now() - waitStartTime));
       hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
       hCtx.log({ prefix: '*', text: `[${label}] Synthetic inject complete — workflow resumed` });
       hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
@@ -129,6 +135,8 @@ export async function handleCorrelationWaitNode(
     const webhookData = abortPromise ? await Promise.race([waitPromise, abortPromise]) : await waitPromise;
 
     injectWebhookPayload(webhookData, correlationId, data, hCtx.ctx, hCtx.log, label);
+    hCtx.ctx.set('__cwWebhookPayload', JSON.stringify(webhookData));
+    hCtx.ctx.set('__cwWaitDurationMs', String(Date.now() - waitStartTime));
     hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
     const timeStr = data.timeoutMs > 0 ? ` (within ${data.timeoutMs}ms timeout)` : '';

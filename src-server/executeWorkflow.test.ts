@@ -48,16 +48,17 @@ describe('executeWorkflow', () => {
       startTime: Date.now(),
     });
 
-    expect(mockRunGraph).toHaveBeenCalledWith(
-      workflow.nodes,
-      workflow.edges,
-      { key: 'val' },
-      expect.objectContaining({
-        onNodeStateChange: expect.any(Function),
-        onVariablesChange: expect.any(Function),
-        onComplete: expect.any(Function),
-      })
-    );
+    // Check first 4 arguments (nodes, edges, vars, callbacks)
+    expect(mockRunGraph).toHaveBeenCalled();
+    const [nodes, edges, vars, callbacks] = mockRunGraph.mock.calls[0];
+    expect(nodes).toBe(workflow.nodes);
+    expect(edges).toBe(workflow.edges);
+    expect(vars).toEqual({ key: 'val' });
+    expect(callbacks).toEqual(expect.objectContaining({
+      onNodeStateChange: expect.any(Function),
+      onVariablesChange: expect.any(Function),
+      onComplete: expect.any(Function),
+    }));
   });
 
   it('returns success status when all tests pass', async () => {
@@ -162,12 +163,10 @@ describe('executeWorkflow', () => {
       onLog,
     });
 
-    expect(mockRunGraph).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.objectContaining({ onLog })
-    );
+    // Check that onLog is passed in the callbacks object
+    expect(mockRunGraph).toHaveBeenCalled();
+    const [, , , callbacks] = mockRunGraph.mock.calls[0];
+    expect(callbacks.onLog).toBe(onLog);
   });
 
   it('logs node failures via onNodeStateChange', async () => {

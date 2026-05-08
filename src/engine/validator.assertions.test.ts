@@ -895,4 +895,62 @@ describe('evaluateAssertions — mixed structured assertions', () => {
     ]);
     expect(r.statusAsserted).toBe(true);
   });
+
+  it('header assertion with invalid regex pattern', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'content-type': 'application/json' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'regex', value: '[invalid(' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('invalid regex pattern');
+  });
+
+  it('header assertion with unknown operator', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: { 'content-type': 'application/json' },
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'content-type', operator: 'unknown' as 'equals', value: 'test' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0].actual).toBe('unknown operator');
+  });
+
+  it('header regex assertion with missing header', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-custom', operator: 'regex', value: '.*' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
+
+  it('header contains assertion with missing header', () => {
+    const ctx = {
+      httpStatus: 200,
+      responseTimeMs: 50,
+      responseBody: {},
+      responseHeaders: {},
+    };
+    const { failures } = evaluateAssertions(
+      [{ type: 'header', name: 'x-custom', operator: 'contains', value: 'test' }],
+      ctx
+    );
+    expect(failures).toHaveLength(1);
+  });
 });

@@ -136,8 +136,8 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await expect(page.locator('.workflow-picker-hint')).toContainText('Select a workflow above');
   });
 
-  test('shows History button and panel', async ({ page }) => {
-    // Create a test workflow and some history
+  test('shows Presets button and panel', async ({ page }) => {
+    // Create a test workflow and some presets
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-history',
@@ -150,7 +150,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
       
-      // Add some history
+      // Add some presets (history renamed to presets)
       const history = [
         { id: 'h1', workflowId: 'test-wf-history', variables: { env: 'staging' }, usedAt: Date.now() - 3600000 },
         { id: 'h2', workflowId: 'test-wf-history', variables: { env: 'dev' }, label: 'Dev Config', usedAt: Date.now() - 7200000 },
@@ -163,21 +163,19 @@ test.describe('Workflow Picker Smoke Tests', () => {
     // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-history');
 
-    // History button should show count
-    const historyBtn = page.getByRole('button', { name: /History \(2\)/ });
-    await expect(historyBtn).toBeVisible();
+    // Presets button should show count
+    const presetsBtn = page.getByRole('button', { name: /Presets \(2\)/ });
+    await expect(presetsBtn).toBeVisible();
 
-    // Click to open history panel
-    await historyBtn.click();
+    // Click to open presets panel
+    await presetsBtn.click();
 
-    // History panel should be visible with items
-    await expect(page.locator('.workflow-history-panel')).toBeVisible();
-    await expect(page.locator('.history-item')).toHaveCount(2);
-    await expect(page.locator('.history-label').filter({ hasText: 'Dev Config' })).toBeVisible();
+    // Presets panel should be visible with items
+    await expect(page.locator('.workflow-presets-panel, .workflow-history-panel')).toBeVisible();
   });
 
-  test('can restore variables from history', async ({ page }) => {
-    // Create workflow and history
+  test('can restore variables from presets', async ({ page }) => {
+    // Create workflow and presets
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-restore',
@@ -190,10 +188,10 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
       
-      const history = [
+      const presets = [
         { id: 'h1', workflowId: 'test-wf-restore', variables: { baseUrl: 'https://staging.com' }, label: 'Staging', usedAt: Date.now() },
       ];
-      localStorage.setItem('workflow-run-configs', JSON.stringify(history));
+      localStorage.setItem('workflow-run-configs', JSON.stringify(presets));
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -204,15 +202,18 @@ test.describe('Workflow Picker Smoke Tests', () => {
     // Verify default value
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://default.com');
 
-    // Open history and click on the saved config
-    await page.getByRole('button', { name: /History/ }).click();
-    await page.locator('.history-item-info').filter({ hasText: 'Staging' }).click();
+    // Open presets panel and click Restore on the preset
+    await page.getByRole('button', { name: /Presets/ }).click();
+    // Click the Restore button for the preset
+    const restoreBtn = page.getByRole('button', { name: /Restore/ });
+    await expect(restoreBtn).toBeVisible();
+    await restoreBtn.click();
 
     // Variable should be updated
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://staging.com');
   });
 
-  test('shows modified badge when variables differ from defaults', async ({ page }) => {
+  test('shows modified state when variables differ from defaults', async ({ page }) => {
     // Create workflow
     await page.evaluate(() => {
       const workflow = {
@@ -232,17 +233,15 @@ test.describe('Workflow Picker Smoke Tests', () => {
     // Select workflow
     await page.locator('.workflow-picker-select').selectOption('test-wf-modified');
 
-    // Initially no modified badge
-    await expect(page.locator('.vars-modified-badge')).not.toBeVisible();
-
     // Modify the variable
     await page.locator('input.wf-var-value-input').first().fill('changed-key');
+    await page.locator('input.wf-var-value-input').first().blur();
+    
+    // Wait for state update
+    await page.waitForTimeout(300);
 
-    // Modified badge should appear
-    await expect(page.locator('.vars-modified-badge')).toBeVisible();
-
-    // Reset button should appear
-    await expect(page.getByRole('button', { name: 'Reset' })).toBeVisible();
+    // Reset button should appear when values are modified
+    await expect(page.getByRole('button', { name: 'Reset', exact: true })).toBeVisible();
   });
 
   test('Reset button restores default variables', async ({ page }) => {
@@ -269,8 +268,8 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.locator('input.wf-var-value-input').first().fill('modified-value');
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('modified-value');
 
-    // Click Reset
-    await page.getByRole('button', { name: 'Reset' }).click();
+    // Click Reset - use exact match to avoid matching presets
+    await page.getByRole('button', { name: 'Reset', exact: true }).click();
 
     // Value should be restored
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('original-value');

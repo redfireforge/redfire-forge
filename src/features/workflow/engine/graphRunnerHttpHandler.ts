@@ -2,12 +2,15 @@
  * Handler for HTTP nodes in the workflow graph.
  */
 import type { WorkflowNode, HttpNodeData, NodeRunStatus } from '../types/workflow';
-import type { Scenario } from '../../../shared/types';
-import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
+import type { Scenario, AssertionResult } from '../../../shared/types';
+import type { NodeHandlerContext, PassedFlag, CapturedHttpNodeDetails } from './graphRunnerNodeHandlerContext';
 import { executeHttpNode, logHttpResult } from './graphRunnerHelpers';
 import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { humanizeError } from '../../../shared/utils/helpers';
 import { expandDataSource } from '../../../engine/dataSourceExpander';
+
+/** Maximum response body size to capture (100KB) */
+const MAX_RESPONSE_BODY_SIZE = 102400;
 
 export async function handleHttpNode(
   nodeId: string,
@@ -85,8 +88,73 @@ export async function handleHttpNode(
   if (!result.requestResult.passed && !result.requestResult.failureDetails?.length) {
     hCtx.log({ prefix: '!', text: `[${hCtx.nodeLabel(nodeId)}] ${humanizeError(status.error ?? 'request failed')}` });
   }
+
+  // Capture full trace data if enabled (or if failed and alwaysCaptureFailures is true)
+  const shouldCaptureFullTrace = hCtx.traceOptions?.captureFullTrace || 
+    (hCtx.traceOptions?.alwaysCaptureFailures && !result.requestResult.passed);
+  
+  if (shouldCaptureFullTrace && hCtx.capturedHttpDetails) {
+    const maxBodySize = hCtx.traceOptions?.maxResponseBodySize ?? MAX_RESPONSE_BODY_SIZE;
+    const responseBody = result.fullResponseBody;
+    const bodyTruncated = responseBody.length > maxBodySize;
+    
+    const captured: CapturedHttpNodeDetails = {
+      request: {
+        method: result.requestResult.method,
+        url: result.requestResult.url,
+        headers: result.requestHeaders,
+        bodyTemplate: httpData.scenario?.body,
+        bodyResolved: result.requestBody,
+      },
+      response: {
+        statusCode: result.requestResult.httpStatus,
+        statusText: result.requestResult.httpStatus?.toString(),
+        headers: result.responseHeaders,
+        body: bodyTruncated ? responseBody.slice(0, maxBodySize) : responseBody,
+        bodyTruncated,
+      },
+      assertions: buildAssertionResults(result.requestResult),
+      variablesSnapshot: hCtx.ctx.snapshot(),
+      extractedVariables: Object.keys(result.extracted).length > 0 ? result.extracted : undefined,
+    };
+    hCtx.capturedHttpDetails.set(nodeId, captured);
+  }
+
   hCtx.callbacks.onNodeStateChange(nodeId, status);
   hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
 
   await hCtx.visitOutgoing(nodeId, hCtx.threadId);
+}
+
+/**
+ * Build assertion results from RequestResult for trace capture.
+ */
+function buildAssertionResults(requestResult: import('../../../shared/types').RequestResult): AssertionResult[] {
+  const results: AssertionResult[] = [];
+  
+  // Status assertion (implicit)
+  if (requestResult.statusCode !== undefined) {
+    results.push({
+      type: 'status',
+      description: `Status code is ${requestResult.statusCode}`,
+      passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== 'status') !== false,
+      expected: requestResult.statusCode?.toString(),
+      actual: requestResult.httpStatus?.toString(),
+    });
+  }
+  
+  // Failure details become failed assertions
+  if (requestResult.failureDetails) {
+    for (const failure of requestResult.failureDetails) {
+      results.push({
+        type: 'validation',
+        description: `${failure.path}`,
+        passed: false,
+        expected: failure.expected,
+        actual: failure.actual,
+      });
+    }
+  }
+  
+  return results;
 }

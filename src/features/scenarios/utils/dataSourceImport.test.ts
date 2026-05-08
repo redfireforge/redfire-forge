@@ -338,6 +338,10 @@ describe('inferPatternsFromColumns', () => {
       ),
     ).toEqual([]);
   });
+
+  it('treats missing mapping like an empty validate path', () => {
+    expect(inferPatternsFromColumns([{ type: 'validate' }], new Set())).toEqual([]);
+  });
 });
 
 describe('expandPatternFromResponse', () => {
@@ -357,6 +361,15 @@ describe('expandPatternFromResponse', () => {
     const obj = { a: [{ b: [{ c: 1 }, { c: 2 }] }] };
     const paths = expandPatternFromResponse(obj, 'a[*].b[*].c');
     expect(paths).toEqual(['a[0].b[0].c', 'a[0].b[1].c']);
+  });
+
+  it('does not recurse into wildcard when intermediate path is missing', () => {
+    expect(expandPatternFromResponse({}, 'missing[*].x')).toEqual([]);
+  });
+
+  it('handles trailing wildcard segments', () => {
+    const tree = { offers: [{ id: '1' }, { id: '2' }] };
+    expect(expandPatternFromResponse(tree, 'offers[*]')).toEqual(['offers[0]', 'offers[1]']);
   });
 
   it('handles pattern without [*]', () => {

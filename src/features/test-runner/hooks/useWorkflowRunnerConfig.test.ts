@@ -196,4 +196,58 @@ describe('useWorkflowRunnerConfig', () => {
     act(() => { result.current.setSelectedWorkflowId('wf-new'); });
     expect(result.current.selectedWorkflowId).toBe('wf-new');
   });
+
+  it('sanitizes disallowed workflow execution mode to batch', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 2,
+      totalTransactions: 3,
+      executionMode: 'workflow',
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.executionMode).toBe('batch');
+    expect(result.current.concurrency).toBe(2);
+    expect(result.current.totalTransactions).toBe(3);
+  });
+
+  it('sanitizes other invalid execution modes to batch', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      totalTransactions: 1,
+      executionMode: 'weighted',
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.executionMode).toBe('batch');
+  });
+
+  it('keeps sequential mode when persisted', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      totalTransactions: 1,
+      executionMode: 'sequential',
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.executionMode).toBe('sequential');
+  });
+
+  it('defaults selectedWorkflowId to null when missing in storage', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      totalTransactions: 1,
+      executionMode: 'batch',
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.selectedWorkflowId).toBeNull();
+  });
 });

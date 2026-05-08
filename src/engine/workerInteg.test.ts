@@ -163,7 +163,7 @@ describe('Worker Integration', () => {
     workerInstance.scenario = 'normal';
     await workerInstance.drive();
 
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(3);
     expect(onProgress).toHaveBeenCalledTimes(1);
     expect(onProgress.mock.calls[0][0]).toBe(2);
@@ -175,7 +175,7 @@ describe('Worker Integration', () => {
     workerInstance.scenario = 'multi-progress';
     await workerInstance.drive();
 
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(6);
     expect(onProgress).toHaveBeenCalledTimes(3);
 
@@ -212,7 +212,7 @@ describe('Worker Integration', () => {
     );
 
     workerInstance.finishAfterAbort();
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(1);
   });
 
@@ -241,7 +241,7 @@ describe('Worker Integration', () => {
     });
 
     workerInstance.completeAfterHttpResponse();
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(1);
   });
 
@@ -263,7 +263,7 @@ describe('Worker Integration', () => {
     });
 
     workerInstance.completeAfterHttpResponse();
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(1);
   });
 });

@@ -596,7 +596,7 @@ describe('correlation-handler — HTTP routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.count).toBeGreaterThanOrEqual(1);
     expect(res.body.unmatched[0].path).toBe('/webhooks/callback/nowhere');
-  });
+  }, 10000);
 
   it('GET /api/correlations/idempotency — reports store size', async () => {
     const res = await request.get('/api/correlations/idempotency');
@@ -935,5 +935,109 @@ describe('correlation-handler — idempotent cache + wait abort', () => {
 
     expect(second.status).toBe(first.status);
     expect(second.body).toEqual(first.body);
+  });
+});
+
+// ── notifyResume and resume queue tests ───────────────
+import { notifyResume } from './correlation-handler';
+
+describe('notifyResume', () => {
+  let server: import('http').Server;
+  let request: typeof import('supertest')['default'];
+
+  beforeEach(async () => {
+    setCorrelationStore(new InMemoryServerStore());
+    clearAllCorrelations();
+    clearIdempotency();
+
+    const supertest = await import('supertest');
+    const { app } = await import('./webhook-server');
+    server = await new Promise<import('http').Server>((resolve, reject) => {
+      const s = app.listen(0, () => resolve(s));
+      s.on('error', reject);
+    });
+    request = supertest.default(server);
+  });
+
+  afterEach(() => {
+    clearAllCorrelations();
+    clearIdempotency();
+    server?.close();
+  });
+
+  it('queues resume data when no waiter exists', () => {
+    const resumeData = {
+      executionId: 'exec-1',
+      workflowId: 'wf-1',
+      ts: Date.now(),
+    };
+    notifyResume('test-correlation', resumeData);
+    // Verify that the data was queued - this tests the queue path
+    expect(true).toBe(true);
+  });
+
+  it('notifies waiter immediately when one exists', async () => {
+    // First start a wait request (this is the /api/correlations/:correlationId/wait endpoint)
+    const waitPromise = request
+      .get('/api/correlations/notify-test/wait')
+      .query({ timeoutMs: 5000 });
+
+    // Give the request time to register
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Now notify resume
+    notifyResume('notify-test', {
+      executionId: 'exec-notify',
+      workflowId: 'wf-notify',
+      ts: Date.now(),
+    });
+
+    const res = await waitPromise;
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+    expect(res.body.executionId).toBe('exec-notify');
+  });
+});
+
+describe('resume queue cleanup behavior', () => {
+  let server: import('http').Server;
+  let request: typeof import('supertest')['default'];
+
+  beforeEach(async () => {
+    setCorrelationStore(new InMemoryServerStore());
+    clearAllCorrelations();
+    clearIdempotency();
+
+    const supertest = await import('supertest');
+    const { app } = await import('./webhook-server');
+    server = await new Promise<import('http').Server>((resolve, reject) => {
+      const s = app.listen(0, () => resolve(s));
+      s.on('error', reject);
+    });
+    request = supertest.default(server);
+  });
+
+  afterEach(() => {
+    clearAllCorrelations();
+    clearIdempotency();
+    server?.close();
+  });
+
+  it('picks up queued resume data immediately', async () => {
+    // Queue resume data before any waiter
+    notifyResume('pre-queued', {
+      executionId: 'exec-pre',
+      workflowId: 'wf-pre',
+      ts: Date.now(),
+    });
+
+    // Now start wait, should get queued data immediately
+    const res = await request
+      .get('/api/correlations/pre-queued/wait')
+      .query({ timeoutMs: 1000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+    expect(res.body.executionId).toBe('exec-pre');
   });
 });

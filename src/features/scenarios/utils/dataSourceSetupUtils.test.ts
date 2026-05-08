@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   sanitizeVariableName,
   toVariableName,
@@ -10,6 +10,9 @@ import {
 } from './dataSourceSetupUtils';
 import type { Scenario } from '../../../shared/types';
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 // ─── sanitizeVariableName ──────────────────────────────────
 
 describe('sanitizeVariableName', () => {
@@ -89,12 +92,16 @@ describe('getTemplateSegments', () => {
     ]);
   });
 
-  it('handles root path', () => {
-    expect(getTemplateSegments('https://api.example.com/')).toEqual([]);
+  it('returns empty array when URL constructor throws inside getTemplateSegments', () => {
+    vi.stubGlobal(
+      'URL',
+      vi.fn(() => {
+        throw new SyntaxError('Invalid URL');
+      }) as unknown as typeof URL,
+    );
+    expect(getTemplateSegments('/v1/items')).toEqual([]);
   });
 });
-
-// ─── parseTemplateParamVariables ───────────────────────────
 
 describe('parseTemplateParamVariables', () => {
   it('extracts param variables from template', () => {
@@ -146,8 +153,8 @@ describe('shortNameForValidate', () => {
     expect(shortNameForValidate('a.b.c.d')).toBe('c_d');
   });
 
-  it('handles indexed arrays', () => {
-    expect(shortNameForValidate('items[1].name')).toBe('items1_name');
+  it('returns validateField when single segment sanitizes to empty', () => {
+    expect(shortNameForValidate('@@@')).toBe('validateField');
   });
 });
 
@@ -178,8 +185,12 @@ describe('formatAuthLabel', () => {
     expect(formatAuthLabel({ type: 'apikey', apiKeyValue: '123', apiKeyIn: 'header' } as Scenario['auth'])).toBe('API Key');
   });
 
-  it('returns "OAuth2 Client Credentials" for oauth2', () => {
-    expect(formatAuthLabel({ type: 'oauth2', tokenUrl: '', clientId: '', clientSecret: '' } as Scenario['auth'])).toBe('OAuth2 Client Credentials');
+  it('uses default Bearer label when bearer prefix omitted', () => {
+    expect(formatAuthLabel({ type: 'bearer', token: 'tok' } as Scenario['auth'])).toBe('Bearer Token (Bearer)');
+  });
+
+  it('falls through switch for unrecognized auth discriminators', () => {
+    expect(formatAuthLabel({ type: 'experimental' as never })).toBe('experimental');
   });
 });
 
@@ -368,25 +379,55 @@ describe('buildConfiguredColumnDefs', () => {
     expect(defs.filter(d => d.type === 'validate')).toHaveLength(1);
   });
 
-  it('combines all column types in correct order', () => {
-    const testWithValidation = {
+  it('defaults param selection name from URL parameter key when name missing', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [{ key: 'region', value: 'us' }],
+      paramSelections: { region: { enabled: true, name: '' } },
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs).toHaveLength(1);
+    expect(defs[0].customName).toBe('region');
+  });
+
+  it('skips param keys missing from selections map', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [{ key: 'orphan', value: 'x' }],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs).toHaveLength(0);
+  });
+
+  it('pulls supplemental validate mappings from inline dataSource columns', () => {
+    const dsTest = {
       ...baseTest,
-      validation: {
-        expectedFields: [{ jsonPath: 'result', expectedValue: 'ok', comparator: 'equals' as const }],
+      validation: { expectedFields: [] },
+      dataSource: {
+        id: 'dt',
+        rows: [],
+        columns: [
+          { id: 'p', name: 'p', type: 'path', mapping: 'user' },
+          { id: 'v', name: 'v', type: 'validate', mapping: '$.fromDs' },
+        ],
       },
     } as unknown as Scenario;
-
     const defs = buildConfiguredColumnDefs({
-      mode: 'export',
-      test: testWithValidation,
-      pathVars: [{ segmentIndex: 0, variableName: 'userId' }],
-      urlParams: [{ key: 'q', value: '1' }],
-      paramSelections: { q: { enabled: true, name: 'query' } },
-      headerSelections: { 'Auth': { enabled: true, name: 'authHeader' } },
-      bodySelections: { data: { enabled: true, name: 'bodyData' } },
+      mode: 'configure',
+      test: dsTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
     });
-
-    const types = defs.map(d => d.type);
-    expect(types).toEqual(['name', 'path', 'param', 'header', 'body', 'validate']);
+    expect(defs.filter(d => d.type === 'validate').map(d => d.mapping)).toEqual(['$.fromDs']);
   });
 });

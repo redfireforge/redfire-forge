@@ -371,4 +371,151 @@ describe('webhook-server', () => {
       expect(res.body.message).toBe('vitest');
     });
   });
+
+  describe('Webhook trace capture', () => {
+    it('includes iterationTrace when _trace=true', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 100,
+        results: [
+          {
+            id: 'r1',
+            scenarioId: 's1',
+            url: '/test',
+            method: 'GET',
+            httpStatus: 200,
+            responseTimeMs: 50,
+            passed: true,
+          },
+        ],
+        iterationTrace: {
+          iterationId: 'iter-1',
+          nodeResults: [],
+        },
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1?_trace=true')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.iterationTrace).toBeDefined();
+      expect(res.body.iterationTrace.iterationId).toBe('iter-1');
+      expect(mockExecuteWorkflow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          traceOptions: { captureFullTrace: true, alwaysCaptureFailures: true },
+        }),
+      );
+    });
+
+    it('includes iterationTrace when _trace=1', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 100,
+        results: [],
+        iterationTrace: { iterationId: 'iter-2', nodeResults: [] },
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1?_trace=1')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.iterationTrace).toBeDefined();
+    });
+
+    it('does not include iterationTrace when trace not requested', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'success',
+        passed: true,
+        duration: 100,
+        results: [],
+        iterationTrace: { iterationId: 'iter-3', nodeResults: [] },
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.iterationTrace).toBeUndefined();
+    });
+  });
+
+  describe('Webhook execution with failed status', () => {
+    it('logs delivery with failed status when execution fails but does not throw', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockResolvedValue({
+        status: 'failed',
+        passed: false,
+        duration: 100,
+        results: [],
+      });
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('failed');
+      expect(mockLogWebhookDelivery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'failed',
+        }),
+      );
+    });
+  });
+
+  describe('Webhook error handling edge cases', () => {
+    it('handles logWebhookDelivery failure in error path gracefully', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockRejectedValue(new Error('Execution error'));
+      mockLogWebhookDelivery.mockRejectedValue(new Error('Log delivery failed'));
+      mockSaveErrorResult.mockResolvedValue(undefined);
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1')
+        .send({});
+
+      expect(res.status).toBe(500);
+      expect(consoleSpy).toHaveBeenCalledWith('[Webhook] Failed to log delivery:', expect.any(Error));
+      consoleSpy.mockRestore();
+    });
+
+    it('handles non-Error objects in error path', async () => {
+      const workflow = createMockWorkflow();
+      mockGetWorkflow.mockResolvedValue(workflow);
+      mockExtractWebhookVariables.mockReturnValue({});
+      mockExecuteWorkflow.mockRejectedValue('string error');
+      mockLogWebhookDelivery.mockResolvedValue(undefined);
+      mockSaveErrorResult.mockResolvedValue(undefined);
+
+      const res = await request(app)
+        .post('/webhooks/wf-1/trigger-1')
+        .send({});
+
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('string error');
+    });
+  });
 });

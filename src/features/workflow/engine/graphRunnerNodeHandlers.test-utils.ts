@@ -56,8 +56,13 @@ export function makeEdge(id: string, source: string, target: string, sourceHandl
   return { id, source, target, sourceHandle, label } as WorkflowEdge;
 }
 
-export function makeHandlerContext(overrides: Partial<NodeHandlerContext> = {}): NodeHandlerContext {
-  const ctx = overrides.ctx ?? makeCtx();
+export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & { 
+  initialVariables?: Record<string, string>;
+  traceOptions?: { captureFullTrace?: boolean; alwaysCaptureFailures?: boolean; maxResponseBodySize?: number };
+  capturedHttpDetails?: Map<string, unknown>;
+} = {}): NodeHandlerContext {
+  const initialVars = overrides.initialVariables ?? {};
+  const ctx = overrides.ctx ?? makeCtx(initialVars);
   const { callbacks, logLines } = makeCallbacks();
   return {
     nodeMap: new Map(),
@@ -75,7 +80,9 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> = {}):
     visit: overrides.visit ?? vi.fn(),
     visitOutgoing: overrides.visitOutgoing ?? vi.fn(),
     threadId: 'main',
-    initialVariables: {},
+    initialVariables: initialVars,
+    traceOptions: overrides.traceOptions,
+    capturedHttpDetails: overrides.capturedHttpDetails,
     ...overrides,
   };
 }
