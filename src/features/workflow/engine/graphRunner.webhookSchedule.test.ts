@@ -77,11 +77,10 @@ describe('runGraph - Webhook Trigger', () => {
 
     await runGraph([webhookNode], [], {}, callbacks, new AbortController().signal, {});
 
-    expect(extractedVars).toEqual({
-      eventType: 'vehicle.created',
-      vin: '1HGBH41JXMN109186',
-      year: '2021',
-    });
+    // Check that extracted variables are present (ignoring internal __webhook* vars)
+    expect(extractedVars.eventType).toBe('vehicle.created');
+    expect(extractedVars.vin).toBe('1HGBH41JXMN109186');
+    expect(extractedVars.year).toBe('2021');
   });
 
   it('handles invalid JSON in samplePayload gracefully', async () => {
@@ -184,6 +183,43 @@ describe('runGraph - Webhook Trigger', () => {
     // Check first argument (URL) contains the substituted orderId
     const firstCall = mockFetch.mock.calls[0];
     expect(firstCall[0]).toContain('12345');
+  });
+
+  it('captures webhook input in trace for webhook trigger nodes', async () => {
+    const webhookNode: WorkflowNode = {
+      id: 'wh1',
+      type: 'webhook',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Order Webhook',
+        method: 'POST',
+        path: '/api/orders',
+        samplePayload: '{"orderId":"test-123","amount":99.99}',
+        extractVariables: [],
+      } as WebhookTriggerNodeData,
+    };
+
+    let capturedTrace: import('../../../shared/types').WorkflowIterationTrace | undefined;
+    const callbacks: GraphRunCallbacks = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: (_results, _passed, _duration, trace) => {
+        capturedTrace = trace;
+      },
+    };
+
+    await runGraph([webhookNode], [], {}, callbacks, new AbortController().signal, {});
+
+    expect(capturedTrace).toBeDefined();
+    expect(capturedTrace!.events.length).toBe(1);
+    
+    const webhookEvent = capturedTrace!.events[0];
+    expect(webhookEvent.nodeId).toBe('wh1');
+    expect(webhookEvent.nodeType).toBe('webhook');
+    expect(webhookEvent.details?.webhookInput).toBeDefined();
+    expect(webhookEvent.details?.webhookInput?.payload).toBe('{"orderId":"test-123","amount":99.99}');
+    expect(webhookEvent.details?.webhookInput?.method).toBe('POST');
+    expect(webhookEvent.details?.webhookInput?.path).toBe('/api/orders');
   });
 });
 

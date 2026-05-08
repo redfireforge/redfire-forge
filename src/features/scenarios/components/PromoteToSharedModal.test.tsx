@@ -171,4 +171,42 @@ describe('PromoteToSharedModal', () => {
     render(<PromoteToSharedModal {...defaultProps} dataSource={ds} />);
     expect(screen.queryByText(/validate column/)).not.toBeInTheDocument();
   });
+
+  it('uses empty defaults when columns and rows are undefined', () => {
+    const emptyLists = {
+      columns: undefined,
+      rows: undefined,
+      source: { type: 'inline' as const },
+    } as unknown as DataSource;
+    render(<PromoteToSharedModal {...defaultProps} dataSource={emptyLists} />);
+    const previewSection = screen.getByText('Columns:').closest('.popup-modal-preview')!;
+    expect(previewSection.textContent).toContain('Columns:');
+    expect(previewSection.textContent).toContain('0');
+    expect(previewSection.textContent).toContain('none');
+  });
+
+  it('uses plural wording for multiple validate columns', () => {
+    const ds = createMockDataSource({
+      columns: [
+        { id: 'c1', name: 'userId', type: 'path', mapping: 'userId' },
+        { id: 'c2', name: 'a', type: 'validate', mapping: '$.a' },
+        { id: 'c3', name: 'b', type: 'validate', mapping: '$.b' },
+      ],
+    });
+    render(<PromoteToSharedModal {...defaultProps} dataSource={ds} />);
+    expect(screen.getByText(/2 validate columns/)).toBeInTheDocument();
+  });
+
+  it('omits disabled-row suffix when every row is enabled', () => {
+    const ds = createMockDataSource({
+      rows: [
+        { id: 'r1', values: { c1: '1', c2: 'a' }, enabled: true },
+        { id: 'r2', values: { c1: '2', c2: 'b' }, enabled: undefined },
+      ],
+    });
+    render(<PromoteToSharedModal {...defaultProps} dataSource={ds} />);
+    expect(screen.getByText(/2 total/)).toBeInTheDocument();
+    expect(screen.queryByText(/disabled/)).not.toBeInTheDocument();
+  });
+
 });

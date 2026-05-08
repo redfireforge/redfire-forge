@@ -5,7 +5,7 @@
  */
 
 import type { Workflow } from '../types/workflow';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import type { ProgressMeta } from '../../../engine/executor';
@@ -34,20 +34,24 @@ export interface GraphLoadRunOpts {
   correlationWaitConfig?: CorrelationWaitRunnerConfig;
   /** Maximum concurrent poll operations for WaitForCondition nodes. Defaults to 20. */
   maxConcurrentPolls?: number;
+  /** Options for trace capture (Results Explorer). */
+  traceOptions?: ExecutionTraceOptions;
 }
 
 /**
  * Run a workflow graph under load: N iterations × M concurrency.
  * Each iteration gets an isolated VariableContext (no cross-iteration state leakage).
  * Results are tagged with `iterationIndex` and `workflowNodeId` for per-step metrics.
+ * Returns both results and execution trace (Phase 7e).
  */
 export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
-): Promise<RequestResult[]> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls } = opts;
+): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions } = opts;
   
   const allResults: RequestResult[] = [];
+  const allTraces: WorkflowIterationTrace[] = [];
   let completedIterations = 0;
   let iterationCounter = 0;
   const startTime = performance.now();
@@ -94,19 +98,23 @@ export async function runGraphLoad(
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: () => {},
       onVariablesChange: () => {},
-      onComplete: (results, _passed, _durationMs) => {
+      onComplete: (results, _passed, _durationMs, trace) => {
         for (const r of results) {
-          const stepLabel = nodeLabels.get(r.scenarioId) || r.scenarioName;
+          const stepLabel = nodeLabels.get(r.workflowNodeId || r.scenarioId) || r.scenarioName;
           const tagged: RequestResult = {
             ...r,
             iterationIndex: myIterationIndex,
-            workflowNodeId: r.scenarioId,
+            // workflowNodeId is already set by executeHttpNode
             // Tag with workflow name as "feature" and step label as "scenario/group"
             featureGroupName: `Workflow: ${workflow.name}`,
             groupName: stepLabel,
             scenarioName: stepLabel,
           };
           iterationResults.push(tagged);
+        }
+        // Phase 7e: Capture trace with correct iteration index
+        if (trace) {
+          allTraces.push({ ...trace, index: myIterationIndex });
         }
       },
     };
@@ -131,18 +139,17 @@ export async function runGraphLoad(
         !isWaitForReal, // loadTestMode - false for wait-for-real so it uses real webhook waiting
         correlationWaitConfig, // runner-level config for CorrelationWait behavior
         pollSemaphore, // Throttle concurrent polls across iterations
+        traceOptions, // Trace capture options for Results Explorer
       );
 
       for (const r of results) {
         if (!r.iterationIndex) {
           (r as RequestResult).iterationIndex = myIterationIndex;
         }
-        if (!r.workflowNodeId) {
-          (r as RequestResult).workflowNodeId = r.scenarioId;
-        }
+        // workflowNodeId is already set by executeHttpNode
         // Also tag results that came directly from runGraph (if onComplete wasn't called)
         if (!r.featureGroupName) {
-          const stepLabel = nodeLabels.get(r.scenarioId) || r.scenarioName;
+          const stepLabel = nodeLabels.get(r.workflowNodeId || r.scenarioId) || r.scenarioName;
           (r as RequestResult).featureGroupName = `Workflow: ${workflow.name}`;
           (r as RequestResult).groupName = stepLabel;
           (r as RequestResult).scenarioName = stepLabel;
@@ -260,5 +267,32 @@ export async function runGraphLoad(
     }
   }
 
-  return allResults;
+  // Phase 7e: Build complete execution trace
+  let totalDurationMs = 0;
+  for (const t of allTraces) {
+    totalDurationMs += t.durationMs;
+  }
+  const edgeSet = new Set<string>();
+  for (const t of allTraces) {
+    for (const e of t.traversedEdges) {
+      edgeSet.add(e);
+    }
+  }
+  const allTraversedEdges = Array.from(edgeSet);
+
+  const executionTrace: WorkflowExecutionTrace = {
+    workflowId: workflow.id,
+    workflowName: workflow.name,
+    totalIterations: iterations,
+    totalDurationMs,
+    iterations: allTraces,
+    traversedEdges: allTraversedEdges,
+    workflowSnapshot: {
+      nodes: workflow.nodes,
+      edges: workflow.edges,
+    },
+    fullTraceCaptured: traceOptions?.captureFullTrace ?? false,
+  };
+
+  return { results: allResults, trace: executionTrace };
 }

@@ -288,7 +288,7 @@ describe('runGraph', () => {
     await runGraph([start, h1], edges, {}, cb);
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number));
+    expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number), expect.any(Object));
   });
 
   it('findStartNodes prefers start-type nodes over root nodes', async () => {

@@ -77,6 +77,12 @@ nodes:
       headers:
         Accept: application/json
 
+  - id: end-1
+    type: end
+    position: { x: 300, y: 480 }
+    data:
+      label: End
+
 edges:
   - id: e1
     source: start
@@ -84,3 +90,21 @@ edges:
   - id: e2
     source: lookup-country
     target: check-region
+  - id: e3
+    source: check-region
+    target: european-action
+  - id: e4
+    source: check-region
+    target: asian-action
+  - id: e5
+    source: check-region
+    target: other-region
+  - id: e6
+    source: european-action
+    target: end-1
+  - id: e7
+    source: asian-action
+    target: end-1
+  - id: e8
+    source: other-region
+    target: end-1

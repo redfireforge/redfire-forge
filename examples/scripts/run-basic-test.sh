@@ -11,6 +11,7 @@ echo ""
 
 # Run from project root
 cd "$(dirname "$0")/../.."
+mkdir -p results
 
 # Validate first
 echo "Step 1: Validating test file..."

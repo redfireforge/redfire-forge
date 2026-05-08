@@ -68,6 +68,31 @@ describe('useDataSourceRows', () => {
       expect(updated.rows[1].id).toBe('r1');
     });
 
+    it('moveRow no-ops at list boundaries', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.moveRow('r1', 'up'));
+      act(() => result.current.moveRow('r3', 'down'));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('moveRow no-ops for unknown row id', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.moveRow('missing', 'down'));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('duplicateRow no-ops for unknown row id', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.duplicateRow('missing'));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     it('duplicateRow creates a copy after the source', () => {
       const onChange = vi.fn();
       const ds = makeDataSource();
@@ -94,6 +119,17 @@ describe('useDataSourceRows', () => {
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
       act(() => result.current.toggleRow('r1'));
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('toggleRow can enable a disabled sample row', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource({
+        rows: [{ id: 'r1', values: { c1: 'A', c2: 'B' }, enabled: false, isSample: true }],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.toggleRow('r1'));
+      expect(onChange).toHaveBeenCalled();
+      expect((onChange.mock.calls[0][0] as DataSource).rows[0].enabled).toBe(true);
     });
 
     it('toggleSample flips isSample', () => {
@@ -218,6 +254,32 @@ describe('useDataSourceRows', () => {
       expect(result.current.filteredSortedRows[0].id).toBe('r2');
     });
 
+    it('filteredSortedRows matches row labels', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'x', c2: 'y' }, enabled: true, label: 'Alpha row' },
+          { id: 'r2', values: { c1: 'z', c2: 'w' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('alpha'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
+      expect(result.current.filteredSortedRows[0].id).toBe('r1');
+    });
+
+    it('filteredSortedRows matches cell text when label is absent', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'hidden-gem', c2: 'y' }, enabled: true },
+          { id: 'r2', values: { c1: 'a', c2: 'b' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('gem'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
+      expect(result.current.filteredSortedRows[0].id).toBe('r1');
+    });
+
     it('filteredSortedRows sorts by column', () => {
       const ds = makeDataSource();
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
@@ -233,6 +295,26 @@ describe('useDataSourceRows', () => {
       expect(result.current.sortDir).toBe('asc');
       act(() => result.current.handleSortColumn('c1'));
       expect(result.current.sortDir).toBe('desc');
+    });
+
+    it('handleSortColumn resets to ascending when switching columns', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleSortColumn('c1'));
+      act(() => result.current.handleSortColumn('c1'));
+      expect(result.current.sortDir).toBe('desc');
+      act(() => result.current.handleSortColumn('c2'));
+      expect(result.current.sortCol).toBe('c2');
+      expect(result.current.sortDir).toBe('asc');
+    });
+
+    it('does not sort column values when selected sort id is not a real column', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      const before = result.current.filteredSortedRows.map(r => r.id);
+      act(() => result.current.handleSortColumn('ghost-col'));
+      expect(result.current.sortCol).toBe('ghost-col');
+      expect(result.current.filteredSortedRows.map(r => r.id)).toEqual(before);
     });
 
     it('filteredSortedRows filters by tag', () => {
@@ -261,6 +343,20 @@ describe('useDataSourceRows', () => {
       expect(result.current.filteredSortedRows[0].id).toBe('r2');
     });
 
+    it('shows all rows when filter tag cleared', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'A', c2: 'B' }, enabled: true, tags: ['smoke'] },
+          { id: 'r2', values: { c1: 'C', c2: 'D' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setFilterTag('smoke'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
+      act(() => result.current.setFilterTag(null));
+      expect(result.current.filteredSortedRows.map(r => r.id).sort()).toEqual(['r1', 'r2']);
+    });
+
     it('sample rows sort to top', () => {
       const ds = makeDataSource({
         rows: [
@@ -270,6 +366,18 @@ describe('useDataSourceRows', () => {
       });
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
       expect(result.current.filteredSortedRows[0].id).toBe('r2');
+    });
+
+    it('ranks multiple sample rows ahead of ordinary rows while preserving intra-group order', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'A', c2: 'B' }, enabled: true },
+          { id: 'r2', values: { c1: 'C', c2: 'D' }, enabled: true, isSample: true },
+          { id: 'r3', values: { c1: 'E', c2: 'F' }, enabled: true, isSample: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      expect(result.current.filteredSortedRows.map(r => r.id)).toEqual(['r2', 'r3', 'r1']);
     });
   });
 
@@ -335,6 +443,14 @@ describe('useDataSourceRows', () => {
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
       act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: true } as unknown as React.MouseEvent));
       expect(result.current.selectedRows.has('r1')).toBe(true);
+    });
+
+    it('shift click without prior anchor behaves like plain selection', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r2', { shiftKey: true, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.has('r2')).toBe(true);
+      expect(result.current.selectedRows.size).toBe(1);
     });
   });
 
@@ -405,6 +521,26 @@ describe('useDataSourceRows', () => {
       act(() => result.current.handleDragStart('r1', startEvent));
       const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
       act(() => result.current.handleDrop('r1', dropEvent));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('handleDrop no-ops when dragRowId cleared', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
+      act(() => result.current.handleDrop('r2', dropEvent));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('handleDrop no-ops for unknown target row ids', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      const startEvent = { dataTransfer: { effectAllowed: '', setData: vi.fn() } } as unknown as React.DragEvent;
+      act(() => result.current.handleDragStart('r1', startEvent));
+      const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
+      act(() => result.current.handleDrop('missing', dropEvent));
       expect(onChange).not.toHaveBeenCalled();
     });
   });

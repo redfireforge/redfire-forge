@@ -10,7 +10,7 @@ import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
 import type { DebugController } from './debugController';
 import type { GraphRunCallbacks } from './graphRunnerInterfaces';
-import type { CorrelationWaitRunnerConfig } from '../../../shared/types';
+import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
 import type { Semaphore } from '../../../shared/utils/semaphore';
 
 // ────────────────────────────────────────────────────────
@@ -82,6 +82,32 @@ export interface NodeHandlerContext {
    * Used by WaitForCondition nodes to prevent poll storms during load tests.
    */
   pollSemaphore?: Semaphore;
+  /**
+   * Trace collector for Phase 7e: Visual Execution Replay.
+   * Captures execution events, timing, and edge traversals.
+   */
+  traceCollector?: import('./traceCollector').TraceCollector;
+  /**
+   * Options for trace capture (Results Explorer).
+   * When captureFullTrace is true, full request/response bodies are stored.
+   */
+  traceOptions?: ExecutionTraceOptions;
+  /**
+   * Storage for captured HTTP execution details per node (for full trace capture).
+   * Populated by handleHttpNode, consumed when onNodeComplete is called.
+   */
+  capturedHttpDetails?: Map<string, CapturedHttpNodeDetails>;
+}
+
+/**
+ * Captured details from HTTP node execution for full trace capture.
+ */
+export interface CapturedHttpNodeDetails {
+  request: CapturedHttpRequest;
+  response: CapturedHttpResponse;
+  assertions?: AssertionResult[];
+  variablesSnapshot?: Record<string, string>;
+  extractedVariables?: Record<string, string>;
 }
 
 // Re-export so consumers of this file can still access it as one import

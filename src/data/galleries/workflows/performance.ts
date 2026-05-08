@@ -15,7 +15,9 @@ export function createPerfSimpleWorkflow(): Workflow {
     id: 'perf-workflow-simple',
     name: 'Perf: Simple POST → GET',
     description: 'Simplest workflow for load testing: create a post, then verify it exists.',
-    variables: {},
+    variables: {
+      userId: '1',
+    },
     nodes: [
       {
         id: 'ps-start',
@@ -51,7 +53,7 @@ export function createPerfSimpleWorkflow(): Workflow {
               ],
             },
             extractions: [
-              { name: 'postId', source: 'body', expression: '$.id' },
+              { name: 'newPostId', source: 'body', expression: '$.id' },
             ],
           },
         },
@@ -61,11 +63,11 @@ export function createPerfSimpleWorkflow(): Workflow {
         type: 'http',
         position: { x: 200, y: 250 },
         data: {
-          label: '2. Verify Post',
+          label: '2. Get User Posts',
           scenario: {
             id: 'ps-s2',
-            name: 'Verify Post',
-            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}',
+            name: 'Get User Posts',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts',
             method: 'GET',
             headers: [
               { key: 'Accept', value: 'application/json' },
@@ -76,10 +78,11 @@ export function createPerfSimpleWorkflow(): Workflow {
               mode: 'selective',
               assertions: [
                 { path: '$.status', operator: 'equals', expected: '200' },
-                { path: '$.body.title', operator: 'contains', expected: 'Load Test' },
               ],
             },
-            extractions: [],
+            extractions: [
+              { name: 'postCount', source: 'body', expression: '$.length' },
+            ],
           },
         },
       },

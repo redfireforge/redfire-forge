@@ -57,6 +57,31 @@ describe('extractPathVariablesFromUrlTemplate', () => {
   });
 });
 
+/** Deterministic pathname (no %-encoding of braces) so template segments can resolve. */
+class FakeURL {
+  pathname: string;
+  constructor(template: string, _base?: string) {
+    const pathOnly = (template.split('?')[0] ?? '').trim();
+    this.pathname = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+  }
+}
+
+describe('extractPathVariablesFromUrlTemplate (pathname stub)', () => {
+  const OrigURL = globalThis.URL;
+
+  afterEach(() => {
+    globalThis.URL = OrigURL;
+  });
+
+  it('captures {{var}} segments when URL does not percent-encode braces', () => {
+    globalThis.URL = FakeURL as unknown as typeof URL;
+    expect(extractPathVariablesFromUrlTemplate('/{{tenant}}/items/{{sku}}')).toEqual([
+      { segmentIndex: 0, variableName: 'tenant' },
+      { segmentIndex: 2, variableName: 'sku' },
+    ]);
+  });
+});
+
 describe('defaultFetchConfig', () => {
   it('returns correct default values', () => {
     const config = defaultFetchConfig();
@@ -300,6 +325,24 @@ describe('useSharedDsEditorPanel', () => {
       expect(focus).toHaveBeenCalled();
     });
 
+    it('handles scroll helper when container has no focusable control', () => {
+      vi.useFakeTimers();
+      const { result } = renderEditorHook();
+      const wrap = document.createElement('div');
+      const scrollIntoView = vi.fn();
+      wrap.scrollIntoView = scrollIntoView;
+      act(() => {
+        result.current.fetchHeadersRef.current = wrap;
+      });
+      act(() => {
+        result.current.jumpToFetchSection('headers');
+      });
+      act(() => {
+        vi.runAllTimers();
+      });
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
     it('sets headers and body tabs for those sections', () => {
       const { result } = renderEditorHook();
       act(() => {
@@ -475,6 +518,31 @@ describe('useSharedDsEditorPanel', () => {
   });
 
   describe('handleFetchRow', () => {
+    it('falls back to first concrete global profile when cfg auth is inherit and feature groups have no concrete auth', async () => {
+      mockGlobalAuthProfiles = [
+        { id: 'gp1', name: 'Empty', auth: { type: 'none' } },
+        { id: 'gp2', name: 'Tok', auth: { type: 'bearer', token: 'global-tok' } },
+      ];
+      const inheritDs = createMockSharedDs('ds-1', 'Users', 'https://api.example.com/user/{{id}}');
+      inheritDs.fetchConfig = {
+        ...defaultFetchConfig(),
+        url: 'https://api.example.com/user/{{id}}',
+        auth: { type: 'inherit' },
+      };
+      mockSources = [inheritDs];
+      mockFeatureGroups = [{ id: 'fg-empty', name: 'E', scenarios: [] }];
+
+      const { result } = renderEditorHook(inheritDs);
+      await act(async () => {
+        await result.current.handleFetchRow('https://x', 'GET', {});
+      });
+
+      expect(applyAuthHeaders).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'bearer', token: 'global-tok' }),
+        expect.any(Object),
+      );
+    });
+
     it('returns response plus sent metadata and calls proxyFetch', async () => {
       const { result } = renderEditorHook();
       let res: Awaited<ReturnType<typeof result.current.handleFetchRow>>;

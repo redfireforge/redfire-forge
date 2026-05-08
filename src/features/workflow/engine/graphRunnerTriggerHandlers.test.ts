@@ -146,6 +146,43 @@ describe('handleWebhookNode', () => {
     await handleWebhookNode('w1', node, hCtx);
     expect(states['w1']?.state).toBe('pass');
   });
+
+  it('stores webhook input in context for trace capture', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/api/orders',
+      samplePayload: '{"orderId":"123","amount":99.99}',
+    });
+
+    await handleWebhookNode('w1', node, hCtx);
+
+    // Check that the webhook input is stored in context
+    expect(ctx.get('__webhookInput')).toBe('{"orderId":"123","amount":99.99}');
+    expect(ctx.get('__webhookMethod')).toBe('POST');
+    expect(ctx.get('__webhookPath')).toBe('/api/orders');
+  });
+
+  it('uses runtime payload when __webhookPayload is set', async () => {
+    const ctx = makeCtx();
+    ctx.set('__webhookPayload', '{"runtime":"payload"}');
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/api/orders',
+      samplePayload: '{"sample":"data"}',
+    });
+
+    await handleWebhookNode('w1', node, hCtx);
+
+    // Should use the runtime payload, not sample
+    expect(ctx.get('__webhookInput')).toBe('{"runtime":"payload"}');
+    // Runtime __webhookPayload should be cleared
+    expect(ctx.get('__webhookPayload')).toBeUndefined();
+  });
 });
 
 // ── handleScheduleNode ──

@@ -287,6 +287,247 @@ describe('handleHttpNode — additional branch coverage', () => {
   });
 });
 
+describe('handleHttpNode — trace capture', () => {
+  it('captures full trace data when captureFullTrace is enabled', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json', 'x-request-id': 'req-123' },
+      body: '{"result": "success"}',
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: true },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'TracedHTTP',
+      scenario: {
+        id: 'h1', name: 'TracedHTTP',
+        url: 'https://api.example.com/test',
+        method: 'POST',
+        headers: [{ key: 'Authorization', value: 'Bearer token' }],
+        body: '{"input": "data"}',
+        auth: { type: 'none' },
+        validation: { mode: 'none', assertions: [] },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    expect(capturedHttpDetails.has('h1')).toBe(true);
+    const captured = capturedHttpDetails.get('h1');
+    expect(captured.request.method).toBe('POST');
+    expect(captured.request.url).toContain('api.example.com');
+    expect(captured.response.statusCode).toBe(200);
+    expect(captured.response.body).toBe('{"result": "success"}');
+  });
+
+  it('captures trace on failure when alwaysCaptureFailures is true', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 500,
+      statusText: 'Error',
+      headers: {},
+      body: 'Server error',
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: false, alwaysCaptureFailures: true },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'FailHTTP',
+      scenario: {
+        id: 'h1', name: 'FailHTTP',
+        url: 'https://api.example.com/fail',
+        method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: { mode: 'status', assertions: [{ type: 'status', expected: '200' }] },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    expect(capturedHttpDetails.has('h1')).toBe(true);
+    const captured = capturedHttpDetails.get('h1');
+    expect(captured.response.statusCode).toBe(500);
+  });
+
+  it('does not capture trace when traceOptions is disabled', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{}',
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: false, alwaysCaptureFailures: false },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'HTTP',
+      scenario: {
+        id: 'h1', name: 'HTTP',
+        url: 'https://api.example.com/test',
+        method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: { mode: 'none', assertions: [] },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    expect(capturedHttpDetails.has('h1')).toBe(false);
+  });
+
+  it('truncates large response body in trace', async () => {
+    const largeBody = 'x'.repeat(200000); // 200KB
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: largeBody,
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: true, maxResponseBodySize: 1000 },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'LargeResponse',
+      scenario: {
+        id: 'h1', name: 'LargeResponse',
+        url: 'https://api.example.com/large',
+        method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: { mode: 'none', assertions: [] },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    const captured = capturedHttpDetails.get('h1');
+    expect(captured.response.body.length).toBe(1000);
+    expect(captured.response.bodyTruncated).toBe(true);
+  });
+
+  it('captures extracted variables in trace', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: 'abc123', userId: 42 }),
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: true },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'ExtractHTTP',
+      scenario: {
+        id: 'h1', name: 'ExtractHTTP',
+        url: 'https://api.example.com/auth',
+        method: 'POST',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: { mode: 'none', assertions: [] },
+        extractions: [
+          { name: 'token', source: 'body', expression: '$.token' },
+          { name: 'userId', source: 'body', expression: '$.userId' },
+        ],
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    const captured = capturedHttpDetails.get('h1');
+    expect(captured.extractedVariables).toBeDefined();
+    expect(captured.extractedVariables.token).toBe('abc123');
+    // userId could be string or number depending on extraction
+    expect(String(captured.extractedVariables.userId)).toBe('42');
+  });
+
+  it('builds assertion results from failure details', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 500,
+      statusText: 'Error',
+      headers: { 'content-type': 'application/json' },
+      body: '{"error": "failed"}',
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: true, alwaysCaptureFailures: true },
+      capturedHttpDetails,
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'ValidatedHTTP',
+      scenario: {
+        id: 'h1', name: 'ValidatedHTTP',
+        url: 'https://api.example.com/check',
+        method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: {
+          mode: 'status',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    const captured = capturedHttpDetails.get('h1');
+    // Trace is captured due to alwaysCaptureFailures
+    expect(captured).toBeDefined();
+    expect(captured.response.statusCode).toBe(500);
+  });
+
+  it('captures variables snapshot at time of execution', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{}',
+    });
+    const { callbacks } = makeCallbacks();
+    const capturedHttpDetails = new Map();
+    const hCtx = makeHandlerContext({
+      callbacks,
+      traceOptions: { captureFullTrace: true },
+      capturedHttpDetails,
+      initialVariables: { baseUrl: 'https://api.example.com', token: 'initial-token' },
+    });
+    const node = makeNode('h1', 'http', {
+      label: 'HTTP',
+      scenario: {
+        id: 'h1', name: 'HTTP',
+        url: '{{baseUrl}}/test',
+        method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        validation: { mode: 'none', assertions: [] },
+      },
+    });
+
+    await handleHttpNode('h1', node, hCtx, makePassedFlag());
+
+    const captured = capturedHttpDetails.get('h1');
+    expect(captured.variablesSnapshot).toBeDefined();
+    expect(captured.variablesSnapshot.baseUrl).toBe('https://api.example.com');
+  });
+});
+
 describe('handleHttpNode — data source expansion', () => {
   function httpNodeWithDataSource(id: string, label = 'HTTP-DS'): WorkflowNode {
     return makeNode(id, 'http', {
