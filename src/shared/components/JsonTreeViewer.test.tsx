@@ -73,8 +73,9 @@ describe('JsonTreeViewer', () => {
     const raw = '{"broken":';
     const { rerender } = render(<JsonTreeViewer data={raw} copyable />);
 
-    expect(screen.queryByRole('button', { name: 'Copy JSON' })).not.toBeInTheDocument();
-    expect(document.querySelector('.jtv-string')).toHaveTextContent(JSON.stringify(raw));
+    // Truncated JSON-like strings now render as formatted <pre> with a copy button
+    expect(document.querySelector('.jtv-raw-body')).toBeTruthy();
+    expect(screen.getByTitle('Copy JSON')).toBeInTheDocument();
 
     rerender(<JsonTreeViewer data={JSON.stringify({ raw })} />);
     fireEvent.click(screen.getByTitle('Copy JSON'));
@@ -264,5 +265,180 @@ describe('JsonTreeViewer', () => {
     });
 
     expect(writeText).toHaveBeenCalledWith(JSON.stringify(payload, null, 2));
+  });
+
+  // ─── Searchable mode ───
+
+  it('renders search input when searchable is true', () => {
+    render(<JsonTreeViewer data={{ a: 1 }} searchable />);
+    expect(screen.getByPlaceholderText('Search keys or values...')).toBeInTheDocument();
+  });
+
+  it('does not render search input when searchable is false', () => {
+    render(<JsonTreeViewer data={{ a: 1 }} searchable={false} />);
+    expect(screen.queryByPlaceholderText('Search keys or values...')).not.toBeInTheDocument();
+  });
+
+  it('shows match count when search term entered', () => {
+    render(<JsonTreeViewer data={{ name: 'Alice', age: 30, note: 'named Alice' }} searchable defaultExpandDepth={5} />);
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'alice' } });
+    expect(screen.getByText('2 matches')).toBeInTheDocument();
+  });
+
+  it('shows singular match text for single match', () => {
+    render(<JsonTreeViewer data={{ name: 'Alice' }} searchable defaultExpandDepth={5} />);
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'alice' } });
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
+
+  it('highlights matching text with mark elements', () => {
+    const { container } = render(
+      <JsonTreeViewer data={{ greeting: 'hello world' }} searchable defaultExpandDepth={5} />,
+    );
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'hello' } });
+    const marks = container.querySelectorAll('mark.jtv-highlight');
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks[0].textContent).toBe('hello');
+  });
+
+  it('counts key matches in objects', () => {
+    render(<JsonTreeViewer data={{ name: 'val', other: 'val2' }} searchable defaultExpandDepth={5} />);
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'name' } });
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
+
+  it('counts null values as matches when searching "null"', () => {
+    render(<JsonTreeViewer data={{ a: null, b: null }} searchable defaultExpandDepth={5} />);
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'null' } });
+    expect(screen.getByText(/match/)).toBeInTheDocument();
+  });
+
+  it('counts matches in nested arrays', () => {
+    render(<JsonTreeViewer data={[1, 'test', [2, 'test']]} searchable defaultExpandDepth={5} />);
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'test' } });
+    expect(screen.getByText('2 matches')).toBeInTheDocument();
+  });
+
+  // ─── Expand all / Collapse all ───
+
+  it('expand all button expands deeply nested nodes', () => {
+    render(
+      <JsonTreeViewer
+        data={{ a: { b: { c: 'deep' } } }}
+        defaultExpandDepth={0}
+        searchable
+      />,
+    );
+    expect(screen.queryByText('c')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('Expand all'));
+    expect(screen.getByText('c')).toBeInTheDocument();
+    expect(screen.getByText(/"deep"/)).toBeInTheDocument();
+  });
+
+  it('collapse all button collapses all nodes', () => {
+    render(
+      <JsonTreeViewer
+        data={{ a: { b: 1 }, c: 2 }}
+        defaultExpandDepth={10}
+        searchable
+      />,
+    );
+    expect(screen.getByText('a')).toBeInTheDocument();
+    expect(screen.getByText('b')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('Collapse all'));
+    expect(screen.queryByText('b')).toBeNull();
+    expect(screen.queryByText('a')).toBeNull();
+  });
+
+  // ─── Truncated JSON (raw body path) ───
+
+  it('renders truncated JSON as formatted pre block', () => {
+    const truncated = '{"name":"Alice","items":[1,2,3';
+    const { container } = render(<JsonTreeViewer data={truncated} />);
+    const pre = container.querySelector('.jtv-raw-body');
+    expect(pre).toBeTruthy();
+    expect(pre!.textContent).toContain('"name"');
+    expect(pre!.textContent).toContain('Alice');
+  });
+
+  it('truncated JSON raw body shows toolbar with search when searchable', () => {
+    const truncated = '{"key":"value","arr":[1,2';
+    render(<JsonTreeViewer data={truncated} searchable />);
+    expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
+    expect(screen.getByTitle('Copy JSON')).toBeInTheDocument();
+  });
+
+  it('truncated JSON raw body copy works', async () => {
+    const truncated = '{"broken":true,"data":[1';
+    render(<JsonTreeViewer data={truncated} />);
+    fireEvent.click(screen.getByTitle('Copy JSON'));
+    await act(async () => { Promise.resolve().then(() => {}); });
+    expect(writeText).toHaveBeenCalledTimes(1);
+  });
+
+  it('truncated JSON with compact mode applies class', () => {
+    const truncated = '[1,2,3';
+    const { container } = render(<JsonTreeViewer data={truncated} compact />);
+    expect(container.querySelector('.jtv-compact')).toBeTruthy();
+  });
+
+  it('truncated JSON respects copyable=false', () => {
+    const truncated = '{"a":1';
+    render(<JsonTreeViewer data={truncated} copyable={false} searchable={false} />);
+    expect(screen.queryByTitle('Copy JSON')).not.toBeInTheDocument();
+  });
+
+  // ─── Double-encoded JSON ───
+
+  it('parses double-encoded JSON string and renders as tree when inner is valid JSON', () => {
+    // Double-encoded: the first JSON.parse returns a string, which is itself valid JSON
+    // parseValue first parse returns string '{"msg":"hello"}', then tries parse again → object
+    const inner = '{"msg":"hello"}';
+    const doubleEncoded = JSON.stringify(inner); // '"{\\"msg\\":\\"hello\\"}"'
+    render(<JsonTreeViewer data={doubleEncoded} defaultExpandDepth={5} />);
+    // After double-decode, we get the object {msg:'hello'} → rendered as tree
+    expect(screen.getByText('msg')).toBeInTheDocument();
+  });
+
+  it('falls back to raw string for doubly-quoted non-JSON', () => {
+    // A quoted plain string like '"hello"' — first parse gives 'hello', a primitive
+    const data = '"just a quoted string"';
+    const { container } = render(<JsonTreeViewer data={data} copyable={false} />);
+    expect(container.querySelector('.jtv-string')).toHaveTextContent('"just a quoted string"');
+  });
+
+  // ─── Search auto-expands matching nodes ───
+
+  it('auto-expands collapsed nodes when search matches nested content', () => {
+    render(
+      <JsonTreeViewer
+        data={{ outer: { inner: { deep: 'findme' } } }}
+        defaultExpandDepth={0}
+        searchable
+      />,
+    );
+    expect(screen.queryByText('deep')).toBeNull();
+
+    const input = screen.getByPlaceholderText('Search keys or values...');
+    fireEvent.change(input, { target: { value: 'findme' } });
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
+
+  // ─── Non-last sibling comma in arrays ───
+
+  it('renders commas between array items', () => {
+    const { container } = render(
+      <JsonTreeViewer data={['a', 'b', 'c']} defaultExpandDepth={5} />,
+    );
+    const commas = container.querySelectorAll('.jtv-comma');
+    expect(commas.length).toBeGreaterThanOrEqual(2);
   });
 });

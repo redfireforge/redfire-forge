@@ -31,6 +31,9 @@ export async function handleConditionNode(
   for (const e of skipEdges) {
     markSubtreeSkipped(e.target, hCtx.outgoing, hCtx.nodeMap, hCtx.visited, hCtx.callbacks, hCtx.incomingCount);
   }
+  for (const e of matchEdges) {
+    hCtx.traceCollector.onEdgeTraversed(e.id);
+  }
   if (matchEdges.length > 1) {
     await Promise.all(matchEdges.map((e, i) =>
       hCtx.visit(e.target, `${hCtx.threadId}-cond-${i}`)
@@ -73,6 +76,9 @@ export async function handleForkNode(
   const nextEdges = hCtx.outgoing.get(nodeId) ?? [];
   hCtx.log({ prefix: '*', text: `[${hCtx.nodeLabel(nodeId)}] Forking into ${nextEdges.length} branches` });
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'pass' });
+  for (const edge of nextEdges) {
+    hCtx.traceCollector.onEdgeTraversed(edge.id);
+  }
   await Promise.all(nextEdges.map((edge, i) =>
     hCtx.visit(edge.target, `${hCtx.threadId}-branch-${i}`)
   ));
@@ -109,6 +115,7 @@ export async function handleSwitchNode(
     markSubtreeSkipped(e.target, hCtx.outgoing, hCtx.nodeMap, hCtx.visited, hCtx.callbacks, hCtx.incomingCount);
   }
   for (const e of takenEdges) {
+    hCtx.traceCollector.onEdgeTraversed(e.id);
     await hCtx.visit(e.target, hCtx.threadId);
   }
 }

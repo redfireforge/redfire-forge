@@ -1,14 +1,18 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import JsonPreview, { buildJTree, nodeMatches, collectMatchNodes, type JNode } from './JsonTreePreview';
 
 // Mock scrollIntoView
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 describe('JsonTreePreview', () => {
@@ -244,6 +248,75 @@ describe('JsonTreePreview', () => {
       const nullJson = JSON.stringify({ value: null });
       render(<JsonPreview {...defaultProps} body={nullJson} />);
       expect(screen.getByText('null')).toBeInTheDocument();
+    });
+
+    it('calls onToggle when a branch is clicked', () => {
+      const onToggle = vi.fn();
+      const { container } = render(
+        <JsonPreview
+          body='{"nested":{"inner":"value"}}'
+          collapsedSet={new Set<string>()}
+          onToggle={onToggle}
+        />
+      );
+      const toggle = container.querySelector('.jt-toggle');
+      expect(toggle).toBeTruthy();
+      fireEvent.click(toggle!);
+      expect(onToggle).toHaveBeenCalledWith('');
+    });
+
+    it('highlights raw body search matches and marks active index', () => {
+      const { container, rerender } = render(
+        <JsonPreview
+          body="foo bar foo baz"
+          collapsedSet={new Set()}
+          onToggle={vi.fn()}
+          search="foo"
+          currentMatchIdx={0}
+        />
+      );
+      const marks = container.querySelectorAll('mark.req-search-highlight');
+      expect(marks.length).toBe(2);
+      expect(marks[0].classList.contains('jt-active-match')).toBe(true);
+      expect(marks[1].classList.contains('jt-active-match')).toBe(false);
+
+      rerender(
+        <JsonPreview
+          body="foo bar foo baz"
+          collapsedSet={new Set()}
+          onToggle={vi.fn()}
+          search="foo"
+          currentMatchIdx={1}
+        />
+      );
+      const marksAfter = container.querySelectorAll('mark.req-search-highlight');
+      expect(marksAfter[1].classList.contains('jt-active-match')).toBe(true);
+    });
+
+    it('invokes onToggle to uncollapse ancestors for the active search match', () => {
+      const onToggle = vi.fn();
+      render(
+        <JsonPreview
+          body='{"nested":{"inner":"uniqueMarker"}}'
+          collapsedSet={new Set(['/nested'])}
+          onToggle={onToggle}
+          search="uniqueMarker"
+          currentMatchIdx={0}
+        />
+      );
+      expect(onToggle).toHaveBeenCalledWith('/nested');
+    });
+
+    it('expands path keys for search highlighting', () => {
+      render(
+        <JsonPreview
+          body='{"findKey":"v"}'
+          collapsedSet={new Set()}
+          onToggle={vi.fn()}
+          search="findKey"
+        />
+      );
+      expect(document.querySelectorAll('.req-search-highlight').length).toBeGreaterThan(0);
     });
   });
 });

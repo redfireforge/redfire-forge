@@ -100,6 +100,26 @@ describe('ResultsExplorerDetailPanel', () => {
     expect(screen.getByText('100ms avg')).toBeInTheDocument();
   });
 
+  it('hides quick-stat average when no execution reports durationMs', () => {
+    const noDur: ExecutionEvent[] = [
+      { ...mockEvents[0], durationMs: undefined },
+      { ...mockEvents[1], durationMs: undefined },
+    ];
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={noDur}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.queryByText(/avg$/)).not.toBeInTheDocument();
+  });
+
   it('renders tabs for HTTP nodes', () => {
     render(
       <ResultsExplorerDetailPanel
@@ -191,6 +211,45 @@ describe('ResultsExplorerDetailPanel', () => {
     const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '0' } });
     expect(mockOnIterationChange).toHaveBeenCalledWith(0);
+    mockOnIterationChange.mockClear();
+    fireEvent.change(select, { target: { value: 'all' } });
+    expect(mockOnIterationChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it('uses first event when a specific iteration index is selected', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[mockEvents[0], { ...mockEvents[1], details: { ...mockEvents[1].details, statusCode: 418 } }]}
+        iterations={mockIterations}
+        selectedIteration={0}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.getByText('200')).toBeInTheDocument();
+    expect(screen.queryByText('418')).not.toBeInTheDocument();
+  });
+
+  it('returns to overview tab when Overview is clicked', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={mockEvents}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    expect(screen.getByText('Pass Rate')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', () => {
@@ -227,6 +286,77 @@ describe('ResultsExplorerDetailPanel', () => {
     expect(screen.getByText('Per-Iteration Breakdown')).toBeInTheDocument();
     expect(screen.getByText('#1')).toBeInTheDocument();
     expect(screen.getByText('#2')).toBeInTheDocument();
+  });
+
+  it('shows neutral iteration marker for skipped executions', () => {
+    const skippedEvent: ExecutionEvent = {
+      nodeId: 'http-1',
+      nodeType: 'http',
+      nodeLabel: 'Get Users',
+      timestamp: 3000,
+      state: 'skipped',
+      durationMs: 5,
+      details: { method: 'GET', url: '/api/x' },
+    };
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[mockEvents[0], skippedEvent]}
+        iterations={mockIterations}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    const rows = document.querySelectorAll('.iteration-row.skipped');
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toHaveTextContent('○');
+  });
+
+  it('formats sub-millisecond and multi-second durations in iteration picker', () => {
+    const iters: WorkflowIterationTrace[] = [
+      { index: 0, passed: true, durationMs: 0.4, traversedEdges: [], events: [] },
+      { index: 1, passed: false, durationMs: 1500, traversedEdges: [], events: [] },
+    ];
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={mockEvents}
+        iterations={iters}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(screen.getByText('#1 — ✓ <1ms')).toBeInTheDocument();
+    expect(screen.getByText('#2 — ✗ 1.50s')).toBeInTheDocument();
+  });
+
+  it('shows timing bar from responseTimeMs when durationMs is absent', () => {
+    render(
+      <ResultsExplorerDetailPanel
+        nodeId="http-1"
+        nodeType="http"
+        nodeLabel="Get Users"
+        events={[{
+          nodeId: 'http-1',
+          nodeType: 'http',
+          nodeLabel: 'Get Users',
+          timestamp: 1,
+          state: 'pass',
+          details: { method: 'GET', url: '/x', statusCode: 200, responseTimeMs: 99 },
+        }]}
+        iterations={[{ index: 0, passed: true, durationMs: 99, traversedEdges: [], events: [] }]}
+        onIterationChange={mockOnIterationChange}
+        onClose={mockOnClose}
+      />
+    );
+
+    expect(document.querySelector('.exec-timing-row')).toBeInTheDocument();
   });
 
   it('switches to assertions tab', () => {
@@ -516,6 +646,34 @@ describe('ResultsExplorerDetailPanel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Response' }));
       expect(screen.getByText('Truncated')).toBeInTheDocument();
     });
+
+    it('shows empty response when full trace has request but no response payload', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[{
+            nodeId: 'http-1',
+            nodeType: 'http',
+            nodeLabel: 'Get Users',
+            timestamp: 1,
+            state: 'pass',
+            durationMs: 10,
+            details: {
+              request: { method: 'GET', url: '/x' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 10, traversedEdges: [], events: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Response' }));
+      expect(screen.getByText('No response data available')).toBeInTheDocument();
+    });
   });
 
   describe('Variables Tab', () => {
@@ -533,6 +691,59 @@ describe('ResultsExplorerDetailPanel', () => {
         variablesSnapshot: { token: 'abc123', userId: '42', baseUrl: 'https://api.example.com' },
       },
     }];
+
+    it('shows empty variable message when only webhook input exists', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="webhook-1"
+          nodeType="webhook"
+          nodeLabel="Hook"
+          events={[{
+            nodeId: 'webhook-1',
+            nodeType: 'webhook',
+            nodeLabel: 'Hook',
+            timestamp: 1,
+            state: 'pass',
+            details: {
+              webhookInput: { payload: '{}', method: 'POST', path: '/p' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 1, traversedEdges: [], events: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getByText('No variable data available')).toBeInTheDocument();
+    });
+
+    it('truncates long variable values', () => {
+      const longVal = `${'x'.repeat(120)}end`;
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={[{
+            ...eventsWithVariables[0],
+            details: {
+              ...eventsWithVariables[0].details,
+              extractedVariables: { token: longVal },
+              variablesSnapshot: { token: longVal, baseUrl: 'https://api.example.com' },
+            },
+          }]}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithVariables }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getAllByText(`${'x'.repeat(100)}...`)).toHaveLength(2);
+    });
 
     it('shows extracted and snapshot variables', () => {
       render(

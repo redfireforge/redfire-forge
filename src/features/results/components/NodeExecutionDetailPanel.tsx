@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
 
 type StatusFilter = 'all' | 'pass' | 'fail' | 'skipped';
 
@@ -20,13 +21,6 @@ function getStatusBadge(state: 'pass' | 'fail' | 'skipped') {
       {state === 'pass' ? '✓' : state === 'fail' ? '✗' : '○'} {labels[state]}
     </span>
   );
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }
 
 export default function NodeExecutionDetailPanel({
@@ -120,7 +114,7 @@ export default function NodeExecutionDetailPanel({
         {d.responseTimeMs !== undefined && (
           <div className="node-detail-row">
             <span className="node-detail-label">Response Time</span>
-            <span className="node-detail-value">{formatDuration(d.responseTimeMs)}</span>
+            <span className="node-detail-value">{formatDurationMs(d.responseTimeMs)}</span>
           </div>
         )}
         {d.error && (
@@ -168,7 +162,7 @@ export default function NodeExecutionDetailPanel({
               </div>
               <div className="node-detail-hero-divider" />
               <div className="node-detail-hero-stat">
-                <span className="node-detail-hero-value">{formatDuration(aggregateStats.avgDuration)}</span>
+                <span className="node-detail-hero-value">{formatDurationMs(aggregateStats.avgDuration)}</span>
                 <span className="node-detail-hero-label">Avg Duration</span>
               </div>
             </div>
@@ -212,15 +206,15 @@ export default function NodeExecutionDetailPanel({
               <div className="node-detail-timing">
                 <div className="node-detail-timing-stat">
                   <span className="node-detail-timing-label">Min</span>
-                  <span className="node-detail-timing-value">{formatDuration(aggregateStats.minDuration)}</span>
+                  <span className="node-detail-timing-value">{formatDurationMs(aggregateStats.minDuration)}</span>
                 </div>
                 <div className="node-detail-timing-stat">
                   <span className="node-detail-timing-label">Max</span>
-                  <span className="node-detail-timing-value">{formatDuration(aggregateStats.maxDuration)}</span>
+                  <span className="node-detail-timing-value">{formatDurationMs(aggregateStats.maxDuration)}</span>
                 </div>
                 <div className="node-detail-timing-stat">
                   <span className="node-detail-timing-label">P95</span>
-                  <span className="node-detail-timing-value">{formatDuration(aggregateStats.p95Duration)}</span>
+                  <span className="node-detail-timing-value">{formatDurationMs(aggregateStats.p95Duration)}</span>
                 </div>
               </div>
             )}
@@ -299,7 +293,7 @@ export default function NodeExecutionDetailPanel({
                     >
                       <span className="node-detail-iter-num">#{summary.iterIndex + 1}</span>
                       {getStatusBadge(summary.state)}
-                      <span className="node-detail-iter-duration">{formatDuration(summary.durationMs)}</span>
+                      <span className="node-detail-iter-duration">{formatDurationMs(summary.durationMs)}</span>
                       {isClickable && <span className="node-detail-iter-arrow">→</span>}
                     </div>
                   );

@@ -194,8 +194,7 @@ export function useTestExecution() {
       liveResults: capResults(pending.allResults),
       liveSummary: {
         ...summary,
-        // Preserve avgIterationTime from previous state (set by complete) if present
-        avgIterationTime: prev.liveSummary?.avgIterationTime ?? summary.avgIterationTime,
+        avgIterationTime: pending.profileMeta?.avgIterationTimeMs ?? prev.liveSummary?.avgIterationTime ?? summary.avgIterationTime,
       },
       profileMeta: pending.profileMeta ?? prev.profileMeta,
       timeSeries: timeSeriesRef.current,

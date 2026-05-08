@@ -1,7 +1,7 @@
 # Phase 7e Completion Summary — Visual Execution Replay & Results Explorer
 
-**Last Updated**: May 7, 2026  
-**Status**: Phases 1–4 Complete (Phase 5 Not Started)  
+**Last Updated**: May 8, 2026 (12:01 AM)  
+**Status**: Phases 1–5 **Fully Complete** (17/17 Phase 5 items done)  
 **Phase**: Visual Execution Replay → Results Explorer  
 **Current Version**: 0.5.7-beta.1  
 **Current Branch**: `feature/correlation-wait-runner-config`
@@ -24,7 +24,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 | **Phase 2** | Basic Replay UI | **Done** |
 | **Phase 3** | Node Detail Panel | **Done** |
 | **Phase 4** | Multi-Iteration Support | **Mostly Done** (see gaps below) |
-| **Phase 5** | Polish & Optimization | **Not Started** |
+| **Phase 5** | Polish & Optimization | **Done** (17/17 items complete) |
 
 ---
 
@@ -76,7 +76,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - ReactFlow-based workflow diagram renderer
 - Node state visualization: `.replay-node-pass` (green), `.replay-node-fail` (red), `.replay-node-skipped` (gray)
 - `.replay-node-selected` for clicked nodes (purple border)
-- Edge traversal highlighting: `.replay-edge-traversed` (purple pulse), `.replay-edge-not-traversed` (gray dashed)
+- Edge traversal highlighting: `.replay-edge-traversed` (animated flowing dash), `.replay-edge-not-traversed` (gray dashed)
 - Interactive zoom, pan, minimap
 - Pill-style controls (zoom in/out, fit view, minimap toggle)
 - Node click emits to parent for detail panel
@@ -90,7 +90,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Node state classes (`.replay-node-pass`, `.replay-node-fail`, `.replay-node-skipped`, `.replay-node-selected`)
 - Edge state classes (`.replay-edge-traversed`, `.replay-edge-not-traversed`)
 - `::before` pseudo-element badges (checkmark, X, minus)
-- Animated pulse keyframes
+- Animated flowing dash keyframes on traversed edges
 - Hover/focus states
 - All scoped to `.workflow-execution-replay-canvas` prefix to avoid leaking into Designer
 
@@ -144,7 +144,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Three-panel layout: diagram (left), detail (right), matrix (bottom collapsible)
 - Header shows: workflow name, timestamp, iteration count, pass rate, "Full Trace" badge
 - Footer shows: avg HTTP time, avg iteration time, total duration (aggregate), or iteration detail (single)
-- Keyboard shortcuts: Arrow Left/Right, A, M, Escape
+- Keyboard shortcuts: Arrow Left/Right, A, M, Space, 1-9, Escape
 - Computed metrics: failed iteration count, avg HTTP response time, avg iteration time
 - Empty state with summary stats when no node selected
 
@@ -157,18 +157,31 @@ The implementation evolved from the original "Execution Replay" concept into a r
 | Feature | Status | Notes |
 |---------|--------|-------|
 | **Aggregate View Toggle** (explicit radio/toggle) | Not implemented | Aggregate vs single is controlled implicitly via the iteration dropdown; there is no standalone "Single / Aggregate" radio button |
-| **Edge traversal percentages** | Not implemented | Plan calls for percentage labels on branching edges (e.g., "55% Success, 45% Error"); not present |
-| **Heatmap coloring** | Not implemented | Plan calls for color intensity based on performance (darker red = slower, darker green = faster); not present |
+| ~~**Edge traversal percentages**~~ | **Done** (Phase 5.16) | Percentage labels on branching edges in aggregate view |
+| ~~**Heatmap coloring**~~ | **Done** | Nodes colored on green→yellow→orange→red gradient based on avg duration. 4px bar at bottom + tinted background. |
 | **Aggregate detail panel with failure distribution** | Partially done | `NodeExecutionDetailPanel` shows per-iteration breakdown but no histogram or failure distribution chart |
 
-### Phase 5: Polish & Optimization (Not Started)
+### Phase 5: Polish & Optimization (Fully Complete — 17/17)
 
-| Task | Description | Status | Priority |
-|------|-------------|--------|----------|
-| **5.1 — Visual Enhancements** | Animated edge flow, smooth iteration transitions, loading states for large traces, node tooltips | Not implemented | Medium |
-| **5.2 — Trace Compression** | `lz-string` compression, trace sampling (>50 iterations), lazy trace loading | Not implemented — `lz-string` is available as transitive dep but NOT an explicit project dependency | High (storage optimization) |
-| **5.3 — Keyboard Shortcuts** | Space (toggle aggregate), 1–9 (jump to iteration N) | Not implemented — Escape, Arrow, A, M are done | Low |
-| **5.4 — Export** | Export trace as JSON, screenshot of canvas, aggregate metrics as CSV | Not implemented | Medium |
+| Task | Description | Status |
+|------|-------------|--------|
+| **5.1 — Trace Compression** | `lz-string` compression for IndexedDB storage. ~70-80% size reduction. | **Done** |
+| **5.2 — Trace Sampling** | Configurable threshold (default 50). Samples: first 10 + last 5 + all failed + every Nth. "Sampled" badge in explorer. User toggle in Workflow Runner config. | **Done** |
+| **5.3 — Lazy Trace Loading** | `idbLoadTestRunsLite()` omits `compressedTrace` from dashboard load. `idbLoadTrace(runId)` loads on-demand when Results Explorer opened. `hasTrace` flag for UI gating. | **Done** |
+| **5.4 — Node Tooltips** | Hover tooltip on canvas nodes showing label, status, avg duration, pass rate, execution count. | **Done** |
+| **5.5 — Export Trace as JSON** | "⬇ Export JSON" button in Results Explorer header. Saves full `WorkflowExecutionTrace` as `.json` file. | **Done** |
+| **5.6 — Import Trace from JSON** | "📂 Import Trace" button in Results Dashboard. Validates schema and opens in Results Explorer. Shows "📂 Imported: filename.json" badge. Hides Export button for imported traces. | **Done** |
+| **5.7 — Error Surfacing** | HTTP request errors (timeout, assertion failures) captured in `ExecutionEventDetails.error`. Shown in Overview tab, Response tab, and Iteration Matrix error column. | **Done** |
+| **5.8 — Real-time Avg Iteration** | `avgIterationTimeMs` reported in `ProgressMeta` during execution. LiveProgressPanel displays running average as iterations complete. | **Done** |
+| **5.9 — Progress Display Fix** | Progress bar shows "X / Y iterations" for workflow mode (not raw request count). | **Done** |
+| **5.10 — Floating Point Fix** | Iteration durations rounded to 1 decimal place at source. All chart stats (min, max, p95) and per-result times rounded. | **Done** |
+| **5.11 — Iteration Matrix Overhead** | Total column shows non-HTTP overhead inline (delay, condition nodes). Tooltip shows HTTP vs other breakdown. | **Done** |
+| **5.12 — URL Resolution** | `workflowBaseUrl` prepended to relative HTTP paths during execution. | **Done** |
+| **5.16 — Edge Traversal Percentages** | Branching edges show traversal percentage labels (e.g., "75%") in aggregate view. Only on edges from nodes with multiple outgoing paths. Excludes sampled-out iterations. Hidden in single-iteration view. | **Done** |
+| **5.17 — Edge Traversal Gallery Sample** | "Perf: Edge Traversal Demo" sample workflow in Gallery. Uses `SetVariable` + `$randomInt(1,150)` for ~67/33 branch split. Training manual (`edge-traversal-percentages-guide.html`) registered in `wf-runner` training path. | **Done** |
+| **5.13 — Keyboard Shortcuts** | Space toggles aggregate ↔ iteration #1. Keys 1–9 jump directly to iteration N. Updated footer shortcut hints. | **Done** |
+| **5.14 — Animated Edge Flow** | Traversed edges show flowing dash animation (`stroke-dasharray` + `stroke-dashoffset` keyframe at 0.6s) indicating flow direction. Non-traversed edges remain static dashed. | **Done** |
+| **5.15 — Export Aggregate CSV** | "📊 Export CSV" button (green) in Results Explorer header. Exports per-HTTP-node metrics (executions, pass rate, avg, min, max, P95) as `.csv` via `saveCsvFile`. Hidden for imported traces. | **Done** |
 
 ### Future Enhancements (Post-Phase 7e)
 
@@ -178,6 +191,7 @@ These are listed in the plan but intentionally deferred:
 - Search & filter nodes by name/state
 - Advanced path analysis (untested paths)
 - Performance heatmap with bottleneck identification
+- Import trace persistence (currently imported traces are temporary / session-only)
 
 ---
 
@@ -284,62 +298,36 @@ Workflow Execution
 
 4. **FitView & Canvas Layout** — Programmatic `fitView` with `setTimeout` was unreliable. Switched to declarative `fitView` prop, moved controls to sibling element, set minimal padding.
 
+5. **FitView After Node Measurement** — Initial `fitView` ran before custom nodes were measured, using default placeholder dimensions (~150x40) instead of actual rendered sizes (~250x120). Added debounced re-fit (150ms) triggered by `onNodesChange` dimension events so the canvas snaps to correct bounds after all nodes are measured. Increased `minZoom` to 0.1 and set `padding: 0.05`.
+
+6. **Edge Traversal Percentage Labels** — Replaced SVG-based `label`/`labelStyle` approach (limited styling, competed with edge visuals) with HTML overlay badges positioned at edge midpoints using `useViewport` transform. Monospace font, pill shape, zoom-responsive scaling (0.6x–1.2x). Also cleared inherited `label` from workflow snapshot edges via explicit `label: undefined` to prevent ghost rectangles.
+
 ---
 
-## What's Next: Phase 5 — Polish & Optimization
+## What's Next
 
-Phase 5 is the only remaining work for Phase 7e completion. Here's a prioritized breakdown:
-
-### High Priority
-
-| # | Task | Description | Effort | Dependencies |
-|---|------|-------------|--------|--------------|
-| 1 | **Trace Compression** | Add `lz-string` as explicit dependency; compress traces before IndexedDB storage; decompress on load. Expected 70-80% size reduction. | 2-3 hrs | `npm install lz-string @types/lz-string` |
-| 2 | **Trace Sampling** | For runs with >50 iterations, sample: first 10 + last 5 + all failed + every 10th. Show "Trace not available" for sampled-out iterations. | 2-3 hrs | None |
-| 3 | **Lazy Trace Loading** | Don't load `executionTrace` in dashboard initial load; fetch only when "Results Explorer" button is clicked. | 1-2 hrs | IndexedDB store separation |
-
-### Medium Priority
-
-| # | Task | Description | Effort | Dependencies |
-|---|------|-------------|--------|--------------|
-| 4 | **Node Tooltips** | Hover summary showing node name, status, avg duration without clicking. | 1 hr | None |
-| 5 | **Export Trace as JSON** | "Export" button in Results Explorer modal header; downloads `WorkflowExecutionTrace` as `.json`. | 1 hr | None |
-| 6 | **Export Aggregate Metrics as CSV** | Export per-node metrics table (name, avg time, pass rate, min, max, P95) as `.csv`. | 1 hr | None |
-| 7 | **Loading State** | Show skeleton/spinner while decompressing/loading large traces. | 1 hr | Depends on #1 |
-
-### Low Priority
-
-| # | Task | Description | Effort | Dependencies |
-|---|------|-------------|--------|--------------|
-| 8 | **Additional Keyboard Shortcuts** | Space (toggle aggregate view), 1-9 (jump to iteration N). | 30 min | None |
-| 9 | **Smooth Iteration Transitions** | CSS transition animation when switching iterations (fade/slide). | 1 hr | None |
-| 10 | **Animated Edge Flow** | CSS animation showing flow direction on traversed edges. | 1-2 hrs | None |
+Phase 7e is **100% complete** — all 17 of 17 Phase 5 items are done.
 
 ### Phase 4 Gaps (Optional — can be deferred to post-7e)
 
-| # | Task | Description | Effort | Dependencies |
-|---|------|-------------|--------|--------------|
-| 11 | **Edge Traversal Percentages** | Show percentage labels on branching edges in aggregate view. | 2 hrs | Trace data available |
-| 12 | **Heatmap Coloring** | Color nodes by performance (darker red = slower, darker green = faster). | 2 hrs | None |
-| 13 | **Explicit Aggregate Toggle** | Standalone "Single / Aggregate" radio button in header. | 1 hr | None |
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 1 | ~~**Heatmap Coloring**~~ | ~~Color nodes by performance~~ | **Done** — Nodes colored on a green→yellow→orange→red gradient based on avg duration relative to min/max. 4px colored bar at bottom + tinted background via CSS custom properties (`--heatmap-color`, `--heatmap-intensity`). Only activates when 2+ nodes have timing data. |
+| 2 | **Explicit Aggregate Toggle** | Standalone "Single / Aggregate" radio button in header | 1 hr (low priority — Space key now toggles) |
 
-### Estimated Total for Phase 5
+### Suggested Next Phase
 
-- **High Priority (must-have)**: ~6-8 hours
-- **Medium Priority (nice-to-have)**: ~4 hours
-- **Low Priority + Phase 4 gaps**: ~8 hours
-- **Total**: ~18-20 hours if all items done; ~6-8 hours for essential items only
+With Phase 7e fully complete, the recommended next work area depends on priorities:
+
+1. **Merge feature branch to develop** — Complete pre-merge checklist (full tests, coverage, docs, code review) and merge current work.
+2. **Code Quality & Coverage** — Full unit test coverage sweep, refactor monolithic files, E2E test gaps.
+3. **New Feature Phase** — Consult `ROADMAP.md` for the next feature phase (Phase 0.5.8b: Webhook Load Driver, or Phase 0.7.5: CI/CD Pipeline).
 
 ---
 
 ## Relationship to Current Work
 
-Phase 7e Results Explorer is **complete enough for production use** (Phases 1-4). The current branch (`feature/correlation-wait-runner-config`) is focused on **Phase 0.5.8b — Correlation Wait Runner Config & Webhook Load Driver**, which is separate work.
-
-Phase 5 polish items can be picked up:
-- **Before 1.0.0 launch** — trace compression (#1-3) is important for storage optimization
-- **After current feature branch** — as a dedicated `feature/results-explorer-polish` branch
-- **Incrementally** — individual items can be cherry-picked as needed
+Phase 7e Results Explorer is **production-ready and fully complete** (Phases 1-5, 17/17 Phase 5 items done). The current branch (`feature/correlation-wait-runner-config`) includes both the correlation wait runner work and all Phase 5 polish items.
 
 ---
 

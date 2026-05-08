@@ -601,6 +601,16 @@
 .results-top-row h2 { font-size: 1.5rem; margin: 0; white-space: nowrap; }
 .results-top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
+.results-import-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
 /* Run Type Filter Tabs */
 .results-run-filter-tabs {
   display: flex;

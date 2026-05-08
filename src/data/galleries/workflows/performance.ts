@@ -375,3 +375,136 @@ export function createPerfParallelWorkflow(): Workflow {
     updatedAt: Date.now(),
   };
 }
+
+/**
+ * Branching workflow designed to show edge traversal percentages.
+ * A SetVariable node generates a random postId (1–150) each iteration.
+ * JSONPlaceholder IDs 1–100 exist (200), 101+ return 404.
+ * Condition branches: found → get comments, not found → create post.
+ * Expected split: ~67% Found / ~33% Not Found.
+ * Run with 20+ iterations to see natural percentage split in Results Explorer.
+ */
+export function createPerfEdgePercentageWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-edge-pct',
+    name: 'Perf: Edge Traversal Demo',
+    description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split). Open Results Explorer aggregate view to see % on edges.',
+    variables: {},
+    nodes: [
+      {
+        id: 'ep-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'ep-setvar',
+        type: 'setVariable',
+        position: { x: 200, y: 80 },
+        data: {
+          label: 'Random Post ID',
+          assignments: [
+            { name: 'postId', expression: '{{$randomInt(1, 150)}}' },
+          ],
+        },
+      },
+      {
+        id: 'ep-fetch',
+        type: 'http',
+        position: { x: 200, y: 180 },
+        data: {
+          label: '1. Fetch Post',
+          scenario: {
+            id: 'ep-s1',
+            name: 'Fetch Random Post',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'fetchStatus', source: 'status', expression: '' },
+              { name: 'postTitle', source: 'body', expression: '$.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ep-cond',
+        type: 'condition',
+        position: { x: 240, y: 310 },
+        data: {
+          label: '2. Post Found?',
+          left: '{{fetchStatus}}',
+          operator: '==',
+          right: '200',
+        },
+      },
+      {
+        id: 'ep-found',
+        type: 'http',
+        position: { x: 50, y: 450 },
+        data: {
+          label: '3a. Get Comments',
+          scenario: {
+            id: 'ep-s2',
+            name: 'Get Post Comments',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'ep-notfound',
+        type: 'http',
+        position: { x: 420, y: 450 },
+        data: {
+          label: '3b. Create Post',
+          scenario: {
+            id: 'ep-s3',
+            name: 'Create New Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [
+              { key: 'Content-Type', value: 'application/json' },
+            ],
+            body: JSON.stringify({
+              title: 'Fallback Post',
+              body: 'Created because the random post ID was not found.',
+              userId: 1,
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '201' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'ep-e1', source: 'ep-start', target: 'ep-setvar' },
+      { id: 'ep-e2', source: 'ep-setvar', target: 'ep-fetch' },
+      { id: 'ep-e3', source: 'ep-fetch', target: 'ep-cond' },
+      { id: 'ep-e4', source: 'ep-cond', target: 'ep-found', sourceHandle: 'true', label: 'Found' },
+      { id: 'ep-e5', source: 'ep-cond', target: 'ep-notfound', sourceHandle: 'false', label: 'Not Found' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}

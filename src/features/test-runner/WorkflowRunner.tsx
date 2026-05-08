@@ -544,6 +544,42 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
               <span className="wf-inline-toggle-label">Full trace</span>
             </label>
             <span className="wf-inline-hint">— capture request/response details for Results Explorer {traceOptions.captureFullTrace && <span className="wf-inline-warn">(≤100 iterations recommended)</span>}</span>
+
+            {/* Trace sampling toggle */}
+            {traceOptions.captureFullTrace && (
+              <div className="wf-sampling-config">
+                <div className="wf-sampling-row">
+                  <label className="wf-inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={traceOptions.samplingEnabled !== false}
+                      onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingEnabled: e.target.checked }))}
+                      disabled={isRunning}
+                    />
+                    <span className="wf-inline-toggle-label">Trace sampling</span>
+                  </label>
+                  <span className="wf-inline-hint">— keep only a subset of iteration traces for large runs</span>
+                </div>
+                {traceOptions.samplingEnabled !== false && (
+                  <div className="wf-sampling-threshold">
+                    <label className="wf-inline-label">
+                      Threshold:
+                      <input
+                        type="number"
+                        min={10}
+                        max={1000}
+                        step={10}
+                        value={traceOptions.samplingThreshold ?? 50}
+                        onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
+                        disabled={isRunning}
+                        className="wf-sampling-threshold-input"
+                      />
+                    </label>
+                    <span className="wf-inline-hint">iterations — full traces kept for runs above this count</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Execution settings (concurrency, iterations, etc.) — hidden for webhook load test mode */}

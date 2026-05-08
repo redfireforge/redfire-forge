@@ -16,6 +16,8 @@ export interface ProgressMeta {
   targetConcurrency: number;
   currentInFlight: number;
   durationMs: number;
+  /** Running average of iteration durations (ms) — workflow mode only. */
+  avgIterationTimeMs?: number;
 }
 
 type ProgressCallback = (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;

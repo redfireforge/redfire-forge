@@ -252,5 +252,8 @@ export function defaultFilterState(): GalleryFilterState {
 
 /** Extract hostname from a URL string, with fallback. */
 export function apiHostname(url: string): string {
-  try { return new URL(url).hostname; } catch { return url; }
+  try {
+    const h = new URL(url).hostname;
+    return h || url;
+  } catch { return url; }
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
+import { bestEffortFormat } from './jsonTreeShared';
 
 interface Props {
   data: string | Record<string, unknown> | unknown[] | unknown;
@@ -21,7 +22,15 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 function parseValue(data: unknown): JsonValue {
   if (data === null || data === undefined) return null;
   if (typeof data === 'string') {
-    try { return JSON.parse(data); }
+    try {
+      const first = JSON.parse(data);
+      // If the result is still a string that looks like JSON, parse one more level
+      if (typeof first === 'string' && (first.startsWith('{') || first.startsWith('['))) {
+        try { return JSON.parse(first); }
+        catch { return first; }
+      }
+      return first;
+    }
     catch { return data; }
   }
   return data as JsonValue;
@@ -73,6 +82,41 @@ export default function JsonTreeViewer({
   }
 
   if (typeof parsed !== 'object') {
+    // If the original data was a string that looks like JSON but failed to parse
+    // (e.g. truncated), show it as formatted text rather than an escaped string literal
+    const isUnparsedJsonString = typeof data === 'string' && typeof parsed === 'string'
+      && (parsed.trimStart().startsWith('{') || parsed.trimStart().startsWith('['));
+
+    if (isUnparsedJsonString) {
+      return (
+        <div className={`jtv-root ${compact ? 'jtv-compact' : ''}`} style={maxHeight ? { maxHeight } : undefined}>
+          {(searchable || copyable) && (
+            <div className="jtv-toolbar">
+              {searchable && (
+                <div className="jtv-search">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="jtv-search-input"
+                  />
+                </div>
+              )}
+              <div className="jtv-toolbar-actions">
+                {copyable && (
+                  <button className="jtv-toolbar-btn" onClick={handleCopy} title="Copy JSON">
+                    {copied ? '✓' : 'Copy'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          <pre className="jtv-raw-body">{bestEffortFormat(parsed)}</pre>
+        </div>
+      );
+    }
+
     return (
       <div className={`jtv-root ${compact ? 'jtv-compact' : ''}`} style={maxHeight ? { maxHeight } : undefined}>
         <span className={`jtv-${typeof parsed}`}>{JSON.stringify(parsed)}</span>
