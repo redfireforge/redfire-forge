@@ -21,7 +21,7 @@ vi.mock('../utils/testDefinitionVersioning', () => ({
 
 import { useScenarioMutations } from './useScenarioMutations';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
-import { logFgRenamed, logScenarioRenamed, logTestRenamed } from '../utils/structureChangeLog';
+import { logFgRenamed, logScenarioRenamed, logTestAdded, logTestRenamed } from '../utils/structureChangeLog';
 import type { FeatureGroup } from '../../../shared/types';
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
@@ -54,7 +54,7 @@ function setupWithoutEnv(initialFgs: FeatureGroup[] = []) {
   return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, clearAuthVerifyResult };
 }
 
-function setup(initialFgs: FeatureGroup[] = []) {
+function setup(initialFgs: FeatureGroup[] = [], unassociated: FeatureGroup[] = []) {
   const clearAuthVerifyResult = vi.fn();
   let fgs = initialFgs;
   const setFeatureGroups = vi.fn((updater: any) => {
@@ -64,9 +64,31 @@ function setup(initialFgs: FeatureGroup[] = []) {
     useScenarioMutations({
       featureGroups: fgs,
       setFeatureGroups,
-      unassociatedFeatureGroups: [],
+      unassociatedFeatureGroups: unassociated,
       selectedSvcId: 'svc-1',
       selectedEnvId: 'env-1',
+      clearAuthVerifyResult,
+    }),
+  );
+  return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, clearAuthVerifyResult };
+}
+
+function setupSelectable(
+  initialFgs: FeatureGroup[],
+  opts: { selectedSvcId?: string; selectedEnvId?: string; omitClearAuth?: boolean; unassociated?: FeatureGroup[] },
+) {
+  const clearAuthVerifyResult = opts.omitClearAuth ? undefined : vi.fn();
+  let fgs = initialFgs;
+  const setFeatureGroups = vi.fn((updater: any) => {
+    fgs = typeof updater === 'function' ? updater(fgs) : updater;
+  });
+  const hookResult = renderHook(() =>
+    useScenarioMutations({
+      featureGroups: fgs,
+      setFeatureGroups,
+      unassociatedFeatureGroups: opts.unassociated ?? [],
+      selectedSvcId: opts.selectedSvcId,
+      selectedEnvId: opts.selectedEnvId,
       clearAuthVerifyResult,
     }),
   );
@@ -772,6 +794,241 @@ describe('useScenarioMutations', () => {
       act(() => { result.current.setNewName(''); });
       act(() => { result.current.addScenario('fg-1'); });
       expect(getFeatureGroups()[0].scenarios.length).toBe(0);
+    });
+  });
+
+  describe('branch coverage — multi-entity map paths and guards', () => {
+    const minimalTest = (id: string, name: string, url = '/a') =>
+      ({ id, name, url, method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] }) as any;
+
+    it('assignFeatureGroup is a no-op when id does not match', () => {
+      const a = makeFg({ id: 'fg-a', name: 'A' });
+      const b = makeFg({ id: 'fg-b', name: 'B' });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.assignFeatureGroup('ghost', 'svc-x', 'env-x'); });
+      expect(getFeatureGroups()[0].microserviceId).toBe('svc-1');
+      expect(getFeatureGroups()[1].microserviceId).toBe('svc-1');
+    });
+
+    it('removeFeatureGroup handles unknown id without scenario reduction expression', () => {
+      const { result } = setup([makeFg()]);
+      act(() => { result.current.removeFeatureGroup('no-such'); });
+      expect(result.current.confirmDialog!.message).not.toContain('scenario(s)');
+    });
+
+    it('removeFeatureGroup resolves feature group in unassociatedFeatureGroups', () => {
+      const orphan = makeFg({ id: 'fg-orphan', name: 'Orphan' });
+      const { result } = setup([], [orphan]);
+      act(() => { result.current.removeFeatureGroup('fg-orphan'); });
+      expect(result.current.confirmDialog!.title).toBe('Delete Feature Group');
+    });
+
+    it('renameFeatureGroup only mutates the matching feature group', () => {
+      const a = makeFg({ id: 'fg-a', name: 'Keep' });
+      const b = makeFg({ id: 'fg-b', name: 'Change' });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.setEditName('Boom'); });
+      act(() => { result.current.renameFeatureGroup('fg-b'); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.name).toBe('Keep');
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.name).toBe('Boom');
+    });
+
+    it('addScenario does not append when featureId is unknown', () => {
+      const fg = makeFg();
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.setNewName('Lonely'); });
+      act(() => { result.current.addScenario('unknown-fg'); });
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(0);
+    });
+
+    it('removeScenario uses zero tests when scenario id is unknown', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
+      const { result } = setup([fg]);
+      act(() => { result.current.removeScenario('fg-1', 'ghost-sc'); });
+      expect(result.current.confirmDialog!.message).not.toContain('It contains');
+    });
+
+    it('updateScenarioAuth ignores non-matching feature groups', () => {
+      const sa = (id: string) => ({ id, name: id, tests: [] as any[] });
+      const a = makeFg({ id: 'fg-a', scenarios: [sa('sc-a')] });
+      const b = makeFg({ id: 'fg-b', scenarios: [sa('sc-b')] });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.updateScenarioAuth('fg-b', 'sc-b', { type: 'basic', username: 'u', password: 'p' }); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios[0].auth).toBeUndefined();
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios[0].auth).toEqual({ type: 'basic', username: 'u', password: 'p' });
+    });
+
+    it('removeScenario confirm only updates the matching feature group', () => {
+      const s = (id: string) => ({ id, name: id, tests: [] as any[] });
+      const a = makeFg({ id: 'fg-a', scenarios: [s('sc-a')] });
+      const b = makeFg({ id: 'fg-b', scenarios: [s('sc-b')] });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.removeScenario('fg-b', 'sc-b'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios).toHaveLength(1);
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios).toHaveLength(0);
+    });
+
+    it('removeScenario confirm is harmless when scenario id was unknown', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Only', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.removeScenario('fg-1', 'no-scenario'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(1);
+    });
+
+    it('renameScenario leaves non-matching feature groups untouched', () => {
+      const a = makeFg({ id: 'fg-a', scenarios: [{ id: 'sc-a', name: 'A', tests: [] }] });
+      const b = makeFg({ id: 'fg-b', scenarios: [{ id: 'sc-b', name: 'B', tests: [] }] });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.setEditName('Bee'); });
+      act(() => { result.current.renameScenario('fg-b', 'sc-b'); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios[0].name).toBe('A');
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios[0].name).toBe('Bee');
+    });
+
+    it('renameScenario skips log when scenario id is missing', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'X', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      vi.mocked(logScenarioRenamed).mockClear();
+      act(() => { result.current.setEditName('Y'); });
+      act(() => { result.current.renameScenario('fg-1', 'missing'); });
+      expect(getFeatureGroups()[0].scenarios[0].name).toBe('X');
+      expect(vi.mocked(logScenarioRenamed)).not.toHaveBeenCalled();
+    });
+
+    it('updateFeatureAuth ignores non-matching feature groups', () => {
+      const a = makeFg({ id: 'fg-a' });
+      const b = makeFg({ id: 'fg-b' });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.updateFeatureAuth('fg-b', { type: 'none' }); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.auth).toBeUndefined();
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.auth).toEqual({ type: 'none' });
+    });
+
+    it('updateScenarioAuth only touches the targeted scenario', () => {
+      const fg = makeFg({
+        scenarios: [
+          { id: 'sc-1', name: 'One', tests: [] },
+          { id: 'sc-2', name: 'Two', tests: [] },
+        ],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.updateScenarioAuth('fg-1', 'sc-2', { type: 'basic', username: 'u', password: 'p' }); });
+      expect(getFeatureGroups()[0].scenarios[0].auth).toBeUndefined();
+      expect(getFeatureGroups()[0].scenarios[1].auth).toEqual({ type: 'basic', username: 'u', password: 'p' });
+    });
+
+    it('saveTest skips non-matching feature groups in the updater', () => {
+      const t = minimalTest('t-1', 'T', '/x');
+      const a = makeFg({ id: 'fg-a', scenarios: [{ id: 'sc-a', name: 'SA', tests: [t] }] });
+      const b = makeFg({ id: 'fg-b', scenarios: [{ id: 'sc-b', name: 'SB', tests: [] }] });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.startNewTest('fg-b', 'sc-b'); });
+      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'New', url: '/n' })); });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios[0].tests).toHaveLength(1);
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios[0].tests[0].name).toBe('New');
+    });
+
+    it('saveTest skips non-matching scenarios when adding a test', () => {
+      const fg = makeFg({
+        scenarios: [
+          { id: 'sc-a', name: 'A', tests: [] },
+          { id: 'sc-b', name: 'B', tests: [] },
+        ],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-b'); });
+      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Only B', url: '/b' })); });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      expect(getFeatureGroups()[0].scenarios[1].tests[0].name).toBe('Only B');
+    });
+
+    it('saveTest maps sibling tests when updating one of several', () => {
+      const tKeep = minimalTest('t-keep', 'Keep', '/k');
+      const tEdit = minimalTest('t-edit', 'Edit', '/e');
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [tKeep, tEdit] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', tEdit); });
+      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Edited', url: '/e2' })); });
+      act(() => { result.current.saveTest(); });
+      const tests = getFeatureGroups()[0].scenarios[0].tests;
+      expect(tests.find(t => t.id === 't-keep')).toMatchObject({ name: 'Keep', url: '/k' });
+      expect(tests.find(t => t.id === 't-edit')).toMatchObject({ name: 'Edited', url: '/e2' });
+    });
+
+    it('saveTest still logs additions when scenario lookup misses', () => {
+      vi.mocked(logTestAdded).mockClear();
+      const fg = makeFg({ scenarios: [{ id: 'sc-real', name: 'Real', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-ghost'); });
+      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Orphan try', url: '/o' })); });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      expect(vi.mocked(logTestAdded)).toHaveBeenCalled();
+    });
+
+    it('saveTest skips rename log when existing test id missing from scenario list', () => {
+      vi.mocked(logTestRenamed).mockClear();
+      const t = minimalTest('t-1', 'Old', '/a');
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [t] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', t); });
+      act(() => { result.current.setDraft((p: any) => ({ ...p, id: 'ghost-id', name: 'N', url: '/b' })); });
+      act(() => { result.current.saveTest(); });
+      expect(vi.mocked(logTestRenamed)).not.toHaveBeenCalled();
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(1);
+      expect(getFeatureGroups()[0].scenarios[0].tests[0]).toMatchObject({ id: 't-1', name: 'Old' });
+    });
+
+    it('handleVersionRename uses empty definitions array when snapshot has none', () => {
+      const { result } = setup();
+      expect(result.current.draft.definitionVersions).toBeUndefined();
+      act(() => { result.current.handleVersionRename('any', 'L'); });
+      expect(result.current.draft.definitionVersions).toEqual([]);
+    });
+
+    it('removeTest onConfirm skips unrelated feature groups', () => {
+      const ta = minimalTest('t-a', 'A', '/a');
+      const tb = minimalTest('t-b', 'B', '/b');
+      const a = makeFg({ id: 'fg-a', scenarios: [{ id: 'sc-a', name: 'SA', tests: [ta] }] });
+      const b = makeFg({ id: 'fg-b', scenarios: [{ id: 'sc-b', name: 'SB', tests: [tb] }] });
+      const { result, getFeatureGroups } = setup([a, b]);
+      act(() => { result.current.removeTest('fg-b', 'sc-b', 't-b'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios[0].tests).toHaveLength(1);
+      expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('removeTest onConfirm keeps sibling tests in the scenario map', () => {
+      const t1 = minimalTest('t-1', 'One', '/1');
+      const t2 = minimalTest('t-2', 'Two', '/2');
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [t1, t2] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests.map(t => t.id)).toEqual(['t-2']);
+    });
+
+    it('addFeatureGroup returns early when only environment is selected', () => {
+      const { result, getFeatureGroups } = setupSelectable([], { selectedEnvId: 'env-1' });
+      act(() => { result.current.setNewName('Half'); });
+      act(() => { result.current.addFeatureGroup(); });
+      expect(getFeatureGroups()).toHaveLength(0);
+    });
+
+    it('addFeatureGroup returns early when only microservice is selected', () => {
+      const { result, getFeatureGroups } = setupSelectable([], { selectedSvcId: 'svc-1' });
+      act(() => { result.current.setNewName('Half'); });
+      act(() => { result.current.addFeatureGroup(); });
+      expect(getFeatureGroups()).toHaveLength(0);
+    });
+
+    it('startNewTest does not throw when clearAuthVerifyResult is omitted', () => {
+      const { result } = setupSelectable([makeFg()], { selectedSvcId: 'svc-1', selectedEnvId: 'env-1', omitClearAuth: true });
+      expect(() => act(() => { result.current.startNewTest('fg-1', 'sc-1'); })).not.toThrow();
     });
   });
 });

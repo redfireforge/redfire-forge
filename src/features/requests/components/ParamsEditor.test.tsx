@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ParamsEditor, toParamEntries, fromParamEntries } from './ParamsEditor';
 import type { ParamEntry } from './ParamsEditor';
+import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
 
 function makeParams(overrides?: Partial<ParamEntry>[]): ParamEntry[] {
   const defaults: ParamEntry[] = [
@@ -166,9 +167,61 @@ describe('ParamsEditor', () => {
     expect(screen.queryByText('Import from URL')).toBeNull();
   });
 
-  it('shows no badge when no active params', () => {
-    render(<ParamsEditor params={[{ key: '', value: '', enabled: true, description: '' }]} onChange={vi.fn()} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
-    expect(document.querySelector('.tab-badge')).toBeNull();
+  it('calls onChange when value input changes', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+    const valueInputs = screen.getAllByPlaceholderText('value');
+    fireEvent.change(valueInputs[0], { target: { value: '99' } });
+    expect(onChange.mock.calls[0][0][0].value).toBe('99');
+  });
+
+  it('updates description field when description column is visible', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Description'));
+    const descInputs = document.querySelectorAll('.params-desc-input');
+    fireEvent.change(descInputs[0], { target: { value: 'optional note' } });
+    expect(onChange.mock.calls[0][0][0].description).toBe('optional note');
+  });
+
+  it('includes workflow variable hints in the source map for simple refs', () => {
+    const hints: WorkflowVariableHint[] = [{
+      ref: 'page',
+      label: 'page (this step)',
+    }];
+    const params = [
+      { key: 'page', value: '{{page}}', enabled: true, description: '' },
+      { key: 'limit', value: '10', enabled: true, description: '' },
+    ];
+    render(<ParamsEditor params={params} onChange={vi.fn()} variableHints={hints} />);
+    const sources = document.querySelectorAll('.params-source-cell') as NodeListOf<HTMLInputElement>;
+    expect(sources[0].value).toBe('This step');
+  });
+
+  it('bulk edit treats lines without "=" as key-only rows', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Bulk Edit'));
+    const textarea = screen.getByPlaceholderText(/key=value/) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'bareKey' } });
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({ key: 'bareKey', value: '' });
+  });
+
+  it('bulk edit empty text yields a single empty row', () => {
+    const onChange = vi.fn();
+    render(<ParamsEditor params={makeParams()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Bulk Edit'));
+    const textarea = screen.getByPlaceholderText(/key=value/) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '' } });
+    expect(onChange.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ key: '', value: '', enabled: true }),
+    ]);
+  });
+
+  it('shows enable-parameter title when row is disabled', () => {
+    const params = [{ key: 'a', value: '1', enabled: false, description: '' }];
+    render(<ParamsEditor params={params} onChange={vi.fn()} />);
+    const toggle = document.querySelector('.params-toggle') as HTMLLabelElement;
+    expect(toggle?.getAttribute('title')).toBe('Enable parameter');
   });
 });

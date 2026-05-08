@@ -237,10 +237,38 @@ describe('computeMetrics', () => {
   });
 
   it('errorRate returns 0 when total is 0 (empty array case)', () => {
-    // This is already covered by the "returns all zeros for empty results" test
-    // but let's verify the specific errorRate calculation doesn't divide by zero
     const summary = computeMetrics([], 1000);
     expect(summary.errorRate).toBe(0);
     expect(summary.totalRequests).toBe(0);
+  });
+
+  it('falls back to max for percentiles when sorted time at index is nullish', () => {
+    const results = [
+      ...Array.from({ length: 100 }, (_, i) =>
+        makeResult({ id: `n${i}`, responseTimeMs: null as unknown as number }),
+      ),
+      makeResult({ id: 'ok', responseTimeMs: 1000 }),
+    ];
+    const summary = computeMetrics(results, 2000);
+    expect(summary.maxResponseTime).toBe(1000);
+    expect(summary.p50ResponseTime).toBe(1000);
+    expect(summary.p95ResponseTime).toBe(1000);
+    expect(summary.p99ResponseTime).toBe(1000);
+    expect(summary.minResponseTime).toBe(0);
+  });
+
+  it('increments errorsByStatus when the same failing status appears twice', () => {
+    const results = [
+      makeResult({ id: '1', httpStatus: 503 }),
+      makeResult({ id: '2', httpStatus: 503 }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.errorsByStatus).toEqual({ 503: 2 });
+  });
+
+  it('does not treat HTTP 399 as a failed request', () => {
+    const summary = computeMetrics([makeResult({ httpStatus: 399 })], 1000);
+    expect(summary.failedRequests).toBe(0);
+    expect(summary.errorRate).toBe(0);
   });
 });

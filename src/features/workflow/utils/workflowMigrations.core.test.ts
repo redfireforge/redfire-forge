@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { migrateWorkflowSchema } from './workflowMigrations';
+import { migrateWorkflowSchema, migrateV1ToV2, migrateV2ToV3 } from './workflowMigrations';
 import type { Workflow, HttpNodeData, WorkflowNode } from '../types/workflow';
 
 // Deterministic UUID for tests
@@ -29,6 +29,93 @@ function httpNode(id: string, label: string, extra: Partial<HttpNodeData> = {}):
     data: { label, scenario: minimalScenario(), ...extra },
   };
 }
+
+describe('migrateV1ToV2', () => {
+  it('returns base unchanged when schemaVersion is already >= 2', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', edges: [],
+      createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 2,
+      nodes: [httpNode('n1', 'Step', { hostBaseUrl: 'https://already-v2.example.com' })],
+    };
+    const result = migrateV1ToV2(wf);
+    expect(result.schemaVersion).toBe(2);
+    expect(result.nodes).toBe(wf.nodes);
+    expect((result.nodes[0].data as HttpNodeData).hostProfileId).toBeUndefined();
+  });
+
+  it('indexes pre-existing authProfiles for reuse', () => {
+    const auth = { type: 'bearer' as const, token: 'shared' };
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', edges: [],
+      createdAt: 0, updatedAt: 0,
+      variables: {}, services: [],
+      hostProfiles: [{ id: 'hp1', name: 'H', hostBaseUrl: 'https://api.example.com' }],
+      authProfiles: [{ id: 'ap-existing', name: 'Pre', auth }],
+      schemaVersion: 1,
+      nodes: [
+        httpNode('n1', 'A', {
+          hostProfileId: 'hp1',
+          scenario: { ...minimalScenario(), auth },
+        }),
+      ],
+    };
+    const result = migrateV1ToV2(wf);
+    expect((result.nodes[0].data as HttpNodeData).authProfileId).toBe('ap-existing');
+    expect(result.authProfiles!.filter(a => a.id.startsWith('auth_')).length).toBe(0);
+  });
+
+  it('returns the same node instance for non-http nodes', () => {
+    const cond: WorkflowNode = {
+      id: 'c1',
+      type: 'condition',
+      position: { x: 0, y: 0 },
+      data: { label: 'If', left: '1', operator: '==', right: '2' },
+    };
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', edges: [],
+      createdAt: 0, updatedAt: 0,
+      variables: {}, services: [],
+      hostProfiles: [],
+      authProfiles: [],
+      schemaVersion: 1,
+      nodes: [
+        cond,
+        httpNode('n1', 'Step', { hostBaseUrl: 'https://mixed-v1.example.com' }),
+      ],
+    };
+    const result = migrateV1ToV2(wf);
+    expect(result.nodes[0]).toBe(cond);
+    expect((result.nodes[1].data as HttpNodeData).hostProfileId).toBeDefined();
+  });
+});
+
+describe('migrateV2ToV3', () => {
+  it('returns the same reference when schemaVersion is already >= 3', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', edges: [],
+      createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 3,
+      nodes: [httpNode('n1', 'Only')],
+    };
+    expect(migrateV2ToV3(wf)).toBe(wf);
+  });
+
+  it('runs v1 migration first when schemaVersion is still 1', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test', edges: [],
+      createdAt: 0, updatedAt: 0,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      schemaVersion: 1,
+      nodes: [httpNode('n1', 'Step', { hostBaseUrl: 'https://v1-then-v3.example.com' })],
+    };
+    const result = migrateV2ToV3(wf);
+    expect(result.schemaVersion).toBe(3);
+    expect((result.nodes[0].data as HttpNodeData).serviceId).toBeDefined();
+  });
+});
 
 describe('migrateWorkflowSchema', () => {
   it('returns v6 workflow unchanged', () => {
@@ -382,6 +469,50 @@ describe('migrateWorkflowSchema', () => {
     const result = migrateWorkflowSchema(wf);
     // Should NOT split — same origin
     expect(result.services!.find(s => s.id === 'svc-ok')).toBeDefined();
+  });
+
+  it('fixupOverGroupedServices appends node ids to an existing label group (shared groupKey)', () => {
+    const wf = makeWorkflow({
+      schemaVersion: 4,
+      services: [],
+      nodes: [
+        httpNode('n1', 'Same Label', { scenario: { ...minimalScenario(), url: '/one' } }),
+        httpNode('n2', 'Same Label', { scenario: { ...minimalScenario(), url: '/two' } }),
+      ],
+    });
+    const result = migrateWorkflowSchema(wf);
+    const d1 = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
+    const d2 = result.nodes.find(n => n.id === 'n2')!.data as HttpNodeData;
+    expect(d1.serviceId).toBeDefined();
+    expect(d1.serviceId).toBe(d2.serviceId);
+  });
+
+  it('fixupOverGroupedServices does not reassign http nodes outside the regroup set', () => {
+    const wf = makeWorkflow({
+      schemaVersion: 4,
+      services: [{
+        id: 'svc-stable', name: 'Stable', urlMode: 'direct',
+        directUrl: 'https://stable.example.com',
+        endpoints: [{
+          envId: '__all__', url: 'https://stable.example.com',
+          enabled: true, authMode: 'inherit' as const, source: 'manual' as const,
+        }],
+      }, {
+        id: 'svc-shared', name: 'Shared', urlMode: 'direct',
+        endpoints: [{
+          envId: '__all__', url: 'https://placeholder.invalid',
+          enabled: true, authMode: 'inherit' as const, source: 'manual' as const,
+        }],
+      }],
+      nodes: [
+        httpNode('n1', 'A', { serviceId: 'svc-shared', scenario: { ...minimalScenario(), url: 'https://split-a.example.com/x' } }),
+        httpNode('n2', 'B', { serviceId: 'svc-shared', scenario: { ...minimalScenario(), url: 'https://split-b.example.com/y' } }),
+        httpNode('n3', 'Stable', { serviceId: 'svc-stable', scenario: { ...minimalScenario(), url: 'https://stable.example.com/z' } }),
+      ],
+    });
+    const result = migrateWorkflowSchema(wf);
+    const d3 = result.nodes.find(n => n.id === 'n3')!.data as HttpNodeData;
+    expect(d3.serviceId).toBe('svc-stable');
   });
 
   it('fixup assigns orphan HTTP nodes without serviceId', () => {
@@ -920,6 +1051,28 @@ describe('migrateWorkflowSchema', () => {
     expect(result.edges.length).toBe(2);
   });
 
+  it('v5→v6 drops edges that point at a removed Start node', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        { id: 'e0', source: 'start1', target: 'wh1' },
+        { id: 'e1', source: 'http1', target: 'start1' },
+        { id: 'e2', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.nodes.find(n => n.id === 'start1')).toBeUndefined();
+    expect(result.edges.find(e => e.id === 'e1')).toBeUndefined();
+    expect(result.edges.find(e => e.id === 'e2')).toBeDefined();
+  });
+
   it('v5→v6 handles schedule-triggered workflow same as webhook', () => {
     const wf: Workflow = {
       id: 'wf-1', name: 'Test',
@@ -959,5 +1112,44 @@ describe('migrateWorkflowSchema', () => {
     // All nodes preserved
     expect(result.nodes.length).toBe(2);
     expect(result.edges.length).toBe(1);
+  });
+
+  it('v5→v6 keeps Start when it has more than one outgoing edge', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        { id: 'e0', source: 'start1', target: 'wh1' },
+        { id: 'e1', source: 'start1', target: 'http1' },
+        { id: 'e2', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.nodes.find(n => n.id === 'start1')).toBeDefined();
+  });
+
+  it('v5→v6 keeps Start when its single edge targets a non-trigger node', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        { id: 'e0', source: 'start1', target: 'http1' },
+        { id: 'e1', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.nodes.find(n => n.id === 'start1')).toBeDefined();
   });
 });

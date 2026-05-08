@@ -208,7 +208,6 @@ describe('useDataSourceRows', () => {
       const onChange = vi.fn();
       const ds = makeDataSource();
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
-      // Select r3 (disabled)
       act(() => {
         result.current.handleRowSelect('r3', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent);
       });
@@ -218,6 +217,26 @@ describe('useDataSourceRows', () => {
       expect(result.current.selectedRows.size).toBe(0);
     });
 
+    it('bulkEnable disables selected rows', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => {
+        result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent);
+      });
+      act(() => result.current.bulkEnable(false));
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows[0].enabled).toBe(false);
+    });
+
+    it('shift click selects range when anchor is after target row', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r3', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: true, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      expect(result.current.selectedRows.size).toBe(3);
+    });
+
     it('bulkDelete removes selected rows', () => {
       const onChange = vi.fn();
       const ds = makeDataSource();
@@ -225,7 +244,6 @@ describe('useDataSourceRows', () => {
       act(() => result.current.selectAll());
       act(() => result.current.bulkDelete());
       const updated = onChange.mock.calls[0][0] as DataSource;
-      // All deleted → replaced with one empty row
       expect(updated.rows).toHaveLength(1);
       expect(updated.rows[0].values.c1).toBe('');
     });
@@ -243,9 +261,108 @@ describe('useDataSourceRows', () => {
       expect(updated.rows[1].values.c1).toBe('AAA');
       expect(updated.rows[1].id).not.toBe('r1');
     });
+
+    it('updateCell no-ops when dataSource is undefined', () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: undefined, onChange }));
+      act(() => result.current.updateCell('r1', 'c1', 'x'));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('bulkDuplicate with empty selection calls onChange with unchanged row count', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.bulkDuplicate());
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0][0] as DataSource).rows).toHaveLength(3);
+    });
+
+    it('bulkEnable with empty selection updates rows via same mapping', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.bulkEnable(true));
+      expect(onChange).toHaveBeenCalled();
+    });
+
+    it('bulkDuplicate inserts copies after the last selected row when multi-select', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.handleRowSelect('r2', { shiftKey: false, ctrlKey: true, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.bulkDuplicate());
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows.length).toBe(5);
+      expect(result.current.selectedRows.size).toBe(0);
+    });
+
+    it('bulk operations no-op when dataSource is undefined', () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: undefined, onChange }));
+      act(() => result.current.selectAll());
+      act(() => result.current.bulkDelete());
+      act(() => result.current.bulkEnable(true));
+      act(() => result.current.bulkDuplicate());
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   describe('Search / sort / filter', () => {
+    it('__untagged__ includes rows without tags property', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'a', c2: 'b' }, enabled: true },
+          { id: 'r2', values: { c1: 'c', c2: 'd' }, enabled: true, tags: ['smoke'] },
+        ],
+      });
+      delete (ds.rows[0] as { tags?: string[] }).tags;
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setFilterTag('__untagged__'));
+      expect(result.current.filteredSortedRows.map(r => r.id)).toEqual(['r1']);
+    });
+
+    it('filteredSortedRows is empty when dataSource is undefined', () => {
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: undefined, onChange: vi.fn() }));
+      expect(result.current.filteredSortedRows).toEqual([]);
+    });
+
+    it('search matches cells when row label property is absent', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'needle-x', c2: 'y' }, enabled: true },
+        ],
+      });
+      delete (ds.rows[0] as { label?: string }).label;
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('needle'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
+    });
+
+    it('sort preserves order when compared cell values tie', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'tie', c2: 'a' }, enabled: true },
+          { id: 'r2', values: { c1: 'tie', c2: 'b' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleSortColumn('c1'));
+      expect(result.current.filteredSortedRows.map(r => r.id)).toEqual(['r1', 'r2']);
+    });
+
+    it('search matches cell text case-insensitively', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'LoWeR', c2: 'y' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('lower'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
+    });
+
     it('filteredSortedRows filters by search query', () => {
       const ds = makeDataSource();
       const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
@@ -278,6 +395,50 @@ describe('useDataSourceRows', () => {
       act(() => result.current.setSearchQuery('gem'));
       expect(result.current.filteredSortedRows).toHaveLength(1);
       expect(result.current.filteredSortedRows[0].id).toBe('r1');
+    });
+
+    it('filteredSortedRows skips rows when label is undefined and values miss query', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'a', c2: 'b' }, enabled: true, label: undefined },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('zzz'));
+      expect(result.current.filteredSortedRows).toHaveLength(0);
+    });
+
+    it('handleSortColumn cycles asc desc asc on same column', () => {
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleSortColumn('c1'));
+      expect(result.current.sortDir).toBe('asc');
+      act(() => result.current.handleSortColumn('c1'));
+      expect(result.current.sortDir).toBe('desc');
+      act(() => result.current.handleSortColumn('c1'));
+      expect(result.current.sortDir).toBe('asc');
+    });
+
+    it('sort treats missing cell key as empty string', () => {
+      const ds = makeDataSource({
+        rows: [
+          { id: 'r1', values: { c1: 'z' }, enabled: true },
+          { id: 'r2', values: { c2: 'only' }, enabled: true },
+        ],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.handleSortColumn('c1'));
+      const ids = result.current.filteredSortedRows.map(r => r.id);
+      expect(ids[0]).toBe('r2');
+    });
+
+    it('search falls back to values when row label is empty string', () => {
+      const ds = makeDataSource({
+        rows: [{ id: 'r1', values: { c1: 'needle' }, enabled: true, label: '' }],
+      });
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange: vi.fn() }));
+      act(() => result.current.setSearchQuery('need'));
+      expect(result.current.filteredSortedRows).toHaveLength(1);
     });
 
     it('filteredSortedRows sorts by column', () => {
@@ -400,6 +561,13 @@ describe('useDataSourceRows', () => {
       expect(result.current.filteredSortedRows).toEqual([]);
       expect(result.current.enabledCount).toBe(0);
     });
+
+    it('does not change selection helpers when dataSource is undefined', () => {
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: undefined, onChange: vi.fn() }));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.selectAll());
+      expect(result.current.selectedRows.size).toBe(0);
+    });
   });
 
   describe('handleRowSelect', () => {
@@ -451,23 +619,6 @@ describe('useDataSourceRows', () => {
       act(() => result.current.handleRowSelect('r2', { shiftKey: true, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
       expect(result.current.selectedRows.has('r2')).toBe(true);
       expect(result.current.selectedRows.size).toBe(1);
-    });
-  });
-
-  describe('bulkDuplicate', () => {
-    it('duplicates selected rows after the last selected', () => {
-      const onChange = vi.fn();
-      const ds = makeDataSource();
-      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
-      // Select r1 and r2
-      act(() => result.current.selectAll());
-      // Actually just select r1 and r2 manually
-      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
-      act(() => result.current.handleRowSelect('r2', { shiftKey: false, ctrlKey: true, metaKey: false } as unknown as React.MouseEvent));
-      act(() => result.current.bulkDuplicate());
-      const updated = onChange.mock.calls[0][0] as DataSource;
-      expect(updated.rows.length).toBe(5); // 3 original + 2 duplicated
-      expect(result.current.selectedRows.size).toBe(0);
     });
   });
 
@@ -541,6 +692,27 @@ describe('useDataSourceRows', () => {
       act(() => result.current.handleDragStart('r1', startEvent));
       const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
       act(() => result.current.handleDrop('missing', dropEvent));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('bulkDelete with partial selection does not insert placeholder row', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      act(() => result.current.handleRowSelect('r1', { shiftKey: false, ctrlKey: false, metaKey: false } as unknown as React.MouseEvent));
+      act(() => result.current.bulkDelete());
+      const updated = onChange.mock.calls[0][0] as DataSource;
+      expect(updated.rows).toHaveLength(2);
+    });
+
+    it('handleDrop no-ops when source row id missing from data', () => {
+      const onChange = vi.fn();
+      const ds = makeDataSource();
+      const { result } = renderHook(() => useDataSourceRows({ dataSource: ds, onChange }));
+      const startEvent = { dataTransfer: { effectAllowed: '', setData: vi.fn() } } as unknown as React.DragEvent;
+      act(() => result.current.handleDragStart('nope', startEvent));
+      const dropEvent = { preventDefault: vi.fn() } as unknown as React.DragEvent;
+      act(() => result.current.handleDrop('r2', dropEvent));
       expect(onChange).not.toHaveBeenCalled();
     });
   });

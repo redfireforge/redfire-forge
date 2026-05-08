@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
-import { createRef } from 'react';
+import { createRef, type ComponentProps, type RefObject } from 'react';
 import ExpressionHintDropdown from './ExpressionHintDropdown';
 import type { HintItem } from '../../hooks/useExpressionHints';
 
@@ -18,7 +18,7 @@ const fnItems: HintItem[] = [
   },
 ];
 
-function renderDropdown(props: Partial<React.ComponentProps<typeof ExpressionHintDropdown>> = {}) {
+function renderDropdown(props: Partial<ComponentProps<typeof ExpressionHintDropdown>> = {}) {
   const anchorRef = createRef<HTMLElement>();
   const defaults = {
     open: false,
@@ -123,5 +123,79 @@ describe('ExpressionHintDropdown', () => {
     renderDropdown({ open: true, items: varItems });
     const listbox = document.querySelector('[role="listbox"]') as HTMLElement;
     expect(listbox.style.zIndex).toBe('10100');
+  });
+
+  it('renders nothing when anchor ref has no element', () => {
+    const anchorRef: RefObject<HTMLElement> = { current: null };
+    render(
+      <ExpressionHintDropdown
+        open
+        items={varItems}
+        selectedIndex={0}
+        onSelect={vi.fn()}
+        anchorRef={anchorRef}
+      />,
+    );
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it('positions dropdown above anchor when space below is tighter than space above', () => {
+    const innerHeight = window.innerHeight;
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 400 });
+      const anchorRef = createRef<HTMLElement>();
+      const anchor = document.createElement('input');
+      anchor.getBoundingClientRect = () =>
+        ({ bottom: 380, left: 10, width: 100, top: 360, right: 110, height: 20, x: 10, y: 360, toJSON: () => ({}) } as DOMRect);
+      document.body.appendChild(anchor);
+      (anchorRef as React.MutableRefObject<HTMLElement | null>).current = anchor;
+      render(
+        <ExpressionHintDropdown
+          open
+          items={varItems}
+          selectedIndex={0}
+          onSelect={vi.fn()}
+          anchorRef={anchorRef}
+        />,
+      );
+      const listbox = document.querySelector('[role="listbox"]') as HTMLElement;
+      expect(Number.parseFloat(listbox.style.top)).toBeLessThan(360);
+      anchor.remove();
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: innerHeight });
+    }
+  });
+
+  it('scrolls selected option into view when list ref exists', async () => {
+    const anchorRef = createRef<HTMLElement>();
+    const anchor = document.createElement('div');
+    document.body.appendChild(anchor);
+    anchor.getBoundingClientRect = () =>
+      ({ bottom: 50, left: 0, width: 200, top: 0, right: 200, height: 40, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+    (anchorRef as React.MutableRefObject<HTMLElement | null>).current = anchor;
+    const scrollIntoView = vi.fn();
+    const { rerender } = render(
+      <ExpressionHintDropdown
+        open
+        items={varItems}
+        selectedIndex={0}
+        onSelect={vi.fn()}
+        anchorRef={anchorRef}
+      />,
+    );
+    const listbox = document.querySelector('[role="listbox"]')!;
+    const opt1 = listbox.children[1] as HTMLElement;
+    opt1.scrollIntoView = scrollIntoView;
+    rerender(
+      <ExpressionHintDropdown
+        open
+        items={varItems}
+        selectedIndex={1}
+        onSelect={vi.fn()}
+        anchorRef={anchorRef}
+      />,
+    );
+    expect(scrollIntoView).toHaveBeenCalled();
+    anchor.remove();
   });
 });

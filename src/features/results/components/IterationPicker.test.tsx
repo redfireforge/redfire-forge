@@ -186,4 +186,47 @@ describe('IterationPicker', () => {
     render(<IterationPicker iterations={iterations} selectedIteration={undefined} onSelect={onSelect} failedCount={2} />);
     expect(screen.getByTestId('iter-picker-toggle')).toHaveClass('aggregate');
   });
+
+  it('closes dropdown when toggle is clicked while open', () => {
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={iterations} selectedIteration={undefined} onSelect={onSelect} failedCount={2} />);
+    const toggle = screen.getByTestId('iter-picker-toggle');
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('iter-picker-dropdown')).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('iter-picker-dropdown')).not.toBeInTheDocument();
+  });
+
+  it('Enter on jump input does nothing when multiple rows match filter', () => {
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={iterations} selectedIteration={undefined} onSelect={onSelect} failedCount={2} />);
+    fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+    fireEvent.click(screen.getByTestId('iter-filter-failed'));
+    fireEvent.keyDown(screen.getByTestId('iter-picker-jump'), { key: 'Enter' });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('shows generic empty state when filter excludes all iterations', () => {
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={[]} selectedIteration={undefined} onSelect={onSelect} failedCount={0} />);
+    fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+    fireEvent.click(screen.getByTestId('iter-filter-slowest'));
+    expect(screen.getByTestId('iter-picker-empty').textContent).toMatch(/No matching iterations/);
+  });
+
+  it('ignores non-positive jump filter values', () => {
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={iterations} selectedIteration={undefined} onSelect={onSelect} failedCount={2} />);
+    fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+    fireEvent.change(screen.getByTestId('iter-picker-jump'), { target: { value: '0' } });
+    expect(screen.getByTestId('iter-picker-item-0')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('iter-picker-jump'), { target: { value: 'abc' } });
+    expect(screen.getByTestId('iter-picker-item-0')).toBeInTheDocument();
+  });
+
+  it('renders with empty iterations without crashing', () => {
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={[]} selectedIteration={undefined} onSelect={onSelect} failedCount={0} />);
+    expect(screen.getByTestId('iter-picker-toggle').textContent).toMatch(/Aggregate/);
+  });
 });

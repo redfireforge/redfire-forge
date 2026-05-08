@@ -20,8 +20,12 @@ vi.mock('../../../shared/utils/storage', () => ({
   saveSelectedWorkflowId: (...args: any[]) => mockSaveSelectedId(...args),
 }));
 
+const mockMigrateWorkflow = vi.hoisted(() =>
+  vi.fn((wf: any) => ({ ...wf, schemaVersion: 5 })),
+);
+
 vi.mock('../utils/workflowMigrations', () => ({
-  migrateWorkflowSchema: (wf: any) => ({ ...wf, schemaVersion: 5 }),
+  migrateWorkflowSchema: (wf: unknown) => mockMigrateWorkflow(wf as any),
 }));
 
 import { useWorkflows } from './useWorkflows';
@@ -47,8 +51,56 @@ const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow => ({
 describe('useWorkflows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMigrateWorkflow.mockImplementation((wf: any) => ({ ...wf, schemaVersion: 5 }));
     mockLoadWorkflows.mockResolvedValue([]);
     mockLoadSelectedId.mockResolvedValue(null);
+  });
+
+  it('clears stored selection when id is missing but workflows exist', async () => {
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ id: 'wf-1' })]);
+    mockLoadSelectedId.mockResolvedValue('stale-id');
+
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    expect(mockSaveSelectedId).toHaveBeenCalledWith(null);
+    expect(result.current.selectedId).toBe('wf-1');
+  });
+
+  it('skips persisting when load finishes after unmount', async () => {
+    let resolveWf!: (v: Workflow[]) => void;
+    let resolveId!: (v: string | null) => void;
+    mockLoadWorkflows.mockImplementation(
+      () => new Promise<Workflow[]>((r) => { resolveWf = r; }),
+    );
+    mockLoadSelectedId.mockImplementation(
+      () => new Promise<string | null>((r) => { resolveId = r; }),
+    );
+    const { unmount } = renderHook(() => useWorkflows());
+    unmount();
+    resolveWf([makeWorkflow()]);
+    resolveId(null);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockSaveWorkflows).not.toHaveBeenCalled();
+  });
+
+  it('skips persisting migrations when migrate returns an identical payload', async () => {
+    mockMigrateWorkflow.mockImplementation((wf) => wf);
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ schemaVersion: 5 })]);
+    renderHook(() => useWorkflows());
+    await waitFor(() => expect(mockSaveWorkflows).not.toHaveBeenCalled());
+  });
+
+  it('keeps current selection when deleting another workflow', async () => {
+    mockLoadWorkflows.mockResolvedValue([
+      makeWorkflow({ id: 'wf-1', name: 'A' }),
+      makeWorkflow({ id: 'wf-2', name: 'B' }),
+    ]);
+    mockLoadSelectedId.mockResolvedValue('wf-1');
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    act(() => result.current.remove('wf-2'));
+    expect(result.current.selectedId).toBe('wf-1');
   });
 
   it('starts with empty state before loading', () => {

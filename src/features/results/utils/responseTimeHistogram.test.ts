@@ -72,6 +72,24 @@ describe('computeOverlayHistogram', () => {
     expect(result.current.reduce((s, c) => s + c, 0)).toBe(0);
   });
 
+  it('returns a single shared bin when one side is empty and all values are identical', () => {
+    const o = computeOverlayHistogram([], [42, 42, 42], 8);
+    expect(o.bins).toHaveLength(1);
+    expect(o.baseline[0]).toBe(0);
+    expect(o.current[0]).toBe(3);
+    expect(o.baselinePercent[0]).toBe(0);
+    expect(o.currentPercent[0]).toBe(100);
+  });
+
+  it('handles empty current with identical baseline values in single-bin overlay', () => {
+    const o = computeOverlayHistogram([7, 7, 7], [], 5);
+    expect(o.bins).toHaveLength(1);
+    expect(o.baseline[0]).toBe(3);
+    expect(o.current[0]).toBe(0);
+    expect(o.baselinePercent[0]).toBe(100);
+    expect(o.currentPercent[0]).toBe(0);
+  });
+
   it('uses shared bin boundaries for both datasets', () => {
     const result = computeOverlayHistogram([10, 20, 30], [50, 60, 70], 10);
     expect(result.bins).toHaveLength(10);
@@ -94,6 +112,23 @@ describe('computeOverlayHistogram', () => {
     expect(result.bins).toHaveLength(1);
     expect(result.baseline[0]).toBe(2);
     expect(result.current[0]).toBe(3);
+  });
+
+  it('bins outlier response times into the shared last bin', () => {
+    const baseline = Array.from({ length: 200 }, (_, i) => i + 1);
+    const current = [5000];
+    const o = computeOverlayHistogram(baseline, current, 12, 99);
+    expect(o.baseline.reduce((s, n) => s + n, 0)).toBe(baseline.length);
+    expect(o.current.reduce((s, n) => s + n, 0)).toBe(current.length);
+    expect(o.baseline[o.baseline.length - 1] + o.current[o.current.length - 1]).toBeGreaterThan(0);
+  });
+
+  it('places baseline samples above shared P99 cap into the last bin', () => {
+    const baseline = [...Array.from({ length: 200 }, (_, i) => i + 1), 10000];
+    const current = [150];
+    const o = computeOverlayHistogram(baseline, current, 12, 99);
+    expect(o.baseline.reduce((s, n) => s + n, 0)).toBe(baseline.length);
+    expect(o.baseline[o.baseline.length - 1]).toBeGreaterThan(0);
   });
 });
 

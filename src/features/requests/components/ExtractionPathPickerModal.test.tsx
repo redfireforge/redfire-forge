@@ -226,6 +226,32 @@ describe('ExtractionPathPickerModal', () => {
     expect(screen.getByText('test')).toBeTruthy();
   });
 
+  it('truncates long preview values', () => {
+    const long = 'z'.repeat(500);
+    const json = JSON.stringify({ data: { blob: long } });
+    renderModal({ initialSampleJson: json, initialExpression: '$.data.blob' });
+    const code = document.querySelector('.ram-resolved-code');
+    expect(code?.textContent).toContain('…');
+    expect((code?.textContent?.length ?? 0)).toBeLessThan(long.length);
+  });
+
+  it('shows more-indicator when search matches exceed chip cap', () => {
+    const obj: Record<string, number> = {};
+    for (let i = 0; i < 40; i++) obj[`k${i}`] = i;
+    renderModal({ initialSampleJson: JSON.stringify(obj), initialExpression: '$' });
+    fireEvent.change(screen.getByPlaceholderText('Search keys or paths…'), { target: { value: 'k' } });
+    expect(screen.getByText(/refine search/)).toBeTruthy();
+  });
+
+  it('shortens very long paths on match chips', () => {
+    const longKey = `prefix_${'x'.repeat(55)}_suffix`;
+    const json = JSON.stringify({ [longKey]: 1 });
+    renderModal({ initialSampleJson: json, initialExpression: '$' });
+    fireEvent.change(screen.getByPlaceholderText('Search keys or paths…'), { target: { value: 'prefix' } });
+    const chipPath = document.querySelector('.epp-match-chip-path');
+    expect(chipPath?.textContent).toContain('…');
+  });
+
   it('clears fixed drag positioning when returning to fullscreen', () => {
     const { container } = renderModal();
     const modal = container.querySelector('[role="dialog"]') as HTMLElement;
