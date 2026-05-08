@@ -201,7 +201,7 @@
 **Impact**: MEDIUM — Workflow efficiency
 
 ### Phase 5: Empty States & Onboarding
-- [ ] Illustrated empty state with "Drop your first node here"
+- [x] Illustrated empty state with "Drop your first node here"
 - [ ] Template workflow suggestions on empty canvas
 - [ ] Contextual hints/tooltips on first use
 - [x] Breadcrumb showing current workflow name/path
