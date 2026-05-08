@@ -1301,4 +1301,4 @@ npm install --save-dev @types/lz-string
 - ✅ **Implementation**: Phases 1–5 all done; all Phase 4 gaps resolved; all future enhancements implemented
 - ✅ **Testing**: Unit tests passing for all components (>90% coverage); E2E test file created
 - ✅ **Documentation**: Completion summary, plan, training manual, gallery sample, CHANGELOG, README, ROADMAP all updated (May 8, 2026)
-- ⏳ **Release**: Pending merge to `develop`
+- ✅ **Release**: Merged to `develop` and `release/0.5.7` (v0.5.7-beta.1, May 8, 2026)
