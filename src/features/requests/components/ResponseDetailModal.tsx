@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
@@ -9,7 +10,7 @@ type ResponseDetailModalProps = {
 };
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
-  const formatResponseBody = prettyJson;
+  const [prettyBody, setPrettyBody] = useState(true);
 
   if (!result) return null;
 
@@ -95,7 +96,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           {result.requestLog?.body && (
             <div className="response-detail-section">
               <h4>Request Body</h4>
-              <pre className="response-body-pre">{formatResponseBody(result.requestLog.body)}</pre>
+              <pre className="response-body-pre">{prettyJson(result.requestLog.body)}</pre>
             </div>
           )}
 
@@ -119,11 +120,47 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           )}
 
           {result.responseBody && (
-            <div className="response-detail-section">
-              <h4>Response Body</h4>
-              <pre className="response-body-pre">{formatResponseBody(result.responseBody)}</pre>
-            </div>
+            <ResponseBodySection body={result.responseBody} pretty={prettyBody} onToggle={() => setPrettyBody(p => !p)} />
           )}
     </WorkflowEditorModalFrame>
+  );
+}
+
+function ResponseBodySection({ body, pretty, onToggle }: { body: string; pretty: boolean; onToggle: () => void }) {
+  const isJson = useMemo(() => {
+    try { JSON.parse(body); return true; }
+    catch { return false; }
+  }, [body]);
+
+  const formatted = useMemo(() => {
+    if (!pretty || !isJson) return body;
+    return prettyJson(body);
+  }, [body, pretty, isJson]);
+
+  return (
+    <div className="response-detail-section">
+      <div className="response-body-header">
+        <h4>Response Body</h4>
+        <div className="response-body-actions">
+          {isJson && (
+            <button
+              className={`body-toggle-btn ${pretty ? 'active' : ''}`}
+              onClick={onToggle}
+              title={pretty ? 'Show raw' : 'Pretty print'}
+            >
+              {pretty ? '{ }' : '{ … }'}
+            </button>
+          )}
+          <button
+            className="body-toggle-btn"
+            onClick={() => navigator.clipboard.writeText(pretty && isJson ? prettyJson(body) : body)}
+            title="Copy to clipboard"
+          >
+            Copy
+          </button>
+        </div>
+      </div>
+      <pre className="response-body-pre">{formatted}</pre>
+    </div>
   );
 }

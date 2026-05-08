@@ -48,6 +48,16 @@
   font-weight: 500;
 }
 
+.results-explorer-sampled-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 500;
+  cursor: help;
+}
+
 /* ── Body Layout ── */
 .results-explorer-body {
   display: flex;
@@ -1223,6 +1233,14 @@
 
 .matrix-table tbody tr.selected-row {
   background: rgba(59, 130, 246, 0.1);
+}
+
+.matrix-table tbody tr.not-sampled-row {
+  opacity: 0.45;
+}
+
+.matrix-table tbody tr.not-sampled-row:hover {
+  opacity: 0.65;
 }
 
 .matrix-table .iter-num {

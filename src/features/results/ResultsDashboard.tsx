@@ -13,6 +13,7 @@ import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
 import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
+import { hasExecutionTrace, getExecutionTrace } from '../../shared/utils/traceCompression';
 
 interface Props {
   envName?: string;
@@ -395,7 +396,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             {selectedRun && (
               <>
                 {/* Results Explorer button (workflow runs only) */}
-                {selectedRun.executionTrace && (
+                {hasExecutionTrace(selectedRun) && (
                   <button
                     className="btn btn-primary"
                     onClick={() => setShowReplayModal(true)}
@@ -760,9 +761,9 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
 
       {/* Results Explorer Modal */}
-      {showReplayModal && selectedRun?.executionTrace && (
+      {showReplayModal && selectedRun && hasExecutionTrace(selectedRun) && (
         <WorkflowResultsExplorerModal
-          trace={selectedRun.executionTrace}
+          trace={getExecutionTrace(selectedRun)!}
           onClose={() => setShowReplayModal(false)}
         />
       )}

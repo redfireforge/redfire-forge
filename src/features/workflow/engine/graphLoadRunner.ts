@@ -36,6 +36,8 @@ export interface GraphLoadRunOpts {
   maxConcurrentPolls?: number;
   /** Options for trace capture (Results Explorer). */
   traceOptions?: ExecutionTraceOptions;
+  /** Low-priority environment layer (e.g. { baseUrl: 'https://host' }). Workflow variables override these. */
+  environmentLayer?: Record<string, string>;
 }
 
 /**
@@ -48,7 +50,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer } = opts;
   
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
@@ -129,7 +131,7 @@ export async function runGraphLoad(
         { ...workflow.variables, ...initialVariables },
         callbacks,
         abortSignal,
-        undefined, // environmentLayer
+        environmentLayer, // environmentLayer — carries baseUrl from harness config
         undefined, // resolveHttpBaseUrl
         undefined, // resolveHttpAuth
         undefined, // debugController

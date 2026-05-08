@@ -24,11 +24,13 @@ interface Props {
   onClearInitialWorkflowId?: () => void;
   /** Import a gallery sample workflow into the user's workflow list and auto-select it. */
   onImportSample?: (workflow: Workflow) => string | void;
+  /** Resolved base URL from environment config (env + microservice selection). */
+  resolvedBaseUrl?: string;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample }: Props) {
+export default function WorkflowRunner({ workflows, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
   const {
     concurrency, setConcurrency,
     totalTransactions, setTotalTransactions,
@@ -89,27 +91,30 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   // Detect if workflow starts with a Webhook Trigger node (Phase 7c)
   const webhookTriggerNode = useMemo(() => {
     if (!selectedWorkflow) return null;
-    // Find a webhook trigger node that has no incoming edges (is a trigger)
     const webhookNode = selectedWorkflow.nodes.find(n => n.type === 'webhook');
-    if (webhookNode) {
-      // Check if it has no incoming edges (is a trigger, not mid-workflow)
-      // Note: We ignore edges from orphaned Start nodes (Start nodes that only connect to this webhook)
-      const incomingEdges = selectedWorkflow.edges.filter(e => e.target === webhookNode.id);
-      const hasRealIncoming = incomingEdges.some(edge => {
-        const sourceNode = selectedWorkflow.nodes.find(n => n.id === edge.source);
-        if (!sourceNode) return false;
-        // Ignore orphaned Start nodes that only connect to the webhook
-        if (sourceNode.type === 'start') {
-          const startOtherOutgoing = selectedWorkflow.edges.filter(
-            e => e.source === sourceNode.id && e.target !== webhookNode.id
-          );
-          if (startOtherOutgoing.length === 0) return false;
-        }
-        return true;
-      });
-      if (!hasRealIncoming) return webhookNode;
-    }
-    return null;
+    if (!webhookNode) return null;
+
+    // Must have outgoing edges (disconnected/orphaned webhook nodes don't count)
+    const hasOutgoing = selectedWorkflow.edges.some(e => e.source === webhookNode.id);
+    if (!hasOutgoing) return null;
+
+    // Must have no real incoming edges (it's a trigger, not mid-workflow)
+    // Ignore edges from orphaned Start nodes (Start nodes that only connect to this webhook)
+    const incomingEdges = selectedWorkflow.edges.filter(e => e.target === webhookNode.id);
+    const hasRealIncoming = incomingEdges.some(edge => {
+      const sourceNode = selectedWorkflow.nodes.find(n => n.id === edge.source);
+      if (!sourceNode) return false;
+      if (sourceNode.type === 'start') {
+        const startOtherOutgoing = selectedWorkflow.edges.filter(
+          e => e.source === sourceNode.id && e.target !== webhookNode.id
+        );
+        if (startOtherOutgoing.length === 0) return false;
+      }
+      return true;
+    });
+    if (hasRealIncoming) return null;
+
+    return webhookNode;
   }, [selectedWorkflow]);
 
   const isWebhookTriggered = webhookTriggerNode !== null;
@@ -120,7 +125,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   // Webhook load driver config (Phase 7c)
   const [webhookLoadConfig, setWebhookLoadConfig] = useState<WebhookLoadConfig | null>(null);
 
-  // Initialize webhook load config when webhook trigger is detected
+  // Reset webhook state when switching workflows or when webhook is not detected
   useEffect(() => {
     if (isWebhookTriggered && webhookTriggerNode && !webhookLoadConfig) {
       const data = webhookTriggerNode.data as WebhookTriggerNodeData;
@@ -132,8 +137,9 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
         rate: { mode: 'fixed', rps: 10, durationSec: 60 },
         headers: {},
       });
-    } else if (!isWebhookTriggered && webhookLoadConfig) {
+    } else if (!isWebhookTriggered) {
       setWebhookLoadConfig(null);
+      setWebhookRunMode('single');
     }
   }, [isWebhookTriggered, webhookTriggerNode, webhookLoadConfig, selectedWorkflow]);
 
@@ -221,6 +227,9 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     // Force single transaction for "wait-for-real" mode
     const isWaitForReal = correlationWaitConfig?.mode === 'wait-for-real';
 
+    // Determine base URL: explicit workflow variable > environment config
+    const effectiveBaseUrl = workflowVariables.baseUrl?.trim() || resolvedBaseUrl?.trim() || undefined;
+
     const config: TestConfig = {
       concurrency: isWaitForReal ? 1 : (isLoadProfile ? loadProfile.maxConcurrency : concurrency),
       totalTransactions: isWaitForReal ? 1 : (isLoadProfile ? 0 : totalTransactions),
@@ -239,6 +248,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       correlationWaitConfig: hasCorrelationWait ? correlationWaitConfig : undefined,
       maxConcurrentPolls: hasWaitForCondition ? maxConcurrentPolls : undefined,
       traceOptions,
+      workflowBaseUrl: effectiveBaseUrl,
     };
 
     saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
