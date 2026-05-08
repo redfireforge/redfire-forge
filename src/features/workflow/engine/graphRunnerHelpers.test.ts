@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   applyTemplateLiteralsFromMap,
   coerceStringMap,
@@ -16,6 +16,7 @@ import {
 } from './graphRunnerHelpers';
 import type { WorkflowNode, WorkflowEdge, ConditionNodeData } from '../types/workflow';
 import type { RequestResult, Scenario } from '../../../shared/types';
+import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import { VariableContext } from './variableContext';
 
 // ── applyTemplateLiteralsFromMap ──
@@ -193,7 +194,7 @@ describe('markSubtreeSkipped', () => {
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const visited = new Set<string>();
     const states: Record<string, string> = {};
-    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as any;
+    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as GraphRunCallbacks;
     markSubtreeSkipped('A', outgoing, nodeMap, visited, callbacks);
     expect(states['A']).toBe('skipped');
     expect(states['B']).toBe('skipped');
@@ -206,7 +207,7 @@ describe('markSubtreeSkipped', () => {
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const visited = new Set<string>();
     const states: Record<string, string> = {};
-    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as any;
+    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as GraphRunCallbacks;
     const incomingCount = new Map([['J', 2]]);
     markSubtreeSkipped('J', new Map(), nodeMap, visited, callbacks, incomingCount);
     expect(states['J']).toBeUndefined();
@@ -220,7 +221,7 @@ describe('markSubtreeSkipped', () => {
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const visited = new Set<string>();
     const states: Record<string, string> = {};
-    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as any;
+    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as GraphRunCallbacks;
     const incomingCount = new Map([['A', 3]]);
     markSubtreeSkipped('A', new Map(), nodeMap, visited, callbacks, incomingCount);
     expect(states['A']).toBeUndefined();
@@ -234,7 +235,7 @@ describe('markSubtreeSkipped', () => {
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const visited = new Set<string>(['A']);
     const states: Record<string, string> = {};
-    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as any;
+    const callbacks = { onNodeStateChange: (id: string, s: { state: string }) => { states[id] = s.state; } } as GraphRunCallbacks;
     markSubtreeSkipped('A', new Map(), nodeMap, visited, callbacks);
     expect(states['A']).toBeUndefined();
   });
@@ -465,7 +466,7 @@ describe('logHttpResult', () => {
       id: '1', scenarioId: 's1', scenarioName: 'test', method: 'GET',
       url: 'http://example.com', passed: true, httpStatus: 200,
       responseTimeMs: 123.456, ...(overrides.requestResult ?? {}),
-    } as any,
+    } as unknown as RequestResult,
     requestHeaders: overrides.requestHeaders ?? {},
     responseHeaders: overrides.responseHeaders ?? {},
     requestBody: overrides.requestBody,
@@ -511,7 +512,7 @@ describe('logHttpResult', () => {
       requestResult: {
         passed: false,
         failureDetails: [{ path: '$.status', expected: '200', actual: '500' }],
-      } as any,
+      } as unknown as RequestResult,
     }));
     const failLine = lines.find(l => l.prefix === '!');
     expect(failLine).toBeDefined();

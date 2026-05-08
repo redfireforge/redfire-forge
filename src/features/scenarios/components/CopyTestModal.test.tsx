@@ -1,10 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import CopyTestModal from './CopyTestModal';
-import type { FeatureGroup, Scenario } from '../../../shared/types';
+import type { Scenario, FeatureGroup } from '../../../shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,
@@ -111,15 +112,42 @@ describe('CopyTestModal', () => {
     screen.getByText('Login Scenario (current)');
   });
 
-  it('disables Copy button when no scenario is selected', () => {
-    // When sourceScenarioId doesn't exist in featureGroups, the component
-    // still initialises targetScenario from props. Simulate a fresh render
-    // with no source scenario so targetScenario starts empty.
+  it('shows non-current scenario labels without suffix', () => {
+    renderModal();
+    expect(screen.getByRole('option', { name: 'Signup Scenario' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Signup Scenario (current)' })).toBeNull();
+  });
+
+
+  it('disables Copy Here when no target scenario is available', () => {
     renderModal({
       sourceScenarioId: '',
-      featureGroups: [{ id: 'fg-1', name: 'Empty', microserviceId: 's', environmentId: 'e', scenarios: [] }],
+      featureGroups: [{ id: 'fg-1', name: 'Solo', microserviceId: 's', environmentId: 'e', scenarios: [] }],
     });
-    const copyBtn = screen.getByText('Copy Here').closest('button')!;
-    expect(copyBtn.disabled).toBe(true);
+    const copy = screen.getByRole('button', { name: /Copy Here/ });
+    expect(copy).toBeDisabled();
+    fireEvent.click(copy);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('resets target scenario when changing to a feature group with no scenarios', () => {
+    const featureGroups = [
+      ...makeFeatureGroups(),
+      {
+        id: 'fg-empty',
+        name: 'NoScenarios',
+        microserviceId: 'svc-1',
+        environmentId: 'env-1',
+        scenarios: [],
+      },
+    ];
+    renderModal({ featureGroups });
+    const fgSelect = screen.getAllByRole('combobox')[0];
+    fireEvent.change(fgSelect, {
+      target: { value: 'fg-empty' },
+    });
+    const scSelect = screen.getAllByRole('combobox')[1] as HTMLSelectElement;
+    expect(scSelect.value).toBe('');
   });
 });
+

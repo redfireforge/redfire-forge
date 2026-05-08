@@ -175,6 +175,74 @@ describe('generateReport', () => {
       const md = generateReport(run, { format: 'markdown' });
       expect(md).toContain('a: expected x, got y');
     });
+
+    it('includes environment and service name in markdown', () => {
+      const run = makeRun({
+        envName: 'Production',
+        svcName: 'payment-api',
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('**Environment:** Production / payment-api');
+    });
+
+    it('shows only environment when svcName is missing', () => {
+      const run = makeRun({
+        envName: 'Staging',
+        svcName: undefined,
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('**Environment:** Staging');
+    });
+
+    it('uses custom title when provided', () => {
+      const run = makeRun();
+      const md = generateReport(run, { format: 'markdown', title: 'My Custom Report' });
+      expect(md).toContain('# My Custom Report');
+    });
+
+    it('uses project name in default title', () => {
+      const run = makeRun({ projectName: 'Payment API' });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('# Payment API Report');
+    });
+
+    it('shows P50 as dash when undefined', () => {
+      const run = makeRun();
+      run.summary.p50ResponseTime = undefined;
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('| P50 | —ms |');
+    });
+
+    it('shows dataRowLabel for failed rows when present', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            httpStatus: 404,
+            dataRowLabel: 'Row 5: VIN=12345',
+            errorMessage: 'Not Found',
+          }),
+        ],
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('Row 5: VIN=12345');
+    });
+
+    it('uses ERR for failed results with httpStatus 0', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            httpStatus: 0,
+            errorMessage: 'Connection refused',
+          }),
+        ],
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      // httpStatus 0 shows as 'ERR' via: r.httpStatus || 'ERR'
+      expect(md).toContain('| ERR |');
+      expect(md).toContain('Connection refused');
+    });
   });
 });
 

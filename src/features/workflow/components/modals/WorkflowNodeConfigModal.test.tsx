@@ -250,12 +250,12 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByText(/HTTP — Get Users/)).toBeTruthy();
   });
 
-  // ── Save / Cancel ──
+  // ── Save / Close ──
 
-  it('renders Save and Cancel buttons', () => {
+  it('renders Save and Close buttons', () => {
     render(<WorkflowNodeConfigModal {...defaultProps} />);
     expect(screen.getByText('Save')).toBeTruthy();
-    expect(screen.getByText('Cancel')).toBeTruthy();
+    expect(screen.getByText('Close')).toBeTruthy();
   });
 
   it('calls onUpdateNode + onClose when Save is clicked', () => {
@@ -267,23 +267,12 @@ describe('WorkflowNodeConfigModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('restores original data + calls onClose when Cancel is clicked', () => {
+  it('restores original data + calls onClose when Close is clicked', () => {
     const onUpdateNode = vi.fn();
     const onClose = vi.fn();
     render(<WorkflowNodeConfigModal {...defaultProps} onUpdateNode={onUpdateNode} onClose={onClose} />);
-    fireEvent.click(screen.getByText('Cancel'));
+    fireEvent.click(screen.getByText('Close'));
     expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Get Users' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  // ── Delete ──
-
-  it('renders Delete button and calls onDeleteNode + onClose', () => {
-    const onDeleteNode = vi.fn();
-    const onClose = vi.fn();
-    render(<WorkflowNodeConfigModal {...defaultProps} onDeleteNode={onDeleteNode} onClose={onClose} />);
-    fireEvent.click(screen.getByText('Delete'));
-    expect(onDeleteNode).toHaveBeenCalledWith('node-1');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

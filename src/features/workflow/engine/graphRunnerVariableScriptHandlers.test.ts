@@ -13,7 +13,6 @@ vi.mock('./scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import type { WorkflowNode, WorkflowEdge } from '../types/workflow';
 import {
   handleSetVariableNode,
   handleScriptNode,
@@ -27,7 +26,6 @@ import {
   makeCallbacks,
   makeHandlerContext,
   makeNode,
-  makeEdge,
   makePassedFlag,
 } from './graphRunnerNodeHandlers.test-utils';
 

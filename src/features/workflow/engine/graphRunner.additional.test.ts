@@ -110,7 +110,7 @@ describe('graphRunner - Additional Coverage', () => {
       await runGraph(nodes, edges, {}, cb);
 
       expect(states['end']).toEqual({ state: 'pass' });
-      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number));
+      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number), expect.any(Object));
     });
 
     it('marks unvisited End node as fail when any step fails before reaching end', async () => {
@@ -138,7 +138,7 @@ describe('graphRunner - Additional Coverage', () => {
       expect(states['h1']?.state).toBe('fail');
       expect(states['end']?.state).toBe('fail');
       expect(states['end']?.error).toContain('Network error');
-      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number));
+      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number), expect.any(Object));
     });
 
     it('marks unvisited End node as pass when no steps fail but end not reached via edges', async () => {
@@ -161,7 +161,7 @@ describe('graphRunner - Additional Coverage', () => {
       await runGraph(nodes, edges, {}, cb);
 
       expect(states['end']).toEqual({ state: 'pass' });
-      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number));
+      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), true, expect.any(Number), expect.any(Object));
     });
 
     it('handles multiple End nodes - marks all as pass on success', async () => {
@@ -217,7 +217,7 @@ describe('graphRunner - Additional Coverage', () => {
       // h1 fails but execution continues, end1 is still visited and marked pass
       expect(states['h1']?.state).toBe('fail');
       expect(states['end1']?.state).toBe('pass');
-      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number));
+      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number), expect.any(Object));
     });
 
     it('End node visited via edge is marked pass even if other steps failed', async () => {
@@ -281,7 +281,7 @@ describe('graphRunner - Additional Coverage', () => {
       // h1 fails but execution continues, end1 is still visited and marked pass
       expect(states['h1']?.state).toBe('fail');
       expect(states['end1']?.state).toBe('pass');
-      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number));
+      expect(cb.onComplete).toHaveBeenCalledWith(expect.any(Array), false, expect.any(Number), expect.any(Object));
     });
 
     it('provides generic error message when no specific errors exist but allPassed is false', async () => {
@@ -829,6 +829,231 @@ describe('graphRunner - Additional Coverage', () => {
       await runGraph(nodes, [], { user: 'admin', pass: 'secret' }, cb);
 
       expect(mockFetch).toHaveBeenCalled();
+    });
+  });
+
+  describe('script node integration', () => {
+    it('executes script node in workflow', async () => {
+      const nodes: WorkflowNode[] = [
+        startNode('s1'),
+        {
+          id: 'script1',
+          type: 'script',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Transform Data',
+            mode: 'ctx',
+            // Script API: input.varName for reads, output.varName = value for writes
+            code: 'output.result = parseInt(input.x || "0", 10) * 2;',
+            inputVariables: ['x'], // Must be an array
+            outputVariables: ['result'],
+            captureConsole: false,
+          },
+        },
+        endNode('e1'),
+      ];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'script1' },
+        { id: 'e2', source: 'script1', target: 'e1' },
+      ];
+
+      const cb = {
+        onNodeStateChange: vi.fn(),
+        onVariablesChange: vi.fn(),
+        onComplete: vi.fn(),
+      };
+
+      await runGraph(nodes, edges, { x: '5' }, cb);
+
+      // Verify script node was executed - check that it transitioned to 'pass' at some point
+      const scriptCalls = cb.onNodeStateChange.mock.calls.filter(
+        ([id]: [string, unknown]) => id === 'script1'
+      );
+      const passedState = scriptCalls.find(
+        ([, status]: [string, { state: string }]) => status.state === 'pass'
+      );
+      expect(passedState).toBeDefined();
+      // onComplete receives (results, passed, durationMs, trace?)
+      expect(cb.onComplete).toHaveBeenCalled();
+      const onCompleteCall = cb.onComplete.mock.calls[0];
+      expect(onCompleteCall[1]).toBe(true); // passed (second argument)
+    });
+
+    it('marks script node as fail when script throws', async () => {
+      const nodes: WorkflowNode[] = [
+        startNode('s1'),
+        {
+          id: 'script1',
+          type: 'script',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Bad Script',
+            mode: 'ctx',
+            code: 'throw new Error("Script error!");', // This should fail
+            inputVariables: [],
+            outputVariables: [],
+            captureConsole: false,
+          },
+        },
+        endNode('e1'),
+      ];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'script1' },
+        { id: 'e2', source: 'script1', target: 'e1' },
+      ];
+
+      const cb = {
+        onNodeStateChange: vi.fn(),
+        onVariablesChange: vi.fn(),
+        onComplete: vi.fn(),
+      };
+
+      await runGraph(nodes, edges, {}, cb);
+
+      expect(cb.onNodeStateChange).toHaveBeenCalledWith('script1', expect.objectContaining({ state: 'fail' }));
+      // onComplete receives (results, passed, durationMs, trace?)
+      expect(cb.onComplete).toHaveBeenCalled();
+      const onCompleteCall = cb.onComplete.mock.calls[0];
+      expect(onCompleteCall[1]).toBe(false); // passed=false (second argument)
+    });
+  });
+
+  describe('correlationWait node integration', () => {
+    it('executes correlationWait node with auto-resume config', async () => {
+      const nodes: WorkflowNode[] = [
+        startNode('s1'),
+        {
+          id: 'cw1',
+          type: 'correlationWait',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Wait for Callback',
+            correlationIdExpression: '{{orderId}}',
+            webhookPath: '/callback',
+            correlationSource: 'body',
+            correlationJsonPath: '$.id',
+            extractVariables: [],
+            timeoutMs: 1000,
+          },
+        },
+        endNode('e1'),
+      ];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'cw1' },
+        { id: 'e2', source: 'cw1', target: 'e1' },
+      ];
+
+      const cb = {
+        onNodeStateChange: vi.fn(),
+        onVariablesChange: vi.fn(),
+        onComplete: vi.fn(),
+      };
+
+      // Mock correlation store that resolves immediately
+      const mockCorrelationStore = {
+        pause: vi.fn(() => Promise.resolve({ status: 'success' })),
+        resume: vi.fn(() => true),
+        isPaused: vi.fn(() => false),
+        cancel: vi.fn(() => false),
+        get: vi.fn(() => undefined),
+        cleanup: vi.fn(() => 0),
+        listPaused: vi.fn(() => []),
+        size: 0,
+      };
+
+      // Run with auto-resume mode (skips actual waiting)
+      // runGraph signature: nodes, edges, initialVariables, callbacks, abortSignal?,
+      // environmentLayer?, resolveHttpBaseUrl?, resolveHttpAuth?, debugController?,
+      // errorConfig?, resolveSubWorkflow?, correlationStore?, loadTestMode?, correlationWaitConfig?
+      await runGraph(
+        nodes,
+        edges,
+        { orderId: 'order-123' },
+        cb,
+        undefined, // abortSignal
+        undefined, // environmentLayer
+        undefined, // resolveHttpBaseUrl
+        undefined, // resolveHttpAuth
+        undefined, // debugController
+        undefined, // errorConfig
+        undefined, // resolveSubWorkflow
+        mockCorrelationStore,
+        false, // loadTestMode
+        { mode: 'auto-resume' }, // correlationWaitConfig
+      );
+
+      // With auto-resume, the node should pass without waiting
+      expect(cb.onNodeStateChange).toHaveBeenCalledWith('cw1', expect.objectContaining({ state: 'pass' }));
+      // onComplete receives (results, passed, durationMs, trace?) - check that it was called with passed=true
+      expect(cb.onComplete).toHaveBeenCalled();
+      const onCompleteCall = cb.onComplete.mock.calls[0];
+      expect(onCompleteCall[1]).toBe(true); // passed (second argument)
+    });
+
+    it('handles correlationWait with synthetic-inject config', async () => {
+      const nodes: WorkflowNode[] = [
+        startNode('s1'),
+        {
+          id: 'cw1',
+          type: 'correlationWait',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Wait for Callback',
+            correlationIdExpression: '{{id}}',
+            webhookPath: '/callback',
+            correlationSource: 'body',
+            correlationJsonPath: '$.id',
+            extractVariables: [
+              { variableName: 'status', jsonPath: '$.status' },
+            ],
+            timeoutMs: 5000,
+          },
+        },
+        endNode('e1'),
+      ];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'cw1' },
+        { id: 'e2', source: 'cw1', target: 'e1' },
+      ];
+
+      const cb = {
+        onNodeStateChange: vi.fn(),
+        onVariablesChange: vi.fn(),
+        onComplete: vi.fn(),
+      };
+
+      const mockCorrelationStore = {
+        pause: vi.fn(() => Promise.resolve({ id: 'test-123', status: 'completed' })),
+        resume: vi.fn(() => true),
+        isPaused: vi.fn(() => false),
+        cancel: vi.fn(() => false),
+        get: vi.fn(() => undefined),
+        cleanup: vi.fn(() => 0),
+        listPaused: vi.fn(() => []),
+        size: 0,
+      };
+
+      await runGraph(
+        nodes,
+        edges,
+        { id: 'test-123' },
+        cb,
+        undefined, // abortSignal
+        undefined, // environmentLayer
+        undefined, // resolveHttpBaseUrl
+        undefined, // resolveHttpAuth
+        undefined, // debugController
+        undefined, // errorConfig
+        undefined, // resolveSubWorkflow
+        mockCorrelationStore,
+        false, // loadTestMode
+        {
+          mode: 'synthetic-inject',
+          syntheticPayload: JSON.stringify({ id: 'test-123', status: 'completed' }),
+        },
+      );
+
+      expect(cb.onNodeStateChange).toHaveBeenCalledWith('cw1', expect.objectContaining({ state: 'pass' }));
     });
   });
 });

@@ -67,6 +67,8 @@ redfireforge --cli run tests/test.yaml
 
 **Note:** The desktop CLI mode requires Node.js because it executes the bundled JavaScript CLI. If Node.js is not available, the app will suggest using the standalone npm package instead.
 
+**Full Option Parity:** The desktop `--cli` mode supports all the same options as the standalone npm CLI (`run`, `workflow`, `validate`, `validate-workflow`) — including `--data`, `--tags`, `--error-policy`, `--duration`, and all other flags documented below.
+
 **Available Commands in Desktop CLI Mode:**
 
 ```bash

@@ -72,6 +72,31 @@ export function getWorkflowRunConfigs(workflowId: string): WorkflowRunConfig[] {
 }
 
 /**
+ * Manually save a named variable preset (not tied to a run).
+ * Unlike saveWorkflowRunConfig, this always creates a new entry and keeps the label.
+ */
+export function saveWorkflowRunConfigManually(
+  workflowId: string,
+  variables: Record<string, string>,
+  label: string
+): WorkflowRunConfig {
+  const all = loadWorkflowRunConfigs();
+  const newConfig: WorkflowRunConfig = {
+    id: crypto.randomUUID(),
+    workflowId,
+    variables,
+    label: label.trim() || undefined,
+    usedAt: Date.now(),
+  };
+  all.unshift(newConfig);
+  const forThisWorkflow = all.filter(c => c.workflowId === workflowId);
+  const others = all.filter(c => c.workflowId !== workflowId);
+  const trimmed = [...forThisWorkflow.slice(0, MAX_CONFIGS_PER_WORKFLOW), ...others];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+  return newConfig;
+}
+
+/**
  * Update the label of a saved config.
  */
 export function updateWorkflowRunConfigLabel(configId: string, label: string): void {

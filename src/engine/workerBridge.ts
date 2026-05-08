@@ -1,6 +1,6 @@
-import type { TestConfig, Scenario, RequestResult } from '../shared/types';
+import type { TestConfig, Scenario, RequestResult, WorkflowExecutionTrace } from '../shared/types';
 import type { Workflow } from '../features/workflow/types/workflow';
-import type { ProgressMeta } from './executor';
+import type { ProgressMeta, TestResult } from './executor';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { httpFetch } from '../shared/utils/httpClient';
 import { isTauri } from '../shared/utils/platform';
@@ -27,9 +27,10 @@ export function runTestInWorker(
   abortSignal?: AbortSignal,
   /** Optional workflow for graph-based execution (when config.workflowId is set). */
   workflow?: Workflow,
-): Promise<RequestResult[]> {
-  return new Promise<RequestResult[]>((resolve, reject) => {
+): Promise<TestResult> {
+  return new Promise<TestResult>((resolve, reject) => {
     const allResults: RequestResult[] = [];
+    let executionTrace: WorkflowExecutionTrace | undefined;
 
     const worker = new Worker(
       new URL('./executionWorker.ts', import.meta.url),
@@ -54,9 +55,10 @@ export function runTestInWorker(
 
         case 'done':
           allResults.push(...msg.newResults);
+          executionTrace = msg.trace;
           settled = true;
           cleanup();
-          resolve(allResults);
+          resolve({ results: allResults, trace: executionTrace });
           break;
 
         case 'error':

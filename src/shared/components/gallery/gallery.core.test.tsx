@@ -91,6 +91,25 @@ describe('DomainBadge', () => {
     const { container } = render(<DomainBadge domain="tests" />);
     expect(container.querySelector('.gallery-domain-badge')!.getAttribute('data-domain')).toBe('tests');
   });
+
+  it('applies custom className', () => {
+    const { container } = render(<DomainBadge domain="catalog" className="custom-class" />);
+    expect(container.querySelector('.gallery-domain-badge.custom-class')).toBeTruthy();
+  });
+
+  it('renders all known domains correctly', () => {
+    const domains = ['requests', 'catalog', 'tests', 'workflows', 'assertions'] as const;
+    domains.forEach(domain => {
+      const { container, unmount } = render(<DomainBadge domain={domain} />);
+      expect(container.querySelector('.gallery-domain-badge')).toBeTruthy();
+      unmount();
+    });
+  });
+
+  it('handles unknown domain gracefully', () => {
+    const { container } = render(<DomainBadge domain={'unknown' as any} />);
+    expect(container.querySelector('.gallery-domain-badge')).toBeTruthy();
+  });
 });
 
 /* ── GalleryCard ── */
