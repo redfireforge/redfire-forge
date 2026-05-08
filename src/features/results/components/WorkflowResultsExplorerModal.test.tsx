@@ -102,6 +102,18 @@ vi.mock('./IterationMatrixTable', () => ({
   ),
 }));
 
+const mockSaveJsonFile = vi.fn();
+const mockSaveCsvFile = vi.fn();
+const mockBuildExportFilename = vi.fn(({ level, name, ext }: { level: string; name?: string; ext?: string }) =>
+  `${level}-${name || 'unknown'}.${ext || 'json'}`,
+);
+
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveJsonFile: (...args: unknown[]) => mockSaveJsonFile(...args),
+  saveCsvFile: (...args: unknown[]) => mockSaveCsvFile(...args),
+  buildExportFilename: (...args: unknown[]) => mockBuildExportFilename(...args),
+}));
+
 import WorkflowResultsExplorerModal from './WorkflowResultsExplorerModal';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 
@@ -552,5 +564,146 @@ describe('WorkflowResultsExplorerModal', () => {
     const closeButtons = screen.getAllByRole('button', { name: /^Close$/i });
     fireEvent.click(closeButtons[closeButtons.length - 1]);
     expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe('export trace as JSON', () => {
+    it('renders the export button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
+    });
+
+    it('calls saveJsonFile with trace data when clicked', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockSaveJsonFile).toHaveBeenCalledTimes(1);
+      expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, expect.any(String));
+    });
+
+    it('builds filename with workflow name and level "trace"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'trace',
+          name: 'Test Workflow',
+        }),
+      );
+    });
+
+    it('uses the generated filename for saveJsonFile', () => {
+      mockBuildExportFilename.mockReturnValueOnce('trace-my-workflow.json');
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, 'trace-my-workflow.json');
+    });
+  });
+
+  describe('imported trace', () => {
+    it('shows imported badge with filename when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      const badge = screen.getByTestId('imported-badge');
+      expect(badge).toBeInTheDocument();
+      expect(badge.textContent).toContain('my-trace.json');
+    });
+
+    it('hides export button when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      expect(screen.queryByTestId('export-trace-btn')).not.toBeInTheDocument();
+    });
+
+    it('shows export button when importedFileName is not set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
+      expect(screen.queryByTestId('imported-badge')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard shortcut: Space toggles aggregate', () => {
+    it('toggles from aggregate to iteration 0 on Space', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      // Initially aggregate — footer shows Avg HTTP
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      // Should now show iteration #1
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+    });
+
+    it('toggles back from iteration to aggregate on second Space', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard shortcut: number keys jump to iteration', () => {
+    it('pressing 1 jumps to iteration #1', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '1' }); });
+      expect(screen.getByText(/Iteration #1/)).toBeInTheDocument();
+    });
+
+    it('pressing 2 jumps to iteration #2', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '2' }); });
+      expect(screen.getByText(/Iteration #2/)).toBeInTheDocument();
+    });
+
+    it('pressing a number beyond total iterations does nothing', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      act(() => { fireEvent.keyDown(window, { key: '9' }); });
+      // Should remain in aggregate view
+      expect(screen.getByText(/Avg HTTP/)).toBeInTheDocument();
+    });
+  });
+
+  describe('export CSV', () => {
+    it('renders the CSV export button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-csv-btn')).toBeInTheDocument();
+    });
+
+    it('calls saveCsvFile with CSV content on click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      expect(mockSaveCsvFile).toHaveBeenCalledTimes(1);
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('Node');
+      expect(csvContent).toContain('Pass Rate (%)');
+      expect(csvContent).toContain('P95 (ms)');
+    });
+
+    it('includes HTTP node data in CSV', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('Get Users');
+      expect(csvContent).toContain('Create Order');
+    });
+
+    it('builds filename with level "metrics" and ext "csv"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'metrics', name: 'Test Workflow', ext: 'csv' }),
+      );
+    });
+
+    it('hides CSV export button when importedFileName is set', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
+      expect(screen.queryByTestId('export-csv-btn')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('footer shortcuts text', () => {
+    it('includes new shortcuts in footer hint', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByText(/1-9 jump/)).toBeInTheDocument();
+      expect(screen.getByText(/Space toggle/)).toBeInTheDocument();
+    });
   });
 });

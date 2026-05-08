@@ -6,7 +6,7 @@ import { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWait
 import { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
 import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
-import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow } from './performance';
+import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -16,7 +16,7 @@ export { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWait
 export { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
 export { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
-export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow } from './performance';
+export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -529,5 +529,20 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['Fork', 'Join'],
     secondaryNodes: ['HTTP'],
     factory: createPerfParallelWorkflow,
+  },
+  {
+    id: 'perf-workflow-edge-pct',
+    name: 'Perf: Edge Traversal Demo',
+    description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split).',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'branching', 'edge-traversal', 'condition', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'performance',
+    difficulty: 'easy',
+    icon: '📊',
+    nodeCount: 6,
+    primaryNodes: ['Condition', 'SetVariable'],
+    secondaryNodes: ['HTTP'],
+    factory: createPerfEdgePercentageWorkflow,
   },
 ];

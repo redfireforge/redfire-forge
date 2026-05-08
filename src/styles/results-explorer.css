@@ -40,12 +40,14 @@
 }
 
 .results-explorer-full-trace-badge {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 5px;
   font-size: 0.75em;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+  letter-spacing: 0.02em;
 }
 
 .results-explorer-sampled-badge {
@@ -56,6 +58,64 @@
   font-size: 0.75em;
   font-weight: 500;
   cursor: help;
+}
+
+.results-explorer-imported-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 0.75em;
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-explorer-export-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  border: none;
+  padding: 4px 14px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
+}
+.results-explorer-export-btn:hover {
+  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
+}
+.results-explorer-export-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.25);
+}
+
+.results-explorer-export-csv-btn {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #fff;
+  border: none;
+  padding: 4px 14px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+}
+.results-explorer-export-csv-btn:hover {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(5, 150, 105, 0.4);
+}
+.results-explorer-export-csv-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
 }
 
 /* ── Body Layout ── */
@@ -1272,6 +1332,13 @@
   font-family: monospace;
 }
 
+.matrix-table .overhead-hint {
+  color: #94a3b8;
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
 .matrix-table .status-col {
   font-weight: 700;
 }
@@ -1486,6 +1553,16 @@
   font-style: italic;
   font-size: 0.82rem;
   padding: 8px 0;
+}
+
+.jtv-raw-body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text);
 }
 
 /* Toolbar (search + actions) */

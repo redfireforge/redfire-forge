@@ -56,6 +56,7 @@ export async function runGraphLoad(
   const allTraces: WorkflowIterationTrace[] = [];
   let completedIterations = 0;
   let iterationCounter = 0;
+  let iterationDurationSum = 0;
   const startTime = performance.now();
 
   // Create poll semaphore if there are WaitForCondition nodes
@@ -100,21 +101,19 @@ export async function runGraphLoad(
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: () => {},
       onVariablesChange: () => {},
-      onComplete: (results, _passed, _durationMs, trace) => {
+      onComplete: (results, _passed, durationMs, trace) => {
         for (const r of results) {
           const stepLabel = nodeLabels.get(r.workflowNodeId || r.scenarioId) || r.scenarioName;
           const tagged: RequestResult = {
             ...r,
             iterationIndex: myIterationIndex,
-            // workflowNodeId is already set by executeHttpNode
-            // Tag with workflow name as "feature" and step label as "scenario/group"
             featureGroupName: `Workflow: ${workflow.name}`,
             groupName: stepLabel,
             scenarioName: stepLabel,
           };
           iterationResults.push(tagged);
         }
-        // Phase 7e: Capture trace with correct iteration index
+        iterationDurationSum += durationMs;
         if (trace) {
           allTraces.push({ ...trace, index: myIterationIndex });
         }
@@ -230,6 +229,9 @@ export async function runGraphLoad(
         targetConcurrency: concurrency,
         currentInFlight: iterationCounter - completedIterations,
         durationMs: 0,
+        avgIterationTimeMs: completedIterations > 0
+          ? Math.round(iterationDurationSum / completedIterations * 100) / 100
+          : undefined,
       });
     }
   };

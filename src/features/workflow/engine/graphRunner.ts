@@ -249,6 +249,17 @@ export async function runGraph(
             method: lastResult.method,
             url: lastResult.url,
           };
+
+          // Capture error information for failed requests
+          if (!lastResult.passed) {
+            if (lastResult.errorMessage) {
+              eventDetails.error = lastResult.errorMessage;
+            } else if (lastResult.failureDetails.length > 0) {
+              eventDetails.error = lastResult.failureDetails
+                .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
+                .join('; ');
+            }
+          }
           
           // Add full trace data if captured
           const capturedDetails = capturedHttpDetails.get(nodeId);

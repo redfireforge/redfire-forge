@@ -79,6 +79,7 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
     nodeLabel: overrides.nodeLabel ?? ((id) => id),
     visit: overrides.visit ?? vi.fn(),
     visitOutgoing: overrides.visitOutgoing ?? vi.fn(),
+    traceCollector: overrides.traceCollector ?? { onNodeStart: vi.fn(), onNodeComplete: vi.fn(), onEdgeTraversed: vi.fn(), getEvents: vi.fn(() => []), getTraversedEdges: vi.fn(() => []), reset: vi.fn() } as any,
     threadId: 'main',
     initialVariables: initialVars,
     traceOptions: overrides.traceOptions,

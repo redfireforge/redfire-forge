@@ -162,8 +162,12 @@ Open browser to: `http://localhost:5173`
 - ✅ Click minimap → Jump to that area
 
 ### Keyboard
-- ✅ Press `Escape` → Modal closes
-- ✅ (Future) Arrow keys → Navigate nodes
+- ✅ Press `Escape` → Deselect node, or close modal
+- ✅ Press `← / →` → Previous / Next iteration
+- ✅ Press `1`–`9` → Jump to iteration N
+- ✅ Press `Space` → Toggle aggregate ↔ iteration #1
+- ✅ Press `A` → Return to aggregate view
+- ✅ Press `M` → Toggle iteration matrix panel
 
 ### Controls
 - ✅ Click `+` button → Zoom in

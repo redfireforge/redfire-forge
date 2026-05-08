@@ -5,10 +5,14 @@ import FullPanelModal from '../../../shared/components/FullPanelModal';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
+import { saveJsonFile, saveCsvFile, buildExportFilename } from '../../../shared/utils/fileSaver';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
 
 interface Props {
   trace: WorkflowExecutionTrace;
   onClose: () => void;
+  /** When set, shows an "Imported" info banner with the filename and hides the Export button. */
+  importedFileName?: string;
 }
 
 /**
@@ -18,7 +22,7 @@ interface Props {
  * - Right panel: Node detail with Request/Response/Variables/Assertions tabs
  * - Bottom panel: Iteration matrix table (collapsible)
  */
-export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) {
+export default function WorkflowResultsExplorerModal({ trace, onClose, importedFileName }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
   const [showMinimap, setShowMinimap] = useState(false);
   const [selectedIteration, setSelectedIteration] = useState<number | undefined>(
@@ -134,6 +138,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
         setSelectedIteration(undefined);
       } else if (e.key === 'm' || e.key === 'M') {
         setMatrixCollapsed(prev => !prev);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setSelectedIteration(prev => prev === undefined ? 0 : undefined);
+      } else if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx < trace.totalIterations) {
+          setSelectedIteration(idx);
+        }
       }
     };
 
@@ -153,6 +165,57 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
     setSelectedIteration(iterIndex);
     setSelectedNodeId(nodeId);
   }, []);
+
+  const handleExportTrace = useCallback(() => {
+    const date = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now())
+      .toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = buildExportFilename({
+      level: 'trace',
+      name: trace.workflowName,
+      date,
+    });
+    saveJsonFile(trace, filename);
+  }, [trace]);
+
+  const handleExportCsv = useCallback(() => {
+    const httpNodes = (trace.workflowSnapshot.nodes as Array<any>).filter(
+      (n: any) => n.type === 'http',
+    );
+    const rows: string[][] = [];
+    rows.push(['Node', 'Executions', 'Pass Rate (%)', 'Avg (ms)', 'Min (ms)', 'Max (ms)', 'P95 (ms)']);
+
+    for (const node of httpNodes) {
+      const durations: number[] = [];
+      let passCount = 0;
+      let totalCount = 0;
+      for (const iter of trace.iterations) {
+        for (const ev of iter.events) {
+          if (ev.nodeId !== node.id) continue;
+          totalCount++;
+          if (ev.state === 'pass') passCount++;
+          if (ev.durationMs !== undefined) durations.push(ev.durationMs);
+        }
+      }
+      if (totalCount === 0) continue;
+      durations.sort((a, b) => a - b);
+      const avg = durations.length > 0
+        ? Math.round(durations.reduce((s, v) => s + v, 0) / durations.length * 100) / 100
+        : 0;
+      const min = durations.length > 0 ? Math.round(durations[0] * 100) / 100 : 0;
+      const max = durations.length > 0 ? Math.round(durations[durations.length - 1] * 100) / 100 : 0;
+      const p95Idx = Math.min(Math.ceil(durations.length * 0.95) - 1, durations.length - 1);
+      const p95 = durations.length > 0 ? Math.round(durations[Math.max(0, p95Idx)] * 100) / 100 : 0;
+      const passRate = Math.round(passCount / totalCount * 10000) / 100;
+      const label = node.data?.label || node.data?.name || node.id;
+      rows.push([label, String(totalCount), String(passRate), String(avg), String(min), String(max), String(p95)]);
+    }
+
+    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const date = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now())
+      .toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = buildExportFilename({ level: 'metrics', name: trace.workflowName, date, ext: 'csv' });
+    saveCsvFile(csv, filename);
+  }, [trace]);
 
   const timestamp = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
   const passedCount = trace.iterations.filter(i => i.passed).length;
@@ -188,6 +251,35 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
                 </span>
               </>
             )}
+            {importedFileName && (
+              <>
+                <span className="results-explorer-meta-sep">•</span>
+                <span className="results-explorer-imported-badge" title={importedFileName} data-testid="imported-badge">
+                  📂 Imported: {importedFileName}
+                </span>
+              </>
+            )}
+            {!importedFileName && (
+              <>
+                <span className="results-explorer-meta-sep">•</span>
+                <button
+                  className="results-explorer-export-btn"
+                  onClick={handleExportTrace}
+                  title="Export execution trace as JSON"
+                  data-testid="export-trace-btn"
+                >
+                  ⬇ Export JSON
+                </button>
+                <button
+                  className="results-explorer-export-csv-btn"
+                  onClick={handleExportCsv}
+                  title="Export per-node aggregate metrics as CSV"
+                  data-testid="export-csv-btn"
+                >
+                  📊 Export CSV
+                </button>
+              </>
+            )}
           </div>
         </div>
       }
@@ -198,23 +290,23 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
           <div className="results-explorer-footer-info">
             {selectedIteration !== undefined
               ? (isSelectedIterationSampled
-                ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDuration(currentIterationTrace?.durationMs)}`
+                ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDurationMs(currentIterationTrace?.durationMs)}`
                 : `Iteration #${selectedIteration + 1} — ${trace.iterations[selectedIteration]?.passed ? 'Passed' : 'Failed'} — Trace not captured (sampled run)`)
               : (
                 <>
                   <span className="footer-metric">
                     <span className="footer-metric-label">Avg HTTP:</span>
-                    <span className="footer-metric-value">{formatDuration(avgHttpResponseTime)}</span>
+                    <span className="footer-metric-value">{formatDurationMs(avgHttpResponseTime)}</span>
                   </span>
                   <span className="footer-metric-sep">•</span>
                   <span className="footer-metric">
                     <span className="footer-metric-label">Avg Iteration:</span>
-                    <span className="footer-metric-value">{formatDuration(avgIterationTime)}</span>
+                    <span className="footer-metric-value">{formatDurationMs(avgIterationTime)}</span>
                   </span>
                   <span className="footer-metric-sep">•</span>
                   <span className="footer-metric">
                     <span className="footer-metric-label">Total:</span>
-                    <span className="footer-metric-value">{formatDuration(trace.totalDurationMs)}</span>
+                    <span className="footer-metric-value">{formatDurationMs(trace.totalDurationMs)}</span>
                   </span>
                 </>
               )
@@ -222,7 +314,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
           </div>
           <div className="results-explorer-footer-actions">
             <span className="results-explorer-shortcuts">
-              ← → iterate • A all • M matrix • Esc close
+              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • Esc close
             </span>
             <button className="cat-btn" onClick={onClose}>
               Close
@@ -283,7 +375,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
                   <span className="summary-stat-label">Failed</span>
                 </div>
                 <div className="summary-stat">
-                  <span className="summary-stat-value">{formatDuration(trace.totalDurationMs / trace.totalIterations)}</span>
+                  <span className="summary-stat-value">{formatDurationMs(trace.totalDurationMs / trace.totalIterations)}</span>
                   <span className="summary-stat-label">Avg Duration</span>
                 </div>
               </div>
@@ -320,11 +412,4 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
       )}
     </FullPanelModal>
   );
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }

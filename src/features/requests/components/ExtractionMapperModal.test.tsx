@@ -125,6 +125,13 @@ describe('ExtractionMapperModal', () => {
       expect(screen.getByPlaceholderText('Search keys…')).toBeTruthy();
     });
 
+    it('updates search term when typing in search input', () => {
+      renderModal({ sampleResponseBody: SAMPLE_JSON });
+      const search = screen.getByPlaceholderText('Search keys…') as HTMLInputElement;
+      fireEvent.change(search, { target: { value: 'title' } });
+      expect(search.value).toBe('title');
+    });
+
     it('renders expand/collapse buttons when tree is available', () => {
       renderModal({ sampleResponseBody: SAMPLE_JSON });
       expect(screen.getByText('Expand All')).toBeTruthy();
@@ -185,6 +192,32 @@ describe('ExtractionMapperModal', () => {
       expect(exprInputs.length).toBe(1);
     });
 
+    it('focuses new expression field after add extraction', () => {
+      vi.useFakeTimers();
+      const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus');
+      renderModal({ sampleResponseBody: SAMPLE_JSON });
+      fireEvent.click(screen.getByLabelText('Add extraction'));
+      vi.advanceTimersByTime(50);
+      expect(focusSpy).toHaveBeenCalled();
+      focusSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it('double-click tree populates name with empty string when name is blank and path yields no suggestion', () => {
+      const body = JSON.stringify({ 'weird-key': 1 });
+      const { container } = renderModal({ sampleResponseBody: body });
+      fireEvent.click(screen.getByLabelText('Add extraction'));
+      const exprInput = screen.getByLabelText('JSON path expression');
+      fireEvent.focus(exprInput);
+      const keyEl = Array.from(container.querySelectorAll('.jt-key'))
+        .find(el => el.textContent === 'weird-key');
+      expect(keyEl).toBeTruthy();
+      fireEvent.dblClick(keyEl!.closest('.ram-tree-row')!);
+      const nameInput = screen.getByLabelText('Variable name') as HTMLInputElement;
+      expect(nameInput.value).toBe('');
+      expect((screen.getByLabelText('JSON path expression') as HTMLInputElement).value).toBe('$.weird-key');
+    });
+
     it('double-click tree node creates new extraction when no active row', () => {
       const { container } = renderModal({ sampleResponseBody: SAMPLE_JSON });
       // Double-click on the "title" key in the tree
@@ -239,6 +272,46 @@ describe('ExtractionMapperModal', () => {
       expect(screen.queryByDisplayValue('postId')).toBeNull();
     });
 
+    it('when active row is after removed row, keeps focus on same extraction by shifting index', () => {
+      const existing: Extraction[] = [
+        { name: 'a', source: 'body', expression: '$.a' },
+        { name: 'b', source: 'body', expression: '$.b' },
+        { name: 'c', source: 'body', expression: '$.c' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing, sampleResponseBody: SAMPLE_JSON });
+      const exprInputs = screen.getAllByLabelText('JSON path expression');
+      fireEvent.focus(exprInputs[2]);
+      fireEvent.click(screen.getByLabelText('Remove extraction 1'));
+      const hint = container.querySelector('.emm-footer-hint');
+      expect(hint?.textContent).toMatch(/Row 2 active/);
+    });
+
+    it('when active row is before removed row, active index stays the same', () => {
+      const existing: Extraction[] = [
+        { name: 'a', source: 'body', expression: '$.a' },
+        { name: 'b', source: 'body', expression: '$.b' },
+        { name: 'c', source: 'body', expression: '$.c' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing, sampleResponseBody: SAMPLE_JSON });
+      const exprInputs = screen.getAllByLabelText('JSON path expression');
+      fireEvent.focus(exprInputs[1]);
+      fireEvent.click(screen.getByLabelText('Remove extraction 3'));
+      const hint = container.querySelector('.emm-footer-hint');
+      expect(hint?.textContent).toMatch(/Row 2 active/);
+    });
+
+    it('clears active row when removing that extraction', () => {
+      const existing: Extraction[] = [
+        { name: 'a', source: 'body', expression: '$.a' },
+        { name: 'b', source: 'body', expression: '$.b' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing, sampleResponseBody: SAMPLE_JSON });
+      fireEvent.focus(screen.getAllByLabelText('JSON path expression')[1]);
+      fireEvent.click(screen.getByLabelText('Remove extraction 2'));
+      const hint = container.querySelector('.emm-footer-hint');
+      expect(hint?.textContent).not.toMatch(/Row \d+ active/);
+    });
+
     it('updates variable name in mapping', () => {
       const existing: Extraction[] = [
         { name: 'postId', source: 'body', expression: '$.id' },
@@ -247,6 +320,16 @@ describe('ExtractionMapperModal', () => {
       const input = screen.getByDisplayValue('postId') as HTMLInputElement;
       fireEvent.change(input, { target: { value: 'myId' } });
       expect(input.value).toBe('myId');
+    });
+
+    it('focuses variable name input to activate row', () => {
+      const existing: Extraction[] = [
+        { name: 'postId', source: 'body', expression: '$.id' },
+      ];
+      const { container } = renderModal({ existingExtractions: existing, sampleResponseBody: SAMPLE_JSON });
+      fireEvent.focus(screen.getByLabelText('Variable name'));
+      const hint = container.querySelector('.emm-footer-hint');
+      expect(hint?.textContent).toMatch(/Row 1 active/);
     });
 
     it('strips curly braces from variable name', () => {
@@ -293,6 +376,21 @@ describe('ExtractionMapperModal', () => {
       const { container } = renderModal({ fetchSample: fs });
       const hostInput = container.querySelector('.ext-host-input');
       expect(hostInput).toBeTruthy();
+    });
+
+    it('uses default host placeholder when resolved base URL is empty', () => {
+      const fs = makeFetchSample({
+        host: {
+          enabled: true,
+          setEnabled: vi.fn(),
+          override: '',
+          setOverride: vi.fn(),
+          resolvedBaseUrl: '',
+        },
+      });
+      renderModal({ fetchSample: fs });
+      const hostInput = document.querySelector('.ext-host-input') as HTMLInputElement;
+      expect(hostInput.placeholder).toBe('https://api.example.com');
     });
 
     it('calls setEnabled when checkbox toggled', () => {

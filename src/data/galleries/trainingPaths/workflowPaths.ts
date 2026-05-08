@@ -498,6 +498,13 @@ export const workflowPaths: TrainingPath[] = [
             difficulty: 'medium',
             manualPath: 'workflow/runner/workflow-runner-results-medium.html',
           },
+          {
+            title: 'Edge Traversal Percentages',
+            description: 'Visualize branch path distribution across iterations — see which paths are taken and how often.',
+            difficulty: 'easy',
+            sampleId: 'perf-workflow-edge-pct',
+            manualPath: 'edge-traversal-percentages-guide.html',
+          },
         ],
       },
     ],
