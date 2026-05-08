@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import IterationMatrixTable from './IterationMatrixTable';
 import type { WorkflowIterationTrace } from '../../../shared/types';
@@ -566,5 +566,351 @@ describe('IterationMatrixTable', () => {
       // AVG row should be present
       expect(screen.getByText('AVG')).toBeInTheDocument();
     });
+
+    it('excludes zero totalDurationMs from footer total averages', () => {
+      const iterations: WorkflowIterationTrace[] = [
+        {
+          index: 0,
+          passed: true,
+          durationMs: 0,
+          traversedEdges: [],
+          events: [
+            { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'pass', durationMs: 0 },
+          ],
+        },
+      ];
+
+      render(
+        <IterationMatrixTable
+          iterations={iterations}
+          nodes={mockNodes}
+          onIterationSelect={mockOnIterationSelect}
+          onCellSelect={mockOnCellSelect}
+        />
+      );
+
+      const foot = screen.getByText('AVG').closest('tfoot');
+      expect(foot).not.toBeNull();
+      expect(within(foot!).getAllByText('—').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('disables Failed filter when there are no failures', () => {
+    const allPass: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: true,
+        durationMs: 100,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'pass', durationMs: 100 },
+        ],
+      },
+    ];
+
+    render(
+      <IterationMatrixTable
+        iterations={allPass}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Failed (0)' })).toBeDisabled();
+  });
+
+  it('shows ascending arrow on Total column after first sort click', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/^Total/));
+
+    expect(screen.getByText(/^Total ↑/)).toBeInTheDocument();
+  });
+
+  it('shows descending arrow on Total column after second sort click', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/^Total/));
+    fireEvent.click(screen.getByText(/^Total ↑/));
+
+    expect(screen.getByText(/^Total ↓/)).toBeInTheDocument();
+  });
+
+  it('uses node id for truncated header title when label is missing', () => {
+    const nodes = [{ id: 'n2', type: 'http' as const }];
+
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={nodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const th = screen.getByText('n2').closest('th');
+    expect(th).toHaveAttribute('title', 'n2');
+  });
+
+  it('shows descending arrow on Iteration column after second header click', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/^Iter/));
+    fireEvent.click(screen.getByText(/^Iter ↑/));
+
+    expect(screen.getByText(/^Iter ↓/)).toBeInTheDocument();
+  });
+
+  it('sorts node column using infinity duration for skipped cells', () => {
+    const iterations: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: true,
+        durationMs: 150,
+        traversedEdges: [],
+        events: [{ nodeId: 'n2', nodeType: 'http', nodeLabel: 'A', timestamp: 1, state: 'pass', durationMs: 100 }],
+      },
+      {
+        index: 1,
+        passed: true,
+        durationMs: 120,
+        traversedEdges: [],
+        events: [{ nodeId: 'n3', nodeType: 'http', nodeLabel: 'B', timestamp: 2, state: 'pass', durationMs: 120 }],
+      },
+    ];
+
+    render(
+      <IterationMatrixTable
+        iterations={iterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const headers = screen.getAllByText('Get Users');
+    fireEvent.click(headers[0]);
+
+    const bodyRows = screen.getAllByRole('row').filter(r => r.closest('tbody'));
+    expect(within(bodyRows[0]).getByText('#1')).toBeInTheDocument();
+  });
+
+  it('applies descending default when switching sort to Status from another column', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/^Iter/));
+    fireEvent.click(screen.getByText(/^Status/));
+    expect(screen.getByText(/^Status ↓/)).toBeInTheDocument();
+  });
+
+  it('adds selected-cell only on the matching iteration row', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        selectedIteration={0}
+        selectedNodeId="n2"
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    expect(document.querySelectorAll('.selected-cell')).toHaveLength(1);
+    const row2 = screen.getByText('#2').closest('tr');
+    expect(row2!.querySelector('.selected-cell')).toBeNull();
+  });
+
+  it('sorts Total using zero when iteration duration is missing', () => {
+    const iterations: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: true,
+        durationMs: 0,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'pass', durationMs: 10 },
+        ],
+      },
+      {
+        index: 1,
+        passed: true,
+        durationMs: 50,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 2, state: 'pass', durationMs: 20 },
+        ],
+      },
+    ];
+
+    render(
+      <IterationMatrixTable
+        iterations={iterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/^Total/));
+
+    const bodyRows = screen.getAllByRole('row').filter(r => r.closest('tbody'));
+    expect(within(bodyRows[0]).getByText('#1')).toBeInTheDocument();
+  });
+
+  it('marks selected node column header when selectedNodeId matches', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        selectedNodeId="n2"
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const headers = screen.getAllByText('Get Users');
+    const th = headers[0].closest('th');
+    expect(th).toHaveClass('selected');
+  });
+
+  it('applies selected-cell when iteration and node match selection', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        selectedIteration={0}
+        selectedNodeId="n2"
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const row = screen.getByText('#1').closest('tr');
+    expect(row).not.toBeNull();
+    const cell = row!.querySelector('.selected-cell');
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveClass('cell-pass');
+  });
+
+  it('marks unsampled iterations with row class, title, and indicator', () => {
+    const sampled: WorkflowIterationTrace = {
+      ...mockIterations[0],
+      sampled: false,
+    };
+
+    render(
+      <IterationMatrixTable
+        iterations={[sampled]}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const row = screen.getByText(/#1/).closest('tr');
+    expect(row).toHaveClass('not-sampled-row');
+    expect(row).toHaveAttribute('title', 'Trace not captured (sampled run)');
+    expect(screen.getByText(/#1 ○/)).toBeInTheDocument();
+  });
+
+  it('shows overhead hint when non-HTTP overhead exceeds 50ms', () => {
+    const iterations: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: true,
+        durationMs: 200,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'pass', durationMs: 50 },
+          { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Create Order', timestamp: 2, state: 'pass', durationMs: 40 },
+        ],
+      },
+    ];
+
+    render(
+      <IterationMatrixTable
+        iterations={iterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const totalCell = document.querySelector('.total-col');
+    expect(totalCell).not.toBeNull();
+    expect(totalCell).toHaveAttribute('title', expect.stringContaining('Other nodes'));
+    expect(document.querySelector('.overhead-hint')).not.toBeNull();
+  });
+
+  it('shows em dash in error column when iteration failed without error detail', () => {
+    const iterations: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: false,
+        durationMs: 50,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'fail', durationMs: 50 },
+        ],
+      },
+    ];
+
+    render(
+      <IterationMatrixTable
+        iterations={iterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const errCell = document.querySelector('.error-col');
+    expect(errCell).toHaveTextContent('—');
+  });
+
+  it('shows descending arrow on node column after second header click', () => {
+    render(
+      <IterationMatrixTable
+        iterations={mockIterations}
+        nodes={mockNodes}
+        onIterationSelect={mockOnIterationSelect}
+        onCellSelect={mockOnCellSelect}
+      />
+    );
+
+    const headers = screen.getAllByText('Get Users');
+    fireEvent.click(headers[0]);
+    fireEvent.click(headers[0]);
+
+    expect(headers[0].textContent).toContain('↓');
   });
 });

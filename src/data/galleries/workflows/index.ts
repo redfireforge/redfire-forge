@@ -6,7 +6,7 @@ import { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWait
 import { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
 import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
-import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
+import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -529,6 +529,21 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['Fork', 'Join'],
     secondaryNodes: ['HTTP'],
     factory: createPerfParallelWorkflow,
+  },
+  {
+    id: 'perf-workflow-bottleneck',
+    name: 'Perf: Bottleneck Analysis Demo',
+    description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'bottleneck', 'heatmap', 'results-explorer', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com', 'httpbin.org'],
+    category: 'performance',
+    difficulty: 'medium',
+    icon: '🔥',
+    nodeCount: 7,
+    primaryNodes: ['Condition', 'HTTP'],
+    secondaryNodes: [],
+    factory: createPerfBottleneckDemoWorkflow,
   },
   {
     id: 'perf-workflow-edge-pct',

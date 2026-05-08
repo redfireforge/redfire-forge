@@ -377,6 +377,166 @@ export function createPerfParallelWorkflow(): Workflow {
 }
 
 /**
+ * Bottleneck analysis demo workflow.
+ * Multiple HTTP nodes with varying response characteristics:
+ * - Fast endpoint (JSONPlaceholder /posts/1) — consistently fast
+ * - Slow endpoint (httpbin.org/delay/1) — intentionally slow (1s delay), will dominate timing
+ * - Variable endpoint (JSONPlaceholder /comments?postId=random) — response size varies
+ * - Failing endpoint (JSONPlaceholder /posts/999999) — always 404, triggers high-failure bottleneck
+ * Run with 10+ iterations. Open Results Explorer to see:
+ * - Heatmap coloring (slow node = red, fast = green)
+ * - Bottleneck pulsing borders and insights panel
+ * - Search/filter to isolate problem nodes
+ */
+export function createPerfBottleneckDemoWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-bottleneck',
+    name: 'Perf: Bottleneck Analysis Demo',
+    description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
+    variables: {},
+    nodes: [
+      {
+        id: 'bn-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'bn-fast',
+        type: 'http',
+        position: { x: 200, y: 100 },
+        data: {
+          label: '1. Fast Fetch',
+          scenario: {
+            id: 'bn-s1',
+            name: 'Fast Fetch',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'postTitle', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'bn-slow',
+        type: 'http',
+        position: { x: 200, y: 250 },
+        data: {
+          label: '2. Slow Service',
+          scenario: {
+            id: 'bn-s2',
+            name: 'Slow Service',
+            url: 'https://httpbin.org/delay/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-variable',
+        type: 'http',
+        position: { x: 200, y: 400 },
+        data: {
+          label: '3. Variable Load',
+          scenario: {
+            id: 'bn-s3',
+            name: 'Variable Load',
+            url: 'https://jsonplaceholder.typicode.com/posts/1/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'commentCount', source: 'body', expression: '$.length' }],
+          },
+        },
+      },
+      {
+        id: 'bn-cond',
+        type: 'condition',
+        position: { x: 240, y: 540 },
+        data: {
+          label: '4. Check Title?',
+          left: '{{postTitle}}',
+          operator: '!=',
+          right: '',
+        },
+      },
+      {
+        id: 'bn-failing',
+        type: 'http',
+        position: { x: 50, y: 680 },
+        data: {
+          label: '5a. Verify (404)',
+          scenario: {
+            id: 'bn-s4',
+            name: 'Verify Nonexistent',
+            url: 'https://jsonplaceholder.typicode.com/posts/999999',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-final',
+        type: 'http',
+        position: { x: 350, y: 680 },
+        data: {
+          label: '5b. Final Check',
+          scenario: {
+            id: 'bn-s5',
+            name: 'Final Check',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'bn-e1', source: 'bn-start', target: 'bn-fast' },
+      { id: 'bn-e2', source: 'bn-fast', target: 'bn-slow' },
+      { id: 'bn-e3', source: 'bn-slow', target: 'bn-variable' },
+      { id: 'bn-e4', source: 'bn-variable', target: 'bn-cond' },
+      { id: 'bn-e5', source: 'bn-cond', target: 'bn-failing', sourceHandle: 'true', label: 'Yes' },
+      { id: 'bn-e6', source: 'bn-cond', target: 'bn-final', sourceHandle: 'false', label: 'No' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
  * Branching workflow designed to show edge traversal percentages.
  * A SetVariable node generates a random postId (1–150) each iteration.
  * JSONPlaceholder IDs 1–100 exist (200), 101+ return 404.

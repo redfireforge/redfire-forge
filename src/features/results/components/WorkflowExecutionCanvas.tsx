@@ -16,6 +16,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
+import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 
 /** Maps 0–1 intensity to a green→yellow→orange→red color string */
 function heatmapColor(t: number): string {
@@ -37,6 +38,8 @@ function heatmapColor(t: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+export type NodeStateFilter = 'all' | 'pass' | 'fail' | 'skipped';
+
 interface Props {
   trace: WorkflowExecutionTrace;
   selectedNodeId?: string;
@@ -44,14 +47,50 @@ interface Props {
   showMinimap?: boolean;
   onToggleMinimap?: () => void;
   fitViewTrigger?: number;
+  /** Called once with computed bottleneck insights so parent can display a summary */
+  onBottlenecksComputed?: (insights: BottleneckInsight[]) => void;
+  /** Text filter — nodes whose label doesn't contain this are dimmed */
+  searchQuery?: string;
+  /** State filter — nodes not matching this state are dimmed */
+  stateFilter?: NodeStateFilter;
 }
 
-function ReplayControls({ showMinimap, onToggleMinimap }: { showMinimap?: boolean; onToggleMinimap?: () => void }) {
+const LAYOUT_STORAGE_PREFIX = 'replayLayout:';
+
+function saveLayoutToStorage(workflowId: string, positions: Record<string, { x: number; y: number }>) {
+  try {
+    localStorage.setItem(LAYOUT_STORAGE_PREFIX + workflowId, JSON.stringify(positions));
+  } catch { /* storage full or unavailable */ }
+}
+
+function loadLayoutFromStorage(workflowId: string): Record<string, { x: number; y: number }> | null {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_PREFIX + workflowId);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+
+interface ReplayControlsProps {
+  showMinimap?: boolean;
+  onToggleMinimap?: () => void;
+  onSaveLayout?: () => void;
+}
+
+function ReplayControls({ showMinimap, onToggleMinimap, onSaveLayout }: ReplayControlsProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
     fitView({ padding: 0.05, duration: 200 });
   }, [fitView]);
+
+  const handleSave = useCallback(() => {
+    onSaveLayout?.();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1200);
+  }, [onSaveLayout]);
 
   return (
     <div className="wf-pill-controls">
@@ -71,6 +110,20 @@ function ReplayControls({ showMinimap, onToggleMinimap }: { showMinimap?: boolea
       <button type="button" className="wf-pill-btn" title="Fit view" onClick={handleFitView}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        </svg>
+      </button>
+      <div className="wf-pill-sep" />
+      <button
+        type="button"
+        className={`wf-pill-btn ${saveFlash ? 'save-flash' : ''}`}
+        title="Save current node layout"
+        onClick={handleSave}
+        data-testid="save-layout-btn"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
         </svg>
       </button>
       {onToggleMinimap && (
@@ -158,6 +211,9 @@ export default function WorkflowExecutionCanvas({
   showMinimap = true,
   onToggleMinimap,
   fitViewTrigger,
+  onBottlenecksComputed,
+  searchQuery = '',
+  stateFilter = 'all',
 }: Props) {
   const [layoutKey, setLayoutKey] = useState(0);
   const hasFittedAfterMeasure = useRef(false);
@@ -229,15 +285,38 @@ export default function WorkflowExecutionCanvas({
     return states;
   }, [trace]);
 
+  // Compute bottleneck insights
+  const bottleneckInsights = useMemo(() => identifyBottlenecks(trace), [trace]);
+  const bottleneckMap = useMemo(() => getBottleneckNodeIds(bottleneckInsights), [bottleneckInsights]);
+
+  useEffect(() => {
+    onBottlenecksComputed?.(bottleneckInsights);
+  }, [bottleneckInsights, onBottlenecksComputed]);
+
+  // Restore saved layout positions if available
+  const savedLayout = useMemo(() => loadLayoutFromStorage(trace.workflowId), [trace.workflowId]);
+
   // Managed node state - initialized once, updated via onNodesChange for dragging
   const [rfNodes, setRfNodes] = useState<Node[]>(() =>
-    (trace.workflowSnapshot.nodes as Array<any>).map((node) => ({
-      ...node,
-      draggable: true,
-      connectable: false,
-      selectable: true,
-    }))
+    (trace.workflowSnapshot.nodes as Array<any>).map((node) => {
+      const saved = savedLayout?.[node.id];
+      return {
+        ...node,
+        ...(saved ? { position: { x: saved.x, y: saved.y } } : {}),
+        draggable: true,
+        connectable: false,
+        selectable: true,
+      };
+    })
   );
+
+  const handleSaveLayout = useCallback(() => {
+    const positions: Record<string, { x: number; y: number }> = {};
+    for (const node of rfNodes) {
+      positions[node.id] = { x: node.position.x, y: node.position.y };
+    }
+    saveLayoutToStorage(trace.workflowId, positions);
+  }, [rfNodes, trace.workflowId]);
 
   // Compute heatmap intensity per node (0 = fastest, 1 = slowest)
   const heatmapData = useMemo(() => {
@@ -254,12 +333,21 @@ export default function WorkflowExecutionCanvas({
     return { min, max };
   }, [nodeStates]);
 
+  const searchLower = searchQuery.toLowerCase().trim();
+
   // Apply execution styling as derived data (doesn't reset positions)
   const displayNodes: Node[] = useMemo(() => {
     return rfNodes.map((node) => {
       const executionState = nodeStates.get(node.id);
       const stateClass = executionState?.state || 'skipped';
       const isSelected = selectedNodeId === node.id;
+
+      const nodeLabel = ((node.data as Record<string, unknown>)?.label as string)
+        || ((node.data as Record<string, unknown>)?.name as string)
+        || node.id;
+      const matchesSearch = !searchLower || nodeLabel.toLowerCase().includes(searchLower);
+      const matchesState = stateFilter === 'all' || (executionState?.state || 'skipped') === stateFilter;
+      const isDimmed = !matchesSearch || !matchesState;
 
       let heatmapClass = '';
       let heatmapStyle: React.CSSProperties = {};
@@ -272,9 +360,15 @@ export default function WorkflowExecutionCanvas({
         } as React.CSSProperties;
       }
 
+      const bottleneck = bottleneckMap.get(node.id);
+      const bottleneckClass = bottleneck
+        ? ` replay-node-bottleneck replay-node-bottleneck-${bottleneck.severity}`
+        : '';
+      const dimmedClass = isDimmed ? ' replay-node-dimmed' : '';
+
       return {
         ...node,
-        className: `replay-node replay-node-${stateClass}${heatmapClass} ${isSelected ? 'replay-node-selected' : ''}`,
+        className: `replay-node replay-node-${stateClass}${heatmapClass}${bottleneckClass}${dimmedClass} ${isSelected ? 'replay-node-selected' : ''}`,
         style: { width: 220, overflow: 'hidden', ...heatmapStyle },
         data: {
           ...node.data,
@@ -282,7 +376,7 @@ export default function WorkflowExecutionCanvas({
         },
       };
     });
-  }, [rfNodes, nodeStates, selectedNodeId, heatmapData]);
+  }, [rfNodes, nodeStates, selectedNodeId, heatmapData, bottleneckMap, searchLower, stateFilter]);
 
   // Compute per-edge traversal counts and identify branching edges
   const edgeTraversalData = useMemo(() => {
@@ -318,14 +412,8 @@ export default function WorkflowExecutionCanvas({
   // Transform workflow edges with traversal highlighting and percentage labels
   const edges: Edge[] = useMemo(() => {
     const traversedSet = new Set(trace.traversedEdges);
-    const { counts, totalIterations, branchingEdges } = edgeTraversalData;
-
     return (trace.workflowSnapshot.edges as Array<any>).map((edge) => {
       const isTraversed = traversedSet.has(edge.id);
-      const count = counts.get(edge.id) || 0;
-      const isBranching = branchingEdges.has(edge.id);
-      const showPercent = isBranching && totalIterations > 1;
-      const pct = totalIterations > 0 ? Math.round((count / totalIterations) * 100) : 0;
 
       return {
         ...edge,
@@ -348,7 +436,7 @@ export default function WorkflowExecutionCanvas({
         animated: false,
       };
     });
-  }, [trace.workflowSnapshot.edges, trace.traversedEdges, edgeTraversalData]);
+  }, [trace.workflowSnapshot.edges, trace.traversedEdges]);
 
   // Compute percentage badges positioned at edge midpoints (in flow coordinates)
   const edgePctBadges: EdgePercentageBadge[] = useMemo(() => {
@@ -446,8 +534,9 @@ export default function WorkflowExecutionCanvas({
     return {
       label: (node?.data as Record<string, unknown>)?.label as string || hoveredNode.id,
       ...state,
+      bottleneck: bottleneckMap.get(hoveredNode.id),
     };
-  }, [hoveredNode, nodeStates, rfNodes]);
+  }, [hoveredNode, nodeStates, rfNodes, bottleneckMap]);
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -490,7 +579,8 @@ export default function WorkflowExecutionCanvas({
       </ReactFlow>
       <ReplayControls 
         showMinimap={showMinimap} 
-        onToggleMinimap={onToggleMinimap} 
+        onToggleMinimap={onToggleMinimap}
+        onSaveLayout={handleSaveLayout}
       />
       {hoveredNode && tooltipData && (
         <div
@@ -525,6 +615,20 @@ export default function WorkflowExecutionCanvas({
                 Executions: {tooltipData.executionCount}
               </div>
             </>
+          )}
+          {tooltipData.bottleneck && (
+            <div className={`replay-tooltip-bottleneck replay-tooltip-bottleneck-${tooltipData.bottleneck.severity}`}>
+              <div className="replay-tooltip-bottleneck-header">
+                <span className="replay-tooltip-bottleneck-icon">
+                  {tooltipData.bottleneck.severity === 'critical' ? '🔥' : tooltipData.bottleneck.severity === 'warning' ? '⚠️' : 'ℹ️'}
+                </span>
+                <span>{tooltipData.bottleneck.message}</span>
+              </div>
+              <div className="replay-tooltip-bottleneck-suggestion">{tooltipData.bottleneck.suggestion}</div>
+              <div className="replay-tooltip-bottleneck-metric">
+                {tooltipData.bottleneck.metric.label}: <strong>{tooltipData.bottleneck.metric.value}</strong>
+              </div>
+            </div>
           )}
         </div>
       )}
