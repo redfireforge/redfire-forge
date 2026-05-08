@@ -381,18 +381,19 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Workflow Runner Tab** — Dedicated navigation tab under Testing domain
 - [x] **CLI Workflow Command** — `redfireforge run-workflow` CLI command for headless workflow performance tests
 
-### Phase 0.5.8a — Visual Execution Replay & Results Explorer ✅ (Phase 5 pending)
+### Phase 0.5.8a — Visual Execution Replay & Results Explorer ✅
 
 > Visual workflow execution replay with interactive diagram, node detail panels, and iteration matrix.
 
 - [x] **Trace Data Model** — `WorkflowExecutionTrace`, `WorkflowIterationTrace`, `ExecutionEvent`, `ExecutionEventDetails` types; `TestRun.executionTrace` field; `fullTraceCaptured` flag
 - [x] **TraceCollector** — `traceCollector.ts` class with `onNodeStart`, `onNodeComplete`, `onEdgeTraversed`; integrated into `graphRunner.ts` and `graphLoadRunner.ts`
-- [x] **WorkflowResultsExplorerModal** — Full-screen modal with split layout: read-only workflow canvas (left) + detail panel (right); opened via "Explore Results" button in Results Dashboard
+- [x] **WorkflowResultsExplorerModal** — Full-screen modal with split layout: read-only workflow canvas (left) + detail panel (right); opened via "📊 Results Explorer" button in Results Dashboard
 - [x] **WorkflowExecutionCanvas** — Read-only React Flow canvas with pass/fail/skipped node coloring, traversed edge highlighting, timing overlays, fit-to-view, minimap
 - [x] **NodeExecutionDetailPanel** — Click a node to see HTTP request/response, timing breakdown, variable state, condition evaluation, loop iteration data; iteration selector dropdown
-- [x] **IterationMatrixTable** — Collapsible bottom table showing all iterations × nodes with status/timing; click cell to jump to node+iteration on canvas
+- [x] **IterationMatrixTable** — Collapsible bottom table showing all iterations × nodes with status/timing; click cell to jump to node+iteration on canvas; non-HTTP overhead displayed inline
 - [x] **Aggregate Overlay** — When no node selected, shows summary statistics across all iterations
-- [ ] **Phase 5: Polish & Optimization** — Performance optimizations for large trace data, animation polish
+- [x] **Phase 5: Polish & Optimization** — Trace compression (lz-string), trace sampling (configurable threshold), lazy trace loading, node tooltips, export/import trace as JSON, error surfacing in trace, real-time avg iteration metric, progress display fix, floating point precision fix, iteration overhead breakdown, edge traversal percentages on branching edges, edge traversal gallery sample & training manual, additional keyboard shortcuts (Space toggle, 1-9 jump), animated edge flow, export aggregate metrics as CSV, heatmap coloring (nodes colored by avg duration)
+- [x] **Post-Phase Enhancements** — Bottleneck analysis (time-dominant, high-variance, high-failure nodes with suggestions), iteration picker redesign (filter tabs, jump-to-#, p95 badges), save layout (persist node positions to localStorage), node search & filter (search bar + state filter buttons with dimming, `/` hotkey)
 
 ### Phase 0.5.8b — Correlation Wait Runner Config & Webhook Load Driver 🚧 IN PROGRESS
 
@@ -564,12 +565,12 @@ Post-launch features driven by community feedback. Completing the engine items b
 | **0.5.7a** | **Training Manual Tracks** | **—** | **8** | **8** |
 | **0.5.7b** | **Codebase Restructuring** | **—** | **4** | **4** |
 | **0.5.8** | **Workflow ↔ Harness Integration** | **—** | **9** | **9** |
-| **0.5.8a** | **Visual Execution Replay & Results Explorer** | **—** | **7** | **6** |
+| **0.5.8a** | **Visual Execution Replay & Results Explorer** | **—** | **9** | **9** |
 | **0.5.8b** | **Correlation Wait Runner Config & Webhook Load** | **—** | **5** | **3** |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **233** | **188** |
+| **Total** | | | **235** | **191** |
 
 ### Load Testing Level Milestones
 
@@ -622,4 +623,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-05-07 (v0.5.7-beta.1 — on `feature/correlation-wait-runner-config` branch; Workflow ↔ Harness integration done, Visual Execution Replay done, Parameterized Testing done; load testing at Good; 188/233 items done)_
+_Last updated: 2026-05-08 (v0.5.6-beta.1 — on `feature/trace-optimization-and-url-resolution` branch; Workflow ↔ Harness integration done, Visual Execution Replay & Results Explorer fully complete (17/17 Phase 5 + post-phase enhancements), Parameterized Testing done; load testing at Good; 192/235 items done)_

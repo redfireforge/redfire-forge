@@ -375,3 +375,296 @@ export function createPerfParallelWorkflow(): Workflow {
     updatedAt: Date.now(),
   };
 }
+
+/**
+ * Bottleneck analysis demo workflow.
+ * Multiple HTTP nodes with varying response characteristics:
+ * - Fast endpoint (JSONPlaceholder /posts/1) — consistently fast
+ * - Slow endpoint (httpbin.org/delay/1) — intentionally slow (1s delay), will dominate timing
+ * - Variable endpoint (JSONPlaceholder /comments?postId=random) — response size varies
+ * - Failing endpoint (JSONPlaceholder /posts/999999) — always 404, triggers high-failure bottleneck
+ * Run with 10+ iterations. Open Results Explorer to see:
+ * - Heatmap coloring (slow node = red, fast = green)
+ * - Bottleneck pulsing borders and insights panel
+ * - Search/filter to isolate problem nodes
+ */
+export function createPerfBottleneckDemoWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-bottleneck',
+    name: 'Perf: Bottleneck Analysis Demo',
+    description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
+    variables: {},
+    nodes: [
+      {
+        id: 'bn-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'bn-fast',
+        type: 'http',
+        position: { x: 200, y: 100 },
+        data: {
+          label: '1. Fast Fetch',
+          scenario: {
+            id: 'bn-s1',
+            name: 'Fast Fetch',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'postTitle', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'bn-slow',
+        type: 'http',
+        position: { x: 200, y: 250 },
+        data: {
+          label: '2. Slow Service',
+          scenario: {
+            id: 'bn-s2',
+            name: 'Slow Service',
+            url: 'https://httpbin.org/delay/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-variable',
+        type: 'http',
+        position: { x: 200, y: 400 },
+        data: {
+          label: '3. Variable Load',
+          scenario: {
+            id: 'bn-s3',
+            name: 'Variable Load',
+            url: 'https://jsonplaceholder.typicode.com/posts/1/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'commentCount', source: 'body', expression: '$.length' }],
+          },
+        },
+      },
+      {
+        id: 'bn-cond',
+        type: 'condition',
+        position: { x: 240, y: 540 },
+        data: {
+          label: '4. Check Title?',
+          left: '{{postTitle}}',
+          operator: '!=',
+          right: '',
+        },
+      },
+      {
+        id: 'bn-failing',
+        type: 'http',
+        position: { x: 50, y: 680 },
+        data: {
+          label: '5a. Verify (404)',
+          scenario: {
+            id: 'bn-s4',
+            name: 'Verify Nonexistent',
+            url: 'https://jsonplaceholder.typicode.com/posts/999999',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-final',
+        type: 'http',
+        position: { x: 350, y: 680 },
+        data: {
+          label: '5b. Final Check',
+          scenario: {
+            id: 'bn-s5',
+            name: 'Final Check',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'bn-e1', source: 'bn-start', target: 'bn-fast' },
+      { id: 'bn-e2', source: 'bn-fast', target: 'bn-slow' },
+      { id: 'bn-e3', source: 'bn-slow', target: 'bn-variable' },
+      { id: 'bn-e4', source: 'bn-variable', target: 'bn-cond' },
+      { id: 'bn-e5', source: 'bn-cond', target: 'bn-failing', sourceHandle: 'true', label: 'Yes' },
+      { id: 'bn-e6', source: 'bn-cond', target: 'bn-final', sourceHandle: 'false', label: 'No' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Branching workflow designed to show edge traversal percentages.
+ * A SetVariable node generates a random postId (1–150) each iteration.
+ * JSONPlaceholder IDs 1–100 exist (200), 101+ return 404.
+ * Condition branches: found → get comments, not found → create post.
+ * Expected split: ~67% Found / ~33% Not Found.
+ * Run with 20+ iterations to see natural percentage split in Results Explorer.
+ */
+export function createPerfEdgePercentageWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-edge-pct',
+    name: 'Perf: Edge Traversal Demo',
+    description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split). Open Results Explorer aggregate view to see % on edges.',
+    variables: {},
+    nodes: [
+      {
+        id: 'ep-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'ep-setvar',
+        type: 'setVariable',
+        position: { x: 200, y: 80 },
+        data: {
+          label: 'Random Post ID',
+          assignments: [
+            { name: 'postId', expression: '{{$randomInt(1, 150)}}' },
+          ],
+        },
+      },
+      {
+        id: 'ep-fetch',
+        type: 'http',
+        position: { x: 200, y: 180 },
+        data: {
+          label: '1. Fetch Post',
+          scenario: {
+            id: 'ep-s1',
+            name: 'Fetch Random Post',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'fetchStatus', source: 'status', expression: '' },
+              { name: 'postTitle', source: 'body', expression: '$.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ep-cond',
+        type: 'condition',
+        position: { x: 240, y: 310 },
+        data: {
+          label: '2. Post Found?',
+          left: '{{fetchStatus}}',
+          operator: '==',
+          right: '200',
+        },
+      },
+      {
+        id: 'ep-found',
+        type: 'http',
+        position: { x: 50, y: 450 },
+        data: {
+          label: '3a. Get Comments',
+          scenario: {
+            id: 'ep-s2',
+            name: 'Get Post Comments',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'ep-notfound',
+        type: 'http',
+        position: { x: 420, y: 450 },
+        data: {
+          label: '3b. Create Post',
+          scenario: {
+            id: 'ep-s3',
+            name: 'Create New Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [
+              { key: 'Content-Type', value: 'application/json' },
+            ],
+            body: JSON.stringify({
+              title: 'Fallback Post',
+              body: 'Created because the random post ID was not found.',
+              userId: 1,
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '201' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'ep-e1', source: 'ep-start', target: 'ep-setvar' },
+      { id: 'ep-e2', source: 'ep-setvar', target: 'ep-fetch' },
+      { id: 'ep-e3', source: 'ep-fetch', target: 'ep-cond' },
+      { id: 'ep-e4', source: 'ep-cond', target: 'ep-found', sourceHandle: 'true', label: 'Found' },
+      { id: 'ep-e5', source: 'ep-cond', target: 'ep-notfound', sourceHandle: 'false', label: 'Not Found' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}

@@ -16,6 +16,8 @@ export interface ProgressMeta {
   targetConcurrency: number;
   currentInFlight: number;
   durationMs: number;
+  /** Running average of iteration durations (ms) — workflow mode only. */
+  avgIterationTimeMs?: number;
 }
 
 type ProgressCallback = (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;
@@ -141,6 +143,9 @@ export async function runTest(
   if (mode === 'workflow') {
     if (workflow && config.workflowId) {
       const iterations = config.totalTransactions || 1;
+      const envLayer = config.workflowBaseUrl
+        ? { baseUrl: config.workflowBaseUrl }
+        : undefined;
       // Phase 7e: runGraphLoad now returns { results, trace }
       return runGraphLoad(workflow, {
         iterations,
@@ -152,6 +157,7 @@ export async function runTest(
         correlationWaitConfig: config.correlationWaitConfig,
         maxConcurrentPolls: config.maxConcurrentPolls,
         traceOptions: config.traceOptions,
+        environmentLayer: envLayer,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);

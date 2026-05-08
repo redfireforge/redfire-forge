@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import NodeExecutionDetailPanel from './NodeExecutionDetailPanel';
 
@@ -151,8 +152,8 @@ export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '0.9em', color: '#888' }}>
             {selectedIteration !== undefined
-              ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDuration(currentIterationTrace?.durationMs)}`
-              : `Total Duration: ${formatDuration(trace.totalDurationMs)} • ${trace.totalIterations} iterations`
+              ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDurationMs(currentIterationTrace?.durationMs)}`
+              : `Total Duration: ${formatDurationMs(trace.totalDurationMs)} • ${trace.totalIterations} iterations`
             }
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -195,11 +196,4 @@ export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) 
       </div>
     </FullPanelModal>
   );
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }

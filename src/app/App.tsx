@@ -662,6 +662,7 @@ export default function App() {
                 onComplete={handleCompleteToResults}
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+                resolvedBaseUrl={resolvedBaseUrl}
                 onImportSample={(wf) => {
                   const existing = wfHook.workflows.find(w => w.id === wf.id);
                   if (existing) {

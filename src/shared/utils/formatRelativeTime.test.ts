@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatRelativeTime, formatTimestamp } from './formatRelativeTime';
+import { formatRelativeTime, formatTimestamp, formatTimeWithSeconds, formatDurationCompactMs } from './formatRelativeTime';
 
 describe('formatRelativeTime', () => {
   afterEach(() => {
@@ -58,6 +58,13 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(now - 3 * 24 * 60 * 60000, fallback)).toBe('3d ago');
     expect(fallback).not.toHaveBeenCalled();
   });
+
+  it('supports run-history style wording when options passed', () => {
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    expect(formatRelativeTime(now - 30_000, undefined, { minuteFormat: 'long', justNow: 'title' })).toBe('Just now');
+    expect(formatRelativeTime(now - 5 * 60000, undefined, { minuteFormat: 'long', justNow: 'title' })).toBe('5 min ago');
+  });
 });
 
 describe('formatTimestamp', () => {
@@ -76,5 +83,33 @@ describe('formatTimestamp', () => {
   it('returns a string for edge-case timestamps', () => {
     expect(typeof formatTimestamp(0)).toBe('string');
     expect(typeof formatTimestamp(Date.now())).toBe('string');
+  });
+});
+
+describe('formatTimeWithSeconds', () => {
+  it('returns a locale time string with seconds', () => {
+    const ts = new Date('2024-06-15T10:30:45Z').getTime();
+    const result = formatTimeWithSeconds(ts);
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  });
+
+  it('handles epoch zero', () => {
+    expect(typeof formatTimeWithSeconds(0)).toBe('string');
+  });
+});
+
+describe('formatDurationCompactMs', () => {
+  it('formats sub-second durations as milliseconds', () => {
+    expect(formatDurationCompactMs(0)).toBe('0ms');
+    expect(formatDurationCompactMs(42)).toBe('42ms');
+    expect(formatDurationCompactMs(999)).toBe('999ms');
+  });
+
+  it('formats 1000+ as seconds with one decimal', () => {
+    expect(formatDurationCompactMs(1000)).toBe('1.0s');
+    expect(formatDurationCompactMs(1500)).toBe('1.5s');
+    expect(formatDurationCompactMs(12345)).toBe('12.3s');
   });
 });

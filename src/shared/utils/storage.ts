@@ -3,7 +3,8 @@ import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/t
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 import {
-  idbLoadTestRuns, idbSaveTestRun, idbDeleteTestRun,
+  idbLoadTestRuns, idbLoadTestRunsLite, idbLoadTrace,
+  idbSaveTestRun, idbDeleteTestRun,
   idbSaveTestRunsBulk, idbPruneToMax, idbMigrateFromLocalStorage,
   idbGetRunsInfo, idbDeleteRunsOlderThan, idbClearAllRuns,
 } from './idbTestRuns';
@@ -13,6 +14,7 @@ import {
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
 } from './idbSharedDataSources';
+import { compressTrace, sampleIterations } from './traceCompression';
 
 const STORAGE_KEY = 'perf-test-runs';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
@@ -106,7 +108,7 @@ function capAndTruncateResults(run: TestRun): TestRun {
     }
   }
 
-  return {
+  const truncated: TestRun = {
     ...run,
     results: results.map((r) => ({
       ...r,
@@ -116,6 +118,22 @@ function capAndTruncateResults(run: TestRun): TestRun {
           : r.responseBody,
     })),
   };
+
+  if (truncated.executionTrace) {
+    const samplingEnabled = run.config.traceOptions?.samplingEnabled !== false;
+    const samplingThreshold = run.config.traceOptions?.samplingThreshold;
+    truncated.executionTrace = {
+      ...truncated.executionTrace,
+      iterations: samplingEnabled
+        ? sampleIterations(truncated.executionTrace.iterations, samplingThreshold)
+        : truncated.executionTrace.iterations.map(iter => ({ ...iter, sampled: true })),
+    };
+    truncated.compressedTrace = compressTrace(truncated.executionTrace);
+    delete truncated.executionTrace;
+    truncated.hasTrace = true;
+  }
+
+  return truncated;
 }
 
 async function pruneOldRuns(): Promise<void> {
@@ -273,6 +291,58 @@ export async function loadTestRuns(): Promise<TestRun[]> {
     return await idbLoadTestRuns();
   } catch {
     return [];
+  }
+}
+
+/**
+ * Load test runs WITHOUT compressed trace data (lightweight).
+ * For Tauri: strips compressedTrace from each run after loading.
+ * For browser: uses idbLoadTestRunsLite which never reads the trace field.
+ */
+export async function loadTestRunsLite(): Promise<TestRun[]> {
+  if (isTauri()) {
+    try {
+      const raw = await readKey(STORAGE_KEY);
+      if (!raw) return [];
+      const runs = JSON.parse(raw) as TestRun[];
+      return runs.map(run => {
+        if (!run.compressedTrace) return run;
+        const { compressedTrace: _, ...lite } = run;
+        return { ...lite, hasTrace: true };
+      });
+    } catch {
+      return [];
+    }
+  }
+  try {
+    await ensureIdbMigration();
+    return await idbLoadTestRunsLite();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Load the compressed trace for a single run by ID. Returns the raw compressed string.
+ * For Tauri: loads all runs and picks the matching one (no random-access optimization).
+ * For browser: loads only the trace field from IndexedDB.
+ */
+export async function loadTraceForRun(runId: string): Promise<string | undefined> {
+  if (isTauri()) {
+    try {
+      const raw = await readKey(STORAGE_KEY);
+      if (!raw) return undefined;
+      const runs = JSON.parse(raw) as TestRun[];
+      return runs.find(r => r.id === runId)?.compressedTrace;
+    } catch {
+      return undefined;
+    }
+  }
+  try {
+    await ensureIdbMigration();
+    return await idbLoadTrace(runId);
+  } catch {
+    return undefined;
   }
 }
 
