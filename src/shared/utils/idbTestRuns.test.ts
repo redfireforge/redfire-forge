@@ -137,6 +137,26 @@ describe('idbTestRuns', () => {
       expect(info.count).toBe(0);
       expect(info.approxBytes).toBe(0);
     });
+
+    it('uses sampling for more than 10 runs', async () => {
+      // Save 12 runs to trigger the sampling branch (>10)
+      for (let i = 1; i <= 12; i++) {
+        await idbSaveTestRun(makeRun(`r${i}`, i * 1000));
+      }
+      const info = await idbGetRunsInfo();
+      expect(info.count).toBe(12);
+      // Sampling takes first 5 + last 5 = 10 runs, then extrapolates
+      expect(info.approxBytes).toBeGreaterThan(0);
+    });
+
+    it('calculates exact size for exactly 10 runs', async () => {
+      for (let i = 1; i <= 10; i++) {
+        await idbSaveTestRun(makeRun(`r${i}`, i * 1000));
+      }
+      const info = await idbGetRunsInfo();
+      expect(info.count).toBe(10);
+      expect(info.approxBytes).toBeGreaterThan(0);
+    });
   });
 
   describe('idbPruneToMax', () => {

@@ -364,6 +364,26 @@ export interface ScriptNodeData {
 
 // ── Correlation Wait node ────────────────────────────
 
+/** Behavior modes for CorrelationWait nodes during load/performance tests. */
+export type CorrelationWaitLoadTestMode = 'wait-for-real' | 'auto-resume' | 'synthetic-inject';
+
+/** Configuration for CorrelationWait behavior during load tests. */
+export interface CorrelationWaitLoadTestBehavior {
+  /**
+   * How to handle the correlation wait during load tests:
+   * - 'wait-for-real': Wait for actual external webhook (default, same as normal execution)
+   * - 'auto-resume': Immediately resume with mock payload (skip the wait, for CI/smoke tests)
+   * - 'synthetic-inject': Wait for synthetic event injector to fire callback with configurable delay
+   */
+  mode: CorrelationWaitLoadTestMode;
+  /** Mock payload to inject when mode is 'auto-resume' or 'synthetic-inject'. */
+  mockPayload?: Record<string, unknown>;
+  /** Delay before synthetic injection (ms). Only used when mode is 'synthetic-inject'. */
+  syntheticDelayMs?: number;
+  /** Random jitter range (±ms) added to syntheticDelayMs. */
+  syntheticJitterMs?: number;
+}
+
 export interface CorrelationWaitNodeData {
   [key: string]: unknown;
   label: string;
@@ -387,6 +407,8 @@ export interface CorrelationWaitNodeData {
   webhookFilter?: string;
   /** Optional notes. */
   notes?: string;
+  /** How this node behaves during load/performance tests. When omitted, defaults to 'wait-for-real'. */
+  loadTestBehavior?: CorrelationWaitLoadTestBehavior;
 }
 
 export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script' | 'correlationWait';

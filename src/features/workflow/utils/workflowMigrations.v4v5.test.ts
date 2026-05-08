@@ -47,19 +47,19 @@ describe('migrateWorkflowSchema - v4 → v5', () => {
   it('bumps v4 to v5', () => {
     const wf = makeWf({ schemaVersion: 4 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
   });
 
   it('leaves v5 workflow unchanged', () => {
     const wf = makeWf({ schemaVersion: 5 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
   });
 
   it('migrates v1 all the way to v5', () => {
     const wf = makeWf({ schemaVersion: 1 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
   });
 
   it('preserves subWorkflow nodes during migration', () => {

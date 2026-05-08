@@ -662,6 +662,15 @@ export default function App() {
                 onComplete={handleCompleteToResults}
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+                onImportSample={(wf) => {
+                  const existing = wfHook.workflows.find(w => w.id === wf.id);
+                  if (existing) {
+                    wfHook.update(wf.id, { nodes: wf.nodes, edges: wf.edges, variables: wf.variables, name: wf.name, description: wf.description });
+                  } else {
+                    wfHook.insert(wf);
+                  }
+                  return wf.id;
+                }}
               />
             </div>
           )}

@@ -127,8 +127,11 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
   const { method, headers, query, body } = req;
   const startTime = Date.now();
   const executionId = generateExecutionId(workflowId, triggerId);
+  
+  // Check for trace capture request via query parameter
+  const captureTrace = query._trace === 'true' || query._trace === '1';
 
-  console.log(`[Webhook] Received ${method} /webhooks/${workflowId}/${triggerId}`);
+  console.log(`[Webhook] Received ${method} /webhooks/${workflowId}/${triggerId}${captureTrace ? ' (trace capture enabled)' : ''}`);
 
   try {
     // 1. Load workflow from AppData
@@ -185,6 +188,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
       triggerId,
       startTime,
       onLog: broadcastLog,
+      traceOptions: captureTrace ? { captureFullTrace: true, alwaysCaptureFailures: true } : undefined,
     });
 
     // 6. Log webhook delivery
@@ -199,7 +203,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
 
     // 7. Return results
     console.log(`[Webhook] Execution successful: ${executionId}`);
-    res.status(200).json({
+    const response: Record<string, unknown> = {
       message: 'Workflow executed successfully',
       executionId,
       workflowId,
@@ -214,7 +218,14 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
         responseTime: r.responseTimeMs,
         passed: r.passed,
       })),
-    });
+    };
+    
+    // Include iteration trace if capture was requested
+    if (captureTrace && result.iterationTrace) {
+      response.iterationTrace = result.iterationTrace;
+    }
+    
+    res.status(200).json(response);
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     const errorMessage = getErrorMessage(error);

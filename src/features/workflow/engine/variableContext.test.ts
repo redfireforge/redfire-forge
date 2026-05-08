@@ -370,7 +370,7 @@ describe('VariableContext node-scoped refs', () => {
 
   it('expression function that returns an object gets JSON.stringified', () => {
     const ctx = new VariableContext();
-    const result = ctx.resolve('{{$merge("{\\\"a\\\":1}", "{\\\"b\\\":2}")}}');
+    const result = ctx.resolve('{{$merge("{\\"a\\":1}", "{\\"b\\":2}")}}');
     expect(typeof result).toBe('string');
   });
 

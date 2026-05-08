@@ -244,6 +244,7 @@ export async function executeHttpNode(
     requestLog: { headers, body: reqBody },
     dataRowId: data.scenario.dataRowId,
     dataRowLabel: data.scenario.dataRowLabel,
+    workflowNodeId: httpNodeId,
   };
 
   return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };

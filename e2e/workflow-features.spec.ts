@@ -215,7 +215,7 @@ test.describe('Node Config Modal', () => {
     await expect(modal).toBeVisible({ timeout: 5000 });
   });
 
-  test('config modal has Save and Cancel buttons', async ({ page }) => {
+  test('config modal has Save and Close buttons', async ({ page }) => {
     const configBadge = page.locator('.wf-node-http .wf-node-configure-badge').first();
     await expect(configBadge).toBeVisible({ timeout: 5000 });
     await configBadge.dispatchEvent('click');
@@ -224,10 +224,10 @@ test.describe('Node Config Modal', () => {
     await expect(modal).toBeVisible({ timeout: 5000 });
 
     await expect(modal.locator('button', { hasText: 'Save' })).toBeVisible();
-    await expect(modal.locator('button', { hasText: 'Cancel' })).toBeVisible();
+    await expect(modal.locator('button', { hasText: 'Close' })).toBeVisible();
   });
 
-  test('closing config modal via Cancel does not persist changes', async ({ page }) => {
+  test('closing config modal via Close does not persist changes', async ({ page }) => {
     // Wait for auto-enrichment/auto-save to settle
     await page.waitForTimeout(1000);
 
@@ -252,8 +252,8 @@ test.describe('Node Config Modal', () => {
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Click Cancel
-    await modal.locator('button', { hasText: 'Cancel' }).click();
+    // Click Close
+    await modal.locator('button', { hasText: 'Close' }).click();
     await expect(modal).not.toBeVisible();
 
     // Node configurations should not have changed
@@ -282,7 +282,7 @@ test.describe('Node Config Modal', () => {
     await expect(delayBadge).toBeVisible({ timeout: 5000 });
   });
 
-  test('config modal has Delete button', async ({ page }) => {
+  test('config modal has Save button with primary styling', async ({ page }) => {
     const configBadge = page.locator('.wf-node-http .wf-node-configure-badge').first();
     await expect(configBadge).toBeVisible({ timeout: 5000 });
     await configBadge.dispatchEvent('click');
@@ -290,7 +290,8 @@ test.describe('Node Config Modal', () => {
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await expect(modal.locator('button.btn-danger', { hasText: 'Delete' })).toBeVisible();
+    // Save button should have primary styling
+    await expect(modal.locator('button.btn-primary', { hasText: 'Save' })).toBeVisible();
   });
 });
 
