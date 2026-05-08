@@ -10,6 +10,22 @@ export function prettyJson(text: string): string {
   catch { return text; }
 }
 
+export function truncate(str: string, maxLen: number, suffix = '...', suffixInsideBudget = true): string {
+  if (suffixInsideBudget) {
+    if (str.length <= maxLen) return str;
+    const head = maxLen - suffix.length;
+    if (head <= 0) return suffix.slice(0, maxLen);
+    return str.slice(0, head) + suffix;
+  }
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen) + suffix;
+}
+
+export function formatJson(str?: string): string {
+  if (!str) return '';
+  return prettyJson(str);
+}
+
 /** Escape special regex characters so the string can be used in `new RegExp(...)`. */
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

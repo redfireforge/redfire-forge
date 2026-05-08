@@ -7,11 +7,21 @@ import type { ReactNode } from 'react';
 import { WorkflowInspectProvider, useWorkflowInspect } from './WorkflowInspectContext';
 
 describe('WorkflowInspectContext', () => {
+  it('returns safe no-op functions when used outside provider', () => {
+    const { result } = renderHook(() => useWorkflowInspect());
+    // Should not throw — returns no-ops
+    expect(() => result.current.openStepDetail('n1')).not.toThrow();
+    expect(() => result.current.openVariableDetail('key')).not.toThrow();
+    expect(() => result.current.openNodeConfig('n1')).not.toThrow();
+    expect(() => result.current.navigateToWorkflow('wf-1')).not.toThrow();
+  });
+
   it('returns provided actions when used inside provider', () => {
     const actions = {
       openStepDetail: vi.fn(),
       openVariableDetail: vi.fn(),
       openNodeConfig: vi.fn(),
+      navigateToWorkflow: vi.fn(),
     };
     const wrapper = ({ children }: { children: ReactNode }) => (
       <WorkflowInspectProvider value={actions}>{children}</WorkflowInspectProvider>
@@ -20,14 +30,7 @@ describe('WorkflowInspectContext', () => {
     expect(result.current.openStepDetail).toBe(actions.openStepDetail);
     expect(result.current.openVariableDetail).toBe(actions.openVariableDetail);
     expect(result.current.openNodeConfig).toBe(actions.openNodeConfig);
-  });
-
-  it('returns safe no-op functions when used outside provider', () => {
-    const { result } = renderHook(() => useWorkflowInspect());
-    // Should not throw — returns no-ops
-    expect(() => result.current.openStepDetail('n1')).not.toThrow();
-    expect(() => result.current.openVariableDetail('key')).not.toThrow();
-    expect(() => result.current.openNodeConfig('n1')).not.toThrow();
+    expect(result.current.navigateToWorkflow).toBe(actions.navigateToWorkflow);
   });
 
   it('no-op functions are stable references', () => {
@@ -44,6 +47,7 @@ describe('WorkflowInspectContext', () => {
       openStepDetail: vi.fn(),
       openVariableDetail: vi.fn(),
       openNodeConfig: vi.fn(),
+      navigateToWorkflow: vi.fn(),
     };
     const wrapper = ({ children }: { children: ReactNode }) => (
       <WorkflowInspectProvider value={actions}>{children}</WorkflowInspectProvider>
@@ -58,6 +62,7 @@ describe('WorkflowInspectContext', () => {
       openStepDetail: vi.fn(),
       openVariableDetail: vi.fn(),
       openNodeConfig: vi.fn(),
+      navigateToWorkflow: vi.fn(),
     };
     const wrapper = ({ children }: { children: ReactNode }) => (
       <WorkflowInspectProvider value={actions}>{children}</WorkflowInspectProvider>
@@ -72,6 +77,7 @@ describe('WorkflowInspectContext', () => {
       openStepDetail: vi.fn(),
       openVariableDetail: vi.fn(),
       openNodeConfig: vi.fn(),
+      navigateToWorkflow: vi.fn(),
     };
     const wrapper = ({ children }: { children: ReactNode }) => (
       <WorkflowInspectProvider value={actions}>{children}</WorkflowInspectProvider>

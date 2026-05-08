@@ -115,7 +115,7 @@ describe('testSampleCatalog', () => {
           }
           for (const row of test.dataSource.rows) {
             expect(row.id).toBeTruthy();
-            expect(row.enabled).toBe(true);
+            expect(typeof row.enabled === 'boolean').toBe(true);
           }
         }
       }

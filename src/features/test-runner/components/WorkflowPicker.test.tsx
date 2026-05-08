@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowPicker from './WorkflowPicker';
 import type { Workflow } from '../../workflow/types/workflow';
+import { createPerfSimpleWorkflow } from '../../../data/galleries/workflows';
 
 const ts = Date.now();
 
@@ -98,7 +99,7 @@ describe('WorkflowPicker', () => {
     );
 
     expect(screen.getByText('No workflows available')).toBeInTheDocument();
-    expect(screen.getByText('Create a workflow in the Workflow Designer first.')).toBeInTheDocument();
+    expect(screen.getByText(/Create a workflow in the Workflow Designer/)).toBeInTheDocument();
   });
 
   it('renders workflow dropdown with options', () => {
@@ -341,7 +342,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /History \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Presets/ })).toBeInTheDocument();
   });
 
   it('toggles history panel on History button click', () => {
@@ -357,9 +358,9 @@ describe('WorkflowPicker', () => {
 
     expect(screen.queryByText('No saved configurations yet.')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
 
-    expect(screen.getByText('No saved configurations yet. Run a test to save the current variables.')).toBeInTheDocument();
+    expect(screen.getByText(/No presets yet/)).toBeInTheDocument();
   });
 
   it('uses singular HTTP step label for a single HTTP node', () => {
@@ -446,8 +447,8 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    const btn = screen.getByRole('button', { name: /History/ });
-    expect(btn.textContent).toMatch(/^📜 History\s*$/);
+    const btn = screen.getByRole('button', { name: /Presets/ });
+    expect(btn.textContent).toMatch(/📋 Presets/);
   });
 
   it('collapses history panel when History is clicked twice', () => {
@@ -461,12 +462,12 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    const historyBtn = screen.getByRole('button', { name: /History/ });
+    const historyBtn = screen.getByRole('button', { name: /Presets/ });
     fireEvent.click(historyBtn);
-    expect(screen.getByText('No saved configurations yet. Run a test to save the current variables.')).toBeInTheDocument();
+    expect(screen.getByText(/No presets yet/)).toBeInTheDocument();
 
     fireEvent.click(historyBtn);
-    expect(screen.queryByText('No saved configurations yet. Run a test to save the current variables.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/No presets yet/)).not.toBeInTheDocument();
   });
 
   it('restores variables from history and closes the panel', () => {
@@ -491,14 +492,14 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    fireEvent.click(screen.getByText('Staging'));
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Restore/ }));
 
     expect(onVariablesChange).toHaveBeenCalledWith({
       baseUrl: 'https://staging.example.com',
       apiKey: 'sk-staging',
     });
-    expect(screen.queryByText('No saved configurations yet. Run a test to save the current variables.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No presets yet.')).not.toBeInTheDocument();
   });
 
   it('shows auto-generated history label for many variables', () => {
@@ -521,8 +522,11 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    expect(screen.getByText('3 variables')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    // Panel now shows actual variable keys instead of "3 variables" summary
+    expect(screen.getByText('a')).toBeInTheDocument();
+    expect(screen.getByText('b')).toBeInTheDocument();
+    expect(screen.getByText('c')).toBeInTheDocument();
   });
 
   it('edits a history label and saves with the Save button', () => {
@@ -545,10 +549,10 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    fireEvent.click(screen.getByTitle('Edit label'));
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByTitle('Rename this entry'));
 
-    const input = screen.getByPlaceholderText('Enter label...');
+    const input = screen.getByPlaceholderText('Give this run a name...');
     fireEvent.change(input, { target: { value: 'Prod run' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -577,10 +581,10 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    fireEvent.click(screen.getByTitle('Edit label'));
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByTitle('Rename this entry'));
 
-    const input = screen.getByPlaceholderText('Enter label...');
+    const input = screen.getByPlaceholderText('Give this run a name...');
     fireEvent.change(input, { target: { value: 'From enter' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
@@ -608,13 +612,13 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    fireEvent.click(screen.getByTitle('Edit label'));
-    fireEvent.change(screen.getByPlaceholderText('Enter label...'), { target: { value: 'Discarded' } });
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByTitle('Rename this entry'));
+    fireEvent.change(screen.getByPlaceholderText('Give this run a name...'), { target: { value: 'Discarded' } });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByText('Keep me')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Enter label...')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Give this run a name...')).not.toBeInTheDocument();
   });
 
   it('cancels label edit when Escape is pressed', () => {
@@ -638,9 +642,9 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
-    fireEvent.click(screen.getByTitle('Edit label'));
-    const input = screen.getByPlaceholderText('Enter label...');
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByTitle('Rename this entry'));
+    const input = screen.getByPlaceholderText('Give this run a name...');
     fireEvent.change(input, { target: { value: 'Nope' } });
     fireEvent.keyDown(input, { key: 'Escape' });
 
@@ -673,7 +677,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /History/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
     const list = screen.getByRole('list');
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
 
@@ -710,11 +714,223 @@ describe('WorkflowPicker', () => {
         />
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /History/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
       expect(screen.getByText('3m ago')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows History/Presets button as primary while panel is open', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    const presetsBtn = screen.getByRole('button', { name: /Presets/ });
+    expect(presetsBtn.className).not.toContain('btn-primary');
+    fireEvent.click(presetsBtn);
+    expect(presetsBtn.className).toContain('btn-primary');
+  });
+
+  it('does not render performance sample shortcuts when workflows list is empty and onImportSample is omitted', () => {
+    render(
+      <WorkflowPicker
+        workflows={[]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/Quick Start/)).not.toBeInTheDocument();
+  });
+
+  it('imports a catalog sample via empty-state card and forwards the factory workflow', () => {
+    const onImportSample = vi.fn();
+    render(
+      <WorkflowPicker
+        workflows={[]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+        onImportSample={onImportSample}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Perf: Simple POST/ }));
+    expect(onImportSample).toHaveBeenCalledTimes(1);
+    const wf = onImportSample.mock.calls[0][0] as Workflow;
+    expect(wf.name).toBe('Perf: Simple POST → GET');
+    expect(wf.id).toBe('perf-workflow-simple');
+  });
+
+  it('reuses stored workflow id when importing a sample that matches an existing workflow name', () => {
+    const base = createPerfSimpleWorkflow();
+    const existingUserCopy: Workflow = { ...base, id: 'user-owned-perf-simple', createdAt: ts, updatedAt: ts };
+    const onImportSample = vi.fn();
+
+    render(
+      <WorkflowPicker
+        workflows={[existingUserCopy]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+        onImportSample={onImportSample}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Perf: Simple POST → GET/ }));
+    expect(onImportSample).toHaveBeenCalledTimes(1);
+    const imported = onImportSample.mock.calls[0][0] as Workflow;
+    expect(imported.id).toBe('user-owned-perf-simple');
+    expect(imported.name).toBe(base.name);
+  });
+
+  it('marks compact sample chips as imported when a workflow shares the catalog name', () => {
+    const base = createPerfSimpleWorkflow();
+    const existingUserCopy: Workflow = { ...base, id: 'local-id', createdAt: ts, updatedAt: ts };
+
+    render(
+      <WorkflowPicker
+        workflows={[existingUserCopy]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    const chip = screen.getByRole('button', { name: /Perf: Simple POST → GET/ }).closest('.sample-chip');
+    expect(chip).toHaveClass('imported');
+  });
+
+  it('saves a named preset via Save preset → Save and persists to storage', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-special' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    fireEvent.change(screen.getByPlaceholderText(/Staging config/), { target: { value: 'Staging A' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const stored = JSON.parse(localStorage.getItem('workflow-run-configs') ?? '[]') as Array<{ workflowId?: string; label?: string }>;
+    expect(stored.some(c => c.workflowId === 'wf1' && c.label === 'Staging A')).toBe(true);
+
+    expect(screen.queryByPlaceholderText(/Staging config/)).not.toBeInTheDocument();
+    expect(screen.getByText('Staging A')).toBeInTheDocument();
+  });
+
+  it('commits preset name when Enter is pressed in the preset name input', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    const input = screen.getByPlaceholderText(/Staging config/);
+    fireEvent.change(input, { target: { value: 'From Enter preset' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const stored = JSON.parse(localStorage.getItem('workflow-run-configs') ?? '[]') as Array<{ label?: string }>;
+    expect(stored.some(c => c.label === 'From Enter preset')).toBe(true);
+  });
+
+  it('closes the save preset form on Escape without persisting empty name-only cancel path', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    const input = screen.getByPlaceholderText(/Staging config/);
+    fireEvent.change(input, { target: { value: 'Discarded preset' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    const stored = JSON.parse(localStorage.getItem('workflow-run-configs') ?? '[]') as Array<{ label?: string }>;
+    expect(stored.some(c => c.label === 'Discarded preset')).toBe(false);
+
+    expect(screen.queryByPlaceholderText(/Staging config/)).not.toBeInTheDocument();
+  });
+
+  it('cancels save preset via Cancel button and returns to preset hint copy', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    expect(screen.getByPlaceholderText(/Staging config/)).toBeInTheDocument();
+
+    const savePanel = document.querySelector('.history-save-form');
+    expect(savePanel).toBeTruthy();
+    fireEvent.click(within(savePanel as HTMLElement).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByPlaceholderText(/Staging config/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Saved variable presets/i)).toBeInTheDocument();
+  });
+
+  it('shows unnamed preset title, empty variable summary, and empty value placeholder in history rows', () => {
+    localStorage.setItem('workflow-run-configs', JSON.stringify([
+      {
+        id: 'blank-label',
+        workflowId: 'wf1',
+        variables: {},
+        usedAt: Date.now(),
+      },
+      {
+        id: 'blank-val',
+        workflowId: 'wf1',
+        label: '',
+        variables: { onlyKey: '' },
+        usedAt: Date.now(),
+      },
+    ]));
+
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+
+    expect(screen.getAllByText('Unnamed preset')).toHaveLength(2);
+
+    expect(screen.getByText('No variables')).toBeInTheDocument();
+
+    expect(screen.getByText('empty')).toBeInTheDocument();
   });
 
   it('disables Clear and History when disabled', () => {
@@ -730,6 +946,6 @@ describe('WorkflowPicker', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /History/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Presets/ })).toBeDisabled();
   });
 });

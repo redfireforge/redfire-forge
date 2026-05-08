@@ -19,7 +19,7 @@ interface IterationChartProps {
   maxHeight?: number;
 }
 
-function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartProps) {
+export function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -28,11 +28,12 @@ function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartP
     if (iterations.length === 0) return { min: 0, max: 0, avg: 0, p95: 0 };
     const times = iterations.map(i => i.totalTime).sort((a, b) => a - b);
     const sum = times.reduce((a, b) => a + b, 0);
+    const round1 = (v: number) => Math.round(v * 10) / 10;
     return {
-      min: times[0],
-      max: times[times.length - 1],
+      min: round1(times[0]),
+      max: round1(times[times.length - 1]),
       avg: Math.round(sum / times.length),
-      p95: times[Math.floor(times.length * 0.95)] ?? times[times.length - 1],
+      p95: round1(times[Math.floor(times.length * 0.95)] ?? times[times.length - 1]),
     };
   }, [iterations]);
 
@@ -114,7 +115,7 @@ function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartP
       ctx.fillStyle = 'rgba(251, 191, 36, 1)';
       ctx.font = 'bold 10px system-ui';
       ctx.textAlign = 'left';
-      ctx.fillText(`avg: ${stats.avg}ms`, width - padding.right - 80, avgY - 4);
+      ctx.fillText(`avg: ${Math.round(stats.avg)}ms`, width - padding.right - 80, avgY - 4);
     }
 
     ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
@@ -150,7 +151,7 @@ function WorkflowIterationChart({ iterations, maxHeight = 200 }: IterationChartP
       setTooltip({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top - 40,
-        text: `Iteration #${iter.iterationIndex + 1}: ${iter.totalTime}ms (${iter.passed}/${iter.total} passed)`,
+        text: `Iteration #${iter.iterationIndex + 1}: ${Math.round(iter.totalTime * 10) / 10}ms (${iter.passed}/${iter.total} passed)`,
       });
     } else {
       setTooltip(null);
@@ -352,7 +353,7 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
                         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
                         <span className="result-name">{r.scenarioName}</span>
                         <span className="result-status">{r.httpStatus || 'ERR'}</span>
-                        <span className="result-time">{r.responseTimeMs}ms</span>
+                        <span className="result-time">{Math.round(r.responseTimeMs * 10) / 10}ms</span>
                         <span className="result-passed">{r.passed ? '✓' : '✗'}</span>
                       </div>
                     ))}

@@ -135,6 +135,48 @@ describe('ExportOptionsPopover', () => {
     expect(onExport).toHaveBeenCalledWith(expect.objectContaining({ includeStructureLog: false }));
   });
 
+  it('does not call onClose on mousedown inside popover', () => {
+    mockCountVersions.mockReturnValue({ responseVersionCount: 1, rulesVersionCount: 0, definitionVersionCount: 0, structureLogCount: 0 });
+    mockHasVersionData.mockReturnValue(true);
+    const onClose = vi.fn();
+    const { container } = render(<ExportOptionsPopover data={{}} onExport={() => {}} onClose={onClose} />);
+    const pop = container.querySelector('.export-opts-popover') as HTMLElement;
+    fireEvent.mouseDown(pop);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not call onClose on non-Escape keys', () => {
+    mockCountVersions.mockReturnValue({ responseVersionCount: 1, rulesVersionCount: 0, definitionVersionCount: 0, structureLogCount: 0 });
+    mockHasVersionData.mockReturnValue(true);
+    const onClose = vi.fn();
+    render(<ExportOptionsPopover data={{}} onExport={() => {}} onClose={onClose} />);
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not reposition when popover fits vertically', () => {
+    mockCountVersions.mockReturnValue({ responseVersionCount: 1, rulesVersionCount: 0, definitionVersionCount: 0, structureLogCount: 0 });
+    mockHasVersionData.mockReturnValue(true);
+    const innerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 2000 });
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      bottom: 100,
+      top: 0,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const { container } = render(<ExportOptionsPopover data={{}} onExport={() => {}} onClose={() => {}} />);
+    const pop = container.querySelector('.export-opts-popover') as HTMLElement;
+    expect(pop.style.bottom).toBe('');
+    spy.mockRestore();
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: innerHeight });
+  });
+
   it('calls onClose on Escape key', () => {
     mockCountVersions.mockReturnValue({ responseVersionCount: 1, rulesVersionCount: 0, definitionVersionCount: 0, structureLogCount: 0 });
     mockHasVersionData.mockReturnValue(true);

@@ -13,8 +13,8 @@ vi.mock('./scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import type { WorkflowNode, WorkflowEdge } from '../types/workflow';
-import { handleDelayNode, handleStartNode, handleWebhookNode, handleScheduleNode } from './graphRunnerNodeHandlers';
+import { handleDelayNode } from './graphRunnerNodeHandlers';
+import { handleStartNode, handleWebhookNode, handleScheduleNode } from './graphRunnerTriggerHandlers';
 import {
   getMockFetch,
   makeCtx,
@@ -102,6 +102,16 @@ describe('handleStartNode', () => {
 
     await handleStartNode('s1', node, hCtx);
     expect(states['s1']?.state).toBe('pass');
+    expect(callbacks.onVariablesChange).not.toHaveBeenCalled();
+  });
+
+  it('start node with empty inputVariables object still notifies variable subscribers', async () => {
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ callbacks });
+    const node = makeNode('s1', 'start', { inputVariables: {} });
+    await handleStartNode('s1', node, hCtx);
+    expect(states['s1']?.state).toBe('pass');
+    expect(callbacks.onVariablesChange).toHaveBeenCalled();
   });
 });
 
@@ -137,6 +147,7 @@ describe('handleWebhookNode', () => {
 
     await handleWebhookNode('w1', node, hCtx);
     expect(states['w1']?.state).toBe('pass');
+    expect(ctx.get('__webhookInput')).toBe('{}');
   });
 
   it('handles missing extractVariables', async () => {
@@ -146,6 +157,111 @@ describe('handleWebhookNode', () => {
 
     await handleWebhookNode('w1', node, hCtx);
     expect(states['w1']?.state).toBe('pass');
+  });
+
+  it('stores webhook input in context for trace capture', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/api/orders',
+      samplePayload: '{"orderId":"123","amount":99.99}',
+    });
+
+    await handleWebhookNode('w1', node, hCtx);
+
+    // Check that the webhook input is stored in context
+    expect(ctx.get('__webhookInput')).toBe('{"orderId":"123","amount":99.99}');
+    expect(ctx.get('__webhookMethod')).toBe('POST');
+    expect(ctx.get('__webhookPath')).toBe('/api/orders');
+  });
+
+  it('uses runtime payload when __webhookPayload is set', async () => {
+    const ctx = makeCtx();
+    ctx.set('__webhookPayload', '{"runtime":"payload"}');
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/api/orders',
+      samplePayload: '{"sample":"data"}',
+    });
+
+    await handleWebhookNode('w1', node, hCtx);
+
+    // Should use the runtime payload, not sample
+    expect(ctx.get('__webhookInput')).toBe('{"runtime":"payload"}');
+    // Runtime __webhookPayload should be cleared
+    expect(ctx.get('__webhookPayload')).toBeUndefined();
+  });
+
+  it('uses runtime payload object without JSON parse', async () => {
+    const ctx = makeCtx();
+    ctx.set('__webhookPayload', { runtime: 1 });
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/hook',
+      samplePayload: '{"sample":"data"}',
+    });
+    await handleWebhookNode('w1', node, hCtx);
+    expect(ctx.get('__webhookInput')).toBe('{"runtime":1}');
+    expect(ctx.get('__webhookPayload')).toBeUndefined();
+  });
+
+  it('falls back to sample when runtime payload string is invalid JSON', async () => {
+    const ctx = makeCtx();
+    ctx.set('__webhookPayload', 'not-json');
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/hook',
+      samplePayload: '{"from":"sample"}',
+    });
+    await handleWebhookNode('w1', node, hCtx);
+    expect(ctx.get('__webhookInput')).toBe('{"from":"sample"}');
+  });
+
+  it('falls back to empty object when runtime invalid and sample payload blank', async () => {
+    const ctx = makeCtx();
+    ctx.set('__webhookPayload', 'not-json');
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'POST',
+      path: '/hook',
+      samplePayload: '',
+    });
+    await handleWebhookNode('w1', node, hCtx);
+    expect(ctx.get('__webhookInput')).toBe('{}');
+  });
+
+  it('omits extractVariables when list empty', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      samplePayload: '{"x":1}',
+      extractVariables: [],
+    });
+    await handleWebhookNode('w1', node, hCtx);
+    expect(callbacks.onVariablesChange).toHaveBeenCalled();
+  });
+
+  it('uses only sample payload when no runtime and no extractVariables config', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('w1', 'webhook', {
+      method: 'GET',
+      path: '/ping',
+      samplePayload: '{"only":"sample"}',
+    });
+    await handleWebhookNode('w1', node, hCtx);
+    expect(ctx.get('__webhookInput')).toBe('{"only":"sample"}');
   });
 });
 
@@ -175,5 +291,15 @@ describe('handleScheduleNode', () => {
 
     await handleScheduleNode('sc1', node, hCtx);
     expect(ctx.resolve('{{env}}')).toBe('staging');
+  });
+
+  it('runs schedule trigger without optional inputVariables', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const node = makeNode('sc1', 'schedule', {});
+    await handleScheduleNode('sc1', node, hCtx);
+    expect(states['sc1']?.state).toBe('pass');
+    expect(ctx.resolve('{{triggerDate}}')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

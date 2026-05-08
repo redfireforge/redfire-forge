@@ -61,6 +61,10 @@ describe('defaultFilterState / apiHostname', () => {
   it('apiHostname returns original string on invalid URL', () => {
     expect(apiHostname('not a url')).toBe('not a url');
   });
+
+  it('apiHostname returns original string when URL parses with empty hostname', () => {
+    expect(apiHostname('localhost:3001')).toBe('localhost:3001');
+  });
 });
 
 describe('GalleryFilters', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Scenario } from '../shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
@@ -44,6 +44,10 @@ function makeRunOpts(overrides: Partial<RunOpts> = {}): RunOpts {
 describe('executeWithRetry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('executes request successfully', async () => {
@@ -214,6 +218,38 @@ describe('executeWithRetry', () => {
     expect(result.passed).toBe(false);
     expect(result.errorMessage).toBe('{"error":{"nested":1}}'.slice(0, 300));
   });
+
+  it('times out when request exceeds timeoutMs', async () => {
+    vi.useFakeTimers();
+    mockedFetch.mockImplementation(() => new Promise(() => {}));
+    const p = executeWithRetry(makeScenario(), {}, undefined, 50, 0, 0);
+    await vi.advanceTimersByTimeAsync(60);
+    const result = await p;
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toContain('Request timeout');
+    vi.useRealTimers();
+  });
+
+  it('clears error message after retry succeeds', async () => {
+    mockedFetch
+      .mockResolvedValueOnce(errorResponse())
+      .mockResolvedValueOnce(successResponse());
+    const result = await executeWithRetry(makeScenario(), {}, undefined, undefined, 1, 0);
+    expect(result.passed).toBe(true);
+    expect(result.errorMessage).toBeUndefined();
+  });
+
+  it('delays between retry attempts when retryDelayMs is positive', async () => {
+    vi.useFakeTimers();
+    mockedFetch
+      .mockResolvedValueOnce(errorResponse())
+      .mockResolvedValueOnce(successResponse());
+    const p = executeWithRetry(makeScenario(), {}, undefined, undefined, 1, 50);
+    await vi.advanceTimersByTimeAsync(50);
+    const result = await p;
+    expect(result.passed).toBe(true);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('runSequential', () => {
@@ -268,6 +304,14 @@ describe('runBatch', () => {
     const results = await runBatch([makeScenario()], 1, makeRunOpts({ abortSignal: controller.signal }));
     expect(results).toHaveLength(0);
   });
+
+  it('stops when breaker trips between batches', async () => {
+    mockedFetch.mockResolvedValue(errorResponse());
+    const breaker = new CircuitBreaker('stop-first');
+    const queue = [makeScenario({ id: 'a' }), makeScenario({ id: 'b' }), makeScenario({ id: 'c' })];
+    const results = await runBatch(queue, 1, makeRunOpts({ breaker }));
+    expect(results.length).toBeLessThan(queue.length);
+  });
 });
 
 describe('runPool', () => {
@@ -290,6 +334,13 @@ describe('runPool', () => {
     expect(results).toHaveLength(1);
     expect(results[0].passed).toBe(false);
     expect(results[0].errorMessage).toBe('boom');
+  });
+
+  it('stringifies non-Error pool failures', async () => {
+    mockedFetch.mockRejectedValue('pool-string-fail');
+    const results = await runPool([makeScenario()], 1, makeRunOpts());
+    expect(results[0].passed).toBe(false);
+    expect(results[0].errorMessage).toBe('pool-string-fail');
   });
 
   it('calls onProgress for pool completions', async () => {

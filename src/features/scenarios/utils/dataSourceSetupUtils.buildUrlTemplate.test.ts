@@ -51,14 +51,52 @@ describe('buildUrlTemplate', () => {
     expect(result).toContain('bar=literal');
   });
 
-  it('handles invalid URL gracefully', () => {
+  it('does not overwrite query keys when enabled param maps to empty variable name', () => {
     const result = buildUrlTemplate(
-      'not-a-url/{{id}}',
-      [],
-      'not-a-url/123',
+      'https://api.example.com/items?foo={{foo}}',
+      [makeColDef({ type: 'param', mapping: 'foo', customName: '   ' })],
+      'https://api.example.com/items',
       [],
     );
-    expect(result).toBe('not-a-url/{{id}}');
+    expect(result).toContain('foo={{foo}}');
+  });
+
+  it('clears non-param template query values when fallback is also a template token', () => {
+    const result = buildUrlTemplate(
+      'https://api.example.com/items?foo={{foo}}',
+      [],
+      'https://api.example.com/items',
+      [{ key: 'foo', value: '{{bar}}' }],
+    );
+    expect(result).toContain('foo=');
+    expect(result.endsWith('foo=')).toBe(true);
+  });
+
+  it('falls back to decodeTemplateBraces when URL parsing throws', () => {
+    const result = buildUrlTemplate(':::invalid', [], 'https://api.example.com/items', []);
+    expect(result).toContain(':::invalid');
+  });
+
+  it('skips non-template query values when substituting fallbacks', () => {
+    const result = buildUrlTemplate(
+      'https://api.example.com/items?plain=lit&dyn={{d}}',
+      [],
+      'https://api.example.com/items',
+      [{ key: 'dyn', value: 'v' }],
+    );
+    expect(result).toContain('plain=lit');
+    expect(result).toContain('dyn=v');
+  });
+
+  it('handles multiple templated query keys with mixed fallbacks', () => {
+    const result = buildUrlTemplate(
+      'https://api.example.com?a={{a}}&b={{b}}',
+      [],
+      'https://api.example.com',
+      [{ key: 'a', value: 'fixed' }, { key: 'b', value: '{{c}}' }],
+    );
+    expect(result).toContain('a=fixed');
+    expect(result).toContain('b=');
   });
 });
 
@@ -89,15 +127,44 @@ describe('buildScenarioFromFetchConfig', () => {
     expect(result.body).toBe('{}');
   });
 
-  it('handles undefined fetch config', () => {
+  it('substitutes placeholder headers when fetch config has empty header list', () => {
     const result = buildScenarioFromFetchConfig(
       'ds-1',
       'Test',
-      undefined,
+      {
+        url: 'https://api.example.com',
+        method: 'GET',
+        headers: [],
+        body: '',
+        bodyType: 'none',
+        auth: { type: 'none' },
+      },
       { id: 'dt-1', columns: [], rows: [], source: { type: 'inline' } },
     );
+    expect(result.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('defaults bodyType to json when body is present without explicit bodyType', () => {
+    const result = buildScenarioFromFetchConfig(
+      'ds-1',
+      'Test',
+      {
+        url: 'https://api.example.com/p',
+        method: 'POST',
+        headers: [{ key: 'H', value: 'v' }],
+        body: '{}',
+        auth: { type: 'none' },
+      },
+      { id: 'dt-1', columns: [], rows: [], source: { type: 'inline' } },
+    );
+    expect(result.bodyType).toBe('json');
+  });
+
+  it('uses defaults when fetch config is undefined', () => {
+    const result = buildScenarioFromFetchConfig('sc-none', 'N', undefined, undefined);
     expect(result.url).toBe('');
     expect(result.method).toBe('GET');
-    expect(result.auth.type).toBe('none');
+    expect(result.bodyType).toBe('none');
+    expect(result.headers).toEqual([{ key: '', value: '' }]);
   });
 });

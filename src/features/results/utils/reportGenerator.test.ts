@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateReport, downloadReport } from './reportGenerator';
+import { generateReport, downloadReport, type ReportOptions } from './reportGenerator';
 import type { TestRun, RequestResult } from '../../../shared/types';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
@@ -89,6 +89,112 @@ describe('generateReport', () => {
       expect(html).not.toContain('<script>');
       expect(html).toContain('&lt;script&gt;');
     });
+
+    it('uses P50 dash and omits failed section when all requests pass', () => {
+      const run = makeRun({
+        results: [makeResult({ id: 'r1', passed: true })],
+        summary: { ...makeRun().summary, failedRequests: 0, successfulRequests: 10, p50ResponseTime: undefined },
+      });
+      const html = generateReport(run, { format: 'html', includePassedRows: true });
+      expect(html).toContain('>—ms</div>');
+      expect(html).not.toContain('section-header fail');
+      expect(html).toContain('section-header pass');
+    });
+
+    it('omits passed rows section when includePassedRows is false', () => {
+      const run = makeRun({
+        results: [makeResult({ passed: true }), makeResult({ id: 'r2', passed: true })],
+      });
+      const html = generateReport(run, { format: 'html', includePassedRows: false });
+      expect(html).not.toContain('section-header pass');
+    });
+
+    it('omits passed section when includePassedRows is true but none passed', () => {
+      const run = makeRun({
+        results: [makeResult({ passed: false, errorMessage: 'x' })],
+      });
+      const html = generateReport(run, { format: 'html', includePassedRows: true });
+      expect(html).toContain('section-header fail');
+      expect(html).not.toContain('section-header pass');
+    });
+
+    it('uses default Test title and batch mode when project name and executionMode are absent', () => {
+      const base = makeRun();
+      const run = {
+        ...base,
+        projectName: undefined,
+        config: { ...base.config, executionMode: undefined },
+      } as TestRun;
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('>Test Report</h1>');
+      expect(html).toContain('Mode: batch');
+    });
+
+    it('uses custom HTML title and omits env meta when env and service are absent', () => {
+      const run = makeRun({ envName: undefined, svcName: undefined });
+      const html = generateReport(run, { format: 'html', title: 'Custom HTML Title' });
+      expect(html).toContain('>Custom HTML Title</h1>');
+      expect(html).not.toContain('Environment:');
+    });
+
+    it('shows only environment in meta when svcName is missing', () => {
+      const run = makeRun({ envName: 'QA', svcName: undefined });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('Environment: QA');
+      expect(html).not.toContain('QA / ');
+    });
+
+    it('shows leading service path in meta when only svcName is set', () => {
+      const run = makeRun({ envName: undefined, svcName: 'api-only' });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain(' / api-only');
+      expect(html).not.toContain('Environment:');
+    });
+
+    it('does not show Parameterized line when no data rows exist', () => {
+      const run = makeRun({
+        results: [makeResult({ passed: true, dataRowId: undefined, dataRowLabel: undefined })],
+      });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).not.toContain('Parameterized');
+    });
+
+    it('uses scenarioName and ERR for failed row when label is absent and httpStatus is falsy', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            scenarioName: 'fallback-scenario',
+            dataRowLabel: undefined,
+            httpStatus: 0,
+            errorMessage: undefined,
+            failureDetails: [],
+          }),
+        ],
+      });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('fallback-scenario');
+      expect(html).toContain('>ERR</td>');
+    });
+
+    it('builds failed row error cell from failureDetails when errorMessage is absent', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            errorMessage: undefined,
+            failureDetails: [{ path: '$.x', expected: 'a', actual: 'b' }],
+          }),
+        ],
+      });
+      const html = generateReport(run, { format: 'html' });
+      expect(html).toContain('$.x: expected a, got b');
+    });
+
+    it('uses switch default to produce HTML for an unknown format value at runtime', () => {
+      const html = generateReport(makeRun(), { format: 'xml' } as unknown as Partial<ReportOptions>);
+      expect(html).toContain('<!DOCTYPE html>');
+    });
   });
 
   describe('JSON format', () => {
@@ -143,6 +249,25 @@ describe('generateReport', () => {
       expect(parsed.parameterized.failedRowDetails[0].error).toContain('$.id');
       expect(parsed.parameterized.failedRowDetails[0].error).toContain('expected 1');
     });
+
+    it('sets summary passRate to 0 when totalRequests is 0', () => {
+      const run = makeRun({
+        results: [],
+        summary: { ...makeRun().summary, totalRequests: 0, successfulRequests: 0 },
+      });
+      const json = generateReport(run, { format: 'json' });
+      const parsed = JSON.parse(json);
+      expect(parsed.summary.passRate).toBe(0);
+    });
+
+    it('omits parameterized block when no data rows exist', () => {
+      const run = makeRun({
+        results: [makeResult({ dataRowId: undefined })],
+      });
+      const json = generateReport(run, { format: 'json' });
+      const parsed = JSON.parse(json);
+      expect(parsed.parameterized).toBeUndefined();
+    });
   });
 
   describe('Markdown format', () => {
@@ -174,6 +299,99 @@ describe('generateReport', () => {
       });
       const md = generateReport(run, { format: 'markdown' });
       expect(md).toContain('a: expected x, got y');
+    });
+
+    it('includes environment and service name in markdown', () => {
+      const run = makeRun({
+        envName: 'Production',
+        svcName: 'payment-api',
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('**Environment:** Production / payment-api');
+    });
+
+    it('shows only environment when svcName is missing', () => {
+      const run = makeRun({
+        envName: 'Staging',
+        svcName: undefined,
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('**Environment:** Staging');
+    });
+
+    it('uses custom title when provided', () => {
+      const run = makeRun();
+      const md = generateReport(run, { format: 'markdown', title: 'My Custom Report' });
+      expect(md).toContain('# My Custom Report');
+    });
+
+    it('uses project name in default title', () => {
+      const run = makeRun({ projectName: 'Payment API' });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('# Payment API Report');
+    });
+
+    it('shows P50 as dash when undefined', () => {
+      const run = makeRun();
+      run.summary.p50ResponseTime = undefined;
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('| P50 | —ms |');
+    });
+
+    it('shows dataRowLabel for failed rows when present', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            httpStatus: 404,
+            dataRowLabel: 'Row 5: VIN=12345',
+            errorMessage: 'Not Found',
+          }),
+        ],
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('Row 5: VIN=12345');
+    });
+
+    it('uses ERR for failed results with httpStatus 0', () => {
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            httpStatus: 0,
+            errorMessage: 'Connection refused',
+          }),
+        ],
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      // httpStatus 0 shows as 'ERR' via: r.httpStatus || 'ERR'
+      expect(md).toContain('| ERR |');
+      expect(md).toContain('Connection refused');
+    });
+
+    it('uses batch when executionMode is undefined', () => {
+      const base = makeRun();
+      const run = {
+        ...base,
+        config: { ...base.config, executionMode: undefined },
+      } as TestRun;
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('**Mode:** batch');
+    });
+
+    it('shows service path in meta when only svcName is set', () => {
+      const run = makeRun({ envName: undefined, svcName: 'api-only' });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain(' / api-only');
+    });
+
+    it('computes zeroed row stats when results are empty', () => {
+      const run = makeRun({
+        results: [],
+        summary: { ...makeRun().summary, totalRequests: 0 },
+      });
+      const md = generateReport(run, { format: 'markdown' });
+      expect(md).toContain('| Pass Rate | 0% (0/0) |');
     });
   });
 });

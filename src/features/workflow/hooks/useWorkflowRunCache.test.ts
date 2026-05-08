@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowRunCache, type WorkflowRunHistoryEntry } from './useWorkflowRunCache';
 import type { NodeRunStatus } from '../types/workflow';
@@ -51,6 +51,61 @@ describe('useWorkflowRunCache', () => {
     expect(result.current.history[9].timestamp).toBe(2);
   });
 
+  it('clearConsole clears lines and storage', () => {
+    const { result } = renderHook(() => useWorkflowRunCache('w1'));
+    act(() => {
+      result.current.pushConsoleLine({ text: 'a', ts: 1 });
+      result.current.pushConsoleLine({ text: 'b', ts: 2 });
+    });
+    expect(result.current.consoleLines).toHaveLength(2);
+    act(() => result.current.clearConsole());
+    expect(result.current.consoleLines).toEqual([]);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!) as [string, unknown][];
+    const entry = parsed.find(([k]) => k === 'w1');
+    expect(entry?.[1] && typeof entry[1] === 'object' && 'consoleLines' in (entry[1] as object)).toBe(true);
+    expect((entry?.[1] as { consoleLines: unknown }).consoleLines).toEqual([]);
+  });
+
+  it('saveCacheToStorage swallows setItem failures', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError', 'QuotaExceededError');
+    });
+    const { result } = renderHook(() => useWorkflowRunCache('w1'));
+    expect(() => act(() => result.current.setLastRunStatus('running'))).not.toThrow();
+    spy.mockRestore();
+  });
+
+  it('restoreFromHistory sets pass when entry.passed is true', () => {
+    const { result } = renderHook(() => useWorkflowRunCache('w1'));
+    let id = '';
+    act(() => {
+      id = result.current.pushHistory({
+        timestamp: 1, durationMs: 99, passed: true,
+        nodeStatuses: { a: status('pass') },
+        variableSnapshot: { k: 'v' },
+        stepsExecuted: 1, stepSummaries: [], error: null,
+      });
+    });
+    act(() => {
+      result.current.setLastRunStatus('fail');
+      result.current.restoreFromHistory(id);
+    });
+    expect(result.current.lastRunStatus).toBe('pass');
+    expect(result.current.lastRunTime).toBe(99);
+    expect(result.current.runVariableSnapshot).toEqual({ k: 'v' });
+  });
+
+  it('restoreFromHistory and deleteHistoryEntry no-op when workflowId is null', () => {
+    const { result } = renderHook(() => useWorkflowRunCache(null));
+    expect(() => act(() => {
+      result.current.restoreFromHistory('any');
+      result.current.deleteHistoryEntry('any');
+    })).not.toThrow();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
   it('restoreFromHistory updates statuses, status, time, error, snapshot', () => {
     const { result } = renderHook(() => useWorkflowRunCache('w1'));
     let id = '';
@@ -74,6 +129,21 @@ describe('useWorkflowRunCache', () => {
     const { result } = renderHook(() => useWorkflowRunCache('w1'));
     act(() => result.current.restoreFromHistory('nope'));
     expect(result.current.lastRunStatus).toBe('idle');
+  });
+
+  it('deleteHistoryEntry uses empty history when cache row omits history', () => {
+    const partial = {
+      nodeStatuses: {},
+      lastRunStatus: 'idle' as const,
+      lastRunTime: undefined,
+      lastRunError: null,
+      runVariableSnapshot: null,
+      consoleLines: [],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([['w1', partial]]));
+    const { result } = renderHook(() => useWorkflowRunCache('w1'));
+    act(() => result.current.deleteHistoryEntry('missing-id'));
+    expect(result.current.history).toEqual([]);
   });
 
   it('deleteHistoryEntry removes matching entry', () => {

@@ -79,6 +79,39 @@ describe('httpFetch', () => {
       expect(result.status).toBe(0);
       expect(result.error).toMatch(/non-JSON/);
     });
+
+    it('returns structured error when proxy responds with non-OK status', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        text: () => Promise.resolve('upstream timeout'),
+      } as unknown as Response);
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toMatch(/Vite HTTP proxy returned 502 Bad Gateway/);
+      expect(result.error).toMatch(/upstream timeout/);
+    });
+
+    it('returns structured error when proxy JSON is invalid structure', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ invalid: 'structure' })),
+      } as unknown as Response);
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toMatch(/Invalid JSON from Vite HTTP proxy/);
+    });
+
+    it('handles non-TypeError non-fetch-failed errors', async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('Custom network error'));
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('Custom network error');
+    });
   });
 
   describe('tauri mode', () => {
@@ -141,6 +174,17 @@ describe('httpFetch', () => {
       const result = await httpFetch('http://api.example.com', 'GET', {});
       expect(result.status).toBe(0);
       expect(result.error).toBe('fetch failed — getaddrinfo ENOTFOUND api.example.com [ENOTFOUND]');
+    });
+
+    it('handles non-Error cause in error chain', async () => {
+      // Create an error with a non-Error cause (string)
+      const err = new Error('fetch failed');
+      (err as { cause: unknown }).cause = 'string cause';
+      mockTFetch.mockRejectedValueOnce(err);
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toBe('fetch failed — string cause');
     });
   });
 

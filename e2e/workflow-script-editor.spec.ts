@@ -145,17 +145,8 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     await expect(expandBtn).toHaveText('⊕');
   });
 
-  test('config modal expand button matches script editor expand button', async ({ page }) => {
-    // First check the config modal's expand button
-    const configModal = await openScriptConfigModal(page);
-    const configExpandBtn = configModal.getByRole('button', { name: 'Expand modal' }).first();
-    await expect(configExpandBtn).toBeVisible();
-    const configExpandText = await configExpandBtn.textContent();
-
-    // Close config modal via Cancel button
-    await configModal.locator('.wf-config-modal-footer').getByText('Cancel').click();
-
-    // Re-open and launch script editor
+  test('script editor has expand button in header', async ({ page }) => {
+    // Config modal hides expand button but script editor should show it
     await openScriptConfigModal(page);
     await page.getByText('Open Editor').click();
 
@@ -163,10 +154,7 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     await expect(overlay).toBeVisible({ timeout: 3000 });
     const scriptExpandBtn = overlay.locator('.wf-script-modal').getByRole('button', { name: 'Expand modal' }).first();
     await expect(scriptExpandBtn).toBeVisible();
-    const scriptExpandText = await scriptExpandBtn.textContent();
-
-    // Both should show the same symbol
-    expect(scriptExpandText).toBe(configExpandText);
+    await expect(scriptExpandBtn).toHaveText('⊕');
   });
 
   test('clicking expand makes script editor fullscreen', async ({ page }) => {
@@ -219,21 +207,15 @@ test.describe('Script Editor Modal - Expand/Shrink', () => {
     await expect(scriptModal.getByRole('button', { name: 'Expand modal' }).first()).toHaveText('⊕');
   });
 
-  test('config modal expand also goes fullscreen (same behavior)', async ({ page }) => {
+  test('config modal has Close and Save buttons in footer', async ({ page }) => {
     const configModal = await openScriptConfigModal(page);
 
-    // Config modal expand button
-    const expandBtn = configModal.getByRole('button', { name: 'Expand modal' }).first();
-    await expect(expandBtn).toBeVisible();
-
-    // Verify NOT fullscreen initially
-    await expect(configModal).not.toHaveClass(/modal-fullscreen/);
-
-    // Click expand
-    await expandBtn.dispatchEvent('click');
-
-    // Should have modal-fullscreen class (same as script editor)
-    await expect(page.locator('.modal-fullscreen').first()).toBeVisible({ timeout: 2000 });
+    // Config modal should have Close and Save buttons
+    const closeBtn = configModal.getByRole('button', { name: 'Close' });
+    const saveBtn = configModal.getByRole('button', { name: 'Save' });
+    
+    await expect(closeBtn).toBeVisible();
+    await expect(saveBtn).toBeVisible();
   });
 
   test('script editor footer has expand button matching config modal footer', async ({ page }) => {

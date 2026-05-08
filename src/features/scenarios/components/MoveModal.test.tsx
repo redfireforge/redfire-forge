@@ -155,4 +155,20 @@ describe('MoveModal', () => {
     renderModal();
     screen.getByText(/Auth.*current/);
   });
+
+  it('marks current scenario when moving a test within the same feature group', () => {
+    renderModal({ type: 'test' });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-1' } });
+    screen.getByText(/Login.*\(current\)/);
+  });
+
+  it('does not call onMove when Move is disabled at same test location', () => {
+    renderModal({ type: 'test' });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-1' } });
+    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'sc-1' } });
+    const moveBtn = screen.getByText('Move') as HTMLButtonElement;
+    expect(moveBtn.disabled).toBe(true);
+    fireEvent.click(moveBtn);
+    expect(onMove).not.toHaveBeenCalled();
+  });
 });

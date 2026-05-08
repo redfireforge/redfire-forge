@@ -141,7 +141,7 @@ export function computeWorkflowIterationSummaries(results: RequestResult[]): Wor
   const iterGroups = buildGroups(results, ['iteration']);
   return iterGroups.map(g => {
     const idx = parseInt(g.key.replace('Iteration #', '')) || 0;
-    const totalTime = g.results.reduce((sum, r) => sum + r.responseTimeMs, 0);
+    const totalTime = Math.round(g.results.reduce((sum, r) => sum + r.responseTimeMs, 0) * 10) / 10;
     return {
       iterationIndex: idx,
       total: g.total,

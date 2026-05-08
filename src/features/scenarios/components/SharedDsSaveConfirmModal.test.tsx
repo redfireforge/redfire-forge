@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
 import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, Scenario as ScenarioGroup, Scenario as TestScenario } from '../../../shared/types';
+import * as sharedDsChangeDetection from '../utils/sharedDsChangeDetection';
 
 function makeCol(id: string, name: string): DataSourceColumn {
   return { id, name, parameterized: false };
@@ -234,5 +235,97 @@ describe('SharedDsSaveConfirmModal', () => {
     
     // Should show 6 tests as pills and "+4 more"
     expect(screen.getByText(/\+4 more/i)).toBeInTheDocument();
+  });
+
+  it('includes affected tests when shared data source was removed and after snapshot is empty', () => {
+    const col = makeCol('c1', 'Col1');
+    const row = makeRow('r1', { c1: 'val' });
+    const ds = makeDataSource([col], [row]);
+    const before = makeSharedDs('sds1', 'OnlyInBefore', ds);
+    const after: typeof before[] = [];
+
+    const test = makeTest('t1', 'MyTest', 'sds1');
+    const scenario = makeScenario('sc1', 'Sc', [test]);
+    const fg = makeFeatureGroup('fg1', 'FG', [scenario]);
+
+    const props = {
+      before: [before],
+      after,
+      featureGroups: [fg],
+      onSave: vi.fn(),
+      onDiscard: vi.fn(),
+      onCancel: vi.fn(),
+    };
+
+    render(<SharedDsSaveConfirmModal {...props} />);
+    expect(screen.getByText(/will affect 1 linked test/i)).toBeInTheDocument();
+    expect(screen.getByText('MyTest')).toBeInTheDocument();
+    expect(screen.getByText('OnlyInBefore')).toBeInTheDocument();
+  });
+
+  it('resolves removed data source name from before when building affected headline', () => {
+    const col = makeCol('c1', 'Col1');
+    const row = makeRow('r1', { c1: 'val' });
+    const ds = makeDataSource([col], [row]);
+    const before = makeSharedDs('gone', 'GoneDS', ds);
+    const after: typeof before[] = [];
+
+    const props = {
+      before: [before],
+      after,
+      featureGroups: [],
+      onSave: vi.fn(),
+      onDiscard: vi.fn(),
+      onCancel: vi.fn(),
+    };
+
+    render(<SharedDsSaveConfirmModal {...props} />);
+    expect(screen.getByText('GoneDS')).toBeInTheDocument();
+  });
+
+  it('shows +N more when change summary exceeds six lines', () => {
+    const mkCols = (n: number) =>
+      Array.from({ length: n }, (_, i) => makeCol(`c${i}`, `C${i}`));
+    const row = makeRow('r1', { c0: 'v' });
+    const dsBefore = makeDataSource(mkCols(1), [row]);
+    const afterValues = mkCols(8).reduce<Record<string, string>>((acc, c, i) => {
+      acc[c.id] = i === 0 ? 'v' : '';
+      return acc;
+    }, {});
+    const dsAfter = makeDataSource(mkCols(8), [{ ...row, values: afterValues }]);
+
+    const before = makeSharedDs('sds1', 'DS', dsBefore);
+    const after = makeSharedDs('sds1', 'DS', dsAfter);
+
+    const props = {
+      before: [before],
+      after: [after],
+      featureGroups: [],
+      onSave: vi.fn(),
+      onDiscard: vi.fn(),
+      onCancel: vi.fn(),
+    };
+
+    render(<SharedDsSaveConfirmModal {...props} />);
+    expect(screen.getByText(/\+1 more changes/i)).toBeInTheDocument();
+  });
+
+  it('falls back to Unknown when an affected id cannot be resolved to a data source record', () => {
+    vi.spyOn(sharedDsChangeDetection, 'detectChanges').mockReturnValue([]);
+    vi.spyOn(sharedDsChangeDetection, 'summarizeChanges').mockReturnValue([]);
+    vi.spyOn(sharedDsChangeDetection, 'getAffectedDsIds').mockReturnValue(['orphan']);
+
+    const props = {
+      before: [] as SharedDataSource[],
+      after: [] as SharedDataSource[],
+      featureGroups: [] as FeatureGroup[],
+      onSave: vi.fn(),
+      onDiscard: vi.fn(),
+      onCancel: vi.fn(),
+    };
+
+    render(<SharedDsSaveConfirmModal {...props} />);
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 });
