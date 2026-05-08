@@ -86,7 +86,11 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
         const saved = raw as WorkflowRunnerConfig;
         setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
         setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
-        setExecutionMode(saved.executionMode ?? 'batch');
+        // Sanitize: 'workflow' is an internal execution mode and should never appear
+        // in the Workflow Runner's UI config (valid options: sequential, batch, pool, load-profile)
+        const savedMode = saved.executionMode;
+        const validUiModes: ExecutionMode[] = ['sequential', 'batch', 'pool', 'load-profile'];
+        setExecutionMode(validUiModes.includes(savedMode) ? savedMode : 'batch');
         if (saved.loadProfile) setLoadProfile(saved.loadProfile);
         if (saved.thinkTime) setThinkTime(saved.thinkTime);
         setTimeoutSec(saved.timeoutSec ?? 10);
@@ -124,7 +128,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       maxErrors,
       maxErrorRate,
       selectedWorkflowId: selectedWorkflowId ?? undefined,
-    } as any, storageKey);
+    } as WorkflowRunnerConfig, storageKey);
   }, [configLoaded, concurrency, totalTransactions, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId]);
 
   return {

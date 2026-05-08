@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   parseCsvLine,
   parseColumnHeader,
@@ -30,6 +30,10 @@ describe('parseCsvLine', () => {
 
   it('handles escaped double quotes inside quoted fields', () => {
     expect(parseCsvLine('"say ""hi""",bar')).toEqual(['say "hi"', 'bar']);
+  });
+
+  it('toggles quotes when a quote is not part of an escape sequence', () => {
+    expect(parseCsvLine('"a"b')).toEqual(['ab']);
   });
 
   it('returns single element for line with no commas', () => {
@@ -179,6 +183,72 @@ describe('parseJsonImport', () => {
     expect(result.columns.find(c => c.name === '$.status')?.type).toBe('validate');
     expect(result.columns.find(c => c.name === 'userId')?.type).toBe('path');
   });
+
+  it('parses schema without columns array using inferred defaults', () => {
+    const json = {
+      version: 1,
+      rows: [{ values: { a: '1' } }],
+    };
+    const result = parseJsonImport(json, []);
+    expect(result.columns).toEqual([]);
+    expect(result.rows[0].values).toEqual({});
+  });
+
+  it('preserves explicit column id and reads values via mapping when name differs', () => {
+    const json = {
+      version: 1,
+      columns: [{ id: 'fixed-col', name: 'Display', type: 'param', mapping: 'vinRef' }],
+      rows: [{ values: { vinRef: 'V1' } }],
+    };
+    const result = parseJsonImport(json, []);
+    expect(result.columns[0].id).toBe('fixed-col');
+    expect(result.columns[0].mapping).toBe('vinRef');
+    expect(result.rows[0].values['fixed-col']).toBe('V1');
+  });
+
+  it('maps schema row values by column name and attaches optional row fields', () => {
+    const json = {
+      version: 2,
+      columns: [{ name: 'k', type: 'param', mapping: 'alias' }],
+      rows: [
+        {
+          id: 'row-1',
+          label: 'L1',
+          tags: ['t1'],
+          note: 'n1',
+          isSample: true,
+          values: { k: 'by-name', extra: 99 },
+        },
+      ],
+    };
+    const result = parseJsonImport(json, []);
+    const col = result.columns[0];
+    expect(result.rows[0].values[col.id]).toBe('by-name');
+    expect(result.rows[0].label).toBe('L1');
+    expect(result.rows[0].tags).toEqual(['t1']);
+    expect(result.rows[0].note).toBe('n1');
+    expect(result.rows[0].isSample).toBe(true);
+  });
+
+  it('stringifies non-string values in schema rows', () => {
+    const json = {
+      version: 1,
+      columns: [{ name: 'x', type: 'param', mapping: 'x' }],
+      rows: [{ values: { x: { y: 1 } } }],
+    };
+    const result = parseJsonImport(json, []);
+    const col = result.columns[0];
+    expect(result.rows[0].values[col.id]).toBe('{"y":1}');
+  });
+
+  it('falls back to mapping key when the name key is absent in array rows', () => {
+    const existing: DataSourceColumn[] = [{ id: 'n1', name: 'n', type: 'param', mapping: 'm' }];
+    const first: Record<string, unknown> = { m: 'mapped' };
+    first.n = undefined;
+    const result = parseJsonImport([first], existing);
+    const col = result.columns.find(c => c.name === 'n')!;
+    expect(result.rows[0].values[col.id]).toBe('mapped');
+  });
 });
 
 // ─── buildColumnsAndRowsFromParseResult ──────────────────────
@@ -275,6 +345,80 @@ describe('buildColumnsAndRowsFromParseResult', () => {
     expect(columns.length).toBe(0);
     expect(rows.length).toBe(0);
   });
+
+  it('handles path: and expect: prefixed columns', () => {
+    const result = {
+      columns: ['path:userId', 'expect:$.ok'],
+      rows: [
+        {
+          scenario: { name: 'T', url: 'http://x', method: 'GET' as const },
+          raw: { 'path:userId': 'u1', 'expect:$.ok': 'true' },
+        },
+      ],
+      fileErrors: [],
+    };
+    const { columns, rows } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(columns.map(c => ({ type: c.type, name: c.name }))).toEqual([
+      { type: 'path', name: 'userId' },
+      { type: 'validate', name: '$.ok' },
+    ]);
+    expect(rows[0].values[columns[0].id]).toBe('u1');
+    expect(rows[0].values[columns[1].id]).toBe('true');
+  });
+
+  it('uses column name when columnTypes omits mapping', () => {
+    const result = {
+      columns: ['misc'],
+      rows: [
+        { scenario: { name: 'T', url: 'http://x', method: 'GET' as const }, raw: { misc: 'v' } },
+      ],
+      fileErrors: [],
+      columnTypes: new Map([['misc', { type: 'param' }]]),
+    };
+    const { columns } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(columns[0].mapping).toBe('misc');
+  });
+
+  it('leaves defaults when no columnTypes and no existing match', () => {
+    const result = {
+      columns: ['solo'],
+      rows: [
+        { scenario: { name: 'T', url: 'http://x', method: 'GET' as const }, raw: { solo: 'solo-val' } },
+      ],
+      fileErrors: [],
+    };
+    const { columns } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(columns[0].type).toBe('param');
+    expect(columns[0].mapping).toBe('solo');
+  });
+
+  it('uses empty cell when raw has no matching key for a column', () => {
+    const result = {
+      columns: ['param:p'],
+      rows: [
+        { scenario: { name: 'T', url: 'http://x', method: 'GET' as const }, raw: {} },
+      ],
+      fileErrors: [],
+    };
+    const { columns, rows } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(rows[0].values[columns[0].id]).toBe('');
+  });
+
+  it('skips metadata-like columns auth_type and body when unprefixed', () => {
+    const result = {
+      columns: ['auth_type', 'body', 'param:x'],
+      rows: [
+        {
+          scenario: { name: 'T', url: 'http://x', method: 'POST' as const },
+          raw: { auth_type: 'bearer', body: '{}', 'param:x': '1' },
+        },
+      ],
+      fileErrors: [],
+    };
+    const { columns, rows } = buildColumnsAndRowsFromParseResult(result, []);
+    expect(columns.map(c => c.name)).toEqual(['x']);
+    expect(rows[0].values[columns[0].id]).toBe('1');
+  });
 });
 
 // ─── extractJsonPath ─────────────────────────────────────────
@@ -296,6 +440,10 @@ describe('extractJsonPath', () => {
 
   it('returns empty string for null input', () => {
     expect(extractJsonPath(null, 'a')).toBe('');
+  });
+
+  it('returns empty when intermediate value is null', () => {
+    expect(extractJsonPath({ a: { b: null } }, 'a.b.c')).toBe('');
   });
 
   it('returns JSON string for object values', () => {
@@ -338,6 +486,10 @@ describe('inferPatternsFromColumns', () => {
       ),
     ).toEqual([]);
   });
+
+  it('treats missing mapping like an empty validate path', () => {
+    expect(inferPatternsFromColumns([{ type: 'validate' }], new Set())).toEqual([]);
+  });
 });
 
 describe('expandPatternFromResponse', () => {
@@ -359,6 +511,15 @@ describe('expandPatternFromResponse', () => {
     expect(paths).toEqual(['a[0].b[0].c', 'a[0].b[1].c']);
   });
 
+  it('does not recurse into wildcard when intermediate path is missing', () => {
+    expect(expandPatternFromResponse({}, 'missing[*].x')).toEqual([]);
+  });
+
+  it('handles trailing wildcard segments', () => {
+    const tree = { offers: [{ id: '1' }, { id: '2' }] };
+    expect(expandPatternFromResponse(tree, 'offers[*]')).toEqual(['offers[0]', 'offers[1]']);
+  });
+
   it('handles pattern without [*]', () => {
     const obj = { foo: { bar: 1 } };
     const paths = expandPatternFromResponse(obj, 'foo.bar');
@@ -368,6 +529,10 @@ describe('expandPatternFromResponse', () => {
   it('walks multiple static segments before a wildcard segment', () => {
     const obj = { a: { b: { items: [{ z: 1 }, { z: 2 }] } } };
     expect(expandPatternFromResponse(obj, 'a.b.items[*].z')).toEqual(['a.b.items[0].z', 'a.b.items[1].z']);
+  });
+
+  it('stops when static segment path hits a missing object', () => {
+    expect(expandPatternFromResponse({ a: {} }, 'a.b.c')).toEqual([]);
   });
 });
 
@@ -405,25 +570,50 @@ describe('normalizeForCompare', () => {
 
 // ─── parseExcelSimple ────────────────────────────────────────
 
+const xlsxFixture = {
+  variant: 'grid' as 'grid' | 'missing_sheet' | 'header_only' | 'short_row',
+};
+
 vi.mock('xlsx-js-style', () => ({
-  read: (_buf: ArrayBuffer, _opts: unknown) => ({
-    SheetNames: ['Sheet1'],
-    Sheets: {
-      Sheet1: { __mockSheet: true },
-    },
-  }),
+  read: (_buf: ArrayBuffer, _opts: unknown) => {
+    if (xlsxFixture.variant === 'missing_sheet') {
+      return { SheetNames: ['Sheet1'], Sheets: {} };
+    }
+    return {
+      SheetNames: ['Sheet1'],
+      Sheets: {
+        Sheet1: { __mockSheet: true },
+      },
+    };
+  },
   utils: {
-    sheet_to_json: (_sheet: unknown, _opts: unknown) => [
-      ['userId', 'channel', 'status'],
-      ['42', 'WEB', 'active'],
-      ['99', 'APP', 'pending'],
-      ['', '', ''], // empty row should be skipped
-    ],
+    sheet_to_json: (_sheet: unknown, _opts: unknown) => {
+      if (xlsxFixture.variant === 'header_only') {
+        return [['a', 'b']];
+      }
+      if (xlsxFixture.variant === 'short_row') {
+        return [
+          ['userId', 'channel', 'status'],
+          ['42'],
+        ];
+      }
+      return [
+        ['userId', 'channel', 'status'],
+        ['42', 'WEB', 'active'],
+        ['99', 'APP', 'pending'],
+        ['', '', ''],
+      ];
+    },
   },
 }));
 
 describe('parseExcelSimple', () => {
+  afterEach(() => {
+    xlsxFixture.variant = 'grid';
+  });
+
   it('parses Excel buffer into columns and rows', async () => {
+    xlsxFixture.variant = 'grid';
     const buffer = new ArrayBuffer(8);
     const result = await parseExcelSimple(buffer, []);
     expect(result.columns.length).toBe(3);
@@ -436,6 +626,7 @@ describe('parseExcelSimple', () => {
   });
 
   it('reuses existing columns when names match', async () => {
+    xlsxFixture.variant = 'grid';
     const existing: DataSourceColumn[] = [
       { id: 'existing-1', name: 'userId', type: 'path', mapping: 'userId' },
     ];
@@ -445,5 +636,28 @@ describe('parseExcelSimple', () => {
     expect(result.columns[0].name).toBe('userId');
     expect(result.columns[0].type).toBe('path');
     expect(result.columns[0].mapping).toBe('userId');
+  });
+
+  it('returns empty columns and rows when the sheet is missing', async () => {
+    xlsxFixture.variant = 'missing_sheet';
+    const result = await parseExcelSimple(new ArrayBuffer(0), []);
+    expect(result.columns).toEqual([]);
+    expect(result.rows).toEqual([]);
+  });
+
+  it('returns empty columns and rows when only a header row is present', async () => {
+    xlsxFixture.variant = 'header_only';
+    const result = await parseExcelSimple(new ArrayBuffer(0), []);
+    expect(result.columns).toEqual([]);
+    expect(result.rows).toEqual([]);
+  });
+
+  it('pads short data rows with empty strings for missing cells', async () => {
+    xlsxFixture.variant = 'short_row';
+    const result = await parseExcelSimple(new ArrayBuffer(0), []);
+    expect(result.columns.map(c => c.name)).toEqual(['userId', 'channel', 'status']);
+    expect(result.rows[0].values[result.columns[0].id]).toBe('42');
+    expect(result.rows[0].values[result.columns[1].id]).toBe('');
+    expect(result.rows[0].values[result.columns[2].id]).toBe('');
   });
 });

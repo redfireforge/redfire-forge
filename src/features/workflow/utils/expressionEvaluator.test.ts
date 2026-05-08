@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateExpression, formatExpressionResult, buildExpressionTemplate } from './expressionEvaluator';
+import { EXPRESSION_FUNCTION_MAP } from './expressionFunctions';
 
 describe('expressionEvaluator', () => {
   // ── Basic evaluation ──
@@ -308,6 +309,44 @@ describe('expressionEvaluator', () => {
     it('handles number with decimals', () => {
       const r = evaluateExpression('$abs(3.14)');
       expect(r.value).toBeCloseTo(3.14);
+    });
+
+    it('formatExpressionResult falls back when JSON.stringify throws', () => {
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      expect(formatExpressionResult(circular)).toBe('[object Object]');
+    });
+
+    it('evaluateExpression returns empty literal for leading rparen token', () => {
+      expect(evaluateExpression(')')).toEqual({ value: '' });
+    });
+
+    it('evaluateExpression error path surfaces non-Error throws', () => {
+      const spy = vi.spyOn(String.prototype, 'trim').mockImplementation(function (this: string) {
+        if (this === 'boom') throw 'not-an-error';
+        return String.prototype.trim.call(this);
+      });
+      try {
+        const r = evaluateExpression('boom');
+        expect(r.error).toBe('not-an-error');
+        expect(r.value).toBeNull();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('evalNode surfaces non-Error throws from functions', () => {
+      const upper = EXPRESSION_FUNCTION_MAP.get('$upper');
+      expect(upper).toBeDefined();
+      const spy = vi.spyOn(upper!, 'evaluate').mockImplementation(() => {
+        throw 'string-throw';
+      });
+      try {
+        const r = evaluateExpression('$upper("a")');
+        expect(r.value).toBe('[Error: string-throw]');
+      } finally {
+        spy.mockRestore();
+      }
     });
 
     it('handles boolean true literal', () => {

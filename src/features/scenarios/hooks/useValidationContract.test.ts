@@ -91,6 +91,24 @@ describe('useValidationContract', () => {
       );
     });
 
+    it('clears validationContract when removing the only dynamic pattern', () => {
+      const dt = makeDataSource({
+        columns: [makeValidateCol('c1', 'items[0].name')],
+        validationContract: ['items[*].name'],
+      });
+      const draft = makeDraft(dt);
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useValidationContract(dt, draft, onChange));
+
+      act(() => result.current.toggleContractPattern('items[*].name', false));
+
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dataSource: expect.objectContaining({ validationContract: undefined }),
+        }),
+      );
+    });
+
     it('removes pattern from contract when making fixed', () => {
       const dt = makeDataSource({
         columns: [makeValidateCol('c1', 'items[0].name')],
@@ -193,6 +211,19 @@ describe('useValidationContract', () => {
           dataSource: expect.objectContaining({ arrayValidationMode: { 'items[*]': 'ordered' } }),
         }),
       );
+    });
+  });
+
+  describe('without data source', () => {
+    it('callbacks are no-ops when dt is undefined', () => {
+      const draft = makeDraft();
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useValidationContract(undefined, draft, onChange));
+      act(() => result.current.toggleContractPattern('x', true));
+      act(() => result.current.addContractPattern('x'));
+      act(() => result.current.removeContractPattern('x'));
+      act(() => result.current.toggleArrayMode('p'));
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 });

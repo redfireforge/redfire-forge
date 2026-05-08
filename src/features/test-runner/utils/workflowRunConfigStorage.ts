@@ -3,6 +3,8 @@
  * Tracks which variable values were used in past runs for each workflow.
  */
 
+import { formatRelativeTime as formatRelativeTimeShared } from '../../../shared/utils/formatRelativeTime';
+
 export interface WorkflowRunConfig {
   id: string;
   workflowId: string;
@@ -72,6 +74,31 @@ export function getWorkflowRunConfigs(workflowId: string): WorkflowRunConfig[] {
 }
 
 /**
+ * Manually save a named variable preset (not tied to a run).
+ * Unlike saveWorkflowRunConfig, this always creates a new entry and keeps the label.
+ */
+export function saveWorkflowRunConfigManually(
+  workflowId: string,
+  variables: Record<string, string>,
+  label: string
+): WorkflowRunConfig {
+  const all = loadWorkflowRunConfigs();
+  const newConfig: WorkflowRunConfig = {
+    id: crypto.randomUUID(),
+    workflowId,
+    variables,
+    label: label.trim() || undefined,
+    usedAt: Date.now(),
+  };
+  all.unshift(newConfig);
+  const forThisWorkflow = all.filter(c => c.workflowId === workflowId);
+  const others = all.filter(c => c.workflowId !== workflowId);
+  const trimmed = [...forThisWorkflow.slice(0, MAX_CONFIGS_PER_WORKFLOW), ...others];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+  return newConfig;
+}
+
+/**
  * Update the label of a saved config.
  */
 export function updateWorkflowRunConfigLabel(configId: string, label: string): void {
@@ -108,13 +135,5 @@ export function formatConfigLabel(config: WorkflowRunConfig): string {
  * Format relative time (e.g., "2 hours ago", "3 days ago").
  */
 export function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(timestamp).toLocaleDateString();
+  return formatRelativeTimeShared(timestamp, ts => new Date(ts).toLocaleDateString());
 }

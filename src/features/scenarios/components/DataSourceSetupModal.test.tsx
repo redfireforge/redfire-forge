@@ -36,14 +36,60 @@ vi.mock('../../../shared/components/FullPanelModal', () => ({
 }));
 
 vi.mock('./SetupStepVariables', () => ({
-  default: ({ analysis, selections, toggleSegment, setVarName }: {
+  default: ({
+    analysis,
+    selections,
+    toggleSegment,
+    setVarName,
+    urlParams = [],
+    setParamSelection,
+    headerCandidates = [],
+    setHeaderSelection,
+    bodyVariableCandidates = [],
+    setBodySelection,
+    setWorkingAuthType,
+    patchWorkingAuth,
+    autoUrlTemplate,
+    setUrlTemplateInput,
+    setIsTemplateCustomized,
+  }: {
     analysis: { segments: { index: number; segment: string; variableName: string }[] };
     selections: Record<number, { checked: boolean; name: string }>;
     toggleSegment: (idx: number) => void;
     setVarName: (idx: number, name: string) => void;
+    urlParams?: { key: string; value: string }[];
+    setParamSelection?: (key: string, patch: Partial<{ enabled: boolean; name: string }>) => void;
+    headerCandidates?: { key: string; value: string }[];
+    setHeaderSelection?: (key: string, patch: Partial<{ enabled: boolean; name: string }>) => void;
+    bodyVariableCandidates?: string[];
+    setBodySelection?: (key: string, patch: Partial<{ enabled: boolean; name: string }>) => void;
+    setWorkingAuthType?: (type: string) => void;
+    patchWorkingAuth?: (patch: Record<string, unknown>) => void;
+    autoUrlTemplate?: string;
+    setUrlTemplateInput?: (v: string) => void;
+    setIsTemplateCustomized?: (v: boolean) => void;
   }) => (
     <div data-testid="step-variables">
       <span data-testid="segment-count">{analysis.segments.length}</span>
+      <button
+        type="button"
+        data-testid="exercise-variable-callbacks"
+        onClick={() => {
+          setWorkingAuthType?.('bearer');
+          patchWorkingAuth?.({ token: 'tok' });
+          const pk = urlParams[0]?.key;
+          if (pk) setParamSelection?.(pk, { name: 'paramRenamed' });
+          const hk = headerCandidates[0]?.key;
+          if (hk) setHeaderSelection?.(hk, { enabled: true });
+          const bk = bodyVariableCandidates[0];
+          if (bk) setBodySelection?.(bk, { enabled: false });
+          setIsTemplateCustomized?.(true);
+          setUrlTemplateInput?.(`${autoUrlTemplate ?? ''}#touched`);
+          setIsTemplateCustomized?.(false);
+        }}
+      >
+        Exercise variable callbacks
+      </button>
       {analysis.segments.map(seg => (
         <div key={seg.index} data-testid={`segment-${seg.index}`}>
           <input
@@ -70,21 +116,31 @@ vi.mock('./SetupStepValidate', () => ({
     setValidationMode,
     validateFields,
     setValidateFields,
+    sampleJson,
     handleFetchForValidate,
     fetching,
     fetchError,
+    setArrayModes,
   }: {
     validationMode: string;
     setValidationMode: (m: 'none' | 'selective' | 'full') => void;
     validateFields: { jsonPath: string; expectedValue?: string }[];
     setValidateFields: (next: { jsonPath: string; expectedValue?: string }[]) => void;
+    sampleJson?: string;
     handleFetchForValidate: () => void | Promise<void>;
     fetching?: boolean;
     fetchError?: string | null;
+    setArrayModes?: (
+      next:
+        | Record<string, 'ordered' | 'unordered'>
+        | ((prev: Record<string, 'ordered' | 'unordered'>) => Record<string, 'ordered' | 'unordered'>),
+    ) => void;
   }) => (
     <div data-testid="step-validate">
       <span data-testid="val-mode">{validationMode}</span>
       <span data-testid="val-field-count">{validateFields.length}</span>
+      <span data-testid="sample-json-preview">{sampleJson ?? ''}</span>
+      <span data-testid="first-validate-path">{validateFields[0]?.jsonPath ?? ''}</span>
       <span data-testid="fetching">{fetching ? 'yes' : 'no'}</span>
       <span data-testid="fetch-error">{fetchError ?? ''}</span>
       <button type="button" data-testid="set-mode-none" onClick={() => setValidationMode('none')}>
@@ -101,6 +157,13 @@ vi.mock('./SetupStepValidate', () => ({
         }
       >
         Add validate
+      </button>
+      <button
+        type="button"
+        data-testid="set-array-unordered"
+        onClick={() => setArrayModes?.({ arrPrefix: 'unordered' })}
+      >
+        Unordered items
       </button>
       <button type="button" data-testid="run-fetch-validate" onClick={() => void handleFetchForValidate()}>
         Fetch
@@ -178,11 +241,17 @@ vi.mock('../utils/dataSourceSetupUtils', () => ({
     test,
     pathVars,
     urlParams = [],
+    paramSelections = {},
+    headerSelections = {},
+    bodySelections = {},
   }: {
     mode: string;
     test: Scenario;
     pathVars: { segmentIndex: number; variableName: string }[];
     urlParams?: { key: string; value: string }[];
+    paramSelections?: Record<string, { enabled: boolean; name: string }>;
+    headerSelections?: Record<string, { enabled: boolean; name: string }>;
+    bodySelections?: Record<string, { enabled: boolean; name: string }>;
   }) => {
     const shortFor = (path: string) =>
       path.replace(/\./g, '_').replace(/\[(\d+)\]/g, '$1').replace(/[^a-zA-Z0-9_]/g, '');
@@ -215,12 +284,36 @@ vi.mock('../utils/dataSourceSetupUtils', () => ({
       });
     }
     for (const p of urlParams) {
+      if (!paramSelections[p.key]?.enabled) continue;
       out.push({
         type: 'param',
         mapping: p.key,
         fullKey: `param:${p.key}`,
         autoName: p.key,
         customName: p.key,
+        sampleValue: '',
+      });
+    }
+    for (const [headerKey, cfg] of Object.entries(headerSelections)) {
+      if (!cfg?.enabled) continue;
+      const n = cfg.name || headerKey.replace(/[^a-zA-Z0-9]/g, '');
+      out.push({
+        type: 'header',
+        mapping: headerKey,
+        fullKey: `header:${headerKey}`,
+        autoName: n,
+        customName: n,
+        sampleValue: '',
+      });
+    }
+    for (const [bodyKey, cfg] of Object.entries(bodySelections)) {
+      if (!cfg?.enabled) continue;
+      out.push({
+        type: 'body',
+        mapping: bodyKey,
+        fullKey: `body:${bodyKey}`,
+        autoName: bodyKey,
+        customName: bodyKey,
         sampleValue: '',
       });
     }
@@ -352,6 +445,17 @@ describe('DataSourceSetupModal', () => {
   });
 
   describe('Step 1: Variables', () => {
+    it('exercises auth and variable setter callbacks passed to SetupStepVariables', () => {
+      const test = createTestScenario({
+        url: 'https://api.example.com/users/1/orders?q=a',
+        method: 'POST',
+        body: '{"x":"{{bodyVar}}"}',
+        headers: [{ key: 'Authorization', value: '{{token}}' }],
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} />);
+      fireEvent.click(screen.getByTestId('exercise-variable-callbacks'));
+    });
+
     it('renders SetupStepVariables on initial load', () => {
       render(<DataSourceSetupModal {...defaultProps} />);
       expect(screen.getByTestId('step-variables')).toBeInTheDocument();
@@ -455,12 +559,34 @@ describe('DataSourceSetupModal', () => {
       expect(screen.getByTestId('step-variables')).toBeInTheDocument();
     });
 
+    it('loads remembered validate fields and default sampleJson from existing data source', () => {
+      const test = createTestScenario({
+        url: 'https://api.example.com/users/9/orders',
+        dataSource: {
+          columns: [
+            { id: 'c1', name: 'userId', type: 'path', mapping: 'userId' },
+            { id: 'vk', name: 'chk', type: 'validate', mapping: 'data.id' },
+          ],
+          rows: [{ id: 'r1', values: { c1: '9', vk: 'expected-val' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} mode="parameterize" test={test} />);
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Next: Validate Fields'));
+      expect(screen.getByTestId('first-validate-path')).toHaveTextContent('data.id');
+      expect(screen.getByTestId('sample-json-preview')).toHaveTextContent('{}');
+    });
+
     it('shows Next: Validate Fields in parameterize mode', () => {
       render(<DataSourceSetupModal {...defaultProps} mode="parameterize" />);
       ensurePathVariableChecked(1);
       fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
       fireEvent.click(screen.getByText('Next: Columns'));
-      
+
       expect(screen.getByText('Next: Validate Fields')).toBeInTheDocument();
     });
 
@@ -1161,6 +1287,137 @@ describe('DataSourceSetupModal', () => {
       fireEvent.click(screen.getByText('Next: Column Order'));
       fireEvent.click(screen.getByText('Next: Review'));
       expect(screen.getByTestId('step-review')).toBeInTheDocument();
+    });
+  });
+
+  describe('handleApply defaultValueForColumn branches and handleClose', () => {
+    it('fills path cell from literal URL when template path segment is a placeholder', () => {
+      const onApply = vi.fn();
+      const test = createTestScenario({
+        url: 'https://api.example.com/users/123/orders',
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} onApply={onApply} />);
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Apply to Data Source'));
+      const [dataTable] = onApply.mock.calls[0];
+      const pathCol = dataTable.columns.find((c: { type: string }) => c.type === 'path');
+      expect(pathCol).toBeDefined();
+      expect(dataTable.rows[0].values[pathCol!.id]).toBe('123');
+    });
+
+    it('uses empty default when literal path is still a template token', () => {
+      const onApply = vi.fn();
+      const test = createTestScenario({
+        url: 'https://api.example.com/users/{{userId}}/orders',
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} onApply={onApply} />);
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Apply to Data Source'));
+      const [dataTable] = onApply.mock.calls[0];
+      const pathCol = dataTable.columns.find((c: { type: string }) => c.type === 'path');
+      expect(dataTable.rows[0].values[pathCol!.id]).toBe('');
+    });
+
+    it('seeds param cell as empty when query value is a placeholder', () => {
+      const onApply = vi.fn();
+      const test = createTestScenario({
+        url: 'https://api.example.com/users/123/orders?ref={{dynVar}}',
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '1' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} onApply={onApply} />);
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Apply to Data Source'));
+      const [dataTable] = onApply.mock.calls[0];
+      const paramCol = dataTable.columns.find((c: { type: string }) => c.type === 'param');
+      expect(paramCol).toBeDefined();
+      expect(dataTable.rows[0].values[paramCol!.id]).toBe('');
+    });
+
+    it('seeds new header column on migrated row via non-path defaultValue branch', () => {
+      const onApply = vi.fn();
+      const test = createTestScenario({
+        headers: [{ key: 'X-Trace', value: '{{traceId}}' }],
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '1' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} onApply={onApply} />);
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Apply to Data Source'));
+      const [dataTable] = onApply.mock.calls[0];
+      const headerCol = dataTable.columns.find((c: { type: string }) => c.type === 'header');
+      expect(headerCol).toBeDefined();
+      expect(dataTable.rows[0].values[headerCol!.id]).toBe('');
+    });
+
+    it('does not call onApply when closing panel without validation contract edits', () => {
+      const onApply = vi.fn();
+      const onClose = vi.fn();
+      const test = createTestScenario({
+        dataSource: {
+          columns: [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }],
+          rows: [{ id: 'r1', values: { c1: '1' }, enabled: true }],
+          source: { type: 'inline' },
+          urlTemplate: 'https://api.example.com/users/{{userId}}/orders',
+        },
+      });
+      render(<DataSourceSetupModal {...defaultProps} test={test} onApply={onApply} onClose={onClose} />);
+      fireEvent.click(screen.getByTestId('full-panel-close'));
+      expect(onApply).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it('persists arrayValidationMode on parameterized create when array mode is set', () => {
+      const onApply = vi.fn();
+      render(
+        <DataSourceSetupModal
+          {...defaultProps}
+          mode="parameterize"
+          onApply={onApply}
+          test={scenarioWithExtraValidateColumn()}
+        />,
+      );
+      ensurePathVariableChecked(1);
+      fireEvent.change(screen.getByTestId('name-1'), { target: { value: 'userId' } });
+      fireEvent.click(screen.getByText('Next: Columns'));
+      fireEvent.click(screen.getByText('Next: Validate Fields'));
+      fireEvent.click(screen.getByTestId('set-array-unordered'));
+      fireEvent.click(screen.getByText('Next: Column Order'));
+      fireEvent.click(screen.getByText('Next: Review'));
+      fireEvent.click(screen.getByText('Create & Open'));
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ arrayValidationMode: { arrPrefix: 'unordered' } }),
+        expect.any(String),
+        expect.objectContaining({ copyName: expect.any(String) }),
+      );
     });
   });
 

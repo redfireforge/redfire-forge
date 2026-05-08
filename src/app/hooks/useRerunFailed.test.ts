@@ -193,4 +193,193 @@ describe('useRerunFailed', () => {
     expect(onComplete).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
+
+  it('skips scenarios not found in feature groups', async () => {
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    const run = makeTestRun();
+    // Modify result to reference a non-existent scenario
+    run.results[0].scenarioId = 'nonexistent-scenario';
+    run.results[0].dataRowId = 'row1';
+    // Also make the second result reference non-existent scenario so no scenarios are found
+    run.results[1].scenarioId = 'nonexistent-scenario2';
+    run.results[1].dataRowId = 'row2';
+    run.results[1].passed = false; // make it a failure to be included in rerun
+
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1', 'row2']);
+    });
+
+    // Should not call runTest since no valid scenarios found
+    expect(runTest).not.toHaveBeenCalled();
+  });
+
+  it('uses empty string baseUrl when not provided', async () => {
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: '',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    const run = makeTestRun();
+    run.baseUrl = undefined;
+
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1']);
+    });
+
+    expect(runTest).toHaveBeenCalled();
+  });
+
+  it('finishes successfully when onComplete is not provided', async () => {
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+    expect(updateTestRun).toHaveBeenCalled();
+    expect(result.current.isRerunning).toBe(false);
+  });
+
+  it('invokes runTest progress noop when executor reports progress', async () => {
+    vi.mocked(runTest).mockImplementation(async (_config, _scenarios, onProgress) => {
+      onProgress();
+      return { results: [] };
+    });
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+    expect(runTest).toHaveBeenCalled();
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+  });
+
+  it('handles gallery source feature groups', async () => {
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    
+    const galleryFeatureGroups = makeFeatureGroups();
+    (galleryFeatureGroups[0] as any).source = 'gallery';
+
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: galleryFeatureGroups,
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+
+    expect(runTest).toHaveBeenCalled();
+  });
+
+  it('does not start a second rerun while one is in flight', async () => {
+    let release!: () => void;
+    vi.mocked(runTest).mockImplementation(
+      () => new Promise((r) => {
+        release = () => r({ results: [] } as never);
+      }),
+    );
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    const run = makeTestRun();
+    await act(async () => {
+      void result.current.handleRerunFailed(run, ['row1']);
+    });
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1']);
+    });
+    expect(runTest).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release();
+    });
+    expect(result.current.isRerunning).toBe(false);
+  });
+
+  it('skips rerun when expanded rows list is empty', async () => {
+    vi.mocked(expandDataSourceForRows).mockReturnValueOnce([]);
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+    expect(runTest).not.toHaveBeenCalled();
+    expect(result.current.isRerunning).toBe(false);
+  });
+
+  it('passes envFallbackAuth into resolveAuth', async () => {
+    const { resolveAuth } = await import('../../features/requests/utils/authResolver');
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    const fb = { type: 'bearer', token: 't' } as any;
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+        envFallbackAuth: fb,
+      }),
+    );
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+    expect(resolveAuth).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      fb,
+    );
+  });
+
+  it('calls replaceHost when base URL is set for non-gallery runs', async () => {
+    const { replaceHost } = await import('../../shared/utils/urlUtils');
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://base.example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+    const run = makeTestRun();
+    run.baseUrl = undefined;
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1']);
+    });
+    expect(replaceHost).toHaveBeenCalledWith('http://example.com/api', 'http://base.example.com');
+  });
 });

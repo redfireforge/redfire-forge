@@ -579,6 +579,27 @@ if (loadTestMode && data.performanceTestBehavior?.mode === 'auto-resume') {
 }
 ```
 
+#### Important: Quick Test vs Workflow Runner
+
+| Feature | Quick Test | Workflow Runner |
+|---------|------------|-----------------|
+| **Purpose** | Debug single workflow runs | Load/performance testing |
+| **CorrelationWait behavior** | Always waits for real webhooks | Respects Load Test Behavior setting |
+| **Auto-Resume mode** | ❌ Not applied | ✅ Skips wait, injects mock payload |
+| **Synthetic Inject mode** | ❌ Not applied | ✅ Waits configured delay, then injects |
+| **Use case** | Verify workflow logic works | Test workflow under load |
+
+**Quick Test** is designed for debugging and always executes the workflow as it would run in production, including waiting for real external webhook callbacks. This ensures you can verify the actual integration works.
+
+**Workflow Runner** is for load testing. Since you can't realistically coordinate thousands of external webhooks during a load test, the Load Test Behavior settings allow you to skip or simulate the wait.
+
+To test a workflow with Auto-Resume:
+1. Configure the CorrelationWait node with "Auto-Resume" mode and a mock payload
+2. Save the workflow
+3. Navigate to **Workflow Runner** (not Quick Test)
+4. Select the workflow and configure iterations/concurrency
+5. Click Run — the CorrelationWait node will immediately inject the mock payload and continue
+
 ### 5.4 Strategy 3: Webhook Trigger Load Driver
 
 For workflows that **start** with a Webhook Trigger node (instead of a Start node), the traditional "N iterations" model doesn't work — the workflow only runs when an HTTP POST arrives.
@@ -701,30 +722,203 @@ Webhook Trigger ──→ HTTP: Validate Payment ──→ HTTP: Create Order �
 ### 5.7 Implementation Sequence
 
 ```
-Phase 7a: Auto-resume mode for CorrelationWait (simplest, enables CI smoke tests)
+Phase 7a: Auto-resume mode for CorrelationWait (simplest, enables CI smoke tests) ✅ COMPLETE
     ↓
 Phase 7b: Synthetic Event Injector (realistic delays, production-like)
     ↓
 Phase 7c: Webhook Trigger Load Driver (replace "N iterations" with "N webhook POSTs")
     ↓
 Phase 7d: WaitForCondition poll throttle (prevent poll storms)
+    ↓
+Phase 7e: Visual Execution Replay (show results on workflow diagram)
+    ↓
+Phase 7f: Multi-Webhook Testing UI (advanced workflows with multiple CorrelationWait nodes)
 ```
 
-| Sub-phase | Priority | Effort | Depends On |
-|---|---|---|---|
-| 7a. Auto-resume mode | High | S | Phase 3 |
-| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a |
-| 7c. Webhook Load Driver | Medium | M | Phase 3 |
-| 7d. Poll throttle | Medium | S | Phase 3 |
+| Sub-phase | Priority | Effort | Depends On | Status |
+|---|---|---|---|---|
+| 7a. Auto-resume mode | High | S | Phase 3 | ✅ COMPLETE |
+| 7b. Synthetic Event Injector | Medium | M | Phase 3, 7a | ✅ COMPLETE |
+| 7c. Webhook Load Driver | Medium | M | Phase 3 | ✅ COMPLETE |
+| 7d. Poll throttle | Medium | S | Phase 3 | ✅ COMPLETE |
+| 7e. Visual Execution Replay | Medium | L | Phase 3, 4 | ✅ COMPLETE |
+| 7f. Multi-Webhook Testing UI | Low | L | Phase 7a, 7e | ✅ COMPLETE |
 
 ### 5.8 Success Criteria for Phase 7
 
-- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests
-- [ ] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter
-- [ ] Webhook-triggered workflows can be load tested by sending N webhook POSTs at a configured rate
-- [ ] WaitForCondition polling is throttled across iterations to prevent poll storms
-- [ ] Harness UI detects event-driven nodes and shows appropriate configuration panels
-- [ ] Per-node metrics distinguish between "time waiting for event" and "time executing HTTP call"
+- [x] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [x] Synthetic Event Injector monitors `correlationStore` and fires callbacks with configurable delay + jitter (Phase 7b)
+- [x] Webhook-triggered workflows can be load tested by sending N webhook POSTs at a configured rate (Phase 7c)
+- [x] WaitForCondition polling is throttled across iterations to prevent poll storms (Phase 7d)
+- [x] Harness UI detects event-driven nodes and shows appropriate configuration panels (Phase 7a)
+- [x] Per-node metrics distinguish between "time waiting for event" and "time executing HTTP call"
+- [x] Visual Execution Replay: Show workflow diagram with execution results overlay (Phase 7e)
+- [x] Multi-Webhook Testing UI: Workflow visualization with webhook queue for complex multi-webhook workflows (Phase 7f)
+
+### 5.9 Phase 7e: Visual Execution Replay (NEW)
+
+After running a workflow in Workflow Runner, users should be able to visualize the execution flow on the workflow diagram. This helps users understand what actually happened during the test.
+
+#### Features
+
+1. **View Execution Flow Button** — After run completes, show "View Execution Flow" button that opens replay view
+2. **Read-only Workflow Canvas** — Renders the workflow diagram with execution state overlaid
+3. **Node State Visualization** — Color nodes by pass/fail/skipped state from the run
+4. **Edge Path Highlighting** — Show which edges were actually traversed
+5. **Node Detail on Click** — Click any node to see:
+   - Input variables at that point
+   - Request/response details (for HTTP nodes)
+   - Extracted variables
+   - Timing info
+   - Error details if failed
+6. **Iteration Selector** — For multi-iteration runs, pick specific iteration to replay
+7. **Aggregate View** — Show aggregate metrics overlay (e.g., "95% pass, avg 120ms")
+
+#### Data Model Changes
+
+Add `WorkflowExecutionTrace` to `TestRun` for workflow runs:
+
+```typescript
+interface WorkflowExecutionTrace {
+  // Per-iteration traces (or single trace for 1 iteration)
+  iterations: Array<{
+    index: number;
+    passed: boolean;
+    durationMs: number;
+    // Ordered list of node execution events
+    events: Array<{
+      nodeId: string;          // React Flow node ID
+      nodeType: string;        // 'http', 'condition', 'delay', etc.
+      nodeLabel: string;
+      timestamp: number;
+      state: 'pass' | 'fail' | 'skipped';
+      durationMs?: number;
+      details?: {
+        statusCode?: number;
+        responseTimeMs?: number;
+        requestResultId?: string;  // Link to RequestResult
+        conditionResult?: boolean;
+        inputVariables?: Record<string, string>;
+        extractedVariables?: Record<string, string>;
+        error?: string;
+      };
+    }>;
+    // Final variable state
+    finalVariables: Record<string, string>;
+  }>;
+  // Which edges were traversed (for highlighting paths)
+  traversedEdges: string[];  // Edge IDs
+}
+```
+
+#### Implementation Tasks
+
+1. **Fix `workflowNodeId`** — Store actual React Flow node ID instead of scenario ID
+2. **Capture execution trace** — Add event logging to `runGraph` callbacks
+3. **Store trace in `TestRun`** — Add `executionTrace` field to `TestRun`
+4. **Create `WorkflowExecutionReplay` component** — Read-only canvas with overlaid results
+5. **Create `NodeExecutionDetail` panel** — Show input/output/variables on click
+6. **Add "View Execution Flow" action** — Button in results dashboard
+7. **Handle multi-iteration** — Iteration selector + aggregate view
+8. **Optimize storage** — Consider compression for large traces
+
+### 5.10 Phase 7f: Multi-Webhook Testing UI ✅ COMPLETED
+
+For complex workflows with multiple CorrelationWait nodes, the current "Wait for Real Webhook" mode requires manual curl commands for each webhook. This phase adds advanced UI to make testing multi-webhook workflows more user-friendly.
+
+#### Implementation Summary (Completed May 2026)
+
+**Components Created:**
+- `MultiWebhookTestingPanel.tsx` — Orchestrated multi-callback testing UI with:
+  - Simplified workflow visualization showing all CorrelationWait nodes in execution order
+  - Real-time state sync (pending/paused/completed) via polling `/api/correlations`
+  - One-click "Fire Webhook" button for each paused node
+  - Inline JSON payload editor with validation
+  - Batch "Fire All Paused" button for parallel callback testing
+  - Scenario save/load system for repeatable test sequences
+- `webhookScenarioStorage.ts` — LocalStorage persistence for webhook scenarios with:
+  - CRUD operations for webhook scenarios per workflow
+  - Export/import for sharing scenarios
+  - `fireWebhook()` utility to call `/api/correlations/resume`
+  - `buildPayloadWithCorrelationId()` for template substitution
+
+**Integration:**
+- Added to `WorkflowRunner.tsx` — Panel appears when `correlationWaitConfig?.mode === 'wait-for-real'`
+- Styled in `test-runner.css` with `.multi-webhook-*` classes
+
+**Test Coverage:**
+- `MultiWebhookTestingPanel.test.tsx` — 18 unit tests covering rendering, filtering, firing, scenarios
+- `webhookScenarioStorage.test.ts` — 30 unit tests covering all storage/API functions
+
+#### Current Limitation
+
+With a workflow like:
+```
+HTTP1 → CorrelationWait1 → HTTP2 → CorrelationWait2 → HTTP3
+```
+
+Users must:
+1. Start workflow, it pauses at CorrelationWait1
+2. Copy curl from UI, modify correlation ID, run in terminal
+3. Workflow continues to CorrelationWait2, pauses
+4. Repeat step 2 for each webhook
+
+This is tedious for multi-webhook workflows.
+
+#### Proposed Features
+
+1. **Workflow Visualization in Runner** — Show read-only workflow graph in the runner panel, highlighting current execution state (which node is paused/running/completed)
+
+2. **Webhook Queue** — Pre-define webhook payloads for each CorrelationWait node before starting the test. The UI auto-fires them when the workflow reaches each node.
+
+3. **Webhook Scenarios** — Save/load predefined webhook response sequences for repeated testing of multi-step workflows.
+
+4. **One-Click Fire** — When workflow pauses at a CorrelationWait, show a "Fire Webhook" button directly in the workflow visualization (instead of copying curl).
+
+5. **Payload Editor** — Edit webhook payload inline before firing, with JSON validation.
+
+#### UI Mockup
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Workflow Runner                                             │
+├─────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Workflow: Payment Flow                                  │ │
+│ │ Mode: Wait for Real Webhook (Debug)                     │ │
+│ ├─────────────────────────────────────────────────────────┤ │
+│ │                                                         │ │
+│ │  [Submit] ──✓── [Wait for] ──⏸── [Confirm] ── [Wait for]│ │
+│ │  Payment       Callback          Order          Shipping│ │
+│ │    ✓           PAUSED             ...            ...    │ │
+│ │                                                         │ │
+│ │  ┌──────────────────────────────────────────────────┐   │ │
+│ │  │ Paused at: Wait for Payment Callback            │   │ │
+│ │  │ Correlation ID: pay_12345                       │   │ │
+│ │  │                                                  │   │ │
+│ │  │ Payload:                                        │   │ │
+│ │  │ { "paymentId": "pay_12345", "status": "..." }   │   │ │
+│ │  │                                                  │   │ │
+│ │  │ [Edit Payload]        [🚀 Fire Webhook]         │   │ │
+│ │  └──────────────────────────────────────────────────┘   │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Implementation Tasks
+
+1. **Mini Workflow Visualization** — Render a simplified, horizontal view of the workflow in the runner panel
+2. **Real-time State Sync** — Update node states as workflow executes (polling or WebSocket)
+3. **Paused Node Expansion** — When a node is paused, expand to show webhook controls
+4. **Fire Webhook API** — Integrate with existing `/api/correlations/resume` endpoint
+5. **Payload Editor** — JSON editor with validation for webhook payload
+6. **Webhook Queue System** — Pre-define payloads for all webhooks before running
+7. **Scenario Save/Load** — Persist webhook sequences for repeated testing
+
+#### Dependencies
+
+- Phase 7a (CorrelationWait configuration)
+- Phase 7e (Visual Execution Replay — can share workflow canvas components)
 
 ---
 
@@ -1289,12 +1483,12 @@ export const workflowLoadPresets: TestPreset[] = [
 
 ### 8.4 Success Criteria
 
-- [ ] All 5 training manuals created with consistent styling
-- [ ] Each manual uses only public APIs (no auth required)
-- [ ] Hands-on exercises are tested and working
-- [ ] All 3 gallery workflow samples importable and runnable
-- [ ] Presets appear in Workflow Runner UI
-- [ ] Cross-links between related manuals
+- [x] All 5 training manuals created with consistent styling
+- [x] Each manual uses only public APIs (no auth required)
+- [x] Hands-on exercises are tested and working
+- [x] All 3 gallery workflow samples importable and runnable
+- [x] Presets appear in Workflow Runner UI
+- [x] Cross-links between related manuals
 
 ---
 
@@ -1343,10 +1537,10 @@ redfireforge workflow tests/my-workflow.yaml
 4. Include pre-built binaries for macOS, Linux, Windows
 
 **Deliverables:**
-- [ ] `cli/package.json` — Standalone package definition
-- [ ] `scripts/build-cli.sh` — Build script for bundling
-- [ ] npm publish workflow (GitHub Actions)
-- [ ] Pre-built binaries in GitHub Releases
+- [x] `cli/package.json` — Standalone package definition
+- [x] `scripts/build-cli-package.sh` — Build script for bundling
+- [x] npm publish workflow (GitHub Actions)
+- [x] Pre-built binaries in GitHub Releases
 
 #### Method C: CLI Embedded in Desktop App
 
@@ -1367,10 +1561,10 @@ redfireforge --cli workflow tests/workflow.yaml
 4. Windows installer adds to PATH
 
 **Deliverables:**
-- [ ] Tauri CLI mode in `src-tauri/src/main.rs`
-- [ ] macOS post-install script for symlink
-- [ ] Windows PATH configuration in installer
-- [ ] Linux `.desktop` file with CLI alias
+- [x] Tauri CLI mode in `src-tauri/src/main.rs`
+- [x] macOS post-install script for symlink
+- [x] Windows PATH configuration in installer
+- [x] Linux `.desktop` file with CLI alias
 
 ### 9.2 CLI Reference Documentation
 
@@ -1519,7 +1713,7 @@ This phase creates a complete set of user guides covering all major features of 
 | `workflow-runner-guide.md` | ✅ | Complete Workflow Runner user guide |
 | `cross-platform.md` | ✅ | Desktop vs Web platform differences |
 
-### 10.2 Core Feature Guides (To Create)
+### 10.2 Core Feature Guides (Complete)
 
 #### Getting Started & Overview
 
@@ -1694,7 +1888,7 @@ Brief description of what this guide covers.
 - [x] Each guide follows the template structure
 - [x] Cross-linking between related guides
 - [x] All guides accessible from a central index
-- [ ] Screenshots/diagrams where helpful
+- [x] Screenshots/diagrams where helpful (ASCII diagrams/flowcharts embedded throughout guides)
 - [x] Medium priority guides complete (Phase 10b)
 - [x] Low priority guides complete (Phase 10c)
 
@@ -1718,19 +1912,124 @@ Brief description of what this guide covers.
 - [x] "Run in Harness" button on Workflow Designer toolbar navigates to pre-configured Workflow Runner
 - [x] CLI supports `workflow` command for graph-based load testing
 - [x] Existing flat-chain workflow mode continues to work (backward compatible)
-- [ ] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
-- [ ] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
-- [ ] WaitForCondition polling is throttled across iterations (Phase 7d)
+- [x] CorrelationWait nodes can auto-resume with mock payload during load tests (Phase 7a)
+- [x] Webhook-triggered workflows can be load tested via webhook load driver (Phase 7c)
+- [x] WaitForCondition polling is throttled across iterations (Phase 7d)
 - [x] Documentation comparing Test Runner vs Workflow Runner
-- [ ] Training manuals covering Workflow Runner usage
-- [ ] Gallery samples demonstrating workflow performance testing
-- [ ] CLI reference documentation with all command options
-- [ ] Working CLI examples (test files and workflow files)
-- [ ] CI/CD integration guide
-- [ ] Standalone CLI npm package (`redfireforge-cli`)
-- [ ] Desktop app CLI mode (`--cli` flag)
+- [x] Training manuals covering Workflow Runner usage (Phase 8 — `src/data/galleries/trainingPaths/`)
+- [x] Gallery samples demonstrating workflow performance testing (Phase 8 — `src/data/galleries/workflows/`, `examples/*.yaml`)
+- [x] CLI reference documentation with all command options (Phase 9a — `docs/guides/cli-reference.md`)
+- [x] Working CLI examples (test files and workflow files) (Phase 9a — `examples/cli-*.yaml`, `examples/workflow-cli-*.yaml`, `examples/scripts/`)
+- [x] CI/CD integration guide (Phase 9a — `docs/guides/cli-ci-cd.md`)
+- [x] Standalone CLI npm package (`redfireforge-cli`) (Phase 9b — `cli/package.json`, `scripts/build-cli-package.sh`, `.github/workflows/publish-cli.yml`)
+- [x] Desktop app CLI mode (`--cli` flag) (Phase 9c — `src-tauri/src/main.rs`)
 - [x] Core user guides complete (12 high-priority guides)
 - [x] Central guide index with navigation
+
+---
+
+## 16. What's NOT in the Plan Yet (Potential Future Phases)
+
+> Items below are **not yet planned or scheduled**. They represent natural next steps, user-requested features, and competitive gaps that could become future phases. Reference this section when deciding what to implement next.
+
+### Phase 11: Performance & Engine Enhancements
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 11.1 | **Native Rust Executor** | Move HTTP engine to Rust backend (`hyper`/`reqwest` + `tokio`) for 10–50x throughput (5,000–50,000+ RPS). Tauri sidecar with IPC event bridge. | Very High | High |
+| 11.2 | **Constant Arrival Rate** | "Send exactly N RPS regardless of response time" (open model). Automatic worker scaling with queue-based dispatching and backpressure. | High | High |
+| 11.3 | **Streaming Percentiles** | T-Digest or HDR Histogram for P50/P95/P99 without storing every datapoint. Enables 100K+ result sets without OOM. | Medium | Medium |
+| 11.4 | **Distributed Execution** | Multi-machine load generation via controller/worker architecture. Central orchestrator distributes iterations across agent nodes. | Very High | Medium |
+| 11.5 | **Graceful Drain** | On abort or profile end, wait for in-flight requests to complete (configurable timeout) instead of dropping them. Ensures accurate final metrics. | Low | Medium |
+| 11.6 | **Response Streaming** | Stream large response bodies to disk instead of buffering in memory. Critical for stress-testing file-download APIs. | Medium | Low |
+
+### Phase 12: Run Comparison, Trends & Regression Detection
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 12.1 | **Run Comparison** | Side-by-side comparison of two runs (TPS, P95, P99 deltas with green/red indicators, overlaid histograms). | Medium | High |
+| 12.2 | **Baseline Runs** | Mark a run as "baseline" and auto-compare future runs against it. Visual delta badges on results. | Medium | High |
+| 12.3 | **Regression Detection** | Automatic alert when P95 increases by configurable % vs baseline. Integrates with CI exit codes. | Medium | High |
+| 12.4 | **Trend Analysis** | P95/P99/TPS trend chart across last N runs for the same test suite or workflow. | Medium | Medium |
+| 12.5 | **SLA Dashboard** | Persistent SLA targets per test/workflow; traffic light dashboard showing pass/warn/fail against thresholds. | Medium | Medium |
+
+### Phase 13: Protocol & Format Support
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 13.1 | **GraphQL Support** | Query/mutation builder with schema introspection, variable editor, and operation-level assertions. | High | High |
+| 13.2 | **gRPC Support** | Protobuf definition import, unary and streaming call execution, proto-based assertions. | High | Medium |
+| 13.3 | **WebSocket Support** | Connect, send/receive messages, assert on received payloads, measure message latency. | High | Medium |
+| 13.4 | **JSON Schema Validation** | Validate response bodies against JSON Schema (draft 2020-12). Auto-generate schemas from sample responses. | Medium | Medium |
+| 13.5 | **Server-Sent Events (SSE)** | Subscribe to SSE endpoints, assert on event types and payloads, measure event delivery latency. | Medium | Low |
+
+### Phase 14: Open-Source Launch & Community
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 14.1 | **CI Test Pipeline** | GitHub Actions: run unit tests (`vitest`), E2E tests (`playwright`), lint, type-check on every push/PR. | Medium | Critical |
+| 14.2 | **Live Demo** | Auto-deploy web build to Vercel/Netlify on `master` push. "Try in 10 seconds" link in README. | Low | Critical |
+| 14.3 | **Documentation Site** | Docusaurus or GitHub Pages with guides, screenshots, API reference, search. | Medium | High |
+| 14.4 | **Branding & Logo** | Professional logo, icon, rebrand tagline to "Visual API Testing Workbench". | Low | High |
+| 14.5 | **README Rewrite** | Concise, GIF-heavy README with feature screenshots, quick-start, comparison table. | Low | High |
+| 14.6 | **CONTRIBUTING.md** | Setup instructions, coding standards, PR process, issue templates, Code of Conduct. | Low | High |
+| 14.7 | **Launch Marketing** | Hacker News "Show HN" post, Reddit (r/webdev, r/node), Dev.to article, YouTube walkthrough. | Low | Medium |
+
+### Phase 15: Advanced Workflow Features
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 15.1 | **HAR-to-Workflow Conversion** | Import HTTP Archive (HAR) recordings from browser DevTools and convert to workflow graphs. Like Locust's `har2locust`. | High | Medium |
+| 15.2 | **Workflow Templates Gallery** | Pre-built workflow templates for common patterns (CRUD, OAuth flow, pagination, retry-polling, saga). One-click import and customize. | Medium | Medium |
+| 15.3 | **Sub-Workflow Parameters** | Pass parameters to sub-workflows (input/output contract). Enables reusable workflow modules. | Medium | Medium |
+| 15.4 | **Workflow Diff & Merge** | Visual diff between two workflow versions showing node/edge/variable changes. Three-way merge for collaboration. | High | Low |
+| 15.5 | **Conditional Retry Node** | Retry a failed HTTP node N times with configurable delay and backoff strategy (linear, exponential, jitter). | Medium | Medium |
+| 15.6 | **Data-Driven Workflows** | Feed CSV/JSON data rows into workflow iterations — each row becomes a set of workflow variables for one iteration. | Medium | High |
+
+### Phase 16: Extensibility & Integration
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 16.1 | **Plugin API** | Extension points for custom auth providers, assertion functions, reporters, and node types. | Very High | Medium |
+| 16.2 | **Pre/Post-Request Scripts** | JS hooks before and after each request for dynamic data transformation. Monaco editor with intellisense. | Medium | Medium |
+| 16.3 | **Slack/Teams Notifications** | Post test results summary to Slack or Microsoft Teams channels via webhook. | Low | Medium |
+| 16.4 | **Datadog/Grafana Export** | Push metrics (TPS, P95, error rate) to observability platforms for correlation with infra metrics. | Medium | Medium |
+| 16.5 | **Harness.io Integration** | Pipeline stage template: run RedfireForge tests, consume JUnit XML for Test Intelligence, gate deployments. | Medium | Medium |
+| 16.6 | **Test Tagging & Filtering** | Label tests/workflows with custom tags (`smoke`, `regression`, `critical`); run by tag in UI and CLI. | Low | High |
+
+### Phase 17: User Experience & Polish
+
+| ID | Feature | Description | Complexity | Priority |
+|----|---------|-------------|------------|----------|
+| 17.1 | **Real Screenshot Guides** | Replace ASCII diagrams in user guides with actual UI screenshots. Auto-capture via Playwright. | Medium | Low |
+| 17.2 | **Dark Mode** | Full dark theme for the app with theme toggle and system preference detection. | Medium | Medium |
+| 17.3 | **Keyboard Shortcuts** | Comprehensive keyboard shortcuts for common actions (run test, save, navigate tabs). | Low | Medium |
+| 17.4 | **Undo/Redo** | Global undo/redo stack for workflow editor changes (node add/remove/move, edge changes, property edits). | High | Medium |
+| 17.5 | **Collaborative Editing** | Multi-user real-time editing via CRDT (e.g., Yjs) for workflow designer and test definitions. | Very High | Low |
+| 17.6 | **Responsive Mobile View** | Read-only results dashboard accessible on mobile/tablet for on-the-go monitoring. | Medium | Low |
+
+### Prioritized Implementation Order (Suggested)
+
+```
+Next Sprint (High Impact, Lower Effort):
+  ① Phase 14.1  CI Test Pipeline          — critical for launch
+  ② Phase 14.2  Live Demo                 — critical for adoption
+  ③ Phase 12.1  Run Comparison            — most-requested analytics feature
+  ④ Phase 16.6  Test Tagging & Filtering  — low effort, high value
+
+Medium Term:
+  ⑤ Phase 11.1  Native Rust Executor      — the architecture leap to "Excellent"
+  ⑥ Phase 11.2  Constant Arrival Rate     — k6's killer feature
+  ⑦ Phase 13.1  GraphQL Support           — expand protocol coverage
+  ⑧ Phase 15.6  Data-Driven Workflows     — unlock parameterized workflow testing
+  ⑨ Phase 14.3  Documentation Site        — community growth
+
+Long Term:
+  ⑩ Phase 11.4  Distributed Execution     — enterprise scale
+  ⑪ Phase 16.1  Plugin API                — ecosystem growth
+  ⑫ Phase 13.2  gRPC Support              — microservice testing
+  ⑬ Phase 17.5  Collaborative Editing     — team features
+```
 
 ---
 
@@ -1738,6 +2037,16 @@ Brief description of what this guide covers.
 
 | Date | Change |
 |------|--------|
+| 2026-05-07 | **Fixes & parity updates**: (1) Fixed `workflow-cli-conditional.yaml` — added missing End node and 6 edges (switch→branches, branches→end) that left the graph disconnected. (2) Added full option parity to Tauri desktop `--cli` mode (`src-tauri/src/main.rs`) — 10 new options for `run` (`--duration`, `--data`, `--scenario`, `--env`, `--error-policy`, `--max-errors`, `--max-error-rate`, `--data-rows-summary`, `--tags`, `--tag-mode`) and 3 for `workflow` (`--error-policy`, `--max-errors`, `--max-error-rate`). (3) Fixed `run-basic-test.sh` missing `mkdir -p results`. (4) Updated CLI reference doc with desktop CLI parity note. (5) Updated success criteria checkboxes for Phase 10.6 and Section 15. (6) Added "What's NOT in the Plan Yet" section (Phases 11–17) with 40+ potential features. |
+| 2026-05-06 | **Phase 7c complete: Webhook Load Driver**. Created `WebhookLoadDriver` class with rate control modes (fixed RPS, ramp up/down, burst). Created `payloadTemplateEngine.ts` with 14 dynamic generators (`{{$uuid}}`, `{{$randomInt}}`, `{{$randomEmail}}`, etc.). Added `WebhookLoadDriverPanel.tsx` UI component for configuring webhook load tests. Updated `WorkflowRunner.tsx` to detect workflows starting with Webhook Trigger nodes and show the webhook load driver UI instead of the standard iteration-based UI. Added 37 unit tests across `payloadTemplateEngine.test.ts` and `webhookLoadDriver.test.ts`. |
+| 2026-05-06 | **Phase 7e complete: Results Explorer (redesign)**. Renamed "Visual Execution Replay" to "Results Explorer". Implemented left-right split layout with workflow canvas (left) and node detail panel (right). Added collapsible Iteration Matrix table showing per-iteration, per-node elapsed times with filtering (all, failed, slowest 10%) and sorting. Extended trace capture to store full request/response details when "Capture Full Trace" is enabled. Added dual metrics display: "Avg HTTP Response" and "Avg Iteration Duration" in progress panel, results dashboard, and modal footer. Updated `TestSummary` to include `avgIterationTime`. |
+| 2026-05-06 | **Phase 7b complete: Synthetic Event Injector**. Created `SyntheticEventInjector` class that monitors the correlation store for paused workflows and automatically fires synthetic resume calls after configurable delay + jitter. Wired into `graphLoadRunner.ts` — when mode is `synthetic-inject`, creates an `InMemoryCorrelationStore` + `SyntheticEventInjector`. Updated `handleCorrelationWaitNode` to use store-based pause/resume for synthetic mode (with inline delay fallback when no store). Added 10 unit tests for `SyntheticEventInjector`, updated handler tests. This simulates realistic async timing by testing the full pause/resume flow. |
+| 2026-05-06 | Phase 7a enhancement: **Simplified Mock Payload UI v2**. Only shows editable dynamic fields (status, paymentStatus, state, etc.) with hint about test scenarios. Fixed fields (transactionId, processedAt) are hidden from input but visible in JSON preview. Added "Mock Payload" preview section showing complete JSON. Updated workflow-runner-guide.md and workflow-correlation-guide.md with new UI examples. |
+| 2026-05-07 | **Plan finalized — all phases COMPLETE.** Updated 16 stale checkboxes to `[x]`, set plan status to Complete. Implemented two remaining features: (1) Per-node metrics split "wait for event" vs "processing" for CorrelationWait nodes with visual timing breakdown bar in Results Explorer. (2) Gallery performance presets in Workflow Runner UI with Quick Start chips (import or select). Also: fixed disabled Request/Response/Variables tabs (now show basic data without full trace), redesigned "Last Execution" card with status badge/method pill/duration bar, fixed Perf: Simple POST→GET sample (was 404 due to JSONPlaceholder limitation), made Quick Start chips upsert workflows to keep samples fresh. |
+| 2026-05-06 | Phase 7a enhancement: **Simplified Mock Payload UI**. Replaced JSON textarea with field-based inputs for each extract variable. Shows only configurable fields (e.g., `status`) with clear labels. Info text explains all transactions use the same values. Correlation ID is auto-handled. Advanced per-transaction variable editing deferred to Phase 7f. |
+| 2026-05-06 | Phase 7a enhancements: (1) **Wait for Real Webhook improvements**: Added curl command modal with actual correlation IDs pre-filled, "Currently Paused Workflows" list shows only when workflows are paused, curl button disabled until workflow is paused. (2) **Single transaction mode**: "Wait for Real Webhook" now forces Concurrency=1, Transactions=1 and disables those fields (not suitable for load testing). (3) **Cancelled status**: Clicking Stop on a paused workflow now marks results as "cancelled" instead of "success". Added `cancelled: boolean` to `RequestResult`. (4) **RemoteCorrelationStore for load runner**: `graphLoadRunner` now creates a `RemoteCorrelationStore` when mode is `wait-for-real`, enabling workflows to actually pause and register with the webhook server. (5) **Phase 7f planned**: Added new phase for Multi-Webhook Testing UI to handle complex workflows with multiple CorrelationWait nodes (workflow visualization in runner, one-click fire, webhook queue). |
+| 2026-05-06 | Phase 7a enhancement: Moved CorrelationWait behavior configuration from node-level (`CorrelationWaitNodeData.loadTestBehavior`) to runner-level (`TestConfig.correlationWaitConfig`). This separates workflow logic from test configuration — the same workflow can now be tested with different behaviors without modifying the workflow definition. UI moved from `CorrelationWaitConfig.tsx` design panel to `WorkflowRunner.tsx` with new `CorrelationWaitConfigPanel` component. Config passed through `runGraphLoad` → `runGraph` → `handleCorrelationWaitNode`. Node-level `mockPayload` still works as fallback. Updated unit tests and documentation. |
+| 2026-05-06 | Phase 7a complete: Implemented auto-resume mode for CorrelationWait nodes during load tests. Added `loadTestBehavior` field to `CorrelationWaitNodeData` with three modes: `wait-for-real`, `auto-resume`, `synthetic-inject`. Updated `handleCorrelationWaitNode` to skip actual webhook wait and inject mock payload when `loadTestMode=true` and mode is `auto-resume` or `synthetic-inject`. Added `loadTestMode` flag to `NodeHandlerContext` and `runGraph` function. UI config panel added for configuring mock payload and synthetic delay/jitter. 28 unit tests for handler, 20 tests for UI config. |
 | 2026-05-05 | Phase 10c complete: Created 9 advanced guides (keyboard-shortcuts, request-versioning-guide, test-versioning-guide, workflow-correlation-guide, workflow-scripts-guide, workflow-sub-workflows-guide, workflow-versioning-guide, preferences-guide, training-tracks-guide). Phase 10 COMPLETE with 35 total guides. |
 | 2026-05-05 | Phase 10b complete: Created 14 feature guides (request-editor-guide, request-variables-guide, catalog-guide, catalog-import-guide, validation-modes-guide, shared-data-sources-guide, workflow-variables-guide, workflow-services-guide, workflow-debugging-guide, workflow-triggers-guide, results-comparison-guide, results-export-guide, global-auth-guide, gallery-guide). |
 | 2026-05-05 | Phase 10a complete: Created 12 core user guides (getting-started, concepts-overview, requests-guide, request-auth-guide, scenarios-guide, test-runner-guide, parameterized-testing-guide, assertions-guide, workflow-designer-guide, workflow-nodes-reference, results-guide, environments-guide) and guide index (README.md). |
@@ -1751,4 +2060,4 @@ Brief description of what this guide covers.
 
 ---
 
-_Created: 2026-05-01 | Status: In Progress | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md) Phase 0.7.5_
+_Created: 2026-05-01 | Status: **Complete** | Related: [DESIGN.md](../workflow/DESIGN.md) §6 Cross-Feature Integration, [ROADMAP.md](../../ROADMAP.md) Phase 0.7.5_

@@ -49,7 +49,7 @@ output.firstItem = JSON.stringify(data[0] || null);
     description: 'Extract data from a string using a regular expression.',
     category: 'transform',
     code: `// Extract data using regex
-const pattern = /id["\s:=]+(\d+)/i;
+const pattern = /id["\\s:=]+([0-9]+)/i;
 const match = input.text.match(pattern);
 output.extracted = match ? match[1] : '';
 output.found = String(!!match);

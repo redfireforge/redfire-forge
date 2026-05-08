@@ -362,6 +362,18 @@ export interface ThinkTimeConfig {
   stdDevMs?: number;
 }
 
+/** Configuration for how CorrelationWait nodes behave during load tests. */
+export interface CorrelationWaitRunnerConfig {
+  /** How to handle the correlation wait during load tests. */
+  mode: 'wait-for-real' | 'auto-resume' | 'synthetic-inject';
+  /** Delay before synthetic injection (ms). Only used when mode is 'synthetic-inject'. */
+  syntheticDelayMs?: number;
+  /** Random jitter range (±ms) added to syntheticDelayMs. */
+  syntheticJitterMs?: number;
+  /** Per-node mock payloads. Key is node ID. If not specified, uses empty object. */
+  mockPayloads?: Record<string, Record<string, unknown>>;
+}
+
 export interface TestConfig {
   concurrency: number;
   totalTransactions: number;
@@ -379,6 +391,14 @@ export interface TestConfig {
   workflowVariables?: Record<string, string>;
   /** Reference to a saved workflow definition (enables full graph execution) */
   workflowId?: string;
+  /** Configuration for how CorrelationWait nodes behave during load tests */
+  correlationWaitConfig?: CorrelationWaitRunnerConfig;
+  /** Maximum concurrent poll operations for WaitForCondition nodes. Defaults to 20. */
+  maxConcurrentPolls?: number;
+  /** Options for trace capture (Results Explorer) */
+  traceOptions?: ExecutionTraceOptions;
+  /** Base URL for workflow HTTP nodes with relative paths (from environment config). */
+  workflowBaseUrl?: string;
 }
 
 export interface FailureDetail {
@@ -426,6 +446,8 @@ export interface RequestResult {
   iterationIndex?: number;
   /** Which workflow node produced this result (for per-step metrics) */
   workflowNodeId?: string;
+  /** True if the request was cancelled by user (e.g., Stop button) */
+  cancelled?: boolean;
 }
 
 export interface TestSummary {
@@ -443,7 +465,216 @@ export interface TestSummary {
   failedRequests: number;
   failedValidations: number;
   totalDurationMs: number;
+  /** Average workflow iteration duration (only for workflow runs) */
+  avgIterationTime?: number;
 }
+
+// ─── Workflow Execution Trace (Phase 7e) ────────────────────
+
+/**
+ * Details about a single node's execution during workflow run.
+ * Captures execution state, timing, and type-specific details.
+ */
+/**
+ * Options for controlling how much data is captured during workflow execution.
+ * Used to enable full trace capture for debugging vs minimal capture for performance.
+ */
+export interface ExecutionTraceOptions {
+  /** Capture full request/response bodies (increases memory usage) */
+  captureFullTrace: boolean;
+  /** Maximum response body size to store (bytes). Default: 102400 (100KB) */
+  maxResponseBodySize?: number;
+  /** Always capture full trace for failed iterations regardless of captureFullTrace setting */
+  alwaysCaptureFailures?: boolean;
+  /** Whether to sample iterations for large runs. Default: true */
+  samplingEnabled?: boolean;
+  /** Iteration count threshold above which sampling activates. Default: 50 */
+  samplingThreshold?: number;
+}
+
+/**
+ * Full HTTP request details captured when captureFullTrace is enabled.
+ */
+export interface CapturedHttpRequest {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  /** Original body template with {{variables}} */
+  bodyTemplate?: string;
+  /** Body after variable substitution */
+  bodyResolved?: string;
+}
+
+/**
+ * Full HTTP response details captured when captureFullTrace is enabled.
+ */
+export interface CapturedHttpResponse {
+  statusCode: number;
+  statusText?: string;
+  headers?: Record<string, string>;
+  /** Response body (may be truncated if too large) */
+  body?: string;
+  /** True if body was truncated due to size limits */
+  bodyTruncated?: boolean;
+}
+
+/**
+ * Assertion result for a single assertion.
+ */
+export interface AssertionResult {
+  /** Assertion type (status, responseTime, header, regex, etc.) */
+  type: string;
+  /** Human-readable description of the assertion */
+  description: string;
+  /** Did the assertion pass? */
+  passed: boolean;
+  /** Expected value (for display) */
+  expected?: string;
+  /** Actual value (for display) */
+  actual?: string;
+}
+
+/**
+ * Details about a single node's execution during workflow run.
+ * Captures execution state, timing, and type-specific details.
+ */
+export interface ExecutionEventDetails {
+  // HTTP nodes (basic - always captured)
+  statusCode?: number;
+  responseTimeMs?: number;
+  requestResultId?: string;  // Links to RequestResult for full data
+  method?: string;
+  url?: string;
+
+  // HTTP nodes (full trace - when captureFullTrace enabled)
+  request?: CapturedHttpRequest;
+  response?: CapturedHttpResponse;
+  assertions?: AssertionResult[];
+
+  // Condition nodes
+  conditionResult?: boolean;
+  conditionExpression?: string;
+
+  // Loop nodes
+  loopIterationCount?: number;
+  currentLoopIndex?: number;
+
+  // Script nodes
+  scriptOutput?: unknown;
+
+  // Sub-workflow nodes
+  subWorkflowId?: string;
+  subWorkflowPassed?: boolean;
+
+  // Variables
+  inputVariables?: Record<string, string>;
+  extractedVariables?: Record<string, string>;
+  /** All variables at time of node execution (when captureFullTrace enabled) */
+  variablesSnapshot?: Record<string, string>;
+
+  // CorrelationWait nodes — split timing
+  /** Wall-clock time spent waiting for the external webhook/event (ms) */
+  waitDurationMs?: number;
+
+  // Webhook trigger nodes
+  /** The webhook payload that triggered this execution */
+  webhookInput?: {
+    payload: string;  // JSON string
+    method?: string;
+    path?: string;
+  };
+
+  // Errors
+  error?: string;
+  errorStack?: string;
+}
+
+/**
+ * Single node execution event within a workflow iteration.
+ * Ordered list of these events represents the execution path.
+ */
+export interface ExecutionEvent {
+  /** React Flow node ID (e.g., "n1", "n2") */
+  nodeId: string;
+  
+  /** Node type */
+  nodeType: 'http' | 'condition' | 'delay' | 'fork' | 'join' | 
+           'loop' | 'setVariable' | 'script' | 'aggregate' | 
+           'correlationWait' | 'waitForCondition' | 'subWorkflow' | 
+           'webhook' | 'schedule' | 'start' | 'errorHandler';
+  
+  /** User-visible node label */
+  nodeLabel: string;
+  
+  /** When this node started executing (epoch ms) */
+  timestamp: number;
+  
+  /** Execution state */
+  state: 'pass' | 'fail' | 'skipped';
+  
+  /** How long this node took (ms) */
+  durationMs?: number;
+  
+  /** Type-specific execution details */
+  details?: ExecutionEventDetails;
+}
+
+/**
+ * Execution trace for a single iteration of a workflow run.
+ * Contains ordered events and final variable state.
+ */
+export interface WorkflowIterationTrace {
+  /** Iteration number (0-based) */
+  index: number;
+  
+  /** Did all nodes pass? */
+  passed: boolean;
+  
+  /** Total time for this iteration */
+  durationMs: number;
+  
+  /** Ordered list of node execution events */
+  events: ExecutionEvent[];
+  
+  /** Variable state after iteration completes */
+  finalVariables: Record<string, string>;
+  
+  /** Edges traversed in this specific iteration */
+  traversedEdges: string[];
+
+  /** False if this iteration was stripped during trace sampling (events/variables unavailable) */
+  sampled?: boolean;
+}
+
+/**
+ * Complete execution trace for a workflow run.
+ * Includes per-iteration traces and workflow snapshot.
+ * (Phase 7e: Visual Execution Replay → Results Explorer)
+ */
+export interface WorkflowExecutionTrace {
+  /** Per-iteration execution traces */
+  iterations: WorkflowIterationTrace[];
+  
+  /** Edge IDs that were traversed (union across all iterations) */
+  traversedEdges: string[];
+  
+  /** Workflow definition snapshot (nodes + edges) at time of execution */
+  workflowSnapshot: {
+    nodes: unknown[];  // WorkflowNode[] (avoid circular import)
+    edges: unknown[];  // WorkflowEdge[]
+  };
+  
+  /** Metadata */
+  workflowId: string;
+  workflowName: string;
+  totalIterations: number;
+  totalDurationMs: number;
+  
+  /** Whether full trace was captured (request/response bodies) */
+  fullTraceCaptured?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────
 
 export interface TestRun {
   id: string;
@@ -457,6 +688,12 @@ export interface TestRun {
   baseUrl?: string;
   /** Name of the workflow (when executionMode is 'workflow') */
   workflowName?: string;
+  /** Execution trace for workflow runs (Phase 7e: Visual Execution Replay) */
+  executionTrace?: WorkflowExecutionTrace;
+  /** Compressed execution trace (base64 lz-string). Mutually exclusive with executionTrace. */
+  compressedTrace?: string;
+  /** Lightweight flag set during save — true when compressedTrace exists. Used for lazy loading. */
+  hasTrace?: boolean;
 }
 
 // ─── Requests types ──────────────────────────────────────────

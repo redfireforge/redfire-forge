@@ -1,7 +1,10 @@
 import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode } from '../../../shared/types';
 import { ProfilePreview } from '../../requests/components/ProfilePreview';
 import { profileDescriptions } from '../utils/runnerProgressStorage';
-import { executionModes, getExecutionModeMeta } from '../../../shared/utils/executionMode';
+import { getExecutionModeMeta } from '../../../shared/utils/executionMode';
+
+// Test Runner only shows these modes - 'workflow' mode is for the dedicated Workflow Runner
+const testRunnerModes: ExecutionMode[] = ['sequential', 'batch', 'pool', 'load-profile'];
 
 interface Props {
   executionMode: ExecutionMode;
@@ -28,6 +31,14 @@ interface Props {
   onThinkTimeChange: (patch: Partial<ThinkTimeConfig>) => void;
   activeTestCount: number;
   isRunning: boolean;
+  /** When true, forces single transaction mode (concurrency=1, transactions=1) and disables those controls */
+  forceSingleTransaction?: boolean;
+  /**
+   * Prefix for radio button `name` attributes to prevent browser-level group collisions
+   * when multiple RunnerExecutionConfig instances are simultaneously in the DOM.
+   * (e.g. TestRunner always stays mounted while WorkflowRunner may also be mounted)
+   */
+  namePrefix?: string;
 }
 
 function profileLabel(type: LoadProfileType): string {
@@ -54,25 +65,34 @@ export default function RunnerExecutionConfig({
   loadProfile, onLoadProfileChange,
   thinkTime, onThinkTimeChange,
   activeTestCount, isRunning,
+  forceSingleTransaction = false,
+  namePrefix = 'runner',
 }: Props) {
+  const n = (base: string) => `${namePrefix}-${base}`;
   const isLoadProfile = executionMode === 'load-profile';
   const modeMeta = getExecutionModeMeta(executionMode);
+  
+  // When forceSingleTransaction is true, override concurrency and transactions
+  const effectiveConcurrency = forceSingleTransaction ? 1 : concurrency;
+  const effectiveTransactions = forceSingleTransaction ? 1 : totalTransactions;
 
   return (
     <div className="execution-group">
       <div className="runner-option-boxes">
         <div className="runner-option-box" style={{ flex: 1 }}>
           <span className="runner-exec-label">Execution Mode:</span>
-          {executionModes.map((mode) => {
+          {testRunnerModes.map((mode) => {
             const meta = getExecutionModeMeta(mode);
+            // When forceSingleTransaction, only Sequential is available
+            const isForceDisabled = forceSingleTransaction && mode !== 'sequential';
             return (
-              <label key={mode} className="radio-label" title={meta.title}>
-                <input type="radio" name="execMode" checked={executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={isRunning} />
+              <label key={mode} className="radio-label" title={isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode' : meta.title}>
+                <input type="radio" name={n('execMode')} checked={forceSingleTransaction ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={isRunning || isForceDisabled} />
                 {meta.label}
               </label>
             );
           })}
-          <span className="exec-mode-hint">{modeMeta.hint}</span>
+          <span className="exec-mode-hint">{forceSingleTransaction ? 'Single transaction for real webhook testing' : modeMeta.hint}</span>
         </div>
       </div>
 
@@ -80,15 +100,17 @@ export default function RunnerExecutionConfig({
         <div className="resilience-row">
           <div className="resilience-field resilience-field-sm">
             <label>Concurrency</label>
-            <input type="number" min={1} max={100} value={executionMode === 'sequential' ? 1 : concurrency} onChange={(e) => onConcurrencyChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile} />
-            {executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
-            {isLoadProfile && <span className="field-hint">Set in profile</span>}
+            <input type="number" min={1} max={100} value={forceSingleTransaction ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={(e) => onConcurrencyChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleTransaction} />
+            {forceSingleTransaction && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleTransaction && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleTransaction && isLoadProfile && <span className="field-hint">Set in profile</span>}
           </div>
           <div className="resilience-field resilience-field-sm">
             <label>Transactions</label>
-            <input type="number" min={1} max={100000} value={totalTransactions} onChange={(e) => onTotalTransactionsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile} />
-            {!isLoadProfile && totalTransactions < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
-            {isLoadProfile && <span className="field-hint">Time-based</span>}
+            <input type="number" min={1} max={100000} value={forceSingleTransaction ? 1 : effectiveTransactions} onChange={(e) => onTotalTransactionsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile || forceSingleTransaction} />
+            {forceSingleTransaction && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleTransaction && !isLoadProfile && totalTransactions < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
+            {!forceSingleTransaction && isLoadProfile && <span className="field-hint">Time-based</span>}
           </div>
           <div className="resilience-divider" />
           <div className="resilience-field resilience-field-sm">
@@ -121,15 +143,15 @@ export default function RunnerExecutionConfig({
             <label>On Error</label>
             <div className="error-policy-options">
               <label className="radio-label">
-                <input type="radio" name="errorPolicy" checked={errorPolicy === 'continue'} onChange={() => onErrorPolicyChange('continue')} disabled={isRunning} />
+                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'continue'} onChange={() => onErrorPolicyChange('continue')} disabled={isRunning} />
                 Continue
               </label>
               <label className="radio-label">
-                <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-first'} onChange={() => onErrorPolicyChange('stop-first')} disabled={isRunning} />
+                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-first'} onChange={() => onErrorPolicyChange('stop-first')} disabled={isRunning} />
                 Stop 1st
               </label>
               <label className="radio-label">
-                <input type="radio" name="errorPolicy" checked={errorPolicy === 'stop-threshold'} onChange={() => onErrorPolicyChange('stop-threshold')} disabled={isRunning} />
+                <input type="radio" name={n('errorPolicy')} checked={errorPolicy === 'stop-threshold'} onChange={() => onErrorPolicyChange('stop-threshold')} disabled={isRunning} />
                 Threshold
               </label>
             </div>
@@ -157,7 +179,7 @@ export default function RunnerExecutionConfig({
                 <label key={m} className="radio-label">
                   <input
                     type="radio"
-                    name="thinkTimeMode"
+                    name={n('thinkTimeMode')}
                     checked={thinkTime.mode === m}
                     onChange={() => onThinkTimeChange({ mode: m })}
                     disabled={isRunning}

@@ -229,6 +229,209 @@ describe('resolveScenarioFromDataRow', () => {
     const resolved = resolveScenarioFromDataRow(base, [], makeRow('r1', '', ''), 0);
     expect(resolved.url).toContain('{{region}}');
   });
+
+  it('uses column name as path var key when URL placeholder matches name but not mapping', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/users/{{userId}}/posts',
+    });
+    const cols: DataSourceColumn[] = [
+      { id: 'c1', name: 'userId', type: 'path', mapping: 'uid' },
+    ];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '99' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('/users/99/posts');
+  });
+
+  it('uses mapping as path var key when URL contains {{mapping}} placeholder', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/users/{{uid}}/posts',
+    });
+    const cols: DataSourceColumn[] = [
+      { id: 'c1', name: 'userId', type: 'path', mapping: 'uid' },
+    ];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '77' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('/users/77/posts');
+  });
+
+  it('skips path substitution when row value is a lone template token', () => {
+    const base = makeScenario({ url: 'https://api.example.com/users/{{userId}}/posts' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '{{fromElsewhere}}' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('{{userId}}');
+  });
+
+  it('falls back through normalizeUnresolvedQueryPlaceholders when base URL is not parseable (no param columns)', () => {
+    const base = makeScenario({ url: 'not-a-valid-url' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '1' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toBe('not-a-valid-url');
+  });
+
+  it('falls back when param substitution yields a non-parseable URL', () => {
+    const base = makeScenario({ url: 'not-a-valid-url?channel={{channel}}' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'channel', type: 'param', mapping: 'channel' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'WEB' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('channel');
+    expect(resolved.url).not.toContain('{{channel}}');
+  });
+
+  it('does not rewrite body when body is empty despite body columns', () => {
+    const base = makeScenario({ url: 'https://api.example.com/x', body: '' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'x', type: 'body', mapping: 'x' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'hello' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.body).toBe('');
+  });
+
+  it('sets unorderedArrays when arrayValidationMode has unordered and no expected fields', () => {
+    const base = makeScenario({ validation: { mode: 'full' } });
+    const cols = makeColumns();
+    const row: DataSourceRow = {
+      id: 'r1',
+      values: { 'col-uid': '1', 'col-ch': 'WEB', 'col-val': '' },
+      enabled: true,
+    };
+    const resolved = resolveScenarioFromDataRow(
+      base,
+      cols,
+      row,
+      0,
+      { items: 'unordered' },
+      'full',
+    );
+    expect(resolved.validation.unorderedArrays).toBe(true);
+    expect(resolved.validation.expectedFields).toBeUndefined();
+  });
+
+  it('merges unorderedArrays from arrayValidationMode into selective validation when expected fields exist', () => {
+    const base = makeScenario({ validation: { mode: 'full', unorderedArrays: false } });
+    const cols = makeColumns();
+    const row = makeRow('r1', '1', 'WEB', '200');
+    const resolved = resolveScenarioFromDataRow(
+      base,
+      cols,
+      row,
+      0,
+      { items: 'unordered' },
+      'full',
+    );
+    expect(resolved.validation.mode).toBe('selective');
+    expect(resolved.validation.unorderedArrays).toBe(true);
+  });
+
+  it('prefers name key for new query param when URL has both mapping and name keys and row supplies both', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/data?channel={{channel}}&ch={{ch}}',
+    });
+    const cols: DataSourceColumn[] = [
+      { id: 'c1', name: 'ch', type: 'param', mapping: 'channel' },
+    ];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'APP' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    const url = new URL(resolved.url);
+    expect(url.searchParams.get('channel')).toBe('APP');
+    expect(url.searchParams.get('ch')).toBe('APP');
+  });
+
+  it('clears template-only query param values after path substitution', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/users/{{userId}}/data?extra={{extra}}',
+    });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'userId', type: 'path', mapping: 'userId' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '5' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    const url = new URL(resolved.url);
+    expect(url.pathname).toContain('/users/5/');
+    expect(url.searchParams.get('extra')).toBe('');
+  });
+
+  it('clears query params that stay as template tokens after param substitution pass', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/data?channel={{channel}}&orphan={{orphan}}',
+    });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'channel', type: 'param', mapping: 'channel' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'WEB' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    const url = new URL(resolved.url);
+    expect(url.searchParams.get('channel')).toBe('WEB');
+    expect(url.searchParams.get('orphan')).toBe('');
+  });
+
+  it('does not merge param values that are empty or lone placeholder tokens', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/data?a={{a}}&b={{b}}',
+    });
+    const cols: DataSourceColumn[] = [
+      { id: 'ca', name: 'a', type: 'param', mapping: 'a' },
+      { id: 'cb', name: 'b', type: 'param', mapping: 'b' },
+    ];
+    const row: DataSourceRow = { id: 'r1', values: { ca: '', cb: '{{nested}}' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    const url = new URL(resolved.url);
+    expect(url.searchParams.get('a')).toBe('');
+    expect(url.searchParams.get('b')).toBe('');
+  });
+
+  it('omits path vars when mapping and name are both blank', () => {
+    const base = makeScenario({ url: 'https://api.example.com/users/{{userId}}/x' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: '', type: 'path', mapping: '' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: '99' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('{{userId}}');
+  });
+
+  it('keeps existing validation unorderedArrays when expected fields apply and mode was already unordered', () => {
+    const base = makeScenario({
+      validation: { mode: 'full', unorderedArrays: true },
+    });
+    const cols = makeColumns();
+    const row = makeRow('r1', '1', 'WEB', '200');
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0, undefined, 'full');
+    expect(resolved.validation.unorderedArrays).toBe(true);
+  });
+
+  it('selects name over mapping for new query key when mapping key is absent from URL', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/data?ch={{ch}}',
+    });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'ch', type: 'param', mapping: 'channel' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'X' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    const url = new URL(resolved.url);
+    expect(url.searchParams.get('ch')).toBe('X');
+    expect(url.searchParams.has('channel')).toBe(false);
+  });
+
+  it('ignores param mapping when computed query key is blank', () => {
+    const base = makeScenario({ url: 'https://api.example.com/data?x=1' });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: '', type: 'param', mapping: '' }];
+    const row: DataSourceRow = { id: 'r1', values: { c1: 'oops' }, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.url).toContain('x=1');
+  });
+
+  it('uses empty string for header column when row omits that cell', () => {
+    const base = makeScenario({ headers: [] });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 't', type: 'header', mapping: 'X-Token' }];
+    const row: DataSourceRow = { id: 'r1', values: {}, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.headers).toContainEqual({ key: 'X-Token', value: '' });
+  });
+
+  it('substitutes body placeholders with empty string when row omits that cell', () => {
+    const base = makeScenario({
+      url: 'https://api.example.com/x',
+      body: '{"a":"{{a}}"}',
+    });
+    const cols: DataSourceColumn[] = [{ id: 'c1', name: 'a', type: 'body', mapping: 'a' }];
+    const row: DataSourceRow = { id: 'r1', values: {}, enabled: true };
+    const resolved = resolveScenarioFromDataRow(base, cols, row, 0);
+    expect(resolved.body).toBe('{"a":""}');
+  });
 });
 
 // ─── expandDataSource ──────────────────────────────────────────
@@ -302,6 +505,14 @@ describe('expandDataSource', () => {
     const sc = makeScenario({ dataSource: dt });
     const result = expandDataSource(sc);
     // r1 (42) before r2 (99) — sequential order
+    expect(result[0].dataRowId).toBe('r1');
+    expect(result[1].dataRowId).toBe('r2');
+  });
+
+  it('preserves row order for round-robin distribution (single expansion pass)', () => {
+    const dt = makeDataSource({ distribution: 'round-robin' });
+    const sc = makeScenario({ dataSource: dt });
+    const result = expandDataSource(sc);
     expect(result[0].dataRowId).toBe('r1');
     expect(result[1].dataRowId).toBe('r2');
   });
@@ -391,6 +602,11 @@ describe('filterRowsByTags', () => {
     const result = filterRowsByTags(rows, ['smoke', 'edge-case'], 'all');
     expect(result).toEqual([]);
   });
+
+  it('returns all rows when tags array is empty', () => {
+    const result = filterRowsByTags(rows, [], 'any');
+    expect(result).toEqual(rows);
+  });
 });
 
 describe('collectAllTags', () => {
@@ -417,6 +633,15 @@ describe('countRowsByTag', () => {
     ];
     const counts = countRowsByTag(rows);
     expect(counts).toEqual({ smoke: 2, 'happy-path': 1, 'edge-case': 1 });
+  });
+
+  it('treats missing tags as no tags for that row', () => {
+    const rows: DataSourceRow[] = [
+      { id: 'r1', values: {}, enabled: true, tags: ['a'] },
+      { id: 'r2', values: {}, enabled: true },
+      { id: 'r3', values: {}, enabled: true, tags: [] },
+    ];
+    expect(countRowsByTag(rows)).toEqual({ a: 1 });
   });
 });
 
@@ -522,6 +747,21 @@ describe('expandDataSourceWithTags', () => {
     const result = expandDataSourceWithTags(scenario, ['smoke']);
     expect(result.length).toBe(1);
     expect(result[0].url).toContain('/2/');
+  });
+
+  it('expands all enabled rows when tags list is empty', () => {
+    const scenario = makeScenario({
+      dataSource: makeDataSource({
+        rows: [
+          { id: 'r1', values: { 'col-uid': '1', 'col-ch': 'WEB', 'col-val': '200' }, enabled: true, tags: ['smoke'] },
+          { id: 'r2', values: { 'col-uid': '2', 'col-ch': 'APP', 'col-val': '200' }, enabled: true, tags: ['edge-case'] },
+        ],
+      }),
+    });
+    const result = expandDataSourceWithTags(scenario, []);
+    expect(result).toHaveLength(2);
+    expect(result[0].url).toContain('/1/');
+    expect(result[1].url).toContain('/2/');
   });
 });
 
@@ -779,6 +1019,20 @@ describe('resolveSharedDataSource', () => {
     const shared = makeSharedDs('s1', 'Vehicles');
     const resolved = resolveSharedDataSource(scenario, [shared]);
     expect(resolved).toBe(scenario);
+  });
+
+  it('does not replace inline dataSource when shared id is set', () => {
+    const inline = makeDataSource({ id: 'inline' });
+    const scenario = makeScenario({ sharedDataSourceId: 's1', dataSource: inline });
+    const shared = makeSharedDs('s1', 'Shared');
+    const resolved = resolveSharedDataSource(scenario, [shared]);
+    expect(resolved).toBe(scenario);
+    expect(resolved.dataSource).toBe(inline);
+  });
+
+  it('returns scenario unchanged when shared list is empty array', () => {
+    const scenario = makeScenario({ sharedDataSourceId: 's1' });
+    expect(resolveSharedDataSource(scenario, [])).toBe(scenario);
   });
 });
 

@@ -2,7 +2,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ScenarioSelector, { buildSelectedTests } from './ScenarioSelector';
+import ScenarioSelector from './ScenarioSelector';
+import { buildSelectedTests } from '../utils/buildSelectedTests';
 import type { FeatureGroup } from '../../../shared/types';
 
 const mockFeatureGroups: FeatureGroup[] = [

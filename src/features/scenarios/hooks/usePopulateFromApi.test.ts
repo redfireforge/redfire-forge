@@ -5,6 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePopulateFromApi } from './usePopulateFromApi';
 import type { Scenario, DataSource } from '../../../shared/types';
+import { proxyFetch } from '../../../engine/executor';
+import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 
 vi.mock('../../../engine/executor', () => ({
   proxyFetch: vi.fn(),
@@ -32,8 +34,74 @@ const createMockDataTable = (overrides: Partial<DataSource> = {}): DataSource =>
 });
 
 describe('usePopulateFromApi', () => {
+  const mockProxyFetch = vi.mocked(proxyFetch);
+  const mockResolveRow = vi.mocked(resolveScenarioFromDataRow);
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('fetch transport', () => {
+    it('uses proxyFetch when onFetchRow is omitted', async () => {
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify([{ id: 1 }]),
+        headers: {},
+        duration: 0,
+      });
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario(),
+          dataTable: createMockDataTable(),
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      expect(mockProxyFetch).toHaveBeenCalled();
+      expect(result.current.step).toBe('map');
+    });
+
+    it('resolves the first enabled data row before fetching', async () => {
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify([{ id: 'x' }]),
+        headers: {},
+        duration: 0,
+      });
+      mockResolveRow.mockImplementation((_d, _c, row) => ({
+        ...createMockScenario({ url: 'https://default' }),
+        url: row ? `https://row-${row.id}` : 'https://no-row',
+      }));
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario({ url: 'https://default' }),
+          dataTable: createMockDataTable({
+            rows: [
+              { id: 'r-skip', values: {}, enabled: false },
+              { id: 'r-hit', values: {}, enabled: true },
+            ],
+          }),
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      expect(mockResolveRow).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ id: 'r-hit' }),
+        expect.any(Number),
+      );
+    });
   });
 
   describe('initial state', () => {
@@ -367,6 +435,38 @@ describe('usePopulateFromApi', () => {
     });
   });
 
+  describe('array change edge cases', () => {
+    it('does not rebuild field mappings for primitive arrays', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({
+          items: [{ name: 'a' }],
+          scores: [10, 20],
+        }),
+      });
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario(),
+          dataTable: createMockDataTable(),
+          onFetchRow: mockFetch,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      const before = result.current.fieldMappings.map(m => m.field);
+      act(() => {
+        result.current.handleArrayChange('scores');
+      });
+      expect(result.current.selectedArray).toBe('scores');
+      expect(result.current.fieldMappings.map(m => m.field)).toEqual(before);
+    });
+  });
+
   describe('duplicate detection', () => {
     it('detects duplicate rows', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
@@ -420,6 +520,33 @@ describe('usePopulateFromApi', () => {
       });
 
       expect(result.current.effectiveSelections).toEqual([false, true]);
+      expect(result.current.selectedCount).toBe(1);
+    });
+
+    it('honors explicit rowSelections when length matches API items', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify([{ id: '1' }, { id: '2' }, { id: '3' }]),
+      });
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario(),
+          dataTable: createMockDataTable(),
+          onFetchRow: mockFetch,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      act(() => {
+        result.current.setRowSelections([false, true, false]);
+      });
+
+      expect(result.current.effectiveSelections).toEqual([false, true, false]);
       expect(result.current.selectedCount).toBe(1);
     });
   });
@@ -561,6 +688,41 @@ describe('usePopulateFromApi', () => {
       expect(data!.rows).toHaveLength(3);
     });
 
+    it('handles indexed columns alongside new API fields in buildPopulatedData', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({
+          items: [{ name: 'Alice', region: 'east' }, { name: 'Bob', region: 'west' }],
+        }),
+      });
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario(),
+          dataTable: createMockDataTable({
+            columns: [
+              { id: 'col-name-0', name: 'nm0', type: 'path', mapping: 'items[0].name' },
+              { id: 'col-name-1', name: 'nm1', type: 'path', mapping: 'items[1].name' },
+            ],
+            rows: [
+              { id: 'row-1', values: { 'col-name-0': '', 'col-name-1': '' }, enabled: true },
+            ],
+          }),
+          onFetchRow: mockFetch,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      const data = result.current.buildPopulatedData();
+      expect(data).not.toBeNull();
+      expect(data!.columns.some(c => c.name === 'region')).toBe(true);
+      expect(data!.rows).toHaveLength(1);
+    });
+
     it('handles indexed columns in buildPopulatedData', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         status: 200,
@@ -630,6 +792,40 @@ describe('usePopulateFromApi', () => {
       expect(data!.rows[0].values['col-1']).toBe('Bob');
       // Non-indexed existing column retains baseline value
       expect(data!.rows[0].values['col-id']).toBe('99');
+    });
+
+    it('indexed mode creates columns for object fields without per-index mappings', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({
+          items: [{ name: 'Alice', tag: 'a1' }, { name: 'Bob', tag: 'b1' }],
+        }),
+      });
+
+      const { result } = renderHook(() =>
+        usePopulateFromApi({
+          draft: createMockScenario(),
+          dataTable: createMockDataTable({
+            columns: [
+              { id: 'col-name-0', name: 'nm0', type: 'path', mapping: 'items[0].name' },
+              { id: 'col-name-1', name: 'nm1', type: 'path', mapping: 'items[1].name' },
+            ],
+            rows: [
+              { id: 'row-1', values: { 'col-name-0': '', 'col-name-1': '' }, enabled: true },
+            ],
+          }),
+          onFetchRow: mockFetch,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFetch();
+      });
+
+      const data = result.current.buildPopulatedData();
+      expect(data).not.toBeNull();
+      expect(data!.columns.some(c => c.name === 'tag')).toBe(true);
     });
   });
 

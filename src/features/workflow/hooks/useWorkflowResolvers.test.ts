@@ -128,4 +128,55 @@ describe('useWorkflowResolvers', () => {
     const auth = result.current.resolveHttpAuthForGraph({} as any);
     expect(auth).toBeUndefined();
   });
+
+  it('resolveHttpAuthForGraph returns undefined when profile id does not match', () => {
+    mockResolveServiceAuth.mockReturnValue(undefined);
+    const opts = baseOpts();
+    opts.workflowAuthProfiles = [{ id: 'other', name: 'X', auth: { type: 'bearer', token: 'z' } }] as any;
+    const { result } = renderHook(() => useWorkflowResolvers(opts));
+    const auth = result.current.resolveHttpAuthForGraph({ authProfileId: 'missing' } as any);
+    expect(auth).toBeUndefined();
+  });
+
+  it('clears env ref when selected becomes null', () => {
+    const opts = baseOpts();
+    opts.selected = makeWorkflow('wf-a');
+    const { rerender } = renderHook(() => useWorkflowResolvers(opts));
+    opts.selected = null;
+    rerender();
+    opts.selected = makeWorkflow('wf-b', 'env-1');
+    opts.environments = [{ id: 'env-1', name: 'E', variables: {} }];
+    rerender();
+    expect(opts.onEnvSelect).not.toHaveBeenCalledWith('env-1');
+  });
+
+  it('does not restore env when lastSelectedEnvId is not in environments', () => {
+    const opts = baseOpts();
+    opts.selected = makeWorkflow('wf-initial');
+    opts.environments = [{ id: 'env-1', name: 'E', variables: {} }];
+    const { rerender } = renderHook(() => useWorkflowResolvers(opts));
+    opts.selected = makeWorkflow('wf-next', 'missing-env');
+    rerender();
+    expect(opts.onEnvSelect).not.toHaveBeenCalledWith('missing-env');
+  });
+
+  it('effectiveQuickTestBaseUrl falls back when HTTP node resolves empty URL', () => {
+    mockIsHttpWorkflowNode.mockReturnValue(true);
+    mockResolveHttpNodeBaseUrl.mockReturnValue('');
+    const opts = baseOpts();
+    opts.selectedNode = { data: {} } as any;
+    const { result } = renderHook(() => useWorkflowResolvers(opts));
+    expect(result.current.effectiveQuickTestBaseUrl).toBe('http://default.com');
+    mockIsHttpWorkflowNode.mockReturnValue(false);
+    mockResolveHttpNodeBaseUrl.mockReturnValue('http://resolved.com');
+  });
+
+  it('handleEnvSelect does not persist when selected is null', () => {
+    const opts = baseOpts();
+    opts.selected = null;
+    const { result } = renderHook(() => useWorkflowResolvers(opts));
+    act(() => { result.current.handleEnvSelect('env-x'); });
+    expect(opts.onEnvSelect).toHaveBeenCalledWith('env-x');
+    expect(opts.update).not.toHaveBeenCalled();
+  });
 });

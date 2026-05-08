@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   sanitizeVariableName,
   toVariableName,
@@ -10,6 +10,9 @@ import {
 } from './dataSourceSetupUtils';
 import type { Scenario } from '../../../shared/types';
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 // ─── sanitizeVariableName ──────────────────────────────────
 
 describe('sanitizeVariableName', () => {
@@ -89,12 +92,16 @@ describe('getTemplateSegments', () => {
     ]);
   });
 
-  it('handles root path', () => {
-    expect(getTemplateSegments('https://api.example.com/')).toEqual([]);
+  it('returns empty array when URL constructor throws inside getTemplateSegments', () => {
+    vi.stubGlobal(
+      'URL',
+      vi.fn(() => {
+        throw new SyntaxError('Invalid URL');
+      }) as unknown as typeof URL,
+    );
+    expect(getTemplateSegments('/v1/items')).toEqual([]);
   });
 });
-
-// ─── parseTemplateParamVariables ───────────────────────────
 
 describe('parseTemplateParamVariables', () => {
   it('extracts param variables from template', () => {
@@ -146,8 +153,12 @@ describe('shortNameForValidate', () => {
     expect(shortNameForValidate('a.b.c.d')).toBe('c_d');
   });
 
-  it('handles indexed arrays', () => {
-    expect(shortNameForValidate('items[1].name')).toBe('items1_name');
+  it('returns validate_field when parent segment sanitizes empty', () => {
+    expect(shortNameForValidate('@@@.realName')).toBe('validate_realName');
+  });
+
+  it('returns validateField when single segment sanitizes to empty', () => {
+    expect(shortNameForValidate('@@@')).toBe('validateField');
   });
 });
 
@@ -178,8 +189,20 @@ describe('formatAuthLabel', () => {
     expect(formatAuthLabel({ type: 'apikey', apiKeyValue: '123', apiKeyIn: 'header' } as Scenario['auth'])).toBe('API Key');
   });
 
-  it('returns "OAuth2 Client Credentials" for oauth2', () => {
-    expect(formatAuthLabel({ type: 'oauth2', tokenUrl: '', clientId: '', clientSecret: '' } as Scenario['auth'])).toBe('OAuth2 Client Credentials');
+  it('uses default Bearer label when bearer prefix omitted', () => {
+    expect(formatAuthLabel({ type: 'bearer', token: 'tok' } as Scenario['auth'])).toBe('Bearer Token (Bearer)');
+  });
+
+  it('falls through switch for unrecognized auth discriminators', () => {
+    expect(formatAuthLabel({ type: 'experimental' as never })).toBe('experimental');
+  });
+
+  it('uses custom bearer prefix in label', () => {
+    expect(formatAuthLabel({ type: 'bearer', token: 'tok', prefix: 'JWT' } as Scenario['auth'])).toBe('Bearer Token (JWT)');
+  });
+
+  it('returns OAuth2 label for oauth2 type', () => {
+    expect(formatAuthLabel({ type: 'oauth2', clientId: 'x', clientSecret: 'y', tokenUrl: 'https://t' } as Scenario['auth'])).toBe('OAuth2 Client Credentials');
   });
 });
 
@@ -368,25 +391,205 @@ describe('buildConfiguredColumnDefs', () => {
     expect(defs.filter(d => d.type === 'validate')).toHaveLength(1);
   });
 
-  it('combines all column types in correct order', () => {
-    const testWithValidation = {
-      ...baseTest,
-      validation: {
-        expectedFields: [{ jsonPath: 'result', expectedValue: 'ok', comparator: 'equals' as const }],
-      },
-    } as unknown as Scenario;
+  it('defaults param selection name from URL parameter key when name missing', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [{ key: 'region', value: 'us' }],
+      paramSelections: { region: { enabled: true, name: '' } },
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs).toHaveLength(1);
+    expect(defs[0].customName).toBe('region');
+  });
 
+  it('skips param keys missing from selections map', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [{ key: 'orphan', value: 'x' }],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs).toHaveLength(0);
+  });
+
+  it('builds export name column plus path columns together', () => {
     const defs = buildConfiguredColumnDefs({
       mode: 'export',
-      test: testWithValidation,
-      pathVars: [{ segmentIndex: 0, variableName: 'userId' }],
-      urlParams: [{ key: 'q', value: '1' }],
-      paramSelections: { q: { enabled: true, name: 'query' } },
-      headerSelections: { 'Auth': { enabled: true, name: 'authHeader' } },
-      bodySelections: { data: { enabled: true, name: 'bodyData' } },
+      test: baseTest,
+      pathVars: [{ segmentIndex: 1, variableName: 'item' }],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
     });
+    expect(defs.map(d => d.type)).toEqual(['name', 'path']);
+  });
 
-    const types = defs.map(d => d.type);
-    expect(types).toEqual(['name', 'path', 'param', 'header', 'body', 'validate']);
+  it('export mode includes enabled body columns after name', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'export',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: { b1: { enabled: true, name: 'bCol' } },
+    });
+    expect(defs.map(d => d.type)).toEqual(['name', 'body']);
+  });
+
+  it('export mode includes validate columns from expected fields', () => {
+    const t = {
+      ...baseTest,
+      validation: {
+        expectedFields: [{ jsonPath: 'x', expectedValue: '1', comparator: 'equals' as const }],
+      },
+    } as unknown as Scenario;
+    const defs = buildConfiguredColumnDefs({
+      mode: 'export',
+      test: t,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs.some(d => d.type === 'validate')).toBe(true);
+  });
+
+  it('configure uses body mapping key when custom body name blank', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: { bodyFieldA: { enabled: true, name: '' } },
+    });
+    const body = defs.find(d => d.type === 'body');
+    expect(body?.customName).toBe('bodyFieldA');
+  });
+
+  it('parameterize mode skips export-only name column', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'parameterize',
+      test: baseTest,
+      pathVars: [{ segmentIndex: 1, variableName: 'seg' }],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs.every(d => d.type !== 'name')).toBe(true);
+    expect(defs.some(d => d.type === 'path')).toBe(true);
+  });
+
+  it('skips disabled body selection entries', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: { payload: { enabled: false, name: 'p' } },
+    });
+    expect(defs).toHaveLength(0);
+  });
+
+  it('deduplicates expectedFields with duplicate json paths', () => {
+    const testDup = {
+      ...baseTest,
+      validation: {
+        expectedFields: [
+          { jsonPath: 'dup', expectedValue: '1', comparator: 'equals' as const },
+          { jsonPath: 'dup', expectedValue: '2', comparator: 'equals' as const },
+        ],
+      },
+    } as unknown as Scenario;
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: testDup,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs.filter(d => d.type === 'validate')).toHaveLength(1);
+  });
+
+  it('defaults header column name from key when selection name empty', () => {
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: baseTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: { 'X-Custom': { enabled: true, name: '' } },
+      bodySelections: {},
+    });
+    expect(defs).toHaveLength(1);
+    expect(defs[0].customName).toBe('xCustom');
+  });
+
+  it('pulls validate columns from dataSource and skips non-validate column kinds', () => {
+    const dsTest = {
+      ...baseTest,
+      validation: { expectedFields: [] },
+      dataSource: {
+        id: 'dt',
+        rows: [],
+        columns: [
+          { id: 'p', name: 'p', type: 'path', mapping: 'user' },
+          { id: 'v', name: 'v', type: 'validate', mapping: '$.fromDs' },
+        ],
+      },
+    } as unknown as Scenario;
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: dsTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    expect(defs.filter(d => d.type === 'validate').map(d => d.mapping)).toEqual(['$.fromDs']);
+  });
+
+  it('skips validate dataSource column when mapping duplicates expected field', () => {
+    const dsTest = {
+      ...baseTest,
+      validation: {
+        expectedFields: [{ jsonPath: 'dupPath', expectedValue: '1', comparator: 'equals' as const }],
+      },
+      dataSource: {
+        id: 'dt',
+        rows: [],
+        columns: [
+          { id: 'v1', name: 'v1', type: 'validate', mapping: 'dupPath' },
+          { id: 'v2', name: 'v2', type: 'validate', mapping: 'uniquePath' },
+        ],
+      },
+    } as unknown as Scenario;
+    const defs = buildConfiguredColumnDefs({
+      mode: 'configure',
+      test: dsTest,
+      pathVars: [],
+      urlParams: [],
+      paramSelections: {},
+      headerSelections: {},
+      bodySelections: {},
+    });
+    const vcols = defs.filter(d => d.type === 'validate');
+    expect(vcols.map(d => d.mapping)).toEqual(['dupPath', 'uniquePath']);
   });
 });

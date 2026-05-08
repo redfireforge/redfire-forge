@@ -7,7 +7,8 @@ import { resolveSharedDataSources } from '../../engine/dataSourceExpander';
 import RunnerExecutionConfig from './components/RunnerExecutionConfig';
 import HostSelector from './components/HostSelector';
 import LiveProgressPanel from './components/LiveProgressPanel';
-import ScenarioSelector, { buildSelectedTests } from './components/ScenarioSelector';
+import ScenarioSelector from './components/ScenarioSelector';
+import { buildSelectedTests } from './utils/buildSelectedTests';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 import { generateReport, downloadReport } from '../results/utils/reportGenerator';
 
@@ -201,6 +202,7 @@ export default function TestRunner({
   const displayCompleted = hasLiveProgress ? completed : savedProgress?.completed ?? 0;
   const displayTotal = hasLiveProgress ? total : savedProgress?.total ?? 0;
   const displayProfileMeta = profileMeta ?? savedProgress?.profileMeta ?? null;
+  const _displayIsTimeBased = hasLiveProgress ? (isLoadProfile || total === -1) : savedProgress?.isTimeBased ?? false;
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
@@ -254,6 +256,7 @@ export default function TestRunner({
         onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
         activeTestCount={activeTestCount}
         isRunning={isRunning}
+        namePrefix="test-runner"
       />
 
       {!hasAnyTests ? (

@@ -138,4 +138,64 @@ describe('extractToSubWorkflow', () => {
     expect(data.workflowId).toBe(result!.childWorkflow.id);
     expect(data.workflowName).toBe('My Flow');
   });
+
+  it('returns null when selection references only missing node ids', () => {
+    const nodes = [makeNode('http1', 'http')];
+    const result = extractToSubWorkflow(['ghost'], nodes, [], 'Child');
+    expect(result).toBeNull();
+  });
+
+  it('classifies outgoing edges from extracted nodes to external targets', () => {
+    const nodes = [
+      makeNode('http1', 'http', 0, 0),
+      makeNode('http2', 'http', 100, 0),
+    ];
+    const edges = [
+      makeEdge('internal', 'http1', 'http2'),
+      makeEdge('out1', 'http2', 'external'),
+    ];
+
+    const result = extractToSubWorkflow(['http1', 'http2'], nodes, edges, 'Out');
+    expect(result).not.toBeNull();
+    expect(result!.extractedEdgeIds.has('out1')).toBe(true);
+    expect(result!.extractedEdgeIds.has('internal')).toBe(true);
+
+    const endNode = result!.childWorkflow.nodes.find((n) => n.type === 'end');
+    expect(endNode).toBeDefined();
+    const exitFromHttp2 = result!.childWorkflow.edges.find(
+      (e) => e.source === 'http2' && endNode && e.target === endNode.id,
+    );
+    expect(exitFromHttp2).toBeDefined();
+  });
+
+  it('uses all nodes as entry and exit when internal graph is a directed cycle', () => {
+    const nodes = [makeNode('a', 'http', 0, 0), makeNode('b', 'http', 100, 100)];
+    const edges = [
+      makeEdge('eAB', 'a', 'b'),
+      makeEdge('eBA', 'b', 'a'),
+    ];
+
+    const result = extractToSubWorkflow(['a', 'b'], nodes, edges, 'Cycle');
+    expect(result).not.toBeNull();
+
+    const startNode = result!.childWorkflow.nodes.find((n) => n.type === 'start');
+    const endNode = result!.childWorkflow.nodes.find((n) => n.type === 'end');
+    expect(startNode).toBeDefined();
+    expect(endNode).toBeDefined();
+
+    const fromStart = result!.childWorkflow.edges.filter((e) => e.source === startNode!.id);
+    expect(new Set(fromStart.map((e) => e.target))).toEqual(new Set(['a', 'b']));
+
+    const toEnd = result!.childWorkflow.edges.filter((e) => e.target === endNode!.id);
+    expect(new Set(toEnd.map((e) => e.source))).toEqual(new Set(['a', 'b']));
+  });
+
+  it('ignores dangling edges that do not touch the extracted subgraph', () => {
+    const nodes = [makeNode('http1', 'http', 50, 50)];
+    const edges = [makeEdge('dangle', 'x', 'y')];
+
+    const result = extractToSubWorkflow(['http1'], nodes, edges, 'Lone');
+    expect(result).not.toBeNull();
+    expect(result!.extractedEdgeIds.has('dangle')).toBe(false);
+  });
 });
