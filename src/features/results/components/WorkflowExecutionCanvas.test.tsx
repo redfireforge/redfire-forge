@@ -36,7 +36,7 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
 
 // Mock ReactFlow
 vi.mock('@xyflow/react', () => ({
-  ReactFlow: vi.fn(({ nodes, edges, children, onNodeClick, onPaneClick, onNodesChange }: any) => (
+  ReactFlow: vi.fn(({ nodes, edges, children, onNodeClick, onPaneClick, onNodesChange, onNodeMouseEnter, onNodeMouseLeave }: any) => (
     <div data-testid="react-flow">
       <div data-testid="flow-pane" onClick={() => onPaneClick?.()}>
         {nodes?.map((node: any) => (
@@ -45,10 +45,13 @@ vi.mock('@xyflow/react', () => ({
             role="button"
             data-testid={`node-${node.id}`}
             className={node.className}
+            style={node.style}
             onClick={(e) => {
               e.stopPropagation();
               onNodeClick?.(e, node);
             }}
+            onMouseEnter={(e) => onNodeMouseEnter?.(e, node)}
+            onMouseLeave={(e) => onNodeMouseLeave?.(e, node)}
           />
         ))}
       </div>
@@ -60,6 +63,7 @@ vi.mock('@xyflow/react', () => ({
           data-animated={String(!!edge.animated)}
           data-stroke={edge.style?.stroke}
           data-stroke-dash={edge.style?.strokeDasharray ?? ''}
+          data-label={edge.label ?? ''}
         />
       ))}
       <button type="button" data-testid="trigger-nodes-change" onClick={() => onNodesChange?.([{ type: 'position', id: 'n1', position: { x: 99, y: 88 } }])}>
@@ -110,6 +114,7 @@ vi.mock('@xyflow/react', () => ({
   },
   Position: { Top: 'top', Right: 'right', Bottom: 'bottom', Left: 'left' },
   useReactFlow: () => flowApi,
+  useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
   applyNodeChanges: applyNodeChangesStub,
 }));
 
@@ -530,7 +535,7 @@ describe('WorkflowExecutionCanvas', () => {
 
       const fitBtn = container.querySelector('.wf-pill-btn[title="Fit view"]') as HTMLButtonElement;
       fireEvent.click(fitBtn);
-      expect(flowApi.fitView).toHaveBeenCalledWith({ padding: 0.01, duration: 200 });
+      expect(flowApi.fitView).toHaveBeenCalledWith({ padding: 0.05, duration: 200 });
     });
 
     it('calls onToggleMinimap and marks toggle button active when minimap is shown', () => {
@@ -663,6 +668,370 @@ describe('WorkflowExecutionCanvas', () => {
       const trace = createMockTrace();
       const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} fitViewTrigger={0} />);
       expect(getByTestId('react-flow')).toBeInTheDocument();
+    });
+  });
+
+  describe('node hover tooltip', () => {
+    function hoverNode(getByTestId: ReturnType<typeof render>['getByTestId'], nodeId: string) {
+      const el = getByTestId(`node-${nodeId}`);
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ left: 100, top: 50, width: 220, height: 60, right: 320, bottom: 110 }),
+      });
+      fireEvent.mouseEnter(el);
+    }
+
+    it('shows tooltip on node hover', () => {
+      const trace = createMockTrace();
+      const { getByTestId, queryByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      expect(queryByTestId('node-tooltip')).not.toBeInTheDocument();
+
+      hoverNode(getByTestId, 'n1');
+
+      expect(getByTestId('node-tooltip')).toBeInTheDocument();
+    });
+
+    it('tooltip displays node label', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Request');
+    });
+
+    it('tooltip displays pass status for passing node', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Pass');
+    });
+
+    it('tooltip displays fail status for failing node', () => {
+      const trace = createMockTrace({ iterations: 2, passedIterations: 1 });
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Fail');
+    });
+
+    it('tooltip displays skipped status for unexecuted node', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n3');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Skipped');
+    });
+
+    it('tooltip displays avg duration in ms', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Avg:');
+      expect(tooltip.textContent).toContain('ms');
+    });
+
+    it('tooltip displays avg duration in seconds for slow nodes', () => {
+      const trace = createMockTrace();
+      trace.iterations[0].events[0].durationMs = 2500;
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('2.50 s');
+    });
+
+    it('tooltip displays pass rate', () => {
+      const trace = createMockTrace({ iterations: 4, passedIterations: 3 });
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Pass rate:');
+      expect(tooltip.textContent).toContain('75%');
+    });
+
+    it('tooltip displays execution count', () => {
+      const trace = createMockTrace({ iterations: 3, passedIterations: 3 });
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).toContain('Executions: 3');
+    });
+
+    it('tooltip hides on mouse leave', () => {
+      const trace = createMockTrace();
+      const { getByTestId, queryByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n1');
+      expect(getByTestId('node-tooltip')).toBeInTheDocument();
+
+      fireEvent.mouseLeave(getByTestId('node-n1'));
+      expect(queryByTestId('node-tooltip')).not.toBeInTheDocument();
+    });
+
+    it('does not show stats rows for skipped nodes with zero executions', () => {
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      hoverNode(getByTestId, 'n3');
+
+      const tooltip = getByTestId('node-tooltip');
+      expect(tooltip.textContent).not.toContain('Avg:');
+      expect(tooltip.textContent).not.toContain('Executions:');
+    });
+  });
+
+  describe('edge traversal percentages', () => {
+    function createBranchingTrace(): WorkflowExecutionTrace {
+      return {
+        workflowId: 'wf-branch',
+        workflowName: 'Branching Workflow',
+        totalIterations: 4,
+        totalDurationMs: 4000,
+        iterations: [
+          // Iteration 0: takes "yes" path (e2)
+          { index: 0, passed: true, durationMs: 1000, events: [
+            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+          // Iteration 1: takes "yes" path (e2)
+          { index: 1, passed: true, durationMs: 1000, events: [
+            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+          // Iteration 2: takes "yes" path (e2)
+          { index: 2, passed: true, durationMs: 1000, events: [
+            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+          // Iteration 3: takes "no" path (e3)
+          { index: 3, passed: false, durationMs: 1000, events: [
+            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'fail', durationMs: 1 },
+            { nodeId: 'n4', nodeType: 'http', nodeLabel: 'No Path', timestamp: 101, state: 'fail', durationMs: 50 },
+          ], finalVariables: {}, traversedEdges: ['e1', 'e3'] },
+        ],
+        traversedEdges: ['e1', 'e2', 'e3'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Request' } },
+            { id: 'n2', type: 'condition', position: { x: 0, y: 100 }, data: { label: 'Check' } },
+            { id: 'n3', type: 'http', position: { x: -100, y: 200 }, data: { label: 'Yes Path' } },
+            { id: 'n4', type: 'http', position: { x: 100, y: 200 }, data: { label: 'No Path' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'n1', target: 'n2' },
+            { id: 'e2', source: 'n2', target: 'n3' },
+            { id: 'e3', source: 'n2', target: 'n4' },
+          ],
+        },
+      };
+    }
+
+    it('shows percentage badges on branching edges', () => {
+      const trace = createBranchingTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const badges = container.querySelectorAll('.edge-pct-badge');
+      const texts = Array.from(badges).map(b => b.textContent);
+      // e2 (yes path): 3/4 = 75%, e3 (no path): 1/4 = 25%
+      expect(texts).toContain('75%');
+      expect(texts).toContain('25%');
+    });
+
+    it('does not show percentage badge on non-branching edges', () => {
+      const trace = createBranchingTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const badges = container.querySelectorAll('.edge-pct-badge');
+      // Only 2 badges for the 2 branching edges (e2, e3), none for e1
+      expect(badges).toHaveLength(2);
+    });
+
+    it('does not show percentage badges for single iteration', () => {
+      const trace = createBranchingTrace();
+      const singleIterTrace: WorkflowExecutionTrace = {
+        ...trace,
+        iterations: [trace.iterations[0]],
+        traversedEdges: ['e1', 'e2'],
+        totalIterations: 1,
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={singleIterTrace} />);
+
+      const badges = container.querySelectorAll('.edge-pct-badge');
+      expect(badges).toHaveLength(0);
+    });
+
+    it('shows 100% and 0% when all iterations take same branch', () => {
+      const trace = createBranchingTrace();
+      const allSamePath: WorkflowExecutionTrace = {
+        ...trace,
+        iterations: trace.iterations.map(iter => ({
+          ...iter,
+          passed: true,
+          traversedEdges: ['e1', 'e2'],
+        })),
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={allSamePath} />);
+
+      const badges = container.querySelectorAll('.edge-pct-badge');
+      const texts = Array.from(badges).map(b => b.textContent);
+      expect(texts).toContain('100%');
+      expect(texts).toContain('0%');
+    });
+
+    it('excludes sampled-out iterations from percentage calculation', () => {
+      const trace = createBranchingTrace();
+      const withSampling: WorkflowExecutionTrace = {
+        ...trace,
+        iterations: trace.iterations.map((iter, i) => ({
+          ...iter,
+          sampled: i !== 3 ? true : false,
+        })),
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={withSampling} />);
+
+      const badges = container.querySelectorAll('.edge-pct-badge');
+      const texts = Array.from(badges).map(b => b.textContent);
+      // Only 3 sampled iterations, all take e2
+      expect(texts).toContain('100%');
+      expect(texts).toContain('0%');
+    });
+  });
+
+  describe('heatmap coloring', () => {
+    function createHeatmapTrace(): WorkflowExecutionTrace {
+      return {
+        workflowId: 'wf-heat',
+        workflowName: 'Heatmap Test',
+        totalIterations: 2,
+        totalDurationMs: 2000,
+        iterations: [
+          {
+            index: 0, passed: true, durationMs: 1000, traversedEdges: ['e1', 'e2'],
+            events: [
+              { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Fast', timestamp: 0, state: 'pass', durationMs: 20 },
+              { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Slow', timestamp: 20, state: 'pass', durationMs: 500 },
+            ], finalVariables: {},
+          },
+          {
+            index: 1, passed: true, durationMs: 1000, traversedEdges: ['e1', 'e2'],
+            events: [
+              { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Fast', timestamp: 0, state: 'pass', durationMs: 30 },
+              { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Slow', timestamp: 30, state: 'pass', durationMs: 600 },
+            ], finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1', 'e2'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Fast' } },
+            { id: 'n2', type: 'http', position: { x: 0, y: 100 }, data: { label: 'Slow' } },
+          ],
+          edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+        },
+      };
+    }
+
+    it('applies heatmap class to nodes with timing data', () => {
+      const trace = createHeatmapTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const heatmapNodes = container.querySelectorAll('.replay-node-heatmap');
+      expect(heatmapNodes.length).toBe(2);
+    });
+
+    it('sets --heatmap-color CSS variable on heatmap nodes', () => {
+      const trace = createHeatmapTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const nodes = container.querySelectorAll('.replay-node-heatmap');
+      const styleAttrs = Array.from(nodes).map(n => (n as HTMLElement).getAttribute('style') || '');
+      expect(styleAttrs.every(s => s.includes('--heatmap-color'))).toBe(true);
+      expect(styleAttrs.every(s => s.includes('rgb('))).toBe(true);
+    });
+
+    it('fastest node gets green heatmap color, slowest gets red', () => {
+      const trace = createHeatmapTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const nodes = Array.from(container.querySelectorAll('.replay-node-heatmap'));
+      const styleAttrs = nodes.map(n => (n as HTMLElement).getAttribute('style') || '');
+      // n1 is fast (avg 25ms) → green-ish, n2 is slow (avg 550ms) → red-ish
+      // Extract green channel from the rgb value in the style attribute
+      const parseG = (s: string) => {
+        const m = s.match(/rgb\(\d+, (\d+), \d+\)/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      expect(parseG(styleAttrs[0])).toBeGreaterThan(parseG(styleAttrs[1]));
+    });
+
+    it('does not apply heatmap when only one node has timing', () => {
+      const trace: WorkflowExecutionTrace = {
+        workflowId: 'wf-single',
+        workflowName: 'Single Node',
+        totalIterations: 1,
+        totalDurationMs: 100,
+        iterations: [{
+          index: 0, passed: true, durationMs: 100, traversedEdges: ['e1'],
+          events: [
+            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Only', timestamp: 0, state: 'pass', durationMs: 50 },
+            { nodeId: 'n2', nodeType: 'start', nodeLabel: 'Start', timestamp: 0, state: 'pass' },
+          ], finalVariables: {},
+        }],
+        traversedEdges: ['e1'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Only' } },
+            { id: 'n2', type: 'start', position: { x: 0, y: 100 }, data: { label: 'Start' } },
+          ],
+          edges: [{ id: 'e1', source: 'n2', target: 'n1' }],
+        },
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const heatmapNodes = container.querySelectorAll('.replay-node-heatmap');
+      expect(heatmapNodes.length).toBe(0);
+    });
+
+    it('does not apply heatmap to skipped nodes', () => {
+      const trace = createHeatmapTrace();
+      // Add a skipped node
+      const withSkipped: WorkflowExecutionTrace = {
+        ...trace,
+        workflowSnapshot: {
+          ...trace.workflowSnapshot,
+          nodes: [
+            ...trace.workflowSnapshot.nodes as any[],
+            { id: 'n3', type: 'http', position: { x: 100, y: 0 }, data: { label: 'Skipped' } },
+          ],
+        },
+      };
+      const { container } = render(<WorkflowExecutionCanvas trace={withSkipped} />);
+
+      const allNodes = container.querySelectorAll('.replay-node');
+      const heatmapNodes = container.querySelectorAll('.replay-node-heatmap');
+      expect(allNodes.length).toBe(3);
+      expect(heatmapNodes.length).toBe(2);
     });
   });
 });

@@ -486,6 +486,10 @@ export interface ExecutionTraceOptions {
   maxResponseBodySize?: number;
   /** Always capture full trace for failed iterations regardless of captureFullTrace setting */
   alwaysCaptureFailures?: boolean;
+  /** Whether to sample iterations for large runs. Default: true */
+  samplingEnabled?: boolean;
+  /** Iteration count threshold above which sampling activates. Default: 50 */
+  samplingThreshold?: number;
 }
 
 /**
@@ -688,6 +692,8 @@ export interface TestRun {
   executionTrace?: WorkflowExecutionTrace;
   /** Compressed execution trace (base64 lz-string). Mutually exclusive with executionTrace. */
   compressedTrace?: string;
+  /** Lightweight flag set during save — true when compressedTrace exists. Used for lazy loading. */
+  hasTrace?: boolean;
 }
 
 // ─── Requests types ──────────────────────────────────────────

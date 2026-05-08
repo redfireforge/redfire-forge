@@ -6,6 +6,7 @@ import {
   hasExecutionTrace,
   getExecutionTrace,
   sampleIterations,
+  validateTrace,
 } from './traceCompression';
 
 function createMockTrace(iterations = 3, nodesPerIteration = 5): WorkflowExecutionTrace {
@@ -299,5 +300,68 @@ describe('sampleIterations', () => {
   it('handles 0 iterations', () => {
     const result = sampleIterations([]);
     expect(result).toEqual([]);
+  });
+});
+
+describe('validateTrace', () => {
+  it('accepts a valid trace', () => {
+    const trace = createMockTrace();
+    expect(validateTrace(trace)).toBe(trace);
+  });
+
+  it('rejects null', () => {
+    expect(() => validateTrace(null)).toThrow('expected a JSON object');
+  });
+
+  it('rejects a string', () => {
+    expect(() => validateTrace('hello')).toThrow('expected a JSON object');
+  });
+
+  it('rejects missing workflowId', () => {
+    const trace = createMockTrace();
+    delete (trace as any).workflowId;
+    expect(() => validateTrace(trace)).toThrow('workflowId');
+  });
+
+  it('rejects empty workflowId', () => {
+    const trace = createMockTrace();
+    (trace as any).workflowId = '';
+    expect(() => validateTrace(trace)).toThrow('workflowId');
+  });
+
+  it('rejects missing workflowName', () => {
+    const trace = createMockTrace();
+    delete (trace as any).workflowName;
+    expect(() => validateTrace(trace)).toThrow('workflowName');
+  });
+
+  it('rejects non-array iterations', () => {
+    const trace = createMockTrace();
+    (trace as any).iterations = 'not-array';
+    expect(() => validateTrace(trace)).toThrow('iterations');
+  });
+
+  it('rejects non-array traversedEdges', () => {
+    const trace = createMockTrace();
+    (trace as any).traversedEdges = {};
+    expect(() => validateTrace(trace)).toThrow('traversedEdges');
+  });
+
+  it('rejects missing workflowSnapshot', () => {
+    const trace = createMockTrace();
+    delete (trace as any).workflowSnapshot;
+    expect(() => validateTrace(trace)).toThrow('workflowSnapshot');
+  });
+
+  it('rejects workflowSnapshot without nodes array', () => {
+    const trace = createMockTrace();
+    (trace as any).workflowSnapshot = { edges: [] };
+    expect(() => validateTrace(trace)).toThrow('nodes');
+  });
+
+  it('rejects workflowSnapshot without edges array', () => {
+    const trace = createMockTrace();
+    (trace as any).workflowSnapshot = { nodes: [] };
+    expect(() => validateTrace(trace)).toThrow('edges');
   });
 });

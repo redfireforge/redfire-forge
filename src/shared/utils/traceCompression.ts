@@ -80,10 +80,10 @@ export function sampleIterations(
 }
 
 /**
- * Check whether a TestRun has execution trace data (compressed or uncompressed).
+ * Check whether a TestRun has execution trace data (compressed, uncompressed, or lazy flag).
  */
 export function hasExecutionTrace(run: TestRun): boolean {
-  return !!(run.executionTrace || run.compressedTrace);
+  return !!(run.executionTrace || run.compressedTrace || run.hasTrace);
 }
 
 /**
@@ -94,4 +94,36 @@ export function getExecutionTrace(run: TestRun): WorkflowExecutionTrace | undefi
   if (run.executionTrace) return run.executionTrace;
   if (run.compressedTrace) return decompressTrace(run.compressedTrace);
   return undefined;
+}
+
+/**
+ * Validate that an unknown object conforms to the WorkflowExecutionTrace shape.
+ * Returns the validated trace or throws a descriptive error.
+ */
+export function validateTrace(data: unknown): WorkflowExecutionTrace {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid trace: expected a JSON object');
+  }
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.workflowId !== 'string' || !obj.workflowId) {
+    throw new Error('Invalid trace: missing or empty "workflowId"');
+  }
+  if (typeof obj.workflowName !== 'string') {
+    throw new Error('Invalid trace: missing "workflowName"');
+  }
+  if (!Array.isArray(obj.iterations)) {
+    throw new Error('Invalid trace: "iterations" must be an array');
+  }
+  if (!Array.isArray(obj.traversedEdges)) {
+    throw new Error('Invalid trace: "traversedEdges" must be an array');
+  }
+  const snap = obj.workflowSnapshot;
+  if (!snap || typeof snap !== 'object') {
+    throw new Error('Invalid trace: missing "workflowSnapshot"');
+  }
+  const snapObj = snap as Record<string, unknown>;
+  if (!Array.isArray(snapObj.nodes) || !Array.isArray(snapObj.edges)) {
+    throw new Error('Invalid trace: workflowSnapshot must have "nodes" and "edges" arrays');
+  }
+  return data as WorkflowExecutionTrace;
 }

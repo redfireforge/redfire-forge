@@ -1,7 +1,9 @@
+import { useState, useMemo, useCallback, useRef } from 'react';
 import type { RequestResult } from '../../../shared/types';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
+import JsonPreview, { buildJTree, type JNode } from './JsonTreePreview';
 
 type ResponseDetailModalProps = {
   result: RequestResult | null;
@@ -9,6 +11,41 @@ type ResponseDetailModalProps = {
 };
 
 export default function ResponseDetailModal({ result, onClose }: ResponseDetailModalProps) {
+  const [responseSearch, setResponseSearch] = useState('');
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
+
+  const handleTreeToggle = useCallback((path: string) => {
+    setCollapsedSet(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const responseTree = useMemo(() => {
+    if (!result?.responseBody) return null;
+    try { return buildJTree(JSON.parse(result.responseBody), ''); } catch { return null; }
+  }, [result?.responseBody]);
+
+  const allTreePaths = useMemo(() => {
+    if (!responseTree) return new Set<string>();
+    const paths = new Set<string>();
+    (function walk(node: JNode, p: string) {
+      if (node.children?.length) { paths.add(p); node.children.forEach((c) => walk(c, `${p}/${c.key}`)); }
+    })(responseTree, '');
+    return paths;
+  }, [responseTree]);
+
+  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
+  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
+  const searchMatchIdxRef = useRef(searchMatchIdx);
+  searchMatchIdxRef.current = searchMatchIdx;
+  const handleMatchCountChange = useCallback((count: number) => {
+    setSearchMatchCount(count);
+    if (searchMatchIdxRef.current >= count) setSearchMatchIdx(Math.max(0, count - 1));
+  }, []);
 
   if (!result) return null;
 
@@ -119,8 +156,43 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
 
           {result.responseBody && (
             <div className="response-detail-section">
-              <h4>Response Body</h4>
-              <JsonTreeViewer data={result.responseBody} defaultExpandDepth={3} maxHeight={0} searchable />
+              <h4>RESPONSE BODY</h4>
+              <div className="req-resp-search">
+                <input
+                  className="req-resp-search-input"
+                  type="text"
+                  placeholder="Search response..."
+                  value={responseSearch}
+                  onChange={(e) => { setResponseSearch(e.target.value); setSearchMatchIdx(0); }}
+                />
+                {responseSearch && (
+                  <>
+                    <span className="req-resp-search-count">
+                      {searchMatchCount > 0 ? `${searchMatchIdx + 1}/${searchMatchCount}` : 'No match'}
+                    </span>
+                    <button className="req-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
+                      onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
+                    </button>
+                    <button className="req-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
+                      onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                    </button>
+                    <button className="req-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
+                  </>
+                )}
+                <button className="jt-expand-collapse-btn" onClick={handleExpandAll}>Expand All</button>
+                <button className="jt-expand-collapse-btn" onClick={handleCollapseAll}>Collapse All</button>
+              </div>
+              <JsonPreview
+                body={result.responseBody}
+                search={responseSearch}
+                collapsedSet={collapsedSet}
+                onToggle={handleTreeToggle}
+                prebuiltTree={responseTree}
+                currentMatchIdx={searchMatchIdx}
+                onMatchCountChange={handleMatchCountChange}
+              />
             </div>
           )}
     </WorkflowEditorModalFrame>

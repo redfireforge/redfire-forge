@@ -148,6 +148,17 @@ Available throughout the application.
 | `Enter` | Expand/collapse group |
 | `R` | Refresh |
 
+## Results Explorer (Workflow Trace)
+
+| Shortcut | Action |
+|----------|--------|
+| `← / →` | Previous / Next iteration |
+| `1` – `9` | Jump to iteration N |
+| `Space` | Toggle aggregate ↔ iteration #1 |
+| `A` | Return to aggregate view |
+| `M` | Toggle iteration matrix panel |
+| `Escape` | Deselect node / Close modal |
+
 ## Data Source Editor
 
 | Shortcut | Action |

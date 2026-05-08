@@ -2139,6 +2139,44 @@ tr:hover td { background: var(--surface-hover); }
   opacity: 0.8;
 }
 
+.wf-sampling-config {
+  margin-top: 4px;
+  padding-left: 20px;
+}
+.wf-sampling-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wf-sampling-threshold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.wf-inline-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.wf-sampling-threshold-input {
+  width: 60px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.wf-sampling-threshold-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .wf-inline-warn {
   color: #f59e0b;
 }

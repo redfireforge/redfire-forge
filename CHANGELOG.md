@@ -27,6 +27,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - New hooks: `useTrainingProgress`, `useWhatsNew`, `useManualSearch`
   - 164 unit tests for all new components and hooks
 
+- **Edge Traversal Percentages** — Branching edges in workflow canvas show traversal percentage labels in aggregate view
+  - Percentage labels (e.g., "67%") on edges from nodes with 2+ outgoing paths
+  - 0% shown on untraversed branching edges for untested path visibility
+  - Sampled-out iterations excluded from calculation
+  - Hidden in single-iteration view
+- **Edge Traversal Demo Gallery Sample** — "Perf: Edge Traversal Demo" workflow in Gallery
+  - Uses `SetVariable` + `$randomInt(1,150)` to generate random post IDs per iteration
+  - JSONPlaceholder IDs 1–100 return 200, 101–150 return 404 → natural ~67/33 branch split
+  - Training manual (`edge-traversal-percentages-guide.html`) with step-by-step guide
+  - Registered in `wf-runner` training path under Results Analysis phase
+- **Additional Keyboard Shortcuts** — Space key toggles between aggregate and iteration #1 view; keys 1–9 jump directly to that iteration number
+- **Animated Edge Flow** — Traversed edges in Results Explorer canvas now show a flowing dash animation indicating flow direction
+- **Export Aggregate Metrics as CSV** — "📊 Export CSV" button in Results Explorer exports per-HTTP-node metrics (executions, pass rate, avg, min, max, P95) as a `.csv` file
+- **Heatmap Coloring** — Nodes in Results Explorer canvas are colored on a green→yellow→orange→red gradient based on average response time. Fastest nodes appear green, slowest appear red, with a 4px colored bar at the bottom of each node. Only activates when 2+ nodes have timing data.
+- **Fit View After Measurement** — Results Explorer canvas now re-fits after custom nodes are measured, ensuring the workflow fills the available space correctly on initial load
+
 ### Refactored
 - **Code Consolidation (Round 5)**
   - Extracted `toggleSetItem()` shared utility (`src/shared/utils/setToggle.ts`) — replaces 9 identical inline Set toggle patterns across 5 files (`useScenarioMutations`, `RequestsSidebar`, `MultiEnvResultRow`, `CatalogSendToRequestsModal`)

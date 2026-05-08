@@ -46,8 +46,10 @@ describe('LiveProgressPanel', () => {
   });
 
   it('shows progress percentage', () => {
-    render(<LiveProgressPanel {...baseProps} />);
-    expect(screen.getByText(/50 \/ 100 \(50%\)/)).toBeInTheDocument();
+    const { container } = render(<LiveProgressPanel {...baseProps} />);
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText).toBeInTheDocument();
+    expect(progressText!.textContent).toMatch(/50\s*\/\s*100.*50%/);
   });
 
   it('shows concurrency in mode tag', () => {

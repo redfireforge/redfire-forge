@@ -121,6 +121,9 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'workflow/console-easy.html', addedAt: date('2026-04-20') },
   { manualPath: 'workflow/execution-history-easy.html', addedAt: date('2026-04-20') },
   { manualPath: 'workflow/webhook-delivery-logs-easy.html', addedAt: date('2026-04-25') },
+
+  // Edge Traversal Percentages
+  { manualPath: 'edge-traversal-percentages-guide.html', addedAt: date('2026-05-07') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

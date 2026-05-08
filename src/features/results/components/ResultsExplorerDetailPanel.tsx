@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
+import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { truncate } from '../../../shared/utils/helpers';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 
@@ -67,7 +69,7 @@ export default function ResultsExplorerDetailPanel({
   const hasWebhookInput = !!currentEvent?.details?.webhookInput;
   const hasVariables = !!(currentEvent?.details?.variablesSnapshot || currentEvent?.details?.extractedVariables || hasWebhookInput);
   const hasBasicRequest = !!(currentEvent?.details?.method && currentEvent?.details?.url);
-  const hasBasicResponse = !!(currentEvent?.details?.statusCode !== undefined);
+  const hasBasicResponse = !!(currentEvent?.details?.statusCode !== undefined || currentEvent?.details?.error);
 
   return (
     <div className="explorer-detail-panel">
@@ -87,7 +89,7 @@ export default function ResultsExplorerDetailPanel({
             </span>
             <span className="quick-stat">{stats.totalExecutions} exec</span>
             {stats.avgDuration !== undefined && (
-              <span className="quick-stat">{formatDuration(stats.avgDuration)} avg</span>
+              <span className="quick-stat">{formatDurationMs(stats.avgDuration)} avg</span>
             )}
           </div>
         )}
@@ -105,7 +107,7 @@ export default function ResultsExplorerDetailPanel({
               <option value="all">All Iterations (Aggregate)</option>
               {iterations.map((iter, i) => (
                 <option key={i} value={i}>
-                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDuration(iter.durationMs)}
+                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
                 </option>
               ))}
             </select>
@@ -227,7 +229,7 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
         </div>
         <div className="hero-divider" />
         <div className="hero-stat">
-          <span className="hero-value">{formatDuration(stats.avgDuration)}</span>
+          <span className="hero-value">{formatDurationMs(stats.avgDuration)}</span>
           <span className="hero-label">Avg Duration</span>
         </div>
       </div>
@@ -259,15 +261,15 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
         <div className="explorer-timing-stats">
           <div className="timing-stat">
             <span className="timing-label">Min</span>
-            <span className="timing-value">{formatDuration(stats.minDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.minDuration)}</span>
           </div>
           <div className="timing-stat">
             <span className="timing-label">Avg</span>
-            <span className="timing-value">{formatDuration(stats.avgDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.avgDuration)}</span>
           </div>
           <div className="timing-stat">
             <span className="timing-label">Max</span>
-            <span className="timing-value">{formatDuration(stats.maxDuration)}</span>
+            <span className="timing-value">{formatDurationMs(stats.maxDuration)}</span>
           </div>
         </div>
       )}
@@ -280,17 +282,17 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
             <div
               className="timing-split-segment wait"
               style={{ flex: stats.avgWaitDuration }}
-              title={`Avg wait: ${formatDuration(stats.avgWaitDuration)}`}
+              title={`Avg wait: ${formatDurationMs(stats.avgWaitDuration)}`}
             />
             <div
               className="timing-split-segment processing"
               style={{ flex: Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration) }}
-              title={`Avg processing: ${formatDuration((stats.avgDuration ?? 0) - stats.avgWaitDuration)}`}
+              title={`Avg processing: ${formatDurationMs((stats.avgDuration ?? 0) - stats.avgWaitDuration)}`}
             />
           </div>
           <div className="timing-split-legend">
-            <span className="legend-wait">Wait for Event: {formatDuration(stats.avgWaitDuration)}</span>
-            <span className="legend-processing">Processing: {formatDuration(Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration))}</span>
+            <span className="legend-wait">Wait for Event: {formatDurationMs(stats.avgWaitDuration)}</span>
+            <span className="legend-processing">Processing: {formatDurationMs(Math.max(0, (stats.avgDuration ?? 0) - stats.avgWaitDuration))}</span>
           </div>
         </div>
       )}
@@ -338,7 +340,7 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
                   style={{ width: `${Math.min(100, ((currentEvent.durationMs ?? 0) / Math.max(stats?.maxDuration ?? 1, 1)) * 100)}%` }}
                 />
               </div>
-              <span className="exec-timing-label">{formatDuration(currentEvent.durationMs)}</span>
+              <span className="exec-timing-label">{formatDurationMs(currentEvent.durationMs)}</span>
             </div>
           )}
 
@@ -366,7 +368,7 @@ function OverviewTab({ events, stats, currentEvent, selectedIteration, onIterati
                 <span className={`iteration-status ${event.state}`}>
                   {event.state === 'pass' ? '✓' : event.state === 'fail' ? '✗' : '○'}
                 </span>
-                <span className="iteration-duration">{formatDuration(event.durationMs)}</span>
+                <span className="iteration-duration">{formatDurationMs(event.durationMs)}</span>
                 <span className="iteration-arrow">→</span>
               </div>
             ))}
@@ -444,8 +446,9 @@ function RequestTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTra
 function ResponseTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTrace: boolean }) {
   const res = event.details?.response;
   const basicStatus = event.details?.statusCode;
+  const hasError = !!event.details?.error;
 
-  if (!res && basicStatus === undefined) {
+  if (!res && basicStatus === undefined && !hasError) {
     return <div className="explorer-empty">No response data available</div>;
   }
 
@@ -461,9 +464,16 @@ function ResponseTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullTr
         )}
         {res?.statusText && <span className="response-status-text">{res.statusText}</span>}
         {event.durationMs !== undefined && (
-          <span className="response-time">{formatDuration(event.durationMs)}</span>
+          <span className="response-time">{formatDurationMs(event.durationMs)}</span>
         )}
       </div>
+
+      {event.details?.error && (
+        <div className="exec-error" style={{ margin: '8px 0' }}>
+          <span className="exec-error-icon">!</span>
+          <span className="exec-error-text">{event.details.error}</span>
+        </div>
+      )}
 
       {res?.headers && Object.keys(res.headers).length > 0 && (
         <div className="response-section">
@@ -526,7 +536,7 @@ function VariablesTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullT
             {Object.entries(extracted).map(([key, value]) => (
               <div key={key} className="variable-row extracted">
                 <span className="variable-name">{key}</span>
-                <span className="variable-value">{truncateValue(value)}</span>
+                <span className="variable-value">{truncate(value, 100, '...', false)}</span>
               </div>
             ))}
           </div>
@@ -545,7 +555,7 @@ function VariablesTab({ event, hasFullTrace }: { event: ExecutionEvent; hasFullT
                     {key}
                     {isExtracted && <span className="new-badge">new</span>}
                   </span>
-                  <span className="variable-value">{truncateValue(value)}</span>
+                  <span className="variable-value">{truncate(value, 100, '...', false)}</span>
                 </div>
               );
             })}
@@ -626,26 +636,4 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 
 function formatNodeType(type: string): string {
   return NODE_TYPE_LABELS[type] ?? type.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return '—';
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function formatJson(str?: string): string {
-  if (!str) return '';
-  try {
-    const parsed = JSON.parse(str);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return str;
-  }
-}
-
-function truncateValue(value: string, maxLength = 100): string {
-  if (value.length <= maxLength) return value;
-  return value.slice(0, maxLength) + '...';
 }
