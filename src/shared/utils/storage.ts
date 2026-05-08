@@ -13,6 +13,7 @@ import {
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
 } from './idbSharedDataSources';
+import { compressTrace, sampleIterations } from './traceCompression';
 
 const STORAGE_KEY = 'perf-test-runs';
 const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
@@ -106,7 +107,7 @@ function capAndTruncateResults(run: TestRun): TestRun {
     }
   }
 
-  return {
+  const truncated: TestRun = {
     ...run,
     results: results.map((r) => ({
       ...r,
@@ -116,6 +117,17 @@ function capAndTruncateResults(run: TestRun): TestRun {
           : r.responseBody,
     })),
   };
+
+  if (truncated.executionTrace) {
+    truncated.executionTrace = {
+      ...truncated.executionTrace,
+      iterations: sampleIterations(truncated.executionTrace.iterations),
+    };
+    truncated.compressedTrace = compressTrace(truncated.executionTrace);
+    delete truncated.executionTrace;
+  }
+
+  return truncated;
 }
 
 async function pruneOldRuns(): Promise<void> {

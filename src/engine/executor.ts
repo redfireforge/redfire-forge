@@ -141,6 +141,9 @@ export async function runTest(
   if (mode === 'workflow') {
     if (workflow && config.workflowId) {
       const iterations = config.totalTransactions || 1;
+      const envLayer = config.workflowBaseUrl
+        ? { baseUrl: config.workflowBaseUrl }
+        : undefined;
       // Phase 7e: runGraphLoad now returns { results, trace }
       return runGraphLoad(workflow, {
         iterations,
@@ -152,6 +155,7 @@ export async function runTest(
         correlationWaitConfig: config.correlationWaitConfig,
         maxConcurrentPolls: config.maxConcurrentPolls,
         traceOptions: config.traceOptions,
+        environmentLayer: envLayer,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);
