@@ -41,6 +41,15 @@ vi.mock('./ScriptLibraryManager', () => ({
   ),
 }));
 
+vi.mock('./ScriptCodeModal', () => ({
+  __esModule: true,
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="mock-script-code-modal">
+      <button type="button" onClick={onClose}>Close Code Modal</button>
+    </div>
+  ),
+}));
+
 // Mock scriptLibraries
 vi.mock('../../engine/scriptLibraries', () => ({
   loadScriptLibraries: () => [],
@@ -441,5 +450,19 @@ describe('ScriptConfig', () => {
     expect(screen.getByTestId('mock-library-manager')).toBeTruthy();
     fireEvent.click(screen.getByText('Close Libraries'));
     expect(screen.queryByTestId('mock-library-manager')).toBeNull();
+  });
+
+  it('opens full-screen code modal from Open Editor', () => {
+    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('mock-script-code-modal')).toBeNull();
+    fireEvent.click(screen.getByText(/Open Editor/));
+    expect(screen.getByTestId('mock-script-code-modal')).toBeTruthy();
+  });
+
+  it('closes code modal', () => {
+    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText(/Open Editor/));
+    fireEvent.click(screen.getByText('Close Code Modal'));
+    expect(screen.queryByTestId('mock-script-code-modal')).toBeNull();
   });
 });

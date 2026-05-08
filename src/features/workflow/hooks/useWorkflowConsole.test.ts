@@ -89,6 +89,17 @@ describe('useWorkflowConsole', () => {
     expect(es.closed).toBe(true);
   });
 
+  it('invokes EventSource onerror without throwing', () => {
+    const push = vi.fn();
+    sessionStorage.setItem('workflow_console_open', 'true');
+    const { unmount } = renderHook(() =>
+      useWorkflowConsole({ hasWebhookNode: true, pushConsoleLine: push }),
+    );
+    const es = FakeEventSource.instances[0];
+    expect(() => es.onerror?.({} as Event)).not.toThrow();
+    unmount();
+  });
+
   it('survives EventSource constructor throwing', () => {
     sessionStorage.setItem('workflow_console_open', 'true');
     vi.stubGlobal('EventSource', function () { throw new Error('boom'); });

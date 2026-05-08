@@ -371,4 +371,78 @@ describe('VariablesSection', () => {
     fireEvent.change(screen.getByPlaceholderText('value'), { target: { value: 'edited' } });
     expect(setNewVarValue).toHaveBeenCalledWith('edited');
   });
+
+  it('updates new row key via onChange', () => {
+    const setNewVarKey = vi.fn();
+    renderVars({
+      newVarKey: '',
+      newVarValue: '',
+      setNewVarKey,
+      setNewVarValue: vi.fn(),
+    });
+    fireEvent.change(screen.getByPlaceholderText('name'), { target: { value: 'typedKey' } });
+    expect(setNewVarKey).toHaveBeenCalledWith('typedKey');
+  });
+
+  it('calls openVariableDetail updater after View for long value', () => {
+    const onUpdateVariables = vi.fn();
+    const longValue = 'a'.repeat(101);
+    renderVars({ variables: { longKey: longValue }, onUpdateVariables });
+    fireEvent.click(screen.getByText('View…'));
+    const lastCall = inspectActions.openVariableDetail.mock.calls.at(-1)!;
+    const updater = lastCall[2] as (v: string) => void;
+    updater('replaced');
+    expect(onUpdateVariables).toHaveBeenCalledWith({ longKey: 'replaced' });
+  });
+
+  it('calls openVariableDetail updater after long value preview click', () => {
+    const onUpdateVariables = vi.fn();
+    const longValue = 'z'.repeat(101);
+    renderVars({ variables: { pk: longValue }, onUpdateVariables });
+    fireEvent.click(document.querySelector('.wf-var-value-preview')!);
+    const lastCall = inspectActions.openVariableDetail.mock.calls.at(-1)!;
+    const updater = lastCall[2] as (v: string) => void;
+    updater('fromPreview');
+    expect(onUpdateVariables).toHaveBeenCalledWith({ pk: 'fromPreview' });
+  });
+
+  it('applies insert snippet for short value row', () => {
+    const onUpdateVariables = vi.fn();
+    const onRequestVariableInsert = vi.fn((apply: (s: string) => void) => {
+      apply('+s');
+    });
+    renderVars({ variables: { x: 'base' }, onUpdateVariables, onRequestVariableInsert });
+    fireEvent.click(screen.getAllByText('Insert…')[0]);
+    expect(onUpdateVariables).toHaveBeenCalledWith({ x: 'base+s' });
+  });
+
+  it('applies insert snippet for long value row', () => {
+    const onUpdateVariables = vi.fn();
+    const onRequestVariableInsert = vi.fn((apply: (s: string) => void) => {
+      apply('+L');
+    });
+    const longValue = 'b'.repeat(101);
+    renderVars({ variables: { rowKey: longValue }, onUpdateVariables, onRequestVariableInsert });
+    const longWrap = document.querySelector('.wf-var-value-long-wrap');
+    const insertBtn = longWrap?.querySelector('.wf-config-insert-var-btn');
+    fireEvent.click(insertBtn!);
+    expect(onUpdateVariables).toHaveBeenCalledWith({ rowKey: `${longValue}+L` });
+  });
+
+  it('applies insert snippet for new row value', () => {
+    const setNewVarValue = vi.fn();
+    const onRequestVariableInsert = vi.fn((apply: (s: string) => void) => {
+      apply('+tail');
+    });
+    renderVars({
+      variables: {},
+      newVarKey: 'nk',
+      newVarValue: 'start',
+      setNewVarKey: vi.fn(),
+      setNewVarValue,
+      onRequestVariableInsert,
+    });
+    fireEvent.click(screen.getByText('Insert…'));
+    expect(setNewVarValue).toHaveBeenCalledWith('start+tail');
+  });
 });

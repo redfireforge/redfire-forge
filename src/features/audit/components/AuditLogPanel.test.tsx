@@ -179,4 +179,53 @@ describe('AuditLogPanel', () => {
     fireEvent.click(screen.getByText('Export CSV'));
     expect(saveFile).toHaveBeenCalled();
   });
+
+  it('shows filter-empty state when search excludes all entries', async () => {
+    seedEntries([baseEntry({ entityName: 'alpha' })]);
+    render(<AuditLogPanel />);
+    await waitFor(() => expect(screen.getByText('alpha')).toBeTruthy());
+    fireEvent.change(screen.getByPlaceholderText('Search entries...'), { target: { value: 'zzz' } });
+    expect(screen.getByText(/No entries match the current filter/)).toBeTruthy();
+  });
+
+  it('cancels clear confirmation when No is clicked', async () => {
+    seedEntries([baseEntry({ entityName: 'keep-me' })]);
+    render(<AuditLogPanel />);
+    await waitFor(() => expect(screen.getByText('keep-me')).toBeTruthy());
+    fireEvent.click(screen.getByText('Clear Log'));
+    fireEvent.click(screen.getByText('No'));
+    expect(screen.queryByText('Clear all entries?')).toBeNull();
+    expect(screen.getByText('keep-me')).toBeTruthy();
+  });
+
+  it('renders empty string change values as (empty)', async () => {
+    seedEntries([
+      baseEntry({
+        entityName: 'svc',
+        action: 'updated',
+        entityType: 'microservice',
+        changes: [{ field: 'name', oldValue: '', newValue: 'x' }],
+      }),
+    ]);
+    render(<AuditLogPanel />);
+    await waitFor(() => {
+      expect(screen.getByText('(empty)')).toBeTruthy();
+    });
+  });
+
+  it('renders non-string change values as JSON', async () => {
+    seedEntries([
+      baseEntry({
+        entityName: 'svc',
+        action: 'updated',
+        entityType: 'microservice',
+        changes: [{ field: 'meta', oldValue: { a: 1 }, newValue: [1, 2] }],
+      }),
+    ]);
+    render(<AuditLogPanel />);
+    await waitFor(() => {
+      expect(screen.getByText('{"a":1}')).toBeTruthy();
+      expect(screen.getByText('[1,2]')).toBeTruthy();
+    });
+  });
 });

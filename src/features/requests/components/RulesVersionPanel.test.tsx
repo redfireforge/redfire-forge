@@ -465,6 +465,26 @@ describe('RulesVersionPanel', () => {
       fireEvent.keyDown(input2, { key: 'Escape' });
       expect(onRename).not.toHaveBeenCalled();
     });
+
+    it('starts editing with empty string when version label is unset', () => {
+      const onRename = vi.fn();
+      const v1 = mkRulesVersion({
+        timestamp: 1000,
+        label: '',
+        expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }],
+      });
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] }}
+          onRenameVersion={onRename}
+        />,
+      );
+      fireEvent.click(screen.getByText('r1'));
+      const input = screen.getByRole('textbox');
+      expect(input).toHaveProperty('value', '');
+    });
   });
 
   describe('rules description tag', () => {
@@ -513,6 +533,117 @@ describe('RulesVersionPanel', () => {
       fireEvent.click(screen.getByText('Save Rules Version'));
       expect(screen.getByText('Save Anyway')).toBeTruthy();
       expect(document.querySelector('.version-duplicate-hint')).toBeNull();
+    });
+  });
+
+  describe('fingerprint fallbacks and sparse config', () => {
+    it('uses default mode and selectiveMode when currentValidation omits them', () => {
+      const v1 = mkRulesVersion({
+        timestamp: 1000,
+        validationMode: 'none',
+        selectiveMode: 'include',
+        expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+      });
+      const sparse = {
+        expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+      } as ValidationConfig;
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1]} currentValidation={sparse} />);
+      expect(screen.getByText('current')).toBeTruthy();
+    });
+
+    it('treats runtime-undefined version rule fields like defaults when marking current', () => {
+      const v1 = {
+        id: crypto.randomUUID(),
+        timestamp: 1000,
+        label: 'shape',
+        expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+        validationMode: undefined,
+        selectiveMode: undefined,
+        excludedPaths: undefined,
+      } as unknown as RulesVersion;
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentValidation={{
+            mode: 'none',
+            selectiveMode: 'include',
+            expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+            excludedPaths: [],
+            unorderedArrays: false,
+          }}
+        />,
+      );
+      expect(screen.getByText('current')).toBeTruthy();
+    });
+  });
+
+  describe('rulesDescription edge cases', () => {
+    it('shows empty when version has no describable rule metadata', () => {
+      const bare = {
+        id: 'bare-id',
+        timestamp: 1000,
+        validationMode: 'none',
+        expectedFields: [],
+      } as RulesVersion;
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[bare]}
+          currentValidation={{ mode: 'none', expectedFields: [] }}
+        />,
+      );
+      const tag = screen.getByText('empty');
+      expect(tag.classList.contains('version-rules-tag')).toBe(true);
+    });
+
+    it('omits selectiveMode from description when absent, but still shows excluded count', () => {
+      const v1 = {
+        id: 'id-1',
+        timestamp: 1000,
+        validationMode: 'full',
+        expectedFields: [],
+        excludedPaths: ['$.a'],
+      } as RulesVersion;
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentValidation={{ mode: 'none', expectedFields: [] }}
+        />,
+      );
+      expect(screen.getByText(/full · 1 excluded/)).toBeTruthy();
+    });
+  });
+
+  describe('compare modal edge cases', () => {
+    it('clears diff when selected version ids are missing after rerender', () => {
+      mocks.differDiff.mockClear();
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      const props = defaultProps();
+      const { rerender } = render(<RulesVersionPanel {...props} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      expect(screen.getByTestId('json-diff-viewer')).toBeTruthy();
+      const v3 = mkRulesVersion({
+        timestamp: 3000,
+        expectedFields: [{ jsonPath: '$.c', expectedValue: '3' }],
+      });
+      rerender(<RulesVersionPanel {...props} versions={[v3]} />);
+      expect(screen.queryByTestId('json-diff-viewer')).toBeNull();
+      expect(screen.getByText('No differences found.')).toBeTruthy();
+      expect(document.querySelector('.version-diff-info-bar')).toBeNull();
+    });
+
+    it('evaluates || fallback on selectors when both sides are cleared', () => {
+      const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
+      const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
+      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      fireEvent.click(screen.getByText('Compare'));
+      const selects = screen.getAllByRole('combobox');
+      fireEvent.change(selects[0], { target: { value: '' } });
+      fireEvent.change(selects[1], { target: { value: '' } });
+      expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
     });
   });
 });

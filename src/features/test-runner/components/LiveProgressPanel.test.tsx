@@ -359,6 +359,119 @@ describe('LiveProgressPanel', () => {
     expect(screen.getByText(/· 45s/)).toBeInTheDocument();
   });
 
+  it('caps time-based progress bar at 100% when elapsed exceeds duration', () => {
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="load-profile"
+        profileMeta={{ elapsedMs: 90000, durationMs: 60000, currentInFlight: 1, targetConcurrency: 5 }}
+        loadProfile={{ type: 'constant', maxConcurrency: 5, durationSec: 60 }}
+      />
+    );
+    const bar = container.querySelector('.progress-bar') as HTMLElement | null;
+    expect(bar?.style.width).toBe('100%');
+  });
+
+  it('does not show per-test breakdown when no test has dataSource', () => {
+    const selectedTests = [
+      { id: 't1', name: 'No DS', url: '', method: 'GET' as const, headers: [] },
+    ];
+    const liveResults = [{ scenarioId: 't1', passed: true, responseTime: 10, httpStatus: 200 }] as never[];
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
+      />
+    );
+    expect(container.querySelector('.runner-per-test-progress')).toBeNull();
+  });
+
+  it('does not show per-test breakdown when weights is omitted', () => {
+    const selectedTests = [
+      { id: 't1', name: 'T1', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const liveResults = [{ scenarioId: 't1', passed: true, responseTime: 10, httpStatus: 200 }] as never[];
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults}
+        selectedTests={selectedTests as never[]}
+      />
+    );
+    expect(container.querySelector('.runner-per-test-progress')).toBeNull();
+  });
+
+  it('does not show per-test breakdown when liveResults is empty', () => {
+    const selectedTests = [
+      { id: 't1', name: 'T1', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+    ];
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={[]}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
+      />
+    );
+    expect(container.querySelector('.runner-per-test-progress')).toBeNull();
+  });
+
+  it('per-test row uses only enabled dataSource rows as expected count', () => {
+    const selectedTests = [
+      {
+        id: 't1',
+        name: 'DS',
+        url: '',
+        method: 'GET',
+        headers: [],
+        dataSource: {
+          columns: [],
+          rows: [
+            { id: 'r1', values: {}, enabled: false },
+            { id: 'r2', values: {}, enabled: true },
+          ],
+          source: { type: 'inline' as const },
+        },
+      },
+    ];
+    const liveResults = [
+      { scenarioId: 't1', passed: true, responseTime: 10, httpStatus: 200 },
+    ] as never[];
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1 }}
+      />
+    );
+    expect(screen.getByText(/1\/1/)).toBeInTheDocument();
+  });
+
+  it('per-test row uses expectedRows 1 when a weighted test has no dataSource', () => {
+    const selectedTests = [
+      { id: 't1', name: 'With DS', url: '', method: 'GET', headers: [], dataSource: { columns: [], rows: [{ id: 'r1', values: {}, enabled: true }], source: { type: 'inline' as const } } },
+      { id: 't2', name: 'Plain', url: '', method: 'GET', headers: [] },
+    ];
+    const liveResults = [
+      { scenarioId: 't1', passed: true, responseTime: 5, httpStatus: 200 },
+      { scenarioId: 't2', passed: true, responseTime: 6, httpStatus: 200 },
+    ] as never[];
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        liveResults={liveResults}
+        selectedTests={selectedTests as never[]}
+        weights={{ t1: 1, t2: 1 }}
+      />
+    );
+    expect(screen.getByText('Plain:')).toBeInTheDocument();
+    const plainRow = screen.getByText('Plain:').closest('.runner-per-test-row');
+    expect(plainRow?.textContent).toMatch(/1\/1/);
+  });
+
   it('does not show clear button when onClear is omitted', () => {
     render(<LiveProgressPanel {...baseProps} isRunning={false} />);
     expect(screen.queryByText('✕ Clear')).not.toBeInTheDocument();

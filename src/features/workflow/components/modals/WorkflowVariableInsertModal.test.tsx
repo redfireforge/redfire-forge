@@ -7,6 +7,15 @@ import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import type { WorkflowVariableHintSource } from '../../utils/workflowVariableHints';
 
+vi.mock('../expression/ExpressionBuilderView', () => ({
+  __esModule: true,
+  default: ({ onInsert }: { onInsert: (t: string) => void }) => (
+    <div data-testid="mock-expression-builder">
+      <button type="button" onClick={() => onInsert('{{$upper(x)}}')}>InsertExpr</button>
+    </div>
+  ),
+}));
+
 const wfSource: WorkflowVariableHintSource = { nodeLabel: 'Workflow Defaults', nodeType: 'workflow', category: 'Workflow' };
 const stepASource: WorkflowVariableHintSource = { nodeId: 'a1', nodeLabel: 'Step A', nodeType: 'http', category: 'HTTP Steps' };
 const stepBSource: WorkflowVariableHintSource = { nodeId: 'b1', nodeLabel: 'Step B', nodeType: 'http', category: 'HTTP Steps' };
@@ -438,5 +447,52 @@ describe('WorkflowVariableInsertModal', () => {
     rerender(<WorkflowVariableInsertModal {...defaultProps} open={true} />);
     const modal = document.body.querySelector('.wf-var-insert-modal')!;
     expect(modal.classList.contains('modal-fullscreen')).toBe(false);
+  });
+
+  it('expression tab calls onPick when compose mode is off', () => {
+    const onPick = vi.fn();
+    render(<WorkflowVariableInsertModal {...defaultProps} onPick={onPick} />);
+    fireEvent.click(screen.getByText('Expression'));
+    fireEvent.click(screen.getByText('InsertExpr'));
+    expect(onPick).toHaveBeenCalledWith('{{$upper(x)}}');
+  });
+
+  it('expression tab adds compose token when compose mode is on', () => {
+    render(<WorkflowVariableInsertModal {...defaultProps} />);
+    fireEvent.click(screen.getByLabelText('Compose mode'));
+    fireEvent.click(screen.getByText('Expression'));
+    fireEvent.click(screen.getByText('InsertExpr'));
+    expect(document.querySelector('.wf-compose-token-expression')).toBeTruthy();
+    expect(document.querySelector('.wf-compose-strip-preview-value')?.textContent).toContain('$upper(x)');
+  });
+
+  it('parses node refs without quotes in varName', () => {
+    const src: WorkflowVariableHintSource = { nodeId: 'step1', nodeLabel: 'Step X', nodeType: 'http', category: 'HTTP Steps' };
+    const hints: WorkflowVariableHint[] = [
+      { ref: 'node:step1.foo', label: 'foo', source: src },
+    ];
+    render(<WorkflowVariableInsertModal {...defaultProps} hints={hints} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    expect(rows[0].textContent).toContain('foo');
+  });
+
+  it('keeps hover details when leaving a row that is not the active hover target', () => {
+    render(<WorkflowVariableInsertModal {...defaultProps} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    fireEvent.mouseEnter(rows[0]);
+    fireEvent.mouseEnter(rows[1]);
+    fireEvent.mouseLeave(rows[0]);
+    expect(screen.getByText('HTTP status')).toBeTruthy();
+  });
+
+  it('replaces unscoped hint with scoped when both share a name', () => {
+    const dedupHints: WorkflowVariableHint[] = [
+      { ref: 'token', label: 'latest', source: stepASource },
+      { ref: 'node:"Step A".token', label: 'scoped', source: stepASource },
+    ];
+    render(<WorkflowVariableInsertModal {...defaultProps} hints={dedupHints} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('node:"Step A".token');
   });
 });

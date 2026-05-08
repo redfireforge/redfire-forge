@@ -200,6 +200,26 @@ describe('generateChangeSummary', () => {
     expect(generateChangeSummary(older as any, newer as any)).toContain('2 nodes added');
   });
 
+  it('uses singular phrasing for single node add/remove and edges', () => {
+    const older0 = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    const newer1 = { nodeCount: 1, edgeCount: 0, nodes: [makeNode('n1')], edges: [], variables: {} };
+    expect(generateChangeSummary(older0 as any, newer1 as any)).toContain('1 node added');
+    expect(generateChangeSummary(newer1 as any, older0 as any)).toContain('1 node removed');
+    const olderE = { nodeCount: 0, edgeCount: 1, nodes: [], edges: [makeEdge('e1', 'a', 'b')], variables: {} };
+    const newerE0 = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    expect(generateChangeSummary(newerE0 as any, olderE as any)).toContain('1 edge added');
+    expect(generateChangeSummary(olderE as any, newerE0 as any)).toContain('1 edge removed');
+  });
+
+  it('uses singular phrasing for variable deltas', () => {
+    const empty = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    const oneVar = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '1' } };
+    expect(generateChangeSummary(empty as any, oneVar as any)).toContain('1 var added');
+    expect(generateChangeSummary(oneVar as any, empty as any)).toContain('1 var removed');
+    const changed = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '2' } };
+    expect(generateChangeSummary(oneVar as any, changed as any)).toContain('1 var changed');
+  });
+
   it('reports removed nodes', () => {
     const older = { nodeCount: 3, edgeCount: 0, nodes: [], edges: [], variables: {} };
     const newer = { nodeCount: 1, edgeCount: 0, nodes: [], edges: [], variables: {} };
@@ -244,6 +264,16 @@ describe('generateChangeSummary', () => {
     expect(generateChangeSummary(older as any, newer as any)).toContain('1 node modified');
   });
 
+  it('reports multiple nodes modified with plural label', () => {
+    const a = makeNode('a', 'request', { url: '/1' });
+    const b = makeNode('b', 'request', { url: '/2' });
+    const am = makeNode('a', 'request', { url: '/x' });
+    const bm = makeNode('b', 'request', { url: '/y' });
+    const older = { nodeCount: 2, edgeCount: 0, nodes: [a, b], edges: [], variables: {} };
+    const newer = { nodeCount: 2, edgeCount: 0, nodes: [am, bm], edges: [], variables: {} };
+    expect(generateChangeSummary(older as any, newer as any)).toContain('2 nodes modified');
+  });
+
   it('returns "No structural changes" when nothing changed', () => {
     const v = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
     expect(generateChangeSummary(v as any, v as any)).toBe('No structural changes');
@@ -286,6 +316,16 @@ describe('computeVersionDiff', () => {
     const diff = computeVersionDiff(older, newer);
     expect(diff.modifiedNodes).toHaveLength(1);
     expect(diff.modifiedNodes[0].id).toBe('n1');
+  });
+
+  it('uses node id for modified node label when data has no label', () => {
+    const plain = { id: 'nx', type: 'request', position: { x: 0, y: 0 }, data: { url: '/a' } } as any;
+    const plainMod = { id: 'nx', type: 'request', position: { x: 0, y: 0 }, data: { url: '/b' } } as any;
+    const diff = computeVersionDiff(
+      makeVersion({ nodes: [plain] }),
+      makeVersion({ nodes: [plainMod] }),
+    );
+    expect(diff.modifiedNodes[0].label).toBe('nx');
   });
 
   it('detects added edges', () => {

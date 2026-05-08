@@ -175,6 +175,16 @@ describe('ComposeStrip', () => {
     expect(reordered[1].displayLabel).toBe('first');
   });
 
+  it('does not reorder when dropped on same index', () => {
+    const onTokensChange = vi.fn();
+    const tokens = [makeVarToken('1', 'a')];
+    const { container } = render(<ComposeStrip {...defaultProps} tokens={tokens} onTokensChange={onTokensChange} />);
+    const tokenEl = container.querySelector('.wf-compose-token')!;
+    fireEvent.dragStart(tokenEl, { dataTransfer: { effectAllowed: 'move', setData: vi.fn() } });
+    fireEvent.drop(tokenEl, { dataTransfer: {}, preventDefault: vi.fn() });
+    expect(onTokensChange).not.toHaveBeenCalled();
+  });
+
   it('applies correct CSS class for variable tokens', () => {
     const tokens = [makeVarToken('1', 'foo')];
     const { container } = render(<ComposeStrip {...defaultProps} tokens={tokens} />);
