@@ -1,8 +1,34 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+vi.mock('../../data/galleries/catalog-specs', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../data/galleries/catalog-specs')>();
+  return {
+    ...mod,
+    catalogSpecCatalog: [
+      ...mod.catalogSpecCatalog,
+      {
+        id: 'cov-json-stringify-fail',
+        domain: 'catalog',
+        name: 'Coverage JSON Stringify Fail',
+        description: 'Factory returns value that JSON.stringify cannot serialize',
+        icon: '📋',
+        category: 'rest-api',
+        difficulty: 'easy',
+        tags: ['coverage'],
+        liveApis: [],
+        endpointCount: 1,
+        specVersion: '3.0.3',
+        specYaml: '',
+        factory: () => ({ x: BigInt(1) }),
+      },
+    ],
+  };
+});
+
 import { GalleryPage } from './GalleryPage';
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
 import { testSampleCatalog } from '../../data/galleries/tests';
@@ -195,5 +221,77 @@ describe('GalleryPage', () => {
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
     expect(container.querySelector('.gallery-detail-preview')).toBeTruthy();
+  });
+
+  it('treats legacy __name: imports as imported without sample id', () => {
+    const firstTest = testSampleCatalog[0];
+    const importedSamples = { [`__name:${firstTest.name}`]: 'legacy' };
+    const { container } = render(
+      <GalleryPage onImportTest={vi.fn()} importedSamples={importedSamples} />,
+    );
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    fireEvent.click(testBtn!);
+    fireEvent.click(screen.getByText(firstTest.name));
+    expect(
+      container.querySelector('.gallery-detail-btn-primary')?.textContent,
+    ).toContain('✓ Loaded');
+  });
+
+  it('does not compute sample status when importedSamples is empty', () => {
+    const { container } = render(<GalleryPage onImportTest={vi.fn()} importedSamples={{}} />);
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    fireEvent.click(testBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    expect(container.querySelector('.gallery-detail-btn-primary')?.textContent).toBe('Load Test');
+  });
+
+  it('omits primary import action for assertion preset entries', () => {
+    const { container } = render(<GalleryPage />);
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const assertionsBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Assertions'));
+    expect(assertionsBtn).toBeTruthy();
+    fireEvent.click(assertionsBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    expect(container.querySelector('.gallery-detail-btn-primary')).toBeNull();
+  });
+
+  it('preview falls back when factory output is not JSON-serializable', () => {
+    const { container } = render(<GalleryPage />);
+    const input = screen.getByLabelText('Search gallery');
+    fireEvent.change(input, { target: { value: 'Coverage JSON Stringify Fail' } });
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    const pre = container.querySelector('.gallery-detail-preview-pre');
+    expect(pre?.textContent).toContain('[object Object]');
+  });
+
+  it('passes Response label when expanding response tab after fetch', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{"ok":true}',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { container } = render(<GalleryPage />);
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const reqBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Requests'));
+    fireEvent.click(reqBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Response' }));
+    fireEvent.click(screen.getByRole('button', { name: /Fetch Sample/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => {
+      expect(container.querySelector('.gallery-tab-code')).toBeTruthy();
+    });
+    const expandBtn = container.querySelector('.gallery-tab-expand-btn') as HTMLElement;
+    fireEvent.click(expandBtn);
+    await waitFor(() => {
+      expect(screen.getByText(/— Response$/)).toBeTruthy();
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 });

@@ -8,13 +8,14 @@ vi.mock('../../shared/utils/storage', async (importOriginal) => {
     ...actual,
     loadSharedDataSources: vi.fn().mockResolvedValue([]),
     saveSharedDataSources: vi.fn().mockResolvedValue(undefined),
+    savePreviewSampleId: vi.fn(),
   };
 });
 import { renderHook, act } from '@testing-library/react';
 import * as storage from '../../shared/utils/storage';
 import { useGalleryImport } from './useGalleryImport';
 import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
-import type { RequestCollection } from '../../shared/types';
+import type { Environment, Microservice, RequestCollection } from '../../shared/types';
 
 function makeDeps(overrides = {}) {
   return {
@@ -62,6 +63,7 @@ function makeEntry(domain: GalleryDomain, overrides = {}): GalleryEntry<unknown>
 
 describe('useGalleryImport', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(storage.loadSharedDataSources).mockResolvedValue([]);
     vi.mocked(storage.saveSharedDataSources).mockResolvedValue(undefined);
   });
@@ -102,6 +104,36 @@ describe('useGalleryImport', () => {
       });
       const { result } = renderHook(() => useGalleryImport(deps));
       expect(result.current.importedSamples).toEqual({ '__name:Legacy Sample': '' });
+    });
+
+    it('skips legacy entry with empty stripped name', () => {
+      const deps = makeDeps({
+        featureGroups: [
+          { id: 'fg1', source: 'gallery', name: 'Gallery:   ', scenarios: [] },
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples).toEqual({});
+    });
+
+    it('skips entry with gallerySampleId but no gallerySampleHash', () => {
+      const deps = makeDeps({
+        featureGroups: [
+          { id: 'fg1', gallerySampleId: 's1', scenarios: [] },
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples).toEqual({});
+    });
+
+    it('skips gallery source entry without a name', () => {
+      const deps = makeDeps({
+        featureGroups: [
+          { id: 'fg1', source: 'gallery', scenarios: [] },
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples).toEqual({});
     });
   });
 
@@ -179,6 +211,12 @@ describe('useGalleryImport', () => {
       expect(deps.setFeatureGroups).toHaveBeenCalled();
       expect(deps.setSelectedEnvId).toHaveBeenCalled();
       expect(deps.setSelectedSvcId).toHaveBeenCalled();
+
+      const envUpdater = deps.setEnvironments.mock.calls[0][0] as (prev: Environment[]) => Environment[];
+      expect(envUpdater([])).toHaveLength(1);
+
+      const svcAppender = deps.setMicroservices.mock.calls[0][0] as (prev: Microservice[]) => Microservice[];
+      expect(svcAppender([])).toHaveLength(1);
     });
 
     it('reuses existing gallery environment', async () => {
@@ -214,6 +252,16 @@ describe('useGalleryImport', () => {
       });
       expect(deps.setMicroservices).toHaveBeenCalled();
       expect(deps.setFeatureGroups).toHaveBeenCalled();
+
+      const mapSvcUpdater = deps.setMicroservices.mock.calls[0][0] as (prev: Microservice[]) => Microservice[];
+      const prev: Microservice[] = [
+        { id: 'svc-1', name: 'Gallery Samples', baseUrls: { 'other-env': '' } },
+        { id: 'svc-other', name: 'Other', baseUrls: {} },
+      ];
+      const next = mapSvcUpdater(prev);
+      expect(next).toHaveLength(2);
+      expect(next[0].baseUrls['env-new']).toBe('');
+      expect(next[1]).toBe(prev[1]);
     });
 
     it('imports additional feature groups from test entry factory', async () => {
@@ -255,6 +303,24 @@ describe('useGalleryImport', () => {
       const saved = vi.mocked(storage.saveSharedDataSources).mock.calls[0][0] as { id: string }[];
       expect(saved.some(d => d.id === 'ds-new')).toBe(true);
     });
+
+    it('does not save shared data sources when all are duplicates', async () => {
+      vi.mocked(storage.loadSharedDataSources).mockResolvedValue([
+        { id: 'ds-1', name: 'Old', columns: [], rows: [], updatedAt: 0 },
+      ] as Awaited<ReturnType<typeof storage.loadSharedDataSources>>);
+      const deps = makeDeps();
+      const entry = {
+        ...makeEntry('tests', {
+          factory: () => ({ id: 'fg', name: 'Dup DS', scenarios: [] }),
+        }),
+        sharedDataSourceFactory: () => [{ id: 'ds-1', name: 'Old Dup', columns: [], rows: [], updatedAt: 1 }],
+      } as GalleryEntry<unknown> & { sharedDataSourceFactory: () => unknown[] };
+      const { result } = renderHook(() => useGalleryImport(deps));
+      await act(async () => {
+        await result.current.onImportTest(entry);
+      });
+      expect(storage.saveSharedDataSources).not.toHaveBeenCalled();
+    });
   });
 
   describe('onImportWorkflow', () => {
@@ -271,6 +337,21 @@ describe('useGalleryImport', () => {
       act(() => result.current.onImportWorkflow(entry));
       expect(deps.setPreviewWorkflow).toHaveBeenCalled();
       expect(deps.setActiveTab).toHaveBeenCalledWith('workflow');
+    });
+
+    it('calls savePreviewSampleId with entry id', () => {
+      const deps = makeDeps();
+      const entry = makeEntry('workflows', {
+        id: 'wf-sample-42',
+        factory: () => ({
+          id: 'wf1', name: 'My Workflow',
+          nodes: [{ id: 'n1', type: 'request', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      act(() => result.current.onImportWorkflow(entry));
+      expect(storage.savePreviewSampleId).toHaveBeenCalledWith('wf-sample-42');
     });
   });
 });

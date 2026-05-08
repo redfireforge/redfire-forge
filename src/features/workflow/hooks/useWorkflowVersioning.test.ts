@@ -32,6 +32,34 @@ const defaultParams = () => ({
 });
 
 describe('useWorkflowVersioning', () => {
+  it('handleVersionRestore uses formatted timestamp when version has no label', () => {
+    const params = defaultParams();
+    const { result } = renderHook(() => useWorkflowVersioning(params));
+    const v = makeVersion({ id: 'v1', label: undefined, timestamp: 946684800000 });
+    act(() => result.current.handleVersionRestore(v));
+    expect(params.showToast).toHaveBeenCalledWith(
+      'success',
+      'Version restored',
+      new Date(946684800000).toLocaleString(),
+    );
+  });
+
+  it('handleVersionRename does nothing without selectedId', () => {
+    const params = { ...defaultParams(), selectedId: null };
+    const { result } = renderHook(() => useWorkflowVersioning(params));
+    act(() => result.current.handleVersionRename('v1', 'X'));
+    expect(params.update).not.toHaveBeenCalled();
+  });
+
+  it('openVersionPanel toggles closed on second call', () => {
+    const params = defaultParams();
+    const { result } = renderHook(() => useWorkflowVersioning(params));
+    act(() => result.current.openVersionPanel());
+    expect(result.current.versionPanelOpen).toBe(true);
+    act(() => result.current.openVersionPanel());
+    expect(result.current.versionPanelOpen).toBe(false);
+  });
+
   it('returns correct versionCount', () => {
     const params = defaultParams();
     const { result } = renderHook(() => useWorkflowVersioning(params));

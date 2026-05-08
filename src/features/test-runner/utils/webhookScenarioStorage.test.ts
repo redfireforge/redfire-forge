@@ -90,6 +90,19 @@ describe('webhookScenarioStorage', () => {
 
       expect(result.description).toBe('A helpful description');
     });
+
+    it('does not trim when quota error occurs with at most 10 scenarios stored', () => {
+      const key = storageKey;
+      const existing: WebhookScenario[] = [{ id: 'a', name: 'One', payloads: [], createdAt: 1 }];
+      localStorage.setItem(key, JSON.stringify(existing));
+      const setSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('', 'QuotaExceededError');
+      });
+      const created = saveWebhookScenario(workflowId, { name: 'Two', payloads: [] });
+      expect(created.name).toBe('Two');
+      setSpy.mockRestore();
+      expect(loadWebhookScenarios(workflowId).map(s => s.name)).toEqual(['One']);
+    });
   });
 
   describe('updateWebhookScenario', () => {
@@ -250,6 +263,45 @@ describe('webhookScenarioStorage', () => {
       expect(result[0].createdAt).toBeGreaterThan(0);
       expect(result[0].payloads).toEqual([]);
     });
+
+    it('uses default name when imported scenario omits name', () => {
+      const result = importWebhookScenarios(workflowId, JSON.stringify([{ id: 'n1', payloads: [], createdAt: 1 }]));
+      expect(result[0].name).toBe('Imported Scenario');
+    });
+
+    it('swallows storage errors when scenario list is small', () => {
+      const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('', 'QuotaExceededError');
+      });
+      const created = saveWebhookScenario(workflowId, { name: 'Solo', payloads: [] });
+      expect(created.name).toBe('Solo');
+      spy.mockRestore();
+    });
+
+    it('trims to last 10 and retries when storage quota exceeded', () => {
+      const key = storageKey;
+      const existing: WebhookScenario[] = Array.from({ length: 10 }, (_, i) => ({
+        id: `p-${i}`,
+        name: `S${i}`,
+        payloads: [],
+        createdAt: i,
+      }));
+      localStorage.setItem(key, JSON.stringify(existing));
+      const rawSetItem = Storage.prototype.setItem;
+      let first = true;
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+        if (first && k === key) {
+          first = false;
+          throw new DOMException('', 'QuotaExceededError');
+        }
+        return rawSetItem.call(this, k, v);
+      });
+      const created = saveWebhookScenario(workflowId, { name: 'New', payloads: [] });
+      expect(created.name).toBe('New');
+      const stored = loadWebhookScenarios(workflowId);
+      expect(stored.some(s => s.id === created.id)).toBe(true);
+      setItemSpy.mockRestore();
+    });
   });
 
   describe('buildPayloadWithCorrelationId', () => {
@@ -306,6 +358,18 @@ describe('webhookScenarioStorage', () => {
   describe('fireWebhook', () => {
     beforeEach(() => {
       global.fetch = vi.fn();
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('uses localhost when hostname is empty', async () => {
+      const loc = { ...window.location, hostname: '' };
+      vi.stubGlobal('location', loc as Location);
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true });
+      await fireWebhook('c', {});
+      expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain('localhost');
     });
 
     it('sends POST request to correlations resume endpoint', async () => {

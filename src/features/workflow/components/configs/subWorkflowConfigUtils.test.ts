@@ -17,4 +17,16 @@ describe('subWorkflowConfigUtils', () => {
   it('returns in-range values unchanged', () => {
     expect(parseClampedInteger('42', { defaultValue: 0, min: 0, max: 100 })).toBe(42);
   });
+
+  it('returns clampedMin when max is omitted', () => {
+    expect(parseClampedInteger('5', { defaultValue: 0, min: 0 })).toBe(5);
+  });
+
+  it('returns clampedMin when max is undefined explicitly', () => {
+    expect(parseClampedInteger('10', { defaultValue: 0, min: 3, max: undefined })).toBe(10);
+  });
+
+  it('clamps to min when value is below min and max is omitted', () => {
+    expect(parseClampedInteger('-1', { defaultValue: 0, min: 0 })).toBe(0);
+  });
 });

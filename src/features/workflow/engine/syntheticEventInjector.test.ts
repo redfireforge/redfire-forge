@@ -36,6 +36,8 @@ describe('SyntheticEventInjector', () => {
     expect(injector.isRunning).toBe(false);
     injector.start();
     expect(injector.isRunning).toBe(true);
+    injector.start();
+    expect(injector.isRunning).toBe(true);
     injector.stop();
     expect(injector.isRunning).toBe(false);
   });
@@ -267,5 +269,26 @@ describe('SyntheticEventInjector', () => {
 
     const result = await resumePromise;
     expect(result).toEqual({});
+  });
+
+  it('short-circuits checkForNewPausedEntries when stopped', () => {
+    injector = new SyntheticEventInjector(store, { responseDelayMs: 50 });
+    injector.start();
+    injector.stop();
+    (injector as unknown as { checkForNewPausedEntries: () => void }).checkForNewPausedEntries();
+  });
+
+  it('skips executeInjection when stopped before the delay elapses', async () => {
+    injector = new SyntheticEventInjector(store, { responseDelayMs: 100 });
+    injector.start();
+    const resumePromise = store.pause('corr-stopped', '/w', makePausedState('n1'), 300000);
+    await vi.advanceTimersByTimeAsync(60);
+    expect(injector.pendingCount).toBe(1);
+    (injector as unknown as { stopped: boolean }).stopped = true;
+    await vi.advanceTimersByTimeAsync(150);
+    expect(store.isPaused('corr-stopped')).toBe(true);
+    store.resume('corr-stopped', { manual: true });
+    await expect(resumePromise).resolves.toEqual({ manual: true });
+    injector.stop();
   });
 });

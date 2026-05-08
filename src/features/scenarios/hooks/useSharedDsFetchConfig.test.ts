@@ -470,4 +470,157 @@ describe('useSharedDsFetchConfig', () => {
     act(() => result.current.handleImportCurl());
     expect(parseCurl).not.toHaveBeenCalled();
   });
+
+  it('handleFetchConfigChange merges with defaultFetchConfig when fetchConfig is missing', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleFetchConfigChange({ url: 'https://merged.example' }));
+    const updated = onUpdate.mock.calls[0][0][0];
+    expect(updated.fetchConfig?.url).toBe('https://merged.example');
+    expect(updated.fetchConfig?.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('handleFetchConfigChange leaves non-selected sources unchanged', () => {
+    const dsA = makeSharedDs({ id: 'a', name: 'A' });
+    const dsB = makeSharedDs({ id: 'b', name: 'B' });
+    const pool = [dsA, dsB];
+    const { result } = renderHook(() => useSharedDsFetchConfig(dsA, pool, onUpdate));
+    act(() => result.current.handleFetchConfigChange({ url: 'https://only-a.example' }));
+    const updated = onUpdate.mock.calls[0][0];
+    expect(updated.find((d) => d.id === 'a')?.fetchConfig?.url).toBe('https://only-a.example');
+    expect(updated.find((d) => d.id === 'b')).toEqual(dsB);
+  });
+
+  it('handleFetchHeaderChange uses default headers when fetchConfig is missing', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleFetchHeaderChange(0, 'key', 'X-Custom'));
+    expect(onUpdate.mock.calls[0][0][0].fetchConfig?.headers?.[0]).toEqual({ key: 'X-Custom', value: '' });
+  });
+
+  it('handleAddFetchHeader uses defaultFetchConfig when fetchConfig is missing', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleAddFetchHeader());
+    expect(onUpdate.mock.calls[0][0][0].fetchConfig?.headers?.length).toBe(2);
+  });
+
+  it('handleRemoveFetchHeader uses defaultFetchConfig when fetchConfig is missing', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleRemoveFetchHeader(0));
+    expect(onUpdate.mock.calls[0][0][0].fetchConfig?.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('handleImportCurl falls back to GET when no fetchConfig and parsed method is invalid', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://m.example',
+      method: 'TRACE',
+      headers: [{ key: 'Accept', value: '*/*' }],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl -X TRACE https://m.example'));
+    act(() => result.current.handleImportCurl());
+    expect(onUpdate.mock.calls.at(-1)?.[0]?.[0].fetchConfig?.method).toBe('GET');
+  });
+
+  it('handleImportCurl falls back to placeholder headers when parse omits headers and source has no fetchConfig', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://h.example',
+      method: 'GET',
+      headers: undefined as any,
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl https://h.example'));
+    act(() => result.current.handleImportCurl());
+    expect(onUpdate.mock.calls.at(-1)?.[0]?.[0].fetchConfig?.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('handleImportCurl defaults auth to none when parse and source have no auth', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://auth-none.example',
+      method: 'GET',
+      headers: [{ key: 'Accept', value: 'json' }],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl https://auth-none.example'));
+    act(() => result.current.handleImportCurl());
+    expect(onUpdate.mock.calls.at(-1)?.[0]?.[0].fetchConfig?.auth).toEqual({ type: 'none' });
+  });
+
+  it('handleImportCurl uses empty url and body when parse and fetchConfig omit them', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      method: 'GET',
+      headers: [{ key: 'X', value: 'y' }],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    } as any);
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl'));
+    act(() => result.current.handleImportCurl());
+    const cfg = onUpdate.mock.calls.at(-1)?.[0]?.[0].fetchConfig;
+    expect(cfg?.url).toBe('');
+    expect(cfg?.body).toBe('');
+  });
+
+  it('handleImportCurl infers bodyType none when no body and no explicit bodyType anywhere', () => {
+    const ds = makeSharedDs({
+      fetchConfig: { ...sources[0].fetchConfig!, bodyType: undefined, body: '' },
+    });
+    vi.mocked(parseCurl).mockReturnValueOnce({
+      url: 'https://bt.example',
+      method: 'GET',
+      headers: [],
+      body: undefined,
+      bodyType: undefined,
+      auth: undefined,
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl https://bt.example'));
+    act(() => result.current.handleImportCurl());
+    expect(onUpdate.mock.calls.at(-1)?.[0]?.[0].fetchConfig?.bodyType).toBe('none');
+  });
+
+  it('handleCurlInputChange merges with defaultFetchConfig when fetchConfig is missing', () => {
+    const ds = makeSharedDs({ fetchConfig: undefined });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    act(() => result.current.handleCurlInputChange('curl https://raw.example'));
+    const cfg = onUpdate.mock.calls[0][0][0].fetchConfig;
+    expect(cfg?.rawCurl).toBe('curl https://raw.example');
+    expect(cfg?.headers).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('handleFetchAuthPatch uses default none auth when auth property is absent', () => {
+    const ds = makeSharedDs({
+      fetchConfig: {
+        url: 'https://api.example.com',
+        method: 'GET',
+        headers: [{ key: '', value: '' }],
+        body: '',
+        bodyType: 'none',
+      } as SharedDataSource['fetchConfig'],
+    });
+    const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
+    expect(ds.fetchConfig).toBeDefined();
+    expect('auth' in (ds.fetchConfig as object)).toBe(false);
+    act(() => result.current.handleFetchAuthPatch({ token: 't' }));
+    expect(onUpdate.mock.calls[0][0][0].fetchConfig?.auth).toMatchObject({
+      type: 'none',
+      token: 't',
+    });
+  });
 });
