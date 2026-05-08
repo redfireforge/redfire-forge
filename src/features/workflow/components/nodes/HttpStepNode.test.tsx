@@ -195,4 +195,24 @@ describe('HttpStepNode', () => {
     fireEvent.click(screen.getByText('Details'));
     expect(openStepDetail).toHaveBeenCalledWith('http-1');
   });
+
+  it('shows full URL when length is within 40 characters', () => {
+    const url = `https://${'x'.repeat(10)}`;
+    const data: HttpNodeData = { label: 'S', scenario: makeScenario({ url }) };
+    render(<HttpStepNode {...makeProps(data)} />);
+    const urlEl = document.querySelector('.wf-node-url');
+    expect(urlEl?.textContent).toBe(url);
+    expect(urlEl?.textContent?.startsWith('...')).toBe(false);
+  });
+
+  it('uses METHOD_COLORS fallback for unknown HTTP verbs', () => {
+    const data: HttpNodeData = {
+      label: 'S',
+      scenario: makeScenario({ method: 'HEAD' as unknown as Scenario['method'] }),
+    };
+    render(<HttpStepNode {...makeProps(data)} />);
+    const badge = document.querySelector('.wf-method-badge') as HTMLElement;
+    expect(badge?.style.background).toBeTruthy();
+    expect(screen.getByText('HEAD')).toBeTruthy();
+  });
 });

@@ -152,4 +152,95 @@ describe('idbOpen.openDB', () => {
     expect(db2).not.toBe(db);
     db2.close();
   });
+
+  it('skips store creation if stores already exist (upgrade idempotency)', async () => {
+    vi.resetModules();
+    // Simulate a db that already has all object stores
+    const mockDb = {
+      objectStoreNames: {
+        contains: vi.fn((name: string) => ['testRuns', 'featureGroups', 'sharedDataSources'].includes(name)),
+      },
+      createObjectStore: vi.fn(),
+      close: vi.fn(),
+      onversionchange: null as null | (() => void),
+    } as unknown as IDBDatabase;
+    
+    const req = {
+      onupgradeneeded: null as null | ((ev: IDBVersionChangeEvent) => void),
+      onsuccess: null as null | ((ev: Event) => void),
+      onerror: null as null | ((ev: Event) => void),
+      onblocked: null as null | (() => void),
+      error: null as null | DOMException,
+      result: mockDb,
+    };
+    
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => req as unknown as IDBOpenDBRequest),
+      deleteDatabase: vi.fn(),
+    } as IDBFactory);
+    
+    const { openDB } = await import('./idbOpen');
+    const p = openDB();
+    
+    // Trigger upgrade event
+    queueMicrotask(() => {
+      req.onupgradeneeded?.({ oldVersion: 2, newVersion: 3 } as IDBVersionChangeEvent);
+      // Then trigger success
+      queueMicrotask(() => req.onsuccess?.({} as Event));
+    });
+    
+    const db = await p;
+    // Since all stores exist, createObjectStore should not be called
+    expect(mockDb.createObjectStore).not.toHaveBeenCalled();
+    expect(db).toBe(mockDb);
+  });
+
+  it('creates only missing stores during upgrade', async () => {
+    vi.resetModules();
+    // Simulate a db that only has testRuns, missing featureGroups and sharedDataSources
+    const storesCreated: string[] = [];
+    const mockStore = {
+      createIndex: vi.fn(),
+    };
+    const mockDb = {
+      objectStoreNames: {
+        contains: vi.fn((name: string) => name === 'testRuns'), // Only testRuns exists
+      },
+      createObjectStore: vi.fn((name: string) => {
+        storesCreated.push(name);
+        return mockStore;
+      }),
+      close: vi.fn(),
+      onversionchange: null as null | (() => void),
+    } as unknown as IDBDatabase;
+    
+    const req = {
+      onupgradeneeded: null as null | ((ev: IDBVersionChangeEvent) => void),
+      onsuccess: null as null | ((ev: Event) => void),
+      onerror: null as null | ((ev: Event) => void),
+      onblocked: null as null | (() => void),
+      error: null as null | DOMException,
+      result: mockDb,
+    };
+    
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => req as unknown as IDBOpenDBRequest),
+      deleteDatabase: vi.fn(),
+    } as IDBFactory);
+    
+    const { openDB } = await import('./idbOpen');
+    const p = openDB();
+    
+    // Trigger upgrade event
+    queueMicrotask(() => {
+      req.onupgradeneeded?.({ oldVersion: 1, newVersion: 3 } as IDBVersionChangeEvent);
+      // Then trigger success
+      queueMicrotask(() => req.onsuccess?.({} as Event));
+    });
+    
+    await p;
+    // Only featureGroups and sharedDataSources should be created
+    expect(storesCreated).toEqual(['featureGroups', 'sharedDataSources']);
+    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(2);
+  });
 });

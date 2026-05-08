@@ -297,6 +297,91 @@ Use the baseline comparison feature to track performance over time:
 
 ---
 
+## CorrelationWait in Load Tests
+
+Workflows with **CorrelationWait** nodes (which pause for external webhook callbacks) need special handling during load tests. You can't realistically coordinate thousands of external webhooks, so the Workflow Runner provides a **CorrelationWait Behavior** configuration section.
+
+### CorrelationWait Behavior Section
+
+When you select a workflow that contains CorrelationWait nodes, a new configuration section appears in the Workflow Runner:
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **Auto-Resume (Skip Wait)** | Immediately inject mock payload, continue | CI/smoke tests, high-throughput load tests (default) |
+| **Synthetic Inject (Delayed)** | Wait configurable delay + jitter, then inject | Simulate realistic async timing |
+| **Wait for Real Webhook** | Actually waits for external callback | Production-like testing with real integrations (not recommended for load tests) |
+
+### Auto-Resume Mode (Recommended for Load Tests)
+
+Best for high-throughput load testing where you want to measure HTTP performance without waiting for external systems:
+
+1. Go to **Workflow Runner**
+2. Select a workflow with CorrelationWait nodes
+3. In the **CorrelationWait Behavior** section, select "Auto-Resume (Skip Wait)"
+4. Configure the **Mock Webhook Response** (see below)
+5. Run the workflow
+
+#### Mock Webhook Response Configuration
+
+The UI shows a simplified configuration for each CorrelationWait node:
+
+- **Dynamic fields** (like `paymentStatus`, `status`, `state`) — editable input fields to configure the test scenario
+- **Mock Payload preview** — read-only JSON showing the complete payload that will be injected
+
+Example:
+```
+Wait for Payment Callback
+
+paymentStatus    [completed                    ]
+💡 Change this value to test different scenarios (e.g., "completed", "failed", "pending")
+
+Mock Payload:
+{
+  "paymentId": "{{correlationId}}",
+  "paymentStatus": "completed",
+  "transactionId": "sample_transactionId",
+  "processedAt": "sample_processedAt"
+}
+```
+
+**Important:** All transactions use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
+
+### Synthetic Inject Mode
+
+Simulates more realistic timing by using a background **Synthetic Event Injector**:
+
+1. Select "Synthetic Inject (Delayed)" mode
+2. Set **Delay (ms)**: Base wait time (e.g., 2000ms)
+3. Set **Jitter (±ms)**: Random variance (e.g., 500ms)
+4. Configure dynamic fields (same as Auto-Resume)
+
+**How it works:**
+- Each workflow iteration pauses at the CorrelationWait node and registers with the correlation store
+- A background "Synthetic Event Injector" monitors the store
+- After the configured delay (+ jitter), the injector fires a synthetic resume with the mock payload
+- The workflow continues as if a real webhook was received
+
+This tests the full pause/resume flow while simulating realistic async timing — more production-like than Auto-Resume.
+
+### Why is Configuration in the Runner?
+
+This design separates workflow logic from test configuration:
+- The same workflow can be tested with different behaviors without modifying the workflow definition
+- Quick Test always waits for real webhooks (for debugging)
+- Workflow Runner uses your configured behavior (for load testing)
+
+### Important: Quick Test Behavior
+
+**Quick Test always waits for real webhooks**, regardless of any configuration. This is intentional — Quick Test is for debugging and verifying that your actual integration works.
+
+To test with Auto-Resume:
+- ❌ Quick Test → always waits for real webhook
+- ✅ Workflow Runner → uses your configured CorrelationWait Behavior
+
+See [Workflow Correlation Guide](./workflow-correlation-guide.md) for more details on CorrelationWait configuration.
+
+---
+
 ## Accessing from Workflow Designer
 
 While editing a workflow in the Workflow Designer, click **Run in Harness** in the toolbar to:

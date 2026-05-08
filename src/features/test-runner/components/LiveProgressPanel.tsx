@@ -131,8 +131,22 @@ export default function LiveProgressPanel({
           </div>
           <div className="metric-card">
             <div className="metric-value">{summary.avgResponseTime} ms</div>
-            <div className="metric-label">Avg Response</div>
+            <div className="metric-label">
+              Avg Response
+              {summary.avgIterationTime !== undefined && (
+                <span className="metric-info" data-tooltip="Average duration of individual HTTP requests">ⓘ</span>
+              )}
+            </div>
           </div>
+          {summary.avgIterationTime !== undefined && (
+            <div className="metric-card">
+              <div className="metric-value">{summary.avgIterationTime} ms</div>
+              <div className="metric-label">
+                Avg Iteration
+                <span className="metric-info" data-tooltip="Average duration of complete workflow iterations (all nodes)">ⓘ</span>
+              </div>
+            </div>
+          )}
           <div className="metric-card">
             <div className="metric-value">{summary.errorRate}%</div>
             <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>

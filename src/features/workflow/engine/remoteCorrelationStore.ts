@@ -220,7 +220,7 @@ export class RemoteCorrelationStore implements ICorrelationStore {
         let res: Response;
         try {
           res = await this.fetchImpl(url, { signal });
-        } catch (err) {
+        } catch {
           if (signal.aborted) return;
           // Network blip — brief backoff, retry
           await new Promise(r => setTimeout(r, 500));

@@ -193,4 +193,72 @@ describe('useRerunFailed', () => {
     expect(onComplete).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
+
+  it('skips scenarios not found in feature groups', async () => {
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    const run = makeTestRun();
+    // Modify result to reference a non-existent scenario
+    run.results[0].scenarioId = 'nonexistent-scenario';
+    run.results[0].dataRowId = 'row1';
+    // Also make the second result reference non-existent scenario so no scenarios are found
+    run.results[1].scenarioId = 'nonexistent-scenario2';
+    run.results[1].dataRowId = 'row2';
+    run.results[1].passed = false; // make it a failure to be included in rerun
+
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1', 'row2']);
+    });
+
+    // Should not call runTest since no valid scenarios found
+    expect(runTest).not.toHaveBeenCalled();
+  });
+
+  it('uses empty string baseUrl when not provided', async () => {
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: makeFeatureGroups(),
+        resolvedBaseUrl: '',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    const run = makeTestRun();
+    run.baseUrl = undefined;
+
+    await act(async () => {
+      await result.current.handleRerunFailed(run, ['row1']);
+    });
+
+    expect(runTest).toHaveBeenCalled();
+  });
+
+  it('handles gallery source feature groups', async () => {
+    vi.mocked(runTest).mockResolvedValue({ results: [] });
+    
+    const galleryFeatureGroups = makeFeatureGroups();
+    (galleryFeatureGroups[0] as any).source = 'gallery';
+
+    const { result } = renderHook(() =>
+      useRerunFailed({
+        featureGroups: galleryFeatureGroups,
+        resolvedBaseUrl: 'http://example.com',
+        globalAuthProfiles: [],
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleRerunFailed(makeTestRun(), ['row1']);
+    });
+
+    expect(runTest).toHaveBeenCalled();
+  });
 });

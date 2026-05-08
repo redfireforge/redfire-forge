@@ -44,11 +44,11 @@ RedfireForge is a **visual API testing workbench** — not a raw load generator.
 
 ### Risks to Address
 
-- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: 5,717 unit/integration tests (Vitest, 257 files) + 372 E2E tests (Playwright) = 6,089 total
-- ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes
-- ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry
+- ~~**No tests** — zero unit/integration/E2E tests; critical blocker for contributor trust~~ → **RESOLVED**: comprehensive unit/integration tests (Vitest) + E2E tests (Playwright); >90% code coverage
+- ~~**No CLI / CI** — without pipeline integration, adoption is limited to manual QA~~ → **RESOLVED**: CLI runner with YAML/JSON test files, JUnit XML, JSON, Markdown reports, CI exit codes; standalone npm package; desktop CLI mode
+- ~~**No request chaining** — can't test multi-step workflows (create → read → update → delete)~~ → **RESOLVED**: Workflow Designer with visual graph editor, condition branching, delay nodes, variable extraction & chaining, Service Registry; full graph execution in Harness with iteration-level reporting
 - **Browser-based executor** — caps at a few hundred concurrent connections; honest about this limitation
-- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: 8 monoliths refactored into 27 focused modules + 2 shared utilities (`toggleSetItem`, `versionFactory`); largest file now ~895 lines; shared hooks (`useListCrud`, `useNodeBase`) eliminate config component duplication
+- ~~**Monolithic components** — largest files are 1000-1400 lines; intimidating for contributors~~ → **RESOLVED**: Feature-based `src/features/` directory structure; all files under 900-line threshold; shared hooks (`useListCrud`, `useNodeBase`) eliminate duplication
 - **Solo developer vs funded teams** — k6 has Grafana, Bruno has 30K+ stars with a team
 
 ### Load Testing Maturity Levels
@@ -326,6 +326,84 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Code Consolidation (Round 5)** — Extracted `toggleSetItem()` shared utility (9 inline patterns → 1 function), `createResponseVersion()` / `createRulesVersion()` factory functions (8 inline constructions → 2 factories); `resolveAuthHeaders()` deduplication (6 files); import unification for `acquireOAuth2Token`
 - [x] **5,717 Unit Tests, 372 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
 
+### Phase 0.5.7 — Parameterized Testing & Shared Data Sources ✅
+
+> Data-driven testing with spreadsheet-style parameterization and cross-test shared data sources.
+
+- [x] **Parameterized Testing (Data-Driven)** — Define one test pattern with an attached data source, run it against N data rows; `DataSource` type with columns (path, param, header, body, validate) + rows; `DataSourceEditor` inline spreadsheet-style table
+- [x] **Validation Columns** — `validate:$.jsonPath` columns assert response values per row
+- [x] **Row Tags & Filtering** — Categorize rows (smoke, regression); filter by tag when running
+- [x] **Row Operations** — Enable/disable, bulk operations (Ctrl/Shift-click), drag-to-reorder, sample rows
+- [x] **Distribution Modes** — Sequential, Random, Round Robin for row selection
+- [x] **CSV/Excel/JSON Import** — Load data from external files with column detection
+- [x] **Pre-Validation (Verify All)** — Test rows against live API before full run
+- [x] **Populate from API** — Extract array from response, map fields to columns, auto-generate rows
+- [x] **Create Parameterized Copy** — Convert normal test to parameterized with auto-detected variables
+- [x] **Re-Run Failed Rows** — After execution, re-run only failed rows; results merge with original
+- [x] **Shared Data Sources** — Top-level `SharedDataSource` with `fetchConfig`, tags, cross-test linking via `sharedDataSourceId`; promote/demote between inline and shared; "Used by" section; impact warning modal
+- [x] **IndexedDB Persistence** — Large data stored in IndexedDB (`featureGroups`, `testRuns`, `sharedDataSources`); auto-migration from localStorage; 3-second timeout with fallback
+- [x] **10 Gallery Samples + 8 Training Manuals** — Parameterized testing samples and guides
+
+### Phase 0.5.7a — Training Manual Tracks ✅
+
+> Full-page training dashboard with structured learning paths, progress tracking, and discovery features.
+
+- [x] **TrainingTracksView** — Full-page training dashboard with expandable learning paths and phases
+- [x] **TrainingProgressDashboard** — Stats overview (completed, in-progress, paths started, day streak)
+- [x] **ContinueLearningCard** — Quick-access card to resume last viewed in-progress manual
+- [x] **WhatsNewBanner** — Highlights recently added/updated training manuals with dismiss
+- [x] **TrainingSearchBar** — Search and filter by difficulty (Easy/Medium/Advanced) and status
+- [x] **Progress Persistence** — localStorage with learning streak calculation
+- [x] **Keyboard Navigation** — Focus indicators, smooth expand/collapse animations, responsive design
+- [x] **Hooks** — `useTrainingProgress`, `useWhatsNew`, `useManualSearch`
+- [x] **164 Unit Tests + 15 E2E Tests** — All interactions covered
+
+### Phase 0.5.7b — Codebase Restructuring ✅
+
+> Reorganize flat directory structure into feature-based domain modules with shared utilities.
+
+- [x] **Feature-Based Structure** — `src/features/` with domain modules: `results/`, `scenarios/`, `test-runner/`, `workflow/`, `audit/`; `src/shared/` for cross-cutting types, utils, and components
+- [x] **WorkflowDesigner Refactoring** — 1432 → 893 lines with 6 extracted hooks
+- [x] **Monolith Reduction** — `graphRunnerNodeHandlers` split into focused handler modules; all files under 900-line threshold
+- [x] **Build Verification** — `tsc --noEmit` clean, Vite production build clean
+
+### Phase 0.5.8 — Workflow ↔ Harness Integration ✅
+
+> Enable running saved workflows as performance tests in the Harness test runner with full graph topology, configurable iterations/concurrency, and workflow-aware results.
+
+- [x] **WorkflowRunner Component** — Dedicated `WorkflowRunner.tsx` page under Testing domain with workflow-specific execution controls; separated from TestRunner (removed workflow logic from TestRunner)
+- [x] **WorkflowPicker** — Searchable dropdown to select saved workflow definitions in the Harness; auto-populates initial variables from workflow's Start node
+- [x] **Graph-Based Execution in Harness** — `graphRunner.ts` and `graphLoadRunner.ts` now used for Harness workflow mode (replaces flat chain `workflowRunner.ts`); full graph topology with conditions, forks/joins, loops, switches, sub-workflows
+- [x] **Iteration-Level Reporting** — `iterationIndex` and `workflowNodeId` on `RequestResult`; results grouped by iteration with per-iteration timing chart
+- [x] **Workflow-Aware Results Display** — Results Dashboard shows workflow run type badge, iteration performance chart, per-step aggregate metrics; run type filter tabs (Harness/Workflow/All)
+- [x] **"Run in Harness" Button** — One-click bridge from Workflow Designer to WorkflowRunner with pre-selected workflow
+- [x] **Post-Run Navigation** — After workflow run completes, navigate to Results Dashboard with filter presets
+- [x] **Workflow Runner Tab** — Dedicated navigation tab under Testing domain
+- [x] **CLI Workflow Command** — `redfireforge run-workflow` CLI command for headless workflow performance tests
+
+### Phase 0.5.8a — Visual Execution Replay & Results Explorer ✅ (Phase 5 pending)
+
+> Visual workflow execution replay with interactive diagram, node detail panels, and iteration matrix.
+
+- [x] **Trace Data Model** — `WorkflowExecutionTrace`, `WorkflowIterationTrace`, `ExecutionEvent`, `ExecutionEventDetails` types; `TestRun.executionTrace` field; `fullTraceCaptured` flag
+- [x] **TraceCollector** — `traceCollector.ts` class with `onNodeStart`, `onNodeComplete`, `onEdgeTraversed`; integrated into `graphRunner.ts` and `graphLoadRunner.ts`
+- [x] **WorkflowResultsExplorerModal** — Full-screen modal with split layout: read-only workflow canvas (left) + detail panel (right); opened via "Explore Results" button in Results Dashboard
+- [x] **WorkflowExecutionCanvas** — Read-only React Flow canvas with pass/fail/skipped node coloring, traversed edge highlighting, timing overlays, fit-to-view, minimap
+- [x] **NodeExecutionDetailPanel** — Click a node to see HTTP request/response, timing breakdown, variable state, condition evaluation, loop iteration data; iteration selector dropdown
+- [x] **IterationMatrixTable** — Collapsible bottom table showing all iterations × nodes with status/timing; click cell to jump to node+iteration on canvas
+- [x] **Aggregate Overlay** — When no node selected, shows summary statistics across all iterations
+- [ ] **Phase 5: Polish & Optimization** — Performance optimizations for large trace data, animation polish
+
+### Phase 0.5.8b — Correlation Wait Runner Config & Webhook Load Driver 🚧 IN PROGRESS
+
+> Advanced webhook testing capabilities in the Workflow Runner.
+
+- [x] **Correlation Wait Config Panel** — UI for configuring correlation wait parameters in the runner; poll throttle controls
+- [x] **Payload Template Engine** — Template-based payload generation for webhook simulation
+- [x] **Webhook Load Driver** — `webhookLoadDriver.ts` for driving webhook callbacks during workflow load tests
+- [ ] **Multi-Webhook Testing Panel** — UI for configuring and triggering multiple webhook callbacks
+- [ ] **WebhookLoadDriverPanel** — Runner UI for webhook load testing configuration
+
 ---
 
 ## Upcoming Phases
@@ -334,8 +412,8 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 > Automate quality gates and release workflows. The existing multi-platform release pipeline (`.github/workflows/release.yml`) already builds macOS/Windows/Linux artifacts on tag push. This phase extends automation to cover testing, PR checks, and deployment.
 
-- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest 5,717 tests) on every push/PR
-- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright 372 tests) on every PR
+- [ ] **CI Test Pipeline** — GitHub Actions workflow: run `npm test` (Vitest) on every push/PR
+- [ ] **CI E2E Pipeline** — GitHub Actions workflow: run `npm run test:e2e` (Playwright) on every PR
 - [ ] **Lint & Type-Check Gate** — `npm run lint` + `tsc --noEmit` as required PR checks
 - [ ] **PR Status Checks** — Require all CI jobs to pass before merge
 - [ ] **GitHub Actions Example for Users** — Ready-to-use workflow YAML for running RedfireForge CLI tests in CI (depends on Phase 0.7.0)
@@ -476,16 +554,22 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 0.8.8 | API Catalog (OpenAPI/Swagger) | — | 18 | 18 |
 | 0.9.0-α | Unified Environments & Catalog Export | — | 12 | 12 |
 | 0.9.0-α2 | Group Collections & Catalog Metadata | — | 9 | 9 |
-| **0.5.4** | **UI/UX Visual Foundation** | **—** | **9** | **9** |
+| 0.5.4 | UI/UX Visual Foundation | — | 9 | 9 |
 | 0.9.0 | Variables & Chaining | → Good | 16 | 15 |
-| **0.9.1** | **Engine Performance** | **→ Good** | **6** | **3** |
-| **0.5.4a** | **Gallery Redesign & Training Manuals** | **—** | **7** | **7** |
-| **0.5.6** | **Version History, Training Paths & Code Quality** | **—** | **10** | **10** |
+| 0.9.1 | Engine Performance | → Good | 6 | 3 |
+| 0.5.4a | Gallery Redesign & Training Manuals | — | 7 | 7 |
+| 0.5.6 | Version History, Training Paths & Code Quality | — | 10 | 10 |
 | 0.10.0 | Assertions & Observability | → Good | 9 | 9 |
+| **0.5.7** | **Parameterized Testing & Shared Data Sources** | **—** | **13** | **13** |
+| **0.5.7a** | **Training Manual Tracks** | **—** | **8** | **8** |
+| **0.5.7b** | **Codebase Restructuring** | **—** | **4** | **4** |
+| **0.5.8** | **Workflow ↔ Harness Integration** | **—** | **9** | **9** |
+| **0.5.8a** | **Visual Execution Replay & Results Explorer** | **—** | **7** | **6** |
+| **0.5.8b** | **Correlation Wait Runner Config & Webhook Load** | **—** | **5** | **3** |
 | 0.11.0 | Run Comparison & Trends | — | 5 | 0 |
 | 1.0.0 | Open-Source Launch | — | 14 | 0 |
 | 1.x | Future (Engine → Excellent) | → Excellent | 11 | 0 |
-| **Total** | | | **187** | **144** |
+| **Total** | | | **233** | **188** |
 
 ### Load Testing Level Milestones
 
@@ -497,7 +581,10 @@ CURRENT: Good (~500-2,000 RPS)
   ├── Phase 0.9.0 ✅  Variables, chaining, workflow mode
   ├── Phase 0.9.1 ✅  Worker threads, connection pooling, think time
   ├── Phase 0.10.0 ✅ Rich assertions, assertion presets, response headers, request log, timing breakdown
-  └── Phase 0.5.6 ✅  Version history, training paths, validation UX, p50 metric, code consolidation
+  ├── Phase 0.5.6 ✅  Version history, training paths, validation UX, p50 metric
+  ├── Phase 0.5.7 ✅  Parameterized data-driven testing, shared data sources
+  ├── Phase 0.5.8 ✅  Workflow ↔ Harness integration with full graph execution
+  └── Phase 0.5.8a ✅ Visual execution replay & results explorer
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 1.x       Native Rust executor, streaming percentiles, distributed
@@ -518,9 +605,10 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 Phase 0.7.0 (CLI) ✅ DONE  →  Phase 0.7.5 (CI/CD)  →  Phase 1.0.0 (Launch)
                                   ↑ MUST HAVE              ↑ MUST HAVE
 
-Phase 0.8.0 (Tests) ✅ DONE — 5,717 unit/integration + 372 E2E = 6,089 tests
+Phase 0.8.0 (Tests) ✅ DONE — comprehensive unit/integration + E2E tests
 Phase 0.8.5 (Requests) ✅ DONE — Insomnia/Postman-style ad-hoc API testing
 Phase 0.8.8 (API Catalog) ✅ DONE — OpenAPI/Swagger browser, interactive testing, cURL, versioning
+Phase 0.5.8 (Workflow ↔ Harness) ✅ DONE — Full graph execution as performance tests
 ```
 
 ### Critical Path to "Good" Load Testing
@@ -534,4 +622,4 @@ Phases 0.9.0–0.10.0 have elevated load testing from **Moderate** to **Good** �
 
 ---
 
-_Last updated: 2026-05-01 (v0.5.6 — Version History, Training Paths, Validation UX, Code Consolidation Round 5; load testing at Good; 144/187 items done; 5,717 unit + 372 E2E = 6,089 total tests)_
+_Last updated: 2026-05-07 (v0.5.7-beta.1 — on `feature/correlation-wait-runner-config` branch; Workflow ↔ Harness integration done, Visual Execution Replay done, Parameterized Testing done; load testing at Good; 188/233 items done)_

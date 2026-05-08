@@ -31,10 +31,10 @@ function httpNode(id: string, label: string, extra: Partial<HttpNodeData> = {}):
 }
 
 describe('migrateWorkflowSchema', () => {
-  it('returns v5 workflow unchanged', () => {
-    const wf = makeWorkflow({ schemaVersion: 5 });
+  it('returns v6 workflow unchanged', () => {
+    const wf = makeWorkflow({ schemaVersion: 6 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     expect(result.services).toEqual([]);
   });
 
@@ -52,7 +52,7 @@ describe('migrateWorkflowSchema', () => {
       edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     // Start node should be inserted
     const startNode = result.nodes.find(n => n.type === 'start');
     expect(startNode).toBeDefined();
@@ -77,7 +77,7 @@ describe('migrateWorkflowSchema', () => {
       edges: [{ id: 'e1', source: 's1', target: 'n1' }],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     // Should not add another Start node
     const startNodes = result.nodes.filter(n => n.type === 'start');
     expect(startNodes).toHaveLength(1);
@@ -92,7 +92,7 @@ describe('migrateWorkflowSchema', () => {
       edges: [],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     expect(result.nodes).toHaveLength(0);
   });
 
@@ -142,7 +142,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     const data = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     // Should have a hostProfileId assigned
     expect(data.hostProfileId).toBeDefined();
@@ -167,7 +167,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     expect(result.services!.length).toBeGreaterThan(0);
     const svc = result.services![0];
     expect(svc.auth).toEqual({ type: 'bearer', token: 'tok' });
@@ -293,7 +293,7 @@ describe('migrateWorkflowSchema', () => {
   it('handles workflow with no nodes', () => {
     const wf = makeWorkflow({ nodes: [], schemaVersion: 1 });
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     // v3→v4 does not insert Start node if there are no existing nodes
     expect(result.nodes).toHaveLength(0);
     expect(result.services).toEqual([]);
@@ -310,7 +310,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     // v3→v4 inserts a Start node
     expect(result.nodes).toHaveLength(3);
   });
@@ -425,7 +425,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
     const data = result.nodes.find(n => n.id === 'n1')!.data as HttpNodeData;
     expect(data.hostProfileId).toBeDefined();
   });
@@ -442,7 +442,7 @@ describe('migrateWorkflowSchema', () => {
       ],
     };
     const result = migrateWorkflowSchema(wf);
-    expect(result.schemaVersion).toBe(5);
+    expect(result.schemaVersion).toBe(6);
   });
 
   it('orphan node with hostBaseUrl gets grouped by host', () => {
@@ -842,5 +842,122 @@ describe('migrateWorkflowSchema', () => {
     const result = migrateWorkflowSchema(wf);
     const d = result.nodes[0].data as HttpNodeData;
     expect(d.serviceId).toBeDefined();
+  });
+
+  // ── v5 → v6: Remove orphaned Start nodes from webhook/schedule triggered workflows ──
+
+  it('v5→v6 removes orphaned Start nodes in webhook-triggered workflow', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        // Start connects only to webhook - should be removed
+        { id: 'e1', source: 'start1', target: 'wh1' },
+        // Webhook connects to HTTP
+        { id: 'e2', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(6);
+    // Start node removed
+    expect(result.nodes.find(n => n.id === 'start1')).toBeUndefined();
+    // Edge from start also removed
+    expect(result.edges.find(e => e.id === 'e1')).toBeUndefined();
+    // Other nodes and edges remain
+    expect(result.nodes.find(n => n.id === 'wh1')).toBeDefined();
+    expect(result.nodes.find(n => n.id === 'http1')).toBeDefined();
+    expect(result.edges.find(e => e.id === 'e2')).toBeDefined();
+  });
+
+  it('v5→v6 removes Start with no outgoing edges in webhook workflow', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Orphan Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        // No edge from start1 - it's orphaned
+        { id: 'e1', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(6);
+    expect(result.nodes.find(n => n.id === 'start1')).toBeUndefined();
+    expect(result.nodes.length).toBe(2);
+  });
+
+  it('v5→v6 preserves Start that connects to non-trigger nodes', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'wh1', type: 'webhook', position: { x: 100, y: 0 }, data: { label: 'Webhook' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        // Start connects to HTTP node (not webhook) - should be preserved
+        { id: 'e1', source: 'start1', target: 'http1' },
+        { id: 'e2', source: 'wh1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(6);
+    // Start node preserved
+    expect(result.nodes.find(n => n.id === 'start1')).toBeDefined();
+    expect(result.nodes.length).toBe(3);
+    expect(result.edges.length).toBe(2);
+  });
+
+  it('v5→v6 handles schedule-triggered workflow same as webhook', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'sch1', type: 'schedule', position: { x: 100, y: 0 }, data: { label: 'Schedule' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        // Start connects only to schedule - should be removed
+        { id: 'e1', source: 'start1', target: 'sch1' },
+        { id: 'e2', source: 'sch1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(6);
+    expect(result.nodes.find(n => n.id === 'start1')).toBeUndefined();
+  });
+
+  it('v5→v6 does nothing for non-trigger workflows', () => {
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 5,
+      variables: {}, hostProfiles: [], authProfiles: [], services: [],
+      nodes: [
+        { id: 'start1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        httpNode('http1', 'API Call'),
+      ],
+      edges: [
+        { id: 'e1', source: 'start1', target: 'http1' },
+      ],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.schemaVersion).toBe(6);
+    // All nodes preserved
+    expect(result.nodes.length).toBe(2);
+    expect(result.edges.length).toBe(1);
   });
 });

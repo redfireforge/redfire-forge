@@ -22,7 +22,6 @@ import {
   makeHandlerContext,
   makeNode,
   makeEdge,
-  makePassedFlag,
 } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = getMockFetch();

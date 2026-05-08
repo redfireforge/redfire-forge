@@ -6,7 +6,7 @@ import { runGraph } from '../src/features/workflow/engine/graphRunner';
 import { saveExecutionResult } from './file-storage.js';
 import type { ExecutionResult, LogLine } from '../src/shared/types/server-api';
 import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
-import type { RequestResult } from '../src/shared/types/index';
+import type { RequestResult, WorkflowIterationTrace, ExecutionTraceOptions } from '../src/shared/types/index';
 import { getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
 
 export interface WorkflowExecutionInput {
@@ -17,6 +17,8 @@ export interface WorkflowExecutionInput {
   triggerId: string;
   startTime: number;
   onLog?: (line: LogLine) => void;
+  /** Trace capture options for Results Explorer support */
+  traceOptions?: ExecutionTraceOptions;
 }
 
 export interface WorkflowExecutionOutput {
@@ -25,16 +27,19 @@ export interface WorkflowExecutionOutput {
   passed: boolean;
   duration: number;
   results: RequestResult[];
+  /** Iteration trace when traceOptions.captureFullTrace is true */
+  iterationTrace?: WorkflowIterationTrace;
 }
 
 /**
  * Execute a workflow and save the result. Used by both webhook and schedule triggers.
  */
 export async function executeWorkflow(input: WorkflowExecutionInput): Promise<WorkflowExecutionOutput> {
-  const { executionId, workflow, initialVariables, triggerType, triggerId, startTime, onLog } = input;
+  const { executionId, workflow, initialVariables, triggerType, triggerId, startTime, onLog, traceOptions } = input;
 
   const executionResults: RequestResult[] = [];
   let executionPassed = true;
+  let capturedIterationTrace: WorkflowIterationTrace | undefined;
 
   await runGraph(
     workflow.nodes,
@@ -50,11 +55,27 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Wo
         // Variables updated during execution
       },
       onLog,
-      onComplete: (results: RequestResult[], passed: boolean, _durationMs: number) => {
+      onComplete: (results: RequestResult[], passed: boolean, _durationMs: number, trace?: WorkflowIterationTrace) => {
         executionResults.push(...results);
         executionPassed = passed;
+        // Capture the iteration trace if provided
+        if (trace) {
+          capturedIterationTrace = trace;
+        }
       },
-    }
+    },
+    undefined, // abortSignal
+    undefined, // environmentLayer
+    undefined, // resolveHttpBaseUrl
+    undefined, // resolveHttpAuth
+    undefined, // debugController
+    undefined, // errorConfig
+    undefined, // resolveSubWorkflow
+    undefined, // correlationStore
+    false,     // loadTestMode
+    undefined, // correlationWaitConfig
+    undefined, // pollSemaphore
+    traceOptions, // traceOptions for trace capture
   );
 
   const totalDuration = Date.now() - startTime;
@@ -85,6 +106,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Wo
     passed: executionPassed,
     duration: totalDuration,
     results: executionResults,
+    iterationTrace: capturedIterationTrace,
   };
 }
 

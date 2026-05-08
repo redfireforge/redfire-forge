@@ -1,6 +1,6 @@
-import type { WorkflowNode, WorkflowEdge, HttpNodeData, NodeRunStatus, WorkflowErrorConfig, Workflow } from '../types/workflow';
+import type { WorkflowNode, WorkflowEdge, HttpNodeData, WorkflowErrorConfig, Workflow } from '../types/workflow';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
-import type { RequestResult, Scenario } from '../../../shared/types';
+import type { RequestResult, Scenario, ExecutionEvent, ExecutionEventDetails } from '../../../shared/types';
 import { TokenManager } from '../../../engine/tokenManager';
 import { VariableContext } from './variableContext';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
@@ -8,6 +8,7 @@ import { humanizeError, toErrorMessage } from '../../../shared/utils/helpers';
 import type { DebugController } from './debugController';
 import type { ICorrelationStore } from './correlationStore';
 import { findStartNodes } from './graphRunnerHelpers';
+import type { Semaphore } from '../../../shared/utils/semaphore';
 import {
   handleHttpNode,
   handleConditionNode,
@@ -30,39 +31,9 @@ import {
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
-
-export interface SubWorkflowRunSummary {
-  /** Parent node ID that triggered the sub-workflow. */
-  parentNodeId: string;
-  /** Child workflow name. */
-  childWorkflowName: string;
-  /** Whether the child workflow passed. */
-  passed: boolean;
-  /** Duration of the child workflow execution in ms. */
-  durationMs: number;
-  /** Number of results produced by the child. */
-  resultCount: number;
-  /** Step summaries from the child workflow (HTTP nodes only). */
-  childSteps: Array<{
-    nodeId: string;
-    label: string;
-    state: 'pass' | 'fail' | 'skipped';
-    statusCode?: number;
-    responseTimeMs?: number;
-    error?: string;
-  }>;
-  /** Which retry attempt produced this result (0 = first attempt). */
-  attempt: number;
-}
-
-export interface GraphRunCallbacks {
-  onNodeStateChange: (nodeId: string, status: NodeRunStatus) => void;
-  onVariablesChange: (variables: Record<string, string>) => void;
-  onComplete: (results: RequestResult[], passed: boolean, durationMs: number) => void;
-  onLog?: (line: { prefix: string; text: string; ts?: number }) => void;
-  /** Fired when a sub-workflow node completes (after retries). */
-  onSubWorkflowComplete?: (summary: SubWorkflowRunSummary) => void;
-}
+import { TraceCollector } from './traceCollector';
+// Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
+export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -89,12 +60,27 @@ export async function runGraph(
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
   /** Optional correlation store for `CorrelationWait` nodes. When omitted, those nodes will fail. */
   correlationStore?: ICorrelationStore,
+  /**
+   * When true, the workflow is running under load test mode (N iterations × M concurrency).
+   * Event-driven nodes (CorrelationWait, WaitForCondition) may use their loadTestBehavior settings.
+   */
+  loadTestMode?: boolean,
+  /** Runner-level configuration for CorrelationWait behavior. Takes precedence over node-level settings. */
+  correlationWaitConfig?: CorrelationWaitRunnerConfig,
+  /** Semaphore for throttling concurrent poll operations during load tests. */
+  pollSemaphore?: Semaphore,
+  /** Options for trace capture (Results Explorer). */
+  traceOptions?: import('../../../shared/types').ExecutionTraceOptions,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
   ctx.registerWorkflowNodes(nodes);
   const tokenManager = new TokenManager();
   const results: RequestResult[] = [];
+  const traceCollector = new TraceCollector(nodes);
+  
+  // Initialize map for capturing HTTP details when full trace is enabled
+  const capturedHttpDetails = new Map<string, import('./graphRunnerNodeHandlerContext').CapturedHttpNodeDetails>();
 
   const log = (line: { prefix: string; text: string }) => {
     callbacks.onLog?.({ ...line, ts: Date.now() });
@@ -141,6 +127,8 @@ export async function runGraph(
     const visitOutgoing = async (nid: string, tid: string = threadId) => {
       const nextEdges = outgoing.get(nid) ?? [];
       for (const edge of nextEdges) {
+        // Phase 7e: Record edge traversal
+        traceCollector.onEdgeTraversed(edge.id);
         await visit(edge.target, tid);
       }
     };
@@ -192,7 +180,16 @@ export async function runGraph(
       executionId: `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`,
       workflowId: 'unknown',
       startTime: Date.now(),
+      loadTestMode,
+      correlationWaitConfig,
+      pollSemaphore,
+      traceCollector,
+      traceOptions,
+      capturedHttpDetails,
     };
+
+    // Phase 7e: Record node execution start
+    traceCollector.onNodeStart(nodeId);
 
     try {
       if (isHttpWorkflowNode(node)) {
@@ -236,6 +233,70 @@ export async function runGraph(
       }
 
       if (!passedFlag.value) allPassed = false;
+
+      // Phase 7e: Record node execution completion with details
+      // For HTTP nodes, extract response details from the last result for this node
+      let eventDetails: import('../../../shared/types').ExecutionEventDetails | undefined;
+      if (isHttpWorkflowNode(node)) {
+        // Find the most recent result for this node
+        const nodeResults = results.filter(r => r.workflowNodeId === nodeId);
+        const lastResult = nodeResults[nodeResults.length - 1];
+        if (lastResult) {
+          eventDetails = {
+            statusCode: lastResult.statusCode,
+            responseTimeMs: lastResult.responseTimeMs,
+            requestResultId: lastResult.id,
+            method: lastResult.method,
+            url: lastResult.url,
+          };
+          
+          // Add full trace data if captured
+          const capturedDetails = capturedHttpDetails.get(nodeId);
+          if (capturedDetails) {
+            eventDetails.request = capturedDetails.request;
+            eventDetails.response = capturedDetails.response;
+            eventDetails.assertions = capturedDetails.assertions;
+            eventDetails.variablesSnapshot = capturedDetails.variablesSnapshot;
+            eventDetails.extractedVariables = capturedDetails.extractedVariables;
+          }
+        }
+      } else if (node.type === 'webhook') {
+        // Capture webhook input from context (set by handleWebhookNode via extracted variables)
+        const webhookInput = ctx.get('__webhookInput');
+        const webhookMethod = ctx.get('__webhookMethod');
+        const webhookPath = ctx.get('__webhookPath');
+        if (webhookInput) {
+          eventDetails = {
+            webhookInput: {
+              payload: webhookInput,
+              method: webhookMethod,
+              path: webhookPath,
+            },
+            extractedVariables: ctx.snapshot(),
+          };
+          ctx.delete('__webhookInput');
+          ctx.delete('__webhookMethod');
+          ctx.delete('__webhookPath');
+        }
+      } else if (node.type === 'correlationWait') {
+        const cwPayloadRaw = ctx.get('__cwWebhookPayload');
+        const cwWaitMs = ctx.get('__cwWaitDurationMs');
+        const cwData = node.data as import('../types/workflow').CorrelationWaitNodeData;
+        eventDetails = {
+          ...(cwPayloadRaw ? {
+            webhookInput: {
+              payload: cwPayloadRaw,
+              path: cwData.webhookPath,
+            },
+          } : {}),
+          waitDurationMs: cwWaitMs ? Number(cwWaitMs) : undefined,
+          extractedVariables: ctx.snapshot(),
+          variablesSnapshot: ctx.snapshot(),
+        };
+        ctx.delete('__cwWebhookPayload');
+        ctx.delete('__cwWaitDurationMs');
+      }
+      traceCollector.onNodeComplete(nodeId, passedFlag.value ? 'pass' : 'fail', eventDetails);
     } catch (err) {
       allPassed = false;
       const technical = toErrorMessage(err);
@@ -251,6 +312,12 @@ export async function runGraph(
       callbacks.onNodeStateChange(nodeId, {
         state: 'fail',
         error: friendly,
+      });
+      
+      // Phase 7e: Record node execution completion (exception)
+      traceCollector.onNodeComplete(nodeId, 'fail', {
+        error: friendly,
+        errorStack: technical,
       });
     }
   }
@@ -308,6 +375,17 @@ export async function runGraph(
 
   const durationMs = Math.round(performance.now() - start);
   log({ prefix: '*', text: `Workflow ${allPassed ? 'PASS' : 'FAIL'} — ${results.length} step(s), ${durationMs}ms` });
-  callbacks.onComplete(results, allPassed, durationMs);
+  
+  // Phase 7e: Build iteration trace
+  const iterationTrace: import('../../../shared/types').WorkflowIterationTrace = {
+    index: 0, // Will be set by graphLoadRunner for multi-iteration runs
+    passed: allPassed,
+    durationMs,
+    events: traceCollector.getEvents(),
+    finalVariables: ctx.snapshot(),
+    traversedEdges: traceCollector.getTraversedEdges(),
+  };
+  
+  callbacks.onComplete(results, allPassed, durationMs, iterationTrace);
   return results;
 }

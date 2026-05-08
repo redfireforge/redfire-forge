@@ -11,8 +11,8 @@ const mockLoadRunnerConfig = vi.fn(async () => null);
 const mockSaveRunnerConfig = vi.fn(async () => {});
 
 vi.mock('../../../shared/utils/storage', () => ({
-  loadRunnerConfig: (...args: any[]) => mockLoadRunnerConfig(...args),
-  saveRunnerConfig: (...args: any[]) => mockSaveRunnerConfig(...args),
+  loadRunnerConfig: (...args: unknown[]) => mockLoadRunnerConfig(...args),
+  saveRunnerConfig: (...args: unknown[]) => mockSaveRunnerConfig(...args),
 }));
 
 // ── Tests ──
@@ -93,6 +93,25 @@ describe('useRunnerConfig', () => {
     expect(result.current.autoReport).toBe(true);
   });
 
+  it('restores markdown auto-report format when saved', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 1,
+      totalTransactions: 1,
+      selectedScenarios: [],
+      weights: {},
+      autoReport: true,
+      autoReportFormat: 'markdown',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('fmt-md'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.autoReportFormat).toBe('markdown');
+  });
+
   it('auto-saves when config changes', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce(null);
 
@@ -116,6 +135,31 @@ describe('useRunnerConfig', () => {
 
     const savedConfig = mockSaveRunnerConfig.mock.calls[0][0];
     expect(savedConfig.concurrency).toBe(10);
+  });
+
+  it('loads and saves with undefined storage key', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() => useRunnerConfig(undefined));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(mockLoadRunnerConfig).toHaveBeenCalledWith(undefined);
+
+    mockSaveRunnerConfig.mockClear();
+
+    await act(async () => {
+      result.current.setConcurrency(9);
+    });
+
+    await vi.waitFor(() => {
+      expect(mockSaveRunnerConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ concurrency: 9 }),
+        undefined,
+      );
+    });
   });
 
   it('reloads when configContextKey changes', async () => {
@@ -146,6 +190,86 @@ describe('useRunnerConfig', () => {
     });
 
     expect(mockLoadRunnerConfig).toHaveBeenCalledWith('key-2');
+  });
+
+  it('omits persisted loadProfile and thinkTime when absent on saved blob', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 5,
+      totalTransactions: 3,
+      selectedScenarios: [],
+      weights: {},
+      executionMode: 'batch',
+      skipValidation: false,
+      validationOverride: 'selective',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('no-profile-key'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.loadProfile.durationSec).toBe(60);
+    expect(result.current.thinkTime.mode).toBe('none');
+  });
+
+  it('fills default values for fields missing from sparse saved config', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 7,
+      totalTransactions: 11,
+      selectedScenarios: ['a'],
+      weights: { a: 100 },
+      skipValidation: true,
+      hostMode: 'hardcoded',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('sparse-key'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(7);
+    expect(result.current.validationOverride).toBe('default');
+    expect(result.current.autoReportFormat).toBe('html');
+    expect(result.current.errorPolicy).toBe('continue');
+  });
+
+  it('falls back to built-in defaults when concurrency and totals are omitted from saved blob', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      selectedScenarios: [],
+      weights: {},
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('missing-counts'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(1);
+    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.timeoutSec).toBe(10);
+  });
+
+  it('treats null auto-report fields as unset defaults', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 2,
+      totalTransactions: 2,
+      selectedScenarios: [],
+      weights: {},
+      autoReport: null as any,
+      autoReportFormat: null as any,
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('null-auto'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.autoReport).toBe(false);
+    expect(result.current.autoReportFormat).toBe('html');
   });
 
   it('exports defaultLoadProfile and defaultThinkTime', () => {

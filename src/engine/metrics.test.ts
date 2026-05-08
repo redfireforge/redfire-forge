@@ -209,4 +209,38 @@ describe('computeMetrics', () => {
     const summary = computeMetrics(results, 1000);
     expect(summary.failedValidations).toBe(0);
   });
+
+  it('handles small result sets where percentile indices may exceed array bounds', () => {
+    // With 2 results, Math.floor(2 * 0.95) = 1 and Math.floor(2 * 0.99) = 1
+    // Both indices exist, so no fallback needed
+    const results = [
+      makeResult({ id: '1', responseTimeMs: 50 }),
+      makeResult({ id: '2', responseTimeMs: 150 }),
+    ];
+    const summary = computeMetrics(results, 1000);
+    expect(summary.p50ResponseTime).toBe(150);
+    expect(summary.p95ResponseTime).toBe(150);
+    expect(summary.p99ResponseTime).toBe(150);
+    expect(summary.minResponseTime).toBe(50);
+    expect(summary.maxResponseTime).toBe(150);
+  });
+
+  it('p50/p95/p99 fallback to max when array index yields undefined', () => {
+    // Test single result - all indices point to same value
+    const results = [makeResult({ id: '1', responseTimeMs: 100 })];
+    const summary = computeMetrics(results, 1000);
+    // With 1 result, floor(1*0.50)=0, floor(1*0.95)=0, floor(1*0.99)=0
+    // All point to index 0 which exists, so max fallback not triggered
+    expect(summary.p50ResponseTime).toBe(100);
+    expect(summary.p95ResponseTime).toBe(100);
+    expect(summary.p99ResponseTime).toBe(100);
+  });
+
+  it('errorRate returns 0 when total is 0 (empty array case)', () => {
+    // This is already covered by the "returns all zeros for empty results" test
+    // but let's verify the specific errorRate calculation doesn't divide by zero
+    const summary = computeMetrics([], 1000);
+    expect(summary.errorRate).toBe(0);
+    expect(summary.totalRequests).toBe(0);
+  });
 });

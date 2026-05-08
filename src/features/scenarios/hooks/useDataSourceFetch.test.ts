@@ -84,6 +84,32 @@ describe('useDataSourceFetch', () => {
     onFetchRow = vi.fn().mockResolvedValue(makeHttpResponse());
   });
 
+  it('clearFetchError resets error state', async () => {
+    onFetchRow.mockResolvedValue(makeHttpResponse({ status: 500, statusText: 'Err' }));
+
+    const { result } = renderHook(() =>
+      useDataSourceFetch({
+        scenario: makeScenario(),
+        dataSource: makeDataSource(),
+        onChange,
+        onFetchRow,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.fetchRowResponse('r1');
+    });
+
+    expect(result.current.fetchRowError).not.toBeNull();
+
+    act(() => {
+      result.current.clearFetchError();
+    });
+
+    expect(result.current.fetchRowError).toBeNull();
+    expect(result.current.fetchRowErrorDetail).toBeNull();
+  });
+
   it('returns initial state', () => {
     const { result } = renderHook(() =>
       useDataSourceFetch({
@@ -501,5 +527,67 @@ describe('useDataSourceFetch', () => {
     });
 
     expect(result.current.fetchRowError).toContain('42');
+  });
+
+  it('clears dynamic validate cells when JSON path extraction is empty', async () => {
+    const { extractJsonPath, inferPatternsFromColumns } = await import('../utils/dataSourceImport');
+    vi.mocked(extractJsonPath).mockReturnValue('');
+    vi.mocked(inferPatternsFromColumns).mockReturnValue([]);
+
+    const ds = makeDataSource({
+      validationContract: ['items[*].name'],
+      columns: [
+        { id: 'c1', name: 'id', type: 'path', mapping: 'id' },
+        { id: 'vcDyn', name: 'itemName', type: 'validate', mapping: 'items[0].name' },
+      ],
+      rows: [{ id: 'r1', values: { c1: '123', vcDyn: 'stale' }, enabled: true }],
+    });
+
+    const { result } = renderHook(() =>
+      useDataSourceFetch({ scenario: makeScenario(), dataSource: ds, onChange, onFetchRow }),
+    );
+
+    await act(async () => {
+      await result.current.fetchRowResponse('r1');
+    });
+
+    const updated = onChange.mock.calls[0][0];
+    expect(updated.rows[0].values.vcDyn).toBe('');
+  });
+
+  it('backfill skips new-column cells when a row already has a value', async () => {
+    const { expandPatternFromResponse, extractJsonPath } = await import('../utils/dataSourceImport');
+    vi.mocked(expandPatternFromResponse).mockReturnValue(['$.items[0].id']);
+    vi.mocked(extractJsonPath).mockImplementation((_obj: unknown, path: string) => {
+      if (path === '$.items[0].id') return 'from-api';
+      return '';
+    });
+
+    const presetColId = 'test-uuid';
+    const ds = makeDataSource({
+      validationContract: ['$.items[*].id'],
+      rows: [
+        { id: 'r1', values: { c1: '123', vc1: '' }, enabled: true },
+        { id: 'r2', values: { c1: '456', vc1: '', [presetColId]: 'preserve-me' }, enabled: true },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useDataSourceFetch({
+        scenario: makeScenario(),
+        dataSource: ds,
+        onChange,
+        onFetchRow,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.fetchRowResponse('r1');
+    });
+
+    const updatedDs = onChange.mock.calls[0][0];
+    const dynCol = updatedDs.columns.find((c: DataSourceColumn) => c.mapping === '$.items[0].id');
+    expect(dynCol?.id).toBe(presetColId);
+    expect(updatedDs.rows[1].values[presetColId]).toBe('preserve-me');
   });
 });

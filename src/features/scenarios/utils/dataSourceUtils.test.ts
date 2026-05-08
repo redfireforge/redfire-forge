@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { autoDetectColumns, createEmptyDataSource, createDataSourceWithTemplatizedUrl, createEmptyRow, createEmptyColumn, buildUrlTemplate } from './dataSourceUtils';
+import { autoDetectColumns, createEmptyDataSource, createDataSourceWithTemplatizedUrl, createEmptyRow, createEmptyColumn, buildUrlTemplate, syncUrlFromTemplate } from './dataSourceUtils';
 import type { Scenario } from '../../../shared/types';
+import * as dataSourceContract from './dataSourceContract';
 
 vi.mock('uuid', () => {
   let counter = 0;
@@ -91,6 +92,69 @@ describe('autoDetectColumns', () => {
     const bodyCols = cols.filter(c => c.type === 'body');
     expect(bodyCols).toHaveLength(1);
   });
+
+  it('skips duplicate query keys (second occurrence)', () => {
+    const cols = autoDetectColumns(makeScenario({
+      url: 'https://api.example.com/api?dup=first&dup=second',
+    }));
+    expect(cols.filter(c => c.type === 'param' && c.name === 'dup')).toHaveLength(1);
+  });
+
+  it('ignores falsy scenario.body so no body columns are inferred', () => {
+    const scenario = { ...makeScenario({ url: 'https://api.example.com/api', body: '' }), body: undefined } as unknown as Scenario;
+    expect(autoDetectColumns(scenario).filter(c => c.type === 'body')).toHaveLength(0);
+  });
+
+  it('treats undefined headers like an empty array', () => {
+    const scenario = makeScenario() as Scenario;
+    (scenario as { headers?: typeof scenario.headers }).headers = undefined as unknown as typeof scenario.headers;
+    expect(autoDetectColumns(scenario)).toHaveLength(0);
+  });
+
+  it('collects vars from header key and value and dedupes same name across key/value', () => {
+    const cols = autoDetectColumns(makeScenario({
+      url: 'https://api.example.com/api',
+      headers: [{ key: 'X-{{token}}', value: '{{token}}' }],
+    }));
+    expect(cols.filter(c => c.type === 'header' && c.name === 'token')).toHaveLength(1);
+  });
+
+  it('still parses malformed URL string without throwing and skips query params when parse fails', () => {
+    const cols = autoDetectColumns(makeScenario({ url: ':::not-a-valid-url:::' }));
+    expect(cols.filter(c => c.type === 'param')).toHaveLength(0);
+  });
+
+  it('does not add param columns when the query pair has an empty key', () => {
+    const cols = autoDetectColumns(makeScenario({ url: 'https://api.example.com/api?=valueOnly' }));
+    expect(cols.filter(c => c.type === 'param')).toHaveLength(0);
+  });
+
+  it('skips repeated path placeholders when extractor yields duplicate names', () => {
+    const originalExtract = dataSourceContract.extractTemplateVariables.bind(dataSourceContract);
+    const spy = vi.spyOn(dataSourceContract, 'extractTemplateVariables').mockImplementation((val: string) => (
+      val.includes('__PATH_DUP_MARKER__') ? ['vin', 'vin'] : originalExtract(val)
+    ));
+    try {
+      const cols = autoDetectColumns(makeScenario({ url: 'https://api.example.com/__PATH_DUP_MARKER__/' }));
+      expect(cols.filter(c => c.type === 'path')).toHaveLength(1);
+      expect(cols[0].name).toBe('vin');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('skips repeated body placeholders when extractor yields duplicate names', () => {
+    const originalExtract = dataSourceContract.extractTemplateVariables.bind(dataSourceContract);
+    const spy = vi.spyOn(dataSourceContract, 'extractTemplateVariables').mockImplementation((val: string) => (
+      val === '__BODY_DUP_MARKER__' ? ['id', 'id'] : originalExtract(val)
+    ));
+    try {
+      const cols = autoDetectColumns(makeScenario({ url: 'https://api.example.com/', body: '__BODY_DUP_MARKER__' }));
+      expect(cols.filter(c => c.type === 'body')).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('createEmptyDataSource', () => {
@@ -135,6 +199,15 @@ describe('createEmptyColumn', () => {
     const existing = [{ id: 'x', name: 'column', type: 'param' as const, mapping: 'column' }];
     const col = createEmptyColumn(existing);
     expect(col.name).toBe('column_1');
+  });
+
+  it('increments past multiple reserved names column, column_1, …', () => {
+    const existing = [
+      { id: 'a', name: 'column', type: 'param' as const, mapping: 'a' },
+      { id: 'b', name: 'column_1', type: 'param' as const, mapping: 'b' },
+      { id: 'c', name: 'column_2', type: 'param' as const, mapping: 'c' },
+    ];
+    expect(createEmptyColumn(existing).name).toBe('column_3');
   });
 });
 
@@ -193,6 +266,22 @@ describe('createDataSourceWithTemplatizedUrl', () => {
     expect(dataSource.columns).toHaveLength(1); // just the param
     expect(dataSource.urlTemplate).toBe('https://api.example.com/status?env={{env}}');
   });
+
+  it('handles URL that URL() cannot parse: no param fill, urlTemplate is full string', () => {
+    const raw = ':::bad-url:::?should=stay';
+    const scenario = makeScenario({ url: raw });
+    const { dataSource, url } = createDataSourceWithTemplatizedUrl(scenario);
+    expect(url).toBe(raw);
+    expect(dataSource.columns.filter(c => c.type === 'param')).toHaveLength(0);
+    expect(dataSource.urlTemplate).toBe(raw.split('?')[0]);
+  });
+
+  it('does not hydrate row cells for unnamed query segments (no matching column)', () => {
+    const scenario = makeScenario({ url: 'https://api.example.com/only-path?=ghost' });
+    const { dataSource } = createDataSourceWithTemplatizedUrl(scenario);
+    expect(dataSource.columns.filter(c => c.type === 'param')).toHaveLength(0);
+    expect(dataSource.rows[0].values).toEqual({});
+  });
 });
 
 describe('buildUrlTemplate', () => {
@@ -220,5 +309,27 @@ describe('buildUrlTemplate', () => {
     ];
     const result = buildUrlTemplate('https://example.com/vehicles/{{vin}}/offers', columns);
     expect(result).toBe('https://example.com/vehicles/{{vin}}/offers');
+  });
+
+  it('uses full URL as base path when URL has no query string', () => {
+    expect(buildUrlTemplate('https://example.com/api', [{ id: '1', name: 'x', type: 'path' as const, mapping: 'x' }])).toBe('https://example.com/api');
+  });
+});
+
+describe('syncUrlFromTemplate', () => {
+  it('replaces draft path using template path and preserves draft query', () => {
+    expect(syncUrlFromTemplate('https://old.com/old?q=1', 'https://new.com/new?ignored=2')).toBe('https://new.com/new?q=1');
+  });
+
+  it('uses full template when it has no query and draft has no query', () => {
+    expect(syncUrlFromTemplate('https://a.com/x', 'https://b.com/y')).toBe('https://b.com/y');
+  });
+
+  it('appends draft query when template has no ?', () => {
+    expect(syncUrlFromTemplate('https://a.com/x?z=9', 'https://b.com/y')).toBe('https://b.com/y?z=9');
+  });
+
+  it('uses only template path when draft has no query', () => {
+    expect(syncUrlFromTemplate('https://a.com/plain', 'https://b.com/tmpl?u=1')).toBe('https://b.com/tmpl');
   });
 });
