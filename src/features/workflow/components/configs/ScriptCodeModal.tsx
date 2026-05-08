@@ -68,7 +68,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
   const handleToggle = useCallback((path: string) => {
     setCollapsedSet(prev => {
       const next = new Set(prev);
-      next.has(path) ? next.delete(path) : next.add(path);
+      if (next.has(path)) { next.delete(path); } else { next.add(path); }
       return next;
     });
   }, []);
@@ -246,7 +246,7 @@ export default function ScriptCodeModal({ data: initialData, onSave, onClose, on
       }
       footer={
         <>
-          {hasChanges && <span className="wf-script-modal-unsaved">● Unsaved changes</span>}
+          {hasChanges && <span className="wf-script-modal-unsaved"><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> Unsaved changes</span>}
           <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
         </>
@@ -258,7 +258,7 @@ export default function ScriptCodeModal({ data: initialData, onSave, onClose, on
           {complexityWarnings.length > 0 && (
             <div className="wf-script-warnings" style={{ marginBottom: 6 }}>
               {complexityWarnings.map((w, i) => (
-                <div key={i} className="wf-script-warning">⚠ {w}</div>
+                <div key={i} className="wf-script-warning"><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> {w}</div>
               ))}
             </div>
           )}

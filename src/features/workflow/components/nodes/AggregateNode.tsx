@@ -4,6 +4,7 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type AggregateWorkflowNode = Node<AggregateNodeData, 'aggregate'>;
 type Props = NodeProps<AggregateWorkflowNode>;
@@ -39,6 +40,7 @@ export default function AggregateNode({ id, data, selected }: Props) {
         <NodeConfigureButton title="Configure aggregation" onClick={handleConfigure} />
       </div>
 
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />

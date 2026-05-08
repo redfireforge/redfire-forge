@@ -358,11 +358,13 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByText('Logs')).toBeTruthy();
   });
 
-  it('does not render panel tabs for non-http node', () => {
+  it('renders panel tabs for non-http nodes', () => {
     const node = makeNode('delay', { delayMs: 1000, mode: 'fixed' });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
-    expect(screen.queryByText('Config')).toBeNull();
-    expect(screen.queryByText('Input')).toBeNull();
+    expect(screen.getByText('Config')).toBeInTheDocument();
+    expect(screen.getByText('Input')).toBeInTheDocument();
+    expect(screen.getByText('Output')).toBeInTheDocument();
+    expect(screen.getByText('Logs')).toBeInTheDocument();
   });
 
   it('switches to Input tab when clicked', () => {

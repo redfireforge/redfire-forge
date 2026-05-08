@@ -1,4 +1,5 @@
 import type { ErrorHandlerNodeData, ErrorFilter, RetryBackoffStrategy } from '../../types/workflow';
+import ConfigSectionGroup from './ConfigSectionGroup';
 
 const FILTER_OPTIONS: { value: ErrorFilter; label: string; desc: string }[] = [
   { value: 'all', label: 'All Errors', desc: 'Catch HTTP errors, assertion failures, and network errors' },
@@ -26,6 +27,7 @@ export default function ErrorHandlerConfig({
         <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
       </div>
 
+      <ConfigSectionGroup title="Error Handling">
       <div className="wf-config-field">
         <label>Error Filter</label>
         <select
@@ -37,6 +39,8 @@ export default function ErrorHandlerConfig({
         <span className="wf-config-hint">{FILTER_OPTIONS.find(o => o.value === data.errorFilter)?.desc}</span>
       </div>
 
+      </ConfigSectionGroup>
+      <ConfigSectionGroup title="Retry Settings">
       <div className="wf-config-field">
         <label>Retry Count</label>
         <input
@@ -93,6 +97,8 @@ export default function ErrorHandlerConfig({
         </>
       )}
 
+      </ConfigSectionGroup>
+      <ConfigSectionGroup title="Behavior">
       <div className="wf-config-field">
         <label className="wf-config-checkbox-label">
           <input
@@ -109,6 +115,7 @@ export default function ErrorHandlerConfig({
         </span>
       </div>
 
+      </ConfigSectionGroup>
       <div className="wf-config-section wf-config-section-info">
         <div className="wf-config-info-title">How it works</div>
         <p className="wf-config-hint">

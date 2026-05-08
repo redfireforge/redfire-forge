@@ -146,7 +146,7 @@ export default function WorkflowToolbar({
                   <option value="">Env…</option>
                   {environments.map((e) => {
                     const r = envReadinessMap.get(e.id);
-                    const warn = r && !r.ready ? ` ⚠ ${r.issues.length} missing` : '';
+                    const warn = r && !r.ready ? ` ! ${r.issues.length} missing` : '';
                     return <option key={e.id} value={e.id}>{e.name}{warn}</option>;
                   })}
                 </select>
@@ -154,7 +154,7 @@ export default function WorkflowToolbar({
                   <span
                     className="wf-toolbar-env-warn"
                     title={`Missing config: ${currentReadiness.issues.map((i: { serviceName: string }) => i.serviceName).join(', ')}`}
-                  >⚠</span>
+                  ><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                 )}
               </span>
             )}
@@ -214,17 +214,17 @@ export default function WorkflowToolbar({
             )}
             {runProgress && runProgress.lastRunStatus === 'pass' && (
               <span className="wf-run-progress wf-run-progress-pass">
-                ● {runProgress.completed}/{runProgress.total} passed · {(runProgress.elapsedMs / 1000).toFixed(1)}s
+                <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> {runProgress.completed}/{runProgress.total} passed · {(runProgress.elapsedMs / 1000).toFixed(1)}s
               </span>
             )}
             {runProgress && runProgress.lastRunStatus === 'fail' && (
               <span className="wf-run-progress wf-run-progress-fail">
-                ● {runProgress.completed - runProgress.failed}/{runProgress.total}{runProgress.failed > 0 ? ` · ${runProgress.failed} failed` : ''} · {(runProgress.elapsedMs / 1000).toFixed(1)}s
+                <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> {runProgress.completed - runProgress.failed}/{runProgress.total}{runProgress.failed > 0 ? ` · ${runProgress.failed} failed` : ''} · {(runProgress.elapsedMs / 1000).toFixed(1)}s
               </span>
             )}
             {runProgress && runProgress.lastRunStatus === 'stopped' && (
               <span className="wf-run-progress wf-run-progress-stopped">
-                ⏹ Stopped by user · {runProgress.completed}/{runProgress.total} completed · {(runProgress.elapsedMs / 1000).toFixed(1)}s
+                <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"/></svg> Stopped by user · {runProgress.completed}/{runProgress.total} completed · {(runProgress.elapsedMs / 1000).toFixed(1)}s
               </span>
             )}
             {runProgress && !isRunning && (runProgress.lastRunStatus === 'pass' || runProgress.lastRunStatus === 'fail' || runProgress.lastRunStatus === 'stopped') && onReset && (

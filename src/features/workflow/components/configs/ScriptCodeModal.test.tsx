@@ -226,7 +226,7 @@ describe('ScriptCodeModal', () => {
     it('shows unsaved changes indicator when code changes', () => {
       render(<ScriptCodeModal {...defaultProps} />);
       fireEvent.change(screen.getByTestId('code-editor'), { target: { value: 'modified' } });
-      expect(screen.getByText('● Unsaved changes')).toBeInTheDocument();
+      expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
     });
 
     it('adds input variable', () => {
@@ -310,8 +310,8 @@ describe('ScriptCodeModal', () => {
     it('shows warnings when present', () => {
       mockComplexityWarnings = ['Too many loops', 'Nested callbacks'];
       render(<ScriptCodeModal {...defaultProps} />);
-      expect(screen.getByText('⚠ Too many loops')).toBeInTheDocument();
-      expect(screen.getByText('⚠ Nested callbacks')).toBeInTheDocument();
+      expect(screen.getByText(/Too many loops/)).toBeInTheDocument();
+      expect(screen.getByText(/Nested callbacks/)).toBeInTheDocument();
     });
 
     it('does not show warnings section when empty', () => {
