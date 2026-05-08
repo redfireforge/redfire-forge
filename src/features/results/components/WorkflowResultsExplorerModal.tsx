@@ -27,17 +27,26 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
   const [matrixCollapsed, setMatrixCollapsed] = useState(true);
   const [fitViewTrigger, setFitViewTrigger] = useState(0);
 
+  const sampledCount = useMemo(
+    () => trace.iterations.filter(i => i.sampled !== false).length,
+    [trace.iterations],
+  );
+  const isSampled = sampledCount < trace.iterations.length;
+
   // Get the selected iteration's trace
   const currentIterationTrace = useMemo<WorkflowIterationTrace | undefined>(() => {
     if (selectedIteration === undefined) return undefined;
     return trace.iterations[selectedIteration];
   }, [trace.iterations, selectedIteration]);
 
+  const isSelectedIterationSampled = selectedIteration !== undefined
+    && trace.iterations[selectedIteration]?.sampled !== false;
+
   // Build a per-iteration trace for canvas display
   const canvasTrace = useMemo<WorkflowExecutionTrace>(() => {
     if (selectedIteration === undefined) return trace;
     const iter = trace.iterations[selectedIteration];
-    if (!iter) return trace;
+    if (!iter || iter.sampled === false) return trace;
     return {
       ...trace,
       iterations: [iter],
@@ -171,6 +180,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
                 <span className="results-explorer-full-trace-badge">Full Trace</span>
               </>
             )}
+            {isSampled && (
+              <>
+                <span className="results-explorer-meta-sep">•</span>
+                <span className="results-explorer-sampled-badge" title={`${sampledCount} of ${trace.iterations.length} iterations have full trace data`}>
+                  Sampled ({sampledCount}/{trace.iterations.length})
+                </span>
+              </>
+            )}
           </div>
         </div>
       }
@@ -180,7 +197,9 @@ export default function WorkflowResultsExplorerModal({ trace, onClose }: Props) 
         <div className="results-explorer-footer">
           <div className="results-explorer-footer-info">
             {selectedIteration !== undefined
-              ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDuration(currentIterationTrace?.durationMs)}`
+              ? (isSelectedIterationSampled
+                ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDuration(currentIterationTrace?.durationMs)}`
+                : `Iteration #${selectedIteration + 1} — ${trace.iterations[selectedIteration]?.passed ? 'Passed' : 'Failed'} — Trace not captured (sampled run)`)
               : (
                 <>
                   <span className="footer-metric">

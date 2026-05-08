@@ -20,6 +20,7 @@ interface IterationRow {
   totalDurationMs: number;
   error?: string;
   nodeDurations: Map<string, { durationMs?: number; state: 'pass' | 'fail' | 'skipped' }>;
+  sampled: boolean;
 }
 
 export default function IterationMatrixTable({
@@ -73,6 +74,7 @@ export default function IterationMatrixTable({
         totalDurationMs: iter.durationMs,
         error,
         nodeDurations,
+        sampled: iter.sampled !== false,
       };
     });
   }, [iterations, httpNodes]);
@@ -263,10 +265,12 @@ export default function IterationMatrixTable({
                 className={`
                   ${row.passed ? '' : 'failed-row'}
                   ${selectedIteration === row.originalIndex ? 'selected-row' : ''}
+                  ${!row.sampled ? 'not-sampled-row' : ''}
                 `}
                 onClick={() => onIterationSelect(row.originalIndex)}
+                title={!row.sampled ? 'Trace not captured (sampled run)' : undefined}
               >
-                <td className="iter-num">#{row.originalIndex + 1}</td>
+                <td className="iter-num">#{row.originalIndex + 1}{!row.sampled ? ' ○' : ''}</td>
                 {httpNodes.map(node => {
                   const data = row.nodeDurations.get(node.id);
                   return (

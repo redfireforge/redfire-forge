@@ -22,4 +22,24 @@ describe('ensureAbsoluteUrlWithBase', () => {
     const ctx = new VariableContext({});
     expect(ensureAbsoluteUrlWithBase('/only/path', ctx)).toBe('/only/path');
   });
+
+  it('prepends baseUrl with slash for relative URLs without leading slash', () => {
+    const ctx = new VariableContext({}, { baseUrl: 'https://api.example.com' });
+    expect(ensureAbsoluteUrlWithBase('sales/product/v1/status', ctx)).toBe('https://api.example.com/sales/product/v1/status');
+  });
+
+  it('leaves relative URL without slash unchanged when no baseUrl', () => {
+    const ctx = new VariableContext({});
+    expect(ensureAbsoluteUrlWithBase('sales/product/v1/status', ctx)).toBe('sales/product/v1/status');
+  });
+
+  it('handles empty URL', () => {
+    const ctx = new VariableContext({}, { baseUrl: 'https://api.example.com' });
+    expect(ensureAbsoluteUrlWithBase('', ctx)).toBe('');
+  });
+
+  it('handles whitespace-only URL', () => {
+    const ctx = new VariableContext({}, { baseUrl: 'https://api.example.com' });
+    expect(ensureAbsoluteUrlWithBase('   ', ctx)).toBe('');
+  });
 });

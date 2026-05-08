@@ -2,7 +2,9 @@
 
 **Last Updated**: May 7, 2026  
 **Status**: Phases 1–4 Complete (Phase 5 Not Started)  
-**Phase**: Visual Execution Replay → Results Explorer
+**Phase**: Visual Execution Replay → Results Explorer  
+**Current Version**: 0.5.7-beta.1  
+**Current Branch**: `feature/correlation-wait-runner-config`
 
 ---
 
@@ -38,7 +40,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - `TestRun.executionTrace` — optional trace field on test run records
 - `fullTraceCaptured` flag for distinguishing minimal vs full trace captures
 
-**Trace Collector** (`src/features/workflow/engine/traceCollector.ts`)
+**Trace Collector** (`src/features/workflow/engine/traceCollector.ts` — 96 lines)
 - `TraceCollector` class with `onNodeStart`, `onNodeComplete`, `onEdgeTraversed`
 - Duration calculation with special handling for HTTP and correlationWait nodes
 - Event accumulation and edge tracking
@@ -63,15 +65,14 @@ The implementation evolved from the original "Execution Replay" concept into a r
 
 ### Phase 2: Basic Replay UI
 
-**WorkflowExecutionReplayModal** (`src/features/results/components/WorkflowExecutionReplayModal.tsx`)
+**WorkflowExecutionReplayModal** (`src/features/results/components/WorkflowExecutionReplayModal.tsx` — 205 lines)
 - Full-screen modal via `FullPanelModal`
 - Iteration selector dropdown (aggregate vs per-iteration)
 - Keyboard navigation (Escape, Arrow Left/Right, A for aggregate)
 - Node detail panel integration
 - Footer with duration and shortcut hints
-- 9 unit tests
 
-**WorkflowExecutionCanvas** (`src/features/results/components/WorkflowExecutionCanvas.tsx`)
+**WorkflowExecutionCanvas** (`src/features/results/components/WorkflowExecutionCanvas.tsx` — 273 lines)
 - ReactFlow-based workflow diagram renderer
 - Node state visualization: `.replay-node-pass` (green), `.replay-node-fail` (red), `.replay-node-skipped` (gray)
 - `.replay-node-selected` for clicked nodes (purple border)
@@ -79,7 +80,6 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Interactive zoom, pan, minimap
 - Pill-style controls (zoom in/out, fit view, minimap toggle)
 - Node click emits to parent for detail panel
-- 12 unit tests
 
 **ResultsDashboard Integration** (`src/features/results/ResultsDashboard.tsx`)
 - "📊 Results Explorer" button (shown when `selectedRun.executionTrace` exists)
@@ -98,7 +98,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 
 ### Phase 3: Node Detail Panel
 
-**NodeExecutionDetailPanel** (`src/features/results/components/NodeExecutionDetailPanel.tsx`)
+**NodeExecutionDetailPanel** (`src/features/results/components/NodeExecutionDetailPanel.tsx` — 323 lines)
 - Side panel with node type, label, and close button
 - Hero stats row: pass rate, execution count, avg duration
 - Status breakdown bar (pass/fail/skipped segments)
@@ -109,15 +109,14 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Clickable iterations to drill down
 - Used by `WorkflowExecutionReplayModal`
 
-**ResultsExplorerDetailPanel** (`src/features/results/components/ResultsExplorerDetailPanel.tsx`)
+**ResultsExplorerDetailPanel** (`src/features/results/components/ResultsExplorerDetailPanel.tsx` — 651 lines)
 - Richer tabbed version used by `WorkflowResultsExplorerModal`
 - 5 tabs: Overview, Request, Response, Variables, Assertions
 - `JsonTreeViewer` for collapsible JSON display of request/response bodies
 - Full trace capture gating (`fullTraceCaptured` flag)
 - Iteration selector within the detail panel
-- 652 lines of rich UI
 
-**JsonTreeViewer** (`src/shared/components/JsonTreeViewer.tsx`)
+**JsonTreeViewer** (`src/shared/components/JsonTreeViewer.tsx` — 189 lines)
 - Reusable collapsible JSON tree viewer
 - Copy-to-clipboard support
 - Configurable `defaultExpandDepth`, `maxHeight`, `compact` mode
@@ -131,7 +130,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Keyboard navigation: Arrow Left/Right to navigate, A to return to aggregate
 - `undefined` selection = aggregate view; number = specific iteration
 
-**IterationMatrixTable** (`src/features/results/components/IterationMatrixTable.tsx`)
+**IterationMatrixTable** (`src/features/results/components/IterationMatrixTable.tsx` — 336 lines)
 - Matrix view: rows = iterations, columns = HTTP nodes
 - Cell coloring by pass/fail/skipped state with duration
 - Sort by iteration, status, total duration, or per-node duration
@@ -141,7 +140,7 @@ The implementation evolved from the original "Execution Replay" concept into a r
 - Selected cell highlighting
 - Collapsible in `WorkflowResultsExplorerModal` (keyboard: M to toggle)
 
-**WorkflowResultsExplorerModal** (`src/features/results/components/WorkflowResultsExplorerModal.tsx`)
+**WorkflowResultsExplorerModal** (`src/features/results/components/WorkflowResultsExplorerModal.tsx` — 311 lines)
 - Three-panel layout: diagram (left), detail (right), matrix (bottom collapsible)
 - Header shows: workflow name, timestamp, iteration count, pass rate, "Full Trace" badge
 - Footer shows: avg HTTP time, avg iteration time, total duration (aggregate), or iteration detail (single)
@@ -164,12 +163,12 @@ The implementation evolved from the original "Execution Replay" concept into a r
 
 ### Phase 5: Polish & Optimization (Not Started)
 
-| Task | Description | Status |
-|------|-------------|--------|
-| **5.1 — Visual Enhancements** | Animated edge flow, smooth iteration transitions, loading states for large traces, node tooltips | Not implemented |
-| **5.2 — Trace Compression** | `lz-string` compression, trace sampling (>50 iterations), lazy trace loading | Not implemented — `lz-string` is not installed |
-| **5.3 — Keyboard Shortcuts** | Space (toggle aggregate), 1–9 (jump to iteration N) | Not implemented — Escape, Arrow, A, M are done |
-| **5.4 — Export** | Export trace as JSON, screenshot of canvas, aggregate metrics as CSV | Not implemented |
+| Task | Description | Status | Priority |
+|------|-------------|--------|----------|
+| **5.1 — Visual Enhancements** | Animated edge flow, smooth iteration transitions, loading states for large traces, node tooltips | Not implemented | Medium |
+| **5.2 — Trace Compression** | `lz-string` compression, trace sampling (>50 iterations), lazy trace loading | Not implemented — `lz-string` is available as transitive dep but NOT an explicit project dependency | High (storage optimization) |
+| **5.3 — Keyboard Shortcuts** | Space (toggle aggregate), 1–9 (jump to iteration N) | Not implemented — Escape, Arrow, A, M are done | Low |
+| **5.4 — Export** | Export trace as JSON, screenshot of canvas, aggregate metrics as CSV | Not implemented | Medium |
 
 ### Future Enhancements (Post-Phase 7e)
 
@@ -186,24 +185,26 @@ These are listed in the plan but intentionally deferred:
 
 ### New Files (16)
 
-| File | Phase |
-|------|-------|
-| `src/features/results/components/WorkflowExecutionReplayModal.tsx` | Phase 2 |
-| `src/features/results/components/WorkflowExecutionReplayModal.test.tsx` | Phase 2 |
-| `src/features/results/components/WorkflowExecutionCanvas.tsx` | Phase 2 |
-| `src/features/results/components/WorkflowExecutionCanvas.test.tsx` | Phase 2 |
-| `src/features/results/components/NodeExecutionDetailPanel.tsx` | Phase 3 |
-| `src/features/results/components/NodeExecutionDetailPanel.test.tsx` | Phase 3 |
-| `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Phase 3 |
-| `src/features/results/components/ResultsExplorerDetailPanel.test.tsx` | Phase 3 |
-| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Phase 4 |
-| `src/features/results/components/WorkflowResultsExplorerModal.test.tsx` | Phase 4 |
-| `src/features/results/components/IterationMatrixTable.tsx` | Phase 4 |
-| `src/features/results/components/IterationMatrixTable.test.tsx` | Phase 4 |
-| `src/features/workflow/engine/traceCollector.ts` | Phase 1 |
-| `src/features/workflow/engine/traceCollector.test.ts` | Phase 1 |
-| `src/shared/components/JsonTreeViewer.tsx` | Phase 3 |
-| `src/shared/components/JsonTreeViewer.test.tsx` | Phase 3 |
+| File | Phase | Lines |
+|------|-------|-------|
+| `src/features/results/components/WorkflowExecutionReplayModal.tsx` | Phase 2 | 205 |
+| `src/features/results/components/WorkflowExecutionReplayModal.test.tsx` | Phase 2 | 531 |
+| `src/features/results/components/WorkflowExecutionCanvas.tsx` | Phase 2 | 273 |
+| `src/features/results/components/WorkflowExecutionCanvas.test.tsx` | Phase 2 | 668 |
+| `src/features/results/components/NodeExecutionDetailPanel.tsx` | Phase 3 | 323 |
+| `src/features/results/components/NodeExecutionDetailPanel.test.tsx` | Phase 3 | 290 |
+| `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Phase 3 | 651 |
+| `src/features/results/components/ResultsExplorerDetailPanel.test.tsx` | Phase 3 | 746 |
+| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Phase 4 | 311 |
+| `src/features/results/components/WorkflowResultsExplorerModal.test.tsx` | Phase 4 | 556 |
+| `src/features/results/components/IterationMatrixTable.tsx` | Phase 4 | 336 |
+| `src/features/results/components/IterationMatrixTable.test.tsx` | Phase 4 | 570 |
+| `src/features/workflow/engine/traceCollector.ts` | Phase 1 | 96 |
+| `src/features/workflow/engine/traceCollector.test.ts` | Phase 1 | 292 |
+| `src/shared/components/JsonTreeViewer.tsx` | Phase 3 | 189 |
+| `src/shared/components/JsonTreeViewer.test.tsx` | Phase 3 | 268 |
+
+**Total**: 2,384 lines of production code + 4,921 lines of test code = **7,305 lines**
 
 ### Modified Files
 
@@ -221,17 +222,20 @@ These are listed in the plan but intentionally deferred:
 
 ## Testing
 
-### Unit Test Files
-- `src/shared/types/workflowExecutionTrace.test.ts` — data model shape tests
-- `src/features/workflow/engine/traceCollector.test.ts` — trace collector logic
-- `src/features/workflow/engine/graphRunnerHelpers.workflowNodeId.test.ts` — node ID fix
-- `src/features/results/components/WorkflowExecutionReplayModal.test.tsx` — replay modal
-- `src/features/results/components/WorkflowExecutionCanvas.test.tsx` — canvas component
-- `src/features/results/components/NodeExecutionDetailPanel.test.tsx` — detail panel
-- `src/features/results/components/ResultsExplorerDetailPanel.test.tsx` — explorer detail panel
-- `src/features/results/components/WorkflowResultsExplorerModal.test.tsx` — explorer modal
-- `src/features/results/components/IterationMatrixTable.test.tsx` — matrix table
-- `src/shared/components/JsonTreeViewer.test.tsx` — JSON tree viewer
+### Unit Test Files (10 files, 4,921 lines)
+
+| File | Lines |
+|------|-------|
+| `src/shared/types/workflowExecutionTrace.test.ts` | 398 |
+| `src/features/workflow/engine/traceCollector.test.ts` | 292 |
+| `src/features/workflow/engine/graphRunnerHelpers.workflowNodeId.test.ts` | 151 |
+| `src/features/results/components/WorkflowExecutionReplayModal.test.tsx` | 531 |
+| `src/features/results/components/WorkflowExecutionCanvas.test.tsx` | 668 |
+| `src/features/results/components/NodeExecutionDetailPanel.test.tsx` | 290 |
+| `src/features/results/components/ResultsExplorerDetailPanel.test.tsx` | 746 |
+| `src/features/results/components/WorkflowResultsExplorerModal.test.tsx` | 556 |
+| `src/features/results/components/IterationMatrixTable.test.tsx` | 570 |
+| `src/shared/components/JsonTreeViewer.test.tsx` | 268 |
 
 ### TypeScript
 Zero errors (`npx tsc --noEmit` exit code 0 as of last check).
@@ -282,20 +286,60 @@ Workflow Execution
 
 ---
 
-## What's Next
+## What's Next: Phase 5 — Polish & Optimization
 
-The following work remains for Phase 7e completion:
+Phase 5 is the only remaining work for Phase 7e completion. Here's a prioritized breakdown:
 
-### Priority: Phase 5 — Polish & Optimization
-1. **Trace compression** — Install `lz-string`, compress traces before storage, decompress on load
-2. **Trace sampling** — For runs with >50 iterations, sample first 10 + last 5 + all failed + every 10th
-3. **Export** — JSON trace export, aggregate CSV export
-4. **Node tooltips** — Quick summary on hover without needing to click
-5. **Additional keyboard shortcuts** — Space (aggregate toggle), 1–9 (jump to iteration)
+### High Priority
 
-### Optional: Phase 4 Gaps
-6. **Edge traversal percentages** — Show % on branching edges
-7. **Heatmap coloring** — Color nodes by performance impact
+| # | Task | Description | Effort | Dependencies |
+|---|------|-------------|--------|--------------|
+| 1 | **Trace Compression** | Add `lz-string` as explicit dependency; compress traces before IndexedDB storage; decompress on load. Expected 70-80% size reduction. | 2-3 hrs | `npm install lz-string @types/lz-string` |
+| 2 | **Trace Sampling** | For runs with >50 iterations, sample: first 10 + last 5 + all failed + every 10th. Show "Trace not available" for sampled-out iterations. | 2-3 hrs | None |
+| 3 | **Lazy Trace Loading** | Don't load `executionTrace` in dashboard initial load; fetch only when "Results Explorer" button is clicked. | 1-2 hrs | IndexedDB store separation |
+
+### Medium Priority
+
+| # | Task | Description | Effort | Dependencies |
+|---|------|-------------|--------|--------------|
+| 4 | **Node Tooltips** | Hover summary showing node name, status, avg duration without clicking. | 1 hr | None |
+| 5 | **Export Trace as JSON** | "Export" button in Results Explorer modal header; downloads `WorkflowExecutionTrace` as `.json`. | 1 hr | None |
+| 6 | **Export Aggregate Metrics as CSV** | Export per-node metrics table (name, avg time, pass rate, min, max, P95) as `.csv`. | 1 hr | None |
+| 7 | **Loading State** | Show skeleton/spinner while decompressing/loading large traces. | 1 hr | Depends on #1 |
+
+### Low Priority
+
+| # | Task | Description | Effort | Dependencies |
+|---|------|-------------|--------|--------------|
+| 8 | **Additional Keyboard Shortcuts** | Space (toggle aggregate view), 1-9 (jump to iteration N). | 30 min | None |
+| 9 | **Smooth Iteration Transitions** | CSS transition animation when switching iterations (fade/slide). | 1 hr | None |
+| 10 | **Animated Edge Flow** | CSS animation showing flow direction on traversed edges. | 1-2 hrs | None |
+
+### Phase 4 Gaps (Optional — can be deferred to post-7e)
+
+| # | Task | Description | Effort | Dependencies |
+|---|------|-------------|--------|--------------|
+| 11 | **Edge Traversal Percentages** | Show percentage labels on branching edges in aggregate view. | 2 hrs | Trace data available |
+| 12 | **Heatmap Coloring** | Color nodes by performance (darker red = slower, darker green = faster). | 2 hrs | None |
+| 13 | **Explicit Aggregate Toggle** | Standalone "Single / Aggregate" radio button in header. | 1 hr | None |
+
+### Estimated Total for Phase 5
+
+- **High Priority (must-have)**: ~6-8 hours
+- **Medium Priority (nice-to-have)**: ~4 hours
+- **Low Priority + Phase 4 gaps**: ~8 hours
+- **Total**: ~18-20 hours if all items done; ~6-8 hours for essential items only
+
+---
+
+## Relationship to Current Work
+
+Phase 7e Results Explorer is **complete enough for production use** (Phases 1-4). The current branch (`feature/correlation-wait-runner-config`) is focused on **Phase 0.5.8b — Correlation Wait Runner Config & Webhook Load Driver**, which is separate work.
+
+Phase 5 polish items can be picked up:
+- **Before 1.0.0 launch** — trace compression (#1-3) is important for storage optimization
+- **After current feature branch** — as a dedicated `feature/results-explorer-polish` branch
+- **Incrementally** — individual items can be cherry-picked as needed
 
 ---
 

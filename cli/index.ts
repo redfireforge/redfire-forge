@@ -152,7 +152,7 @@ program
       };
 
       const t0 = performance.now();
-      const results = await runTest(config, scenarios, onProgress, abortController.signal);
+      const { results } = await runTest(config, scenarios, onProgress, abortController.signal);
       const elapsed = performance.now() - t0;
       const summary = computeMetrics(results, elapsed);
 
@@ -220,6 +220,7 @@ program
   .option('--error-policy <policy>', 'Error policy: continue, stop-first, stop-threshold')
   .option('--max-errors <n>', 'Stop after N errors (threshold mode)', (v) => parseInt(v, 10))
   .option('--max-error-rate <pct>', 'Stop at error rate % (threshold mode)', (v) => parseFloat(v))
+  .option('--base-url <url>', 'Base URL for HTTP nodes with relative paths')
   .option('--fail-on-error', 'Exit code 1 if any request fails')
   .option('--fail-threshold <pct>', 'Exit code 1 if error rate exceeds this %', (v) => parseFloat(v))
   .option('-o, --output <path>', 'Write JSON report to file')
@@ -294,14 +295,20 @@ program
         process.stdout.write(`\r  Progress: ${completed}/${total} iterations (${pct}%)`);
       };
 
+      const baseUrl = opts.baseUrl?.trim();
+      if (!opts.quiet && baseUrl) {
+        console.log(`  Base URL: ${baseUrl}`);
+      }
+
       const t0 = performance.now();
-      const results = await runGraphLoad(workflow, {
+      const { results } = await runGraphLoad(workflow, {
         iterations,
         concurrency,
         initialVariables: variables,
         breaker,
         abortSignal: abortController.signal,
         onProgress,
+        environmentLayer: baseUrl ? { baseUrl } : undefined,
       });
       const elapsed = performance.now() - t0;
       const summary = computeMetrics(results, elapsed);

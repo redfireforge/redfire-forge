@@ -1039,6 +1039,45 @@ tr:hover td { background: var(--surface-hover); }
   background: rgba(34, 197, 94, 0.15) !important;
   color: #22c55e !important;
 }
+.response-body-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.response-body-header h4 {
+  margin: 0;
+}
+
+.response-body-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.body-toggle-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  transition: all 0.15s;
+}
+
+.body-toggle-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
+.body-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border-color: #3b82f6;
+}
+
 .response-detail-section h4 {
   font-size: 0.8rem;
   font-weight: 600;
